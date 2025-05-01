@@ -1,5 +1,8 @@
-
 import type { Config } from "tailwindcss";
+// @ts-ignore
+import { baseColors, semanticColors } from "./src/lib/theme/colors";
+// Import Tailwind animate plugin
+import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
 	darkMode: ["class"],
@@ -20,6 +23,18 @@ export default {
 		},
 		extend: {
 			colors: {
+				// Import base colors
+				slate: baseColors.slate,
+				gray: baseColors.gray,
+				indigo: baseColors.indigo,
+				blue: baseColors.blue,
+				green: baseColors.green,
+				red: baseColors.red,
+				yellow: baseColors.yellow,
+				purple: baseColors.purple,
+				orange: baseColors.orange,
+				
+				// Semantic colors
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',
@@ -64,13 +79,13 @@ export default {
 					ring: 'hsl(var(--sidebar-ring))'
 				},
 				admin: {
-					primary: '#6366f1',
-					secondary: '#8b5cf6',
-					accent: '#f97316',
-					background: '#f8fafc',
-					foreground: '#1e293b',
-					muted: '#f1f5f9',
-					border: '#e2e8f0'
+					primary: semanticColors.app.primary,
+					secondary: semanticColors.app.secondary,
+					accent: semanticColors.app.accent,
+					background: semanticColors.app.background,
+					foreground: semanticColors.app.foreground,
+					muted: semanticColors.app.muted,
+					border: semanticColors.app.border
 				}
 			},
 			borderRadius: {
@@ -133,5 +148,5 @@ export default {
 			}
 		}
 	},
-	plugins: [require("tailwindcss-animate")],
+	plugins: [tailwindcssAnimate],
 } satisfies Config;

@@ -40,7 +40,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           "py-4 px-6 text-center text-sm border-t",
           isDark 
             ? "text-gray-400 border-gray-700" 
-            : "text-gray-500 border-gray-200"
+            : "text-slate-500 border-slate-200"
         )}>
           <p>© {new Date().getFullYear()} Office Nexus System. All rights reserved.</p>
         </footer>

@@ -43,7 +43,7 @@ const NavItem = ({ to, icon: Icon, label, isOpen }: NavItemProps) => {
           ? "bg-admin-primary text-white font-medium shadow-md" 
           : isDark 
             ? "text-gray-300 hover:bg-gray-700" 
-            : "text-gray-700 hover:bg-gray-100",
+            : "text-slate-700 hover:bg-slate-100",
         !isOpen && "justify-center px-2"
       )}
     >
@@ -65,7 +65,7 @@ const SubMenu = ({ title, icon: Icon, isOpen, children }: SubMenuProps) => {
           "flex items-center w-full text-sm py-3 px-4 rounded-md transition-all",
           isDark 
             ? "text-gray-300 hover:bg-gray-700" 
-            : "text-gray-700 hover:bg-gray-100",
+            : "text-slate-700 hover:bg-slate-100",
           !isOpen && "justify-center px-2"
         )}
       >
@@ -92,14 +92,16 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
   return (
     <aside 
       className={cn(
-        "fixed h-full bg-white border-r border-admin-border shadow-sm z-30 transition-all duration-300 ease-in-out",
-        isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200",
+        "fixed h-full border-r shadow-sm z-30 transition-all duration-300 ease-in-out",
+        isDark 
+          ? "bg-gray-800 border-gray-700" 
+          : "bg-white border-slate-200",
         isOpen ? "w-64" : "w-20"
       )}
     >
       <div className={cn(
         "flex items-center justify-center h-16 border-b px-4",
-        isDark ? "border-gray-700" : "border-gray-200"
+        isDark ? "border-gray-700" : "border-slate-200"
       )}>
         {isOpen ? (
           <h1 className={cn(
@@ -135,7 +137,7 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
                   : "bg-admin-primary/10 text-admin-primary font-medium" 
                 : isDark
                   ? "text-gray-400 hover:bg-gray-700 hover:text-blue-400"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-admin-primary"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-admin-primary"
             )}
           >
             Offices
@@ -150,7 +152,7 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
                   : "bg-admin-primary/10 text-admin-primary font-medium" 
                 : isDark
                   ? "text-gray-400 hover:bg-gray-700 hover:text-blue-400"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-admin-primary"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-admin-primary"
             )}
           >
             Departments
@@ -165,7 +167,7 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
                   : "bg-admin-primary/10 text-admin-primary font-medium" 
                 : isDark
                   ? "text-gray-400 hover:bg-gray-700 hover:text-blue-400"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-admin-primary"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-admin-primary"
             )}
           >
             Positions
@@ -180,7 +182,7 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
                   : "bg-admin-primary/10 text-admin-primary font-medium" 
                 : isDark
                   ? "text-gray-400 hover:bg-gray-700 hover:text-blue-400"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-admin-primary"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-admin-primary"
             )}
           >
             Assets

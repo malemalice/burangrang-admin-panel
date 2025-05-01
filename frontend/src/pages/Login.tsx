@@ -6,10 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Info } from "lucide-react";
 import { useAuth } from '@/lib/auth';
+import { useTheme } from '@/lib/theme';
+import { cn } from '@/lib/utils';
 
 const Login = () => {
   const navigate = useNavigate();
   const { login, isAuthenticated } = useAuth();
+  const { isDark } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -49,9 +52,12 @@ const Login = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className={cn(
+      "flex min-h-screen",
+      isDark ? "bg-gray-900" : "bg-slate-50"
+    )}>
       {/* Left side with welcome message */}
-      <div className="hidden md:flex md:w-1/2 bg-blue-600 text-white p-10 flex-col justify-between">
+      <div className="hidden md:flex md:w-1/2 bg-admin-primary text-white p-10 flex-col justify-between">
         <div className="mt-16">
           <h1 className="text-4xl font-bold mb-6">Welcome</h1>
           <p className="text-lg mb-6">
@@ -87,32 +93,53 @@ const Login = () => {
       </div>
 
       {/* Right side with login form */}
-      <div className="w-full md:w-1/2 flex flex-col justify-center items-center p-8">
+      <div className={cn(
+        "w-full md:w-1/2 flex flex-col justify-center items-center p-8",
+        isDark ? "bg-gray-900" : "bg-white"
+      )}>
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">Office Nexus</h2>
-            <p className="text-sm text-gray-600 mt-1">made by your company</p>
+            <h2 className={cn(
+              "text-3xl font-bold",
+              isDark ? "text-white" : "text-slate-900"
+            )}>Office Nexus</h2>
+            <p className={cn(
+              "text-sm mt-1",
+              isDark ? "text-gray-400" : "text-slate-600"
+            )}>made by your company</p>
           </div>
 
           {/* Demo credentials alert */}
-          <Alert className="mb-6 bg-blue-50 border border-blue-100">
-            <Info className="h-4 w-4 text-blue-500" />
-            <AlertDescription className="text-sm text-blue-700">
+          <Alert className={cn(
+            "mb-6 border",
+            isDark ? "bg-blue-900/20 border-blue-800 text-blue-300" : "bg-blue-50 border-blue-100"
+          )}>
+            <Info className={isDark ? "h-4 w-4 text-blue-400" : "h-4 w-4 text-blue-500"} />
+            <AlertDescription className={cn(
+              "text-sm", 
+              isDark ? "text-blue-300" : "text-blue-700"
+            )}>
               <strong>Email:</strong> admin@example.com<br />
               <strong>Password:</strong> password
             </AlertDescription>
           </Alert>
 
           {error && (
-            <Alert className="mb-6 bg-red-50 border border-red-200">
-              <AlertDescription className="text-sm text-red-700">{error}</AlertDescription>
+            <Alert className={cn(
+              "mb-6 border",
+              isDark ? "bg-red-900/20 border-red-800" : "bg-red-50 border-red-200"
+            )}>
+              <AlertDescription className={cn(
+                "text-sm",
+                isDark ? "text-red-300" : "text-red-700"
+              )}>{error}</AlertDescription>
             </Alert>
           )}
 
           <form onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">* Email</Label>
+                <Label htmlFor="email" className={isDark ? "text-gray-300" : ""}>* Email</Label>
                 <Input 
                   id="email"
                   type="email"
@@ -120,11 +147,12 @@ const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
+                  className={isDark ? "bg-gray-800 border-gray-700 text-white placeholder:text-gray-500" : ""}
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="password">* Password</Label>
+                <Label htmlFor="password" className={isDark ? "text-gray-300" : ""}>* Password</Label>
                 <Input 
                   id="password"
                   type="password"
@@ -132,12 +160,13 @@ const Login = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
+                  className={isDark ? "bg-gray-800 border-gray-700 text-white placeholder:text-gray-500" : ""}
                 />
               </div>
 
               <Button 
                 type="submit" 
-                className="w-full bg-blue-600 hover:bg-blue-700"
+                className="w-full bg-admin-primary hover:bg-admin-primary/90"
                 disabled={isLoading}
               >
                 {isLoading ? 'Logging in...' : 'Login'}
