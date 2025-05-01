@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/auth';
 
 interface TopNavbarProps {
   toggleSidebar: () => void;
@@ -28,6 +28,7 @@ interface TopNavbarProps {
 
 const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
   const [darkMode, setDarkMode] = useState(false);
+  const { logout, user } = useAuth();
   
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
@@ -106,8 +107,8 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
                 <AvatarFallback>AD</AvatarFallback>
               </Avatar>
               <div className="hidden md:block text-left">
-                <p className="text-sm font-medium">Admin User</p>
-                <p className="text-xs text-gray-500">Administrator</p>
+                <p className="text-sm font-medium">{user?.name || 'Admin User'}</p>
+                <p className="text-xs text-gray-500">{user?.role || 'Administrator'}</p>
               </div>
             </Button>
           </DropdownMenuTrigger>
@@ -119,7 +120,7 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
               <Settings className="mr-2 h-4 w-4" /> Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer text-red-500 focus:text-red-500">
+            <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-500 focus:text-red-500">
               <LogOut className="mr-2 h-4 w-4" /> Logout
             </DropdownMenuItem>
           </DropdownMenuContent>
