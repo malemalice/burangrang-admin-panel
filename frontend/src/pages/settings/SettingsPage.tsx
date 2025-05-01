@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { CheckCircle2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,20 +9,19 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import PageHeader from '@/components/ui/PageHeader';
+import { useTheme, ThemeColor, themeColors } from '@/lib/theme';
 
-const colorThemes = [
-  { id: 'blue', label: 'Blue', color: '#1a56db', textColor: 'white' },
-  { id: 'green', label: 'Green', color: '#0e9f6e', textColor: 'white' },
-  { id: 'purple', label: 'Purple', color: '#7e3af2', textColor: 'white' },
-  { id: 'red', label: 'Red', color: '#e02424', textColor: 'white' },
-  { id: 'orange', label: 'Orange', color: '#ff5a1f', textColor: 'white' },
-  { id: 'indigo', label: 'Indigo', color: '#5850ec', textColor: 'white' },
-];
+// Define theme options
+const themeOptions = Object.entries(themeColors).map(([id, colors]) => ({
+  id: id as ThemeColor,
+  label: id.charAt(0).toUpperCase() + id.slice(1),
+  color: colors.primary,
+  textColor: 'white',
+}));
 
 const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState('appearance');
-  const [selectedTheme, setSelectedTheme] = useState('blue');
-  const [darkMode, setDarkMode] = useState(false);
+  const { theme, setTheme, mode, toggleMode } = useTheme();
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   
@@ -41,7 +40,7 @@ const SettingsPage = () => {
   };
   
   const handleSaveAppearance = () => {
-    // In a real app, this would save to backend or localStorage
+    // In a real app, this would save to backend
     toast.success('Appearance settings saved successfully');
   };
   
@@ -122,34 +121,34 @@ const SettingsPage = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <RadioGroup 
-                value={selectedTheme} 
-                onValueChange={setSelectedTheme}
+                value={theme} 
+                onValueChange={value => setTheme(value as ThemeColor)}
                 className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3"
               >
-                {colorThemes.map((theme) => (
-                  <div key={theme.id} className="space-y-2">
+                {themeOptions.map((themeOption) => (
+                  <div key={themeOption.id} className="space-y-2">
                     <RadioGroupItem 
-                      value={theme.id} 
-                      id={`theme-${theme.id}`} 
+                      value={themeOption.id} 
+                      id={`theme-${themeOption.id}`} 
                       className="peer sr-only" 
                     />
                     <Label
-                      htmlFor={`theme-${theme.id}`}
+                      htmlFor={`theme-${themeOption.id}`}
                       className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 
                         hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary 
                         [&:has([data-state=checked])]:border-primary cursor-pointer h-24"
                     >
                       <div 
                         className="h-12 w-12 rounded-full mb-2"
-                        style={{ backgroundColor: theme.color }}
+                        style={{ backgroundColor: themeOption.color }}
                       >
-                        {selectedTheme === theme.id && (
+                        {theme === themeOption.id && (
                           <div className="h-full w-full flex items-center justify-center">
-                            <CheckCircle2 className="h-5 w-5" style={{ color: theme.textColor }} />
+                            <CheckCircle2 className="h-5 w-5" style={{ color: themeOption.textColor }} />
                           </div>
                         )}
                       </div>
-                      <span>{theme.label}</span>
+                      <span>{themeOption.label}</span>
                     </Label>
                   </div>
                 ))}
@@ -158,8 +157,8 @@ const SettingsPage = () => {
               <div className="flex items-center space-x-2 mt-6 pt-4 border-t">
                 <Switch 
                   id="dark-mode" 
-                  checked={darkMode} 
-                  onCheckedChange={setDarkMode} 
+                  checked={mode === 'dark'} 
+                  onCheckedChange={toggleMode} 
                 />
                 <Label htmlFor="dark-mode">Enable Dark Mode</Label>
               </div>

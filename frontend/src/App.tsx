@@ -13,6 +13,7 @@ import SettingsPage from "@/pages/settings/SettingsPage";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
 import { AuthProvider, ProtectedRoute } from "@/lib/auth";
+import { ThemeProvider } from "@/lib/theme";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,8 +29,10 @@ const AppWrapper = ({ children }: { children: React.ReactNode }) => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        {children}
-        <Toaster richColors />
+        <ThemeProvider>
+          {children}
+          <Toaster richColors />
+        </ThemeProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

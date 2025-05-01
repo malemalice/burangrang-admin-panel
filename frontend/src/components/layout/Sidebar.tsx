@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
@@ -12,6 +11,7 @@ import {
   ChevronDown, 
   ChevronRight
 } from 'lucide-react';
+import { useTheme } from '@/lib/theme';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -31,31 +31,41 @@ interface SubMenuProps {
   children: React.ReactNode;
 }
 
-const NavItem = ({ to, icon: Icon, label, isOpen }: NavItemProps) => (
-  <NavLink
-    to={to}
-    className={({ isActive }) => cn(
-      "flex items-center text-sm py-3 px-4 rounded-md transition-all",
-      isActive 
-        ? "bg-admin-primary text-white font-medium shadow-md" 
-        : "text-gray-700 hover:bg-gray-100",
-      !isOpen && "justify-center px-2"
-    )}
-  >
-    <Icon size={20} className={cn(!isOpen && "mx-auto")} />
-    {isOpen && <span className="ml-3">{label}</span>}
-  </NavLink>
-);
+const NavItem = ({ to, icon: Icon, label, isOpen }: NavItemProps) => {
+  const { isDark } = useTheme();
+  
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) => cn(
+        "flex items-center text-sm py-3 px-4 rounded-md transition-all",
+        isActive 
+          ? "bg-admin-primary text-white font-medium shadow-md" 
+          : isDark 
+            ? "text-gray-300 hover:bg-gray-700" 
+            : "text-gray-700 hover:bg-gray-100",
+        !isOpen && "justify-center px-2"
+      )}
+    >
+      <Icon size={20} className={cn(!isOpen && "mx-auto")} />
+      {isOpen && <span className="ml-3">{label}</span>}
+    </NavLink>
+  );
+};
 
 const SubMenu = ({ title, icon: Icon, isOpen, children }: SubMenuProps) => {
   const [expanded, setExpanded] = useState(false);
+  const { isDark } = useTheme();
 
   return (
     <div>
       <button
         onClick={() => setExpanded(!expanded)}
         className={cn(
-          "flex items-center w-full text-sm py-3 px-4 rounded-md transition-all text-gray-700 hover:bg-gray-100",
+          "flex items-center w-full text-sm py-3 px-4 rounded-md transition-all",
+          isDark 
+            ? "text-gray-300 hover:bg-gray-700" 
+            : "text-gray-700 hover:bg-gray-100",
           !isOpen && "justify-center px-2"
         )}
       >
@@ -77,18 +87,34 @@ const SubMenu = ({ title, icon: Icon, isOpen, children }: SubMenuProps) => {
 };
 
 const Sidebar = ({ isOpen }: SidebarProps) => {
+  const { isDark } = useTheme();
+  
   return (
     <aside 
       className={cn(
         "fixed h-full bg-white border-r border-admin-border shadow-sm z-30 transition-all duration-300 ease-in-out",
+        isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200",
         isOpen ? "w-64" : "w-20"
       )}
     >
-      <div className="flex items-center justify-center h-16 border-b px-4">
+      <div className={cn(
+        "flex items-center justify-center h-16 border-b px-4",
+        isDark ? "border-gray-700" : "border-gray-200"
+      )}>
         {isOpen ? (
-          <h1 className="text-xl font-bold text-admin-primary">Office Nexus</h1>
+          <h1 className={cn(
+            "text-xl font-bold",
+            isDark ? "text-white" : "text-admin-primary"
+          )}>
+            Office Nexus
+          </h1>
         ) : (
-          <h1 className="text-xl font-bold text-admin-primary">ON</h1>
+          <h1 className={cn(
+            "text-xl font-bold",
+            isDark ? "text-white" : "text-admin-primary"
+          )}>
+            ON
+          </h1>
         )}
       </div>
       
@@ -104,8 +130,12 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
             className={({ isActive }) => cn(
               "flex items-center text-sm py-2 px-4 rounded-md transition-all",
               isActive 
-                ? "bg-admin-primary/10 text-admin-primary font-medium" 
-                : "text-gray-600 hover:bg-gray-50 hover:text-admin-primary"
+                ? isDark 
+                  ? "bg-admin-primary/20 text-blue-400 font-medium" 
+                  : "bg-admin-primary/10 text-admin-primary font-medium" 
+                : isDark
+                  ? "text-gray-400 hover:bg-gray-700 hover:text-blue-400"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-admin-primary"
             )}
           >
             Offices
@@ -115,8 +145,12 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
             className={({ isActive }) => cn(
               "flex items-center text-sm py-2 px-4 rounded-md transition-all",
               isActive 
-                ? "bg-admin-primary/10 text-admin-primary font-medium" 
-                : "text-gray-600 hover:bg-gray-50 hover:text-admin-primary"
+                ? isDark 
+                  ? "bg-admin-primary/20 text-blue-400 font-medium" 
+                  : "bg-admin-primary/10 text-admin-primary font-medium" 
+                : isDark
+                  ? "text-gray-400 hover:bg-gray-700 hover:text-blue-400"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-admin-primary"
             )}
           >
             Departments
@@ -126,8 +160,12 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
             className={({ isActive }) => cn(
               "flex items-center text-sm py-2 px-4 rounded-md transition-all",
               isActive 
-                ? "bg-admin-primary/10 text-admin-primary font-medium" 
-                : "text-gray-600 hover:bg-gray-50 hover:text-admin-primary"
+                ? isDark 
+                  ? "bg-admin-primary/20 text-blue-400 font-medium" 
+                  : "bg-admin-primary/10 text-admin-primary font-medium" 
+                : isDark
+                  ? "text-gray-400 hover:bg-gray-700 hover:text-blue-400"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-admin-primary"
             )}
           >
             Positions
@@ -137,8 +175,12 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
             className={({ isActive }) => cn(
               "flex items-center text-sm py-2 px-4 rounded-md transition-all",
               isActive 
-                ? "bg-admin-primary/10 text-admin-primary font-medium" 
-                : "text-gray-600 hover:bg-gray-50 hover:text-admin-primary"
+                ? isDark 
+                  ? "bg-admin-primary/20 text-blue-400 font-medium" 
+                  : "bg-admin-primary/10 text-admin-primary font-medium" 
+                : isDark
+                  ? "text-gray-400 hover:bg-gray-700 hover:text-blue-400"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-admin-primary"
             )}
           >
             Assets
