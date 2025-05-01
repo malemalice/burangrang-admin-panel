@@ -1,0 +1,47 @@
+# Global
+.DS_Store
+*.log
+*.log.*
+.env
+.env.*
+!.env.example
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.vercel
+.netlify
+thumbs.db
+Thumbs.db
+.history/
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+*.tmp
+*.bak
+*.swp
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Dependency directories
+node_modules/
+
+# Testing
+/coverage/
+
+# Production build files
+/dist/
+/build/ 
