@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface TopNavbarProps {
   toggleSidebar: () => void;
@@ -29,6 +30,7 @@ interface TopNavbarProps {
 const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
   const [darkMode, setDarkMode] = useState(false);
   const { logout, user } = useAuth();
+  const navigate = useNavigate();
   
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
@@ -116,7 +118,7 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
             <DropdownMenuItem className="cursor-pointer">
               <User className="mr-2 h-4 w-4" /> Profile
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer">
+            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate('/settings')}>
               <Settings className="mr-2 h-4 w-4" /> Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />

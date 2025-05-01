@@ -9,6 +9,7 @@ import RolesPage from "@/pages/roles/RolesPage";
 import MenusPage from "@/pages/menus/MenusPage";
 import OfficesPage from "@/pages/master/OfficesPage";
 import DepartmentsPage from "@/pages/master/DepartmentsPage";
+import SettingsPage from "@/pages/settings/SettingsPage";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
 import { AuthProvider, ProtectedRoute } from "@/lib/auth";
@@ -111,11 +112,19 @@ const App = () => (
             }
           />
           
+          {/* Settings */}
+          <Route
+            path="/settings"
+            element={
+              <LayoutWrapper>
+                <SettingsPage />
+              </LayoutWrapper>
+            }
+          />
+          
           {/* Master Data - Positions will be added later */}
           
           {/* Master Data - Assets will be added later */}
-          
-          {/* Settings will be added later */}
           
           {/* Catch all 404 route */}
           <Route path="*" element={<NotFound />} />
