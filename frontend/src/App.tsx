@@ -5,6 +5,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import MainLayout from "@/components/layout/MainLayout";
 import Dashboard from "@/pages/Dashboard";
 import UsersPage from "@/pages/users/UsersPage";
+import CreateUserPage from "@/pages/users/CreateUserPage";
+import EditUserPage from "@/pages/users/EditUserPage";
+import UserDetailPage from "@/pages/users/UserDetailPage";
 import RolesPage from "@/pages/roles/RolesPage";
 import MenusPage from "@/pages/menus/MenusPage";
 import OfficesPage from "@/pages/master/OfficesPage";
@@ -71,6 +74,33 @@ const App = () => (
             element={
               <LayoutWrapper>
                 <UsersPage />
+              </LayoutWrapper>
+            }
+          />
+          
+          <Route
+            path="/users/new"
+            element={
+              <LayoutWrapper>
+                <CreateUserPage />
+              </LayoutWrapper>
+            }
+          />
+          
+          <Route
+            path="/users/:userId"
+            element={
+              <LayoutWrapper>
+                <UserDetailPage />
+              </LayoutWrapper>
+            }
+          />
+          
+          <Route
+            path="/users/:userId/edit"
+            element={
+              <LayoutWrapper>
+                <EditUserPage />
               </LayoutWrapper>
             }
           />
