@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { 
   Table, 
@@ -17,8 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, Search, Filter } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { FilterButton, FilterDrawer, FilterField, FilterValue, FilterBadges } from '../filter-drawer';
 
 interface DataTableProps<T> {
   columns: {
@@ -37,6 +37,7 @@ interface DataTableProps<T> {
     onPageChange: (page: number) => void;
     onPageSizeChange: (size: number) => void;
   };
+  filterFields?: FilterField[];
 }
 
 const DataTable = <T extends Record<string, any>>({
@@ -44,9 +45,12 @@ const DataTable = <T extends Record<string, any>>({
   data,
   isLoading = false,
   pagination,
+  filterFields = [],
 }: DataTableProps<T>) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<FilterValue[]>([]);
 
   // Handle sorting
   const handleSort = (key: string) => {
@@ -57,12 +61,69 @@ const DataTable = <T extends Record<string, any>>({
     setSortConfig({ key, direction });
   };
 
-  // Filter data based on search term
-  const filteredData = data.filter(item => 
-    Object.values(item).some(value => 
+  // Apply filters function
+  const handleApplyFilters = (filters: FilterValue[]) => {
+    setActiveFilters(filters);
+  };
+
+  // Remove a single filter
+  const handleRemoveFilter = (id: string) => {
+    setActiveFilters(activeFilters.filter(filter => filter.id !== id));
+  };
+
+  // Reset all filters
+  const handleResetFilters = () => {
+    setActiveFilters([]);
+  };
+
+  // Filter data based on search term and active filters
+  const filteredData = data.filter(item => {
+    // First apply search term filter
+    const matchesSearch = Object.values(item).some(value => 
       value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+    );
+    
+    if (!matchesSearch) return false;
+    
+    // Then apply active filters
+    for (const filter of activeFilters) {
+      const field = filterFields.find(f => f.id === filter.id);
+      if (!field) continue;
+      
+      const itemValue = item[filter.id];
+      
+      if (field.type === 'text') {
+        if (!itemValue?.toString().toLowerCase().includes((filter.value as string).toLowerCase())) {
+          return false;
+        }
+      } else if (field.type === 'select') {
+        // Handle multi-select vs single select
+        const filterValues = Array.isArray(filter.value) ? filter.value : [filter.value];
+        if (!filterValues.some(v => itemValue?.toString() === v)) {
+          return false;
+        }
+      } else if (field.type === 'date') {
+        const date = new Date(itemValue);
+        const filterDate = new Date(filter.value as string);
+        if (date.toDateString() !== filterDate.toDateString()) {
+          return false;
+        }
+      } else if (field.type === 'dateRange') {
+        const date = new Date(itemValue);
+        const { from, to } = filter.value as { from?: Date; to?: Date };
+        
+        if (from && date < new Date(from)) {
+          return false;
+        }
+        
+        if (to && date > new Date(to)) {
+          return false;
+        }
+      }
+    }
+    
+    return true;
+  });
 
   // Sort data if sort config is set
   const sortedData = sortConfig
@@ -99,11 +160,25 @@ const DataTable = <T extends Record<string, any>>({
           />
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon">
-            <Filter size={18} />
-          </Button>
+          {filterFields.length > 0 && (
+            <FilterButton 
+              onClick={() => setIsFilterOpen(true)} 
+              filterCount={activeFilters.length}
+            />
+          )}
         </div>
       </div>
+      
+      {/* Display filter badges if there are active filters */}
+      {activeFilters.length > 0 && (
+        <div className="px-4 py-2 border-b">
+          <FilterBadges
+            filters={activeFilters}
+            fields={filterFields}
+            onRemove={handleRemoveFilter}
+          />
+        </div>
+      )}
       
       <div className="relative">
         {isLoading && (
@@ -228,8 +303,21 @@ const DataTable = <T extends Record<string, any>>({
           </div>
         </div>
       )}
+      
+      {/* Filter drawer component */}
+      {filterFields.length > 0 && (
+        <FilterDrawer
+          isOpen={isFilterOpen}
+          onClose={() => setIsFilterOpen(false)}
+          fields={filterFields}
+          onApplyFilters={handleApplyFilters}
+          onResetFilters={handleResetFilters}
+          initialValues={activeFilters}
+        />
+      )}
     </div>
   );
 };
 
 export default DataTable;
+

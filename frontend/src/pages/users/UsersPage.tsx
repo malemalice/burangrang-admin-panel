@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -17,6 +16,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { FilterField } from '@/components/ui/filter-drawer';
 
 interface User {
   id: string;
@@ -46,6 +46,45 @@ const UsersPage = () => {
   const [pageSize, setPageSize] = useState(10);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+
+  // Define filter fields for users
+  const filterFields: FilterField[] = [
+    {
+      id: 'name',
+      label: 'Name',
+      type: 'text'
+    },
+    {
+      id: 'email',
+      label: 'Email',
+      type: 'text'
+    },
+    {
+      id: 'role',
+      label: 'Role',
+      type: 'select',
+      options: [
+        { label: 'Admin', value: 'Admin' },
+        { label: 'Manager', value: 'Manager' },
+        { label: 'User', value: 'User' }
+      ]
+    },
+    {
+      id: 'status',
+      label: 'Status',
+      type: 'select',
+      options: [
+        { label: 'Active', value: 'active' },
+        { label: 'Inactive', value: 'inactive' },
+        { label: 'Pending', value: 'pending' }
+      ]
+    },
+    {
+      id: 'lastLogin',
+      label: 'Last Login',
+      type: 'dateRange'
+    }
+  ];
 
   const handleDeleteClick = (user: User) => {
     setUserToDelete(user);
@@ -184,6 +223,7 @@ const UsersPage = () => {
       <DataTable
         columns={columns}
         data={users}
+        filterFields={filterFields}
         pagination={{
           pageIndex,
           pageSize,
