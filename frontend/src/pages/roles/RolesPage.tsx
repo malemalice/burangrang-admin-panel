@@ -96,7 +96,16 @@ const RolesPage = () => {
       setIsLoading(true);
       try {
         await roleService.deleteRole(roleToDelete.id);
-        toast.success(`Role "${roleToDelete.name}" has been deleted`);
+        
+        // Save the role name for the toast message
+        const deletedRoleName = roleToDelete.name;
+        
+        // Clear role to delete first
+        setRoleToDelete(null);
+        setDeleteDialogOpen(false);
+        
+        // Then show toast and refresh the list
+        toast.success(`Role "${deletedRoleName}" has been deleted`);
         fetchRoles(); // Refresh the list
       } catch (error) {
         console.error('Failed to delete role:', error);

@@ -59,7 +59,6 @@ const RoleDetailPage = () => {
     setIsDeleting(true);
     try {
       await roleService.deleteRole(roleId);
-      toast.success('Role deleted successfully');
       navigate('/roles');
     } catch (error) {
       console.error('Failed to delete role:', error);

@@ -144,6 +144,10 @@
 
 ### Frontend
 - [x] Fix double toast notification in CreateRolePage and EditRolePage
+  - [x] Removed redundant toast.error calls in validateForm functions
+  - [x] Centralized error handling in handleSubmit functions
+  - [x] Fixed duplicate toast messages in RolesPage and RoleDetailPage
+  - [x] Improved deletion flow to prevent multiple success notifications
 - [x] Centralize error handling in form submissions
 - [x] Remove redundant toast messages from validation functions
 - [x] Add proper error message propagation
@@ -165,6 +169,7 @@
 - [x] Fix status filter comparison in role service
 - [x] Improve permission type definitions
 - [x] Add proper typing for API responses
+- [x] Ensure consistent toast notification behavior across the application
 
 ## Next Steps
 - [ ] Add unit tests for role and permission services

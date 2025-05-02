@@ -26,7 +26,6 @@ const AppWrapper = ({ children }: { children: React.ReactNode }) => {
       <TooltipProvider>
         <ThemeProvider>
           {children}
-          <Toaster richColors />
         </ThemeProvider>
       </TooltipProvider>
     </QueryClientProvider>

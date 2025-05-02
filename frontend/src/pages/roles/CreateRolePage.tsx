@@ -80,10 +80,10 @@ const CreateRolePage = () => {
     
     // Validate form before submission
     if (!validateForm()) {
-      toast.error(error || 'Please check the form for errors');
       return;
     }
     
+    // Set loading state and clear any previous errors
     setIsLoading(true);
     setError(null);
     
@@ -91,10 +91,8 @@ const CreateRolePage = () => {
       // Call the API to create a new role
       await roleService.createRole(formData);
       
-      // Show success message
+      // Show success message and navigate in one step to prevent duplicate toasts
       toast.success('Role created successfully!');
-      
-      // Navigate back to roles list
       navigate('/roles');
     } catch (error: any) {
       console.error('Error creating role:', error);

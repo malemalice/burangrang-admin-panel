@@ -125,7 +125,6 @@ const EditRolePage = () => {
     
     // Validate form before submission
     if (!validateForm()) {
-      toast.error(error || 'Please check the form for errors');
       return;
     }
     
