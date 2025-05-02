@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, Plus, MapPin, Phone, Mail, Users, Building } from 'lucide-react';
@@ -16,159 +15,214 @@ import DataTable from '@/components/ui/data-table/DataTable';
 import PageHeader from '@/components/ui/PageHeader';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-interface Office {
-  id: string;
-  name: string;
-  address: string;
-  city: string;
-  country: string;
-  phone: string;
-  email: string;
-  employees: number;
-  status: 'active' | 'inactive';
-}
-
-// Mock data
-const mockOffices: Office[] = [
-  {
-    id: 'office-1',
-    name: 'Headquarters',
-    address: '123 Main Street',
-    city: 'New York',
-    country: 'USA',
-    phone: '+1 (555) 123-4567',
-    email: 'hq@example.com',
-    employees: 120,
-    status: 'active',
-  },
-  {
-    id: 'office-2',
-    name: 'West Coast Office',
-    address: '456 Tech Blvd',
-    city: 'San Francisco',
-    country: 'USA',
-    phone: '+1 (555) 987-6543',
-    email: 'sf@example.com',
-    employees: 85,
-    status: 'active',
-  },
-  {
-    id: 'office-3',
-    name: 'European HQ',
-    address: '78 King Street',
-    city: 'London',
-    country: 'UK',
-    phone: '+44 (0) 20 7946 0958',
-    email: 'london@example.com',
-    employees: 65,
-    status: 'active',
-  },
-  {
-    id: 'office-4',
-    name: 'Asia Pacific HQ',
-    address: '42 Marina Bay',
-    city: 'Singapore',
-    country: 'Singapore',
-    phone: '+65 6123 4567',
-    email: 'singapore@example.com',
-    employees: 50,
-    status: 'active',
-  },
-  {
-    id: 'office-5',
-    name: 'South Office',
-    address: '789 Palm Avenue',
-    city: 'Miami',
-    country: 'USA',
-    phone: '+1 (555) 345-6789',
-    email: 'miami@example.com',
-    employees: 0,
-    status: 'inactive',
-  },
-];
+import { Office, PaginationParams } from '@/lib/types';
+import officeService from '@/services/officeService';
+import { FilterField, FilterValue } from '@/components/ui/filter-drawer';
 
 const OfficesPage = () => {
   const navigate = useNavigate();
-  const [offices] = useState<Office[]>(mockOffices);
+  const [offices, setOffices] = useState<Office[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  const [totalOffices, setTotalOffices] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [officeToDelete, setOfficeToDelete] = useState<Office | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState<Record<string, any>>({});
+  
+  // Define filter fields
+  const filterFields: FilterField[] = [
+    {
+      id: 'name',
+      label: 'Office Name',
+      type: 'text',
+    },
+    {
+      id: 'code',
+      label: 'Office Code',
+      type: 'text',
+    },
+    {
+      id: 'address',
+      label: 'Address',
+      type: 'text',
+    },
+    {
+      id: 'isActive',
+      label: 'Status',
+      type: 'select',
+      options: [
+        { label: 'Active', value: 'true' },
+        { label: 'Inactive', value: 'false' },
+      ],
+    },
+  ];
+
+  const fetchOffices = async () => {
+    setIsLoading(true);
+    try {
+      const params: PaginationParams = {
+        page: pageIndex + 1,
+        pageSize,
+        sortBy: 'name',
+        sortOrder: 'asc',
+        search: searchTerm,
+        filters: {
+          ...filters,
+          isActive: filters.isActive === 'true' ? true : filters.isActive === 'false' ? false : undefined,
+        },
+      };
+
+      const response = await officeService.getOffices(params);
+      setOffices(response.data);
+      setTotalOffices(response.meta.total);
+    } catch (error) {
+      console.error('Failed to fetch offices:', error);
+      toast.error('Failed to load offices');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch offices when pagination, search, filters, or active tab changes
+  useEffect(() => {
+    fetchOffices();
+  }, [pageIndex, pageSize, searchTerm, filters, activeTab]);
 
   const handleDeleteClick = (office: Office) => {
     setOfficeToDelete(office);
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (officeToDelete) {
-      // API call would go here
-      toast.success(`Office "${officeToDelete.name}" has been deleted`);
-      setDeleteDialogOpen(false);
-      setOfficeToDelete(null);
+      setIsLoading(true);
+      try {
+        await officeService.deleteOffice(officeToDelete.id);
+        toast.success(`Office "${officeToDelete.name}" has been deleted`);
+        // Refresh the office list
+        fetchOffices();
+      } catch (error) {
+        console.error(`Failed to delete office ${officeToDelete.id}:`, error);
+        toast.error('Failed to delete office');
+      } finally {
+        setIsLoading(false);
+        setDeleteDialogOpen(false);
+        setOfficeToDelete(null);
+      }
     }
   };
 
-  const columns = [
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    setPageIndex(0); // Reset to first page on new search
+  };
+
+  const handleApplyFilters = (filterValues: FilterValue[]) => {
+    const newFilters: Record<string, any> = {};
+    
+    filterValues.forEach(filter => {
+      newFilters[filter.id] = filter.value;
+    });
+    
+    setFilters(newFilters);
+    setPageIndex(0); // Reset to first page on new filters
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setPageIndex(0);
+    if (value === 'all') {
+      setFilters({});
+    } else if (value === 'active') {
+      setFilters({ isActive: 'true' });
+    } else if (value === 'inactive') {
+      setFilters({ isActive: 'false' });
+    }
+  };
+
+  const columns: {
+    id: string;
+    header: string;
+    cell: (item: Office) => React.ReactNode;
+    isSortable?: boolean;
+    isFilterable?: boolean;
+  }[] = [
     {
       id: 'name',
-      header: 'Office',
-      isSortable: true,
+      header: 'Office Name',
       cell: (office: Office) => (
         <div>
           <div className="font-medium">{office.name}</div>
           <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
             <MapPin size={12} />
-            {office.city}, {office.country}
+            {office.address || 'Location not specified'}
           </div>
         </div>
       ),
+    },
+    {
+      id: 'code',
+      header: 'Code',
+      cell: (office: Office) => office.code,
+    },
+    {
+      id: 'location',
+      header: 'Location',
+      cell: (office: Office) => office.address || '-',
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (office: Office) => {
+        const isActive = office.isActive ?? true; // Default to true if undefined
+        return (
+          <Badge
+            variant="outline"
+            className={`${
+              isActive
+                ? 'bg-green-100 text-green-800'
+                : 'bg-gray-100 text-gray-800'
+            } border-0`}
+          >
+            {isActive ? 'Active' : 'Inactive'}
+          </Badge>
+        );
+      },
     },
     {
       id: 'contact',
       header: 'Contact',
       cell: (office: Office) => (
         <div className="text-sm space-y-1">
-          <div className="flex items-center gap-2">
-            <Phone size={14} className="text-gray-500" />
-            {office.phone}
-          </div>
-          <div className="flex items-center gap-2">
-            <Mail size={14} className="text-gray-500" />
-            {office.email}
-          </div>
+          {office.phone && (
+            <div className="flex items-center gap-2">
+              <Phone size={14} className="text-gray-500" />
+              {office.phone}
+            </div>
+          )}
+          {office.email && (
+            <div className="flex items-center gap-2">
+              <Mail size={14} className="text-gray-500" />
+              {office.email}
+            </div>
+          )}
+          {!office.phone && !office.email && (
+            <div className="text-gray-500">No contact info</div>
+          )}
         </div>
       ),
     },
     {
-      id: 'employees',
-      header: 'Employees',
-      isSortable: true,
+      id: 'parent',
+      header: 'Parent Office',
       cell: (office: Office) => (
-        <div className="flex items-center gap-2">
-          <Users size={16} className="text-gray-500" />
-          {office.employees}
+        <div>
+          {office.parent ? office.parent.name : 'Main Office'}
         </div>
       ),
-    },
-    {
-      id: 'status',
-      header: 'Status',
-      isSortable: true,
-      cell: (office: Office) => {
-        const statusConfig = {
-          active: { label: 'Active', color: 'bg-green-100 text-green-800' },
-          inactive: { label: 'Inactive', color: 'bg-gray-100 text-gray-800' },
-        };
-        const config = statusConfig[office.status];
-
-        return (
-          <Badge variant="outline" className={`${config.color} border-0`}>
-            {config.label}
-          </Badge>
-        );
-      },
     },
     {
       id: 'actions',
@@ -226,7 +280,7 @@ const OfficesPage = () => {
           </Button>
         }
       >
-        <Tabs defaultValue="all" className="w-full">
+        <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
           <TabsList>
             <TabsTrigger value="all">All Offices</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
@@ -238,25 +292,25 @@ const OfficesPage = () => {
       <DataTable
         columns={columns}
         data={offices}
+        isLoading={isLoading}
         pagination={{
           pageIndex,
           pageSize,
-          pageCount: Math.ceil(offices.length / pageSize),
+          pageCount: Math.ceil(totalOffices / pageSize),
           onPageChange: setPageIndex,
           onPageSizeChange: setPageSize,
         }}
+        filterFields={filterFields}
+        onSearch={handleSearch}
+        onApplyFilters={handleApplyFilters}
       />
 
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Delete Office"
-        description={`Are you sure you want to delete ${officeToDelete?.name}? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
+        description={`Are you sure you want to delete the office "${officeToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
-        variant="destructive"
-        icon={<Trash2 className="h-5 w-5 text-destructive" />}
       />
     </>
   );

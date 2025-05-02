@@ -145,18 +145,6 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
           </nav>
         </div>
         
-        <div className={cn(
-          "relative hidden lg:flex items-center bg-slate-100 dark:bg-gray-700 rounded-md",
-          "transition-all duration-300 ease-in-out",
-          sidebarOpen ? "w-64" : "w-96"
-        )}>
-          <Search className="absolute left-3 text-slate-400 dark:text-gray-400" size={18} />
-          <input
-            type="text"
-            placeholder="Search..."
-            className="py-2 pl-10 pr-4 bg-transparent w-full rounded-md focus:outline-none text-slate-900 dark:text-gray-200 placeholder-slate-500 dark:placeholder-gray-400"
-          />
-        </div>
       </div>
       
       <div className="flex items-center space-x-2">

@@ -50,6 +50,12 @@
   - [x] Office service
   - [x] Office controller
   - [x] Office repository
+  - [x] Backend integration
+  - [x] Fix status field integration
+    - [x] Update CreateOfficeDTO and UpdateOfficeDTO
+    - [x] Add isActive field to forms
+    - [x] Update status display in list and detail views
+    - [x] Fix filter functionality
 
 ### Common Features
 - [x] Error handling middleware
@@ -103,6 +109,15 @@
   - [x] Office list page
   - [x] Office create/edit form
   - [x] Office hierarchy interface
+  - [x] Backend integration with CRUD operations
+  - [x] Implemented filtering and pagination
+  - [x] Added parent-child relationship support
+  - [x] Fixed status field integration
+    - [x] Updated status display in list view
+    - [x] Added status field to create form
+    - [x] Added status field to edit form
+    - [x] Updated status display in detail view
+    - [x] Fixed filter functionality
 
 ### Common Features
 - [x] Authentication flow
@@ -160,6 +175,25 @@
 - [x] Implement permissions endpoint
 - [x] Add proper error handling for role operations
 
+## Office Management Module
+
+### Frontend
+- [x] Implement Office service for API communication
+- [x] Update Office interface in types.ts
+- [x] Implement CRUD operations for offices
+- [x] Create filter component for office listing
+- [x] Add pagination support
+- [x] Implement parent-child relationship handling
+- [x] Add office hierarchy visualization
+- [x] Create OfficesPage with filter and data table
+- [x] Create CreateOfficePage with validation
+- [x] Create EditOfficePage with validation
+- [x] Create OfficeDetailPage with tabs for details and child offices
+
+### Backend
+- [x] Implement Office API endpoints
+- [x] Add hierarchy support
+
 ## Common Features
 - [x] Convert mock data to real API integration
 - [x] Implement proper DTO mapping
@@ -175,4 +209,6 @@
 - [ ] Add unit tests for role and permission services
 - [ ] Implement role-based menu access
 - [ ] Add audit logging for role changes
-- [ ] Implement role cloning feature 
+- [ ] Implement role cloning feature
+- [ ] Add unit tests for office management module
+- [ ] Implement data export functionality 

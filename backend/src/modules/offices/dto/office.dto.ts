@@ -25,6 +25,9 @@ export class OfficeDto {
   @ApiProperty({ required: false })
   parentId?: string;
 
+  @ApiProperty()
+  isActive: boolean;
+
   @ApiProperty({ type: () => OfficeDto, isArray: true, required: false })
   children?: OfficeDto[];
 

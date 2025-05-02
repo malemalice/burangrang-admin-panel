@@ -53,14 +53,19 @@ export interface MenuItem {
 export interface Office {
   id: string;
   name: string;
-  address: string;
-  city: string;
-  state?: string;
-  country: string;
-  postalCode?: string;
-  phone: string;
-  email: string;
-  status: 'active' | 'inactive';
+  code: string;
+  description?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  parentId?: string;
+  parent?: {
+    id: string;
+    name: string;
+  };
+  children?: Office[];
+  users?: User[];
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }

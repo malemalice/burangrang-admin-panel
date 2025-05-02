@@ -82,16 +82,20 @@ model Menu {
 }
 
 model Office {
-  id        String   @id @default(uuid())
-  name      String
-  code      String   @unique
-  parentId  String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  parent    Office?  @relation("OfficeHierarchy", fields: [parentId], references: [id])
-  children  Office[] @relation("OfficeHierarchy")
-  users     User[]
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  description String?
+  address     String?
+  phone       String?
+  email       String?
+  parentId    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  parent      Office?  @relation("OfficeHierarchy", fields: [parentId], references: [id])
+  children    Office[] @relation("OfficeHierarchy")
+  users       User[]
 
   @@map("offices")
 }

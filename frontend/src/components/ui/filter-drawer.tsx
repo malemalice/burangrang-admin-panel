@@ -12,12 +12,12 @@ export type FilterField = {
   id: string;
   label: string;
   type: 'text' | 'date' | 'dateRange' | 'select';
-  options?: { label: string; value: string }[];
+  options?: { label: string; value: string | boolean }[];
 };
 
 export type FilterValue = {
   id: string;
-  value: string | string[] | { from?: Date; to?: Date };
+  value: string | string[] | { from?: Date; to?: Date } | boolean;
 };
 
 interface FilterDrawerProps {
@@ -41,7 +41,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
 }) => {
   const [filterValues, setFilterValues] = useState<FilterValue[]>(initialValues);
 
-  const updateFilterValue = (id: string, value: string | string[] | { from?: Date; to?: Date }) => {
+  const updateFilterValue = (id: string, value: string | string[] | { from?: Date; to?: Date } | boolean) => {
     // Check if filter already exists
     const existingFilterIndex = filterValues.findIndex(filter => filter.id === id);
     
@@ -139,27 +139,30 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
               {field.type === 'select' && field.options && (
                 <div className="flex flex-wrap gap-2">
                   {field.options.map((option) => {
-                    const isSelected = Array.isArray(getFilterValue(field.id)) 
-                      ? (getFilterValue(field.id) as string[])?.includes(option.value)
-                      : getFilterValue(field.id) === option.value;
+                    const optionValue = typeof option.value === 'boolean' ? option.value.toString() : option.value;
+                    const currentValue = getFilterValue(field.id);
+                    const isSelected = Array.isArray(currentValue) 
+                      ? (currentValue as string[])?.includes(optionValue)
+                      : currentValue === optionValue;
                     
                     return (
                       <Button
-                        key={option.value}
+                        key={optionValue}
                         variant={isSelected ? "default" : "outline"}
                         size="sm"
                         onClick={() => {
-                          if (Array.isArray(getFilterValue(field.id))) {
+                          if (Array.isArray(currentValue)) {
                             // Handle multi-select
-                            const currentValues = (getFilterValue(field.id) as string[]) || [];
+                            const currentValues = (currentValue as string[]) || [];
                             if (isSelected) {
-                              updateFilterValue(field.id, currentValues.filter(v => v !== option.value));
+                              updateFilterValue(field.id, currentValues.filter(v => v !== optionValue));
                             } else {
-                              updateFilterValue(field.id, [...currentValues, option.value]);
+                              updateFilterValue(field.id, [...currentValues, optionValue]);
                             }
                           } else {
                             // Handle single select
-                            updateFilterValue(field.id, isSelected ? '' : option.value);
+                            const newValue = isSelected ? '' : option.value;
+                            updateFilterValue(field.id, newValue);
                           }
                         }}
                         className="flex items-center gap-1"
