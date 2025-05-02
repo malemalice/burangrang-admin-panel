@@ -9,6 +9,9 @@ import CreateUserPage from "@/pages/users/CreateUserPage";
 import EditUserPage from "@/pages/users/EditUserPage";
 import UserDetailPage from "@/pages/users/UserDetailPage";
 import RolesPage from "@/pages/roles/RolesPage";
+import CreateRolePage from "@/pages/roles/CreateRolePage";
+import EditRolePage from "@/pages/roles/EditRolePage";
+import RoleDetailPage from "@/pages/roles/RoleDetailPage";
 import MenusPage from "@/pages/menus/MenusPage";
 import OfficesPage from "@/pages/master/OfficesPage";
 import DepartmentsPage from "@/pages/master/DepartmentsPage";
@@ -111,6 +114,33 @@ const App = () => (
             element={
               <LayoutWrapper>
                 <RolesPage />
+              </LayoutWrapper>
+            }
+          />
+          
+          <Route
+            path="/roles/new"
+            element={
+              <LayoutWrapper>
+                <CreateRolePage />
+              </LayoutWrapper>
+            }
+          />
+          
+          <Route
+            path="/roles/:roleId"
+            element={
+              <LayoutWrapper>
+                <RoleDetailPage />
+              </LayoutWrapper>
+            }
+          />
+          
+          <Route
+            path="/roles/:roleId/edit"
+            element={
+              <LayoutWrapper>
+                <EditRolePage />
               </LayoutWrapper>
             }
           />

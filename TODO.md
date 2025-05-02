@@ -72,18 +72,18 @@
   - [ ] Loading states
   - [ ] Error boundaries
   - [x] Data tables
-  - [ ] Search and filter components
+  - [x] Search and filter components
 
 ### Feature Modules
-- [ ] User Management
-  - [ ] User list page
-  - [ ] User create/edit form
-  - [ ] User profile page
+- [x] User Management
+  - [x] User list page
+  - [x] User create/edit form
+  - [x] User profile page
 
-- [ ] Role Management
-  - [ ] Role list page
-  - [ ] Role create/edit form
-  - [ ] Permission assignment interface
+- [x] Role Management
+  - [x] Role list page
+  - [x] Role create/edit form
+  - [x] Permission assignment interface
 
 - [x] Menu Management
   - [x] Menu list page

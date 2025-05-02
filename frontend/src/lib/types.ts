@@ -1,4 +1,3 @@
-
 // Core entity types
 
 export interface User {
@@ -7,6 +6,7 @@ export interface User {
   email: string;
   avatar?: string;
   roleId: string;
+  role?: string;
   position?: string;
   department?: string;
   office?: string;
@@ -21,7 +21,7 @@ export interface Role {
   name: string;
   description: string;
   permissions: Permission[];
-  isDefault: boolean;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,9 +29,10 @@ export interface Role {
 export interface Permission {
   id: string;
   name: string;
-  code: string;
   description: string;
-  module: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface MenuItem {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, UserPlus, Eye, ShieldCheck } from 'lucide-react';
@@ -17,35 +17,21 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FilterField } from '@/components/ui/filter-drawer';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  status: 'active' | 'inactive' | 'pending';
-  lastLogin: string;
-}
-
-// Mock data
-const mockUsers: User[] = Array(25)
-  .fill(null)
-  .map((_, i) => ({
-    id: `user-${i}`,
-    name: `User ${i + 1}`,
-    email: `user${i + 1}@example.com`,
-    role: i % 3 === 0 ? 'Admin' : i % 3 === 1 ? 'Manager' : 'User',
-    status: i % 5 === 0 ? 'inactive' : i % 7 === 0 ? 'pending' : 'active',
-    lastLogin: new Date(Date.now() - Math.floor(Math.random() * 10000000000)).toLocaleString(),
-  }));
+import userService from '@/services/userService';
+import { User } from '@/lib/types';
 
 const UsersPage = () => {
   const navigate = useNavigate();
-  const [users] = useState<User[]>(mockUsers);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  const [pageCount, setPageCount] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [activeTab, setActiveTab] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Define filter fields for users
   const filterFields: FilterField[] = [
@@ -86,17 +72,60 @@ const UsersPage = () => {
     }
   ];
 
+  // Fetch users from API
+  const fetchUsers = async (filters: Record<string, any> = {}) => {
+    setIsLoading(true);
+    try {
+      // Apply status filter based on active tab
+      const statusFilter = activeTab !== 'all' ? activeTab : undefined;
+      
+      // Get users with pagination and filters
+      const response = await userService.getUsers({
+        page: pageIndex + 1, // API is 1-indexed
+        pageSize,
+        search: searchTerm,
+        filters: {
+          ...filters,
+          status: statusFilter
+        }
+      });
+      
+      setUsers(response.data);
+      setTotalUsers(response.meta.total);
+      setPageCount(response.meta.pageCount);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+      toast.error('Failed to load users. Please try again later.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Load users when page changes or filters are applied
+  useEffect(() => {
+    fetchUsers();
+  }, [pageIndex, pageSize, activeTab, searchTerm]);
+
   const handleDeleteClick = (user: User) => {
     setUserToDelete(user);
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (userToDelete) {
-      // API call would go here
-      toast.success(`User "${userToDelete.name}" has been deleted`);
-      setDeleteDialogOpen(false);
-      setUserToDelete(null);
+      setIsLoading(true);
+      try {
+        await userService.deleteUser(userToDelete.id);
+        toast.success(`User "${userToDelete.name}" has been deleted`);
+        fetchUsers(); // Refresh the list
+      } catch (error) {
+        console.error('Failed to delete user:', error);
+        toast.error('Failed to delete user. Please try again later.');
+      } finally {
+        setIsLoading(false);
+        setDeleteDialogOpen(false);
+        setUserToDelete(null);
+      }
     }
   };
 
@@ -108,7 +137,7 @@ const UsersPage = () => {
       cell: (user: User) => (
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
-            <AvatarImage src="" />
+            <AvatarImage src={user.avatar || ""} />
             <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
           </Avatar>
           <div>
@@ -125,7 +154,7 @@ const UsersPage = () => {
       cell: (user: User) => (
         <div className="flex items-center gap-2">
           <ShieldCheck size={16} className="text-gray-500" />
-          {user.role}
+          {user.role || 'User'}
         </div>
       ),
     },
@@ -152,7 +181,7 @@ const UsersPage = () => {
       id: 'lastLogin',
       header: 'Last Login',
       isSortable: true,
-      cell: (user: User) => <div>{user.lastLogin}</div>,
+      cell: (user: User) => <div>{user.lastLogin || 'Never'}</div>,
     },
     {
       id: 'actions',
@@ -199,6 +228,26 @@ const UsersPage = () => {
     },
   ];
 
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setPageIndex(0); // Reset to first page when tab changes
+  };
+
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    setPageIndex(0); // Reset to first page when search changes
+  };
+
+  const handleApplyFilters = (filters: any[]) => {
+    // Convert filters array to object format expected by fetchUsers
+    const filterObject: Record<string, any> = {};
+    filters.forEach(filter => {
+      filterObject[filter.id] = filter.value;
+    });
+    
+    fetchUsers(filterObject);
+  };
+
   return (
     <>
       <PageHeader
@@ -210,7 +259,7 @@ const UsersPage = () => {
           </Button>
         }
       >
-        <Tabs defaultValue="all" className="w-full">
+        <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
           <TabsList>
             <TabsTrigger value="all">All Users</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
@@ -223,14 +272,17 @@ const UsersPage = () => {
       <DataTable
         columns={columns}
         data={users}
+        isLoading={isLoading}
         filterFields={filterFields}
         pagination={{
           pageIndex,
           pageSize,
-          pageCount: Math.ceil(users.length / pageSize),
+          pageCount,
           onPageChange: setPageIndex,
           onPageSizeChange: setPageSize,
         }}
+        onSearch={handleSearch}
+        onApplyFilters={handleApplyFilters}
       />
 
       <ConfirmDialog

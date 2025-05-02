@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, Plus, Users, Lock, Check, X, Shield } from 'lucide-react';
@@ -17,143 +16,165 @@ import PageHeader from '@/components/ui/PageHeader';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-
-interface Role {
-  id: string;
-  name: string;
-  description: string;
-  permissions: number;
-  totalPermissions: number;
-  users: number;
-  isDefault: boolean;
-}
-
-// Mock data
-const mockRoles: Role[] = [
-  {
-    id: 'role-1',
-    name: 'Administrator',
-    description: 'Full access to all features',
-    permissions: 42,
-    totalPermissions: 42,
-    users: 3,
-    isDefault: false,
-  },
-  {
-    id: 'role-2',
-    name: 'Manager',
-    description: 'Manage department resources and users',
-    permissions: 30,
-    totalPermissions: 42,
-    users: 8,
-    isDefault: false,
-  },
-  {
-    id: 'role-3',
-    name: 'User',
-    description: 'Basic user access',
-    permissions: 15,
-    totalPermissions: 42,
-    users: 24,
-    isDefault: true,
-  },
-  {
-    id: 'role-4',
-    name: 'Accountant',
-    description: 'Access to financial data and reports',
-    permissions: 18,
-    totalPermissions: 42,
-    users: 5,
-    isDefault: false,
-  },
-  {
-    id: 'role-5',
-    name: 'HR',
-    description: 'Human resources administration',
-    permissions: 25,
-    totalPermissions: 42,
-    users: 4,
-    isDefault: false,
-  },
-  {
-    id: 'role-6',
-    name: 'Auditor',
-    description: 'Read-only access to all data',
-    permissions: 20,
-    totalPermissions: 42,
-    users: 2,
-    isDefault: false,
-  },
-];
+import { FilterField } from '@/components/ui/filter-drawer';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import roleService from '@/services/roleService';
+import { Role } from '@/lib/types';
 
 const RolesPage = () => {
   const navigate = useNavigate();
-  const [roles] = useState<Role[]>(mockRoles);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  const [pageCount, setPageCount] = useState(0);
+  const [totalRoles, setTotalRoles] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
+  const [activeTab, setActiveTab] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Define filter fields for roles
+  const filterFields: FilterField[] = [
+    {
+      id: 'name',
+      label: 'Name',
+      type: 'text'
+    },
+    {
+      id: 'status',
+      label: 'Status',
+      type: 'select',
+      options: [
+        { label: 'Active', value: 'active' },
+        { label: 'Inactive', value: 'inactive' }
+      ]
+    }
+  ];
+
+  // Fetch roles from API
+  const fetchRoles = async (filters: Record<string, any> = {}) => {
+    setIsLoading(true);
+    try {
+      // Apply status filter based on active tab
+      const statusFilter = activeTab !== 'all' ? activeTab === 'active' : undefined;
+      
+      // Get roles with pagination and filters
+      const response = await roleService.getRoles({
+        page: pageIndex + 1, // API is 1-indexed
+        pageSize,
+        search: searchTerm,
+        filters: {
+          ...filters,
+          isActive: statusFilter
+        }
+      });
+      
+      setRoles(response.data);
+      setTotalRoles(response.meta.total);
+      setPageCount(response.meta.pageCount);
+    } catch (error) {
+      console.error('Failed to fetch roles:', error);
+      toast.error('Failed to load roles. Please try again later.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Load roles when page changes or filters are applied
+  useEffect(() => {
+    fetchRoles();
+  }, [pageIndex, pageSize, activeTab, searchTerm]);
 
   const handleDeleteClick = (role: Role) => {
     setRoleToDelete(role);
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (roleToDelete) {
-      // API call would go here
-      toast.success(`Role "${roleToDelete.name}" has been deleted`);
-      setDeleteDialogOpen(false);
-      setRoleToDelete(null);
+      setIsLoading(true);
+      try {
+        await roleService.deleteRole(roleToDelete.id);
+        toast.success(`Role "${roleToDelete.name}" has been deleted`);
+        fetchRoles(); // Refresh the list
+      } catch (error) {
+        console.error('Failed to delete role:', error);
+        toast.error('Failed to delete role. Please try again later.');
+      } finally {
+        setIsLoading(false);
+        setDeleteDialogOpen(false);
+        setRoleToDelete(null);
+      }
     }
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setPageIndex(0); // Reset to first page when tab changes
+  };
+
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    setPageIndex(0); // Reset to first page when search changes
+  };
+
+  const handleApplyFilters = (filters: any[]) => {
+    // Convert filters array to object format expected by fetchRoles
+    const filterObject: Record<string, any> = {};
+    filters.forEach(filter => {
+      filterObject[filter.id] = filter.value;
+    });
+    
+    fetchRoles(filterObject);
   };
 
   const columns = [
     {
       id: 'name',
-      header: 'Role',
-      isSortable: true,
+      header: 'Role Name',
       cell: (role: Role) => (
-        <div>
-          <div className="font-medium flex items-center gap-2">
-            {role.name}
-            {role.isDefault && (
-              <Badge variant="outline" className="ml-2 text-xs">
-                Default
-              </Badge>
-            )}
-          </div>
-          <p className="text-xs text-gray-500 mt-1">{role.description}</p>
-        </div>
+        <div className="font-medium">{role.name}</div>
       ),
+      isSortable: true,
+    },
+    {
+      id: 'description',
+      header: 'Description',
+      cell: (role: Role) => role.description || '-',
     },
     {
       id: 'permissions',
       header: 'Permissions',
-      cell: (role: Role) => (
-        <div className="w-48">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-medium">
-              {role.permissions} / {role.totalPermissions}
-            </span>
-            <span className="text-xs text-gray-500">
-              {Math.round((role.permissions / role.totalPermissions) * 100)}%
-            </span>
+      cell: (role: Role) => {
+        const count = role.permissions?.length || 0;
+        return (
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="flex items-center gap-1">
+              <Lock className="h-3 w-3" />
+              {count}
+            </Badge>
           </div>
-          <Progress value={(role.permissions / role.totalPermissions) * 100} />
-        </div>
-      ),
+        );
+      },
     },
     {
-      id: 'users',
-      header: 'Users',
-      isSortable: true,
+      id: 'status',
+      header: 'Status',
       cell: (role: Role) => (
-        <div className="flex items-center gap-2">
-          <Users size={16} className="text-gray-500" />
-          <span>{role.users}</span>
-        </div>
+        <Badge variant={role.isActive ? 'default' : 'destructive'} className="capitalize">
+          {role.isActive ? (
+            <span className="flex items-center gap-1">
+              <Check className="h-3 w-3" /> Active
+            </span>
+          ) : (
+            <span className="flex items-center gap-1">
+              <X className="h-3 w-3" /> Inactive
+            </span>
+          )}
+        </Badge>
       ),
+      isFilterable: true,
     },
     {
       id: 'actions',
@@ -161,25 +182,25 @@ const RolesPage = () => {
       cell: (role: Role) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" className="h-8 w-8 p-0">
               <span className="sr-only">Open menu</span>
               <svg
-                width="15"
-                height="15"
-                viewBox="0 0 15 15"
-                fill="none"
                 xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 className="h-4 w-4"
               >
-                <path
-                  d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM13.625 7.5C13.625 8.12132 13.1213 8.625 12.5 8.625C11.8787 8.625 11.375 8.12132 11.375 7.5C11.375 6.87868 11.8787 6.375 12.5 6.375C13.1213 6.375 13.625 6.87868 13.625 7.5Z"
-                  fill="currentColor"
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                ></path>
+                <circle cx="12" cy="12" r="1" />
+                <circle cx="12" cy="5" r="1" />
+                <circle cx="12" cy="19" r="1" />
               </svg>
             </Button>
           </DropdownMenuTrigger>
+
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => navigate(`/roles/${role.id}`)}>
               <Lock className="mr-2 h-4 w-4" /> Manage permissions
@@ -191,7 +212,6 @@ const RolesPage = () => {
             <DropdownMenuItem
               onClick={() => handleDeleteClick(role)}
               className="text-red-600 focus:text-red-600"
-              disabled={role.isDefault}
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
             </DropdownMenuItem>
@@ -203,6 +223,14 @@ const RolesPage = () => {
 
   return (
     <>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Role"
+        description={`Are you sure you want to delete the role "${roleToDelete?.name}"? This action cannot be undone.`}
+        onConfirm={handleDeleteConfirm}
+      />
+
       <PageHeader
         title="Roles"
         subtitle="Manage roles and permissions"
@@ -211,66 +239,30 @@ const RolesPage = () => {
             <Plus className="mr-2 h-4 w-4" /> Create Role
           </Button>
         }
-      />
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <Card className="p-4 flex justify-between items-center">
-          <div>
-            <p className="text-sm font-medium">Total Roles</p>
-            <p className="text-2xl font-bold">{roles.length}</p>
-          </div>
-          <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-            <Shield className="h-6 w-6 text-blue-600" />
-          </div>
-        </Card>
-        
-        <Card className="p-4 flex justify-between items-center">
-          <div>
-            <p className="text-sm font-medium">Active Permissions</p>
-            <p className="text-2xl font-bold">
-              {roles.reduce((acc, role) => acc + role.permissions, 0)}
-            </p>
-          </div>
-          <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
-            <Check className="h-6 w-6 text-green-600" />
-          </div>
-        </Card>
-        
-        <Card className="p-4 flex justify-between items-center">
-          <div>
-            <p className="text-sm font-medium">Unused Permissions</p>
-            <p className="text-2xl font-bold">
-              {roles.reduce((acc, role) => acc + (role.totalPermissions - role.permissions), 0)}
-            </p>
-          </div>
-          <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
-            <X className="h-6 w-6 text-red-600" />
-          </div>
-        </Card>
-      </div>
+      >
+        <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
+          <TabsList>
+            <TabsTrigger value="all">All Roles</TabsTrigger>
+            <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="inactive">Inactive</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </PageHeader>
 
       <DataTable
         columns={columns}
         data={roles}
+        isLoading={isLoading}
+        filterFields={filterFields}
         pagination={{
           pageIndex,
           pageSize,
-          pageCount: Math.ceil(roles.length / pageSize),
+          pageCount,
           onPageChange: setPageIndex,
           onPageSizeChange: setPageSize,
         }}
-      />
-
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title="Delete Role"
-        description={`Are you sure you want to delete ${roleToDelete?.name}? This action will remove this role from all users and cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={handleDeleteConfirm}
-        variant="destructive"
-        icon={<Trash2 className="h-5 w-5 text-destructive" />}
+        onSearch={handleSearch}
+        onApplyFilters={handleApplyFilters}
       />
     </>
   );

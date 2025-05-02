@@ -38,6 +38,8 @@ interface DataTableProps<T> {
     onPageSizeChange: (size: number) => void;
   };
   filterFields?: FilterField[];
+  onSearch?: (searchTerm: string) => void;
+  onApplyFilters?: (filters: FilterValue[]) => void;
 }
 
 const DataTable = <T extends Record<string, any>>({
@@ -46,6 +48,8 @@ const DataTable = <T extends Record<string, any>>({
   isLoading = false,
   pagination,
   filterFields = [],
+  onSearch,
+  onApplyFilters,
 }: DataTableProps<T>) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
@@ -61,9 +65,25 @@ const DataTable = <T extends Record<string, any>>({
     setSortConfig({ key, direction });
   };
 
+  // Search handler
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const term = e.target.value;
+    setSearchTerm(term);
+    
+    // If external search handler is provided, use it
+    if (onSearch) {
+      onSearch(term);
+    }
+  };
+
   // Apply filters function
   const handleApplyFilters = (filters: FilterValue[]) => {
     setActiveFilters(filters);
+    
+    // If external filter handler is provided, use it
+    if (onApplyFilters) {
+      onApplyFilters(filters);
+    }
   };
 
   // Remove a single filter
@@ -155,7 +175,7 @@ const DataTable = <T extends Record<string, any>>({
           <Input
             placeholder="Search..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={handleSearch}
             className="pl-10 pr-4"
           />
         </div>

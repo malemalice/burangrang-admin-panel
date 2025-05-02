@@ -14,38 +14,27 @@ import {
   CardTitle 
 } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-
-// Mock user data
-const mockUserData = (id: string) => ({
-  id,
-  name: `User ${id}`,
-  email: `user${id}@example.com`,
-  role: parseInt(id) % 3 === 0 ? 'Admin' : parseInt(id) % 3 === 1 ? 'Manager' : 'User',
-  status: parseInt(id) % 5 === 0 ? 'inactive' : parseInt(id) % 7 === 0 ? 'pending' : 'active',
-  lastLogin: new Date(Date.now() - Math.floor(Math.random() * 10000000000)).toLocaleString(),
-  createdAt: new Date(Date.now() - Math.floor(Math.random() * 30000000000)).toLocaleString(),
-  updatedAt: new Date(Date.now() - Math.floor(Math.random() * 10000000000)).toLocaleString(),
-});
+import userService from '@/services/userService';
+import { User } from '@/lib/types';
 
 const UserDetailPage = () => {
   const navigate = useNavigate();
   const { userId } = useParams<{ userId: string }>();
   
-  const [user, setUser] = useState<ReturnType<typeof mockUserData> | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
   useEffect(() => {
-    // Simulate API call to fetch user data
     const fetchUserData = async () => {
       setIsLoading(true);
       try {
-        // This would normally be an API call
-        // const response = await fetch(`/api/users/${userId}`);
-        // const userData = await response.json();
+        if (!userId) {
+          throw new Error('User ID is required');
+        }
         
-        // Using mock data instead
-        const userData = mockUserData(userId || '1');
+        const userData = await userService.getUserById(userId);
         setUser(userData);
       } catch (error) {
         console.error('Failed to fetch user:', error);
@@ -64,13 +53,27 @@ const UserDetailPage = () => {
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
-    // Here you would make an API call to delete the user
-    console.log('Deleting user:', userId);
+  const handleDeleteConfirm = async () => {
+    if (!userId) {
+      toast.error('User ID is required');
+      return;
+    }
     
-    toast.success(`User "${user?.name}" has been deleted`);
-    setDeleteDialogOpen(false);
-    navigate('/users');
+    setIsDeleting(true);
+    
+    try {
+      // Call the API to delete the user
+      await userService.deleteUser(userId);
+      
+      toast.success(`User "${user?.name}" has been deleted`);
+      setDeleteDialogOpen(false);
+      navigate('/users');
+    } catch (error) {
+      console.error('Failed to delete user:', error);
+      toast.error('Failed to delete user. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -122,8 +125,20 @@ const UserDetailPage = () => {
             <Button onClick={() => navigate(`/users/${userId}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit User
             </Button>
-            <Button variant="destructive" onClick={handleDeleteClick}>
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
+            <Button variant="destructive" onClick={handleDeleteClick} disabled={isDeleting}>
+              {isDeleting ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Deleting...
+                </span>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                </>
+              )}
             </Button>
           </div>
         }
@@ -138,7 +153,7 @@ const UserDetailPage = () => {
           <CardContent className="space-y-6">
             <div className="flex items-center gap-4">
               <Avatar className="h-20 w-20">
-                <AvatarImage src="" />
+                <AvatarImage src={user.avatar || ""} />
                 <AvatarFallback className="text-2xl">{user.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <div>
@@ -146,7 +161,7 @@ const UserDetailPage = () => {
                 <p className="text-gray-500">{user.email}</p>
                 <div className="flex items-center gap-2 mt-2">
                   <ShieldCheck size={16} className="text-gray-500" />
-                  <span>{user.role}</span>
+                  <span>{user.role || 'User'}</span>
                   <span className="mx-2">•</span>
                   {getStatusBadge(user.status)}
                 </div>
@@ -174,16 +189,22 @@ const UserDetailPage = () => {
           <CardContent className="space-y-4">
             <div>
               <p className="text-sm font-medium text-gray-500">Last Login</p>
-              <p>{user.lastLogin}</p>
+              <p>{user.lastLogin || 'Never'}</p>
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">Created At</p>
-              <p>{user.createdAt}</p>
+              <p>{user.createdAt || 'Unknown'}</p>
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">Last Updated</p>
-              <p>{user.updatedAt}</p>
+              <p>{user.updatedAt || 'Unknown'}</p>
             </div>
+            {user.office && (
+              <div>
+                <p className="text-sm font-medium text-gray-500">Office</p>
+                <p>{user.office}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
