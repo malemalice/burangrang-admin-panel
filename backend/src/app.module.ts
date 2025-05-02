@@ -9,6 +9,7 @@ import { MenusModule } from './modules/menus/menus.module';
 import { OfficesModule } from './modules/offices/offices.module';
 import { PrismaModule } from './core/prisma/prisma.module';
 import appConfig from './core/config/app.config';
+import { Reflector } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -24,10 +25,11 @@ import appConfig from './core/config/app.config';
     OfficesModule,
   ],
   providers: [
+    Reflector,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
-    },
+    }
   ],
 })
 export class AppModule {}

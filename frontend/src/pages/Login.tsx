@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const { isDark } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,10 +20,10 @@ const Login = () => {
 
   // If already authenticated, redirect to dashboard
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !authLoading) {
       navigate('/');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +41,7 @@ const Login = () => {
       if (success) {
         navigate('/');
       } else {
-        setError('Invalid email or password');
+        setError('Invalid credentials');
       }
     } catch (err) {
       setError('An error occurred during login');
@@ -50,6 +50,11 @@ const Login = () => {
       setIsLoading(false);
     }
   };
+
+  // Skip rendering if auth state is still loading
+  if (authLoading) {
+    return null;
+  }
 
   return (
     <div className={cn(
@@ -120,7 +125,7 @@ const Login = () => {
               isDark ? "text-blue-300" : "text-blue-700"
             )}>
               <strong>Email:</strong> admin@example.com<br />
-              <strong>Password:</strong> password
+              <strong>Password:</strong> admin
             </AlertDescription>
           </Alert>
 

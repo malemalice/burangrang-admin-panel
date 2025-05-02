@@ -60,6 +60,38 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
   };
   
   const items = breadcrumbItems();
+
+  // Get user's display name
+  const getDisplayName = () => {
+    if (!user) return 'User';
+    return `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+  };
+
+  // Get user's initials for avatar
+  const getUserInitials = () => {
+    if (!user) return 'U';
+    
+    const firstNameInitial = user.firstName ? user.firstName.charAt(0) : '';
+    const lastNameInitial = user.lastName ? user.lastName.charAt(0) : '';
+    
+    if (firstNameInitial && lastNameInitial) {
+      return `${firstNameInitial}${lastNameInitial}`;
+    }
+    
+    return user.email ? user.email.charAt(0).toUpperCase() : 'U';
+  };
+  
+  // Get user role name to display
+  const getUserRole = () => {
+    if (!user) return 'User';
+    // Handle both string and object role formats
+    if (typeof user.role === 'string') {
+      return user.role;
+    } else if (user.role && typeof user.role === 'object') {
+      return (user.role as { name: string }).name;
+    }
+    return 'User';
+  };
   
   return (
     <div className="h-16 border-b flex items-center justify-between px-4 bg-white dark:bg-gray-800 dark:border-gray-700 border-slate-200">
@@ -178,15 +210,15 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
               <Avatar className="h-8 w-8">
                 <AvatarImage src="" />
                 <AvatarFallback className="bg-admin-primary text-white">
-                  {user?.name?.charAt(0) || 'A'}
+                  {getUserInitials()}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden md:block text-left">
                 <p className="text-sm font-medium text-slate-900 dark:text-white">
-                  {user?.name || 'Admin User'}
+                  {getDisplayName()}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-gray-400">
-                  {user?.role || 'Administrator'}
+                  {getUserRole()}
                 </p>
               </div>
             </Button>

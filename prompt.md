@@ -61,3 +61,6 @@ This is an information management system with basic modules for user management,
 6. Use proper state management
 7. Implement responsive design
 8. Follow accessibility guidelines 
+
+
+please understand the requirements first, explain the problem and the fix step, then write the code if needed
