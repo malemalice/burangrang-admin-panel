@@ -20,8 +20,9 @@ export interface Role {
   id: string;
   name: string;
   description: string;
-  permissions: Permission[];
+  status: 'active' | 'inactive';
   isActive: boolean;
+  permissions: Permission[];
   createdAt: string;
   updatedAt: string;
 }
@@ -31,8 +32,8 @@ export interface Permission {
   name: string;
   description: string;
   isActive: boolean;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface MenuItem {

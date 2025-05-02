@@ -106,7 +106,6 @@ const EditRolePage = () => {
     // Basic form validation
     if (!formData.name?.trim()) {
       setError('Role name is required');
-      toast.error('Role name is required');
       return false;
     }
     
@@ -118,12 +117,15 @@ const EditRolePage = () => {
     e.preventDefault();
     
     if (!roleId) {
-      setError('Role ID is required');
-      toast.error('Role ID is required');
+      const errorMsg = 'Role ID is required';
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
     
+    // Validate form before submission
     if (!validateForm()) {
+      toast.error(error || 'Please check the form for errors');
       return;
     }
     

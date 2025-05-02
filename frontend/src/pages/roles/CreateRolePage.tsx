@@ -68,7 +68,6 @@ const CreateRolePage = () => {
     // Basic form validation
     if (!formData.name.trim()) {
       setError('Role name is required');
-      toast.error('Role name is required');
       return false;
     }
     
@@ -81,6 +80,7 @@ const CreateRolePage = () => {
     
     // Validate form before submission
     if (!validateForm()) {
+      toast.error(error || 'Please check the form for errors');
       return;
     }
     
