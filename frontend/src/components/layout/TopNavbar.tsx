@@ -9,7 +9,8 @@ import {
   Settings,
   LogOut,
   Sun,
-  Moon
+  Moon,
+  ChevronRight
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -22,14 +23,6 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '@/lib/theme';
-import { 
-  Breadcrumb, 
-  BreadcrumbItem, 
-  BreadcrumbLink, 
-  BreadcrumbList, 
-  BreadcrumbPage, 
-  BreadcrumbSeparator 
-} from "@/components/ui/breadcrumb";
 
 interface TopNavbarProps {
   toggleSidebar: () => void;
@@ -106,36 +99,50 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
           <Menu size={20} />
         </Button>
         
-        {/* Breadcrumb for medium and larger screens */}
+        {/* Custom Breadcrumb Implementation */}
         <div className="hidden md:block mr-4">
-          <Breadcrumb>
-            <BreadcrumbList>
-              {items.map((item, index) => (
-                <React.Fragment key={item.path}>
-                  {index < items.length - 1 ? (
-                    <BreadcrumbItem>
-                      <BreadcrumbLink 
-                        asChild
-                        className="text-slate-600 dark:text-gray-300 hover:text-admin-primary hover:dark:text-blue-400"
+          <nav aria-label="breadcrumb">
+            <ol className="flex flex-wrap items-center gap-1.5 break-words text-sm text-muted-foreground sm:gap-2.5">
+              {items.map((item, index) => {
+                const isLast = index === items.length - 1;
+                
+                // Only add separator if not the last item
+                const separator = !isLast ? (
+                  <span 
+                    key={`sep-${item.path}`}
+                    className="mx-1 text-slate-400" 
+                    aria-hidden="true"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </span>
+                ) : null;
+                
+                return (
+                  <li 
+                    key={item.path} 
+                    className="inline-flex items-center gap-1.5"
+                  >
+                    {isLast ? (
+                      <span 
+                        className="text-slate-900 dark:text-white font-medium"
+                        aria-current="page"
                       >
-                        <Link to={item.path}>{item.name}</Link>
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                  ) : (
-                    <BreadcrumbItem>
-                      <BreadcrumbPage className="text-slate-900 dark:text-white font-medium">
                         {item.name}
-                      </BreadcrumbPage>
-                    </BreadcrumbItem>
-                  )}
-                  
-                  {index < items.length - 1 && (
-                    <BreadcrumbSeparator className="text-slate-400" />
-                  )}
-                </React.Fragment>
-              ))}
-            </BreadcrumbList>
-          </Breadcrumb>
+                      </span>
+                    ) : (
+                      <Link 
+                        to={item.path}
+                        className="text-slate-600 dark:text-gray-300 hover:text-admin-primary hover:dark:text-blue-400 transition-colors"
+                      >
+                        {item.name}
+                      </Link>
+                    )}
+                    {separator}
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
         </div>
         
         <div className={cn(

@@ -34,30 +34,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const accessToken = localStorage.getItem('access_token');
       const refreshToken = localStorage.getItem('refresh_token');
       
-      console.log('[Auth] Checking authentication state:', { 
-        hasAccessToken: !!accessToken, 
-        hasRefreshToken: !!refreshToken,
-        currentPath: location.pathname,
-        isAccessTokenValid: authApi.hasValidAccessToken()
-      });
-      
       if (accessToken && refreshToken) {
         try {
           // Only call the refresh endpoint if the token needs refreshing
           const result = await authApi.checkAndRefreshAuth();
           
           if (result) {
-            console.log('[Auth] Auth check successful, user:', result.user);
             setUser(result.user);
             setIsAuthenticated(true);
             
             // If we were on login page, redirect to dashboard
             if (location.pathname === '/login') {
-              console.log('[Auth] Redirecting from login to dashboard');
               navigate('/');
             }
           } else {
-            console.log('[Auth] Auth check returned no user, logging out');
             // This shouldn't happen but handle it just in case
             localStorage.removeItem('access_token');
             localStorage.removeItem('refresh_token');
@@ -95,10 +85,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      console.log('[Auth] Attempting login for:', email);
       const { user } = await authApi.login(email, password);
       
-      console.log('[Auth] Login successful:', user);
       setIsAuthenticated(true);
       setUser(user);
       toast.success('Login successful!');
@@ -112,7 +100,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      console.log('[Auth] Logging out');
       await authApi.logout();
       toast.info('You have been logged out.');
     } catch (error) {
