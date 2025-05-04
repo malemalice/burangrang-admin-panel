@@ -1,12 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { FindUsersDto } from './dto/find-users.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { Role } from '../../shared/types/role.enum';
 import { Request } from 'express';
+import { UserDto } from './dto/user.dto';
 
 // Define interface for request with user property
 interface RequestWithUser extends Request {
@@ -24,48 +26,55 @@ export class UsersController {
 
   @Post()
   // @Roles(Role.ADMIN)
-  create(@Body() createUserDto: CreateUserDto) {
+  create(@Body() createUserDto: CreateUserDto): Promise<UserDto> {
     return this.usersService.create(createUserDto);
   }
 
   @Get()
   // @Roles(Role.ADMIN)
-  findAll() {
-    return this.usersService.findAll();
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+    @Query('isActive') isActive?: string,
+    @Query('search') search?: string,
+  ): Promise<{ data: UserDto[]; meta: { total: number } }> {
+    // Convert string parameters to their proper types
+    const pageNumber = page ? parseInt(page, 10) : undefined;
+    const limitNumber = limit ? parseInt(limit, 10) : undefined;
+    const isActiveBoolean = isActive === undefined ? undefined : isActive === 'true';
+    
+    return this.usersService.findAll({
+      page: pageNumber,
+      limit: limitNumber,
+      sortBy,
+      sortOrder,
+      isActive: isActiveBoolean,
+      search,
+    });
   }
 
   @Get('me')
-  async getProfile(@Req() req: RequestWithUser) {
-    // The user ID is available from the JWT payload in the request
-    const user = await this.usersService.findOne(req.user.id);
-    
-    // Format the response to match the shape expected by the frontend
-    return {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role?.name || user.roleName || 'User',
-      officeId: user.officeId,
-      isActive: user.isActive
-    };
+  async getProfile(@Req() req: RequestWithUser): Promise<UserDto> {
+    return this.usersService.findOne(req.user.id);
   }
 
   @Get(':id')
   // @Roles(Role.ADMIN)
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id') id: string): Promise<UserDto> {
     return this.usersService.findOne(id);
   }
 
   @Patch(':id')
   // @Roles(Role.ADMIN)
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto): Promise<UserDto> {
     return this.usersService.update(id, updateUserDto);
   }
 
   @Delete(':id')
   // @Roles(Role.ADMIN)
-  remove(@Param('id') id: string) {
+  remove(@Param('id') id: string): Promise<void> {
     return this.usersService.remove(id);
   }
 } 
