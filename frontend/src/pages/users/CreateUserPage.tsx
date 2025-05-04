@@ -22,25 +22,16 @@ import {
   CardFooter,
 } from '@/components/ui/card';
 import userService, { CreateUserDTO } from '@/services/userService';
-
-// Use realistic UUIDs to match backend expectations
-const MOCK_ROLES = [
-  { id: '2fd0f1e8-868d-4e36-8c33-9a6e8e8ea111', name: 'Admin' },
-  { id: '2fd0f1e8-868d-4e36-8c33-9a6e8e8ea222', name: 'Manager' },
-  { id: '2fd0f1e8-868d-4e36-8c33-9a6e8e8ea333', name: 'User' }
-];
-
-const MOCK_OFFICES = [
-  { id: '3fd5e7c9-868d-4e36-8c33-9a6e8e8ea444', name: 'Headquarters' },
-  { id: '3fd5e7c9-868d-4e36-8c33-9a6e8e8ea555', name: 'Branch Office' },
-  { id: '3fd5e7c9-868d-4e36-8c33-9a6e8e8ea666', name: 'Remote Office' }
-];
+import roleService from '@/services/roleService';
+import officeService from '@/services/officeService';
+import { Role, Office } from '@/lib/types';
 
 const CreateUserPage = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [roles, setRoles] = useState<{ id: string; name: string }[]>(MOCK_ROLES);
-  const [offices, setOffices] = useState<{ id: string; name: string }[]>(MOCK_OFFICES);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [offices, setOffices] = useState<Office[]>([]);
   const [formData, setFormData] = useState<CreateUserDTO>({
     email: '',
     password: '',
@@ -51,28 +42,34 @@ const CreateUserPage = () => {
   });
   const [error, setError] = useState<string | null>(null);
 
-  // For demo purposes, we'll use mock data for roles and offices
-  // In a real app, these would be fetched from the API
-  /*
+  // Fetch roles and offices
   useEffect(() => {
-    const fetchRolesAndOffices = async () => {
+    const fetchData = async () => {
+      setIsLoadingData(true);
       try {
         // Fetch roles and offices from the backend
-        // const [rolesResponse, officesResponse] = await Promise.all([
-        //   api.get('/roles'),
-        //   api.get('/offices')
-        // ]);
-        // setRoles(rolesResponse.data);
-        // setOffices(officesResponse.data);
+        const [rolesResponse, officesResponse] = await Promise.all([
+          roleService.getRoles({ page: 1, pageSize: 100 }),
+          officeService.getOffices({ page: 1, pageSize: 100 })
+        ]);
+        
+        if (rolesResponse.data && officesResponse.data) {
+          setRoles(rolesResponse.data);
+          setOffices(officesResponse.data);
+        } else {
+          throw new Error('Failed to load roles and offices');
+        }
       } catch (error) {
         console.error('Failed to fetch roles and offices:', error);
         toast.error('Failed to load roles and offices');
+        setError('Failed to load required data. Please try again.');
+      } finally {
+        setIsLoadingData(false);
       }
     };
 
-    fetchRolesAndOffices();
+    fetchData();
   }, []);
-  */
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -87,37 +84,31 @@ const CreateUserPage = () => {
     // Basic form validation
     if (!formData.email.trim()) {
       setError('Email is required');
-      toast.error('Email is required');
       return false;
     }
     
     if (!formData.password || formData.password.length < 6) {
       setError('Password must be at least 6 characters');
-      toast.error('Password must be at least 6 characters');
       return false;
     }
     
     if (!formData.firstName.trim()) {
       setError('First name is required');
-      toast.error('First name is required');
       return false;
     }
     
     if (!formData.lastName.trim()) {
       setError('Last name is required');
-      toast.error('Last name is required');
       return false;
     }
     
     if (!formData.roleId) {
       setError('Role is required');
-      toast.error('Role is required');
       return false;
     }
     
     if (!formData.officeId) {
       setError('Office is required');
-      toast.error('Office is required');
       return false;
     }
     
@@ -181,94 +172,102 @@ const CreateUserPage = () => {
           </CardHeader>
           
           <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="firstName">First Name</Label>
-              <Input
-                id="firstName"
-                name="firstName"
-                value={formData.firstName}
-                onChange={handleChange}
-                placeholder="John"
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name</Label>
-              <Input
-                id="lastName"
-                name="lastName"
-                value={formData.lastName}
-                onChange={handleChange}
-                placeholder="Doe"
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="john.doe@example.com"
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="••••••••"
-                required
-                minLength={6}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="roleId">Role</Label>
-              <Select
-                value={formData.roleId}
-                onValueChange={(value) => handleSelectChange('roleId', value)}
-              >
-                <SelectTrigger id="roleId">
-                  <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roles.map(role => (
-                    <SelectItem key={role.id} value={role.id}>
-                      {role.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="officeId">Office</Label>
-              <Select
-                value={formData.officeId}
-                onValueChange={(value) => handleSelectChange('officeId', value)}
-              >
-                <SelectTrigger id="officeId">
-                  <SelectValue placeholder="Select an office" />
-                </SelectTrigger>
-                <SelectContent>
-                  {offices.map(office => (
-                    <SelectItem key={office.id} value={office.id}>
-                      {office.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {isLoadingData ? (
+              <div className="flex justify-center py-8">
+                <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    placeholder="John"
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleChange}
+                    placeholder="Doe"
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="john.doe@example.com"
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="••••••••"
+                    minLength={6}
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="roleId">Role</Label>
+                  <Select
+                    value={formData.roleId}
+                    onValueChange={(value) => handleSelectChange('roleId', value)}
+                  >
+                    <SelectTrigger id="roleId">
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map(role => (
+                        <SelectItem key={role.id} value={role.id}>
+                          {role.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="officeId">Office</Label>
+                  <Select
+                    value={formData.officeId}
+                    onValueChange={(value) => handleSelectChange('officeId', value)}
+                  >
+                    <SelectTrigger id="officeId">
+                      <SelectValue placeholder="Select an office" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {offices.map(office => (
+                        <SelectItem key={office.id} value={office.id}>
+                          {office.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
           </CardContent>
           
           <CardFooter className="flex justify-end gap-2">
@@ -276,11 +275,11 @@ const CreateUserPage = () => {
               type="button" 
               variant="outline" 
               onClick={() => navigate('/users')}
-              disabled={isLoading}
+              disabled={isLoading || isLoadingData}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading || isLoadingData}>
               {isLoading ? (
                 <span className="flex items-center">
                   <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

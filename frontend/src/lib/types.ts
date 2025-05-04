@@ -6,6 +6,7 @@ export interface User {
   email: string;
   avatar?: string;
   roleId: string;
+  officeId: string;
   role?: string;
   position?: string;
   department?: string;

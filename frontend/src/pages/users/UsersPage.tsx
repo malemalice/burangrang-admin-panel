@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, UserPlus, Eye, ShieldCheck } from 'lucide-react';
+import { Edit, Trash2, UserPlus, Eye, ShieldCheck, Check, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -46,29 +46,24 @@ const UsersPage = () => {
       type: 'text'
     },
     {
-      id: 'role',
+      id: 'roleId',
       label: 'Role',
       type: 'select',
       options: [
-        { label: 'Admin', value: 'Admin' },
-        { label: 'Manager', value: 'Manager' },
-        { label: 'User', value: 'User' }
+        { label: 'Admin', value: 'admin' },
+        { label: 'Manager', value: 'manager' },
+        { label: 'User', value: 'user' }
       ]
     },
     {
-      id: 'status',
-      label: 'Status',
+      id: 'officeId',
+      label: 'Office',
       type: 'select',
       options: [
-        { label: 'Active', value: 'active' },
-        { label: 'Inactive', value: 'inactive' },
-        { label: 'Pending', value: 'pending' }
+        { label: 'Headquarters', value: 'headquarters' },
+        { label: 'Branch Office', value: 'branch' },
+        { label: 'Remote Office', value: 'remote' }
       ]
-    },
-    {
-      id: 'lastLogin',
-      label: 'Last Login',
-      type: 'dateRange'
     }
   ];
 
@@ -77,7 +72,7 @@ const UsersPage = () => {
     setIsLoading(true);
     try {
       // Apply status filter based on active tab
-      const statusFilter = activeTab !== 'all' ? activeTab : undefined;
+      const statusFilter = activeTab !== 'all' ? activeTab === 'active' : undefined;
       
       // Get users with pagination and filters
       const response = await userService.getUsers({
@@ -86,7 +81,7 @@ const UsersPage = () => {
         search: searchTerm,
         filters: {
           ...filters,
-          status: statusFilter
+          isActive: statusFilter
         }
       });
       
@@ -116,7 +111,16 @@ const UsersPage = () => {
       setIsLoading(true);
       try {
         await userService.deleteUser(userToDelete.id);
-        toast.success(`User "${userToDelete.name}" has been deleted`);
+        
+        // Save the user name for the toast message
+        const deletedUserName = userToDelete.name;
+        
+        // Clear user to delete first
+        setUserToDelete(null);
+        setDeleteDialogOpen(false);
+        
+        // Then show toast and refresh the list
+        toast.success(`User "${deletedUserName}" has been deleted`);
         fetchUsers(); // Refresh the list
       } catch (error) {
         console.error('Failed to delete user:', error);
@@ -159,29 +163,30 @@ const UsersPage = () => {
       ),
     },
     {
+      id: 'office',
+      header: 'Office',
+      isSortable: true,
+      cell: (user: User) => (
+        <div>{user.office || '-'}</div>
+      ),
+    },
+    {
       id: 'status',
       header: 'Status',
       isSortable: true,
-      cell: (user: User) => {
-        const statusConfig = {
-          active: { label: 'Active', color: 'bg-green-100 text-green-800' },
-          inactive: { label: 'Inactive', color: 'bg-gray-100 text-gray-800' },
-          pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800' },
-        };
-        const config = statusConfig[user.status];
-
-        return (
-          <Badge variant="outline" className={`${config.color} border-0`}>
-            {config.label}
-          </Badge>
-        );
-      },
-    },
-    {
-      id: 'lastLogin',
-      header: 'Last Login',
-      isSortable: true,
-      cell: (user: User) => <div>{user.lastLogin || 'Never'}</div>,
+      cell: (user: User) => (
+        <Badge variant={user.status === 'active' ? 'default' : 'secondary'} className="capitalize">
+          {user.status === 'active' ? (
+            <span className="flex items-center gap-1">
+              <Check className="h-3 w-3" /> Active
+            </span>
+          ) : (
+            <span className="flex items-center gap-1">
+              <X className="h-3 w-3" /> Inactive
+            </span>
+          )}
+        </Badge>
+      ),
     },
     {
       id: 'actions',
@@ -189,22 +194,21 @@ const UsersPage = () => {
       cell: (user: User) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" className="h-8 w-8 p-0">
               <span className="sr-only">Open menu</span>
               <svg
-                width="15"
-                height="15"
-                viewBox="0 0 15 15"
-                fill="none"
                 xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 className="h-4 w-4"
               >
-                <path
-                  d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM13.625 7.5C13.625 8.12132 13.1213 8.625 12.5 8.625C11.8787 8.625 11.375 8.12132 11.375 7.5C11.375 6.87868 11.8787 6.375 12.5 6.375C13.1213 6.375 13.625 6.87868 13.625 7.5Z"
-                  fill="currentColor"
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                ></path>
+                <circle cx="12" cy="12" r="1" />
+                <circle cx="12" cy="5" r="1" />
+                <circle cx="12" cy="19" r="1" />
               </svg>
             </Button>
           </DropdownMenuTrigger>
@@ -250,6 +254,14 @@ const UsersPage = () => {
 
   return (
     <>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete User"
+        description={`Are you sure you want to delete the user "${userToDelete?.name}"? This action cannot be undone.`}
+        onConfirm={handleDeleteConfirm}
+      />
+
       <PageHeader
         title="Users"
         subtitle="Manage user accounts and permissions"
@@ -263,7 +275,6 @@ const UsersPage = () => {
           <TabsList>
             <TabsTrigger value="all">All Users</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
-            <TabsTrigger value="pending">Pending</TabsTrigger>
             <TabsTrigger value="inactive">Inactive</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -283,18 +294,6 @@ const UsersPage = () => {
         }}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
-      />
-
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title="Delete User"
-        description={`Are you sure you want to delete ${userToDelete?.name}? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={handleDeleteConfirm}
-        variant="destructive"
-        icon={<Trash2 className="h-5 w-5 text-destructive" />}
       />
     </>
   );
