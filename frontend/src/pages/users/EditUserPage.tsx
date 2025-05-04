@@ -73,13 +73,17 @@ const EditUserPage = () => {
         // Extract first and last name from the user's name
         const [firstName = '', lastName = ''] = userResponse.name.split(' ');
 
+        // Find the office ID from the office name
+        const userOffice = officesResponse.data.find(office => office.name === userResponse.office);
+        const userRole = rolesResponse.data.find(role => role.name === userResponse.role);
+
         setFormData({
           email: userResponse.email,
           password: '', // Don't set password when editing
           firstName,
           lastName,
-          roleId: userResponse.roleId,
-          officeId: userResponse.officeId,
+          roleId: userRole?.id || '',
+          officeId: userOffice?.id || '',
           isActive: userResponse.status === 'active'
         });
 
