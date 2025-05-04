@@ -111,22 +111,6 @@ const userService = {
 
       const response = await api.get(`/users?${queryParams.toString()}`);
       
-      // If the backend doesn't return paginated data yet, we'll mock it
-      // This can be adjusted once pagination is implemented on the backend
-      if (Array.isArray(response.data)) {
-        const users = response.data.map(mapUserDtoToUser);
-        return {
-          data: users,
-          meta: {
-            total: users.length,
-            page: params.page,
-            pageSize: params.pageSize,
-            pageCount: Math.ceil(users.length / params.pageSize)
-          }
-        };
-      }
-      
-      // If backend returns proper paginated response
       return {
         data: response.data.data.map(mapUserDtoToUser),
         meta: response.data.meta
@@ -151,32 +135,12 @@ const userService = {
   // Create a new user
   createUser: async (userData: CreateUserDTO): Promise<User> => {
     try {
-      console.log('Sending user data to API:', JSON.stringify(userData, null, 2));
       const response = await api.post('/users', userData);
       return mapUserDtoToUser(response.data);
     } catch (error: any) {
       console.error('Error creating user:', error);
-      // Log detailed error information
-      if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        console.error('Response data:', error.response.data);
-        console.error('Response status:', error.response.status);
-        console.error('Response headers:', error.response.headers);
-        
-        // Return a more detailed error message that includes the server's response
-        const errorMessage = error.response.data?.message || 'Failed to create user';
-        const enhancedError = new Error(errorMessage);
-        enhancedError.name = 'ApiError';
-        throw enhancedError;
-      } else if (error.request) {
-        // The request was made but no response was received
-        console.error('Request made but no response received:', error.request);
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        console.error('Error setting up request:', error.message);
-      }
-      throw error;
+      const errorMessage = error.response?.data?.message || 'Failed to create user';
+      throw new Error(errorMessage);
     }
   },
 
@@ -185,9 +149,10 @@ const userService = {
     try {
       const response = await api.patch(`/users/${id}`, userData);
       return mapUserDtoToUser(response.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error updating user ${id}:`, error);
-      throw error;
+      const errorMessage = error.response?.data?.message || 'Failed to update user';
+      throw new Error(errorMessage);
     }
   },
 
@@ -195,9 +160,10 @@ const userService = {
   deleteUser: async (id: string): Promise<void> => {
     try {
       await api.delete(`/users/${id}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error deleting user ${id}:`, error);
-      throw error;
+      const errorMessage = error.response?.data?.message || 'Failed to delete user';
+      throw new Error(errorMessage);
     }
   }
 };

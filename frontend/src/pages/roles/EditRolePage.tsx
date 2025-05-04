@@ -44,6 +44,7 @@ const EditRolePage = () => {
 
   // Fetch role data and permissions
   useEffect(() => {
+    console.log('roleId', roleId);
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);

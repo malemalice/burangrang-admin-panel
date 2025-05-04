@@ -1,318 +1,344 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import PageHeader from '@/components/ui/PageHeader';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardFooter,
-} from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import userService, { UpdateUserDTO, UserDTO } from '@/services/userService';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import userService from '@/services/userService';
 import roleService from '@/services/roleService';
 import officeService from '@/services/officeService';
-import { Role, Office } from '@/lib/types';
+import type { User } from '@/lib/types';
+
+interface FormData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  roleId: string;
+  officeId: string;
+  isActive: boolean;
+}
+
+interface Role {
+  id: string;
+  name: string;
+}
+
+interface Office {
+  id: string;
+  name: string;
+}
 
 const EditUserPage = () => {
-  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  const { userId } = useParams<{ userId: string }>();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
   const [offices, setOffices] = useState<Office[]>([]);
-  const [formData, setFormData] = useState<UpdateUserDTO>({
+  const [formData, setFormData] = useState<FormData>({
     email: '',
+    password: '',
     firstName: '',
     lastName: '',
     roleId: '',
     officeId: '',
-    isActive: true,
+    isActive: true
   });
-  const [error, setError] = useState<string | null>(null);
 
-  // Fetch user data, roles, and offices
   useEffect(() => {
     const fetchData = async () => {
-      if (!id) return;
-      
-      setIsLoadingData(true);
+      if (!userId) {
+        setError('User ID is required');
+        setLoading(false);
+        return;
+      }
+
       try {
+        setLoading(true);
+        setError(null);
+
         // Fetch user data, roles, and offices in parallel
         const [userResponse, rolesResponse, officesResponse] = await Promise.all([
-          userService.getUserById(id),
+          userService.getUserById(userId),
           roleService.getRoles({ page: 1, pageSize: 100 }),
           officeService.getOffices({ page: 1, pageSize: 100 })
         ]);
 
-        if (!userResponse || !rolesResponse.data || !officesResponse.data) {
-          throw new Error('Failed to load required data');
-        }
+        // Extract first and last name from the user's name
+        const [firstName = '', lastName = ''] = userResponse.name.split(' ');
 
-        // Set form data from user response
-        const [firstName, lastName] = userResponse.name.split(' ');
         setFormData({
           email: userResponse.email,
+          password: '', // Don't set password when editing
           firstName,
           lastName,
           roleId: userResponse.roleId,
-          officeId: userResponse.officeId || '',
-          isActive: userResponse.status === 'active',
+          officeId: userResponse.officeId,
+          isActive: userResponse.status === 'active'
         });
 
-        // Set roles and offices
         setRoles(rolesResponse.data);
         setOffices(officesResponse.data);
-      } catch (error) {
-        console.error('Failed to fetch data:', error);
-        toast.error('Failed to load user data');
+      } catch (err) {
+        console.error('Error fetching data:', err);
         setError('Failed to load user data. Please try again.');
-        navigate('/users');
       } finally {
-        setIsLoadingData(false);
+        setLoading(false);
       }
     };
 
     fetchData();
-  }, [id, navigate]);
+  }, [userId]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    setError(null);
   };
 
-  const handleSelectChange = (field: keyof UpdateUserDTO, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+    setError(null);
   };
 
   const handleSwitchChange = (checked: boolean) => {
     setFormData(prev => ({ ...prev, isActive: checked }));
-  };
-
-  const validateForm = (): boolean => {
-    // Basic form validation
-    if (!formData.email.trim()) {
-      setError('Email is required');
-      return false;
-    }
-    
-    if (!formData.firstName.trim()) {
-      setError('First name is required');
-      return false;
-    }
-    
-    if (!formData.lastName.trim()) {
-      setError('Last name is required');
-      return false;
-    }
-    
-    if (!formData.roleId) {
-      setError('Role is required');
-      return false;
-    }
-    
-    if (!formData.officeId) {
-      setError('Office is required');
-      return false;
-    }
-    
     setError(null);
-    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!id) return;
-    
-    // Validate form before submission
-    if (!validateForm()) {
+    if (!userId) {
+      setError('User ID is required');
       return;
     }
     
-    setIsLoading(true);
-    setError(null);
-    
+    // Validate required fields
+    if (!formData.email || !formData.roleId || !formData.officeId) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
     try {
-      // Call the API to update the user
-      await userService.updateUser(id, formData);
-      
-      // Show success message
-      toast.success('User updated successfully!');
-      
-      // Navigate back to users list
+      setSaving(true);
+      setError(null);
+
+      const updateData: {
+        email: string;
+        firstName: string;
+        lastName: string;
+        roleId: string;
+        officeId: string;
+        isActive: boolean;
+        password?: string;
+      } = {
+        email: formData.email,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        roleId: formData.roleId,
+        officeId: formData.officeId,
+        isActive: formData.isActive
+      };
+
+      // Only include password if it's not empty
+      if (formData.password) {
+        updateData.password = formData.password;
+      }
+
+      await userService.updateUser(userId, updateData);
+      toast.success('User updated successfully');
       navigate('/users');
-    } catch (error: any) {
-      console.error('Error updating user:', error);
-      // Display a single error message from the API or a generic message
-      const errorMessage = error.message || 'Failed to update user. Please try again.';
-      setError(errorMessage);
-      toast.error(errorMessage);
+    } catch (err: any) {
+      console.error('Error updating user:', err);
+      setError(err.message || 'Failed to update user. Please try again.');
     } finally {
-      setIsLoading(false);
+      setSaving(false);
     }
   };
 
-  return (
-    <>
-      <PageHeader
-        title="Edit User"
-        subtitle="Update user information"
-        actions={
-          <Button variant="outline" onClick={() => navigate('/users')}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Users
-          </Button>
-        }
-      />
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+      </div>
+    );
+  }
 
-      <Card className="max-w-2xl mx-auto">
-        <form onSubmit={handleSubmit}>
-          <CardHeader>
-            <CardTitle>User Information</CardTitle>
-            <CardDescription>Update the user's details.</CardDescription>
+  if (error && !loading) {
+    return (
+      <div className="container mx-auto py-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Edit User</h1>
+          <Button variant="outline" onClick={() => navigate('/users')}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Users
+          </Button>
+        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center text-red-600">
+              {error}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto py-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Edit User</h1>
+        <Button variant="outline" onClick={() => navigate('/users')}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Users
+        </Button>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>User Information</CardTitle>
+          <CardDescription>Update user details and permissions</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="mt-2 p-3 bg-red-50 border border-red-200 text-red-800 rounded-md text-sm">
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
                 {error}
               </div>
             )}
-          </CardHeader>
-          
-          <CardContent className="space-y-6">
-            {isLoadingData ? (
-              <div className="flex justify-center py-8">
-                <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
-              </div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input
-                    id="firstName"
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                    placeholder="John"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input
-                    id="lastName"
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleChange}
-                    placeholder="Doe"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    placeholder="john.doe@example.com"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="roleId">Role</Label>
-                  <Select
-                    value={formData.roleId}
-                    onValueChange={(value) => handleSelectChange('roleId', value)}
-                  >
-                    <SelectTrigger id="roleId">
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map(role => (
-                        <SelectItem key={role.id} value={role.id}>
-                          {role.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="officeId">Office</Label>
-                  <Select
-                    value={formData.officeId}
-                    onValueChange={(value) => handleSelectChange('officeId', value)}
-                  >
-                    <SelectTrigger id="officeId">
-                      <SelectValue placeholder="Select an office" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {offices.map(office => (
-                        <SelectItem key={office.id} value={office.id}>
-                          {office.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  placeholder="Leave blank to keep current password"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleInputChange}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleInputChange}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="roleId">Role</Label>
+                <Select
+                  value={formData.roleId}
+                  onValueChange={(value) => handleSelectChange('roleId', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        {role.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="officeId">Office</Label>
+                <Select
+                  value={formData.officeId}
+                  onValueChange={(value) => handleSelectChange('officeId', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an office" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {offices.map((office) => (
+                      <SelectItem key={office.id} value={office.id}>
+                        {office.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Status</Label>
                 <div className="flex items-center space-x-2">
                   <Switch
-                    id="isActive"
                     checked={formData.isActive}
                     onCheckedChange={handleSwitchChange}
                   />
-                  <Label htmlFor="isActive">Active Status</Label>
+                  <span className="text-sm text-gray-600">
+                    {formData.isActive ? 'Active' : 'Inactive'}
+                  </span>
                 </div>
-              </>
-            )}
-          </CardContent>
-          
-          <CardFooter className="flex justify-end gap-2">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => navigate('/users')}
-              disabled={isLoading || isLoadingData}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading || isLoadingData}>
-              {isLoading ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </span>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" /> Update User
-                </>
-              )}
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
-    </>
-  );
-};
+              </div>
+            </div>
 
-export default EditUserPage; 
+            <div className="flex justify-end space-x-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => navigate('/users')}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? (
+                  <>
+                    <div className="h-4 w-4 mr-2 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" /> Save Changes
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+} 
+
+export default EditUserPage;
