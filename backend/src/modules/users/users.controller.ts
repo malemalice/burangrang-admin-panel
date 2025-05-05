@@ -9,6 +9,7 @@ import { Roles } from '../../shared/decorators/roles.decorator';
 import { Role } from '../../shared/types/role.enum';
 import { Request } from 'express';
 import { UserDto } from './dto/user.dto';
+import { Permissions } from 'src/shared/decorators/permissions.decorator';
 
 // Define interface for request with user property
 interface RequestWithUser extends Request {
@@ -25,13 +26,14 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  // @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN)
   create(@Body() createUserDto: CreateUserDto): Promise<UserDto> {
     return this.usersService.create(createUserDto);
   }
 
   @Get()
   // @Roles(Role.ADMIN)
+  @Permissions('user:list')
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
