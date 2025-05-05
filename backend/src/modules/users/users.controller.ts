@@ -39,6 +39,8 @@ export class UsersController {
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
+    @Query('officeId') officeId?: string,
+    @Query('roleId') roleId?: string,
   ): Promise<{ data: UserDto[]; meta: { total: number } }> {
     // Convert string parameters to their proper types
     const pageNumber = page ? parseInt(page, 10) : undefined;
@@ -52,6 +54,8 @@ export class UsersController {
       sortOrder,
       isActive: isActiveBoolean,
       search,
+      officeId,
+      roleId,
     });
   }
 
