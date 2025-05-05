@@ -31,6 +31,11 @@
 - [x] Role-based access control
 - [x] Role filtering and search
 - [x] Role pagination
+- [x] Default permissions implementation
+  - [x] Backend endpoint for default permissions
+  - [x] Frontend handling of default permissions
+  - [x] UI for disabled default permissions
+  - [x] Validation to prevent removal of default permissions
 
 ### Menu Management
 - [x] Menu CRUD endpoints

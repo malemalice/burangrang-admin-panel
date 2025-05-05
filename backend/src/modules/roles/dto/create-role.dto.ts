@@ -1,16 +1,22 @@
-import { IsNotEmpty, IsString, IsOptional, IsArray, IsUUID } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsOptional, IsArray, IsBoolean } from 'class-validator';
 
 export class CreateRoleDto {
+  @ApiProperty({ description: 'Name of the role' })
   @IsString()
-  @IsNotEmpty()
   name: string;
 
+  @ApiProperty({ description: 'Description of the role', required: false })
   @IsString()
   @IsOptional()
   description?: string;
 
+  @ApiProperty({ description: 'List of permissions for the role' })
   @IsArray()
-  @IsUUID('4', { each: true })
-  @IsOptional()
-  permissionIds?: string[];
+  @IsString({ each: true })
+  permissions: string[];
+
+  @ApiProperty({ description: 'Whether the role is active' })
+  @IsBoolean()
+  isActive: boolean;
 } 

@@ -4,22 +4,51 @@ import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { RoleDto } from './dto/role.dto';
 import { PermissionDto } from '../permissions/dto/permission.dto';
+import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class RolesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private configService: ConfigService,
+  ) {}
+
+  getDefaultPermissions(): string[] {
+    const defaultPermissions = this.configService.get<string>('DEFAULT_PERMISSIONS');
+    return defaultPermissions ? defaultPermissions.split(',') : [];
+  }
 
   async create(createRoleDto: CreateRoleDto): Promise<RoleDto> {
-    const { permissionIds, ...roleData } = createRoleDto;
+    // 1. Get default permission names from config
+    const defaultPermissionNames = this.getDefaultPermissions();
 
+    // 2. Get IDs for default permissions from database
+    const defaultPermissions = await this.prisma.permission.findMany({
+      where: {
+        name: {
+          in: defaultPermissionNames
+        }
+      },
+      select: {
+        id: true
+      }
+    });
+
+    const defaultPermissionIds = defaultPermissions.map(p => p.id);
+
+    // 3. Combine with requested permissions
+    const allPermissionIds = [...new Set([...defaultPermissionIds, ...createRoleDto.permissions])];
+
+    // 4. Create role with all permissions
     const role = await this.prisma.role.create({
       data: {
-        ...roleData,
-        permissions: permissionIds
-          ? {
-              connect: permissionIds.map((id) => ({ id })),
-            }
-          : undefined,
+        name: createRoleDto.name,
+        description: createRoleDto.description,
+        isActive: createRoleDto.isActive,
+        permissions: {
+          connect: allPermissionIds.map(id => ({ id }))
+        }
       },
       include: {
         permissions: true,
@@ -73,25 +102,48 @@ export class RolesService {
   }
 
   async update(id: string, updateRoleDto: UpdateRoleDto): Promise<RoleDto> {
+    // 1. Get default permission names from config
+    const defaultPermissionNames = this.getDefaultPermissions();
+
+    // 2. Get IDs for default permissions from database
+    const defaultPermissions = await this.prisma.permission.findMany({
+      where: {
+        name: {
+          in: defaultPermissionNames
+        }
+      },
+      select: {
+        id: true
+      }
+    });
+
+    const defaultPermissionIds = defaultPermissions.map(p => p.id);
+
+    // 3. Combine with requested permissions
+    const allPermissionIds = [...new Set([...defaultPermissionIds, ...(updateRoleDto.permissions || [])])];
+
+    // 4. Check if role exists
     const existingRole = await this.prisma.role.findUnique({
       where: { id },
+      include: {
+        permissions: true,
+      },
     });
 
     if (!existingRole) {
       throw new NotFoundException(`Role with ID ${id} not found`);
     }
 
-    const { permissionIds, ...roleData } = updateRoleDto;
-
+    // 5. Update role with all permissions
     const role = await this.prisma.role.update({
       where: { id },
       data: {
-        ...roleData,
-        permissions: permissionIds
-          ? {
-              set: permissionIds.map((id) => ({ id })),
-            }
-          : undefined,
+        name: updateRoleDto.name,
+        description: updateRoleDto.description,
+        isActive: updateRoleDto.isActive,
+        permissions: {
+          set: allPermissionIds.map(id => ({ id }))
+        }
       },
       include: {
         permissions: true,

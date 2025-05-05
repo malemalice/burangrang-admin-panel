@@ -18,26 +18,50 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import roleService, { CreateRoleDTO } from '@/services/roleService';
 import { Permission } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const CreateRolePage = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [defaultPermissions, setDefaultPermissions] = useState<string[]>([]);
   const [isLoadingPermissions, setIsLoadingPermissions] = useState(true);
   const [formData, setFormData] = useState<CreateRoleDTO>({
     name: '',
     description: '',
-    permissionIds: [],
+    permissions: [],
+    isActive: true,
   });
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch permissions from API
+  // Fetch permissions and default permissions from API
   useEffect(() => {
-    const fetchPermissions = async () => {
+    const fetchData = async () => {
       setIsLoadingPermissions(true);
       try {
-        const permissions = await roleService.getPermissions();
-        setPermissions(permissions);
+        const [permissionsData, defaultPerms] = await Promise.all([
+          roleService.getPermissions(),
+          roleService.getDefaultPermissions(),
+        ]);
+        setPermissions(permissionsData);
+        setDefaultPermissions(defaultPerms);
+
+        // Set default permissions in form data
+        const defaultPermissionIds = permissionsData
+          .filter(p => defaultPerms.includes(p.name))
+          .map(p => p.id);
+        
+        setFormData(prev => ({
+          ...prev,
+          permissions: defaultPermissionIds,
+        }));
       } catch (error) {
         console.error('Failed to fetch permissions:', error);
         toast.error('Failed to load permissions. Please try again later.');
@@ -46,7 +70,7 @@ const CreateRolePage = () => {
       }
     };
 
-    fetchPermissions();
+    fetchData();
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -55,13 +79,25 @@ const CreateRolePage = () => {
   };
 
   const handlePermissionChange = (permissionId: string, checked: boolean) => {
+    const permission = permissions.find(p => p.id === permissionId);
+    if (!permission) return;
+
+    // Don't allow changing default permissions
+    if (roleService.isDefaultPermission(permission.name, defaultPermissions)) {
+      return;
+    }
+
     setFormData(prev => {
-      const updatedPermissionIds = checked
-        ? [...(prev.permissionIds || []), permissionId]
-        : (prev.permissionIds || []).filter(id => id !== permissionId);
+      const updatedPermissions = checked
+        ? [...(prev.permissions || []), permissionId]
+        : (prev.permissions || []).filter(id => id !== permissionId);
       
-      return { ...prev, permissionIds: updatedPermissionIds };
+      return { ...prev, permissions: updatedPermissions };
     });
+  };
+
+  const handleStatusChange = (value: string) => {
+    setFormData(prev => ({ ...prev, isActive: value === 'active' }));
   };
 
   const validateForm = (): boolean => {
@@ -88,8 +124,18 @@ const CreateRolePage = () => {
     setError(null);
     
     try {
+      // Ensure default permissions are included
+      const defaultPermissionIds = permissions
+        .filter(p => defaultPermissions.includes(p.name))
+        .map(p => p.id);
+      
+      const allPermissions = [...new Set([...defaultPermissionIds, ...formData.permissions])];
+      
       // Call the API to create a new role
-      await roleService.createRole(formData);
+      await roleService.createRole({
+        ...formData,
+        permissions: allPermissions,
+      });
       
       // Show success message and navigate in one step to prevent duplicate toasts
       toast.success('Role created successfully!');
@@ -153,6 +199,22 @@ const CreateRolePage = () => {
                 rows={3}
               />
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={formData.isActive ? 'active' : 'inactive'}
+                onValueChange={handleStatusChange}
+              >
+                <SelectTrigger id="status">
+                  <SelectValue placeholder="Select a status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             
             <div className="space-y-3">
               <Label>Permissions</Label>
@@ -164,28 +226,39 @@ const CreateRolePage = () => {
                 <p className="text-sm text-gray-500">No permissions available.</p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border rounded-md p-4">
-                  {permissions.map(permission => (
-                    <div key={permission.id} className="flex items-start space-x-3">
-                      <Checkbox
-                        id={`permission-${permission.id}`}
-                        checked={(formData.permissionIds || []).includes(permission.id)}
-                        onCheckedChange={(checked) => 
-                          handlePermissionChange(permission.id, checked === true)
-                        }
-                      />
-                      <div className="space-y-1">
-                        <Label
-                          htmlFor={`permission-${permission.id}`}
-                          className="font-medium cursor-pointer"
-                        >
-                          {permission.name}
-                        </Label>
-                        {permission.description && (
-                          <p className="text-xs text-gray-500">{permission.description}</p>
-                        )}
+                  {permissions.map(permission => {
+                    const isDefault = roleService.isDefaultPermission(permission.name, defaultPermissions);
+                    return (
+                      <div key={permission.id} className="flex items-start space-x-3">
+                        <Checkbox
+                          id={`permission-${permission.id}`}
+                          checked={(formData.permissions || []).includes(permission.id)}
+                          onCheckedChange={(checked) => 
+                            handlePermissionChange(permission.id, checked === true)
+                          }
+                          disabled={isDefault}
+                        />
+                        <div className="space-y-1">
+                          <Label
+                            htmlFor={`permission-${permission.id}`}
+                            className={`font-medium cursor-pointer ${isDefault ? 'text-gray-400' : ''}`}
+                          >
+                            <span className="flex items-center gap-2">
+                              {permission.name}
+                              {isDefault && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Default
+                                </Badge>
+                              )}
+                            </span>
+                          </Label>
+                          {permission.description && (
+                            <p className="text-xs text-gray-500">{permission.description}</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

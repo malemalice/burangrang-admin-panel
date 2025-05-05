@@ -26,14 +26,15 @@ export interface PermissionDTO {
 export interface CreateRoleDTO {
   name: string;
   description?: string;
-  permissionIds?: string[];
+  permissions?: string[];
+  isActive?: boolean;
 }
 
 // Interface for updating a role
 export interface UpdateRoleDTO {
   name?: string;
   description?: string;
-  permissionIds?: string[];
+  permissions?: string[];
   isActive?: boolean;
 }
 
@@ -177,7 +178,24 @@ const roleService = {
   // Create a new role
   createRole: async (roleData: CreateRoleDTO): Promise<Role> => {
     try {
-      const response = await api.post('/roles', roleData);
+      // Get default permissions first
+      const defaultPerms = await roleService.getDefaultPermissions();
+      
+      // Get all permissions to map names to IDs
+      const allPermissions = await roleService.getPermissions();
+      
+      // Get IDs for default permissions
+      const defaultPermissionIds = allPermissions
+        .filter(p => defaultPerms.includes(p.name))
+        .map(p => p.id);
+      
+      // Combine with requested permissions
+      const allPermissionIds = [...new Set([...defaultPermissionIds, ...(roleData.permissions || [])])];
+      
+      const response = await api.post('/roles', {
+        ...roleData,
+        permissions: allPermissionIds,
+      });
       return mapRoleDtoToRole(response.data);
     } catch (error: any) {
       console.error('Error creating role:', error);
@@ -189,7 +207,24 @@ const roleService = {
   // Update an existing role
   updateRole: async (id: string, roleData: UpdateRoleDTO): Promise<Role> => {
     try {
-      const response = await api.patch(`/roles/${id}`, roleData);
+      // Get default permissions first
+      const defaultPerms = await roleService.getDefaultPermissions();
+      
+      // Get all permissions to map names to IDs
+      const allPermissions = await roleService.getPermissions();
+      
+      // Get IDs for default permissions
+      const defaultPermissionIds = allPermissions
+        .filter(p => defaultPerms.includes(p.name))
+        .map(p => p.id);
+      
+      // Combine with requested permissions
+      const allPermissionIds = [...new Set([...defaultPermissionIds, ...(roleData.permissions || [])])];
+      
+      const response = await api.patch(`/roles/${id}`, {
+        ...roleData,
+        permissions: allPermissionIds,
+      });
       return mapRoleDtoToRole(response.data);
     } catch (error: any) {
       console.error(`Error updating role ${id}:`, error);
@@ -225,6 +260,27 @@ const roleService = {
       console.error('Error fetching permissions:', error);
       throw error;
     }
+  },
+
+  // Get default permissions
+  getDefaultPermissions: async (): Promise<string[]> => {
+    try {
+      const response = await api.get('/permissions/default-permissions');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching default permissions:', error);
+      throw error;
+    }
+  },
+
+  // Helper method to check if a permission is default
+  isDefaultPermission: (permissionName: string, defaultPermissions: string[]): boolean => {
+    return defaultPermissions.includes(permissionName);
+  },
+
+  // Helper method to ensure default permissions are included
+  ensureDefaultPermissions: (selectedPermissions: string[], defaultPermissions: string[]): string[] => {
+    return [...new Set([...defaultPermissions, ...selectedPermissions])];
   }
 };
 
