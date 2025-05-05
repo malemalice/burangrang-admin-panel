@@ -25,6 +25,145 @@ This is an information management system with basic modules for user management,
 - **Zod** (v3.23.8) - Schema validation
 - **Sonner** - Toast notifications
 
+## Backend Architecture
+
+### Directory Structure
+```
+backend/
+├── src/
+│   ├── core/                 # Core application services and configuration
+│   │   ├── config/          # Environment and app configuration
+│   │   ├── prisma/          # Prisma schema and migrations
+│   │   └── services/        # Core services (e.g., PrismaService)
+│   │
+│   ├── modules/             # Feature modules
+│   │   ├── auth/           # Authentication module
+│   │   ├── users/          # User management
+│   │   ├── roles/          # Role management
+│   │   ├── permissions/    # Permission management
+│   │   ├── menus/          # Menu management
+│   │   └── offices/        # Office management
+│   │
+│   ├── shared/              # Shared resources
+│   │   ├── decorators/     # Custom decorators
+│   │   ├── guards/         # Authentication/Authorization guards
+│   │   ├── interceptors/   # Request/Response interceptors
+│   │   ├── middlewares/    # Custom middlewares
+│   │   ├── services/       # Shared services
+│   │   ├── types/          # Shared TypeScript types
+│   │   └── enums/          # Shared enums
+│   │
+│   ├── app.module.ts        # Root application module
+│   └── main.ts             # Application entry point
+```
+
+### Module Structure
+Each feature module follows this structure:
+```
+modules/feature/
+├── controllers/            # Route handlers
+├── services/              # Business logic
+├── dto/                   # Data Transfer Objects
+├── entities/              # Domain entities
+├── interfaces/            # TypeScript interfaces
+└── feature.module.ts      # Module definition
+```
+
+### Design Patterns & Best Practices
+
+#### 1. Clean Architecture
+- **Separation of Concerns**: Clear boundaries between layers (controllers, services, repositories)
+- **Dependency Injection**: NestJS's built-in DI container for loose coupling
+- **Interface-based Design**: Contracts defined through interfaces
+
+#### 2. Security Patterns
+- **JWT Authentication**: Token-based authentication with refresh mechanism
+- **Permission-based Authorization**: Fine-grained access control using permissions
+- **Global Guards**: Centralized security enforcement
+- **Request Validation**: DTO validation using class-validator
+
+#### 3. Database Patterns
+- **Repository Pattern**: Prisma as the ORM layer
+- **Migrations**: Version-controlled database schema changes
+- **Seeding**: Initial data population
+
+#### 4. API Design
+- **RESTful Endpoints**: Resource-based routing
+- **Swagger Documentation**: OpenAPI specification
+- **Error Handling**: Consistent error responses
+- **Pagination**: Standardized pagination for list endpoints
+
+#### 5. Code Organization
+- **Feature Modules**: Self-contained business features
+- **Shared Resources**: Reusable components and utilities
+- **Core Services**: Application-wide services
+- **Type Safety**: Comprehensive TypeScript usage
+
+### Authentication & Authorization
+
+#### 1. Authentication Flow
+- JWT-based authentication
+- Refresh token mechanism
+- Password hashing with bcrypt
+- Session management
+
+#### 2. Authorization System
+- Role-based access control (RBAC)
+- Permission-based authorization
+- Global guards for security enforcement
+- Custom decorators for access control
+
+### Error Handling
+- Global exception filter
+- Custom exception classes
+- Consistent error response format
+- Validation error handling
+
+### Logging & Monitoring
+- Request logging
+- Error logging
+- Performance monitoring
+- Audit trails
+
+### Testing Strategy
+- Unit tests for services
+- Integration tests for controllers
+- E2E tests for critical flows
+- Test coverage requirements
+
+### Development Guidelines
+
+#### 1. Code Style
+- ESLint configuration
+- Prettier formatting
+- TypeScript strict mode
+- Consistent naming conventions
+
+#### 2. Git Workflow
+- Feature branch workflow
+- Commit message conventions
+- Pull request reviews
+- CI/CD integration
+
+#### 3. Documentation
+- API documentation with Swagger
+- Code documentation with JSDoc
+- README files for modules
+- Architecture documentation
+
+### Performance Considerations
+- Database query optimization
+- Caching strategies
+- Request validation
+- Response compression
+
+### Security Measures
+- CORS configuration
+- Rate limiting
+- Input sanitization
+- Security headers
+- Password policies
+
 ## Core Features
 
 ### 1. User Management
