@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Calendar, Check, Filter } from 'lucide-react';
+import { X, Calendar, Check, Filter, Search, ChevronDown } from 'lucide-react';
 import { Button } from './button';
 import { Input } from './input';
 import { Badge } from './badge';
@@ -7,11 +7,19 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Calendar as CalendarComponent } from './calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from './command';
 
 export type FilterField = {
   id: string;
   label: string;
-  type: 'text' | 'date' | 'dateRange' | 'select';
+  type: 'text' | 'date' | 'dateRange' | 'select' | 'searchableSelect';
   options?: { label: string; value: string | boolean }[];
 };
 
@@ -173,6 +181,60 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                     );
                   })}
                 </div>
+              )}
+
+              {field.type === 'searchableSelect' && field.options && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between"
+                    >
+                      {getFilterValue(field.id) ? (
+                        field.options.find(
+                          (option) => option.value === getFilterValue(field.id)
+                        )?.label
+                      ) : (
+                        `Select ${field.label}...`
+                      )}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command filter={(value, search) => {
+                      if (value.toLowerCase().includes(search.toLowerCase())) return 1
+                      return 0
+                    }}>
+                      <CommandInput placeholder={`Search ${field.label}...`} />
+                      <CommandList>
+                        <CommandEmpty>No {field.label.toLowerCase()} found.</CommandEmpty>
+                        <CommandGroup>
+                          {field.options.map((option) => {
+                            const value = typeof option.value === 'boolean' ? option.value.toString() : option.value;
+                            return (
+                              <CommandItem
+                                key={value}
+                                value={option.label}
+                                onSelect={() => {
+                                  updateFilterValue(field.id, option.value);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    getFilterValue(field.id) === option.value ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {option.label}
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               )}
 
               {field.type === 'date' && (

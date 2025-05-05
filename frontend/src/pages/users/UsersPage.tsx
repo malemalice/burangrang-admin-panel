@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, UserPlus, Eye, ShieldCheck, Check, X } from 'lucide-react';
+import { Edit, Trash2, UserPlus, Eye, ShieldCheck, Check, X, Building, MoreHorizontal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,6 +18,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FilterField } from '@/components/ui/filter-drawer';
 import userService from '@/services/userService';
+import roleService from '@/services/roleService';
+import officeService from '@/services/officeService';
 import { User } from '@/lib/types';
 
 const UsersPage = () => {
@@ -32,6 +34,8 @@ const UsersPage = () => {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
+  const [offices, setOffices] = useState<{ id: string; name: string }[]>([]);
 
   // Define filter fields for users
   const filterFields: FilterField[] = [
@@ -48,58 +52,78 @@ const UsersPage = () => {
     {
       id: 'roleId',
       label: 'Role',
-      type: 'select',
-      options: [
-        { label: 'Admin', value: 'admin' },
-        { label: 'Manager', value: 'manager' },
-        { label: 'User', value: 'user' }
-      ]
+      type: 'searchableSelect',
+      options: roles.map(role => ({
+        label: role.name,
+        value: role.id
+      }))
     },
     {
       id: 'officeId',
       label: 'Office',
+      type: 'searchableSelect',
+      options: offices.map(office => ({
+        label: office.name,
+        value: office.id
+      }))
+    },
+    {
+      id: 'status',
+      label: 'Status',
       type: 'select',
       options: [
-        { label: 'Headquarters', value: 'headquarters' },
-        { label: 'Branch Office', value: 'branch' },
-        { label: 'Remote Office', value: 'remote' }
+        { label: 'Active', value: 'active' },
+        { label: 'Inactive', value: 'inactive' }
       ]
     }
   ];
 
-  // Fetch users from API
-  const fetchUsers = async (filters: Record<string, any> = {}) => {
-    setIsLoading(true);
-    try {
-      // Apply status filter based on active tab
-      const statusFilter = activeTab !== 'all' ? activeTab === 'active' : undefined;
-      
-      // Get users with pagination and filters
-      const response = await userService.getUsers({
-        page: pageIndex + 1, // API is 1-indexed
-        pageSize,
-        search: searchTerm,
-        filters: {
-          ...filters,
-          isActive: statusFilter
-        }
-      });
-      
-      setUsers(response.data);
-      setTotalUsers(response.meta.total);
-      setPageCount(response.meta.pageCount);
-    } catch (error) {
-      console.error('Failed to fetch users:', error);
-      toast.error('Failed to load users. Please try again later.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Load users when page changes or filters are applied
+  // Fetch roles and offices for filter options
   useEffect(() => {
+    const fetchFilterOptions = async () => {
+      try {
+        const [rolesResponse, officesResponse] = await Promise.all([
+          roleService.getRoles({ page: 1, pageSize: 100 }),
+          officeService.getOffices({ page: 1, pageSize: 100 })
+        ]);
+
+        setRoles(rolesResponse.data);
+        setOffices(officesResponse.data);
+      } catch (error) {
+        console.error('Failed to fetch filter options:', error);
+        toast.error('Failed to load filter options');
+      }
+    };
+
+    fetchFilterOptions();
+  }, []);
+
+  // Fetch users when pagination, search, or filters change
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setIsLoading(true);
+      try {
+        const params = {
+          page: pageIndex + 1,
+          pageSize,
+          search: searchTerm,
+          status: activeTab === 'all' ? undefined : activeTab
+        };
+
+        const response = await userService.getUsers(params);
+        setUsers(response.data);
+        setTotalUsers(response.meta.total);
+        setPageCount(Math.ceil(response.meta.total / pageSize));
+      } catch (error) {
+        console.error('Failed to fetch users:', error);
+        toast.error('Failed to load users');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchUsers();
-  }, [pageIndex, pageSize, activeTab, searchTerm]);
+  }, [pageIndex, pageSize, searchTerm, activeTab]);
 
   const handleDeleteClick = (user: User) => {
     setUserToDelete(user);
@@ -107,139 +131,39 @@ const UsersPage = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (userToDelete) {
-      setIsLoading(true);
-      try {
-        await userService.deleteUser(userToDelete.id);
-        
-        // Save the user name for the toast message
-        const deletedUserName = userToDelete.name;
-        
-        // Clear user to delete first
-        setUserToDelete(null);
-        setDeleteDialogOpen(false);
-        
-        // Then show toast and refresh the list
-        toast.success(`User "${deletedUserName}" has been deleted`);
-        fetchUsers(); // Refresh the list
-      } catch (error) {
-        console.error('Failed to delete user:', error);
-        toast.error('Failed to delete user. Please try again later.');
-      } finally {
-        setIsLoading(false);
-        setDeleteDialogOpen(false);
-        setUserToDelete(null);
-      }
+    if (!userToDelete) return;
+
+    try {
+      await userService.deleteUser(userToDelete.id);
+      toast.success('User deleted successfully');
+      // Refresh the user list
+      const params = {
+        page: pageIndex + 1,
+        pageSize,
+        search: searchTerm,
+        status: activeTab === 'all' ? undefined : activeTab
+      };
+      const response = await userService.getUsers(params);
+      setUsers(response.data);
+      setTotalUsers(response.meta.total);
+      setPageCount(Math.ceil(response.meta.total / pageSize));
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast.error('Failed to delete user');
+    } finally {
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
     }
-  };
-
-  const columns = [
-    {
-      id: 'name',
-      header: 'Name',
-      isSortable: true,
-      cell: (user: User) => (
-        <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={user.avatar || ""} />
-            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="font-medium">{user.name}</p>
-            <p className="text-xs text-gray-500">{user.email}</p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      id: 'role',
-      header: 'Role',
-      isSortable: true,
-      cell: (user: User) => (
-        <div className="flex items-center gap-2">
-          <ShieldCheck size={16} className="text-gray-500" />
-          {user.role || 'User'}
-        </div>
-      ),
-    },
-    {
-      id: 'office',
-      header: 'Office',
-      isSortable: true,
-      cell: (user: User) => (
-        <div>{user.office || '-'}</div>
-      ),
-    },
-    {
-      id: 'status',
-      header: 'Status',
-      isSortable: true,
-      cell: (user: User) => (
-        <Badge variant={user.status === 'active' ? 'default' : 'secondary'} className="capitalize">
-          {user.status === 'active' ? (
-            <span className="flex items-center gap-1">
-              <Check className="h-3 w-3" /> Active
-            </span>
-          ) : (
-            <span className="flex items-center gap-1">
-              <X className="h-3 w-3" /> Inactive
-            </span>
-          )}
-        </Badge>
-      ),
-    },
-    {
-      id: 'actions',
-      header: 'Actions',
-      cell: (user: User) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-              >
-                <circle cx="12" cy="12" r="1" />
-                <circle cx="12" cy="5" r="1" />
-                <circle cx="12" cy="19" r="1" />
-              </svg>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/users/${user.id}`)}>
-              <Eye className="mr-2 h-4 w-4" /> View details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/users/${user.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => handleDeleteClick(user)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
-  ];
-
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    setPageIndex(0); // Reset to first page when tab changes
   };
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    setPageIndex(0); // Reset to first page when search changes
+    setPageIndex(0); // Reset to first page on new search
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setPageIndex(0); // Reset to first page on tab change
   };
 
   const handleApplyFilters = (filters: any[]) => {
@@ -249,8 +173,118 @@ const UsersPage = () => {
       filterObject[filter.id] = filter.value;
     });
     
-    fetchUsers(filterObject);
+    // Update the users list with the new filters
+    const fetchFilteredUsers = async () => {
+      setIsLoading(true);
+      try {
+        const params = {
+          page: pageIndex + 1,
+          pageSize,
+          search: searchTerm,
+          status: activeTab === 'all' ? undefined : activeTab,
+          ...filterObject
+        };
+
+        const response = await userService.getUsers(params);
+        setUsers(response.data);
+        setTotalUsers(response.meta.total);
+        setPageCount(Math.ceil(response.meta.total / pageSize));
+      } catch (error) {
+        console.error('Failed to fetch filtered users:', error);
+        toast.error('Failed to load filtered users');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFilteredUsers();
   };
+
+  const columns = [
+    {
+      id: 'name',
+      header: 'Name',
+      cell: (user: User) => (
+        <div className="flex items-center gap-3">
+          <Avatar>
+            <AvatarFallback>
+              {user.name.split(' ').map(n => n[0]).join('')}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <div className="font-medium">{user.name}</div>
+            <div className="text-sm text-gray-500">{user.email}</div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'role',
+      header: 'Role',
+      cell: (user: User) => (
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-gray-500" />
+          <span>{user.role}</span>
+        </div>
+      )
+    },
+    {
+      id: 'office',
+      header: 'Office',
+      cell: (user: User) => (
+        <div className="flex items-center gap-2">
+          <Building className="h-4 w-4 text-gray-500" />
+          <span>{user.office}</span>
+        </div>
+      )
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (user: User) => (
+        <Badge variant={user.status === 'active' ? 'default' : 'destructive'}>
+          {user.status === 'active' ? (
+            <Check className="mr-1 h-3 w-3" />
+          ) : (
+            <X className="mr-1 h-3 w-3" />
+          )}
+          {user.status}
+        </Badge>
+      )
+    },
+    {
+      id: 'actions',
+      header: '',
+      cell: (user: User) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <span className="sr-only">Open menu</span>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => navigate(`/users/${user.id}`)}>
+              <Eye className="mr-2 h-4 w-4" />
+              View Details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/users/${user.id}/edit`)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-red-600"
+              onClick={() => handleDeleteClick(user)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    }
+  ];
 
   return (
     <>
