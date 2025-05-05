@@ -51,6 +51,7 @@ const mapUserDtoToUser = (userDto: UserDTO): User => {
     name: `${userDto.firstName} ${userDto.lastName}`,
     email: userDto.email,
     roleId: userDto.roleId,
+    officeId: userDto.officeId,
     role: userDto.role?.name,
     office: userDto.office?.name,
     status: userDto.isActive ? 'active' : 'inactive',
@@ -104,7 +105,12 @@ const userService = {
       if (params.filters) {
         Object.entries(params.filters).forEach(([key, value]) => {
           if (value !== undefined && value !== null && value !== '') {
-            queryParams.append(key, value.toString());
+            // Convert boolean values to string
+            if (typeof value === 'boolean') {
+              queryParams.append(key, value.toString());
+            } else {
+              queryParams.append(key, value.toString());
+            }
           }
         });
       }

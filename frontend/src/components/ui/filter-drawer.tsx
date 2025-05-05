@@ -382,7 +382,8 @@ export const FilterBadges: React.FC<{
         } else if (field.type === 'date') {
           displayValue = format(new Date(filter.value as string), 'PP');
         } else {
-          displayValue = filter.value as string;
+          const option = field.options?.find(o => o.value === filter.value);
+          displayValue = option?.label || (filter.value as string);
         }
 
         return (

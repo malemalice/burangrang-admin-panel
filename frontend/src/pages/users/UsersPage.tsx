@@ -16,7 +16,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FilterField } from '@/components/ui/filter-drawer';
+import { FilterField, FilterValue } from '@/components/ui/filter-drawer';
 import userService from '@/services/userService';
 import roleService from '@/services/roleService';
 import officeService from '@/services/officeService';
@@ -36,6 +36,7 @@ const UsersPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
   const [offices, setOffices] = useState<{ id: string; name: string }[]>([]);
+  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
 
   // Define filter fields for users
   const filterFields: FilterField[] = [
@@ -166,12 +167,43 @@ const UsersPage = () => {
     setPageIndex(0); // Reset to first page on tab change
   };
 
-  const handleApplyFilters = (filters: any[]) => {
+  const handleApplyFilters = (filters: FilterValue[]) => {
     // Convert filters array to object format expected by fetchUsers
     const filterObject: Record<string, any> = {};
+    const newActiveFilters: Record<string, { value: any; label: string }> = {};
+    
     filters.forEach(filter => {
+      // Store the value for API call
       filterObject[filter.id] = filter.value;
+      
+      // Store the value and label for display
+      if (filter.id === 'roleId') {
+        const role = roles.find(r => r.id === filter.value);
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: role?.name || ''
+        };
+      } else if (filter.id === 'officeId') {
+        const office = offices.find(o => o.id === filter.value);
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: office?.name || ''
+        };
+      } else if (filter.id === 'status') {
+        const statusValue = filter.value as string;
+        newActiveFilters[filter.id] = {
+          value: statusValue,
+          label: statusValue === 'active' ? 'Active' : 'Inactive'
+        };
+      } else {
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: String(filter.value)
+        };
+      }
     });
+    
+    setActiveFilters(newActiveFilters);
     
     // Update the users list with the new filters
     const fetchFilteredUsers = async () => {
@@ -181,8 +213,12 @@ const UsersPage = () => {
           page: pageIndex + 1,
           pageSize,
           search: searchTerm,
-          status: activeTab === 'all' ? undefined : activeTab,
-          ...filterObject
+          filters: {
+            ...filterObject,
+            // Convert status to isActive for backend
+            isActive: filterObject.status === 'active' ? true : 
+                     filterObject.status === 'inactive' ? false : undefined
+          }
         };
 
         const response = await userService.getUsers(params);
@@ -319,6 +355,7 @@ const UsersPage = () => {
         data={users}
         isLoading={isLoading}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         pagination={{
           pageIndex,
           pageSize,

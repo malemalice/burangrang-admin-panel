@@ -40,6 +40,8 @@ export class UsersService {
       sortOrder = 'desc',
       isActive,
       search,
+      roleId,
+      officeId,
     } = options || {};
 
     const where: Prisma.UserWhereInput = {};
@@ -54,6 +56,14 @@ export class UsersService {
 
     if (isActive !== undefined) {
       where.isActive = isActive;
+    }
+
+    if (roleId) {
+      where.roleId = roleId;
+    }
+
+    if (officeId) {
+      where.officeId = officeId;
     }
 
     const [users, total] = await Promise.all([

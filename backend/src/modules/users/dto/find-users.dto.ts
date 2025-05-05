@@ -9,6 +9,8 @@ export interface FindUsersOptions {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   search?: string;
+  roleId?: string;
+  officeId?: string;
 }
 
 export class FindUsersDto implements FindUsersOptions {
@@ -42,4 +44,12 @@ export class FindUsersDto implements FindUsersOptions {
     return value;
   })
   isActive?: boolean;
+
+  @IsOptional()
+  @IsString()
+  roleId?: string;
+
+  @IsOptional()
+  @IsString()
+  officeId?: string;
 } 

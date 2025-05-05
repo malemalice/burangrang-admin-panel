@@ -38,6 +38,7 @@ interface DataTableProps<T> {
     onPageSizeChange: (size: number) => void;
   };
   filterFields?: FilterField[];
+  activeFilters?: Record<string, { value: any; label: string }>;
   onSearch?: (searchTerm: string) => void;
   onApplyFilters?: (filters: FilterValue[]) => void;
 }
@@ -48,13 +49,14 @@ const DataTable = <T extends Record<string, any>>({
   isLoading = false,
   pagination,
   filterFields = [],
+  activeFilters = {},
   onSearch,
   onApplyFilters,
 }: DataTableProps<T>) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<FilterValue[]>([]);
+  const [localActiveFilters, setLocalActiveFilters] = useState<FilterValue[]>([]);
 
   // Handle sorting
   const handleSort = (key: string) => {
@@ -78,7 +80,7 @@ const DataTable = <T extends Record<string, any>>({
 
   // Apply filters function
   const handleApplyFilters = (filters: FilterValue[]) => {
-    setActiveFilters(filters);
+    setLocalActiveFilters(filters);
     
     // If external filter handler is provided, use it
     if (onApplyFilters) {
@@ -88,12 +90,19 @@ const DataTable = <T extends Record<string, any>>({
 
   // Remove a single filter
   const handleRemoveFilter = (id: string) => {
-    setActiveFilters(activeFilters.filter(filter => filter.id !== id));
+    const newFilters = localActiveFilters.filter(filter => filter.id !== id);
+    setLocalActiveFilters(newFilters);
+    if (onApplyFilters) {
+      onApplyFilters(newFilters);
+    }
   };
 
   // Reset all filters
   const handleResetFilters = () => {
-    setActiveFilters([]);
+    setLocalActiveFilters([]);
+    if (onApplyFilters) {
+      onApplyFilters([]);
+    }
   };
 
   // Filter data based on search term and active filters
@@ -106,7 +115,7 @@ const DataTable = <T extends Record<string, any>>({
     if (!matchesSearch) return false;
     
     // Then apply active filters
-    for (const filter of activeFilters) {
+    for (const filter of localActiveFilters) {
       const field = filterFields.find(f => f.id === filter.id);
       if (!field) continue;
       
@@ -183,17 +192,17 @@ const DataTable = <T extends Record<string, any>>({
           {filterFields.length > 0 && (
             <FilterButton 
               onClick={() => setIsFilterOpen(true)} 
-              filterCount={activeFilters.length}
+              filterCount={localActiveFilters.length}
             />
           )}
         </div>
       </div>
       
       {/* Display filter badges if there are active filters */}
-      {activeFilters.length > 0 && (
+      {localActiveFilters.length > 0 && (
         <div className="px-4 py-2 border-b">
           <FilterBadges
-            filters={activeFilters}
+            filters={localActiveFilters}
             fields={filterFields}
             onRemove={handleRemoveFilter}
           />
@@ -332,7 +341,7 @@ const DataTable = <T extends Record<string, any>>({
           fields={filterFields}
           onApplyFilters={handleApplyFilters}
           onResetFilters={handleResetFilters}
-          initialValues={activeFilters}
+          initialValues={localActiveFilters}
         />
       )}
     </div>
