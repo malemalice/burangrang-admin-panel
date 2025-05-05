@@ -6,62 +6,291 @@ This is an information management system with basic modules for user management,
 ## Technical Stack
 
 ### Backend
-- NestJS (Node.js framework)
-- Prisma (ORM)
-- REST API architecture
-- Clean Code Architecture implementation
+- **NestJS** (v11.0.1) - Node.js framework for building scalable server-side applications
+- **Prisma** (v6.7.0) - Next-generation ORM with type safety
+- **PostgreSQL** - Primary database
+- **JWT** - Authentication mechanism
+- **Class Validator/Transformer** - Data validation and transformation
+- **Swagger** - API documentation
 
 ### Frontend
-- React.js with Vite
-- shadcn/ui components
-- Clean Code Architecture implementation
+- **React** (v18.3.1) - UI library
+- **Vite** (v5.4.1) - Build tool and development server
+- **TypeScript** (v5.5.3) - Type-safe JavaScript
+- **Tailwind CSS** (v3.4.11) - Utility-first CSS framework
+- **shadcn/ui** - Component library built with Radix UI
+- **React Query** (v5.56.2) - Data fetching and state management
+- **React Router** (v6.26.2) - Client-side routing
+- **React Hook Form** (v7.53.0) - Form handling
+- **Zod** (v3.23.8) - Schema validation
+- **Sonner** - Toast notifications
 
 ## Core Features
-1. User Management
-   - User CRUD operations
-   - User authentication and authorization
-   - User profile management
 
-2. Role Management
-   - Role CRUD operations
-   - Permission assignment
-   - Role-based access control
+### 1. User Management
+- User CRUD operations
+- User authentication and authorization
+- User profile management
+- Filtering and searching users
+- Pagination support
+- Status management (active/inactive)
 
-3. Menu Management
-   - Menu CRUD operations
-   - Menu hierarchy management
-   - Menu access control
+### 2. Role Management
+- Role CRUD operations
+- Permission assignment
+- Role-based access control
+- Filtering and searching roles
+- Pagination support
 
-4. Office Management (Master Data)
-   - Office CRUD operations
-   - Office hierarchy management
-   - Office-related data management
+### 3. Menu Management
+- Menu CRUD operations
+- Menu hierarchy management
+- Menu access control
+- Filtering and searching menus
+- Pagination support
 
-## UI/UX Requirements
-- Admin panel layout with side menu
-- Confirmation alerts
-- Toast notifications
-- Pagination
-- Column filtering
-- Search functionality on index/table pages
+### 4. Office Management
+- Office CRUD operations
+- Office hierarchy management
+- Office-related data management
+- Filtering and searching offices
+- Pagination support
+
+## UI/UX Features
+- Modern admin panel layout with side menu
+- Responsive design
+- Confirmation dialogs for destructive actions
+- Toast notifications for user feedback
+- Loading states and spinners
+- Data tables with:
+  - Pagination
+  - Column filtering
+  - Search functionality
+  - Sorting
+  - Row actions
+- Form validation with error messages
+- Modal dialogs for CRUD operations
 
 ## Architecture Requirements
+
+### Backend
 - Clean Code Architecture implementation
-- REST API communication between frontend and backend
-- Proper error handling
-- Input validation
-- Security best practices
+- REST API design
+- Proper error handling and validation
+- JWT-based authentication
+- Role-based authorization
+- Database migrations and seeding
+- Environment configuration
+- API documentation with Swagger
+
+### Frontend
+- Clean Code Architecture implementation
+- Component-based architecture
+- Type-safe development
+- Responsive design
+- State management
+- Form handling and validation
+- API integration
+- Error handling
+- Loading states
 
 ## Development Guidelines
-1. Follow Clean Code principles
-2. Implement proper error handling
-3. Use TypeScript for type safety
-4. Follow REST API best practices
-5. Implement proper authentication and authorization
-6. Use proper state management
-7. Implement responsive design
-8. Follow accessibility guidelines 
 
+### Code Organization
+- Follow Clean Code principles
+- Use TypeScript for type safety
+- Implement proper error handling
+- Follow REST API best practices
+- Use proper state management
+- Implement responsive design
+- Follow accessibility guidelines
+
+### Security
+- Implement proper authentication
+- Use role-based authorization
+- Validate all inputs
+- Sanitize data
+- Use environment variables
+- Implement proper error handling
+- Follow security best practices
+
+### Performance
+- Implement proper caching
+- Optimize database queries
+- Use pagination for large datasets
+- Implement proper loading states
+- Optimize bundle size
+- Use proper code splitting
+- Implement proper error boundaries
+
+## Testing Requirements
+- Unit tests for backend services
+- Integration tests for API endpoints
+- E2E tests for critical flows
+- Component tests for UI
+- Proper test coverage
+- CI/CD integration
+
+## Documentation Requirements
+- API documentation with Swagger
+- Component documentation
+- Setup instructions
+- Development guidelines
+- Deployment instructions
+- Environment variables documentation
+
+## Frontend Architecture
+
+### File Structure
+```
+frontend/
+├── public/                 # Static files
+├── src/
+│   ├── components/        # Reusable components
+│   │   ├── ui/           # shadcn/ui components
+│   │   ├── layout/       # Layout components
+│   │   └── shared/       # Shared components
+│   ├── features/         # Feature-specific components
+│   │   ├── auth/        # Authentication related
+│   │   ├── users/       # User management
+│   │   ├── roles/       # Role management
+│   │   ├── menus/       # Menu management
+│   │   └── offices/     # Office management
+│   ├── hooks/           # Custom React hooks
+│   ├── lib/             # Utility functions
+│   │   ├── api/        # API client setup
+│   │   ├── utils/      # Helper functions
+│   │   └── types/      # TypeScript types
+│   ├── pages/          # Page components
+│   ├── services/       # API services
+│   ├── store/          # State management
+│   ├── styles/         # Global styles
+│   ├── App.tsx         # Root component
+│   └── main.tsx        # Entry point
+├── .env                # Environment variables
+├── index.html          # HTML template
+├── package.json        # Dependencies
+├── tsconfig.json       # TypeScript config
+└── vite.config.ts      # Vite config
+```
+
+### Component Patterns
+
+#### 1. Layout Components
+- **AdminLayout**: Main layout with sidebar and header
+- **PageHeader**: Consistent page headers with actions
+- **Sidebar**: Navigation menu with collapsible sections
+- **Breadcrumbs**: Navigation breadcrumbs
+
+#### 2. Feature Components
+- **List/Table Views**:
+  - DataTable component with pagination, sorting, filtering
+  - FilterDrawer for advanced filtering
+  - Action buttons (Add, Edit, Delete)
+  - Status badges and indicators
+
+- **Form Components**:
+  - FormDialog for create/edit operations
+  - Form validation with Zod
+  - Error message display
+  - Loading states
+
+- **Confirmation Components**:
+  - ConfirmDialog for destructive actions
+  - Toast notifications for feedback
+
+#### 3. State Management
+- React Query for server state
+- Local state with useState/useReducer
+- Context for global state
+- Custom hooks for reusable logic
+
+#### 4. API Integration
+- Service layer for API calls
+- React Query for data fetching
+- Error handling and loading states
+- Type-safe API responses
+
+### Common Patterns
+
+#### 1. Data Table Pattern
+```typescript
+interface DataTableProps<T> {
+  columns: ColumnDef<T>[];
+  data: T[];
+  isLoading?: boolean;
+  pagination?: {
+    pageIndex: number;
+    pageSize: number;
+    pageCount: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (size: number) => void;
+  };
+  filterFields?: FilterField[];
+  onSearch?: (term: string) => void;
+  onApplyFilters?: (filters: FilterValue[]) => void;
+}
+```
+
+#### 2. Form Dialog Pattern
+```typescript
+interface FormDialogProps<T> {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: T) => Promise<void>;
+  initialData?: T;
+  title: string;
+  schema: z.ZodSchema<T>;
+}
+```
+
+#### 3. Service Pattern
+```typescript
+interface Service<T> {
+  getAll: (params?: QueryParams) => Promise<PaginatedResponse<T>>;
+  getById: (id: string) => Promise<T>;
+  create: (data: CreateDTO<T>) => Promise<T>;
+  update: (id: string, data: UpdateDTO<T>) => Promise<T>;
+  delete: (id: string) => Promise<void>;
+}
+```
+
+### Best Practices
+
+1. **Component Organization**:
+   - Feature-based folder structure
+   - Shared components in common directories
+   - Clear separation of concerns
+
+2. **State Management**:
+   - Use React Query for server state
+   - Local state for UI-only state
+   - Context for global state
+   - Custom hooks for reusable logic
+
+3. **Type Safety**:
+   - TypeScript for all components
+   - Zod for runtime validation
+   - Proper type definitions
+   - Generic components where appropriate
+
+4. **Performance**:
+   - Code splitting with React.lazy
+   - Memoization with useMemo/useCallback
+   - Virtual scrolling for large lists
+   - Optimistic updates
+
+5. **Error Handling**:
+   - Global error boundary
+   - Toast notifications
+   - Form validation
+   - Loading states
+
+6. **Accessibility**:
+   - ARIA labels
+   - Keyboard navigation
+   - Focus management
+   - Color contrast
 
 create information management system, consist of basic modul for user management, role management (with permissions inside it), menu management, and master data for office management. Layout will be like admin panel, with sidemenu. tech stack, separate frontend and backend, communicate using rest. backend use nest js with prisma as orm. frontend use react js with vite, ui/ux component use shadcn. Add also basic fitur for admin panel,like confirm alert, alert, notification using toast, pagination, column filter and search on index page/table page. Both need to implement clean code architecture. Do this first, put your understanding context inside prompt.md, to be used later for communication with you. Then create todo checklist of the feature, update the checklist if you had done build it. After finish, please check again for errors
 
