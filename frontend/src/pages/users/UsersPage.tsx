@@ -102,26 +102,26 @@ const UsersPage = () => {
   // Fetch users when pagination, search, or filters change
   useEffect(() => {
     const fetchUsers = async () => {
-      setIsLoading(true);
-      try {
+    setIsLoading(true);
+    try {
         const params = {
           page: pageIndex + 1,
-          pageSize,
-          search: searchTerm,
+        pageSize,
+        search: searchTerm,
           status: activeTab === 'all' ? undefined : activeTab
         };
 
         const response = await userService.getUsers(params);
-        setUsers(response.data);
-        setTotalUsers(response.meta.total);
+      setUsers(response.data);
+      setTotalUsers(response.meta.total);
         setPageCount(Math.ceil(response.meta.total / pageSize));
-      } catch (error) {
-        console.error('Failed to fetch users:', error);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
         toast.error('Failed to load users');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
     fetchUsers();
   }, [pageIndex, pageSize, searchTerm, activeTab]);
@@ -285,7 +285,7 @@ const UsersPage = () => {
             <X className="mr-1 h-3 w-3" />
           )}
           {user.status}
-        </Badge>
+          </Badge>
       )
     },
     {

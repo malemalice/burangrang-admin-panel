@@ -109,7 +109,7 @@ const userService = {
             if (typeof value === 'boolean') {
               queryParams.append(key, value.toString());
             } else {
-              queryParams.append(key, value.toString());
+            queryParams.append(key, value.toString());
             }
           }
         });

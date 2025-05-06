@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import {
+import { 
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -27,15 +27,15 @@ const UserDetailPage = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
-
+  
   useEffect(() => {
     const fetchUser = async () => {
-      if (!userId) {
+        if (!userId) {
         setError('User ID is required');
         setLoading(false);
         return;
-      }
-
+        }
+        
       try {
         setLoading(true);
         setError(null);
@@ -85,7 +85,7 @@ const UserDetailPage = () => {
           <Button variant="outline" onClick={() => navigate('/users')}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Users
-          </Button>
+        </Button>
         </div>
         <Card>
           <CardContent className="pt-6">
@@ -103,26 +103,26 @@ const UserDetailPage = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">User Details</h1>
         <div className="space-x-4">
-          <Button variant="outline" onClick={() => navigate('/users')}>
+            <Button variant="outline" onClick={() => navigate('/users')}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Users
-          </Button>
+            </Button>
           <Button variant="outline" onClick={() => navigate(`/users/${userId}/edit`)}>
             <Edit className="mr-2 h-4 w-4" />
             Edit User
-          </Button>
+            </Button>
           <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
             <Trash2 className="mr-2 h-4 w-4" />
             Delete User
-          </Button>
-        </div>
+            </Button>
+          </div>
       </div>
 
-      <Card>
-        <CardHeader>
+        <Card>
+          <CardHeader>
           <CardTitle>User Information</CardTitle>
           <CardDescription>View user details and permissions</CardDescription>
-        </CardHeader>
+          </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
@@ -172,11 +172,11 @@ const UserDetailPage = () => {
               <Label className="text-sm font-medium text-gray-500">Updated At</Label>
               <div className="text-base">
                 {new Date(user.updatedAt).toLocaleString()}
-              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+              </div>
+          </CardContent>
+        </Card>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>

@@ -48,7 +48,7 @@ export class RolesService {
         isActive: createRoleDto.isActive,
         permissions: {
           connect: allPermissionIds.map(id => ({ id }))
-        }
+            }
       },
       include: {
         permissions: true,
@@ -143,7 +143,7 @@ export class RolesService {
         isActive: updateRoleDto.isActive,
         permissions: {
           set: allPermissionIds.map(id => ({ id }))
-        }
+            }
       },
       include: {
         permissions: true,

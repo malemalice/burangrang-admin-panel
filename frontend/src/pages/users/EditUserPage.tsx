@@ -61,7 +61,7 @@ const EditUserPage = () => {
 
       try {
         setLoading(true);
-        setError(null);
+      setError(null);
 
         // Fetch user data, roles, and offices in parallel
         const [userResponse, rolesResponse, officesResponse] = await Promise.all([
@@ -76,7 +76,7 @@ const EditUserPage = () => {
         // Find the office ID from the office name
         const userOffice = officesResponse.data.find(office => office.name === userResponse.office);
         const userRole = rolesResponse.data.find(role => role.name === userResponse.role);
-
+        
         setFormData({
           email: userResponse.email,
           password: '', // Don't set password when editing
@@ -129,11 +129,11 @@ const EditUserPage = () => {
       setError('Please fill in all required fields');
       return;
     }
-
+    
     try {
       setSaving(true);
-      setError(null);
-
+    setError(null);
+    
       const updateData: {
         email: string;
         firstName: string;
@@ -176,7 +176,7 @@ const EditUserPage = () => {
   }
 
   if (error && !loading) {
-    return (
+  return (
       <div className="container mx-auto py-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Edit User</h1>
@@ -207,8 +207,8 @@ const EditUserPage = () => {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>User Information</CardTitle>
+          <CardHeader>
+            <CardTitle>User Information</CardTitle>
           <CardDescription>Update user details and permissions</CardDescription>
         </CardHeader>
         <CardContent>
@@ -244,65 +244,65 @@ const EditUserPage = () => {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
-                  name="firstName"
-                  value={formData.firstName}
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    name="firstName"
+                    value={formData.firstName}
                   onChange={handleInputChange}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  name="lastName"
-                  value={formData.lastName}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    name="lastName"
+                    value={formData.lastName}
                   onChange={handleInputChange}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="roleId">Role</Label>
-                <Select
-                  value={formData.roleId}
-                  onValueChange={(value) => handleSelectChange('roleId', value)}
-                >
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="roleId">Role</Label>
+                  <Select
+                    value={formData.roleId}
+                    onValueChange={(value) => handleSelectChange('roleId', value)}
+                  >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a role" />
-                  </SelectTrigger>
-                  <SelectContent>
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
                     {roles.map((role) => (
-                      <SelectItem key={role.id} value={role.id}>
-                        {role.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="officeId">Office</Label>
-                <Select
-                  value={formData.officeId}
-                  onValueChange={(value) => handleSelectChange('officeId', value)}
-                >
+                        <SelectItem key={role.id} value={role.id}>
+                          {role.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="officeId">Office</Label>
+                  <Select
+                    value={formData.officeId}
+                    onValueChange={(value) => handleSelectChange('officeId', value)}
+                  >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select an office" />
-                  </SelectTrigger>
-                  <SelectContent>
+                      <SelectValue placeholder="Select an office" />
+                    </SelectTrigger>
+                    <SelectContent>
                     {offices.map((office) => (
-                      <SelectItem key={office.id} value={office.id}>
-                        {office.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
+                        <SelectItem key={office.id} value={office.id}>
+                          {office.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
                 <Label>Status</Label>
                 <div className="flex items-center space-x-2">
                   <Switch
@@ -315,34 +315,34 @@ const EditUserPage = () => {
                 </div>
               </div>
             </div>
-
+          
             <div className="flex justify-end space-x-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate('/users')}
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => navigate('/users')}
                 disabled={saving}
-              >
-                Cancel
-              </Button>
+            >
+              Cancel
+            </Button>
               <Button type="submit" disabled={saving}>
                 {saving ? (
                   <>
                     <div className="h-4 w-4 mr-2 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                    Saving...
+                  Saving...
                   </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" /> Save Changes
-                  </>
-                )}
-              </Button>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" /> Save Changes
+                </>
+              )}
+            </Button>
             </div>
-          </form>
+        </form>
         </CardContent>
       </Card>
     </div>
   );
 } 
 
-export default EditUserPage;
+export default EditUserPage; 

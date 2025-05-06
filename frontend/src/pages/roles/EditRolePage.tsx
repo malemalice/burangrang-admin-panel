@@ -219,7 +219,7 @@ const EditRolePage = () => {
                     rows={3}
                   />
                 </div>
-
+                
                 <div className="space-y-2">
                   <Label htmlFor="status">Status</Label>
                   <Select
@@ -245,34 +245,34 @@ const EditRolePage = () => {
                       {permissions.map(permission => {
                         const isDefault = roleService.isDefaultPermission(permission.name, defaultPermissions);
                         return (
-                          <div key={permission.id} className="flex items-start space-x-3">
-                            <Checkbox
-                              id={`permission-${permission.id}`}
+                        <div key={permission.id} className="flex items-start space-x-3">
+                          <Checkbox
+                            id={`permission-${permission.id}`}
                               checked={(formData.permissions || []).includes(permission.id)}
-                              onCheckedChange={(checked) => 
-                                handlePermissionChange(permission.id, checked === true)
-                              }
+                            onCheckedChange={(checked) => 
+                              handlePermissionChange(permission.id, checked === true)
+                            }
                               disabled={isDefault}
-                            />
-                            <div className="space-y-1">
-                              <Label
-                                htmlFor={`permission-${permission.id}`}
+                          />
+                          <div className="space-y-1">
+                            <Label
+                              htmlFor={`permission-${permission.id}`}
                                 className={`font-medium cursor-pointer ${isDefault ? 'text-gray-400' : ''}`}
-                              >
+                            >
                                 <span className="flex items-center gap-2">
-                                  {permission.name}
+                              {permission.name}
                                   {isDefault && (
                                     <Badge variant="secondary" className="text-xs">
                                       Default
                                     </Badge>
                                   )}
                                 </span>
-                              </Label>
-                              {permission.description && (
-                                <p className="text-xs text-gray-500">{permission.description}</p>
-                              )}
-                            </div>
+                            </Label>
+                            {permission.description && (
+                              <p className="text-xs text-gray-500">{permission.description}</p>
+                            )}
                           </div>
+                        </div>
                         );
                       })}
                     </div>
