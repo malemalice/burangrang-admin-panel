@@ -42,8 +42,12 @@ const NavItem = ({ to, icon: Icon, children, isOpen = true }: NavItemProps) => {
       className={({ isActive }) => cn(
         "flex items-center text-sm py-2 px-4 rounded-md transition-all",
         isActive
-          ? "bg-white/10 text-white font-medium"
-          : "text-white/80 hover:bg-white/10 hover:text-white",
+          ? isDark
+            ? "bg-gray-700 text-white font-medium"
+            : "bg-white/10 text-white font-medium"
+          : isDark
+            ? "text-gray-300 hover:bg-gray-700 hover:text-white"
+            : "text-white/80 hover:bg-white/10 hover:text-white",
         !isOpen && "justify-center px-2"
       )}
     >
@@ -63,7 +67,9 @@ const SubMenu = ({ title, icon: Icon, isOpen, children }: SubMenuProps) => {
         onClick={() => setExpanded(!expanded)}
         className={cn(
           "flex items-center w-full text-sm py-3 px-4 rounded-md transition-all",
-          "text-white/80 hover:bg-white/10 hover:text-white",
+          isDark
+            ? "text-gray-300 hover:bg-gray-700 hover:text-white"
+            : "text-white/80 hover:bg-white/10 hover:text-white",
           !isOpen && "justify-center px-2"
         )}
       >
@@ -91,13 +97,15 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
     <aside
       className={cn(
         "fixed h-full border-r shadow-sm z-30 transition-all duration-300 ease-in-out",
-        "bg-admin-primary border-admin-primary/30",
+        isDark
+          ? "bg-gray-900 border-gray-800"
+          : "bg-admin-primary border-admin-primary/30",
         isOpen ? "w-64" : "w-20"
       )}
     >
       <div className={cn(
         "flex items-center justify-center h-16 border-b px-4",
-        "border-white/10"
+        isDark ? "border-gray-800" : "border-white/10"
       )}>
         {isOpen ? (
           <h1 className="text-xl font-bold text-white">
