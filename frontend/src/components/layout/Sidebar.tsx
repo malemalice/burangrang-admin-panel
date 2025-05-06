@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { 
-  LayoutDashboard, 
-  Users, 
-  ShieldCheck, 
-  Menu as MenuIcon, 
-  Building2, 
-  Settings, 
-  ChevronDown, 
-  ChevronRight
+import {
+  LayoutDashboard,
+  Users,
+  ShieldCheck,
+  Menu as MenuIcon,
+  Building2,
+  Settings,
+  ChevronDown,
+  ChevronRight,
+  Building,
+  UsersRound
 } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
 
@@ -19,9 +21,9 @@ interface SidebarProps {
 
 interface NavItemProps {
   to: string;
-  icon: React.ElementType;
-  label: string;
-  isOpen: boolean;
+  icon?: React.ElementType;
+  children: React.ReactNode;
+  isOpen?: boolean;
 }
 
 interface SubMenuProps {
@@ -31,24 +33,26 @@ interface SubMenuProps {
   children: React.ReactNode;
 }
 
-const NavItem = ({ to, icon: Icon, label, isOpen }: NavItemProps) => {
+const NavItem = ({ to, icon: Icon, children, isOpen = true }: NavItemProps) => {
   const { isDark } = useTheme();
-  
+
   return (
     <NavLink
       to={to}
       className={({ isActive }) => cn(
-        "flex items-center text-sm py-3 px-4 rounded-md transition-all",
-        isActive 
-          ? "bg-admin-primary text-white font-medium shadow-md" 
-          : isDark 
-            ? "text-gray-300 hover:bg-gray-700" 
-            : "text-slate-700 hover:bg-slate-100",
+        "flex items-center text-sm py-2 px-4 rounded-md transition-all",
+        isActive
+          ? isDark
+            ? "bg-admin-primary/20 text-blue-400 font-medium"
+            : "bg-admin-primary/10 text-admin-primary font-medium"
+          : isDark
+            ? "text-gray-400 hover:bg-gray-700 hover:text-blue-400"
+            : "text-slate-600 hover:bg-slate-50 hover:text-admin-primary",
         !isOpen && "justify-center px-2"
       )}
     >
-      <Icon size={20} className={cn(!isOpen && "mx-auto")} />
-      {isOpen && <span className="ml-3">{label}</span>}
+      {Icon && <Icon size={20} className={cn(!isOpen && "mx-auto")} />}
+      {isOpen && <span className={cn(Icon && "ml-3")}>{children}</span>}
     </NavLink>
   );
 };
@@ -63,8 +67,8 @@ const SubMenu = ({ title, icon: Icon, isOpen, children }: SubMenuProps) => {
         onClick={() => setExpanded(!expanded)}
         className={cn(
           "flex items-center w-full text-sm py-3 px-4 rounded-md transition-all",
-          isDark 
-            ? "text-gray-300 hover:bg-gray-700" 
+          isDark
+            ? "text-gray-300 hover:bg-gray-700"
             : "text-slate-700 hover:bg-slate-100",
           !isOpen && "justify-center px-2"
         )}
@@ -88,13 +92,13 @@ const SubMenu = ({ title, icon: Icon, isOpen, children }: SubMenuProps) => {
 
 const Sidebar = ({ isOpen }: SidebarProps) => {
   const { isDark } = useTheme();
-  
+
   return (
-    <aside 
+    <aside
       className={cn(
         "fixed h-full border-r shadow-sm z-30 transition-all duration-300 ease-in-out",
-        isDark 
-          ? "bg-gray-800 border-gray-700" 
+        isDark
+          ? "bg-gray-800 border-gray-700"
           : "bg-white border-slate-200",
         isOpen ? "w-64" : "w-20"
       )}
@@ -119,77 +123,19 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
           </h1>
         )}
       </div>
-      
+
       <div className="py-4 px-2 space-y-1">
-        <NavItem to="/" icon={LayoutDashboard} label="Dashboard" isOpen={isOpen} />
-        <NavItem to="/users" icon={Users} label="Users" isOpen={isOpen} />
-        <NavItem to="/roles" icon={ShieldCheck} label="Roles" isOpen={isOpen} />
-        <NavItem to="/menus" icon={MenuIcon} label="Menus" isOpen={isOpen} />
-        
+        <NavItem to="/" icon={LayoutDashboard} isOpen={isOpen}>Dashboard</NavItem>
+
         <SubMenu title="Master Data" icon={Building2} isOpen={isOpen}>
-          <NavLink 
-            to="/master/offices"
-            className={({ isActive }) => cn(
-              "flex items-center text-sm py-2 px-4 rounded-md transition-all",
-              isActive 
-                ? isDark 
-                  ? "bg-admin-primary/20 text-blue-400 font-medium" 
-                  : "bg-admin-primary/10 text-admin-primary font-medium" 
-                : isDark
-                  ? "text-gray-400 hover:bg-gray-700 hover:text-blue-400"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-admin-primary"
-            )}
-          >
-            Offices
-          </NavLink>
-          <NavLink 
-            to="/master/departments"
-            className={({ isActive }) => cn(
-              "flex items-center text-sm py-2 px-4 rounded-md transition-all",
-              isActive 
-                ? isDark 
-                  ? "bg-admin-primary/20 text-blue-400 font-medium" 
-                  : "bg-admin-primary/10 text-admin-primary font-medium" 
-                : isDark
-                  ? "text-gray-400 hover:bg-gray-700 hover:text-blue-400"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-admin-primary"
-            )}
-          >
-            Departments
-          </NavLink>
-          <NavLink 
-            to="/master/positions"
-            className={({ isActive }) => cn(
-              "flex items-center text-sm py-2 px-4 rounded-md transition-all",
-              isActive 
-                ? isDark 
-                  ? "bg-admin-primary/20 text-blue-400 font-medium" 
-                  : "bg-admin-primary/10 text-admin-primary font-medium" 
-                : isDark
-                  ? "text-gray-400 hover:bg-gray-700 hover:text-blue-400"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-admin-primary"
-            )}
-          >
-            Positions
-          </NavLink>
-          <NavLink 
-            to="/master/assets"
-            className={({ isActive }) => cn(
-              "flex items-center text-sm py-2 px-4 rounded-md transition-all",
-              isActive 
-                ? isDark 
-                  ? "bg-admin-primary/20 text-blue-400 font-medium" 
-                  : "bg-admin-primary/10 text-admin-primary font-medium" 
-                : isDark
-                  ? "text-gray-400 hover:bg-gray-700 hover:text-blue-400"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-admin-primary"
-            )}
-          >
-            Assets
-          </NavLink>
+          <NavItem to="/master/offices" icon={Building} >Offices</NavItem>
+          <NavItem to="/master/departments" icon={UsersRound}>Departments</NavItem>
+          <NavItem to="/users" icon={Users} isOpen={isOpen}>Users</NavItem>
+          <NavItem to="/roles" icon={ShieldCheck} isOpen={isOpen}>Roles</NavItem>
+          <NavItem to="/menus" icon={MenuIcon} isOpen={isOpen}>Menus</NavItem>
         </SubMenu>
-        
-        <NavItem to="/settings" icon={Settings} label="Settings" isOpen={isOpen} />
+
+        <NavItem to="/settings" icon={Settings} isOpen={isOpen}>Settings</NavItem>
       </div>
     </aside>
   );
