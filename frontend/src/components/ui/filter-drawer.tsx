@@ -104,7 +104,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
       />
       <div 
         className={cn(
-          "fixed top-0 right-0 h-full bg-white z-50 w-full max-w-md shadow-lg overflow-auto transform transition-all duration-500 ease-out",
+          "fixed top-0 right-0 h-full bg-secondary z-50 w-full max-w-md shadow-lg overflow-auto transform transition-all duration-500 ease-out",
           isOpen 
             ? "translate-x-0 scale-x-100 opacity-100" 
             : "translate-x-full scale-x-95 opacity-0",
@@ -114,9 +114,9 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
           transformOrigin: 'right' 
         }}
       >
-        <div className="flex justify-between items-center p-4 border-b">
-          <h2 className="text-2xl font-bold">Filters</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+        <div className="flex justify-between items-center p-4 border-b border-secondary-foreground/20">
+          <h2 className="text-2xl font-bold text-secondary-foreground">Filters</h2>
+          <Button variant="ghost" size="icon" onClick={onClose} className="text-secondary-foreground hover:bg-secondary-foreground/10">
             <X className="h-5 w-5" />
             <span className="sr-only">Close</span>
           </Button>
@@ -131,7 +131,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
         >
           {fields.map((field) => (
             <div key={field.id} className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-secondary-foreground">
                 {field.label}
               </label>
 
@@ -330,11 +330,11 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
           ))}
         </div>
 
-        <div className="flex justify-between p-4 border-t mt-auto">
-          <Button variant="outline" onClick={handleResetFilters}>
+        <div className="flex justify-between p-4 border-t border-secondary-foreground/20 mt-auto">
+          <Button variant="outline" onClick={handleResetFilters} className="text-secondary-foreground border-secondary-foreground/20 hover:bg-secondary-foreground/10">
             Reset
           </Button>
-          <Button onClick={handleApplyFilters}>
+          <Button onClick={handleApplyFilters} className="bg-primary text-primary-foreground hover:bg-primary/90">
             Apply changes
           </Button>
         </div>
