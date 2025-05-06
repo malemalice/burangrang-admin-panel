@@ -33,6 +33,19 @@ interface SubMenuProps {
   children: React.ReactNode;
 }
 
+// Common styles for both NavItem and SubMenu
+const getNavStyles = (isDark: boolean, isActive = false) => {
+  if (isActive) {
+    return isDark
+      ? "bg-gray-700 text-white font-medium"
+      : "bg-white/10 text-white font-medium";
+  }
+  
+  return isDark
+    ? "text-gray-300 hover:bg-gray-700 hover:text-white"
+    : "text-white/80 hover:bg-white/10 hover:text-white";
+};
+
 const NavItem = ({ to, icon: Icon, children, isOpen = true }: NavItemProps) => {
   const { isDark } = useTheme();
 
@@ -41,13 +54,7 @@ const NavItem = ({ to, icon: Icon, children, isOpen = true }: NavItemProps) => {
       to={to}
       className={({ isActive }) => cn(
         "flex items-center text-sm py-2 px-4 rounded-md transition-all",
-        isActive
-          ? isDark
-            ? "bg-gray-700 text-white font-medium"
-            : "bg-white/10 text-white font-medium"
-          : isDark
-            ? "text-gray-300 hover:bg-gray-700 hover:text-white"
-            : "text-white/80 hover:bg-white/10 hover:text-white",
+        getNavStyles(isDark, isActive),
         !isOpen && "justify-center px-2"
       )}
     >
@@ -67,9 +74,7 @@ const SubMenu = ({ title, icon: Icon, isOpen, children }: SubMenuProps) => {
         onClick={() => setExpanded(!expanded)}
         className={cn(
           "flex items-center w-full text-sm py-3 px-4 rounded-md transition-all",
-          isDark
-            ? "text-gray-300 hover:bg-gray-700 hover:text-white"
-            : "text-white/80 hover:bg-white/10 hover:text-white",
+          getNavStyles(isDark),
           !isOpen && "justify-center px-2"
         )}
       >
@@ -107,22 +112,16 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
         "flex items-center justify-center h-16 border-b px-4",
         isDark ? "border-gray-800" : "border-white/10"
       )}>
-        {isOpen ? (
-          <h1 className="text-xl font-bold text-white">
-            Office Nexus
-          </h1>
-        ) : (
-          <h1 className="text-xl font-bold text-white">
-            ON
-          </h1>
-        )}
+        <h1 className="text-xl font-bold text-white">
+          {isOpen ? "Office Nexus" : "ON"}
+        </h1>
       </div>
 
       <div className="py-4 px-2 space-y-1">
         <NavItem to="/" icon={LayoutDashboard} isOpen={isOpen}>Dashboard</NavItem>
 
         <SubMenu title="Master Data" icon={Building2} isOpen={isOpen}>
-          <NavItem to="/master/offices" icon={Building} >Offices</NavItem>
+          <NavItem to="/master/offices" icon={Building}>Offices</NavItem>
           <NavItem to="/master/departments" icon={UsersRound}>Departments</NavItem>
           <NavItem to="/users" icon={Users} isOpen={isOpen}>Users</NavItem>
           <NavItem to="/roles" icon={ShieldCheck} isOpen={isOpen}>Roles</NavItem>
