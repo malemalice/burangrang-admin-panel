@@ -20,17 +20,15 @@ const queryClient = new QueryClient({
 /**
  * App wrapper with the needed providers
  */
-const AppWrapper = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <ThemeProvider>
-          {children}
-        </ThemeProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
-  );
-};
+const AppWrapper = ({ children }: { children: React.ReactNode }) => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <ThemeProvider>
+        {children}
+      </ThemeProvider>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 
 /**
  * Main application component

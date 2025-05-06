@@ -7,7 +7,7 @@ import { ProtectedRoute } from '@/lib/auth';
 /**
  * Render route based on configuration
  */
-export const renderRoute = (route: RouteConfig, isProtected: boolean = true): React.ReactNode => {
+const renderRoute = (route: RouteConfig, isProtected: boolean = true): React.ReactNode => {
   const Component = route.component;
   
   // For non-protected routes like login
@@ -34,6 +34,7 @@ export const renderRoute = (route: RouteConfig, isProtected: boolean = true): Re
 /**
  * Render multiple routes from configuration
  */
-export const renderRoutes = (routes: RouteConfig[], isProtected: boolean = true): React.ReactNode[] => {
-  return routes.map((route) => renderRoute(route, isProtected));
-}; 
+const renderRoutes = (routes: RouteConfig[], isProtected: boolean = true): React.ReactNode[] => 
+  routes.map((route) => renderRoute(route, isProtected));
+
+export { renderRoute, renderRoutes }; 
