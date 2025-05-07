@@ -1,34 +1,68 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Res } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Res, UseGuards, Get, Req, Logger } from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { Response } from 'express';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Response, Request } from 'express';
+import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
+import { Public } from '../../../shared/decorators/public.decorator';
+
+// Create interface for the request with user property
+interface RequestWithUser extends Request {
+  user: {
+    sub: string;
+    email: string;
+    role: string;
+  };
+}
 
 @Controller('auth')
 @ApiTags('Authentication')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(@Body() loginDto: { email: string; password: string }, @Res() res: Response) {
-    const user = await this.authService.validateUser(
-      loginDto.email,
-      loginDto.password,
-    );
-    const result = await this.authService.login(user, res);
-    return res.json(result);
+    this.logger.debug(`Login attempt for email: ${loginDto.email}`);
+    try {
+      const user = await this.authService.validateUser(
+        loginDto.email,
+        loginDto.password,
+      );
+      
+      const result = await this.authService.login(user, res);
+      this.logger.debug(`Login successful for user: ${loginDto.email}`);
+      return res.json(result);
+    } catch (error) {
+      this.logger.error(`Login failed for user: ${loginDto.email}`, error.stack);
+      throw error;
+    }
   }
 
   @Post('refresh')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token' })
   @ApiResponse({ status: 200, description: 'Token refreshed successfully' })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
-  async refreshToken(@Body() refreshDto: { token: string }, @Res() res: Response) {
-    const result = await this.authService.refreshToken({ refreshToken: refreshDto.token }, res);
+  async refreshToken(@Body() refreshTokenDto: { refreshToken: string }, @Res() res: Response) {
+    const result = await this.authService.refreshToken(refreshTokenDto, res);
     return res.json(result);
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'User logout' })
+  @ApiResponse({ status: 200, description: 'Logout successful' })
+  async logout(@Req() req: RequestWithUser, @Res() res: Response) {
+    await this.authService.logout(req.user.sub, res);
+    return res.json({ message: 'Logout successful' });
   }
 } 

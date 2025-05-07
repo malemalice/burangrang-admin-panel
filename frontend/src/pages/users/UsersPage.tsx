@@ -1,8 +1,7 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, UserPlus, Eye, ShieldCheck } from 'lucide-react';
+import { Edit, Trash2, UserPlus, Eye, ShieldCheck, Check, X, Building, MoreHorizontal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,151 +16,322 @@ import PageHeader from '@/components/ui/PageHeader';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  status: 'active' | 'inactive' | 'pending';
-  lastLogin: string;
-}
-
-// Mock data
-const mockUsers: User[] = Array(25)
-  .fill(null)
-  .map((_, i) => ({
-    id: `user-${i}`,
-    name: `User ${i + 1}`,
-    email: `user${i + 1}@example.com`,
-    role: i % 3 === 0 ? 'Admin' : i % 3 === 1 ? 'Manager' : 'User',
-    status: i % 5 === 0 ? 'inactive' : i % 7 === 0 ? 'pending' : 'active',
-    lastLogin: new Date(Date.now() - Math.floor(Math.random() * 10000000000)).toLocaleString(),
-  }));
+import { FilterField, FilterValue } from '@/components/ui/filter-drawer';
+import userService from '@/services/userService';
+import roleService from '@/services/roleService';
+import officeService from '@/services/officeService';
+import { User } from '@/lib/types';
 
 const UsersPage = () => {
   const navigate = useNavigate();
-  const [users] = useState<User[]>(mockUsers);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  const [pageCount, setPageCount] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [activeTab, setActiveTab] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
+  const [offices, setOffices] = useState<{ id: string; name: string }[]>([]);
+  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+
+  // Define filter fields for users
+  const filterFields: FilterField[] = [
+    {
+      id: 'name',
+      label: 'Name',
+      type: 'text'
+    },
+    {
+      id: 'email',
+      label: 'Email',
+      type: 'text'
+    },
+    {
+      id: 'roleId',
+      label: 'Role',
+      type: 'searchableSelect',
+      options: roles.map(role => ({
+        label: role.name,
+        value: role.id
+      }))
+    },
+    {
+      id: 'officeId',
+      label: 'Office',
+      type: 'searchableSelect',
+      options: offices.map(office => ({
+        label: office.name,
+        value: office.id
+      }))
+    },
+    {
+      id: 'status',
+      label: 'Status',
+      type: 'select',
+      options: [
+        { label: 'Active', value: 'active' },
+        { label: 'Inactive', value: 'inactive' }
+      ]
+    }
+  ];
+
+  // Fetch roles and offices for filter options
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      try {
+        const [rolesResponse, officesResponse] = await Promise.all([
+          roleService.getRoles({ page: 1, pageSize: 100 }),
+          officeService.getOffices({ page: 1, pageSize: 100 })
+        ]);
+
+        setRoles(rolesResponse.data);
+        setOffices(officesResponse.data);
+      } catch (error) {
+        console.error('Failed to fetch filter options:', error);
+        toast.error('Failed to load filter options');
+      }
+    };
+
+    fetchFilterOptions();
+  }, []);
+
+  // Fetch users when pagination, search, or filters change
+  useEffect(() => {
+    const fetchUsers = async () => {
+    setIsLoading(true);
+    try {
+        const params = {
+          page: pageIndex + 1,
+        pageSize,
+        search: searchTerm,
+          status: activeTab === 'all' ? undefined : activeTab
+        };
+
+        const response = await userService.getUsers(params);
+      setUsers(response.data);
+      setTotalUsers(response.meta.total);
+        setPageCount(Math.ceil(response.meta.total / pageSize));
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+        toast.error('Failed to load users');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+    fetchUsers();
+  }, [pageIndex, pageSize, searchTerm, activeTab]);
 
   const handleDeleteClick = (user: User) => {
     setUserToDelete(user);
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
-    if (userToDelete) {
-      // API call would go here
-      toast.success(`User "${userToDelete.name}" has been deleted`);
+  const handleDeleteConfirm = async () => {
+    if (!userToDelete) return;
+
+    try {
+      await userService.deleteUser(userToDelete.id);
+      toast.success('User deleted successfully');
+      // Refresh the user list
+      const params = {
+        page: pageIndex + 1,
+        pageSize,
+        search: searchTerm,
+        status: activeTab === 'all' ? undefined : activeTab
+      };
+      const response = await userService.getUsers(params);
+      setUsers(response.data);
+      setTotalUsers(response.meta.total);
+      setPageCount(Math.ceil(response.meta.total / pageSize));
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast.error('Failed to delete user');
+    } finally {
       setDeleteDialogOpen(false);
       setUserToDelete(null);
     }
+  };
+
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    setPageIndex(0); // Reset to first page on new search
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setPageIndex(0); // Reset to first page on tab change
+  };
+
+  const handleApplyFilters = (filters: FilterValue[]) => {
+    // Convert filters array to object format expected by fetchUsers
+    const filterObject: Record<string, any> = {};
+    const newActiveFilters: Record<string, { value: any; label: string }> = {};
+    
+    filters.forEach(filter => {
+      // Store the value for API call
+      filterObject[filter.id] = filter.value;
+      
+      // Store the value and label for display
+      if (filter.id === 'roleId') {
+        const role = roles.find(r => r.id === filter.value);
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: role?.name || ''
+        };
+      } else if (filter.id === 'officeId') {
+        const office = offices.find(o => o.id === filter.value);
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: office?.name || ''
+        };
+      } else if (filter.id === 'status') {
+        const statusValue = filter.value as string;
+        newActiveFilters[filter.id] = {
+          value: statusValue,
+          label: statusValue === 'active' ? 'Active' : 'Inactive'
+        };
+      } else {
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: String(filter.value)
+        };
+      }
+    });
+    
+    setActiveFilters(newActiveFilters);
+    
+    // Update the users list with the new filters
+    const fetchFilteredUsers = async () => {
+      setIsLoading(true);
+      try {
+        const params = {
+          page: pageIndex + 1,
+          pageSize,
+          search: searchTerm,
+          filters: {
+            ...filterObject,
+            // Convert status to isActive for backend
+            isActive: filterObject.status === 'active' ? true : 
+                     filterObject.status === 'inactive' ? false : undefined
+          }
+        };
+
+        const response = await userService.getUsers(params);
+        setUsers(response.data);
+        setTotalUsers(response.meta.total);
+        setPageCount(Math.ceil(response.meta.total / pageSize));
+      } catch (error) {
+        console.error('Failed to fetch filtered users:', error);
+        toast.error('Failed to load filtered users');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFilteredUsers();
   };
 
   const columns = [
     {
       id: 'name',
       header: 'Name',
-      isSortable: true,
       cell: (user: User) => (
         <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src="" />
-            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+          <Avatar>
+            <AvatarFallback>
+              {user.name.split(' ').map(n => n[0]).join('')}
+            </AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-medium">{user.name}</p>
-            <p className="text-xs text-gray-500">{user.email}</p>
+            <div className="font-medium">{user.name}</div>
+            <div className="text-sm text-gray-500">{user.email}</div>
           </div>
         </div>
-      ),
+      )
     },
     {
       id: 'role',
       header: 'Role',
-      isSortable: true,
       cell: (user: User) => (
         <div className="flex items-center gap-2">
-          <ShieldCheck size={16} className="text-gray-500" />
-          {user.role}
+          <ShieldCheck className="h-4 w-4 text-gray-500" />
+          <span>{user.role}</span>
         </div>
-      ),
+      )
+    },
+    {
+      id: 'office',
+      header: 'Office',
+      cell: (user: User) => (
+        <div className="flex items-center gap-2">
+          <Building className="h-4 w-4 text-gray-500" />
+          <span>{user.office}</span>
+        </div>
+      )
     },
     {
       id: 'status',
       header: 'Status',
-      isSortable: true,
-      cell: (user: User) => {
-        const statusConfig = {
-          active: { label: 'Active', color: 'bg-green-100 text-green-800' },
-          inactive: { label: 'Inactive', color: 'bg-gray-100 text-gray-800' },
-          pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800' },
-        };
-        const config = statusConfig[user.status];
-
-        return (
-          <Badge variant="outline" className={`${config.color} border-0`}>
-            {config.label}
+      cell: (user: User) => (
+        <Badge variant={user.status === 'active' ? 'default' : 'destructive'}>
+          {user.status === 'active' ? (
+            <Check className="mr-1 h-3 w-3" />
+          ) : (
+            <X className="mr-1 h-3 w-3" />
+          )}
+          {user.status}
           </Badge>
-        );
-      },
-    },
-    {
-      id: 'lastLogin',
-      header: 'Last Login',
-      isSortable: true,
-      cell: (user: User) => <div>{user.lastLogin}</div>,
+      )
     },
     {
       id: 'actions',
-      header: 'Actions',
+      header: '',
       cell: (user: User) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <span className="sr-only">Open menu</span>
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 15 15"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-              >
-                <path
-                  d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM13.625 7.5C13.625 8.12132 13.1213 8.625 12.5 8.625C11.8787 8.625 11.375 8.12132 11.375 7.5C11.375 6.87868 11.8787 6.375 12.5 6.375C13.1213 6.375 13.625 6.87868 13.625 7.5Z"
-                  fill="currentColor"
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                ></path>
-              </svg>
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => navigate(`/users/${user.id}`)}>
-              <Eye className="mr-2 h-4 w-4" /> View details
+              <Eye className="mr-2 h-4 w-4" />
+              View Details
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/users/${user.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
+              <Edit className="mr-2 h-4 w-4" />
+              Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
+              className="text-red-600"
               onClick={() => handleDeleteClick(user)}
-              className="text-red-600 focus:text-red-600"
             >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      ),
-    },
+      )
+    }
   ];
 
   return (
     <>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete User"
+        description={`Are you sure you want to delete the user "${userToDelete?.name}"? This action cannot be undone.`}
+        onConfirm={handleDeleteConfirm}
+      />
+
       <PageHeader
         title="Users"
         subtitle="Manage user accounts and permissions"
@@ -171,11 +341,10 @@ const UsersPage = () => {
           </Button>
         }
       >
-        <Tabs defaultValue="all" className="w-full">
+        <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
           <TabsList>
             <TabsTrigger value="all">All Users</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
-            <TabsTrigger value="pending">Pending</TabsTrigger>
             <TabsTrigger value="inactive">Inactive</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -184,25 +353,18 @@ const UsersPage = () => {
       <DataTable
         columns={columns}
         data={users}
+        isLoading={isLoading}
+        filterFields={filterFields}
+        activeFilters={activeFilters}
         pagination={{
           pageIndex,
           pageSize,
-          pageCount: Math.ceil(users.length / pageSize),
+          pageCount,
           onPageChange: setPageIndex,
           onPageSizeChange: setPageSize,
         }}
-      />
-
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title="Delete User"
-        description={`Are you sure you want to delete ${userToDelete?.name}? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={handleDeleteConfirm}
-        variant="destructive"
-        icon={<Trash2 className="h-5 w-5 text-destructive" />}
+        onSearch={handleSearch}
+        onApplyFilters={handleApplyFilters}
       />
     </>
   );

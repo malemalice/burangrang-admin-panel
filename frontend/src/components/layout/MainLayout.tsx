@@ -1,9 +1,9 @@
-
-import { useState } from 'react';
+import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import TopNavbar from './TopNavbar';
 import { Toaster } from "sonner";
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/lib/theme';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -11,13 +11,19 @@ interface MainLayoutProps {
 
 const MainLayout = ({ children }: MainLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { isDark } = useTheme();
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
   return (
-    <div className="min-h-screen bg-admin-background text-admin-foreground flex">
+    <div className={cn(
+      "min-h-screen flex",
+      isDark 
+        ? "bg-gray-900 text-gray-100" 
+        : "bg-admin-background text-admin-foreground"
+    )}>
       <Sidebar isOpen={sidebarOpen} />
       
       <div className={cn(
@@ -30,12 +36,17 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             {children}
           </div>
         </main>
-        <footer className="py-4 px-6 text-center text-sm text-gray-500 border-t">
+        <footer className={cn(
+          "py-4 px-6 text-center text-sm border-t",
+          isDark 
+            ? "text-gray-400 border-gray-700" 
+            : "text-slate-500 border-slate-200"
+        )}>
           <p>© {new Date().getFullYear()} Office Nexus System. All rights reserved.</p>
         </footer>
       </div>
       
-      <Toaster position="top-right" richColors />
+      <Toaster position="bottom-right" richColors />
     </div>
   );
 };

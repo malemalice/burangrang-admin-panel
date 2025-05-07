@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsBoolean } from 'class-validator';
 
 export class CreateOfficeDto {
   @IsString()
@@ -26,4 +26,8 @@ export class CreateOfficeDto {
   @IsUUID()
   @IsOptional()
   parentId?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 } 

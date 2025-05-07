@@ -52,6 +52,7 @@ Before you begin, ensure you have installed:
    ```bash
    npx prisma migrate dev
    npx prisma generate
+   npx prisma db seed
    ```
 
 5. Start the development server:
