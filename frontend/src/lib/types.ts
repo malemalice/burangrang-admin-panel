@@ -75,10 +75,9 @@ export interface Office {
 export interface Department {
   id: string;
   name: string;
-  description: string;
-  headId: string | null;
-  officeId: string;
-  status: 'active' | 'inactive';
+  code: string;
+  description?: string;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }

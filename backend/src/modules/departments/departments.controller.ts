@@ -3,6 +3,7 @@ import { DepartmentsService } from './departments.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { PaginationParams } from '../../shared/types/pagination-params';
 
 @ApiTags('departments')
 @Controller('departments')
@@ -20,8 +21,8 @@ export class DepartmentsController {
   @Get()
   @ApiOperation({ summary: 'Get all departments' })
   @ApiResponse({ status: 200, description: 'Return all departments.' })
-  findAll(@Query() query: any) {
-    return this.departmentsService.findAll();
+  findAll(@Query() query: PaginationParams) {
+    return this.departmentsService.findAll(query);
   }
 
   @Get(':id')
@@ -46,5 +47,13 @@ export class DepartmentsController {
   @ApiResponse({ status: 404, description: 'Department not found.' })
   remove(@Param('id') id: string) {
     return this.departmentsService.remove(id);
+  }
+
+  @Get('code/:code')
+  @ApiOperation({ summary: 'Get a department by code' })
+  @ApiResponse({ status: 200, description: 'Return the department.' })
+  @ApiResponse({ status: 404, description: 'Department not found.' })
+  findByCode(@Param('code') code: string) {
+    return this.departmentsService.findByCode(code);
   }
 } 
