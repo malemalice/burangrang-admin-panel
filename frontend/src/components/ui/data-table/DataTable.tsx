@@ -172,10 +172,8 @@ const DataTable = <T extends Record<string, any>>({
   const pageIndex = pagination?.pageIndex || 0;
   const pageCount = pagination?.pageCount || Math.ceil(sortedData.length / pageSize);
   
-  // Get current page data
-  const currentPageData = pagination
-    ? sortedData.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize)
-    : sortedData;
+  // Get current page data - Remove local slicing since we're using server-side pagination
+  const currentPageData = data;
 
   return (
     <div className="rounded-md border">

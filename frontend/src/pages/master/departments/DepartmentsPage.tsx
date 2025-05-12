@@ -76,6 +76,12 @@ export default function DepartmentsPage() {
       const response = await departmentService.getDepartments(params);
       setDepartments(response.data);
       setTotalDepartments(response.meta.total);
+      
+      // Ensure pageIndex stays in sync with the actual page from the response
+      const actualPage = response.meta.page;
+      if (actualPage && actualPage - 1 !== pageIndex) {
+        setPageIndex(actualPage - 1);
+      }
     } catch (error) {
       console.error('Failed to fetch departments:', error);
       toast.error('Failed to load departments');
