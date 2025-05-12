@@ -27,7 +27,7 @@ const UsersPage = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [limit, setLimit] = useState(10);
   const [pageCount, setPageCount] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -84,8 +84,8 @@ const UsersPage = () => {
     const fetchFilterOptions = async () => {
       try {
         const [rolesResponse, officesResponse] = await Promise.all([
-          roleService.getRoles({ page: 1, pageSize: 100 }),
-          officeService.getOffices({ page: 1, pageSize: 100 })
+          roleService.getRoles({ page: 1, limit: 100 }),
+          officeService.getOffices({ page: 1, limit: 100 })
         ]);
 
         setRoles(rolesResponse.data);
@@ -102,29 +102,37 @@ const UsersPage = () => {
   // Fetch users when pagination, search, or filters change
   useEffect(() => {
     const fetchUsers = async () => {
-    setIsLoading(true);
-    try {
+      setIsLoading(true);
+      try {
         const params = {
           page: pageIndex + 1,
-        pageSize,
-        search: searchTerm,
-          status: activeTab === 'all' ? undefined : activeTab
+          limit,
+          search: searchTerm,
+          filters: {
+            ...Object.entries(activeFilters).reduce((acc, [key, item]) => ({
+              ...acc,
+              [key]: item.value
+            }), {}),
+            isActive: activeFilters.status?.value === 'active' ? true :
+                     activeFilters.status?.value === 'inactive' ? false :
+                     undefined
+          }
         };
 
         const response = await userService.getUsers(params);
-      setUsers(response.data);
-      setTotalUsers(response.meta.total);
-        setPageCount(Math.ceil(response.meta.total / pageSize));
-    } catch (error) {
-      console.error('Failed to fetch users:', error);
+        setUsers(response.data);
+        setTotalUsers(response.meta.total);
+        setPageCount(Math.ceil(response.meta.total / limit));
+      } catch (error) {
+        console.error('Failed to fetch users:', error);
         toast.error('Failed to load users');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
     fetchUsers();
-  }, [pageIndex, pageSize, searchTerm, activeTab]);
+  }, [pageIndex, limit, searchTerm, activeFilters, activeTab]);
 
   const handleDeleteClick = (user: User) => {
     setUserToDelete(user);
@@ -140,14 +148,22 @@ const UsersPage = () => {
       // Refresh the user list
       const params = {
         page: pageIndex + 1,
-        pageSize,
+        limit,
         search: searchTerm,
-        status: activeTab === 'all' ? undefined : activeTab
+        filters: {
+          ...Object.entries(activeFilters).reduce((acc, [key, item]) => ({
+            ...acc,
+            [key]: item.value
+          }), {}),
+          isActive: activeFilters.status?.value === 'active' ? true :
+                   activeFilters.status?.value === 'inactive' ? false :
+                   undefined
+        }
       };
       const response = await userService.getUsers(params);
       setUsers(response.data);
       setTotalUsers(response.meta.total);
-      setPageCount(Math.ceil(response.meta.total / pageSize));
+      setPageCount(Math.ceil(response.meta.total / limit));
     } catch (error) {
       console.error('Error deleting user:', error);
       toast.error('Failed to delete user');
@@ -168,15 +184,9 @@ const UsersPage = () => {
   };
 
   const handleApplyFilters = (filters: FilterValue[]) => {
-    // Convert filters array to object format expected by fetchUsers
-    const filterObject: Record<string, any> = {};
     const newActiveFilters: Record<string, { value: any; label: string }> = {};
     
     filters.forEach(filter => {
-      // Store the value for API call
-      filterObject[filter.id] = filter.value;
-      
-      // Store the value and label for display
       if (filter.id === 'roleId') {
         const role = roles.find(r => r.id === filter.value);
         newActiveFilters[filter.id] = {
@@ -190,10 +200,9 @@ const UsersPage = () => {
           label: office?.name || ''
         };
       } else if (filter.id === 'status') {
-        const statusValue = filter.value as string;
         newActiveFilters[filter.id] = {
-          value: statusValue,
-          label: statusValue === 'active' ? 'Active' : 'Inactive'
+          value: filter.value,
+          label: filter.value === 'active' ? 'Active' : 'Inactive'
         };
       } else {
         newActiveFilters[filter.id] = {
@@ -204,36 +213,7 @@ const UsersPage = () => {
     });
     
     setActiveFilters(newActiveFilters);
-    
-    // Update the users list with the new filters
-    const fetchFilteredUsers = async () => {
-      setIsLoading(true);
-      try {
-        const params = {
-          page: pageIndex + 1,
-          pageSize,
-          search: searchTerm,
-          filters: {
-            ...filterObject,
-            // Convert status to isActive for backend
-            isActive: filterObject.status === 'active' ? true : 
-                     filterObject.status === 'inactive' ? false : undefined
-          }
-        };
-
-        const response = await userService.getUsers(params);
-        setUsers(response.data);
-        setTotalUsers(response.meta.total);
-        setPageCount(Math.ceil(response.meta.total / pageSize));
-      } catch (error) {
-        console.error('Failed to fetch filtered users:', error);
-        toast.error('Failed to load filtered users');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchFilteredUsers();
+    setPageIndex(0); // Reset to first page on new filters
   };
 
   const columns = [
@@ -324,17 +304,9 @@ const UsersPage = () => {
 
   return (
     <>
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title="Delete User"
-        description={`Are you sure you want to delete the user "${userToDelete?.name}"? This action cannot be undone.`}
-        onConfirm={handleDeleteConfirm}
-      />
-
       <PageHeader
         title="Users"
-        subtitle="Manage user accounts and permissions"
+        subtitle="Manage your organization's users"
         actions={
           <Button onClick={() => navigate('/users/new')}>
             <UserPlus className="mr-2 h-4 w-4" /> Add User
@@ -354,17 +326,25 @@ const UsersPage = () => {
         columns={columns}
         data={users}
         isLoading={isLoading}
-        filterFields={filterFields}
-        activeFilters={activeFilters}
         pagination={{
           pageIndex,
-          pageSize,
-          pageCount,
+          limit,
+          pageCount: Math.ceil(totalUsers / limit),
           onPageChange: setPageIndex,
-          onPageSizeChange: setPageSize,
+          onPageSizeChange: setLimit,
+          total: totalUsers
         }}
+        filterFields={filterFields}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+      />
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete User"
+        description={`Are you sure you want to delete "${userToDelete?.name}"? This action cannot be undone.`}
+        onConfirm={handleDeleteConfirm}
       />
     </>
   );

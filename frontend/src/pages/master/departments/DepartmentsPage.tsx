@@ -23,7 +23,7 @@ export default function DepartmentsPage() {
   const navigate = useNavigate();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [limit, setLimit] = useState(10);
   const [totalDepartments, setTotalDepartments] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [departmentToDelete, setDepartmentToDelete] = useState<Department | null>(null);
@@ -45,12 +45,12 @@ export default function DepartmentsPage() {
       type: 'text',
     },
     {
-      id: 'isActive',
+      id: 'status',
       label: 'Status',
       type: 'select',
       options: [
-        { label: 'Active', value: 'true' },
-        { label: 'Inactive', value: 'false' },
+        { label: 'Active', value: 'active' },
+        { label: 'Inactive', value: 'inactive' },
       ],
     },
   ];
@@ -58,16 +58,18 @@ export default function DepartmentsPage() {
   const fetchDepartments = async () => {
     setIsLoading(true);
     try {
-      // Apply status filter based on active tab
-      const statusFilter = activeTab !== 'all' ? activeTab === 'active' : undefined;
-      
       const params: PaginationParams = {
         page: pageIndex + 1,
-        pageSize,
+        limit,
         search: searchTerm,
         filters: {
-          ...activeFilters,
-          isActive: statusFilter
+          ...Object.entries(activeFilters).reduce((acc, [key, item]) => ({
+            ...acc,
+            [key]: item.value
+          }), {}),
+          isActive: activeFilters.status?.value === 'active' ? true :
+                   activeFilters.status?.value === 'inactive' ? false :
+                   undefined
         }
       };
 
@@ -85,7 +87,7 @@ export default function DepartmentsPage() {
   // Fetch departments when pagination, search, filters, or active tab changes
   useEffect(() => {
     fetchDepartments();
-  }, [pageIndex, pageSize, searchTerm, activeFilters, activeTab]);
+  }, [pageIndex, limit, searchTerm, activeFilters, activeTab]);
 
   const handleDeleteClick = (department: Department) => {
     setDepartmentToDelete(department);
@@ -117,20 +119,13 @@ export default function DepartmentsPage() {
   };
 
   const handleApplyFilters = (filters: FilterValue[]) => {
-    // Convert filters array to object format expected by fetchDepartments
-    const filterObject: Record<string, any> = {};
     const newActiveFilters: Record<string, { value: any; label: string }> = {};
     
     filters.forEach(filter => {
-      // Store the value for API call
-      filterObject[filter.id] = filter.value;
-      
-      // Store the value and label for display
-      if (filter.id === 'isActive') {
-        const isActive = filter.value === 'true';
+      if (filter.id === 'status') {
         newActiveFilters[filter.id] = {
-          value: isActive,
-          label: isActive ? 'Active' : 'Inactive'
+          value: filter.value,
+          label: filter.value === 'active' ? 'Active' : 'Inactive'
         };
       } else {
         newActiveFilters[filter.id] = {
@@ -147,6 +142,17 @@ export default function DepartmentsPage() {
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     setPageIndex(0);
+    if (value === 'all') {
+      setActiveFilters({});
+    } else if (value === 'active') {
+      setActiveFilters({
+        status: { value: 'active', label: 'Active' }
+      });
+    } else if (value === 'inactive') {
+      setActiveFilters({
+        status: { value: 'inactive', label: 'Inactive' }
+      });
+    }
   };
 
   const columns = [
@@ -240,10 +246,11 @@ export default function DepartmentsPage() {
         isLoading={isLoading}
         pagination={{
           pageIndex,
-          pageSize,
-          pageCount: Math.ceil(totalDepartments / pageSize),
+          limit,
+          pageCount: Math.ceil(totalDepartments / limit),
           onPageChange: setPageIndex,
-          onPageSizeChange: setPageSize,
+          onPageSizeChange: setLimit,
+          total: totalDepartments
         }}
         filterFields={filterFields}
         onSearch={handleSearch}

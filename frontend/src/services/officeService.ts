@@ -67,10 +67,9 @@ const officeService = {
   // Get all offices with pagination and filtering
   getOffices: async (params: PaginationParams): Promise<PaginatedResponse<Office>> => {
     try {
-      // Basic query parameters
       const queryParams = new URLSearchParams({
         page: params.page.toString(),
-        limit: params.pageSize.toString()
+        limit: params.limit.toString()
       });
 
       // Add sorting if provided
@@ -94,22 +93,6 @@ const officeService = {
       }
 
       const response = await api.get(`/offices?${queryParams.toString()}`);
-      
-      // If the backend doesn't return paginated data yet, we'll handle it
-      if (Array.isArray(response.data)) {
-        const offices = response.data.map(mapOfficeDtoToOffice);
-        return {
-          data: offices,
-          meta: {
-            total: offices.length,
-            page: params.page,
-            pageSize: params.pageSize,
-            pageCount: Math.ceil(offices.length / params.pageSize)
-          }
-        };
-      }
-      
-      // If backend returns proper paginated response
       return {
         data: response.data.data.map(mapOfficeDtoToOffice),
         meta: response.data.meta

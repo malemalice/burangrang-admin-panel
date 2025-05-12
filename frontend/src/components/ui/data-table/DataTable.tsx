@@ -32,10 +32,11 @@ interface DataTableProps<T> {
   isLoading?: boolean;
   pagination?: {
     pageIndex: number;
-    pageSize: number;
+    limit: number;
     pageCount: number;
     onPageChange: (page: number) => void;
     onPageSizeChange: (size: number) => void;
+    total?: number;
   };
   filterFields?: FilterField[];
   activeFilters?: Record<string, { value: any; label: string }>;
@@ -167,7 +168,7 @@ const DataTable = <T extends Record<string, any>>({
     : filteredData;
 
   // Calculate pagination values
-  const pageSize = pagination?.pageSize || data.length;
+  const pageSize = pagination?.limit || data.length;
   const pageIndex = pagination?.pageIndex || 0;
   const pageCount = pagination?.pageCount || Math.ceil(sortedData.length / pageSize);
   
@@ -265,7 +266,7 @@ const DataTable = <T extends Record<string, any>>({
         <div className="flex items-center justify-between px-4 py-3 border-t">
           <div className="flex items-center gap-2">
             <Select
-              value={pageSize.toString()}
+              value={pagination.limit.toString()}
               onValueChange={(value) => pagination.onPageSizeChange(Number(value))}
             >
               <SelectTrigger className="w-[100px]">
@@ -280,11 +281,21 @@ const DataTable = <T extends Record<string, any>>({
               </SelectContent>
             </Select>
             <p className="text-sm text-gray-500">
-              Showing <span className="font-medium">{pageIndex * pageSize + 1}</span> to{" "}
-              <span className="font-medium">
-                {Math.min((pageIndex + 1) * pageSize, filteredData.length)}
-              </span>{" "}
-              of <span className="font-medium">{filteredData.length}</span> results
+              {pagination.total ? (
+                <>
+                  Showing{" "}
+                  <span className="font-medium">
+                    {pagination.total === 0 ? 0 : pageIndex * pagination.limit + 1}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-medium">
+                    {Math.min((pageIndex + 1) * pagination.limit, pagination.total)}
+                  </span>{" "}
+                  of <span className="font-medium">{pagination.total}</span> results
+                </>
+              ) : (
+                "No results"
+              )}
             </p>
           </div>
           

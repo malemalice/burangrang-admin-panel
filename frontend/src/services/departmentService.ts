@@ -44,11 +44,41 @@ const mapDepartmentDtoToDepartment = (departmentDto: DepartmentDTO): Department 
 const departmentService = {
   // Get all departments with pagination and filtering
   async getDepartments(params: PaginationParams): Promise<PaginatedResponse<Department>> {
-    const response = await api.get('/departments', { params });
-    return {
-      data: response.data.data.map(mapDepartmentDtoToDepartment),
-      meta: response.data.meta
-    };
+    try {
+      const queryParams = new URLSearchParams({
+        page: params.page.toString(),
+        limit: params.limit.toString()
+      });
+
+      // Add sorting if provided
+      if (params.sortBy) {
+        queryParams.append('sortBy', params.sortBy);
+        queryParams.append('sortOrder', params.sortOrder || 'asc');
+      }
+
+      // Add search if provided
+      if (params.search) {
+        queryParams.append('search', params.search);
+      }
+
+      // Add any additional filters
+      if (params.filters) {
+        Object.entries(params.filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            queryParams.append(key, value.toString());
+          }
+        });
+      }
+
+      const response = await api.get(`/departments?${queryParams.toString()}`);
+      return {
+        data: response.data.data.map(mapDepartmentDtoToDepartment),
+        meta: response.data.meta
+      };
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+      throw error;
+    }
   },
 
   // Get a single department by ID

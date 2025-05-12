@@ -23,14 +23,14 @@ const OfficesPage = () => {
   const navigate = useNavigate();
   const [offices, setOffices] = useState<Office[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [limit, setLimit] = useState(10);
   const [totalOffices, setTotalOffices] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [officeToDelete, setOfficeToDelete] = useState<Office | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState<Record<string, any>>({});
+  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -65,13 +65,18 @@ const OfficesPage = () => {
     try {
       const params: PaginationParams = {
         page: pageIndex + 1,
-        pageSize,
+        limit,
         sortBy: 'name',
         sortOrder: 'asc',
         search: searchTerm,
         filters: {
-          ...filters,
-          isActive: filters.isActive === 'true' ? true : filters.isActive === 'false' ? false : undefined,
+          ...Object.entries(activeFilters).reduce((acc, [key, item]) => ({
+            ...acc,
+            [key]: item.value
+          }), {}),
+          isActive: activeFilters.isActive?.value === true ? true : 
+                   activeFilters.isActive?.value === false ? false : 
+                   undefined,
         },
       };
 
@@ -89,7 +94,7 @@ const OfficesPage = () => {
   // Fetch offices when pagination, search, filters, or active tab changes
   useEffect(() => {
     fetchOffices();
-  }, [pageIndex, pageSize, searchTerm, filters, activeTab]);
+  }, [pageIndex, limit, searchTerm, activeFilters, activeTab]);
 
   const handleDeleteClick = (office: Office) => {
     setOfficeToDelete(office);
@@ -121,13 +126,16 @@ const OfficesPage = () => {
   };
 
   const handleApplyFilters = (filterValues: FilterValue[]) => {
-    const newFilters: Record<string, any> = {};
+    const newFilters: Record<string, { value: any; label: string }> = {};
     
     filterValues.forEach(filter => {
-      newFilters[filter.id] = filter.value;
+      newFilters[filter.id] = {
+        value: filter.value,
+        label: String(filter.value)
+      };
     });
     
-    setFilters(newFilters);
+    setActiveFilters(newFilters);
     setPageIndex(0); // Reset to first page on new filters
   };
 
@@ -135,11 +143,15 @@ const OfficesPage = () => {
     setActiveTab(value);
     setPageIndex(0);
     if (value === 'all') {
-      setFilters({});
+      setActiveFilters({});
     } else if (value === 'active') {
-      setFilters({ isActive: 'true' });
+      setActiveFilters({
+        isActive: { value: true, label: 'Active' }
+      });
     } else if (value === 'inactive') {
-      setFilters({ isActive: 'false' });
+      setActiveFilters({
+        isActive: { value: false, label: 'Inactive' }
+      });
     }
   };
 
@@ -273,7 +285,7 @@ const OfficesPage = () => {
     <>
       <PageHeader
         title="Offices"
-        subtitle="Manage your organization's office locations"
+        subtitle="Manage your organization's offices"
         actions={
           <Button onClick={() => navigate('/master/offices/new')}>
             <Plus className="mr-2 h-4 w-4" /> Add Office
@@ -295,10 +307,11 @@ const OfficesPage = () => {
         isLoading={isLoading}
         pagination={{
           pageIndex,
-          pageSize,
-          pageCount: Math.ceil(totalOffices / pageSize),
+          limit,
+          pageCount: Math.ceil(totalOffices / limit),
           onPageChange: setPageIndex,
-          onPageSizeChange: setPageSize,
+          onPageSizeChange: setLimit,
+          total: totalOffices
         }}
         filterFields={filterFields}
         onSearch={handleSearch}
@@ -309,7 +322,7 @@ const OfficesPage = () => {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Delete Office"
-        description={`Are you sure you want to delete the office "${officeToDelete?.name}"? This action cannot be undone.`}
+        description={`Are you sure you want to delete "${officeToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
       />
     </>
