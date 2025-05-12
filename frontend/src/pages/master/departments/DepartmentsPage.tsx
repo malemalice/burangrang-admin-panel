@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Building } from 'lucide-react';
+import { Edit, Trash2, Plus, Building, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -30,7 +30,7 @@ export default function DepartmentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState<Record<string, any>>({});
+  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
 
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -66,7 +66,7 @@ export default function DepartmentsPage() {
         pageSize,
         search: searchTerm,
         filters: {
-          ...filters,
+          ...activeFilters,
           isActive: statusFilter
         }
       };
@@ -85,7 +85,7 @@ export default function DepartmentsPage() {
   // Fetch departments when pagination, search, filters, or active tab changes
   useEffect(() => {
     fetchDepartments();
-  }, [pageIndex, pageSize, searchTerm, filters, activeTab]);
+  }, [pageIndex, pageSize, searchTerm, activeFilters, activeTab]);
 
   const handleDeleteClick = (department: Department) => {
     setDepartmentToDelete(department);
@@ -116,14 +116,31 @@ export default function DepartmentsPage() {
     setPageIndex(0); // Reset to first page on new search
   };
 
-  const handleApplyFilters = (filterValues: FilterValue[]) => {
-    const newFilters: Record<string, any> = {};
+  const handleApplyFilters = (filters: FilterValue[]) => {
+    // Convert filters array to object format expected by fetchDepartments
+    const filterObject: Record<string, any> = {};
+    const newActiveFilters: Record<string, { value: any; label: string }> = {};
     
-    filterValues.forEach(filter => {
-      newFilters[filter.id] = filter.value;
+    filters.forEach(filter => {
+      // Store the value for API call
+      filterObject[filter.id] = filter.value;
+      
+      // Store the value and label for display
+      if (filter.id === 'isActive') {
+        const isActive = filter.value === 'true';
+        newActiveFilters[filter.id] = {
+          value: isActive,
+          label: isActive ? 'Active' : 'Inactive'
+        };
+      } else {
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: String(filter.value)
+        };
+      }
     });
     
-    setFilters(newFilters);
+    setActiveFilters(newActiveFilters);
     setPageIndex(0); // Reset to first page on new filters
   };
 
@@ -174,21 +191,7 @@ export default function DepartmentsPage() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <span className="sr-only">Open menu</span>
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 15 15"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-              >
-                <path
-                  d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM13.625 7.5C13.625 8.12132 13.1213 8.625 12.5 8.625C11.8787 8.625 11.375 8.12132 11.375 7.5C11.375 6.87868 11.8787 6.375 12.5 6.375C13.1213 6.375 13.625 6.87868 13.625 7.5Z"
-                  fill="currentColor"
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                ></path>
-              </svg>
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -251,7 +254,7 @@ export default function DepartmentsPage() {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Delete Department"
-        description={`Are you sure you want to delete the department "${departmentToDelete?.name}"? This action cannot be undone.`}
+        description={`Are you sure you want to delete "${departmentToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
       />
     </>

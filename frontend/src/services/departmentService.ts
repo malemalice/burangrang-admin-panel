@@ -35,7 +35,6 @@ const mapDepartmentDtoToDepartment = (departmentDto: DepartmentDTO): Department 
     name: departmentDto.name,
     code: departmentDto.code,
     description: departmentDto.description || '',
-    status: departmentDto.isActive ? 'active' : 'inactive',
     isActive: departmentDto.isActive,
     createdAt: departmentDto.createdAt,
     updatedAt: departmentDto.updatedAt
@@ -44,27 +43,30 @@ const mapDepartmentDtoToDepartment = (departmentDto: DepartmentDTO): Department 
 
 const departmentService = {
   // Get all departments with pagination and filtering
-  async getDepartments(params: PaginationParams): Promise<PaginatedResponse<DepartmentDTO>> {
+  async getDepartments(params: PaginationParams): Promise<PaginatedResponse<Department>> {
     const response = await api.get('/departments', { params });
-    return response.data;
+    return {
+      data: response.data.data.map(mapDepartmentDtoToDepartment),
+      meta: response.data.meta
+    };
   },
 
   // Get a single department by ID
-  async getDepartment(id: string): Promise<DepartmentDTO> {
+  async getDepartment(id: string): Promise<Department> {
     const response = await api.get(`/departments/${id}`);
-    return response.data;
+    return mapDepartmentDtoToDepartment(response.data);
   },
 
   // Create a new department
-  async createDepartment(data: CreateDepartmentDTO): Promise<DepartmentDTO> {
+  async createDepartment(data: CreateDepartmentDTO): Promise<Department> {
     const response = await api.post('/departments', data);
-    return response.data;
+    return mapDepartmentDtoToDepartment(response.data);
   },
 
   // Update an existing department
-  async updateDepartment(id: string, data: UpdateDepartmentDTO): Promise<DepartmentDTO> {
+  async updateDepartment(id: string, data: UpdateDepartmentDTO): Promise<Department> {
     const response = await api.patch(`/departments/${id}`, data);
-    return response.data;
+    return mapDepartmentDtoToDepartment(response.data);
   },
 
   // Delete a department

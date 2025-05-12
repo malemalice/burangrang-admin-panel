@@ -3,8 +3,16 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { DepartmentDto } from './dto/department.dto';
-import { PaginationParams } from '../../shared/types/pagination-params';
 import { Prisma } from '@prisma/client';
+
+interface FindAllOptions {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  isActive?: boolean;
+  search?: string;
+}
 
 @Injectable()
 export class DepartmentsService {
@@ -18,8 +26,15 @@ export class DepartmentsService {
     return new DepartmentDto(department);
   }
 
-  async findAll(params: PaginationParams) {
-    const { page = 1, pageSize = 10, search, sortBy, sortOrder, isActive } = params;
+  async findAll(options?: FindAllOptions): Promise<{ data: DepartmentDto[]; meta: { total: number } }> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'name',
+      sortOrder = 'asc',
+      isActive,
+      search,
+    } = options || {};
 
     // Build where clause
     const where: Prisma.DepartmentWhereInput = {};
@@ -51,18 +66,13 @@ export class DepartmentsService {
     const departments = await this.prisma.department.findMany({
       where,
       orderBy,
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
     return {
       data: departments.map((department) => new DepartmentDto(department)),
-      meta: {
-        total,
-        page,
-        pageSize,
-        pageCount: Math.ceil(total / pageSize),
-      },
+      meta: { total },
     };
   }
 
@@ -109,11 +119,15 @@ export class DepartmentsService {
     });
   }
 
-  async findByCode(code: string): Promise<DepartmentDto | null> {
+  async findByCode(code: string): Promise<DepartmentDto> {
     const department = await this.prisma.department.findUnique({
       where: { code },
     });
 
-    return department ? new DepartmentDto(department) : null;
+    if (!department) {
+      throw new NotFoundException(`Department with code ${code} not found`);
+    }
+
+    return new DepartmentDto(department);
   }
 } 
