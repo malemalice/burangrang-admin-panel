@@ -55,18 +55,8 @@ const DataTable = <T extends Record<string, any>>({
   onApplyFilters,
 }: DataTableProps<T>) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [localActiveFilters, setLocalActiveFilters] = useState<FilterValue[]>([]);
-
-  // Handle sorting
-  const handleSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
 
   // Search handler
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,74 +96,9 @@ const DataTable = <T extends Record<string, any>>({
     }
   };
 
-  // Filter data based on search term and active filters
-  const filteredData = data.filter(item => {
-    // First apply search term filter
-    const matchesSearch = Object.values(item).some(value => 
-      value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    
-    if (!matchesSearch) return false;
-    
-    // Then apply active filters
-    for (const filter of localActiveFilters) {
-      const field = filterFields.find(f => f.id === filter.id);
-      if (!field) continue;
-      
-      const itemValue = item[filter.id];
-      
-      if (field.type === 'text') {
-        if (!itemValue?.toString().toLowerCase().includes((filter.value as string).toLowerCase())) {
-          return false;
-        }
-      } else if (field.type === 'select') {
-        // Handle multi-select vs single select
-        const filterValues = Array.isArray(filter.value) ? filter.value : [filter.value];
-        if (!filterValues.some(v => itemValue?.toString() === v)) {
-          return false;
-        }
-      } else if (field.type === 'date') {
-        const date = new Date(itemValue);
-        const filterDate = new Date(filter.value as string);
-        if (date.toDateString() !== filterDate.toDateString()) {
-          return false;
-        }
-      } else if (field.type === 'dateRange') {
-        const date = new Date(itemValue);
-        const { from, to } = filter.value as { from?: Date; to?: Date };
-        
-        if (from && date < new Date(from)) {
-          return false;
-        }
-        
-        if (to && date > new Date(to)) {
-          return false;
-        }
-      }
-    }
-    
-    return true;
-  });
-
-  // Sort data if sort config is set
-  const sortedData = sortConfig
-    ? [...filteredData].sort((a, b) => {
-        const aValue = a[sortConfig.key];
-        const bValue = b[sortConfig.key];
-        
-        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
-      })
-    : filteredData;
-
   // Calculate pagination values
-  const pageSize = pagination?.limit || data.length;
   const pageIndex = pagination?.pageIndex || 0;
-  const pageCount = pagination?.pageCount || Math.ceil(sortedData.length / pageSize);
-  
-  // Get current page data - Remove local slicing since we're using server-side pagination
-  const currentPageData = data;
+  const pageCount = pagination?.pageCount || 1;
 
   return (
     <div className="rounded-md border">
@@ -223,23 +148,17 @@ const DataTable = <T extends Record<string, any>>({
                   <TableHead 
                     key={column.id}
                     className={cn(column.isSortable && "cursor-pointer hover:bg-gray-50")}
-                    onClick={() => column.isSortable && handleSort(column.id)}
                   >
                     <div className="flex items-center gap-2">
                       {column.header}
-                      {sortConfig?.key === column.id && (
-                        <span className="text-xs">
-                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                        </span>
-                      )}
                     </div>
                   </TableHead>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {currentPageData.length > 0 ? (
-                currentPageData.map((item, index) => (
+              {data.length > 0 ? (
+                data.map((item, index) => (
                   <TableRow key={index}>
                     {columns.map((column) => (
                       <TableCell key={column.id}>

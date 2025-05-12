@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, Plus, Building, MoreHorizontal } from 'lucide-react';
@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import DataTable from '@/components/ui/data-table/DataTable';
 import PageHeader from '@/components/ui/PageHeader';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Department, PaginationParams } from '@/lib/types';
 import departmentService from '@/services/departmentService';
 import { FilterField, FilterValue } from '@/components/ui/filter-drawer';
@@ -55,7 +55,7 @@ export default function DepartmentsPage() {
     },
   ];
 
-  const fetchDepartments = async () => {
+  const fetchDepartments = useCallback(async () => {
     setIsLoading(true);
     try {
       const params: PaginationParams = {
@@ -77,7 +77,7 @@ export default function DepartmentsPage() {
       setDepartments(response.data);
       setTotalDepartments(response.meta.total);
       
-      // Ensure pageIndex stays in sync with the actual page from the response
+      // Ensure we have data from the correct page
       const actualPage = response.meta.page;
       if (actualPage && actualPage - 1 !== pageIndex) {
         setPageIndex(actualPage - 1);
@@ -88,12 +88,12 @@ export default function DepartmentsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [pageIndex, limit, searchTerm, activeFilters]);
 
   // Fetch departments when pagination, search, filters, or active tab changes
   useEffect(() => {
     fetchDepartments();
-  }, [pageIndex, limit, searchTerm, activeFilters, activeTab]);
+  }, [fetchDepartments]);
 
   const handleDeleteClick = (department: Department) => {
     setDepartmentToDelete(department);
@@ -101,21 +101,20 @@ export default function DepartmentsPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (departmentToDelete) {
-      setIsLoading(true);
-      try {
-        await departmentService.deleteDepartment(departmentToDelete.id);
-        toast.success(`Department "${departmentToDelete.name}" has been deleted`);
-        // Refresh the department list
-        fetchDepartments();
-      } catch (error) {
-        console.error(`Failed to delete department ${departmentToDelete.id}:`, error);
-        toast.error('Failed to delete department');
-      } finally {
-        setIsLoading(false);
-        setDeleteDialogOpen(false);
-        setDepartmentToDelete(null);
-      }
+    if (!departmentToDelete) return;
+    
+    setIsLoading(true);
+    try {
+      await departmentService.deleteDepartment(departmentToDelete.id);
+      toast.success(`Department "${departmentToDelete.name}" has been deleted`);
+      fetchDepartments();
+    } catch (error) {
+      console.error(`Failed to delete department:`, error);
+      toast.error('Failed to delete department');
+    } finally {
+      setIsLoading(false);
+      setDeleteDialogOpen(false);
+      setDepartmentToDelete(null);
     }
   };
 
@@ -148,6 +147,8 @@ export default function DepartmentsPage() {
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     setPageIndex(0);
+    
+    // Update filters based on tab
     if (value === 'all') {
       setActiveFilters({});
     } else if (value === 'active') {
