@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Users, Lock, Check, X, Shield } from 'lucide-react';
+import { Edit, Trash2, Plus, Lock, Check, X, MoreHorizontal, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,25 +14,24 @@ import {
 import DataTable from '@/components/ui/data-table/DataTable';
 import PageHeader from '@/components/ui/PageHeader';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Card } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { FilterField } from '@/components/ui/filter-drawer';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { FilterField, FilterValue } from '@/components/ui/filter-drawer';
 import roleService from '@/services/roleService';
-import { Role } from '@/lib/types';
+import { Role, PaginationParams } from '@/lib/types';
 
 const RolesPage = () => {
   const navigate = useNavigate();
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
-  const [pageCount, setPageCount] = useState(0);
+  const [limit, setLimit] = useState(10);
   const [totalRoles, setTotalRoles] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
 
   // Define filter fields for roles
   const filterFields: FilterField[] = [
@@ -52,75 +51,99 @@ const RolesPage = () => {
     }
   ];
 
-  // Fetch roles from API
-  const fetchRoles = async (filters: Record<string, any> = {}) => {
+  const fetchRoles = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Apply status filter based on active tab
-      const statusFilter = activeTab !== 'all' ? activeTab === 'active' : undefined;
-      
-      // Get roles with pagination and filters
-      const response = await roleService.getRoles({
-        page: pageIndex + 1, // API is 1-indexed
-        pageSize,
+      const params: PaginationParams = {
+        page: pageIndex + 1,
+        limit,
         search: searchTerm,
         filters: {
-          ...filters,
-          isActive: statusFilter
+          ...Object.entries(activeFilters).reduce((acc, [key, item]) => ({
+            ...acc,
+            [key]: item.value
+          }), {}),
+          isActive: activeFilters.status?.value === 'active' ? true :
+                   activeFilters.status?.value === 'inactive' ? false :
+                   undefined
         }
-      });
+      };
       
+      const response = await roleService.getRoles(params);
       setRoles(response.data);
       setTotalRoles(response.meta.total);
-      setPageCount(response.meta.pageCount);
+      
+      // Ensure we have data from the correct page
+      const actualPage = response.meta.page;
+      if (actualPage && actualPage - 1 !== pageIndex) {
+        setPageIndex(actualPage - 1);
+      }
     } catch (error) {
       console.error('Failed to fetch roles:', error);
       toast.error('Failed to load roles. Please try again later.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [pageIndex, limit, searchTerm, activeFilters]);
 
-  // Load roles when page changes or filters are applied
+  // Load roles when dependencies change
   useEffect(() => {
     fetchRoles();
-  }, [pageIndex, pageSize, activeTab, searchTerm]);
+  }, [fetchRoles]);
+
+  const handleDropdownOpenChange = (id: string, open: boolean) => {
+    setDropdownOpenStates(prev => ({
+      ...prev,
+      [id]: open
+    }));
+  };
 
   const handleDeleteClick = (role: Role) => {
+    // Close the dropdown menu for this role
+    setDropdownOpenStates(prev => ({
+      ...prev,
+      [role.id]: false
+    }));
+    
+    // Set role to delete and open the dialog
     setRoleToDelete(role);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (roleToDelete) {
-      setIsLoading(true);
-      try {
-        await roleService.deleteRole(roleToDelete.id);
-        
-        // Save the role name for the toast message
-        const deletedRoleName = roleToDelete.name;
-        
-        // Clear role to delete first
-        setRoleToDelete(null);
-        setDeleteDialogOpen(false);
-        
-        // Then show toast and refresh the list
-        toast.success(`Role "${deletedRoleName}" has been deleted`);
-        fetchRoles(); // Refresh the list
-      } catch (error) {
-        console.error('Failed to delete role:', error);
-        toast.error('Failed to delete role. Please try again later.');
-      } finally {
-        setIsLoading(false);
-        setDeleteDialogOpen(false);
-        setRoleToDelete(null);
-      }
+    if (!roleToDelete) return;
+    
+    setIsLoading(true);
+    try {
+      await roleService.deleteRole(roleToDelete.id);
+      toast.success(`Role "${roleToDelete.name}" has been deleted`);
+      fetchRoles();
+    } catch (error) {
+      console.error('Failed to delete role:', error);
+      toast.error('Failed to delete role. Please try again later.');
+    } finally {
+      setIsLoading(false);
+      setDeleteDialogOpen(false);
+      setRoleToDelete(null);
     }
   };
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    setPageIndex(0); // Reset to first page when tab changes
+    setPageIndex(0);
+    
+    // Update filters based on tab
+    if (value === 'all') {
+      setActiveFilters({});
+    } else if (value === 'active') {
+      setActiveFilters({
+        status: { value: 'active', label: 'Active' }
+      });
+    } else if (value === 'inactive') {
+      setActiveFilters({
+        status: { value: 'inactive', label: 'Inactive' }
+      });
+    }
   };
 
   const handleSearch = (term: string) => {
@@ -128,14 +151,25 @@ const RolesPage = () => {
     setPageIndex(0); // Reset to first page when search changes
   };
 
-  const handleApplyFilters = (filters: any[]) => {
-    // Convert filters array to object format expected by fetchRoles
-    const filterObject: Record<string, any> = {};
+  const handleApplyFilters = (filters: FilterValue[]) => {
+    const newActiveFilters: Record<string, { value: any; label: string }> = {};
+    
     filters.forEach(filter => {
-      filterObject[filter.id] = filter.value;
+      if (filter.id === 'status') {
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: filter.value === 'active' ? 'Active' : 'Inactive'
+        };
+      } else {
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: String(filter.value)
+        };
+      }
     });
     
-    fetchRoles(filterObject);
+    setActiveFilters(newActiveFilters);
+    setPageIndex(0); // Reset to first page on new filters
   };
 
   const columns = [
@@ -145,7 +179,6 @@ const RolesPage = () => {
       cell: (role: Role) => (
         <div className="font-medium">{role.name}</div>
       ),
-      isSortable: true,
     },
     {
       id: 'description',
@@ -171,48 +204,35 @@ const RolesPage = () => {
       id: 'status',
       header: 'Status',
       cell: (role: Role) => (
-        <Badge variant={role.isActive ? 'default' : 'destructive'} className="capitalize">
-          {role.isActive ? (
-            <span className="flex items-center gap-1">
-              <Check className="h-3 w-3" /> Active
-            </span>
-          ) : (
-            <span className="flex items-center gap-1">
-              <X className="h-3 w-3" /> Inactive
-            </span>
-          )}
+        <Badge
+          variant="outline"
+          className={`${
+            role.isActive
+              ? 'bg-green-100 text-green-800'
+              : 'bg-gray-100 text-gray-800'
+          } border-0`}
+        >
+          {role.isActive ? 'Active' : 'Inactive'}
         </Badge>
       ),
-      isFilterable: true,
     },
     {
       id: 'actions',
       header: 'Actions',
       cell: (role: Role) => (
-        <DropdownMenu>
+        <DropdownMenu 
+          open={dropdownOpenStates[role.id]} 
+          onOpenChange={(open) => handleDropdownOpenChange(role.id, open)}
+        >
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
+            <Button variant="ghost" size="icon">
               <span className="sr-only">Open menu</span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-              >
-                <circle cx="12" cy="12" r="1" />
-                <circle cx="12" cy="5" r="1" />
-                <circle cx="12" cy="19" r="1" />
-              </svg>
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => navigate(`/roles/${role.id}`)}>
-              <Lock className="mr-2 h-4 w-4" /> Manage permissions
+              <ShieldCheck className="mr-2 h-4 w-4" /> View details
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/roles/${role.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit
@@ -226,20 +246,12 @@ const RolesPage = () => {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      ),
-    },
+      )
+    }
   ];
 
   return (
     <>
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title="Delete Role"
-        description={`Are you sure you want to delete the role "${roleToDelete?.name}"? This action cannot be undone.`}
-        onConfirm={handleDeleteConfirm}
-      />
-
       <PageHeader
         title="Roles"
         subtitle="Manage roles and permissions"
@@ -262,16 +274,25 @@ const RolesPage = () => {
         columns={columns}
         data={roles}
         isLoading={isLoading}
-        filterFields={filterFields}
         pagination={{
           pageIndex,
-          pageSize,
-          pageCount,
+          limit,
+          pageCount: Math.ceil(totalRoles / limit),
           onPageChange: setPageIndex,
-          onPageSizeChange: setPageSize,
+          onPageSizeChange: setLimit,
+          total: totalRoles
         }}
+        filterFields={filterFields}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+      />
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Role"
+        description={`Are you sure you want to delete the role "${roleToDelete?.name}"? This action cannot be undone.`}
+        onConfirm={handleDeleteConfirm}
       />
     </>
   );

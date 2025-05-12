@@ -62,7 +62,7 @@ const mapRoleDtoToRole = (roleDto: RoleDTO): Role => {
 // Helper function to filter and paginate mock roles
 const filterAndPaginateRoles = (
   roles: Role[],
-  { page, pageSize, search, filters }: PaginationParams
+  { page, limit, search, filters }: PaginationParams
 ): PaginatedResponse<Role> => {
   let filteredRoles = [...roles];
   
@@ -92,16 +92,16 @@ const filterAndPaginateRoles = (
   
   // Calculate pagination
   const total = filteredRoles.length;
-  const pageCount = Math.ceil(total / pageSize);
-  const startIndex = (page - 1) * pageSize;
-  const paginatedRoles = filteredRoles.slice(startIndex, startIndex + pageSize);
+  const pageCount = Math.ceil(total / limit);
+  const startIndex = (page - 1) * limit;
+  const paginatedRoles = filteredRoles.slice(startIndex, startIndex + limit);
   
   return {
     data: paginatedRoles,
     meta: {
       total,
       page,
-      pageSize,
+      limit,
       pageCount
     }
   };
@@ -114,7 +114,7 @@ const roleService = {
       // Basic query parameters
       const queryParams = new URLSearchParams({
         page: params.page.toString(),
-        limit: params.pageSize.toString()
+        limit: params.limit.toString()
       });
 
       // Add sorting if provided
@@ -147,8 +147,8 @@ const roleService = {
           meta: {
             total: roles.length,
             page: params.page,
-            pageSize: params.pageSize,
-            pageCount: Math.ceil(roles.length / params.pageSize)
+            limit: params.limit,
+            pageCount: Math.ceil(roles.length / params.limit)
           }
         };
       }
