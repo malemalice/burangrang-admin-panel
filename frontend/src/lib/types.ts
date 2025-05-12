@@ -75,10 +75,9 @@ export interface Office {
 export interface Department {
   id: string;
   name: string;
-  description: string;
-  headId: string | null;
-  officeId: string;
-  status: 'active' | 'inactive';
+  code: string;
+  description?: string;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -121,14 +120,14 @@ export interface PaginatedResponse<T> {
   meta: {
     total: number;
     page: number;
-    pageSize: number;
+    limit: number;
     pageCount: number;
   };
 }
 
 export interface PaginationParams {
   page: number;
-  pageSize: number;
+  limit: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   search?: string;

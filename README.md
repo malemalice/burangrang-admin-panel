@@ -55,7 +55,19 @@ Before you begin, ensure you have installed:
    npx prisma db seed
    ```
 
-5. Start the development server:
+5. If you want to seed per tables
+   ```bash
+   # Seed only departments
+npx prisma db seed -- departments
+
+# Seed only roles (will also seed permissions due to dependency)
+npx prisma db seed -- roles
+
+# Seed only users (will also seed permissions, roles, and offices due to dependencies)
+npx prisma db seed -- users
+   ```
+
+6. Start the development server:
    ```bash
    npm run start:dev
    ```

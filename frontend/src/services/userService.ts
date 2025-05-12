@@ -84,10 +84,9 @@ const userService = {
   // Get all users with pagination and filtering
   getUsers: async (params: PaginationParams): Promise<PaginatedResponse<User>> => {
     try {
-      // Basic query parameters
       const queryParams = new URLSearchParams({
         page: params.page.toString(),
-        limit: params.pageSize.toString()
+        limit: params.limit.toString()
       });
 
       // Add sorting if provided
@@ -105,18 +104,12 @@ const userService = {
       if (params.filters) {
         Object.entries(params.filters).forEach(([key, value]) => {
           if (value !== undefined && value !== null && value !== '') {
-            // Convert boolean values to string
-            if (typeof value === 'boolean') {
-              queryParams.append(key, value.toString());
-            } else {
             queryParams.append(key, value.toString());
-            }
           }
         });
       }
 
       const response = await api.get(`/users?${queryParams.toString()}`);
-      
       return {
         data: response.data.data.map(mapUserDtoToUser),
         meta: response.data.meta

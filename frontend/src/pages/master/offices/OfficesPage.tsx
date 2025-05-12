@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, MapPin, Phone, Mail, Users, Building } from 'lucide-react';
+import { Edit, Trash2, Plus, MapPin, Phone, Mail, Building, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import DataTable from '@/components/ui/data-table/DataTable';
 import PageHeader from '@/components/ui/PageHeader';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Office, PaginationParams } from '@/lib/types';
 import officeService from '@/services/officeService';
 import { FilterField, FilterValue } from '@/components/ui/filter-drawer';
@@ -22,15 +22,16 @@ import { FilterField, FilterValue } from '@/components/ui/filter-drawer';
 const OfficesPage = () => {
   const navigate = useNavigate();
   const [offices, setOffices] = useState<Office[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [limit, setLimit] = useState(10);
   const [totalOffices, setTotalOffices] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [officeToDelete, setOfficeToDelete] = useState<Office | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState<Record<string, any>>({});
+  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
   
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -60,58 +61,82 @@ const OfficesPage = () => {
     },
   ];
 
-  const fetchOffices = async () => {
+  const fetchOffices = useCallback(async () => {
     setIsLoading(true);
     try {
       const params: PaginationParams = {
         page: pageIndex + 1,
-        pageSize,
+        limit,
         sortBy: 'name',
         sortOrder: 'asc',
         search: searchTerm,
         filters: {
-          ...filters,
-          isActive: filters.isActive === 'true' ? true : filters.isActive === 'false' ? false : undefined,
+          ...Object.entries(activeFilters).reduce((acc, [key, item]) => ({
+            ...acc,
+            [key]: item.value
+          }), {}),
+          isActive: activeFilters.isActive?.value === true ? true : 
+                   activeFilters.isActive?.value === false ? false : 
+                   undefined,
         },
       };
 
       const response = await officeService.getOffices(params);
       setOffices(response.data);
       setTotalOffices(response.meta.total);
+      
+      // Ensure we have data from the correct page
+      const actualPage = response.meta.page;
+      if (actualPage && actualPage - 1 !== pageIndex) {
+        setPageIndex(actualPage - 1);
+      }
     } catch (error) {
       console.error('Failed to fetch offices:', error);
       toast.error('Failed to load offices');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [pageIndex, limit, searchTerm, activeFilters]);
 
-  // Fetch offices when pagination, search, filters, or active tab changes
+  // Fetch offices when dependencies change
   useEffect(() => {
     fetchOffices();
-  }, [pageIndex, pageSize, searchTerm, filters, activeTab]);
+  }, [fetchOffices]);
+
+  const handleDropdownOpenChange = (id: string, open: boolean) => {
+    setDropdownOpenStates(prev => ({
+      ...prev,
+      [id]: open
+    }));
+  };
 
   const handleDeleteClick = (office: Office) => {
+    // Close the dropdown menu for this office
+    setDropdownOpenStates(prev => ({
+      ...prev,
+      [office.id]: false
+    }));
+    
+    // Set office to delete and open the dialog
     setOfficeToDelete(office);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (officeToDelete) {
-      setIsLoading(true);
-      try {
-        await officeService.deleteOffice(officeToDelete.id);
-        toast.success(`Office "${officeToDelete.name}" has been deleted`);
-        // Refresh the office list
-        fetchOffices();
-      } catch (error) {
-        console.error(`Failed to delete office ${officeToDelete.id}:`, error);
-        toast.error('Failed to delete office');
-      } finally {
-        setIsLoading(false);
-        setDeleteDialogOpen(false);
-        setOfficeToDelete(null);
-      }
+    if (!officeToDelete) return;
+    
+    setIsLoading(true);
+    try {
+      await officeService.deleteOffice(officeToDelete.id);
+      toast.success(`Office "${officeToDelete.name}" has been deleted`);
+      fetchOffices();
+    } catch (error) {
+      console.error('Failed to delete office:', error);
+      toast.error('Failed to delete office');
+    } finally {
+      setIsLoading(false);
+      setDeleteDialogOpen(false);
+      setOfficeToDelete(null);
     }
   };
 
@@ -121,35 +146,38 @@ const OfficesPage = () => {
   };
 
   const handleApplyFilters = (filterValues: FilterValue[]) => {
-    const newFilters: Record<string, any> = {};
+    const newFilters: Record<string, { value: any; label: string }> = {};
     
     filterValues.forEach(filter => {
-      newFilters[filter.id] = filter.value;
+      newFilters[filter.id] = {
+        value: filter.value,
+        label: String(filter.value)
+      };
     });
     
-    setFilters(newFilters);
+    setActiveFilters(newFilters);
     setPageIndex(0); // Reset to first page on new filters
   };
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     setPageIndex(0);
+    
+    // Update filters based on tab
     if (value === 'all') {
-      setFilters({});
+      setActiveFilters({});
     } else if (value === 'active') {
-      setFilters({ isActive: 'true' });
+      setActiveFilters({
+        isActive: { value: true, label: 'Active' }
+      });
     } else if (value === 'inactive') {
-      setFilters({ isActive: 'false' });
+      setActiveFilters({
+        isActive: { value: false, label: 'Inactive' }
+      });
     }
   };
 
-  const columns: {
-    id: string;
-    header: string;
-    cell: (item: Office) => React.ReactNode;
-    isSortable?: boolean;
-    isFilterable?: boolean;
-  }[] = [
+  const columns = [
     {
       id: 'name',
       header: 'Office Name',
@@ -228,25 +256,14 @@ const OfficesPage = () => {
       id: 'actions',
       header: 'Actions',
       cell: (office: Office) => (
-        <DropdownMenu>
+        <DropdownMenu 
+          open={dropdownOpenStates[office.id]} 
+          onOpenChange={(open) => handleDropdownOpenChange(office.id, open)}
+        >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <span className="sr-only">Open menu</span>
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 15 15"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-              >
-                <path
-                  d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM13.625 7.5C13.625 8.12132 13.1213 8.625 12.5 8.625C11.8787 8.625 11.375 8.12132 11.375 7.5C11.375 6.87868 11.8787 6.375 12.5 6.375C13.1213 6.375 13.625 6.87868 13.625 7.5Z"
-                  fill="currentColor"
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                ></path>
-              </svg>
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -265,15 +282,15 @@ const OfficesPage = () => {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      ),
-    },
+      )
+    }
   ];
 
   return (
     <>
       <PageHeader
         title="Offices"
-        subtitle="Manage your organization's office locations"
+        subtitle="Manage your organization's offices"
         actions={
           <Button onClick={() => navigate('/master/offices/new')}>
             <Plus className="mr-2 h-4 w-4" /> Add Office
@@ -295,10 +312,11 @@ const OfficesPage = () => {
         isLoading={isLoading}
         pagination={{
           pageIndex,
-          pageSize,
-          pageCount: Math.ceil(totalOffices / pageSize),
+          limit,
+          pageCount: Math.ceil(totalOffices / limit),
           onPageChange: setPageIndex,
-          onPageSizeChange: setPageSize,
+          onPageSizeChange: setLimit,
+          total: totalOffices
         }}
         filterFields={filterFields}
         onSearch={handleSearch}
@@ -309,7 +327,7 @@ const OfficesPage = () => {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Delete Office"
-        description={`Are you sure you want to delete the office "${officeToDelete?.name}"? This action cannot be undone.`}
+        description={`Are you sure you want to delete "${officeToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
       />
     </>

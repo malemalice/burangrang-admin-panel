@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Lock, Check, X, MoreHorizontal, ShieldCheck } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Edit, Trash2, Plus, Building, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -11,34 +10,40 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
 import DataTable from '@/components/ui/data-table/DataTable';
 import PageHeader from '@/components/ui/PageHeader';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Department, PaginationParams } from '@/lib/types';
+import departmentService from '@/services/departmentService';
 import { FilterField, FilterValue } from '@/components/ui/filter-drawer';
-import roleService from '@/services/roleService';
-import { Role, PaginationParams } from '@/lib/types';
 
-const RolesPage = () => {
+export default function DepartmentsPage() {
   const navigate = useNavigate();
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
-  const [totalRoles, setTotalRoles] = useState(0);
+  const [totalDepartments, setTotalDepartments] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
+  const [departmentToDelete, setDepartmentToDelete] = useState<Department | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
 
-  // Define filter fields for roles
+  // Define filter fields
   const filterFields: FilterField[] = [
     {
       id: 'name',
-      label: 'Name',
-      type: 'text'
+      label: 'Department Name',
+      type: 'text',
+    },
+    {
+      id: 'code',
+      label: 'Department Code',
+      type: 'text',
     },
     {
       id: 'status',
@@ -46,12 +51,12 @@ const RolesPage = () => {
       type: 'select',
       options: [
         { label: 'Active', value: 'active' },
-        { label: 'Inactive', value: 'inactive' }
-      ]
-    }
+        { label: 'Inactive', value: 'inactive' },
+      ],
+    },
   ];
 
-  const fetchRoles = useCallback(async () => {
+  const fetchDepartments = useCallback(async () => {
     setIsLoading(true);
     try {
       const params: PaginationParams = {
@@ -68,10 +73,10 @@ const RolesPage = () => {
                    undefined
         }
       };
-      
-      const response = await roleService.getRoles(params);
-      setRoles(response.data);
-      setTotalRoles(response.meta.total);
+
+      const response = await departmentService.getDepartments(params);
+      setDepartments(response.data);
+      setTotalDepartments(response.meta.total);
       
       // Ensure we have data from the correct page
       const actualPage = response.meta.page;
@@ -79,17 +84,17 @@ const RolesPage = () => {
         setPageIndex(actualPage - 1);
       }
     } catch (error) {
-      console.error('Failed to fetch roles:', error);
-      toast.error('Failed to load roles. Please try again later.');
+      console.error('Failed to fetch departments:', error);
+      toast.error('Failed to load departments');
     } finally {
       setIsLoading(false);
     }
   }, [pageIndex, limit, searchTerm, activeFilters]);
 
-  // Load roles when dependencies change
+  // Fetch departments when pagination, search, filters, or active tab changes
   useEffect(() => {
-    fetchRoles();
-  }, [fetchRoles]);
+    fetchDepartments();
+  }, [fetchDepartments]);
 
   const handleDropdownOpenChange = (id: string, open: boolean) => {
     setDropdownOpenStates(prev => ({
@@ -98,57 +103,39 @@ const RolesPage = () => {
     }));
   };
 
-  const handleDeleteClick = (role: Role) => {
-    // Close the dropdown menu for this role
+  const handleDeleteClick = (department: Department) => {
+    // Close the dropdown menu for this department
     setDropdownOpenStates(prev => ({
       ...prev,
-      [role.id]: false
+      [department.id]: false
     }));
     
-    // Set role to delete and open the dialog
-    setRoleToDelete(role);
+    // Set department to delete and open the dialog
+    setDepartmentToDelete(department);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!roleToDelete) return;
+    if (!departmentToDelete) return;
     
     setIsLoading(true);
     try {
-      await roleService.deleteRole(roleToDelete.id);
-      toast.success(`Role "${roleToDelete.name}" has been deleted`);
-      fetchRoles();
+      await departmentService.deleteDepartment(departmentToDelete.id);
+      toast.success(`Department "${departmentToDelete.name}" has been deleted`);
+      fetchDepartments();
     } catch (error) {
-      console.error('Failed to delete role:', error);
-      toast.error('Failed to delete role. Please try again later.');
+      console.error(`Failed to delete department:`, error);
+      toast.error('Failed to delete department');
     } finally {
       setIsLoading(false);
       setDeleteDialogOpen(false);
-      setRoleToDelete(null);
-    }
-  };
-
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    setPageIndex(0);
-    
-    // Update filters based on tab
-    if (value === 'all') {
-      setActiveFilters({});
-    } else if (value === 'active') {
-      setActiveFilters({
-        status: { value: 'active', label: 'Active' }
-      });
-    } else if (value === 'inactive') {
-      setActiveFilters({
-        status: { value: 'inactive', label: 'Inactive' }
-      });
+      setDepartmentToDelete(null);
     }
   };
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    setPageIndex(0); // Reset to first page when search changes
+    setPageIndex(0); // Reset to first page on new search
   };
 
   const handleApplyFilters = (filters: FilterValue[]) => {
@@ -172,57 +159,65 @@ const RolesPage = () => {
     setPageIndex(0); // Reset to first page on new filters
   };
 
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setPageIndex(0);
+    
+    // Update filters based on tab
+    if (value === 'all') {
+      setActiveFilters({});
+    } else if (value === 'active') {
+      setActiveFilters({
+        status: { value: 'active', label: 'Active' }
+      });
+    } else if (value === 'inactive') {
+      setActiveFilters({
+        status: { value: 'inactive', label: 'Inactive' }
+      });
+    }
+  };
+
   const columns = [
     {
       id: 'name',
-      header: 'Role Name',
-      cell: (role: Role) => (
-        <div className="font-medium">{role.name}</div>
+      header: 'Department Name',
+      cell: (department: Department) => (
+        <div>
+          <div className="font-medium">{department.name}</div>
+          <div className="text-xs text-gray-500 mt-1">
+            Code: {department.code}
+          </div>
+        </div>
       ),
     },
     {
       id: 'description',
       header: 'Description',
-      cell: (role: Role) => role.description || '-',
-    },
-    {
-      id: 'permissions',
-      header: 'Permissions',
-      cell: (role: Role) => {
-        const count = role.permissions?.length || 0;
-        return (
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="flex items-center gap-1">
-              <Lock className="h-3 w-3" />
-              {count}
-            </Badge>
-          </div>
-        );
-      },
+      cell: (department: Department) => department.description || '-',
     },
     {
       id: 'status',
       header: 'Status',
-      cell: (role: Role) => (
+      cell: (department: Department) => (
         <Badge
           variant="outline"
           className={`${
-            role.isActive
+            department.isActive
               ? 'bg-green-100 text-green-800'
               : 'bg-gray-100 text-gray-800'
           } border-0`}
         >
-          {role.isActive ? 'Active' : 'Inactive'}
+          {department.isActive ? 'Active' : 'Inactive'}
         </Badge>
       ),
     },
     {
       id: 'actions',
       header: 'Actions',
-      cell: (role: Role) => (
+      cell: (department: Department) => (
         <DropdownMenu 
-          open={dropdownOpenStates[role.id]} 
-          onOpenChange={(open) => handleDropdownOpenChange(role.id, open)}
+          open={dropdownOpenStates[department.id]} 
+          onOpenChange={(open) => handleDropdownOpenChange(department.id, open)}
         >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -231,39 +226,39 @@ const RolesPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/roles/${role.id}`)}>
-              <ShieldCheck className="mr-2 h-4 w-4" /> View details
+            <DropdownMenuItem onClick={() => navigate(`/master/departments/${department.id}`)}>
+              <Building className="mr-2 h-4 w-4" /> View details
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/roles/${role.id}/edit`)}>
+            <DropdownMenuItem onClick={() => navigate(`/master/departments/${department.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => handleDeleteClick(role)}
+              onClick={() => handleDeleteClick(department)}
               className="text-red-600 focus:text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      )
-    }
+      ),
+    },
   ];
 
   return (
     <>
       <PageHeader
-        title="Roles"
-        subtitle="Manage roles and permissions"
+        title="Departments"
+        subtitle="Manage your organization's departments"
         actions={
-          <Button onClick={() => navigate('/roles/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Create Role
+          <Button onClick={() => navigate('/master/departments/new')}>
+            <Plus className="mr-2 h-4 w-4" /> Add Department
           </Button>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
           <TabsList>
-            <TabsTrigger value="all">All Roles</TabsTrigger>
+            <TabsTrigger value="all">All Departments</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
             <TabsTrigger value="inactive">Inactive</TabsTrigger>
           </TabsList>
@@ -272,15 +267,15 @@ const RolesPage = () => {
 
       <DataTable
         columns={columns}
-        data={roles}
+        data={departments}
         isLoading={isLoading}
         pagination={{
           pageIndex,
           limit,
-          pageCount: Math.ceil(totalRoles / limit),
+          pageCount: Math.ceil(totalDepartments / limit),
           onPageChange: setPageIndex,
           onPageSizeChange: setLimit,
-          total: totalRoles
+          total: totalDepartments
         }}
         filterFields={filterFields}
         onSearch={handleSearch}
@@ -290,12 +285,10 @@ const RolesPage = () => {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Role"
-        description={`Are you sure you want to delete the role "${roleToDelete?.name}"? This action cannot be undone.`}
+        title="Delete Department"
+        description={`Are you sure you want to delete "${departmentToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
       />
     </>
   );
-};
-
-export default RolesPage;
+}

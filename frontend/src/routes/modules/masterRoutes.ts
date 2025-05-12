@@ -1,9 +1,12 @@
 import { RouteConfig } from '../types';
-import OfficesPage from '@/pages/master/OfficesPage';
-import CreateOfficePage from '@/pages/master/CreateOfficePage';
-import EditOfficePage from '@/pages/master/EditOfficePage';
-import OfficeDetailPage from '@/pages/master/OfficeDetailPage';
-import DepartmentsPage from '@/pages/master/DepartmentsPage';
+import {
+  OfficesPage,
+  CreateOfficePage,
+  EditOfficePage,
+  OfficeDetailPage,
+  DepartmentsPage,
+  CreateDepartmentPage,
+} from '@/pages/master';
 
 /**
  * Master data module routes
@@ -28,6 +31,10 @@ const masterRoutes: RouteConfig[] = [
   {
     path: '/master/departments',
     component: DepartmentsPage,
+  },
+  {
+    path: '/master/departments/new',
+    component: CreateDepartmentPage,
   },
 ];
 

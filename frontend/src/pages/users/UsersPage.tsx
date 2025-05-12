@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, UserPlus, Eye, ShieldCheck, Check, X, Building, MoreHorizontal } from 'lucide-react';
@@ -27,8 +27,7 @@ const UsersPage = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
-  const [pageCount, setPageCount] = useState(0);
+  const [limit, setLimit] = useState(10);
   const [totalUsers, setTotalUsers] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
@@ -37,6 +36,7 @@ const UsersPage = () => {
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
   const [offices, setOffices] = useState<{ id: string; name: string }[]>([]);
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
 
   // Define filter fields for users
   const filterFields: FilterField[] = [
@@ -84,8 +84,8 @@ const UsersPage = () => {
     const fetchFilterOptions = async () => {
       try {
         const [rolesResponse, officesResponse] = await Promise.all([
-          roleService.getRoles({ page: 1, pageSize: 100 }),
-          officeService.getOffices({ page: 1, pageSize: 100 })
+          roleService.getRoles({ page: 1, limit: 100 }),
+          officeService.getOffices({ page: 1, limit: 100 })
         ]);
 
         setRoles(rolesResponse.data);
@@ -99,34 +99,59 @@ const UsersPage = () => {
     fetchFilterOptions();
   }, []);
 
-  // Fetch users when pagination, search, or filters change
-  useEffect(() => {
-    const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-        const params = {
-          page: pageIndex + 1,
-        pageSize,
+      const params = {
+        page: pageIndex + 1,
+        limit,
         search: searchTerm,
-          status: activeTab === 'all' ? undefined : activeTab
-        };
+        filters: {
+          ...Object.entries(activeFilters).reduce((acc, [key, item]) => ({
+            ...acc,
+            [key]: item.value
+          }), {}),
+          status: activeFilters.status?.value || undefined
+        }
+      };
 
-        const response = await userService.getUsers(params);
+      const response = await userService.getUsers(params);
       setUsers(response.data);
       setTotalUsers(response.meta.total);
-        setPageCount(Math.ceil(response.meta.total / pageSize));
+      
+      // Ensure we have data from the correct page
+      const actualPage = response.meta.page;
+      if (actualPage && actualPage - 1 !== pageIndex) {
+        setPageIndex(actualPage - 1);
+      }
     } catch (error) {
       console.error('Failed to fetch users:', error);
-        toast.error('Failed to load users');
+      toast.error('Failed to load users');
     } finally {
       setIsLoading(false);
     }
+  }, [pageIndex, limit, searchTerm, activeFilters]);
+
+  // Fetch users when dependencies change
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const handleDropdownOpenChange = (id: string, open: boolean) => {
+    setDropdownOpenStates(prev => ({
+      ...prev,
+      [id]: open
+    }));
   };
 
-    fetchUsers();
-  }, [pageIndex, pageSize, searchTerm, activeTab]);
-
   const handleDeleteClick = (user: User) => {
+    // Close the dropdown menu for this user
+    setDropdownOpenStates(prev => ({
+      ...prev,
+      [user.id]: false
+    }));
+    
+    // Set user to delete and open the dialog
     setUserToDelete(user);
     setDeleteDialogOpen(true);
   };
@@ -134,24 +159,16 @@ const UsersPage = () => {
   const handleDeleteConfirm = async () => {
     if (!userToDelete) return;
 
+    setIsLoading(true);
     try {
       await userService.deleteUser(userToDelete.id);
       toast.success('User deleted successfully');
-      // Refresh the user list
-      const params = {
-        page: pageIndex + 1,
-        pageSize,
-        search: searchTerm,
-        status: activeTab === 'all' ? undefined : activeTab
-      };
-      const response = await userService.getUsers(params);
-      setUsers(response.data);
-      setTotalUsers(response.meta.total);
-      setPageCount(Math.ceil(response.meta.total / pageSize));
+      fetchUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
       toast.error('Failed to delete user');
     } finally {
+      setIsLoading(false);
       setDeleteDialogOpen(false);
       setUserToDelete(null);
     }
@@ -164,19 +181,26 @@ const UsersPage = () => {
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    setPageIndex(0); // Reset to first page on tab change
+    setPageIndex(0);
+    
+    // Update filters based on tab
+    if (value === 'all') {
+      setActiveFilters({});
+    } else if (value === 'active') {
+      setActiveFilters({
+        status: { value: 'active', label: 'Active' }
+      });
+    } else if (value === 'inactive') {
+      setActiveFilters({
+        status: { value: 'inactive', label: 'Inactive' }
+      });
+    }
   };
 
   const handleApplyFilters = (filters: FilterValue[]) => {
-    // Convert filters array to object format expected by fetchUsers
-    const filterObject: Record<string, any> = {};
     const newActiveFilters: Record<string, { value: any; label: string }> = {};
     
     filters.forEach(filter => {
-      // Store the value for API call
-      filterObject[filter.id] = filter.value;
-      
-      // Store the value and label for display
       if (filter.id === 'roleId') {
         const role = roles.find(r => r.id === filter.value);
         newActiveFilters[filter.id] = {
@@ -190,10 +214,9 @@ const UsersPage = () => {
           label: office?.name || ''
         };
       } else if (filter.id === 'status') {
-        const statusValue = filter.value as string;
         newActiveFilters[filter.id] = {
-          value: statusValue,
-          label: statusValue === 'active' ? 'Active' : 'Inactive'
+          value: filter.value,
+          label: filter.value === 'active' ? 'Active' : 'Inactive'
         };
       } else {
         newActiveFilters[filter.id] = {
@@ -204,36 +227,7 @@ const UsersPage = () => {
     });
     
     setActiveFilters(newActiveFilters);
-    
-    // Update the users list with the new filters
-    const fetchFilteredUsers = async () => {
-      setIsLoading(true);
-      try {
-        const params = {
-          page: pageIndex + 1,
-          pageSize,
-          search: searchTerm,
-          filters: {
-            ...filterObject,
-            // Convert status to isActive for backend
-            isActive: filterObject.status === 'active' ? true : 
-                     filterObject.status === 'inactive' ? false : undefined
-          }
-        };
-
-        const response = await userService.getUsers(params);
-        setUsers(response.data);
-        setTotalUsers(response.meta.total);
-        setPageCount(Math.ceil(response.meta.total / pageSize));
-      } catch (error) {
-        console.error('Failed to fetch filtered users:', error);
-        toast.error('Failed to load filtered users');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchFilteredUsers();
+    setPageIndex(0); // Reset to first page on new filters
   };
 
   const columns = [
@@ -278,21 +272,26 @@ const UsersPage = () => {
       id: 'status',
       header: 'Status',
       cell: (user: User) => (
-        <Badge variant={user.status === 'active' ? 'default' : 'destructive'}>
-          {user.status === 'active' ? (
-            <Check className="mr-1 h-3 w-3" />
-          ) : (
-            <X className="mr-1 h-3 w-3" />
-          )}
-          {user.status}
-          </Badge>
+        <Badge
+          variant="outline"
+          className={`${
+            user.status === 'active'
+              ? 'bg-green-100 text-green-800'
+              : 'bg-gray-100 text-gray-800'
+          } border-0`}
+        >
+          {user.status === 'active' ? 'Active' : 'Inactive'}
+        </Badge>
       )
     },
     {
       id: 'actions',
-      header: '',
+      header: 'Actions',
       cell: (user: User) => (
-        <DropdownMenu>
+        <DropdownMenu 
+          open={dropdownOpenStates[user.id]} 
+          onOpenChange={(open) => handleDropdownOpenChange(user.id, open)}
+        >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <span className="sr-only">Open menu</span>
@@ -301,20 +300,17 @@ const UsersPage = () => {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => navigate(`/users/${user.id}`)}>
-              <Eye className="mr-2 h-4 w-4" />
-              View Details
+              <Building className="mr-2 h-4 w-4" /> View details
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/users/${user.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
+              <Edit className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              className="text-red-600"
               onClick={() => handleDeleteClick(user)}
+              className="text-red-600 focus:text-red-600"
             >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
+              <Trash2 className="mr-2 h-4 w-4" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -324,17 +320,9 @@ const UsersPage = () => {
 
   return (
     <>
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title="Delete User"
-        description={`Are you sure you want to delete the user "${userToDelete?.name}"? This action cannot be undone.`}
-        onConfirm={handleDeleteConfirm}
-      />
-
       <PageHeader
         title="Users"
-        subtitle="Manage user accounts and permissions"
+        subtitle="Manage your organization's users"
         actions={
           <Button onClick={() => navigate('/users/new')}>
             <UserPlus className="mr-2 h-4 w-4" /> Add User
@@ -354,17 +342,25 @@ const UsersPage = () => {
         columns={columns}
         data={users}
         isLoading={isLoading}
-        filterFields={filterFields}
-        activeFilters={activeFilters}
         pagination={{
           pageIndex,
-          pageSize,
-          pageCount,
+          limit,
+          pageCount: Math.ceil(totalUsers / limit),
           onPageChange: setPageIndex,
-          onPageSizeChange: setPageSize,
+          onPageSizeChange: setLimit,
+          total: totalUsers
         }}
+        filterFields={filterFields}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+      />
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete User"
+        description={`Are you sure you want to delete "${userToDelete?.name}"? This action cannot be undone.`}
+        onConfirm={handleDeleteConfirm}
       />
     </>
   );

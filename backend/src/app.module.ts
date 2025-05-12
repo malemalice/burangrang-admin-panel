@@ -11,7 +11,7 @@ import { PrismaModule } from './core/prisma/prisma.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import appConfig from './core/config/app.config';
 import { Reflector } from '@nestjs/core';
-
+import { DepartmentsModule } from './modules/departments/departments.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -25,6 +25,7 @@ import { Reflector } from '@nestjs/core';
     MenusModule,
     OfficesModule,
     PermissionsModule,
+    DepartmentsModule,
   ],
   providers: [
     Reflector,

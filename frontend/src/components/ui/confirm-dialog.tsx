@@ -1,5 +1,4 @@
-
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useRef } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +33,31 @@ const ConfirmDialog = ({
   variant = "default",
   icon,
 }: ConfirmDialogProps) => {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+
+  // Handle focus when dialog opens/closes
+  useEffect(() => {
+    if (open) {
+      // Set a short timeout to ensure DOM is updated before focusing
+      const timer = setTimeout(() => {
+        // Focus on cancel button by default for better UX
+        cancelRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
+  // Handle confirmation with proper focus management
+  const handleConfirm = () => {
+    // First close the dialog to ensure clean DOM state
+    onOpenChange(false);
+    // Then execute onConfirm with a slight delay to ensure cleanup
+    setTimeout(() => {
+      onConfirm();
+    }, 10);
+  };
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -45,9 +69,10 @@ const ConfirmDialog = ({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{cancelText}</AlertDialogCancel>
+          <AlertDialogCancel ref={cancelRef}>{cancelText}</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            ref={confirmRef}
+            onClick={handleConfirm}
             className={
               variant === "destructive" ? "bg-destructive hover:bg-destructive/90" : ""
             }
