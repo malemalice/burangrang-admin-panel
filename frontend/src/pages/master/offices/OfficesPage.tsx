@@ -22,15 +22,16 @@ import { FilterField, FilterValue } from '@/components/ui/filter-drawer';
 const OfficesPage = () => {
   const navigate = useNavigate();
   const [offices, setOffices] = useState<Office[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
   const [totalOffices, setTotalOffices] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [officeToDelete, setOfficeToDelete] = useState<Office | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
   
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -102,7 +103,21 @@ const OfficesPage = () => {
     fetchOffices();
   }, [fetchOffices]);
 
+  const handleDropdownOpenChange = (id: string, open: boolean) => {
+    setDropdownOpenStates(prev => ({
+      ...prev,
+      [id]: open
+    }));
+  };
+
   const handleDeleteClick = (office: Office) => {
+    // Close the dropdown menu for this office
+    setDropdownOpenStates(prev => ({
+      ...prev,
+      [office.id]: false
+    }));
+    
+    // Set office to delete and open the dialog
     setOfficeToDelete(office);
     setDeleteDialogOpen(true);
   };
@@ -241,7 +256,10 @@ const OfficesPage = () => {
       id: 'actions',
       header: 'Actions',
       cell: (office: Office) => (
-        <DropdownMenu>
+        <DropdownMenu 
+          open={dropdownOpenStates[office.id]} 
+          onOpenChange={(open) => handleDropdownOpenChange(office.id, open)}
+        >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <span className="sr-only">Open menu</span>
@@ -264,8 +282,8 @@ const OfficesPage = () => {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      ),
-    },
+      )
+    }
   ];
 
   return (

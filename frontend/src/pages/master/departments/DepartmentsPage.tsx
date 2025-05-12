@@ -31,6 +31,7 @@ export default function DepartmentsPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
 
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -95,7 +96,21 @@ export default function DepartmentsPage() {
     fetchDepartments();
   }, [fetchDepartments]);
 
+  const handleDropdownOpenChange = (id: string, open: boolean) => {
+    setDropdownOpenStates(prev => ({
+      ...prev,
+      [id]: open
+    }));
+  };
+
   const handleDeleteClick = (department: Department) => {
+    // Close the dropdown menu for this department
+    setDropdownOpenStates(prev => ({
+      ...prev,
+      [department.id]: false
+    }));
+    
+    // Set department to delete and open the dialog
     setDepartmentToDelete(department);
     setDeleteDialogOpen(true);
   };
@@ -200,7 +215,10 @@ export default function DepartmentsPage() {
       id: 'actions',
       header: 'Actions',
       cell: (department: Department) => (
-        <DropdownMenu>
+        <DropdownMenu 
+          open={dropdownOpenStates[department.id]} 
+          onOpenChange={(open) => handleDropdownOpenChange(department.id, open)}
+        >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <span className="sr-only">Open menu</span>

@@ -36,6 +36,7 @@ const UsersPage = () => {
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
   const [offices, setOffices] = useState<{ id: string; name: string }[]>([]);
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
 
   // Define filter fields for users
   const filterFields: FilterField[] = [
@@ -136,7 +137,21 @@ const UsersPage = () => {
     fetchUsers();
   }, [fetchUsers]);
 
+  const handleDropdownOpenChange = (id: string, open: boolean) => {
+    setDropdownOpenStates(prev => ({
+      ...prev,
+      [id]: open
+    }));
+  };
+
   const handleDeleteClick = (user: User) => {
+    // Close the dropdown menu for this user
+    setDropdownOpenStates(prev => ({
+      ...prev,
+      [user.id]: false
+    }));
+    
+    // Set user to delete and open the dialog
     setUserToDelete(user);
     setDeleteDialogOpen(true);
   };
@@ -273,7 +288,10 @@ const UsersPage = () => {
       id: 'actions',
       header: 'Actions',
       cell: (user: User) => (
-        <DropdownMenu>
+        <DropdownMenu 
+          open={dropdownOpenStates[user.id]} 
+          onOpenChange={(open) => handleDropdownOpenChange(user.id, open)}
+        >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <span className="sr-only">Open menu</span>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Lock, Check, X, MoreHorizontal } from 'lucide-react';
+import { Edit, Trash2, Plus, Lock, Check, X, MoreHorizontal, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,6 +31,7 @@ const RolesPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
 
   // Define filter fields for roles
   const filterFields: FilterField[] = [
@@ -90,7 +91,21 @@ const RolesPage = () => {
     fetchRoles();
   }, [fetchRoles]);
 
+  const handleDropdownOpenChange = (id: string, open: boolean) => {
+    setDropdownOpenStates(prev => ({
+      ...prev,
+      [id]: open
+    }));
+  };
+
   const handleDeleteClick = (role: Role) => {
+    // Close the dropdown menu for this role
+    setDropdownOpenStates(prev => ({
+      ...prev,
+      [role.id]: false
+    }));
+    
+    // Set role to delete and open the dialog
     setRoleToDelete(role);
     setDeleteDialogOpen(true);
   };
@@ -205,17 +220,19 @@ const RolesPage = () => {
       id: 'actions',
       header: 'Actions',
       cell: (role: Role) => (
-        <DropdownMenu>
+        <DropdownMenu 
+          open={dropdownOpenStates[role.id]} 
+          onOpenChange={(open) => handleDropdownOpenChange(role.id, open)}
+        >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <span className="sr-only">Open menu</span>
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => navigate(`/roles/${role.id}`)}>
-              <Lock className="mr-2 h-4 w-4" /> Manage permissions
+              <ShieldCheck className="mr-2 h-4 w-4" /> View details
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/roles/${role.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit
@@ -229,8 +246,8 @@ const RolesPage = () => {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      ),
-    },
+      )
+    }
   ];
 
   return (
