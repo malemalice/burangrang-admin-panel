@@ -6,6 +6,8 @@ import {
   OfficeDetailPage,
   DepartmentsPage,
   CreateDepartmentPage,
+  DepartmentDetailPage,
+  EditDepartmentPage,
 } from '@/pages/master';
 
 /**
@@ -36,6 +38,15 @@ const masterRoutes: RouteConfig[] = [
     path: '/master/departments/new',
     component: CreateDepartmentPage,
   },
+  {
+    path: '/master/departments/:id',
+    component: DepartmentDetailPage,
+  },
+  {
+    path: '/master/departments/:id/edit',
+    component: EditDepartmentPage,
+  }
+  
 ];
 
 export default masterRoutes; 
