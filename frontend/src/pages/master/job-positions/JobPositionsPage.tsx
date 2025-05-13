@@ -31,6 +31,7 @@ const JobPositionsPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
 
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -47,7 +48,7 @@ const JobPositionsPage = () => {
     {
       id: 'level',
       label: 'Level',
-      type: 'number',
+      type: 'text',
     },
     {
       id: 'status',
@@ -69,6 +70,8 @@ const JobPositionsPage = () => {
         limit,
         isActive: activeTab === 'all' ? undefined : activeTab === 'active',
         search: searchTerm,
+        sortBy: sorting?.id,
+        sortOrder: sorting?.desc ? 'desc' : 'asc',
       });
       setJobPositions(response.data);
       setTotalJobPositions(response.meta.total);
@@ -77,7 +80,7 @@ const JobPositionsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, activeTab, searchTerm]);
+  }, [pageIndex, limit, activeTab, searchTerm, sorting]);
 
   useEffect(() => {
     fetchJobPositions();
@@ -99,9 +102,25 @@ const JobPositionsPage = () => {
   const handleApplyFilters = (filters: FilterValue[]) => {
     const newFilters: Record<string, { value: any; label: string }> = {};
     filters.forEach(filter => {
-      newFilters[filter.id] = { value: filter.value, label: filter.label };
+      const field = filterFields.find(f => f.id === filter.id);
+      if (field) {
+        let label = '';
+        if (field.type === 'select' && field.options) {
+          const option = field.options.find(opt => opt.value === filter.value);
+          label = option?.label || '';
+        } else {
+          label = String(filter.value);
+        }
+        newFilters[filter.id] = { value: filter.value, label };
+      }
     });
     setActiveFilters(newFilters);
+    setPageIndex(0);
+  };
+
+  // Handle sorting
+  const handleSortingChange = (newSorting: { id: string; desc: boolean } | null) => {
+    setSorting(newSorting);
     setPageIndex(0);
   };
 
@@ -139,6 +158,7 @@ const JobPositionsPage = () => {
           </div>
         </div>
       ),
+      isSortable: true,
     },
     {
       id: 'level',
@@ -149,14 +169,16 @@ const JobPositionsPage = () => {
           <span>{jobPosition.level}</span>
         </div>
       ),
+      isSortable: true,
     },
     {
       id: 'description',
       header: 'Description',
       cell: (jobPosition: JobPosition) => jobPosition.description || '-',
+      isSortable: true,
     },
     {
-      id: 'status',
+      id: 'isActive',
       header: 'Status',
       cell: (jobPosition: JobPosition) => (
         <Badge
@@ -170,6 +192,7 @@ const JobPositionsPage = () => {
           {jobPosition.isActive ? 'Active' : 'Inactive'}
         </Badge>
       ),
+      isSortable: true,
     },
     {
       id: 'actions',
@@ -197,6 +220,7 @@ const JobPositionsPage = () => {
           </DropdownMenuContent>
         </DropdownMenu>
       ),
+      isSortable: false,
     },
   ];
 
@@ -235,6 +259,8 @@ const JobPositionsPage = () => {
         filterFields={filterFields}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+        sorting={sorting}
+        onSortingChange={handleSortingChange}
       />
 
       <ConfirmDialog
