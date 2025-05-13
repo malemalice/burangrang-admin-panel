@@ -101,7 +101,7 @@ const DataTable = <T extends Record<string, any>>({
   const pageCount = pagination?.pageCount || 1;
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border bg-white">
       <div className="flex items-center justify-between p-4 border-b">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
