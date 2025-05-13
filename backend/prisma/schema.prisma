@@ -110,3 +110,15 @@ model Department {
   updatedAt   DateTime @default(now())
   @@map("departments")
 }
+
+model JobPosition {
+  id          String @id @default(uuid())
+  name        String
+  code        String @unique
+  level       Int
+  description String? @db.Text
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+  @@map("job_positions")
+}
