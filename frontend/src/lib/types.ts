@@ -107,6 +107,17 @@ export interface Asset {
   updatedAt: string;
 }
 
+export interface JobPosition {
+  id: string;
+  name: string;
+  code: string;
+  level: number;
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Common response and request types
 
 export interface ApiResponse<T> {
