@@ -11,6 +11,9 @@ import {
   JobPositionsPage,
   CreateJobPositionPage,
   EditJobPositionPage,
+  HseCategoriesPage,
+  CreateHseCategoryPage,
+  EditHseCategoryPage,
 } from '@/pages/master';
 
 /**
@@ -60,6 +63,18 @@ const masterRoutes: RouteConfig[] = [
   {
     path: '/master/job-positions/:id',
     component: EditJobPositionPage,
+  },
+  {
+    path: '/master/hse-categories',
+    component: HseCategoriesPage,
+  },
+  {
+    path: '/master/hse-categories/new',
+    component: CreateHseCategoryPage,
+  },
+  {
+    path: '/master/hse-categories/:id',
+    component: EditHseCategoryPage,
   },
 ];
 

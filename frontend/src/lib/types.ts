@@ -120,6 +120,17 @@ export interface JobPosition {
   updatedAt: Date;
 }
 
+export interface HseCategory {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  threats?: any[];
+}
+
 // Common response and request types
 
 export interface ApiResponse<T> {
