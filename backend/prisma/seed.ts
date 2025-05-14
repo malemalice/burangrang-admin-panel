@@ -63,6 +63,7 @@ async function main() {
       const roles = await seedRoles(prisma, permissions);
       const offices = await seedOffices(prisma);
       const departments = await seedDepartments(prisma);
+      const jobPositions = await seedJobPositions(prisma);
       await seedUsers(prisma, roles, offices);
       console.log('All tables seeded successfully');
     } else {

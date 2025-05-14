@@ -146,6 +146,16 @@ const UserDetailPage = () => {
             </div>
 
             <div className="space-y-2">
+              <Label className="text-sm font-medium text-gray-500">Department</Label>
+              <div className="text-base">{user.department || '-'}</div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-gray-500">Job Position</Label>
+              <div className="text-base">{user.position || '-'}</div>
+            </div>
+
+            <div className="space-y-2">
               <Label className="text-sm font-medium text-gray-500">Status</Label>
               <div>
                 <Badge variant={user.status === 'active' ? 'default' : 'destructive'}>
@@ -181,27 +191,21 @@ const UserDetailPage = () => {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the user
-              and remove their data from our servers.
+              Are you sure you want to delete this user? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
               disabled={deleting}
-              className="bg-red-600 hover:bg-red-700"
             >
-              {deleting ? (
-                <>
-                  <div className="h-4 w-4 mr-2 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                'Delete'
-              )}
+              {deleting ? 'Deleting...' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

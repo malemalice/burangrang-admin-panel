@@ -26,6 +26,8 @@ export class UsersService {
       include: {
         role: true,
         office: true,
+        department: true,
+        jobPosition: true,
       },
     });
 
@@ -42,6 +44,8 @@ export class UsersService {
       search,
       roleId,
       officeId,
+      departmentId,
+      jobPositionId,
     } = options || {};
 
     const where: Prisma.UserWhereInput = {};
@@ -66,12 +70,22 @@ export class UsersService {
       where.officeId = officeId;
     }
 
+    if (departmentId) {
+      where.departmentId = departmentId;
+    }
+
+    if (jobPositionId) {
+      where.jobPositionId = jobPositionId;
+    }
+
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
         include: {
           role: true,
           office: true,
+          department: true,
+          jobPosition: true,
         },
         orderBy: {
           [sortBy]: sortOrder,
@@ -94,6 +108,8 @@ export class UsersService {
       include: {
         role: true,
         office: true,
+        department: true,
+        jobPosition: true,
       },
     });
 
@@ -125,6 +141,8 @@ export class UsersService {
       include: {
         role: true,
         office: true,
+        department: true,
+        jobPosition: true,
       },
     });
 
@@ -151,6 +169,8 @@ export class UsersService {
       include: {
         role: true,
         office: true,
+        department: true,
+        jobPosition: true,
       },
     });
 

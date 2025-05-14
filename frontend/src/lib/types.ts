@@ -8,6 +8,8 @@ export interface User {
   avatar?: string;
   roleId: string;
   officeId: string;
+  departmentId?: string;
+  jobPositionId?: string;
   role?: string;
   position?: string;
   department?: string;

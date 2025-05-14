@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, UserPlus, Eye, ShieldCheck, Check, X, Building, MoreHorizontal } from 'lucide-react';
+import { Edit, Trash2, UserPlus, Eye, ShieldCheck, Check, X, Building, MoreHorizontal, Briefcase } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,6 +20,8 @@ import { FilterField, FilterValue } from '@/components/ui/filter-drawer';
 import userService from '@/services/userService';
 import roleService from '@/services/roleService';
 import officeService from '@/services/officeService';
+import departmentService from '@/services/departmentService';
+import jobPositionService from '@/services/jobPositionService';
 import { User } from '@/lib/types';
 
 const UsersPage = () => {
@@ -35,6 +37,8 @@ const UsersPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
   const [offices, setOffices] = useState<{ id: string; name: string }[]>([]);
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  const [jobPositions, setJobPositions] = useState<{ id: string; name: string }[]>([]);
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
 
@@ -69,6 +73,24 @@ const UsersPage = () => {
       }))
     },
     {
+      id: 'departmentId',
+      label: 'Department',
+      type: 'searchableSelect',
+      options: departments.map(department => ({
+        label: department.name,
+        value: department.id
+      }))
+    },
+    {
+      id: 'jobPositionId',
+      label: 'Job Position',
+      type: 'searchableSelect',
+      options: jobPositions.map(position => ({
+        label: position.name,
+        value: position.id
+      }))
+    },
+    {
       id: 'status',
       label: 'Status',
       type: 'select',
@@ -83,13 +105,17 @@ const UsersPage = () => {
   useEffect(() => {
     const fetchFilterOptions = async () => {
       try {
-        const [rolesResponse, officesResponse] = await Promise.all([
+        const [rolesResponse, officesResponse, departmentsResponse, jobPositionsResponse] = await Promise.all([
           roleService.getRoles({ page: 1, limit: 100 }),
-          officeService.getOffices({ page: 1, limit: 100 })
+          officeService.getOffices({ page: 1, limit: 100 }),
+          departmentService.getDepartments({ page: 1, limit: 100 }),
+          jobPositionService.getAll({ page: 1, limit: 100 })
         ]);
 
         setRoles(rolesResponse.data);
         setOffices(officesResponse.data);
+        setDepartments(departmentsResponse.data);
+        setJobPositions(jobPositionsResponse.data);
       } catch (error) {
         console.error('Failed to fetch filter options:', error);
         toast.error('Failed to load filter options');
@@ -213,6 +239,18 @@ const UsersPage = () => {
           value: filter.value,
           label: office?.name || ''
         };
+      } else if (filter.id === 'departmentId') {
+        const department = departments.find(d => d.id === filter.value);
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: department?.name || ''
+        };
+      } else if (filter.id === 'jobPositionId') {
+        const position = jobPositions.find(p => p.id === filter.value);
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: position?.name || ''
+        };
       } else if (filter.id === 'status') {
         newActiveFilters[filter.id] = {
           value: filter.value,
@@ -246,7 +284,8 @@ const UsersPage = () => {
             <div className="text-sm text-gray-500">{user.email}</div>
           </div>
         </div>
-      )
+      ),
+      isSortable: true
     },
     {
       id: 'role',
@@ -256,7 +295,8 @@ const UsersPage = () => {
           <ShieldCheck className="h-4 w-4 text-gray-500" />
           <span>{user.role}</span>
         </div>
-      )
+      ),
+      isSortable: true
     },
     {
       id: 'office',
@@ -266,7 +306,30 @@ const UsersPage = () => {
           <Building className="h-4 w-4 text-gray-500" />
           <span>{user.office}</span>
         </div>
-      )
+      ),
+      isSortable: true
+    },
+    {
+      id: 'department',
+      header: 'Department',
+      cell: (user: User) => (
+        <div className="flex items-center gap-2">
+          <Building className="h-4 w-4 text-gray-500" />
+          <span>{user.department || '-'}</span>
+        </div>
+      ),
+      isSortable: true
+    },
+    {
+      id: 'position',
+      header: 'Job Position',
+      cell: (user: User) => (
+        <div className="flex items-center gap-2">
+          <Briefcase className="h-4 w-4 text-gray-500" />
+          <span>{user.position || '-'}</span>
+        </div>
+      ),
+      isSortable: true
     },
     {
       id: 'status',
@@ -282,7 +345,8 @@ const UsersPage = () => {
         >
           {user.status === 'active' ? 'Active' : 'Inactive'}
         </Badge>
-      )
+      ),
+      isSortable: true
     },
     {
       id: 'actions',
@@ -300,7 +364,7 @@ const UsersPage = () => {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => navigate(`/users/${user.id}`)}>
-              <Building className="mr-2 h-4 w-4" /> View details
+              <Eye className="mr-2 h-4 w-4" /> View details
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/users/${user.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit
@@ -314,7 +378,8 @@ const UsersPage = () => {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      )
+      ),
+      isSortable: false
     }
   ];
 
