@@ -16,19 +16,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import userService, { CreateUserDTO, UpdateUserDTO } from '@/services/userService';
 import roleService from '@/services/roleService';
 import officeService from '@/services/officeService';
 import departmentService from '@/services/departmentService';
 import jobPositionService from '@/services/jobPositionService';
 import { User, Role, Office, Department, JobPosition } from '@/lib/types';
+import { Combobox, ComboboxOption } from '@/components/ui/combobox';
 
 const formSchema = z.object({
   email: z.string().email('Valid email is required'),
@@ -56,6 +50,28 @@ const UserForm = ({ user, mode }: UserFormProps) => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dataReady, setDataReady] = useState(false);
+
+  // Convert data to ComboboxOption format
+  const roleOptions: ComboboxOption[] = roles ? roles.map(role => ({
+    value: role.id,
+    label: role.name
+  })) : [];
+
+  const officeOptions: ComboboxOption[] = offices ? offices.map(office => ({
+    value: office.id,
+    label: office.name
+  })) : [];
+
+  const departmentOptions: ComboboxOption[] = departments ? departments.map(department => ({
+    value: department.id,
+    label: department.name
+  })) : [];
+
+  const jobPositionOptions: ComboboxOption[] = jobPositions ? jobPositions.map(position => ({
+    value: position.id,
+    label: position.name
+  })) : [];
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -76,6 +92,8 @@ const UserForm = ({ user, mode }: UserFormProps) => {
     const fetchOptions = async () => {
       try {
         setIsLoading(true);
+        setDataReady(false);
+        
         const [rolesResponse, officesResponse, departmentsResponse, jobPositionsResponse] = await Promise.all([
           roleService.getRoles({ page: 1, limit: 100 }),
           officeService.getOffices({ page: 1, limit: 100 }),
@@ -83,10 +101,10 @@ const UserForm = ({ user, mode }: UserFormProps) => {
           jobPositionService.getAll({ page: 1, limit: 100 })
         ]);
 
-        setRoles(rolesResponse.data);
-        setOffices(officesResponse.data);
-        setDepartments(departmentsResponse.data);
-        setJobPositions(jobPositionsResponse.data);
+        setRoles(rolesResponse.data || []);
+        setOffices(officesResponse.data || []);
+        setDepartments(departmentsResponse.data || []);
+        setJobPositions(jobPositionsResponse.data || []);
 
         if (user) {
           const { name, email, roleId, officeId, departmentId, jobPositionId, status } = user;
@@ -105,6 +123,9 @@ const UserForm = ({ user, mode }: UserFormProps) => {
             isActive: status === 'active',
           });
         }
+        
+        // Set data ready only after everything is loaded
+        setDataReady(true);
       } catch (error) {
         console.error('Error fetching form options:', error);
         toast.error('Failed to load form options');
@@ -240,22 +261,20 @@ const UserForm = ({ user, mode }: UserFormProps) => {
                 control={form.control}
                 name="roleId"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="flex flex-col">
                     <FormLabel>Role</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a role" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {roles.map(role => (
-                          <SelectItem key={role.id} value={role.id}>
-                            {role.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      {dataReady && (
+                        <Combobox
+                          options={roleOptions}
+                          value={field.value}
+                          onValueChange={(value) => form.setValue("roleId", value)}
+                          placeholder="Select role"
+                          searchPlaceholder="Search role..."
+                          emptyText="No role found."
+                        />
+                      )}
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -265,22 +284,20 @@ const UserForm = ({ user, mode }: UserFormProps) => {
                 control={form.control}
                 name="officeId"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="flex flex-col">
                     <FormLabel>Office</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select an office" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {offices.map(office => (
-                          <SelectItem key={office.id} value={office.id}>
-                            {office.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      {dataReady && (
+                        <Combobox
+                          options={officeOptions}
+                          value={field.value}
+                          onValueChange={(value) => form.setValue("officeId", value)}
+                          placeholder="Select office"
+                          searchPlaceholder="Search office..."
+                          emptyText="No office found."
+                        />
+                      )}
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -292,23 +309,21 @@ const UserForm = ({ user, mode }: UserFormProps) => {
                 control={form.control}
                 name="departmentId"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="flex flex-col">
                     <FormLabel>Department</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value || 'none'}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a department" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {departments.map(department => (
-                          <SelectItem key={department.id} value={department.id}>
-                            {department.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      {dataReady && (
+                        <Combobox
+                          options={departmentOptions}
+                          value={field.value}
+                          onValueChange={(value) => form.setValue("departmentId", value)}
+                          placeholder="Select department"
+                          searchPlaceholder="Search department..."
+                          emptyText="No department found."
+                          includeNone={true}
+                        />
+                      )}
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -318,23 +333,21 @@ const UserForm = ({ user, mode }: UserFormProps) => {
                 control={form.control}
                 name="jobPositionId"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="flex flex-col">
                     <FormLabel>Job Position</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value || 'none'}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a job position" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {jobPositions.map(position => (
-                          <SelectItem key={position.id} value={position.id}>
-                            {position.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      {dataReady && (
+                        <Combobox
+                          options={jobPositionOptions}
+                          value={field.value}
+                          onValueChange={(value) => form.setValue("jobPositionId", value)}
+                          placeholder="Select job position"
+                          searchPlaceholder="Search job position..."
+                          emptyText="No job position found."
+                          includeNone={true}
+                        />
+                      )}
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
