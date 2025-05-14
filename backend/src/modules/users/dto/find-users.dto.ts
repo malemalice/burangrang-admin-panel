@@ -11,6 +11,8 @@ export interface FindUsersOptions {
   search?: string;
   roleId?: string;
   officeId?: string;
+  departmentId?: string;
+  jobPositionId?: string;
 }
 
 export class FindUsersDto implements FindUsersOptions {
@@ -52,4 +54,12 @@ export class FindUsersDto implements FindUsersOptions {
   @IsOptional()
   @IsString()
   officeId?: string;
+
+  @IsOptional()
+  @IsString()
+  departmentId?: string;
+
+  @IsOptional()
+  @IsString()
+  jobPositionId?: string;
 } 

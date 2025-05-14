@@ -10,11 +10,21 @@ export interface UserDTO {
   isActive: boolean;
   roleId: string;
   officeId: string;
+  departmentId?: string;
+  jobPositionId?: string;
   role?: {
     id: string;
     name: string;
   };
   office?: {
+    id: string;
+    name: string;
+  };
+  department?: {
+    id: string;
+    name: string;
+  };
+  jobPosition?: {
     id: string;
     name: string;
   };
@@ -31,6 +41,8 @@ export interface CreateUserDTO {
   lastName: string;
   roleId: string;
   officeId: string;
+  departmentId?: string;
+  jobPositionId?: string;
 }
 
 // Interface for updating a user
@@ -41,6 +53,8 @@ export interface UpdateUserDTO {
   lastName?: string;
   roleId?: string;
   officeId?: string;
+  departmentId?: string;
+  jobPositionId?: string;
   isActive?: boolean;
 }
 
@@ -52,8 +66,12 @@ const mapUserDtoToUser = (userDto: UserDTO): User => {
     email: userDto.email,
     roleId: userDto.roleId,
     officeId: userDto.officeId,
+    departmentId: userDto.departmentId,
+    jobPositionId: userDto.jobPositionId,
     role: userDto.role?.name,
     office: userDto.office?.name,
+    department: userDto.department?.name,
+    position: userDto.jobPosition?.name,
     status: userDto.isActive ? 'active' : 'inactive',
     lastLogin: userDto.lastLoginAt || undefined,
     createdAt: userDto.createdAt,
@@ -76,6 +94,9 @@ const mapUserToUpdateDto = (user: Partial<User>): UpdateUserDTO => {
     firstName,
     lastName,
     roleId: user.roleId,
+    officeId: user.officeId,
+    departmentId: user.departmentId,
+    jobPositionId: user.jobPositionId,
     isActive: user.status === 'active'
   };
 };

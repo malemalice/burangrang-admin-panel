@@ -17,12 +17,16 @@ model User {
   isActive      Boolean        @default(true)
   roleId        String
   officeId      String
+  departmentId  String?
+  jobPositionId String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   lastLoginAt   DateTime?
   refreshTokens RefreshToken[]
   office        Office         @relation(fields: [officeId], references: [id])
   role          Role           @relation(fields: [roleId], references: [id])
+  department    Department?    @relation(fields: [departmentId], references: [id])
+  jobPosition   JobPosition?   @relation(fields: [jobPositionId], references: [id])
 
   @@map("users")
 }
@@ -108,5 +112,19 @@ model Department {
   isActive    Boolean @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now())
+  users       User[]
   @@map("departments")
+}
+
+model JobPosition {
+  id          String @id @default(uuid())
+  name        String
+  code        String @unique
+  level       Int
+  description String? @db.Text
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+  users       User[]
+  @@map("job_positions")
 }

@@ -8,6 +8,8 @@ export class UserDto {
   isActive: boolean;
   roleId: string;
   officeId: string;
+  departmentId?: string;
+  jobPositionId?: string;
   createdAt: Date;
   updatedAt: Date;
   lastLoginAt?: Date | null;
@@ -15,6 +17,8 @@ export class UserDto {
   // Include the role object
   role?: any;
   office?: any;
+  department?: any;
+  jobPosition?: any;
   
   // Add a getter to extract role name as a string
   @Expose()

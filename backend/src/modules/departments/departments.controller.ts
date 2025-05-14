@@ -17,7 +17,6 @@ export class DepartmentsController {
   constructor(private readonly departmentsService: DepartmentsService) {}
 
   @Post()
-  @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Create a new department' })
   @ApiResponse({ status: 201, description: 'The department has been successfully created.', type: DepartmentDto })
   @ApiResponse({ status: 400, description: 'Bad request.' })

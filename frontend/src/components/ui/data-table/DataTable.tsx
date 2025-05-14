@@ -42,6 +42,8 @@ interface DataTableProps<T> {
   activeFilters?: Record<string, { value: any; label: string }>;
   onSearch?: (searchTerm: string) => void;
   onApplyFilters?: (filters: FilterValue[]) => void;
+  sorting?: { id: string; desc: boolean } | null;
+  onSortingChange?: (sorting: { id: string; desc: boolean } | null) => void;
 }
 
 const DataTable = <T extends Record<string, any>>({
@@ -53,6 +55,8 @@ const DataTable = <T extends Record<string, any>>({
   activeFilters = {},
   onSearch,
   onApplyFilters,
+  sorting,
+  onSortingChange,
 }: DataTableProps<T>) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -100,8 +104,23 @@ const DataTable = <T extends Record<string, any>>({
   const pageIndex = pagination?.pageIndex || 0;
   const pageCount = pagination?.pageCount || 1;
 
+  // Handle column sort
+  const handleSort = (columnId: string) => {
+    if (!onSortingChange) return;
+    
+    if (sorting?.id === columnId) {
+      if (sorting.desc) {
+        onSortingChange(null); // Remove sorting
+      } else {
+        onSortingChange({ id: columnId, desc: true }); // Toggle to descending
+      }
+    } else {
+      onSortingChange({ id: columnId, desc: false }); // New sort, ascending
+    }
+  };
+
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border bg-white">
       <div className="flex items-center justify-between p-4 border-b">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -147,10 +166,19 @@ const DataTable = <T extends Record<string, any>>({
                 {columns.map((column) => (
                   <TableHead 
                     key={column.id}
-                    className={cn(column.isSortable && "cursor-pointer hover:bg-gray-50")}
+                    className={cn(
+                      column.isSortable && "cursor-pointer hover:bg-gray-50",
+                      sorting?.id === column.id && "bg-gray-50"
+                    )}
+                    onClick={() => column.isSortable && handleSort(column.id)}
                   >
                     <div className="flex items-center gap-2">
                       {column.header}
+                      {column.isSortable && sorting?.id === column.id && (
+                        <span className="text-gray-500">
+                          {sorting.desc ? '↓' : '↑'}
+                        </span>
+                      )}
                     </div>
                   </TableHead>
                 ))}

@@ -6,6 +6,11 @@ import {
   OfficeDetailPage,
   DepartmentsPage,
   CreateDepartmentPage,
+  DepartmentDetailPage,
+  EditDepartmentPage,
+  JobPositionsPage,
+  CreateJobPositionPage,
+  EditJobPositionPage,
 } from '@/pages/master';
 
 /**
@@ -35,6 +40,26 @@ const masterRoutes: RouteConfig[] = [
   {
     path: '/master/departments/new',
     component: CreateDepartmentPage,
+  },
+  {
+    path: '/master/departments/:id',
+    component: DepartmentDetailPage,
+  },
+  {
+    path: '/master/departments/:id/edit',
+    component: EditDepartmentPage,
+  },
+  {
+    path: '/master/job-positions',
+    component: JobPositionsPage,
+  },
+  {
+    path: '/master/job-positions/new',
+    component: CreateJobPositionPage,
+  },
+  {
+    path: '/master/job-positions/:id',
+    component: EditJobPositionPage,
   },
 ];
 

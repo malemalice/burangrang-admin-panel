@@ -8,6 +8,8 @@ export interface User {
   avatar?: string;
   roleId: string;
   officeId: string;
+  departmentId?: string;
+  jobPositionId?: string;
   role?: string;
   position?: string;
   department?: string;
@@ -105,6 +107,17 @@ export interface Asset {
   status: 'available' | 'assigned' | 'maintenance' | 'retired';
   createdAt: string;
   updatedAt: string;
+}
+
+export interface JobPosition {
+  id: string;
+  name: string;
+  code: string;
+  level: number;
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Common response and request types

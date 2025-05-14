@@ -12,6 +12,7 @@ import { PermissionsModule } from './modules/permissions/permissions.module';
 import appConfig from './core/config/app.config';
 import { Reflector } from '@nestjs/core';
 import { DepartmentsModule } from './modules/departments/departments.module';
+import { JobPositionsModule } from './modules/job-positions/job-positions.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -26,6 +27,7 @@ import { DepartmentsModule } from './modules/departments/departments.module';
     OfficesModule,
     PermissionsModule,
     DepartmentsModule,
+    JobPositionsModule,
   ],
   providers: [
     Reflector,

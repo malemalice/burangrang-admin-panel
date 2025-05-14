@@ -7,14 +7,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Calendar as CalendarComponent } from './calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from './command';
+import { SearchableSelect, SearchableSelectOption } from './searchable-select';
 
 export type FilterField = {
   id: string;
@@ -184,57 +177,25 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
               )}
 
               {field.type === 'searchableSelect' && field.options && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className="w-full justify-between"
-                    >
-                      {getFilterValue(field.id) ? (
-                        field.options.find(
-                          (option) => option.value === getFilterValue(field.id)
-                        )?.label
-                      ) : (
-                        `Select ${field.label}...`
-                      )}
-                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0" align="start">
-                    <Command filter={(value, search) => {
-                      if (value.toLowerCase().includes(search.toLowerCase())) return 1
-                      return 0
-                    }}>
-                      <CommandInput placeholder={`Search ${field.label}...`} />
-                      <CommandList>
-                        <CommandEmpty>No {field.label.toLowerCase()} found.</CommandEmpty>
-                        <CommandGroup>
-                          {field.options.map((option) => {
-                            const value = typeof option.value === 'boolean' ? option.value.toString() : option.value;
-                            return (
-                              <CommandItem
-                                key={value}
-                                value={option.label}
-                                onSelect={() => {
-                                  updateFilterValue(field.id, option.value);
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    getFilterValue(field.id) === option.value ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {option.label}
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <SearchableSelect
+                  options={field.options.map(option => ({
+                    value: typeof option.value === 'boolean' ? option.value.toString() : String(option.value),
+                    label: option.label
+                  }))}
+                  value={String(getFilterValue(field.id) || '')}
+                  onValueChange={(value) => {
+                    // Convert back to boolean if needed
+                    const option = field.options?.find(opt => 
+                      typeof opt.value === 'boolean' 
+                        ? opt.value.toString() === value
+                        : String(opt.value) === value
+                    );
+                    updateFilterValue(field.id, option?.value || value);
+                  }}
+                  placeholder={`Select ${field.label}...`}
+                  searchPlaceholder={`Search ${field.label}...`}
+                  emptyText={`No ${field.label.toLowerCase()} found.`}
+                />
               )}
 
               {field.type === 'date' && (
@@ -248,11 +209,11 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                       {getFilterValue(field.id) ? (
                         format(new Date(getFilterValue(field.id) as string), 'PPP')
                       ) : (
-                        <span>Pick a date</span>
+                        <span>Select date...</span>
                       )}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
+                  <PopoverContent className="w-auto p-0" align="start">
                     <CalendarComponent
                       mode="single"
                       selected={getFilterValue(field.id) ? new Date(getFilterValue(field.id) as string) : undefined}
@@ -264,79 +225,81 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
               )}
 
               {field.type === 'dateRange' && (
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <span className="text-sm text-gray-500 w-[4rem]">- From:</span>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <Calendar className="mr-2 h-4 w-4" />
-                          {(getFilterValue(field.id) as {from?: Date})?.from ? (
-                            format((getFilterValue(field.id) as {from?: Date})?.from as Date, 'PPP')
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <CalendarComponent
-                          mode="single"
-                          selected={(getFilterValue(field.id) as {from?: Date})?.from}
-                          onSelect={(date) => {
-                            const current = (getFilterValue(field.id) as {from?: Date, to?: Date}) || {};
-                            updateFilterValue(field.id, { ...current, from: date });
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  
-                  <div className="flex items-center">
-                    <span className="text-sm text-gray-500 w-[4rem]">- To:</span>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <Calendar className="mr-2 h-4 w-4" />
-                          {(getFilterValue(field.id) as {to?: Date})?.to ? (
-                            format((getFilterValue(field.id) as {to?: Date})?.to as Date, 'PPP')
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <CalendarComponent
-                          mode="single"
-                          selected={(getFilterValue(field.id) as {to?: Date})?.to}
-                          onSelect={(date) => {
-                            const current = (getFilterValue(field.id) as {from?: Date, to?: Date}) || {};
-                            updateFilterValue(field.id, { ...current, to: date });
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {(getFilterValue(field.id) as any)?.from ? (
+                          format(new Date((getFilterValue(field.id) as any).from), 'PPP')
+                        ) : (
+                          <span>From date...</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={(getFilterValue(field.id) as any)?.from ? new Date((getFilterValue(field.id) as any).from) : undefined}
+                        onSelect={(date) => {
+                          const current = getFilterValue(field.id) as any || {};
+                          updateFilterValue(field.id, { 
+                            ...current,
+                            from: date ? date.toISOString() : undefined
+                          });
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {(getFilterValue(field.id) as any)?.to ? (
+                          format(new Date((getFilterValue(field.id) as any).to), 'PPP')
+                        ) : (
+                          <span>To date...</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={(getFilterValue(field.id) as any)?.to ? new Date((getFilterValue(field.id) as any).to) : undefined}
+                        onSelect={(date) => {
+                          const current = getFilterValue(field.id) as any || {};
+                          updateFilterValue(field.id, { 
+                            ...current,
+                            to: date ? date.toISOString() : undefined
+                          });
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               )}
             </div>
           ))}
-        </div>
 
-        <div className="flex justify-between p-4 border-t border-secondary-foreground/20 mt-auto">
-          <Button variant="outline" onClick={handleResetFilters} className="text-secondary-foreground border-secondary-foreground/20 hover:bg-secondary-foreground/10">
-            Reset
-          </Button>
-          <Button onClick={handleApplyFilters} className="bg-primary text-primary-foreground hover:bg-primary/90">
-            Apply changes
-          </Button>
+          <div className="pt-4 flex items-center justify-between">
+            <Button 
+              variant="ghost" 
+              onClick={handleResetFilters}
+              className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+            >
+              Reset Filters
+            </Button>
+            <Button onClick={handleApplyFilters}>Apply Filters</Button>
+          </div>
         </div>
       </div>
     </>
