@@ -119,12 +119,43 @@ async function main() {
           await seedHseCategories(prisma);
           break;
         case 'threats':
-          const categories = await seedHseCategories(prisma);
+          // Find existing categories or create new ones if they don't exist
+          let categories;
+          try {
+            categories = await prisma.hseCategory.findMany();
+            if (categories.length === 0) {
+              categories = await seedHseCategories(prisma);
+            } else {
+              console.log('Using existing HSE categories...');
+            }
+          } catch (error) {
+            console.log('Error finding categories, creating new ones...');
+            categories = await seedHseCategories(prisma);
+          }
           await seedThreats(prisma, categories.map(c => c.id));
           break;
         case 'threat_mitigations':
-          const cats = await seedHseCategories(prisma);
-          const thrs = await seedThreats(prisma, cats.map(c => c.id));
+          // Find existing threats or create new ones if they don't exist
+          let cats, thrs;
+          try {
+            cats = await prisma.hseCategory.findMany();
+            if (cats.length === 0) {
+              cats = await seedHseCategories(prisma);
+            } else {
+              console.log('Using existing HSE categories...');
+            }
+            
+            thrs = await prisma.threat.findMany();
+            if (thrs.length === 0) {
+              thrs = await seedThreats(prisma, cats.map(c => c.id));
+            } else {
+              console.log('Using existing threats...');
+            }
+          } catch (error) {
+            console.log('Error finding categories or threats, creating new ones...');
+            cats = await seedHseCategories(prisma);
+            thrs = await seedThreats(prisma, cats.map(c => c.id));
+          }
           await seedThreatMitigations(prisma, thrs.map(t => t.id));
           break;
       }
