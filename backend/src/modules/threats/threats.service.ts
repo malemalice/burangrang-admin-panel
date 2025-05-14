@@ -39,7 +39,7 @@ export class ThreatsService {
     return this.mapToDto(threat);
   }
 
-  async findAll(options?: FindAllOptions): Promise<{ data: ThreatDto[]; meta: { total: number } }> {
+  async findAll(options?: FindAllOptions): Promise<{ data: ThreatDto[]; meta: { total: number; page: number; limit: number } }> {
     const {
       page = 1,
       limit = 10,
@@ -86,7 +86,7 @@ export class ThreatsService {
 
     return {
       data: threats.map(threat => this.mapToDto(threat)),
-      meta: { total },
+      meta: { total, page, limit },
     };
   }
 

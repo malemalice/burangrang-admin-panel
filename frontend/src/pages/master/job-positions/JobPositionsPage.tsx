@@ -75,6 +75,11 @@ const JobPositionsPage = () => {
       });
       setJobPositions(response.data);
       setTotalJobPositions(response.meta.total);
+      
+      // Update pageIndex based on returned page from backend
+      if (response.meta.page) {
+        setPageIndex(response.meta.page - 1); // Convert 1-based to 0-based
+      }
     } catch (error) {
       toast.error('Failed to fetch job positions');
     } finally {

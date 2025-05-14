@@ -40,7 +40,7 @@ export class ThreatMitigationsService {
     return this.mapToDto(mitigation);
   }
 
-  async findAll(options?: FindAllOptions): Promise<{ data: ThreatMitigationDto[]; meta: { total: number } }> {
+  async findAll(options?: FindAllOptions): Promise<{ data: ThreatMitigationDto[]; meta: { total: number; page: number; limit: number } }> {
     const {
       page = 1,
       limit = 10,
@@ -88,7 +88,7 @@ export class ThreatMitigationsService {
 
     return {
       data: mitigations.map(mitigation => this.mapToDto(mitigation)),
-      meta: { total },
+      meta: { total, page, limit },
     };
   }
 

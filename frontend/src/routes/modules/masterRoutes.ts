@@ -15,6 +15,10 @@ import {
   CreateHseCategoryPage,
   EditHseCategoryPage,
   HseCategoryDetailPage,
+  ThreatsPage,
+  CreateThreatPage,
+  EditThreatPage,
+  ThreatDetailPage,
 } from '@/pages/master';
 
 /**
@@ -80,6 +84,22 @@ const masterRoutes: RouteConfig[] = [
   {
     path: '/master/hse-categories/:id/edit',
     component: EditHseCategoryPage,
+  },
+  {
+    path: '/master/threats',
+    component: ThreatsPage,
+  },
+  {
+    path: '/master/threats/new',
+    component: CreateThreatPage,
+  },
+  {
+    path: '/master/threats/:id',
+    component: ThreatDetailPage,
+  },
+  {
+    path: '/master/threats/:id/edit',
+    component: EditThreatPage,
   },
 ];
 

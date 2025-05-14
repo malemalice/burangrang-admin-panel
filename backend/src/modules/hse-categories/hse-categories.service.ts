@@ -25,7 +25,7 @@ export class HseCategoriesService {
     return this.mapToDto(category);
   }
 
-  async findAll(options?: FindAllOptions): Promise<{ data: HseCategoryDto[]; meta: { total: number } }> {
+  async findAll(options?: FindAllOptions): Promise<{ data: HseCategoryDto[]; meta: { total: number; page: number; limit: number } }> {
     const {
       page = 1,
       limit = 10,
@@ -63,7 +63,7 @@ export class HseCategoriesService {
 
     return {
       data: categories.map(category => this.mapToDto(category)),
-      meta: { total },
+      meta: { total, page, limit },
     };
   }
 
