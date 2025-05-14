@@ -16,13 +16,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-export interface ComboboxOption {
+export interface SearchableSelectOption {
   value: string;
   label: string;
 }
 
-interface ComboboxProps {
-  options: ComboboxOption[];
+interface SearchableSelectProps {
+  options: SearchableSelectOption[];
   value: string;
   onValueChange: (value: string) => void;
   placeholder: string;
@@ -32,7 +32,7 @@ interface ComboboxProps {
   includeNone?: boolean;
 }
 
-export function Combobox({
+export function SearchableSelect({
   options = [],
   value = '',
   onValueChange,
@@ -41,7 +41,7 @@ export function Combobox({
   emptyText = "No results found",
   className,
   includeNone = false,
-}: ComboboxProps) {
+}: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   
   // Ensure options is always an array

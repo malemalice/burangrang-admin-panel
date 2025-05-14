@@ -75,6 +75,11 @@
   - [x] Toast notifications
   - [x] Loading states
   - [x] Error boundaries
+- [x] SearchableSelect component
+  - [x] Integration with forms
+  - [x] Integration with filter drawer
+  - [x] Error handling and fallbacks
+  - [x] Accessibility support
 
 ### User Management
   - [x] User list page

@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import PageHeader from '@/components/ui/PageHeader';
 import officeService, { CreateOfficeDTO } from '@/services/officeService';
 import { Office } from '@/lib/types';
+import { SearchableSelect, SearchableSelectOption } from '@/components/ui/searchable-select';
 
 const CreateOfficePage = () => {
   const navigate = useNavigate();
@@ -34,13 +35,19 @@ const CreateOfficePage = () => {
     isActive: true
   });
 
+  // Convert parent offices to options format
+  const parentOfficeOptions: SearchableSelectOption[] = parentOffices.map(office => ({
+    value: office.id,
+    label: office.name
+  }));
+
   // Fetch parent offices for dropdown
   useEffect(() => {
     const fetchParentOffices = async () => {
       try {
         const params = {
           page: 1,
-          pageSize: 100,
+          limit: 100,
           sortBy: 'name',
           sortOrder: 'asc' as const
         };
@@ -175,23 +182,15 @@ const CreateOfficePage = () => {
 
           <div className="space-y-2">
             <Label htmlFor="parentId">Parent Office</Label>
-            <Select 
+            <SearchableSelect
+              options={parentOfficeOptions}
               value={formData.parentId || 'none'}
               onValueChange={(value) => handleSelectChange('parentId', value)}
-              disabled={isLoading}
-            >
-              <SelectTrigger id="parentId">
-                <SelectValue placeholder="Select a parent office (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None (Top-level Office)</SelectItem>
-                {parentOffices.map(office => (
-                  <SelectItem key={office.id} value={office.id}>
-                    {office.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select a parent office (optional)"
+              searchPlaceholder="Search offices..."
+              emptyText="No offices found"
+              includeNone={true}
+            />
           </div>
 
           <div className="space-y-2">

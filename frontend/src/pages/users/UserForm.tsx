@@ -22,7 +22,7 @@ import officeService from '@/services/officeService';
 import departmentService from '@/services/departmentService';
 import jobPositionService from '@/services/jobPositionService';
 import { User, Role, Office, Department, JobPosition } from '@/lib/types';
-import { Combobox, ComboboxOption } from '@/components/ui/combobox';
+import { SearchableSelect, SearchableSelectOption } from '@/components/ui/searchable-select';
 
 const formSchema = z.object({
   email: z.string().email('Valid email is required'),
@@ -52,23 +52,23 @@ const UserForm = ({ user, mode }: UserFormProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [dataReady, setDataReady] = useState(false);
 
-  // Convert data to ComboboxOption format
-  const roleOptions: ComboboxOption[] = roles ? roles.map(role => ({
+  // Convert data to SearchableSelectOption format
+  const roleOptions: SearchableSelectOption[] = roles ? roles.map(role => ({
     value: role.id,
     label: role.name
   })) : [];
 
-  const officeOptions: ComboboxOption[] = offices ? offices.map(office => ({
+  const officeOptions: SearchableSelectOption[] = offices ? offices.map(office => ({
     value: office.id,
     label: office.name
   })) : [];
 
-  const departmentOptions: ComboboxOption[] = departments ? departments.map(department => ({
+  const departmentOptions: SearchableSelectOption[] = departments ? departments.map(department => ({
     value: department.id,
     label: department.name
   })) : [];
 
-  const jobPositionOptions: ComboboxOption[] = jobPositions ? jobPositions.map(position => ({
+  const jobPositionOptions: SearchableSelectOption[] = jobPositions ? jobPositions.map(position => ({
     value: position.id,
     label: position.name
   })) : [];
@@ -265,7 +265,7 @@ const UserForm = ({ user, mode }: UserFormProps) => {
                     <FormLabel>Role</FormLabel>
                     <FormControl>
                       {dataReady && (
-                        <Combobox
+                        <SearchableSelect
                           options={roleOptions}
                           value={field.value}
                           onValueChange={(value) => form.setValue("roleId", value)}
@@ -288,7 +288,7 @@ const UserForm = ({ user, mode }: UserFormProps) => {
                     <FormLabel>Office</FormLabel>
                     <FormControl>
                       {dataReady && (
-                        <Combobox
+                        <SearchableSelect
                           options={officeOptions}
                           value={field.value}
                           onValueChange={(value) => form.setValue("officeId", value)}
@@ -313,7 +313,7 @@ const UserForm = ({ user, mode }: UserFormProps) => {
                     <FormLabel>Department</FormLabel>
                     <FormControl>
                       {dataReady && (
-                        <Combobox
+                        <SearchableSelect
                           options={departmentOptions}
                           value={field.value}
                           onValueChange={(value) => form.setValue("departmentId", value)}
@@ -337,7 +337,7 @@ const UserForm = ({ user, mode }: UserFormProps) => {
                     <FormLabel>Job Position</FormLabel>
                     <FormControl>
                       {dataReady && (
-                        <Combobox
+                        <SearchableSelect
                           options={jobPositionOptions}
                           value={field.value}
                           onValueChange={(value) => form.setValue("jobPositionId", value)}
