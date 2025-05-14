@@ -26,7 +26,7 @@ export class DepartmentsService {
     return new DepartmentDto(department);
   }
 
-  async findAll(options?: FindAllOptions): Promise<{ data: DepartmentDto[]; meta: { total: number } }> {
+  async findAll(options?: FindAllOptions): Promise<{ data: DepartmentDto[]; meta: { total: number; page: number; limit: number } }> {
     const {
       page = 1,
       limit = 10,
@@ -72,7 +72,7 @@ export class DepartmentsService {
 
     return {
       data: departments.map((department) => new DepartmentDto(department)),
-      meta: { total },
+      meta: { total, page, limit },
     };
   }
 

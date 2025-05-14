@@ -26,7 +26,7 @@ export class JobPositionsService {
     return this.mapToDto(jobPosition);
   }
 
-  async findAll(options?: FindAllOptions): Promise<{ data: JobPositionDto[]; meta: { total: number } }> {
+  async findAll(options?: FindAllOptions): Promise<{ data: JobPositionDto[]; meta: { total: number; page: number; limit: number } }> {
     const {
       page = 1,
       limit = 10,
@@ -63,7 +63,7 @@ export class JobPositionsService {
 
     return {
       data: jobPositions.map(jobPosition => this.mapToDto(jobPosition)),
-      meta: { total },
+      meta: { total, page, limit },
     };
   }
 
