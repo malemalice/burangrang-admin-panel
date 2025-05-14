@@ -19,6 +19,9 @@ import {
   CreateThreatPage,
   EditThreatPage,
   ThreatDetailPage,
+  ThreatMitigationsPage,
+  CreateThreatMitigationPage,
+  EditThreatMitigationPage,
 } from '@/pages/master';
 
 /**
@@ -100,6 +103,18 @@ const masterRoutes: RouteConfig[] = [
   {
     path: '/master/threats/:id/edit',
     component: EditThreatPage,
+  },
+  {
+    path: '/master/threat-mitigations',
+    component: ThreatMitigationsPage,
+  },
+  {
+    path: '/master/threat-mitigations/new',
+    component: CreateThreatMitigationPage,
+  },
+  {
+    path: '/master/threat-mitigations/:id',
+    component: EditThreatMitigationPage,
   },
 ];
 

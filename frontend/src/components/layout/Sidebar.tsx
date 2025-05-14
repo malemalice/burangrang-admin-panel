@@ -123,6 +123,7 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
         <SubMenu title="Master Data" icon={Building2} isOpen={isOpen}>
           <NavItem to="/master/hse-categories" icon={UsersRound}>HSE Categories</NavItem>
           <NavItem to="/master/threats" icon={UsersRound}>Threats</NavItem>
+          <NavItem to="/master/threat-mitigations" icon={ShieldCheck}>Threat Mitigations</NavItem>
           <NavItem to="/master/offices" icon={Building}>Offices</NavItem>
           <NavItem to="/master/departments" icon={UsersRound}>Departments</NavItem>
           <NavItem to="/master/job-positions" icon={UsersRound}>Job Positions</NavItem>
