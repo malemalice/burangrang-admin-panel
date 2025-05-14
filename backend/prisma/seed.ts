@@ -5,6 +5,9 @@ import { seedOffices } from './seeds/offices.seed';
 import { seedUsers } from './seeds/users.seed';
 import { seedDepartments } from './seeds/departments.seed';
 import { seedJobPositions } from './seeds/jobpositions.seed';
+import { seedHseCategories } from './seeds/hse-categories.seed';
+import { seedThreats } from './seeds/threats.seed';
+import { seedThreatMitigations } from './seeds/threat-mitigations.seed';
 
 const prisma = new PrismaClient();
 
@@ -26,6 +29,9 @@ async function main() {
       await prisma.office.deleteMany();
       await prisma.department.deleteMany();
       await prisma.jobPosition.deleteMany();
+      await prisma.threatMitigation.deleteMany();
+      await prisma.threat.deleteMany();
+      await prisma.hseCategory.deleteMany();
       console.log('All existing data cleared successfully');
     } else {
       // Clear only the specified table
@@ -48,9 +54,21 @@ async function main() {
         case 'job_positions':
           await prisma.jobPosition.deleteMany();
           break;
+        case 'hse_categories':
+          await prisma.threatMitigation.deleteMany();
+          await prisma.threat.deleteMany();
+          await prisma.hseCategory.deleteMany();
+          break;
+        case 'threats':
+          await prisma.threatMitigation.deleteMany();
+          await prisma.threat.deleteMany();
+          break;
+        case 'threat_mitigations':
+          await prisma.threatMitigation.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
-          console.log('Available tables: users, roles, permissions, offices, departments, jobpositions');
+          console.log('Available tables: users, roles, permissions, offices, departments, jobpositions, hse_categories, threats, threat_mitigations');
           process.exit(1);
       }
       console.log(`Cleared existing data for table: ${tableToSeed}`);
@@ -65,6 +83,12 @@ async function main() {
       const departments = await seedDepartments(prisma);
       const jobPositions = await seedJobPositions(prisma);
       await seedUsers(prisma, roles, offices);
+      
+      // Seed HSE-related data
+      const hseCategories = await seedHseCategories(prisma);
+      const threats = await seedThreats(prisma, hseCategories.map(c => c.id));
+      await seedThreatMitigations(prisma, threats.map(t => t.id));
+      
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -90,6 +114,18 @@ async function main() {
           const roles = await seedRoles(prisma, perms);
           const offices = await seedOffices(prisma);
           await seedUsers(prisma, roles, offices);
+          break;
+        case 'hse_categories':
+          await seedHseCategories(prisma);
+          break;
+        case 'threats':
+          const categories = await seedHseCategories(prisma);
+          await seedThreats(prisma, categories.map(c => c.id));
+          break;
+        case 'threat_mitigations':
+          const cats = await seedHseCategories(prisma);
+          const thrs = await seedThreats(prisma, cats.map(c => c.id));
+          await seedThreatMitigations(prisma, thrs.map(t => t.id));
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

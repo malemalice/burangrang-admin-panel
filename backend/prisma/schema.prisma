@@ -128,3 +128,44 @@ model JobPosition {
   users       User[]
   @@map("job_positions")
 }
+
+model HseCategory {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  threats     Threat[]
+
+  @@map("m_hse_categories")
+}
+
+model Threat {
+  id              String            @id @default(uuid())
+  name            String
+  code            String            @unique
+  description     String?           @db.Text
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  hseCategoryId   String
+  hseCategory     HseCategory       @relation(fields: [hseCategoryId], references: [id])
+  mitigations     ThreatMitigation[]
+
+  @@map("m_threats")
+}
+
+model ThreatMitigation {
+  id                    String   @id @default(uuid())
+  level                 Int
+  mitigationDescription String   @db.Text
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  threatId              String
+  threat                Threat   @relation(fields: [threatId], references: [id])
+
+  @@map("m_threat_mitigations")
+}
