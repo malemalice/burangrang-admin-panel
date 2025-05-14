@@ -190,6 +190,10 @@ const HseCategoriesPage = () => {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => navigate(`/master/hse-categories/${hseCategory.id}`)}>
+              <Shield className="mr-2 h-4 w-4" />
+              View details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/master/hse-categories/${hseCategory.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>

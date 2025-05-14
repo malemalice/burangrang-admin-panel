@@ -14,6 +14,7 @@ import {
   HseCategoriesPage,
   CreateHseCategoryPage,
   EditHseCategoryPage,
+  HseCategoryDetailPage,
 } from '@/pages/master';
 
 /**
@@ -74,6 +75,10 @@ const masterRoutes: RouteConfig[] = [
   },
   {
     path: '/master/hse-categories/:id',
+    component: HseCategoryDetailPage,
+  },
+  {
+    path: '/master/hse-categories/:id/edit',
     component: EditHseCategoryPage,
   },
 ];
