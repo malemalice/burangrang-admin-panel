@@ -113,6 +113,7 @@ model Department {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now())
   users       User[]
+  riskAssessments RiskAssessment[]
   @@map("departments")
 }
 
@@ -168,4 +169,49 @@ model ThreatMitigation {
   threat                Threat   @relation(fields: [threatId], references: [id])
 
   @@map("m_threat_mitigations")
+}
+
+enum RiskRatingEnum {
+  LOW
+  MEDIUM
+  HIGH
+  EXTREME
+}
+
+model RiskMatrix {
+  id String @id @default(uuid())
+  likelihoodLevel Int
+  consequenceLevel Int
+  risk_rating RiskRatingEnum
+
+  @@map("m_risk_matrix")
+}
+
+model RiskAssessment {
+  id String @id @default(uuid())
+  code String
+  departmentId String
+  department Department @relation(fields:[departmentId], references:[id])
+  assessmentDate DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String
+  status String
+  isActive Boolean @default(true)
+  items RiskAssessmentItem[]
+
+  @@map("t_risk_assessment")
+}
+
+model RiskAssessmentItem {
+  id String @id @default(uuid())
+  riskAssessmentId String
+  riskAssessment RiskAssessment @relation(fields:[riskAssessmentId], references:[id])
+  mThreatId String
+  mHseCategoryId String
+  likelihoodLevel Int
+  consequenceLevel Int
+  riskMatrixRating RiskRatingEnum
+
+  @@map("t_risk_assessment_item")
 }
