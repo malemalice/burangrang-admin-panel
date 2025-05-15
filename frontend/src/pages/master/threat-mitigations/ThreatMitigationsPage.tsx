@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Briefcase, MoreHorizontal } from 'lucide-react';
+import { Edit, Trash2, Plus, Shield, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -16,80 +16,108 @@ import PageHeader from '@/components/ui/PageHeader';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FilterField, FilterValue } from '@/components/ui/filter-drawer';
-import jobPositionService from '@/services/jobPositionService';
-import { JobPosition } from '@/lib/types';
+import threatMitigationService from '@/services/threatMitigationService';
+import threatService from '@/services/threatService';
+import { ThreatMitigation, Threat } from '@/lib/types';
 
-const JobPositionsPage = () => {
+const ThreatMitigationsPage = () => {
   const navigate = useNavigate();
-  const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
+  const [mitigations, setMitigations] = useState<ThreatMitigation[]>([]);
+  const [threats, setThreats] = useState<Threat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
-  const [totalJobPositions, setTotalJobPositions] = useState(0);
+  const [totalMitigations, setTotalMitigations] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [jobPositionToDelete, setJobPositionToDelete] = useState<JobPosition | null>(null);
+  const [mitigationToDelete, setMitigationToDelete] = useState<ThreatMitigation | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
+  const [selectedThreatId, setSelectedThreatId] = useState<string | undefined>(undefined);
+  const [selectedLevel, setSelectedLevel] = useState<number | undefined>(undefined);
+
+  // Fetch threats for filter dropdown
+  useEffect(() => {
+    const fetchThreats = async () => {
+      try {
+        const response = await threatService.getAll({ limit: 100 });
+        setThreats(response.data);
+      } catch (error) {
+        toast.error('Failed to fetch threats for filtering');
+      }
+    };
+    
+    fetchThreats();
+  }, []);
 
   // Define filter fields
   const filterFields: FilterField[] = [
     {
-      id: 'name',
-      label: 'Position Name',
-      type: 'text',
-    },
-    {
-      id: 'code',
-      label: 'Position Code',
-      type: 'text',
+      id: 'threatId',
+      label: 'Threat',
+      type: 'select',
+      options: [
+        { label: 'All Threats', value: 'all' },
+        ...threats.map(threat => ({ label: threat.name, value: threat.id }))
+      ],
     },
     {
       id: 'level',
       label: 'Level',
-      type: 'text',
+      type: 'select',
+      options: [
+        { label: 'All Levels', value: 'all' },
+        { label: 'Level 1', value: '1' },
+        { label: 'Level 2', value: '2' },
+        { label: 'Level 3', value: '3' },
+        { label: 'Level 4', value: '4' },
+        { label: 'Level 5', value: '5' },
+      ],
     },
     {
       id: 'status',
       label: 'Status',
       type: 'select',
       options: [
+        { label: 'All', value: 'all' },
         { label: 'Active', value: 'active' },
         { label: 'Inactive', value: 'inactive' },
       ],
     },
   ];
 
-  // Fetch job positions
-  const fetchJobPositions = useCallback(async () => {
+  // Fetch threat mitigations
+  const fetchMitigations = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await jobPositionService.getAll({
+      const response = await threatMitigationService.getAll({
         page: pageIndex + 1,
         limit,
         isActive: activeTab === 'all' ? undefined : activeTab === 'active',
         search: searchTerm,
         sortBy: sorting?.id,
         sortOrder: sorting?.desc ? 'desc' : 'asc',
+        threatId: selectedThreatId !== 'all' ? selectedThreatId : undefined,
+        level: selectedLevel,
       });
-      setJobPositions(response.data);
-      setTotalJobPositions(response.meta.total);
+      setMitigations(response.data);
+      setTotalMitigations(response.meta.total);
       
       // Update pageIndex based on returned page from backend
       if (response.meta.page) {
         setPageIndex(response.meta.page - 1); // Convert 1-based to 0-based
       }
     } catch (error) {
-      toast.error('Failed to fetch job positions');
+      toast.error('Failed to fetch threat mitigations');
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, activeTab, searchTerm, sorting]);
+  }, [pageIndex, limit, activeTab, searchTerm, sorting, selectedThreatId, selectedLevel]);
 
   useEffect(() => {
-    fetchJobPositions();
-  }, [fetchJobPositions]);
+    fetchMitigations();
+  }, [fetchMitigations]);
 
   // Handle tab change
   const handleTabChange = (value: string) => {
@@ -106,6 +134,7 @@ const JobPositionsPage = () => {
   // Handle filter application
   const handleApplyFilters = (filters: FilterValue[]) => {
     const newFilters: Record<string, { value: any; label: string }> = {};
+    
     filters.forEach(filter => {
       const field = filterFields.find(f => f.id === filter.id);
       if (field) {
@@ -116,9 +145,18 @@ const JobPositionsPage = () => {
         } else {
           label = String(filter.value);
         }
+        
+        // Set the specific filter state variables
+        if (filter.id === 'threatId') {
+          setSelectedThreatId(filter.value === 'all' ? undefined : filter.value);
+        } else if (filter.id === 'level') {
+          setSelectedLevel(filter.value === 'all' ? undefined : Number(filter.value));
+        }
+        
         newFilters[filter.id] = { value: filter.value, label };
       }
     });
+    
     setActiveFilters(newFilters);
     setPageIndex(0);
   };
@@ -130,71 +168,93 @@ const JobPositionsPage = () => {
   };
 
   // Handle delete
-  const handleDelete = (jobPosition: JobPosition) => {
-    setJobPositionToDelete(jobPosition);
+  const handleDelete = (mitigation: ThreatMitigation) => {
+    setMitigationToDelete(mitigation);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!jobPositionToDelete) return;
+    if (!mitigationToDelete) return;
 
     try {
-      await jobPositionService.delete(jobPositionToDelete.id);
-      toast.success('Job position deleted successfully');
-      fetchJobPositions();
+      await threatMitigationService.delete(mitigationToDelete.id);
+      toast.success('Threat mitigation deleted successfully');
+      fetchMitigations();
     } catch (error) {
-      toast.error('Failed to delete job position');
+      toast.error('Failed to delete threat mitigation');
     } finally {
       setDeleteDialogOpen(false);
-      setJobPositionToDelete(null);
+      setMitigationToDelete(null);
     }
+  };
+
+  // Get threat name by ID
+  const getThreatName = (threatId: string) => {
+    const threat = threats.find(t => t.id === threatId);
+    return threat ? threat.name : 'Unknown';
   };
 
   // Table columns
   const columns = [
     {
-      id: 'name',
-      header: 'Position Name',
-      cell: (jobPosition: JobPosition) => (
-        <div>
-          <div className="font-medium">{jobPosition.name}</div>
-          <div className="text-xs text-gray-500 mt-1">
-            Code: {jobPosition.code}
-          </div>
-        </div>
-      ),
-      isSortable: true,
-    },
-    {
       id: 'level',
       header: 'Level',
-      cell: (jobPosition: JobPosition) => (
+      cell: (mitigation: ThreatMitigation) => (
         <div className="flex items-center gap-2">
-          <Briefcase className="h-4 w-4 text-gray-500" />
-          <span>{jobPosition.level}</span>
+          <Badge
+            variant="outline"
+            className={`${
+              mitigation.level >= 4 
+                ? 'bg-red-100 text-red-800'
+                : mitigation.level >= 3
+                ? 'bg-orange-100 text-orange-800'
+                : 'bg-blue-100 text-blue-800'
+            } border-0 px-2 py-1`}
+          >
+            Level {mitigation.level}
+          </Badge>
         </div>
       ),
       isSortable: true,
     },
     {
-      id: 'description',
+      id: 'threatId',
+      header: 'Threat',
+      cell: (mitigation: ThreatMitigation) => (
+        <div>
+          <div className="font-medium">
+            {mitigation.threat?.name || getThreatName(mitigation.threatId)}
+          </div>
+          {mitigation.threat && (
+            <div className="text-xs text-gray-500 mt-1">
+              {mitigation.threat.code}
+            </div>
+          )}
+        </div>
+      ),
+      isSortable: true,
+    },
+    {
+      id: 'mitigationDescription',
       header: 'Description',
-      cell: (jobPosition: JobPosition) => jobPosition.description || '-',
+      cell: (mitigation: ThreatMitigation) => (
+        <div className="max-w-md truncate">{mitigation.mitigationDescription}</div>
+      ),
       isSortable: true,
     },
     {
       id: 'isActive',
       header: 'Status',
-      cell: (jobPosition: JobPosition) => (
+      cell: (mitigation: ThreatMitigation) => (
         <Badge
           variant="outline"
           className={`${
-            jobPosition.isActive
+            mitigation.isActive
               ? 'bg-green-100 text-green-800'
               : 'bg-gray-100 text-gray-800'
           } border-0`}
         >
-          {jobPosition.isActive ? 'Active' : 'Inactive'}
+          {mitigation.isActive ? 'Active' : 'Inactive'}
         </Badge>
       ),
       isSortable: true,
@@ -202,7 +262,7 @@ const JobPositionsPage = () => {
     {
       id: 'actions',
       header: '',
-      cell: (jobPosition: JobPosition) => (
+      cell: (mitigation: ThreatMitigation) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -210,14 +270,14 @@ const JobPositionsPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/master/job-positions/${jobPosition.id}`)}>
+            <DropdownMenuItem onClick={() => navigate(`/master/threat-mitigations/${mitigation.id}`)}>
               <Edit className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-red-600"
-              onClick={() => handleDelete(jobPosition)}
+              onClick={() => handleDelete(mitigation)}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
@@ -232,17 +292,17 @@ const JobPositionsPage = () => {
   return (
     <>
       <PageHeader
-        title="Job Positions"
-        subtitle="Manage your organization's job positions"
+        title="Threat Mitigations"
+        subtitle="Manage your organization's threat mitigation measures"
         actions={
-          <Button onClick={() => navigate('/master/job-positions/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Position
+          <Button onClick={() => navigate('/master/threat-mitigations/new')}>
+            <Plus className="mr-2 h-4 w-4" /> Add Mitigation
           </Button>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
           <TabsList>
-            <TabsTrigger value="all">All Positions</TabsTrigger>
+            <TabsTrigger value="all">All Mitigations</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
             <TabsTrigger value="inactive">Inactive</TabsTrigger>
           </TabsList>
@@ -251,15 +311,15 @@ const JobPositionsPage = () => {
 
       <DataTable
         columns={columns}
-        data={jobPositions}
+        data={mitigations}
         isLoading={isLoading}
         pagination={{
           pageIndex,
           limit,
-          pageCount: Math.ceil(totalJobPositions / limit),
+          pageCount: Math.ceil(totalMitigations / limit),
           onPageChange: setPageIndex,
           onPageSizeChange: setLimit,
-          total: totalJobPositions
+          total: totalMitigations
         }}
         filterFields={filterFields}
         onSearch={handleSearch}
@@ -271,12 +331,12 @@ const JobPositionsPage = () => {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Job Position"
-        description={`Are you sure you want to delete "${jobPositionToDelete?.name}"? This action cannot be undone.`}
+        title="Delete Threat Mitigation"
+        description={`Are you sure you want to delete this mitigation? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
       />
     </>
   );
 };
 
-export default JobPositionsPage; 
+export default ThreatMitigationsPage; 

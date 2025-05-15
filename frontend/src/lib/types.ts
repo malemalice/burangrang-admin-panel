@@ -120,6 +120,41 @@ export interface JobPosition {
   updatedAt: Date;
 }
 
+export interface HseCategory {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  threats?: any[];
+}
+
+export interface Threat {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  isActive: boolean;
+  hseCategoryId: string;
+  hseCategory?: HseCategory;
+  createdAt: Date;
+  updatedAt: Date;
+  mitigations?: ThreatMitigation[];
+}
+
+export interface ThreatMitigation {
+  id: string;
+  level: number;
+  mitigationDescription: string;
+  isActive: boolean;
+  threatId: string;
+  threat?: Threat;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Common response and request types
 
 export interface ApiResponse<T> {

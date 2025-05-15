@@ -40,7 +40,7 @@ const getNavStyles = (isDark: boolean, isActive = false) => {
       ? "bg-gray-700 text-white font-medium"
       : "bg-white/10 text-white font-medium";
   }
-  
+
   return isDark
     ? "text-gray-300 hover:bg-gray-700 hover:text-white"
     : "text-white/80 hover:bg-white/10 hover:text-white";
@@ -121,6 +121,9 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
         <NavItem to="/" icon={LayoutDashboard} isOpen={isOpen}>Dashboard</NavItem>
 
         <SubMenu title="Master Data" icon={Building2} isOpen={isOpen}>
+          <NavItem to="/master/hse-categories" icon={UsersRound}>HSE Categories</NavItem>
+          <NavItem to="/master/threats" icon={UsersRound}>Threats</NavItem>
+          <NavItem to="/master/threat-mitigations" icon={ShieldCheck}>Threat Mitigations</NavItem>
           <NavItem to="/master/offices" icon={Building}>Offices</NavItem>
           <NavItem to="/master/departments" icon={UsersRound}>Departments</NavItem>
           <NavItem to="/master/job-positions" icon={UsersRound}>Job Positions</NavItem>

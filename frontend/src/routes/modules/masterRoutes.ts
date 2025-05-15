@@ -11,6 +11,17 @@ import {
   JobPositionsPage,
   CreateJobPositionPage,
   EditJobPositionPage,
+  HseCategoriesPage,
+  CreateHseCategoryPage,
+  EditHseCategoryPage,
+  HseCategoryDetailPage,
+  ThreatsPage,
+  CreateThreatPage,
+  EditThreatPage,
+  ThreatDetailPage,
+  ThreatMitigationsPage,
+  CreateThreatMitigationPage,
+  EditThreatMitigationPage,
 } from '@/pages/master';
 
 /**
@@ -60,6 +71,50 @@ const masterRoutes: RouteConfig[] = [
   {
     path: '/master/job-positions/:id',
     component: EditJobPositionPage,
+  },
+  {
+    path: '/master/hse-categories',
+    component: HseCategoriesPage,
+  },
+  {
+    path: '/master/hse-categories/new',
+    component: CreateHseCategoryPage,
+  },
+  {
+    path: '/master/hse-categories/:id',
+    component: HseCategoryDetailPage,
+  },
+  {
+    path: '/master/hse-categories/:id/edit',
+    component: EditHseCategoryPage,
+  },
+  {
+    path: '/master/threats',
+    component: ThreatsPage,
+  },
+  {
+    path: '/master/threats/new',
+    component: CreateThreatPage,
+  },
+  {
+    path: '/master/threats/:id',
+    component: ThreatDetailPage,
+  },
+  {
+    path: '/master/threats/:id/edit',
+    component: EditThreatPage,
+  },
+  {
+    path: '/master/threat-mitigations',
+    component: ThreatMitigationsPage,
+  },
+  {
+    path: '/master/threat-mitigations/new',
+    component: CreateThreatMitigationPage,
+  },
+  {
+    path: '/master/threat-mitigations/:id',
+    component: EditThreatMitigationPage,
   },
 ];
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Briefcase, MoreHorizontal } from 'lucide-react';
+import { Edit, Trash2, Plus, Shield, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -16,18 +16,18 @@ import PageHeader from '@/components/ui/PageHeader';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FilterField, FilterValue } from '@/components/ui/filter-drawer';
-import jobPositionService from '@/services/jobPositionService';
-import { JobPosition } from '@/lib/types';
+import hseCategoryService from '@/services/hseCategoryService';
+import { HseCategory } from '@/lib/types';
 
-const JobPositionsPage = () => {
+const HseCategoriesPage = () => {
   const navigate = useNavigate();
-  const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
+  const [hseCategories, setHseCategories] = useState<HseCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
-  const [totalJobPositions, setTotalJobPositions] = useState(0);
+  const [totalHseCategories, setTotalHseCategories] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [jobPositionToDelete, setJobPositionToDelete] = useState<JobPosition | null>(null);
+  const [hseCategoryToDelete, setHseCategoryToDelete] = useState<HseCategory | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
@@ -37,17 +37,12 @@ const JobPositionsPage = () => {
   const filterFields: FilterField[] = [
     {
       id: 'name',
-      label: 'Position Name',
+      label: 'Category Name',
       type: 'text',
     },
     {
       id: 'code',
-      label: 'Position Code',
-      type: 'text',
-    },
-    {
-      id: 'level',
-      label: 'Level',
+      label: 'Category Code',
       type: 'text',
     },
     {
@@ -61,11 +56,11 @@ const JobPositionsPage = () => {
     },
   ];
 
-  // Fetch job positions
-  const fetchJobPositions = useCallback(async () => {
+  // Fetch HSE categories
+  const fetchHseCategories = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await jobPositionService.getAll({
+      const response = await hseCategoryService.getAll({
         page: pageIndex + 1,
         limit,
         isActive: activeTab === 'all' ? undefined : activeTab === 'active',
@@ -73,23 +68,23 @@ const JobPositionsPage = () => {
         sortBy: sorting?.id,
         sortOrder: sorting?.desc ? 'desc' : 'asc',
       });
-      setJobPositions(response.data);
-      setTotalJobPositions(response.meta.total);
+      setHseCategories(response.data);
+      setTotalHseCategories(response.meta.total);
       
       // Update pageIndex based on returned page from backend
       if (response.meta.page) {
         setPageIndex(response.meta.page - 1); // Convert 1-based to 0-based
       }
     } catch (error) {
-      toast.error('Failed to fetch job positions');
+      toast.error('Failed to fetch HSE categories');
     } finally {
       setIsLoading(false);
     }
   }, [pageIndex, limit, activeTab, searchTerm, sorting]);
 
   useEffect(() => {
-    fetchJobPositions();
-  }, [fetchJobPositions]);
+    fetchHseCategories();
+  }, [fetchHseCategories]);
 
   // Handle tab change
   const handleTabChange = (value: string) => {
@@ -130,23 +125,23 @@ const JobPositionsPage = () => {
   };
 
   // Handle delete
-  const handleDelete = (jobPosition: JobPosition) => {
-    setJobPositionToDelete(jobPosition);
+  const handleDelete = (hseCategory: HseCategory) => {
+    setHseCategoryToDelete(hseCategory);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!jobPositionToDelete) return;
+    if (!hseCategoryToDelete) return;
 
     try {
-      await jobPositionService.delete(jobPositionToDelete.id);
-      toast.success('Job position deleted successfully');
-      fetchJobPositions();
+      await hseCategoryService.delete(hseCategoryToDelete.id);
+      toast.success('HSE category deleted successfully');
+      fetchHseCategories();
     } catch (error) {
-      toast.error('Failed to delete job position');
+      toast.error('Failed to delete HSE category');
     } finally {
       setDeleteDialogOpen(false);
-      setJobPositionToDelete(null);
+      setHseCategoryToDelete(null);
     }
   };
 
@@ -154,24 +149,13 @@ const JobPositionsPage = () => {
   const columns = [
     {
       id: 'name',
-      header: 'Position Name',
-      cell: (jobPosition: JobPosition) => (
+      header: 'Category Name',
+      cell: (hseCategory: HseCategory) => (
         <div>
-          <div className="font-medium">{jobPosition.name}</div>
+          <div className="font-medium">{hseCategory.name}</div>
           <div className="text-xs text-gray-500 mt-1">
-            Code: {jobPosition.code}
+            Code: {hseCategory.code}
           </div>
-        </div>
-      ),
-      isSortable: true,
-    },
-    {
-      id: 'level',
-      header: 'Level',
-      cell: (jobPosition: JobPosition) => (
-        <div className="flex items-center gap-2">
-          <Briefcase className="h-4 w-4 text-gray-500" />
-          <span>{jobPosition.level}</span>
         </div>
       ),
       isSortable: true,
@@ -179,22 +163,22 @@ const JobPositionsPage = () => {
     {
       id: 'description',
       header: 'Description',
-      cell: (jobPosition: JobPosition) => jobPosition.description || '-',
+      cell: (hseCategory: HseCategory) => hseCategory.description || '-',
       isSortable: true,
     },
     {
       id: 'isActive',
       header: 'Status',
-      cell: (jobPosition: JobPosition) => (
+      cell: (hseCategory: HseCategory) => (
         <Badge
           variant="outline"
           className={`${
-            jobPosition.isActive
+            hseCategory.isActive
               ? 'bg-green-100 text-green-800'
               : 'bg-gray-100 text-gray-800'
           } border-0`}
         >
-          {jobPosition.isActive ? 'Active' : 'Inactive'}
+          {hseCategory.isActive ? 'Active' : 'Inactive'}
         </Badge>
       ),
       isSortable: true,
@@ -202,7 +186,7 @@ const JobPositionsPage = () => {
     {
       id: 'actions',
       header: '',
-      cell: (jobPosition: JobPosition) => (
+      cell: (hseCategory: HseCategory) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -210,14 +194,18 @@ const JobPositionsPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/master/job-positions/${jobPosition.id}`)}>
+            <DropdownMenuItem onClick={() => navigate(`/master/hse-categories/${hseCategory.id}`)}>
+              <Shield className="mr-2 h-4 w-4" />
+              View details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/master/hse-categories/${hseCategory.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-red-600"
-              onClick={() => handleDelete(jobPosition)}
+              onClick={() => handleDelete(hseCategory)}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
@@ -232,17 +220,17 @@ const JobPositionsPage = () => {
   return (
     <>
       <PageHeader
-        title="Job Positions"
-        subtitle="Manage your organization's job positions"
+        title="HSE Categories"
+        subtitle="Manage your organization's health, safety, and environment categories"
         actions={
-          <Button onClick={() => navigate('/master/job-positions/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Position
+          <Button onClick={() => navigate('/master/hse-categories/new')}>
+            <Plus className="mr-2 h-4 w-4" /> Add Category
           </Button>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
           <TabsList>
-            <TabsTrigger value="all">All Positions</TabsTrigger>
+            <TabsTrigger value="all">All Categories</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
             <TabsTrigger value="inactive">Inactive</TabsTrigger>
           </TabsList>
@@ -251,15 +239,15 @@ const JobPositionsPage = () => {
 
       <DataTable
         columns={columns}
-        data={jobPositions}
+        data={hseCategories}
         isLoading={isLoading}
         pagination={{
           pageIndex,
           limit,
-          pageCount: Math.ceil(totalJobPositions / limit),
+          pageCount: Math.ceil(totalHseCategories / limit),
           onPageChange: setPageIndex,
           onPageSizeChange: setLimit,
-          total: totalJobPositions
+          total: totalHseCategories
         }}
         filterFields={filterFields}
         onSearch={handleSearch}
@@ -271,12 +259,12 @@ const JobPositionsPage = () => {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Job Position"
-        description={`Are you sure you want to delete "${jobPositionToDelete?.name}"? This action cannot be undone.`}
+        title="Delete HSE Category"
+        description={`Are you sure you want to delete "${hseCategoryToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
       />
     </>
   );
 };
 
-export default JobPositionsPage; 
+export default HseCategoriesPage; 

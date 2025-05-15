@@ -13,6 +13,10 @@ import appConfig from './core/config/app.config';
 import { Reflector } from '@nestjs/core';
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { JobPositionsModule } from './modules/job-positions/job-positions.module';
+import { HseCategoriesModule } from './modules/hse-categories/hse-categories.module';
+import { ThreatsModule } from './modules/threats/threats.module';
+import { ThreatMitigationsModule } from './modules/threat-mitigations/threat-mitigations.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -28,6 +32,9 @@ import { JobPositionsModule } from './modules/job-positions/job-positions.module
     PermissionsModule,
     DepartmentsModule,
     JobPositionsModule,
+    HseCategoriesModule,
+    ThreatsModule,
+    ThreatMitigationsModule,
   ],
   providers: [
     Reflector,
