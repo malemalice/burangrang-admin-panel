@@ -163,13 +163,13 @@ const RiskAssessmentDetailPage = () => {
                     {assessment.items.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell>
-                          {item.hseCategory 
-                            ? `${item.hseCategory.code} - ${item.hseCategory.name}` 
+                          {item.mHseCategory 
+                            ? `${item.mHseCategory.code} - ${item.mHseCategory.name}` 
                             : 'Unknown'}
                         </TableCell>
                         <TableCell>
-                          {item.threat 
-                            ? `${item.threat.code} - ${item.threat.name}` 
+                          {item.mThreat 
+                            ? `${item.mThreat.code} - ${item.mThreat.name}` 
                             : 'Unknown'}
                         </TableCell>
                         <TableCell className="text-center">{item.likelihoodLevel}</TableCell>

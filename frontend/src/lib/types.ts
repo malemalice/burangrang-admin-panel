@@ -185,8 +185,8 @@ export interface RiskAssessmentItem {
   likelihoodLevel: number;
   consequenceLevel: number;
   riskMatrixRating: RiskRatingEnum;
-  threat?: Threat;
-  hseCategory?: HseCategory;
+  mThreat?: Threat;
+  mHseCategory?: HseCategory;
 }
 
 // Common response and request types
