@@ -19,15 +19,17 @@ interface FindAllOptions {
 export class RiskAssessmentService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createRiskAssessmentDto: CreateRiskAssessmentDto): Promise<RiskAssessmentDto> {
+  async create(
+    createRiskAssessmentDto: CreateRiskAssessmentDto,
+  ): Promise<RiskAssessmentDto> {
     const { items, ...data } = createRiskAssessmentDto;
-    
+
     const assessment = await this.prisma.riskAssessment.create({
       data: {
         ...data,
         items: {
-          create: items
-        }
+          create: items,
+        },
       },
       include: {
         items: true,
@@ -38,7 +40,12 @@ export class RiskAssessmentService {
     return this.mapToDto(assessment);
   }
 
-  async findAll(options?: FindAllOptions): Promise<{ data: RiskAssessmentDto[]; meta: { total: number; page: number; limit: number } }> {
+  async findAll(
+    options?: FindAllOptions,
+  ): Promise<{
+    data: RiskAssessmentDto[];
+    meta: { total: number; page: number; limit: number };
+  }> {
     const {
       page = 1,
       limit = 10,
@@ -50,7 +57,7 @@ export class RiskAssessmentService {
     } = options || {};
 
     const where: Prisma.RiskAssessmentWhereInput = {};
-    
+
     if (isActive !== undefined) {
       where.isActive = isActive;
     }
@@ -65,7 +72,12 @@ export class RiskAssessmentService {
       this.prisma.riskAssessment.findMany({
         where,
         include: {
-          items: true,
+          items: {
+            include: {
+              mThreat: true,
+              mHseCategory: true,
+            },
+          },
           department: true,
         },
         orderBy: {
@@ -78,7 +90,7 @@ export class RiskAssessmentService {
     ]);
 
     return {
-      data: assessments.map(assessment => this.mapToDto(assessment)),
+      data: assessments.map((assessment) => this.mapToDto(assessment)),
       meta: { total, page, limit },
     };
   }
@@ -87,7 +99,12 @@ export class RiskAssessmentService {
     const assessment = await this.prisma.riskAssessment.findUnique({
       where: { id },
       include: {
-        items: true,
+        items: {
+          include: {
+            mThreat: true,
+            mHseCategory: true,
+          },
+        },
         department: true,
       },
     });
@@ -99,7 +116,10 @@ export class RiskAssessmentService {
     return this.mapToDto(assessment);
   }
 
-  async update(id: string, updateRiskAssessmentDto: UpdateRiskAssessmentDto): Promise<RiskAssessmentDto> {
+  async update(
+    id: string,
+    updateRiskAssessmentDto: UpdateRiskAssessmentDto,
+  ): Promise<RiskAssessmentDto> {
     const { items, ...data } = updateRiskAssessmentDto;
 
     // First, find the assessment to update
@@ -120,9 +140,9 @@ export class RiskAssessmentService {
         ...(items && {
           items: {
             deleteMany: {},
-            create: items
-          }
-        })
+            create: items,
+          },
+        }),
       },
       include: {
         items: true,
@@ -148,6 +168,7 @@ export class RiskAssessmentService {
       id: assessment.id,
       code: assessment.code,
       departmentId: assessment.departmentId,
+      department: assessment.department,
       assessmentDate: assessment.assessmentDate,
       createdAt: assessment.createdAt,
       updatedAt: assessment.updatedAt,
@@ -157,4 +178,4 @@ export class RiskAssessmentService {
       items: assessment.items,
     };
   }
-} 
+}

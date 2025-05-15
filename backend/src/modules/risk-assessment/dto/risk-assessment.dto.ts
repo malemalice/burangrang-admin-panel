@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { RiskAssessmentItemDto } from './risk-assessment-item.dto';
+import { DepartmentDto } from 'src/modules/departments/dto/department.dto';
 
 export class RiskAssessmentDto {
   @ApiProperty()
@@ -10,6 +11,9 @@ export class RiskAssessmentDto {
 
   @ApiProperty()
   departmentId: string;
+
+  @ApiProperty({ type: DepartmentDto })
+  department: DepartmentDto;
 
   @ApiProperty()
   assessmentDate: Date;
@@ -31,4 +35,4 @@ export class RiskAssessmentDto {
 
   @ApiProperty({ type: () => RiskAssessmentItemDto, isArray: true })
   items: RiskAssessmentItemDto[];
-} 
+}
