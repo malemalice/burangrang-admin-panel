@@ -1,9 +1,9 @@
 import { IsString, IsUUID, IsOptional, IsBoolean, IsDate, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import { CreateAssessmentItemDto } from './create-assessment-item.dto';
+import { CreateRiskAssessmentItemDto } from './create-risk-assessment-item.dto';
 
-export class CreateAssessmentDto {
+export class CreateRiskAssessmentDto {
   @IsString()
   @ApiProperty()
   code: string;
@@ -32,7 +32,7 @@ export class CreateAssessmentDto {
 
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => CreateAssessmentItemDto)
-  @ApiProperty({ type: [CreateAssessmentItemDto] })
-  items: CreateAssessmentItemDto[];
+  @Type(() => CreateRiskAssessmentItemDto)
+  @ApiProperty({ type: [CreateRiskAssessmentItemDto] })
+  items: CreateRiskAssessmentItemDto[];
 } 

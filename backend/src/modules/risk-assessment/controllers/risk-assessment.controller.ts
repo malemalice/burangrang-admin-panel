@@ -10,34 +10,33 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { AssessmentService } from '../services/assessment.service';
-import { CreateAssessmentDto } from '../dto/create-assessment.dto';
-import { UpdateAssessmentDto } from '../dto/update-assessment.dto';
-import { AssessmentDto } from '../dto/assessment.dto';
+import { RiskAssessmentService } from '../services/risk-assessment.service';
+import { CreateRiskAssessmentDto } from '../dto/create-risk-assessment.dto';
+import { UpdateRiskAssessmentDto } from '../dto/update-risk-assessment.dto';
+import { RiskAssessmentDto } from '../dto/risk-assessment.dto';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { Roles } from '../../../shared/decorators/roles.decorator';
 import { Role } from '../../../shared/types/role.enum';
 
 @ApiTags('Risk Assessment')
-@Controller('assessment')
+@Controller('risk-assessment')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN, Role.USER)
-export class AssessmentController {
-  constructor(private readonly assessmentService: AssessmentService) {}
+export class RiskAssessmentController {
+  constructor(private readonly riskAssessmentService: RiskAssessmentService) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new risk assessment' })
-  @ApiResponse({ status: 201, type: AssessmentDto })
+  @ApiResponse({ status: 201, type: RiskAssessmentDto })
   async create(
-    @Body() createAssessmentDto: CreateAssessmentDto,
-  ): Promise<AssessmentDto> {
-    return this.assessmentService.create(createAssessmentDto);
+    @Body() createRiskAssessmentDto: CreateRiskAssessmentDto,
+  ): Promise<RiskAssessmentDto> {
+    return this.riskAssessmentService.create(createRiskAssessmentDto);
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all risk assessments with pagination' })
-  @ApiResponse({ status: 200, type: [AssessmentDto] })
+  @ApiResponse({ status: 200, type: [RiskAssessmentDto] })
   async findAll(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
@@ -47,7 +46,7 @@ export class AssessmentController {
     @Query('departmentId') departmentId?: string,
     @Query('status') status?: string,
   ) {
-    return this.assessmentService.findAll({
+    return this.riskAssessmentService.findAll({
       page: page ? +page : undefined,
       limit: limit ? +limit : undefined,
       sortBy,
@@ -60,25 +59,25 @@ export class AssessmentController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a risk assessment by id' })
-  @ApiResponse({ status: 200, type: AssessmentDto })
-  async findOne(@Param('id') id: string): Promise<AssessmentDto> {
-    return this.assessmentService.findOne(id);
+  @ApiResponse({ status: 200, type: RiskAssessmentDto })
+  async findOne(@Param('id') id: string): Promise<RiskAssessmentDto> {
+    return this.riskAssessmentService.findOne(id);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a risk assessment' })
-  @ApiResponse({ status: 200, type: AssessmentDto })
+  @ApiResponse({ status: 200, type: RiskAssessmentDto })
   async update(
     @Param('id') id: string,
-    @Body() updateAssessmentDto: UpdateAssessmentDto,
-  ): Promise<AssessmentDto> {
-    return this.assessmentService.update(id, updateAssessmentDto);
+    @Body() updateRiskAssessmentDto: UpdateRiskAssessmentDto,
+  ): Promise<RiskAssessmentDto> {
+    return this.riskAssessmentService.update(id, updateRiskAssessmentDto);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a risk assessment' })
   @ApiResponse({ status: 204 })
   async remove(@Param('id') id: string): Promise<void> {
-    return this.assessmentService.remove(id);
+    return this.riskAssessmentService.remove(id);
   }
 }

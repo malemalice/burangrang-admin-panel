@@ -34,27 +34,27 @@ export interface UpdateRiskAssessmentDTO extends Partial<CreateRiskAssessmentDTO
 
 const riskAssessmentService = {
   getAll: async (params?: PaginationParams): Promise<PaginatedResponse<RiskAssessment>> => {
-    const response = await api.get('/assessment', { params });
+    const response = await api.get('/risk-assessment', { params });
     return response.data;
   },
 
   getById: async (id: string): Promise<RiskAssessment> => {
-    const response = await api.get(`/assessment/${id}`);
+    const response = await api.get(`/risk-assessment/${id}`);
     return response.data;
   },
 
   create: async (data: CreateRiskAssessmentDTO): Promise<RiskAssessment> => {
-    const response = await api.post('/assessment', data);
+    const response = await api.post('/risk-assessment', data);
     return response.data;
   },
 
   update: async (id: string, data: UpdateRiskAssessmentDTO): Promise<RiskAssessment> => {
-    const response = await api.patch(`/assessment/${id}`, data);
+    const response = await api.patch(`/risk-assessment/${id}`, data);
     return response.data;
   },
 
   delete: async (id: string): Promise<void> => {
-    await api.delete(`/assessment/${id}`);
+    await api.delete(`/risk-assessment/${id}`);
   },
 
   calculateRiskRating: async (likelihoodLevel: number, consequenceLevel: number): Promise<any> => {

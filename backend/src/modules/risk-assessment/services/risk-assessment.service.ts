@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
-import { CreateAssessmentDto } from '../dto/create-assessment.dto';
-import { UpdateAssessmentDto } from '../dto/update-assessment.dto';
-import { AssessmentDto } from '../dto/assessment.dto';
+import { CreateRiskAssessmentDto } from '../dto/create-risk-assessment.dto';
+import { UpdateRiskAssessmentDto } from '../dto/update-risk-assessment.dto';
+import { RiskAssessmentDto } from '../dto/risk-assessment.dto';
 import { Prisma } from '@prisma/client';
 
 interface FindAllOptions {
@@ -16,11 +16,11 @@ interface FindAllOptions {
 }
 
 @Injectable()
-export class AssessmentService {
+export class RiskAssessmentService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createAssessmentDto: CreateAssessmentDto): Promise<AssessmentDto> {
-    const { items, ...data } = createAssessmentDto;
+  async create(createRiskAssessmentDto: CreateRiskAssessmentDto): Promise<RiskAssessmentDto> {
+    const { items, ...data } = createRiskAssessmentDto;
     
     const assessment = await this.prisma.riskAssessment.create({
       data: {
@@ -38,7 +38,7 @@ export class AssessmentService {
     return this.mapToDto(assessment);
   }
 
-  async findAll(options?: FindAllOptions): Promise<{ data: AssessmentDto[]; meta: { total: number; page: number; limit: number } }> {
+  async findAll(options?: FindAllOptions): Promise<{ data: RiskAssessmentDto[]; meta: { total: number; page: number; limit: number } }> {
     const {
       page = 1,
       limit = 10,
@@ -83,7 +83,7 @@ export class AssessmentService {
     };
   }
 
-  async findOne(id: string): Promise<AssessmentDto> {
+  async findOne(id: string): Promise<RiskAssessmentDto> {
     const assessment = await this.prisma.riskAssessment.findUnique({
       where: { id },
       include: {
@@ -99,8 +99,8 @@ export class AssessmentService {
     return this.mapToDto(assessment);
   }
 
-  async update(id: string, updateAssessmentDto: UpdateAssessmentDto): Promise<AssessmentDto> {
-    const { items, ...data } = updateAssessmentDto;
+  async update(id: string, updateRiskAssessmentDto: UpdateRiskAssessmentDto): Promise<RiskAssessmentDto> {
+    const { items, ...data } = updateRiskAssessmentDto;
 
     // First, find the assessment to update
     const existingAssessment = await this.prisma.riskAssessment.findUnique({
@@ -143,7 +143,7 @@ export class AssessmentService {
     }
   }
 
-  private mapToDto(assessment: any): AssessmentDto {
+  private mapToDto(assessment: any): RiskAssessmentDto {
     return {
       id: assessment.id,
       code: assessment.code,

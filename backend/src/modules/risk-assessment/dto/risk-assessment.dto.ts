@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { AssessmentItemDto } from './assessment-item.dto';
+import { RiskAssessmentItemDto } from './risk-assessment-item.dto';
 
-export class AssessmentDto {
+export class RiskAssessmentDto {
   @ApiProperty()
   id: string;
 
@@ -29,6 +29,6 @@ export class AssessmentDto {
   @ApiProperty()
   isActive: boolean;
 
-  @ApiProperty({ type: () => AssessmentItemDto, isArray: true })
-  items: AssessmentItemDto[];
+  @ApiProperty({ type: () => RiskAssessmentItemDto, isArray: true })
+  items: RiskAssessmentItemDto[];
 } 

@@ -16,6 +16,7 @@ import { JobPositionsModule } from './modules/job-positions/job-positions.module
 import { HseCategoriesModule } from './modules/hse-categories/hse-categories.module';
 import { ThreatsModule } from './modules/threats/threats.module';
 import { ThreatMitigationsModule } from './modules/threat-mitigations/threat-mitigations.module';
+import { RiskAssessmentModule } from './modules/risk-assessment/risk-assessment.module';
 
 @Module({
   imports: [
@@ -35,13 +36,14 @@ import { ThreatMitigationsModule } from './modules/threat-mitigations/threat-mit
     HseCategoriesModule,
     ThreatsModule,
     ThreatMitigationsModule,
+    RiskAssessmentModule,
   ],
   providers: [
     Reflector,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
-    }
+    },
   ],
 })
 export class AppModule {}

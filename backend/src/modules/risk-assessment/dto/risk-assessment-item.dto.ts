@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { RiskRatingEnum } from '@prisma/client';
 
-export class AssessmentItemDto {
+export class RiskAssessmentItemDto {
   @ApiProperty()
   id: string;
 

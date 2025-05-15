@@ -2,7 +2,7 @@ import { IsString, IsUUID, IsInt, IsEnum, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { RiskRatingEnum } from '@prisma/client';
 
-export class CreateAssessmentItemDto {
+export class CreateRiskAssessmentItemDto {
   @IsUUID()
   @ApiProperty()
   mThreatId: string;
