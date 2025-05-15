@@ -8,6 +8,7 @@ import { seedJobPositions } from './seeds/jobpositions.seed';
 import { seedHseCategories } from './seeds/hse-categories.seed';
 import { seedThreats } from './seeds/threats.seed';
 import { seedThreatMitigations } from './seeds/threat-mitigations.seed';
+import { seedRiskMatrix } from './seeds/risk-matrix.seed';
 
 const prisma = new PrismaClient();
 
@@ -32,6 +33,7 @@ async function main() {
       await prisma.threatMitigation.deleteMany();
       await prisma.threat.deleteMany();
       await prisma.hseCategory.deleteMany();
+      await prisma.riskMatrix.deleteMany();
       console.log('All existing data cleared successfully');
     } else {
       // Clear only the specified table
@@ -66,9 +68,12 @@ async function main() {
         case 'threat_mitigations':
           await prisma.threatMitigation.deleteMany();
           break;
+        case 'risk_matrix':
+          await prisma.riskMatrix.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
-          console.log('Available tables: users, roles, permissions, offices, departments, jobpositions, hse_categories, threats, threat_mitigations');
+          console.log('Available tables: users, roles, permissions, offices, departments, jobpositions, hse_categories, threats, threat_mitigations, risk_matrix');
           process.exit(1);
       }
       console.log(`Cleared existing data for table: ${tableToSeed}`);
@@ -88,6 +93,9 @@ async function main() {
       const hseCategories = await seedHseCategories(prisma);
       const threats = await seedThreats(prisma, hseCategories.map(c => c.id));
       await seedThreatMitigations(prisma, threats.map(t => t.id));
+      
+      // Seed Risk Matrix
+      await seedRiskMatrix(prisma);
       
       console.log('All tables seeded successfully');
     } else {
@@ -157,6 +165,9 @@ async function main() {
             thrs = await seedThreats(prisma, cats.map(c => c.id));
           }
           await seedThreatMitigations(prisma, thrs.map(t => t.id));
+          break;
+        case 'risk_matrix':
+          await seedRiskMatrix(prisma);
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

@@ -155,6 +155,40 @@ export interface ThreatMitigation {
   updatedAt: Date;
 }
 
+export enum RiskRatingEnum {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+  EXTREME = 'EXTREME'
+}
+
+export interface RiskAssessment {
+  id: string;
+  code: string;
+  departmentId: string;
+  department?: Department;
+  assessmentDate: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+  status: string;
+  isActive: boolean;
+  items: RiskAssessmentItem[];
+}
+
+export interface RiskAssessmentItem {
+  id: string;
+  riskAssessmentId: string;
+  mThreatId: string;
+  mHseCategoryId: string;
+  likelihoodLevel: number;
+  consequenceLevel: number;
+  riskMatrixRating: RiskRatingEnum;
+  mThreat?: Threat;
+  mHseCategory?: HseCategory;
+}
+
 // Common response and request types
 
 export interface ApiResponse<T> {

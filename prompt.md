@@ -539,3 +539,5 @@ create frontend boilerplate, store on frontend folder, use react vite, with shad
 please understand the requirements first, explain the problem and then do the fix step, then write the code if needed. then update todo.md
 
 on frontend, learn code pattern and implemented functionality from module offices and job position, then create new module called hse category. follow attributes stated on backend. please understand the requirements first, explain the problem and then do the fix step, then write the code
+
+on backend, learn code pattern and style from offices or job position then create new module called risk matrix, that had endpoint to calculate risk rating from given likelihood level and consequence level. please understand the requirements first, explain the problem and then do the fix step, then write the code
