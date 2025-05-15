@@ -90,12 +90,12 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
 
   const threatOptions: SearchableSelectOption[] = threats.map(threat => ({
     value: threat.id,
-    label: `${threat.code} - ${threat.name}`
+    label: `${threat.name} - ${threat.description}`
   }));
 
   const hseCategoryOptions: SearchableSelectOption[] = hseCategories.map(category => ({
     value: category.id,
-    label: `${category.code} - ${category.name}`
+    label: `${category.name}`
   }));
 
   const form = useForm<FormValues>({
@@ -129,7 +129,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
       setIsLoading(true);
       try {
         const [departmentsResponse, hseResponse, threatResponse] = await Promise.all([
-          departmentService.getAll(),
+          departmentService.getDepartments({ page: 1, limit: 1000 }),
           hseCategoryService.getAll(),
           threatService.getAll(),
         ]);

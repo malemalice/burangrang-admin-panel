@@ -17,6 +17,7 @@ import { HseCategoriesModule } from './modules/hse-categories/hse-categories.mod
 import { ThreatsModule } from './modules/threats/threats.module';
 import { ThreatMitigationsModule } from './modules/threat-mitigations/threat-mitigations.module';
 import { RiskAssessmentModule } from './modules/risk-assessment/risk-assessment.module';
+import { RiskMatrixModule } from './modules/risk-matrix/risk-matrix.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { RiskAssessmentModule } from './modules/risk-assessment/risk-assessment.
     ThreatsModule,
     ThreatMitigationsModule,
     RiskAssessmentModule,
+    RiskMatrixModule,
   ],
   providers: [
     Reflector,

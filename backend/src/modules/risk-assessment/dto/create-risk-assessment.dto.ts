@@ -13,6 +13,7 @@ export class CreateRiskAssessmentDto {
   departmentId: string;
 
   @IsDate()
+  @Type(() => Date)
   @IsOptional()
   @ApiProperty({ required: false })
   assessmentDate?: Date;
