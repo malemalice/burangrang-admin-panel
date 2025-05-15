@@ -11,7 +11,8 @@ import {
   ChevronDown,
   ChevronRight,
   Building,
-  UsersRound
+  UsersRound,
+  ClipboardCheck
 } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
 
@@ -119,6 +120,7 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
 
       <div className="py-4 px-2 space-y-1">
         <NavItem to="/" icon={LayoutDashboard} isOpen={isOpen}>Dashboard</NavItem>
+        <NavItem to="/risk-assessment" icon={ClipboardCheck} isOpen={isOpen}>Risk Assessment</NavItem>
 
         <SubMenu title="Master Data" icon={Building2} isOpen={isOpen}>
           <NavItem to="/master/hse-categories" icon={UsersRound}>HSE Categories</NavItem>
