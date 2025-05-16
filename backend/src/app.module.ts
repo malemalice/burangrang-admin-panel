@@ -18,6 +18,7 @@ import { ThreatsModule } from './modules/threats/threats.module';
 import { ThreatMitigationsModule } from './modules/threat-mitigations/threat-mitigations.module';
 import { RiskAssessmentModule } from './modules/risk-assessment/risk-assessment.module';
 import { RiskMatrixModule } from './modules/risk-matrix/risk-matrix.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { RiskMatrixModule } from './modules/risk-matrix/risk-matrix.module';
     ThreatMitigationsModule,
     RiskAssessmentModule,
     RiskMatrixModule,
+    DashboardModule,
   ],
   providers: [
     Reflector,
