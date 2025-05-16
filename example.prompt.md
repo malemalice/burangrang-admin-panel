@@ -9,3 +9,5 @@ please understand the requirements first, explain the problem and then do the fi
 on frontend, learn code pattern and implemented functionality from module offices and job position, then create new module called hse category. follow attributes stated on backend. please understand the requirements first, explain the problem and then do the fix step, then write the code
 
 on backend, learn code pattern and style from offices or job position then create new module called risk matrix, that had endpoint to calculate risk rating from given likelihood level and consequence level. please understand the requirements first, explain the problem and then do the fix step, then write the code
+
+@prompt.md , now on frontend add new section on riskassessment form, called action plan, add assignee which is searchable of user and action plan which was a wyiswg editor. refer attribute from backend and prisma.scheme. scan for existing component before create new. please understand the requirements first, explain the problem and then do the fix step. please be careful, not to change any existing code other than i exect on this prompt.@RiskAssessmentForm.tsx 
