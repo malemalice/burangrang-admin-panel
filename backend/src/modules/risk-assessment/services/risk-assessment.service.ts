@@ -23,7 +23,7 @@ export class RiskAssessmentService {
     createRiskAssessmentDto: CreateRiskAssessmentDto,
   ): Promise<RiskAssessmentDto> {
     const { items, ...data } = createRiskAssessmentDto;
-
+    
     const assessment = await this.prisma.riskAssessment.create({
       data: {
         ...data,
@@ -57,7 +57,7 @@ export class RiskAssessmentService {
     } = options || {};
 
     const where: Prisma.RiskAssessmentWhereInput = {};
-
+    
     if (isActive !== undefined) {
       where.isActive = isActive;
     }
@@ -79,6 +79,7 @@ export class RiskAssessmentService {
             },
           },
           department: true,
+          assignee: true,
         },
         orderBy: {
           [sortBy]: sortOrder,
@@ -106,6 +107,7 @@ export class RiskAssessmentService {
           },
         },
         department: true,
+        assignee: true,
       },
     });
 
@@ -178,4 +180,4 @@ export class RiskAssessmentService {
       items: assessment.items,
     };
   }
-}
+} 

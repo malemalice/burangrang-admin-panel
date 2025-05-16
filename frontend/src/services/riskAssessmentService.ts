@@ -1,24 +1,5 @@
+import { RiskAssessment, PaginatedResponse, PaginationParams } from '@/lib/types';
 import api from '@/lib/api';
-import { RiskAssessment, PaginatedResponse } from '@/lib/types';
-
-interface PaginationParams {
-  page?: number;
-  limit?: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-  isActive?: boolean;
-  departmentId?: string;
-  status?: string;
-  search?: string;
-}
-
-export interface CreateRiskAssessmentItemDTO {
-  mThreatId: string;
-  mHseCategoryId: string;
-  likelihoodLevel: number;
-  consequenceLevel: number;
-  riskMatrixRating: string;
-}
 
 export interface CreateRiskAssessmentDTO {
   code: string;
@@ -27,13 +8,21 @@ export interface CreateRiskAssessmentDTO {
   createdBy: string;
   status: string;
   isActive?: boolean;
-  items: CreateRiskAssessmentItemDTO[];
+  items: {
+    mThreatId: string;
+    mHseCategoryId: string;
+    likelihoodLevel: number;
+    consequenceLevel: number;
+    riskMatrixRating: string;
+  }[];
+  assigneeId?: string;
+  actionPlan?: string;
 }
 
-export interface UpdateRiskAssessmentDTO extends Partial<CreateRiskAssessmentDTO> {}
+export type UpdateRiskAssessmentDTO = Partial<CreateRiskAssessmentDTO>;
 
 const riskAssessmentService = {
-  getAll: async (params?: PaginationParams): Promise<PaginatedResponse<RiskAssessment>> => {
+  getAll: async (params: PaginationParams): Promise<PaginatedResponse<RiskAssessment>> => {
     const response = await api.get('/risk-assessment', { params });
     return response.data;
   },

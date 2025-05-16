@@ -29,12 +29,14 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { SearchableSelect, SearchableSelectOption } from '@/components/ui/searchable-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Editor } from '@/components/ui/editor';
 
-import { RiskAssessment, RiskRatingEnum, Department, Threat, HseCategory } from '@/lib/types';
+import { RiskAssessment, RiskRatingEnum, Department, Threat, HseCategory, User } from '@/lib/types';
 import riskAssessmentService, { CreateRiskAssessmentDTO } from '@/services/riskAssessmentService';
 import departmentService from '@/services/departmentService';
 import hseCategoryService from '@/services/hseCategoryService';
 import threatService from '@/services/threatService';
+import userService from '@/services/userService';
 
 // Form schema for validation
 const formSchema = z.object({
@@ -50,6 +52,8 @@ const formSchema = z.object({
     consequenceLevel: z.coerce.number().min(1, 'Minimum level is 1').max(5, 'Maximum level is 5'),
     riskMatrixRating: z.string().min(1, 'Risk rating is required'),
   })).min(1, 'At least one risk item is required'),
+  assigneeId: z.string().optional(),
+  actionPlan: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -79,6 +83,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [threats, setThreats] = useState<Threat[]>([]);
   const [hseCategories, setHseCategories] = useState<HseCategory[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dataReady, setDataReady] = useState(false);
 
@@ -98,6 +103,11 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
     label: `${category.name}`
   }));
 
+  const userOptions: SearchableSelectOption[] = users.map(user => ({
+    value: user.id,
+    label: `${user.firstName} ${user.lastName}`
+  }));
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -115,6 +125,8 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
           riskMatrixRating: RiskRatingEnum.LOW,
         },
       ],
+      assigneeId: '',
+      actionPlan: '',
     },
   });
 
@@ -128,15 +140,17 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [departmentsResponse, hseResponse, threatResponse] = await Promise.all([
+        const [departmentsResponse, hseResponse, threatResponse, usersResponse] = await Promise.all([
           departmentService.getDepartments({ page: 1, limit: 1000 }),
           hseCategoryService.getAll(),
           threatService.getAll(),
+          userService.getAll({ page: 1, limit: 1000 }),
         ]);
 
         setDepartments(departmentsResponse.data);
         setHseCategories(hseResponse.data);
         setThreats(threatResponse.data);
+        setUsers(usersResponse.data);
       } catch (error) {
         toast.error('Failed to load reference data');
       } finally {
@@ -166,6 +180,8 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
           consequenceLevel: item.consequenceLevel,
           riskMatrixRating: item.riskMatrixRating,
         })),
+        assigneeId: assessment.assigneeId,
+        actionPlan: assessment.actionPlan,
       });
     }
   }, [assessment, mode, dataReady, form]);
@@ -337,6 +353,48 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="assigneeId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Assignee</FormLabel>
+                    <FormControl>
+                      <SearchableSelect
+                        options={userOptions}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        placeholder="Select an assignee"
+                        searchPlaceholder="Search user..."
+                        includeNone
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <Separator className="my-6" />
+
+            <div>
+              <h3 className="text-lg font-medium mb-4">Action Plan</h3>
+              <FormField
+                control={form.control}
+                name="actionPlan"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Editor
+                        value={field.value || ''}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />

@@ -27,6 +27,7 @@ model User {
   role          Role           @relation(fields: [roleId], references: [id])
   department    Department?    @relation(fields: [departmentId], references: [id])
   jobPosition   JobPosition?   @relation(fields: [jobPositionId], references: [id])
+  riskAssessments RiskAssessment[]
 
   @@map("users")
 }
@@ -191,7 +192,8 @@ model RiskMatrix {
 
 model RiskAssessment {
   id String @id @default(uuid())
-  code String
+  code String @unique
+  description String? @db.Text
   departmentId String
   department Department @relation(fields:[departmentId], references:[id])
   assessmentDate DateTime @default(now())
@@ -201,6 +203,9 @@ model RiskAssessment {
   status String
   isActive Boolean @default(true)
   items RiskAssessmentItem[]
+  assigneeId String?
+  assignee User? @relation(fields:[assigneeId], references:[id])
+  actionPlan String? @db.Text
 
   @@map("t_risk_assessment")
 }

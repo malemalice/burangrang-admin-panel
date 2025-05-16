@@ -18,6 +18,10 @@ export interface User {
   lastLogin?: string;
   createdAt: string;
   updatedAt: string;
+  firstName: string;
+  lastName: string;
+  isActive: boolean;
+  lastLoginAt?: Date;
 }
 
 export interface Role {
@@ -175,6 +179,9 @@ export interface RiskAssessment {
   status: string;
   isActive: boolean;
   items: RiskAssessmentItem[];
+  assigneeId?: string;
+  assignee?: User;
+  actionPlan?: string;
 }
 
 export interface RiskAssessmentItem {
