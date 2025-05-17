@@ -19,6 +19,7 @@ import { ThreatMitigationsModule } from './modules/threat-mitigations/threat-mit
 import { RiskAssessmentModule } from './modules/risk-assessment/risk-assessment.module';
 import { RiskMatrixModule } from './modules/risk-matrix/risk-matrix.module';
 
+import { MasterApprovalsModule } from './modules/approvals/master-approvals.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -39,6 +40,7 @@ import { RiskMatrixModule } from './modules/risk-matrix/risk-matrix.module';
     ThreatMitigationsModule,
     RiskAssessmentModule,
     RiskMatrixModule,
+    MasterApprovalsModule,
   ],
   providers: [
     Reflector,
