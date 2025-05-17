@@ -537,3 +537,6 @@ create information management system, consist of basic modul for user management
 create frontend boilerplate, store on frontend folder, use react vite, with shadcn/ui. layout was admin panel with sidemenu item, and main content. create dummy for login page, dashboard, user management, with implementation of basic function like add, edit, delete, pagination, column filter, search, alert dialog, toast notification, loading state. no need to connect to backend, just create dummy data.
 
 please understand the requirements first, explain the problem and then do the fix step, then write the code if needed. then update todo.md
+please understand the requirements first, explain the problem and then do the fix step, then write the code if needed. then update todo.md
+
+on frontend, learn code pattern and implemented functionality from module offices and job position, then create new module called hse category. follow attributes stated on backend. please understand the requirements first, explain the problem and then do the fix step, then write the code

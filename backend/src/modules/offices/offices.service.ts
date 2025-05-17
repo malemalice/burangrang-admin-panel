@@ -37,7 +37,7 @@ export class OfficesService {
     return this.mapToDto(office);
   }
 
-  async findAll(options?: FindAllOptions): Promise<{ data: OfficeDto[]; meta: { total: number } }> {
+  async findAll(options?: FindAllOptions): Promise<{ data: OfficeDto[]; meta: { total: number; page: number; limit: number } }> {
     const {
       page = 1,
       limit = 10,
@@ -69,7 +69,7 @@ export class OfficesService {
 
     return {
       data: offices.map(office => this.mapToDto(office)),
-      meta: { total },
+      meta: { total, page, limit },
     };
   }
 

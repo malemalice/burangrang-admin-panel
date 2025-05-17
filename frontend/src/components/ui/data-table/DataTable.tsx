@@ -254,28 +254,45 @@ const DataTable = <T extends Record<string, any>>({
               <ChevronLeft size={18} />
             </Button>
             
-            {[...Array(Math.min(pageCount, 5))].map((_, i) => {
-              const pageNumber = pageIndex < 2 
-                ? i 
-                : pageIndex > pageCount - 3 
-                  ? pageCount - 5 + i 
-                  : pageIndex - 2 + i;
+            {(() => {
+              // Always show at most 5 pages
+              const maxPages = Math.min(pageCount, 5);
+              // Calculate start and end pages
+              let startPage = 0;
               
-              if (pageNumber >= 0 && pageNumber < pageCount) {
-                return (
-                  <Button
-                    key={i}
-                    variant={pageIndex === pageNumber ? "default" : "outline"}
-                    size="icon"
-                    onClick={() => pagination.onPageChange(pageNumber)}
-                    className="w-9 h-9"
-                  >
-                    {pageNumber + 1}
-                  </Button>
-                );
+              if (pageCount <= 5) {
+                // Show all pages if 5 or fewer
+                startPage = 0;
+              } else if (pageIndex <= 1) {
+                // If on first or second page, show first 5 pages
+                startPage = 0;
+              } else if (pageIndex >= pageCount - 2) {
+                // If on last 2 pages, show last 5 pages
+                startPage = pageCount - 5;
+              } else {
+                // Otherwise center current page
+                startPage = pageIndex - 2;
               }
-              return null;
-            })}
+              
+              return Array.from({ length: maxPages }).map((_, i) => {
+                const pageNumber = startPage + i;
+                
+                if (pageNumber >= 0 && pageNumber < pageCount) {
+                  return (
+                    <Button
+                      key={pageNumber}
+                      variant={pageIndex === pageNumber ? "default" : "outline"}
+                      size="icon"
+                      onClick={() => pagination.onPageChange(pageNumber)}
+                      className="w-9 h-9"
+                    >
+                      {pageNumber + 1}
+                    </Button>
+                  );
+                }
+                return null;
+              });
+            })()}
             
             <Button
               variant="outline"
