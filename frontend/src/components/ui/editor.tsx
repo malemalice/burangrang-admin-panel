@@ -3,6 +3,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
 import { Bold, Italic, List, ListOrdered } from 'lucide-react';
+import { useEffect } from 'react';
 
 interface EditorProps {
   value: string;
@@ -18,6 +19,13 @@ export function Editor({ value, onChange, className }: EditorProps) {
       onChange(editor.getHTML());
     },
   });
+
+  // Update editor content when value changes
+  useEffect(() => {
+    if (editor && value !== editor.getHTML()) {
+      editor.commands.setContent(value);
+    }
+  }, [editor, value]);
 
   if (!editor) {
     return null;
