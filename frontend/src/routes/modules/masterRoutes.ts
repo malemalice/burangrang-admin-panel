@@ -11,6 +11,9 @@ import {
   JobPositionsPage,
   CreateJobPositionPage,
   EditJobPositionPage,
+  MasterApprovalsPage,
+  CreateMasterApprovalPage,
+  EditMasterApprovalPage,
 } from '@/pages/master';
 
 /**
@@ -60,6 +63,18 @@ const masterRoutes: RouteConfig[] = [
   {
     path: '/master/job-positions/:id',
     component: EditJobPositionPage,
+  },
+  {
+    path: '/master/approvals',
+    component: MasterApprovalsPage,
+  },
+  {
+    path: '/master/approvals/new',
+    component: CreateMasterApprovalPage,
+  },
+  {
+    path: '/master/approvals/:id/edit',
+    component: EditMasterApprovalPage,
   },
 ];
 

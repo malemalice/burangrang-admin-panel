@@ -146,3 +146,34 @@ export interface PaginationParams {
   search?: string;
   filters?: Record<string, any>;
 }
+
+export interface MasterApprovalItem {
+  id: string;
+  mApprovalId: string;
+  order: number;
+  job_position_id: string;
+  department_id: string;
+  createdBy: string;
+  createdAt: string;
+  jobPosition: {
+    id: string;
+    name: string;
+  };
+  department: {
+    id: string;
+    name: string;
+  };
+  creator: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface MasterApproval {
+  id: string;
+  entity: string;
+  isActive: boolean;
+  items: MasterApprovalItem[];
+  createdAt: string;
+  updatedAt: string;
+}

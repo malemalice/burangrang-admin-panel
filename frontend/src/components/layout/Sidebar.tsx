@@ -127,6 +127,7 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
           <NavItem to="/users" icon={Users} isOpen={isOpen}>Users</NavItem>
           <NavItem to="/roles" icon={ShieldCheck} isOpen={isOpen}>Roles</NavItem>
           <NavItem to="/menus" icon={MenuIcon} isOpen={isOpen}>Menus</NavItem>
+          <NavItem to="/master/approvals" icon={ShieldCheck} isOpen={isOpen}>Approvals</NavItem>
         </SubMenu>
 
         <NavItem to="/settings" icon={Settings} isOpen={isOpen}>Settings</NavItem>

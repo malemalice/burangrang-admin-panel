@@ -13,6 +13,7 @@ import appConfig from './core/config/app.config';
 import { Reflector } from '@nestjs/core';
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { JobPositionsModule } from './modules/job-positions/job-positions.module';
+import { MasterApprovalsModule } from './modules/approvals/master-approvals.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -28,6 +29,7 @@ import { JobPositionsModule } from './modules/job-positions/job-positions.module
     PermissionsModule,
     DepartmentsModule,
     JobPositionsModule,
+    MasterApprovalsModule,
   ],
   providers: [
     Reflector,
