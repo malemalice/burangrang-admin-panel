@@ -70,4 +70,4 @@ export class MasterApprovalsController {
   remove(@Param('id') id: string): Promise<void> {
     return this.masterApprovalsService.remove(id);
   }
-}
+} 

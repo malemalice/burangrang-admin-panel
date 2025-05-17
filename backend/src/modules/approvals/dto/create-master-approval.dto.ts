@@ -33,5 +33,4 @@ export class CreateMasterApprovalDto {
   @ValidateNested({ each: true })
   @Type(() => CreateMasterApprovalItemDto)
   items: CreateMasterApprovalItemDto[];
-}
- 
+} 

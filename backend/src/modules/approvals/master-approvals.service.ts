@@ -3,14 +3,7 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateMasterApprovalDto } from './dto/create-master-approval.dto';
 import { UpdateMasterApprovalDto } from './dto/update-master-approval.dto';
 import { MasterApprovalDto } from './dto/master-approval.dto';
-import {
-  Prisma,
-  MasterApproval,
-  MasterApprovalItem,
-  JobPosition,
-  Department,
-  User,
-} from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 interface FindAllOptions {
   page?: number;
@@ -21,16 +14,6 @@ interface FindAllOptions {
   search?: string;
 }
 
-type MasterApprovalWithRelations = Omit<MasterApproval, 'items'> & {
-  items: (MasterApprovalItem & {
-    jobPosition: JobPosition;
-    department: Department;
-    creator: User;
-  })[];
-  createdAt: Date;
-  updatedAt: Date;
-};
-
 @Injectable()
 export class MasterApprovalsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -40,43 +23,26 @@ export class MasterApprovalsService {
   ): Promise<MasterApprovalDto> {
     const { items, ...data } = createMasterApprovalDto;
 
-    // First generate the master approval
+    // First create the master approval
     const masterApproval = await this.prisma.masterApproval.create({
-      data: {
-        ...data,
-      },
+      data
     });
 
     // Then create each item separately
     for (const item of items) {
       await this.prisma.masterApprovalItem.create({
         data: {
-          mApproval: {
-            connect: { id: masterApproval.id },
-          },
+          mApprovalId: masterApproval.id,
           order: item.order || 0,
           job_position_id: item.job_position_id,
           department_id: item.department_id,
-          createdBy: item.createdBy,
-        },
+          createdBy: item.createdBy
+        }
       });
     }
 
-    // Finally fetch the complete data with relations
-    const completeApproval = await this.prisma.masterApproval.findUnique({
-      where: { id: masterApproval.id },
-      include: {
-        items: {
-          include: {
-            jobPosition: true,
-            department: true,
-            creator: true,
-          },
-        },
-      },
-    });
-
-    return this.mapToDto(completeApproval as MasterApprovalWithRelations);
+    // Fetch the complete approval with all relations
+    return this.findOne(masterApproval.id);
   }
 
   async findAll(options?: FindAllOptions): Promise<{
@@ -110,9 +76,9 @@ export class MasterApprovalsService {
             include: {
               jobPosition: true,
               department: true,
-              creator: true,
-            },
-          },
+              creator: true
+            }
+          }
         },
         orderBy: {
           [sortBy]: sortOrder,
@@ -124,8 +90,7 @@ export class MasterApprovalsService {
     ]);
 
     return {
-      data: masterApprovals.map((approval) => 
-        this.mapToDto(approval as MasterApprovalWithRelations)),
+      data: masterApprovals.map((approval) => this.mapToDto(approval)),
       meta: { total, page, limit },
     };
   }
@@ -138,9 +103,9 @@ export class MasterApprovalsService {
           include: {
             jobPosition: true,
             department: true,
-            creator: true,
-          },
-        },
+            creator: true
+          }
+        }
       },
     });
 
@@ -148,7 +113,7 @@ export class MasterApprovalsService {
       throw new NotFoundException(`Master approval with ID ${id} not found`);
     }
 
-    return this.mapToDto(masterApproval as MasterApprovalWithRelations);
+    return this.mapToDto(masterApproval);
   }
 
   async update(
@@ -157,13 +122,22 @@ export class MasterApprovalsService {
   ): Promise<MasterApprovalDto> {
     const { items, ...data } = updateMasterApprovalDto;
 
-    // First update the main approval data
+    // Verify approval exists
+    const existingApproval = await this.prisma.masterApproval.findUnique({
+      where: { id },
+    });
+
+    if (!existingApproval) {
+      throw new NotFoundException(`Master approval with ID ${id} not found`);
+    }
+
+    // Update the approval
     await this.prisma.masterApproval.update({
       where: { id },
       data,
     });
 
-    // Then handle items if provided
+    // If items are provided, update them
     if (items) {
       // Delete existing items
       await this.prisma.masterApprovalItem.deleteMany({
@@ -174,33 +148,18 @@ export class MasterApprovalsService {
       for (const item of items) {
         await this.prisma.masterApprovalItem.create({
           data: {
-            mApproval: {
-              connect: { id },
-            },
+            mApprovalId: id,
             order: item.order || 0,
             job_position_id: item.job_position_id,
             department_id: item.department_id,
-            createdBy: item.createdBy,
-          },
+            createdBy: item.createdBy
+          }
         });
       }
     }
 
-    // Fetch the complete updated approval
-    const updatedApproval = await this.prisma.masterApproval.findUnique({
-      where: { id },
-      include: {
-        items: {
-          include: {
-            jobPosition: true,
-            department: true,
-            creator: true,
-          },
-        },
-      },
-    });
-
-    return this.mapToDto(updatedApproval as MasterApprovalWithRelations);
+    // Return updated approval
+    return this.findOne(id);
   }
 
   async remove(id: string): Promise<void> {
@@ -223,14 +182,12 @@ export class MasterApprovalsService {
     });
   }
 
-  private mapToDto(
-    masterApproval: MasterApprovalWithRelations,
-  ): MasterApprovalDto {
+  private mapToDto(data: any): MasterApprovalDto {
     return {
-      id: masterApproval.id,
-      entity: masterApproval.entity,
-      isActive: masterApproval.isActive,
-      items: masterApproval.items.map((item) => ({
+      id: data.id,
+      entity: data.entity,
+      isActive: data.isActive,
+      items: data.items?.map((item: any) => ({
         id: item.id,
         mApprovalId: item.mApprovalId,
         order: item.order,
@@ -248,12 +205,11 @@ export class MasterApprovalsService {
         },
         creator: {
           id: item.creator.id,
-          name: item.creator.firstName + ' ' + item.creator.lastName,
+          name: `${item.creator.firstName} ${item.creator.lastName}`,
         },
       })),
-      createdAt: masterApproval.createdAt,
-      updatedAt: masterApproval.updatedAt,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
     };
   }
-}
- 
+} 
