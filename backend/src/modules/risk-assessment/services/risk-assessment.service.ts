@@ -5,6 +5,7 @@ import { CreateRiskAssessmentDto } from '../dto/create-risk-assessment.dto';
 import { UpdateRiskAssessmentDto } from '../dto/update-risk-assessment.dto';
 import { RiskAssessmentDto } from '../dto/risk-assessment.dto';
 import { RiskAssessment, RiskAssessmentItem, Prisma } from '@prisma/client';
+import { ApprovalsService } from '../../approvals/approvals.service';
 
 interface FindAllOptions {
   page?: number;
@@ -18,16 +19,21 @@ interface FindAllOptions {
 
 @Injectable()
 export class RiskAssessmentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly approvalsService: ApprovalsService,
+  ) {}
 
   async create(
     createRiskAssessmentDto: CreateRiskAssessmentDto,
+    userId: string,
   ): Promise<RiskAssessmentDto> {
     const { items, ...data } = createRiskAssessmentDto;
 
     const assessment = await this.prisma.riskAssessment.create({
       data: {
         ...data,
+        status: 'waiting_approval',
         items: {
           create: items,
         },
@@ -39,21 +45,26 @@ export class RiskAssessmentService {
       },
     });
 
-    const assessmentWithRelations = await this.prisma.riskAssessment.findUnique(
-      {
-        where: { id: assessment.id },
-        include: {
-          items: {
-            include: {
-              mThreat: true,
-              mHseCategory: true,
-            },
-          },
-          department: true,
-          assignee: true,
-        },
-      },
+    // Create approval record
+    await this.approvalsService.createApproval(
+      'RiskAssessment',
+      assessment.id,
+      userId,
     );
+
+    const assessmentWithRelations = await this.prisma.riskAssessment.findUnique({
+      where: { id: assessment.id },
+      include: {
+        items: {
+          include: {
+            mThreat: true,
+            mHseCategory: true,
+          },
+        },
+        department: true,
+        assignee: true,
+      },
+    });
 
     if (!assessmentWithRelations) {
       throw new NotFoundException(
@@ -184,13 +195,27 @@ export class RiskAssessmentService {
   }
 
   async remove(id: string): Promise<void> {
-    try {
-      await this.prisma.riskAssessment.delete({
-        where: { id },
-      });
-    } catch {
+    // First check if the assessment exists
+    const assessment = await this.prisma.riskAssessment.findUnique({
+      where: { id },
+      include: {
+        items: true,
+      },
+    });
+
+    if (!assessment) {
       throw new NotFoundException(`Risk Assessment with ID ${id} not found`);
     }
+
+    // Delete all related items first
+    await this.prisma.riskAssessmentItem.deleteMany({
+      where: { riskAssessmentId: id },
+    });
+
+    // Then delete the assessment
+    await this.prisma.riskAssessment.delete({
+      where: { id },
+    });
   }
 
   private mapToDto(

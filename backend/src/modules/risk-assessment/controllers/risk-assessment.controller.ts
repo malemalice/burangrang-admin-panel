@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Query,
+  Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { RiskAssessmentService } from '../services/risk-assessment.service';
@@ -29,9 +30,13 @@ export class RiskAssessmentController {
   @ApiOperation({ summary: 'Create a new risk assessment' })
   @ApiResponse({ status: 201, type: RiskAssessmentDto })
   async create(
+    @Request() req,
     @Body() createRiskAssessmentDto: CreateRiskAssessmentDto,
   ): Promise<RiskAssessmentDto> {
-    return this.riskAssessmentService.create(createRiskAssessmentDto);
+    return this.riskAssessmentService.create(
+      createRiskAssessmentDto,
+      req.user.id,
+    );
   }
 
   @Get()
