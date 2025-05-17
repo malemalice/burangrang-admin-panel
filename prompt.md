@@ -3,6 +3,31 @@
 ## Project Overview
 This is an information management system with basic modules for user management, role management (with permissions), menu management, and office management master data. The system follows a modern web application architecture with separate frontend and backend services.
 
+This project is an admin panel for managing risk assessments and HSE (Health, Safety, and Environment) categories. It includes modules for risk assessment, risk matrix, threats, threat mitigations, and HSE categories.
+
+## Modules
+
+- **Risk Assessment**: Manages risk assessments and their items.
+- **Risk Matrix**: Handles risk matrix configurations.
+- **Threats**: Manages threats and their mitigations.
+- **Threat Mitigations**: Manages mitigations for threats.
+- **HSE Categories**: Manages HSE categories.
+- **Dashboard**: Provides metrics and analytics for risk assessments, department profiles, HSE category analysis, threat analysis, and compliance progress.
+
+## Dashboard Endpoints
+
+- `/dashboard/risk-overview`: Provides an overview of risk metrics.
+- `/dashboard/department-profile`: Provides department-specific risk profiles.
+- `/dashboard/hse-category-analysis`: Provides analysis of HSE categories.
+- `/dashboard/threat-analysis`: Provides analysis of threats.
+- `/dashboard/compliance-progress`: Provides compliance and progress tracking metrics.
+
+## Next Steps
+
+- Implement the actual metrics logic for each dashboard endpoint.
+- Test the endpoints to ensure they return the expected data.
+- Integrate the dashboard with the frontend to display the metrics.
+
 ## Technical Stack
 
 ### Backend
@@ -338,8 +363,15 @@ frontend/
 ├── index.html          # HTML template
 ├── package.json        # Dependencies
 ├── tsconfig.json       # TypeScript config
-└── vite.config.ts      # Vite config
+├── vite.config.ts      # Vite config
+└── .eslintrc.js        # ESLint configuration
 ```
+
+### ESLint Configuration
+- Use ESLint for code linting and style enforcement.
+- Configure ESLint to enforce consistent code style and catch common errors.
+- Include rules for TypeScript, React, and general JavaScript best practices.
+- Use Prettier for code formatting, integrated with ESLint.
 
 ### Component Patterns
 
@@ -530,14 +562,3 @@ interface DataTableProps<T> {
 - Status filters in tabs (All/Active/Inactive)
 - Status badges with consistent styling
 - Status changes through actions menu
-
-create information management system, consist of basic modul for user management, role management (with permissions inside it), menu management, and master data for office management. Layout will be like admin panel, with sidemenu. tech stack, separate frontend and backend, communicate using rest. backend use nest js with prisma as orm. frontend use react js with vite, ui/ux component use shadcn. Add also basic fitur for admin panel,like confirm alert, alert, notification using toast, pagination, column filter and search on index page/table page. Both need to implement clean code architecture. Do this first, put your understanding context inside prompt.md, to be used later for communication with you. Then create todo checklist of the feature, update the checklist if you had done build it. After finish, please check again for errors
-
-
-create frontend boilerplate, store on frontend folder, use react vite, with shadcn/ui. layout was admin panel with sidemenu item, and main content. create dummy for login page, dashboard, user management, with implementation of basic function like add, edit, delete, pagination, column filter, search, alert dialog, toast notification, loading state. no need to connect to backend, just create dummy data.
-
-please understand the requirements first, explain the problem and then do the fix step, then write the code if needed. then update todo.md
-
-on frontend, learn code pattern and implemented functionality from module offices and job position, then create new module called hse category. follow attributes stated on backend. please understand the requirements first, explain the problem and then do the fix step, then write the code
-
-on backend, learn code pattern and style from offices or job position then create new module called risk matrix, that had endpoint to calculate risk rating from given likelihood level and consequence level. please understand the requirements first, explain the problem and then do the fix step, then write the code

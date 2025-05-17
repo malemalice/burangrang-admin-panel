@@ -102,6 +102,11 @@ const mapUserToUpdateDto = (user: Partial<User>): UpdateUserDTO => {
 };
 
 const userService = {
+  getAll: async (params: PaginationParams): Promise<PaginatedResponse<User>> => {
+    const response = await api.get('/users', { params });
+    return response.data;
+  },
+
   // Get all users with pagination and filtering
   getUsers: async (params: PaginationParams): Promise<PaginatedResponse<User>> => {
     try {

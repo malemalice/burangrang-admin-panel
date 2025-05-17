@@ -135,9 +135,23 @@ const RiskAssessmentDetailPage = () => {
               <p className="text-sm font-medium">Last Updated</p>
               <p>{format(new Date(assessment.updatedAt), 'dd MMM yyyy')}</p>
             </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Assignee</p>
+              <p>{assessment.assignee ? `${assessment.assignee.firstName} ${assessment.assignee.lastName}` : 'N/A'}</p>
+            </div>
           </div>
 
           <Separator />
+
+          {assessment.actionPlan && (
+            <>
+              <div>
+                <h3 className="text-lg font-medium mb-4">Action Plan</h3>
+                <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: assessment.actionPlan }} />
+              </div>
+              <Separator />
+            </>
+          )}
 
           <div>
             <h3 className="text-lg font-medium mb-4">Risk Assessment Items</h3>
