@@ -10,4 +10,4 @@ please understand the requirements first, explain the problem and then do the fi
 on frontend, learn code pattern and implemented functionality from module offices and job position, then create new module called hse category. follow attributes stated on backend. please understand the requirements first, explain the problem and then do the fix step, then write the code
 
 
-please understand the requirements first, explain the problem and then write the code
+please understand the requirements first, explain the problem and then write the code. respect eslint configuration
