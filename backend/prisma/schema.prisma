@@ -54,8 +54,6 @@ model Role {
   users       User[]
   menus       Menu[]       @relation("MenuToRole")
   permissions Permission[] @relation("PermissionToRole")
-  approvalItems MasterApprovalItem[]
-  approvals Approval[]
 
   @@map("roles")
 }
@@ -132,6 +130,8 @@ model JobPosition {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now())
   users       User[]
+  approvalItems MasterApprovalItem[]
+  approvals   Approval[]
   @@map("job_positions")
 }
 
@@ -149,11 +149,11 @@ model MasterApprovalItem {
   mApprovalId String
   mApproval MasterApproval @relation(fields:[mApprovalId], references:[id])
   order Int
-  role_id String
+  job_position_id String
   department_id String
   createdBy String
   createdAt DateTime @default(now())
-  role Role @relation(fields: [role_id], references: [id])
+  jobPosition JobPosition @relation(fields: [job_position_id], references: [id])
   department Department @relation(fields: [department_id], references: [id])
   creator User @relation("CreatedApprovalItems", fields: [createdBy], references: [id])
 
@@ -165,13 +165,13 @@ model Approval {
   mApprovalId String
   entityId String
   department_id String
-  role_id String
+  job_position_id String
   status String
   notes String
   createdAt DateTime @default(now())
   createdBy String
   department Department @relation(fields: [department_id], references: [id])
-  role Role @relation(fields: [role_id], references: [id])
+  jobPosition JobPosition @relation(fields: [job_position_id], references: [id])
   creator User @relation("CreatedApprovals", fields: [createdBy], references: [id])
 
   @@map("t_approvals")

@@ -9,7 +9,7 @@ import { Type } from 'class-transformer';
 
 export class CreateMasterApprovalItemDto {
   @IsString()
-  role_id: string;
+  job_position_id: string;
 
   @IsString()
   department_id: string;
@@ -34,3 +34,4 @@ export class CreateMasterApprovalDto {
   @Type(() => CreateMasterApprovalItemDto)
   items: CreateMasterApprovalItemDto[];
 }
+ 

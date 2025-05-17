@@ -11,7 +11,7 @@ interface PaginationParams {
 }
 
 export interface CreateMasterApprovalItemDTO {
-  role_id: string;
+  job_position_id: string;
   department_id: string;
   createdBy: string;
   order?: number;
@@ -23,7 +23,9 @@ export interface CreateMasterApprovalDTO {
   items: CreateMasterApprovalItemDTO[];
 }
 
-export interface UpdateMasterApprovalDTO extends Partial<CreateMasterApprovalDTO> {}
+export interface UpdateMasterApprovalDTO extends Partial<CreateMasterApprovalDTO> {
+  // Additional fields specific to updates can be added here
+}
 
 const masterApprovalService = {
   getAll: async (params?: PaginationParams): Promise<PaginatedResponse<MasterApproval>> => {

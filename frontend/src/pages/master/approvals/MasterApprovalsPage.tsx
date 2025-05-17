@@ -182,7 +182,7 @@ const MasterApprovalsPage = () => {
           {approval.items.map((item, index) => (
             <div key={item.id} className="flex items-center gap-2 text-sm">
               <span className="text-gray-500">{index + 1}.</span>
-              <span>{item.role.name}</span>
+              <span>{item.jobPosition.name}</span>
               <span className="text-gray-500">-</span>
               <span>{item.department.name}</span>
             </div>

@@ -151,11 +151,11 @@ export interface MasterApprovalItem {
   id: string;
   mApprovalId: string;
   order: number;
-  role_id: string;
+  job_position_id: string;
   department_id: string;
   createdBy: string;
   createdAt: string;
-  role: {
+  jobPosition: {
     id: string;
     name: string;
   };

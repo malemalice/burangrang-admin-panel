@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class RoleDto {
+export class JobPositionDto {
   @ApiProperty()
   id: string;
 
@@ -35,7 +35,7 @@ export class MasterApprovalItemDto {
   order: number;
 
   @ApiProperty()
-  role_id: string;
+  job_position_id: string;
 
   @ApiProperty()
   department_id: string;
@@ -46,8 +46,8 @@ export class MasterApprovalItemDto {
   @ApiProperty()
   createdAt: Date;
 
-  @ApiProperty({ type: () => RoleDto })
-  role: RoleDto;
+  @ApiProperty({ type: () => JobPositionDto })
+  jobPosition: JobPositionDto;
 
   @ApiProperty({ type: () => DepartmentDto })
   department: DepartmentDto;
@@ -75,3 +75,4 @@ export class MasterApprovalDto {
   @ApiProperty()
   updatedAt: Date;
 }
+ 

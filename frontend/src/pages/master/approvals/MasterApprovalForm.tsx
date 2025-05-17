@@ -20,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import masterApprovalService, { CreateMasterApprovalDTO } from '@/services/masterApprovalService';
 import { MasterApproval } from '@/lib/types';
-import roleService from '@/services/roleService';
+import jobPositionService from '@/services/jobPositionService';
 import departmentService from '@/services/departmentService';
 import userService from '@/services/userService';
 
@@ -28,7 +28,7 @@ const formSchema = z.object({
   entity: z.string().min(1, 'Entity is required'),
   isActive: z.boolean().default(true),
   items: z.array(z.object({
-    role_id: z.string().min(1, 'Role is required'),
+    job_position_id: z.string().min(1, 'Job Position is required'),
     department_id: z.string().min(1, 'Department is required'),
     createdBy: z.string().min(1, 'Creator is required'),
     order: z.number().optional(),
@@ -45,7 +45,7 @@ interface MasterApprovalFormProps {
 const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
+  const [jobPositions, setJobPositions] = useState<{ id: string; name: string }[]>([]);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
 
@@ -54,7 +54,7 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
     defaultValues: {
       entity: '',
       isActive: true,
-      items: [{ role_id: '', department_id: '', createdBy: '', order: 1 }],
+      items: [{ job_position_id: '', department_id: '', createdBy: '', order: 1 }],
     },
   });
 
@@ -66,13 +66,13 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
   useEffect(() => {
     const fetchOptions = async () => {
       try {
-        const [rolesRes, deptsRes, usersRes] = await Promise.all([
-          roleService.getRoles({ page: 1, limit: 100 }),
+        const [positionsRes, deptsRes, usersRes] = await Promise.all([
+          jobPositionService.getAll({ page: 1, limit: 100 }),
           departmentService.getDepartments({ page: 1, limit: 100 }),
           userService.getUsers({ page: 1, limit: 100 }),
         ]);
 
-        setRoles(rolesRes.data);
+        setJobPositions(positionsRes.data);
         setDepartments(deptsRes.data);
         setUsers(usersRes.data);
       } catch (error) {
@@ -90,7 +90,7 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
         entity: approval.entity,
         isActive: approval.isActive,
         items: approval.items.map(item => ({
-          role_id: item.role_id,
+          job_position_id: item.job_position_id,
           department_id: item.department_id,
           createdBy: item.createdBy,
           order: item.order,
@@ -170,7 +170,7 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
                 <h3 className="text-lg font-medium">Approval Flow</h3>
                 <Button
                   type="button"
-                  onClick={() => append({ role_id: '', department_id: '', createdBy: '', order: fields.length + 1 })}
+                  onClick={() => append({ job_position_id: '', department_id: '', createdBy: '', order: fields.length + 1 })}
                 >
                   <Plus className="mr-2 h-4 w-4" /> Add Step
                 </Button>
@@ -190,19 +190,19 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <FormField
                           control={form.control}
-                          name={`items.${index}.role_id`}
+                          name={`items.${index}.job_position_id`}
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Role</FormLabel>
+                              <FormLabel>Job Position</FormLabel>
                               <FormControl>
                                 <SearchableSelect
-                                  options={roles.map(role => ({
-                                    value: role.id,
-                                    label: role.name,
+                                  options={jobPositions.map(position => ({
+                                    value: position.id,
+                                    label: position.name,
                                   }))}
                                   value={field.value}
                                   onValueChange={field.onChange}
-                                  placeholder="Select role"
+                                  placeholder="Select job position"
                                 />
                               </FormControl>
                               <FormMessage />
