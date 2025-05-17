@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateMasterApprovalDto } from './dto/create-master-approval.dto';
@@ -20,12 +23,13 @@ export class MasterApprovalsService {
 
   async create(
     createMasterApprovalDto: CreateMasterApprovalDto,
+    userId: string,
   ): Promise<MasterApprovalDto> {
     const { items, ...data } = createMasterApprovalDto;
 
     // First create the master approval
     const masterApproval = await this.prisma.masterApproval.create({
-      data
+      data,
     });
 
     // Then create each item separately
@@ -36,8 +40,8 @@ export class MasterApprovalsService {
           order: item.order || 0,
           job_position_id: item.job_position_id,
           department_id: item.department_id,
-          createdBy: item.createdBy
-        }
+          createdBy: userId,
+        },
       });
     }
 
@@ -76,9 +80,9 @@ export class MasterApprovalsService {
             include: {
               jobPosition: true,
               department: true,
-              creator: true
-            }
-          }
+              creator: true,
+            },
+          },
         },
         orderBy: {
           [sortBy]: sortOrder,
@@ -103,9 +107,9 @@ export class MasterApprovalsService {
           include: {
             jobPosition: true,
             department: true,
-            creator: true
-          }
-        }
+            creator: true,
+          },
+        },
       },
     });
 
@@ -119,6 +123,7 @@ export class MasterApprovalsService {
   async update(
     id: string,
     updateMasterApprovalDto: UpdateMasterApprovalDto,
+    userId: string,
   ): Promise<MasterApprovalDto> {
     const { items, ...data } = updateMasterApprovalDto;
 
@@ -152,8 +157,8 @@ export class MasterApprovalsService {
             order: item.order || 0,
             job_position_id: item.job_position_id,
             department_id: item.department_id,
-            createdBy: item.createdBy
-          }
+            createdBy: userId,
+          },
         });
       }
     }
@@ -212,4 +217,4 @@ export class MasterApprovalsService {
       updatedAt: data.updatedAt,
     };
   }
-} 
+}

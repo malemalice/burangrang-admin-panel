@@ -187,7 +187,7 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
                     </div>
 
                     <div className="flex-1 space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
                           name={`items.${index}.job_position_id`}
@@ -232,27 +232,6 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
                           )}
                         />
 
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.createdBy`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Creator</FormLabel>
-                              <FormControl>
-                                <SearchableSelect
-                                  options={users.map(user => ({
-                                    value: user.id,
-                                    label: user.name,
-                                  }))}
-                                  value={field.value}
-                                  onValueChange={field.onChange}
-                                  placeholder="Select creator"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
                       </div>
                     </div>
 

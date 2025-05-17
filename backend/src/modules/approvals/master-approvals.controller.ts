@@ -8,6 +8,7 @@ import {
   Delete,
   Query,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { MasterApprovalsService } from './master-approvals.service';
 import { CreateMasterApprovalDto } from './dto/create-master-approval.dto';
@@ -25,9 +26,13 @@ export class MasterApprovalsController {
 
   @Post()
   create(
+    @Request() req,
     @Body() createMasterApprovalDto: CreateMasterApprovalDto,
   ): Promise<MasterApprovalDto> {
-    return this.masterApprovalsService.create(createMasterApprovalDto);
+    return this.masterApprovalsService.create(
+      createMasterApprovalDto,
+      req.user.id,
+    );
   }
 
   @Get()
@@ -41,8 +46,9 @@ export class MasterApprovalsController {
   ) {
     const pageNumber = page ? parseInt(page, 10) : undefined;
     const limitNumber = limit ? parseInt(limit, 10) : undefined;
-    const isActiveBoolean = isActive === undefined ? undefined : isActive === 'true';
-    
+    const isActiveBoolean =
+      isActive === undefined ? undefined : isActive === 'true';
+
     return this.masterApprovalsService.findAll({
       page: pageNumber,
       limit: limitNumber,
@@ -60,14 +66,19 @@ export class MasterApprovalsController {
 
   @Patch(':id')
   update(
+    @Request() req,
     @Param('id') id: string,
     @Body() updateMasterApprovalDto: UpdateMasterApprovalDto,
   ): Promise<MasterApprovalDto> {
-    return this.masterApprovalsService.update(id, updateMasterApprovalDto);
+    return this.masterApprovalsService.update(
+      id,
+      updateMasterApprovalDto,
+      req.user.id,
+    );
   }
 
   @Delete(':id')
   remove(@Param('id') id: string): Promise<void> {
     return this.masterApprovalsService.remove(id);
   }
-} 
+}
