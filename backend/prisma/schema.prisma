@@ -27,6 +27,8 @@ model User {
   role          Role           @relation(fields: [roleId], references: [id])
   department    Department?    @relation(fields: [departmentId], references: [id])
   jobPosition   JobPosition?   @relation(fields: [jobPositionId], references: [id])
+  createdApprovalItems MasterApprovalItem[] @relation("CreatedApprovalItems")
+  createdApprovals Approval[] @relation("CreatedApprovals")
 
   @@map("users")
 }
@@ -52,6 +54,8 @@ model Role {
   users       User[]
   menus       Menu[]       @relation("MenuToRole")
   permissions Permission[] @relation("PermissionToRole")
+  approvalItems MasterApprovalItem[]
+  approvals Approval[]
 
   @@map("roles")
 }
@@ -113,6 +117,8 @@ model Department {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now())
   users       User[]
+  approvalItems MasterApprovalItem[]
+  approvals Approval[]
   @@map("departments")
 }
 
@@ -127,4 +133,46 @@ model JobPosition {
   updatedAt   DateTime @default(now())
   users       User[]
   @@map("job_positions")
+}
+
+model MasterApproval {
+  id String @id @default(uuid())
+  entity String
+  isActive Boolean @default(true)
+  items MasterApprovalItem[]
+
+  @@map("m_approval")
+}
+
+model MasterApprovalItem {
+  id String @id @default(uuid())
+  mApprovalId String
+  mApproval MasterApproval @relation(fields:[mApprovalId], references:[id])
+  order Int
+  role_id String
+  department_id String
+  createdBy String
+  createdAt DateTime @default(now())
+  role Role @relation(fields: [role_id], references: [id])
+  department Department @relation(fields: [department_id], references: [id])
+  creator User @relation("CreatedApprovalItems", fields: [createdBy], references: [id])
+
+  @@map("m_approval_item")
+}
+
+model Approval {
+  id String @id @default(uuid())
+  mApprovalId String
+  entityId String
+  department_id String
+  role_id String
+  status String
+  notes String
+  createdAt DateTime @default(now())
+  createdBy String
+  department Department @relation(fields: [department_id], references: [id])
+  role Role @relation(fields: [role_id], references: [id])
+  creator User @relation("CreatedApprovals", fields: [createdBy], references: [id])
+
+  @@map("t_approvals")
 }
