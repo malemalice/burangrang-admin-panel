@@ -120,10 +120,10 @@ const DataTable = <T extends Record<string, any>>({
   };
 
   return (
-    <div className="rounded-md border bg-white">
-      <div className="flex items-center justify-between p-4 border-b">
+    <div className="rounded-md border bg-white dark:bg-gray-800">
+      <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
         <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
           <Input
             placeholder="Search..."
             value={searchTerm}
@@ -143,7 +143,7 @@ const DataTable = <T extends Record<string, any>>({
       
       {/* Display filter badges if there are active filters */}
       {localActiveFilters.length > 0 && (
-        <div className="px-4 py-2 border-b">
+        <div className="px-4 py-2 border-b dark:border-gray-700">
           <FilterBadges
             filters={localActiveFilters}
             fields={filterFields}
@@ -154,7 +154,7 @@ const DataTable = <T extends Record<string, any>>({
       
       <div className="relative">
         {isLoading && (
-          <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+          <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 flex items-center justify-center z-10">
             <div className="h-8 w-8 rounded-full border-4 border-admin-primary/30 border-t-admin-primary animate-spin-slow" />
           </div>
         )}
@@ -208,7 +208,7 @@ const DataTable = <T extends Record<string, any>>({
       </div>
       
       {pagination && (
-        <div className="flex items-center justify-between px-4 py-3 border-t">
+        <div className="flex items-center justify-between px-4 py-3 border-t dark:border-gray-700">
           <div className="flex items-center gap-2">
             <Select
               value={pagination.limit.toString()}
@@ -225,7 +225,7 @@ const DataTable = <T extends Record<string, any>>({
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               {pagination.total ? (
                 <>
                   Showing{" "}
