@@ -3,7 +3,14 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateMasterApprovalDto } from './dto/create-master-approval.dto';
 import { UpdateMasterApprovalDto } from './dto/update-master-approval.dto';
 import { MasterApprovalDto } from './dto/master-approval.dto';
-import { Prisma, MasterApproval, MasterApprovalItem } from '@prisma/client';
+import {
+  Prisma,
+  MasterApproval,
+  MasterApprovalItem,
+  Role,
+  Department,
+  User,
+} from '@prisma/client';
 
 interface FindAllOptions {
   page?: number;
@@ -14,12 +21,14 @@ interface FindAllOptions {
   search?: string;
 }
 
-type MasterApprovalWithRelations = MasterApproval & {
+type MasterApprovalWithRelations = Omit<MasterApproval, 'items'> & {
   items: (MasterApprovalItem & {
-    role: Record<string, unknown>;
-    department: Record<string, unknown>;
-    creator: Record<string, unknown>;
+    role: Role;
+    department: Department;
+    creator: User;
   })[];
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 @Injectable()
@@ -54,7 +63,7 @@ export class MasterApprovalsService {
       },
     });
 
-    return this.mapToDto(masterApproval);
+    return this.mapToDto(masterApproval as MasterApprovalWithRelations);
   }
 
   async findAll(options?: FindAllOptions): Promise<{
@@ -102,7 +111,9 @@ export class MasterApprovalsService {
     ]);
 
     return {
-      data: masterApprovals.map((approval) => this.mapToDto(approval)),
+      data: masterApprovals.map((approval) => 
+        this.mapToDto(approval as MasterApprovalWithRelations),
+      ),
       meta: { total, page, limit },
     };
   }
@@ -125,7 +136,7 @@ export class MasterApprovalsService {
       throw new NotFoundException(`Master approval with ID ${id} not found`);
     }
 
-    return this.mapToDto(masterApproval);
+    return this.mapToDto(masterApproval as MasterApprovalWithRelations);
   }
 
   async update(
@@ -167,7 +178,7 @@ export class MasterApprovalsService {
       },
     });
 
-    return this.mapToDto(masterApproval);
+    return this.mapToDto(masterApproval as MasterApprovalWithRelations);
   }
 
   async remove(id: string): Promise<void> {
@@ -197,7 +208,7 @@ export class MasterApprovalsService {
       id: masterApproval.id,
       entity: masterApproval.entity,
       isActive: masterApproval.isActive,
-      items: masterApproval.items?.map((item) => ({
+      items: masterApproval.items.map((item) => ({
         id: item.id,
         mApprovalId: item.mApprovalId,
         order: item.order,
@@ -205,10 +216,21 @@ export class MasterApprovalsService {
         department_id: item.department_id,
         createdBy: item.createdBy,
         createdAt: item.createdAt,
-        role: item.role,
-        department: item.department,
-        creator: item.creator,
+        role: {
+          id: item.role.id,
+          name: item.role.name,
+        },
+        department: {
+          id: item.department.id,
+          name: item.department.name,
+        },
+        creator: {
+          id: item.creator.id,
+          name: item.creator.firstName + ' ' + item.creator.lastName,
+        },
       })),
+      createdAt: masterApproval.createdAt,
+      updatedAt: masterApproval.updatedAt,
     };
   }
 }

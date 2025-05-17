@@ -1,17 +1,27 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class MasterApprovalDto {
+export class RoleDto {
   @ApiProperty()
   id: string;
 
   @ApiProperty()
-  entity: string;
+  name: string;
+}
+
+export class DepartmentDto {
+  @ApiProperty()
+  id: string;
 
   @ApiProperty()
-  isActive: boolean;
+  name: string;
+}
 
-  @ApiProperty({ type: () => MasterApprovalItemDto, isArray: true })
-  items: MasterApprovalItemDto[];
+export class UserDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  name: string;
 }
 
 export class MasterApprovalItemDto {
@@ -36,12 +46,32 @@ export class MasterApprovalItemDto {
   @ApiProperty()
   createdAt: Date;
 
-  @ApiProperty({ type: () => Object })
-  role: any;
+  @ApiProperty({ type: () => RoleDto })
+  role: RoleDto;
 
-  @ApiProperty({ type: () => Object })
-  department: any;
+  @ApiProperty({ type: () => DepartmentDto })
+  department: DepartmentDto;
 
-  @ApiProperty({ type: () => Object })
-  creator: any;
+  @ApiProperty({ type: () => UserDto })
+  creator: UserDto;
+}
+
+export class MasterApprovalDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  entity: string;
+
+  @ApiProperty()
+  isActive: boolean;
+
+  @ApiProperty({ type: () => MasterApprovalItemDto, isArray: true })
+  items: MasterApprovalItemDto[];
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
 }
