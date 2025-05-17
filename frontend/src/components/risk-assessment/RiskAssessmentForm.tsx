@@ -382,27 +382,6 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
             <Separator className="my-6" />
 
             <div>
-              <h3 className="text-lg font-medium mb-4">Action Plan</h3>
-              <FormField
-                control={form.control}
-                name="actionPlan"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Editor
-                        value={field.value || ''}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <Separator className="my-6" />
-
-            <div>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-medium">Risk Assessment Items</h3>
                 <Button type="button" variant="outline" size="sm" onClick={handleAddItem}>
@@ -569,6 +548,27 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                   </Table>
                 </div>
               )}
+            </div>
+
+            <Separator className="my-6" />
+
+            <div>
+              <h3 className="text-lg font-medium mb-4">Action Plan</h3>
+              <FormField
+                control={form.control}
+                name="actionPlan"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Editor
+                        value={field.value || ''}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             <div className="flex justify-end gap-4">
