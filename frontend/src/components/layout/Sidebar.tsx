@@ -3,16 +3,21 @@ import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
+  FileText,
   Users,
   ShieldCheck,
-  Menu as MenuIcon,
-  Building2,
-  Settings,
+  MenuIcon,
+  Building,
+  Briefcase,
+  AlertTriangle,
+  Shield,
+  ClipboardList,
+  UserCog,
+  KeyRound,
+  ListChecks,
   ChevronDown,
   ChevronRight,
-  Building,
-  UsersRound,
-  ClipboardCheck
+  Settings,
 } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
 
@@ -120,18 +125,18 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
 
       <div className="py-4 px-2 space-y-1">
         <NavItem to="/" icon={LayoutDashboard} isOpen={isOpen}>Dashboard</NavItem>
-        <NavItem to="/risk-assessment" icon={ClipboardCheck} isOpen={isOpen}>Risk Assessment</NavItem>
+        <NavItem to="/risk-assessment" icon={FileText} isOpen={isOpen}>Risk Assessment</NavItem>
 
-        <SubMenu title="Master Data" icon={Building2} isOpen={isOpen}>
-          <NavItem to="/master/hse-categories" icon={UsersRound}>HSE Categories</NavItem>
-          <NavItem to="/master/threats" icon={UsersRound}>Threats</NavItem>
+        <SubMenu title="Master Data" icon={Building} isOpen={isOpen}>
+          <NavItem to="/master/hse-categories" icon={AlertTriangle}>HSE Categories</NavItem>
+          <NavItem to="/master/threats" icon={Shield}>Threats</NavItem>
           <NavItem to="/master/threat-mitigations" icon={ShieldCheck}>Threat Mitigations</NavItem>
           <NavItem to="/master/offices" icon={Building}>Offices</NavItem>
-          <NavItem to="/master/departments" icon={UsersRound}>Departments</NavItem>
-          <NavItem to="/master/job-positions" icon={UsersRound}>Job Positions</NavItem>
-          <NavItem to="/users" icon={Users} isOpen={isOpen}>Users</NavItem>
-          <NavItem to="/roles" icon={ShieldCheck} isOpen={isOpen}>Roles</NavItem>
-          <NavItem to="/menus" icon={MenuIcon} isOpen={isOpen}>Menus</NavItem>
+          <NavItem to="/master/departments" icon={Briefcase}>Departments</NavItem>
+          <NavItem to="/master/job-positions" icon={ClipboardList}>Job Positions</NavItem>
+          <NavItem to="/users" icon={UserCog} isOpen={isOpen}>Users</NavItem>
+          <NavItem to="/roles" icon={KeyRound} isOpen={isOpen}>Roles</NavItem>
+          <NavItem to="/menus" icon={ListChecks} isOpen={isOpen}>Menus</NavItem>
         </SubMenu>
 
         <NavItem to="/settings" icon={Settings} isOpen={isOpen}>Settings</NavItem>
