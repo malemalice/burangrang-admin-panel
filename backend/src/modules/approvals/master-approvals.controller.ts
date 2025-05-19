@@ -8,27 +8,39 @@ import {
   Delete,
   Query,
   UseGuards,
-  Request,
+  UseInterceptors,
 } from '@nestjs/common';
 import { MasterApprovalsService } from './master-approvals.service';
 import { CreateMasterApprovalDto } from './dto/create-master-approval.dto';
 import { UpdateMasterApprovalDto } from './dto/update-master-approval.dto';
-import { MasterApprovalDto } from './dto/master-approval.dto';
+import {
+  ApprovalStatusHistory,
+  MasterApprovalDto,
+} from './dto/master-approval.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SubmitApprovalDto } from './dto/submit-approval.dto';
+import { CurrentUser } from '../../shared/decorators/current-user.decorator';
+import { UserInterceptor } from '../../shared/interceptors/user.interceptor';
 
-interface RequestWithUser extends Request {
-  user: {
+interface User {
+  id: string;
+  departmentId: string | null;
+  jobPositionId: string | null;
+  department?: {
     id: string;
-    departmentId: string | null;
-    jobPositionId: string | null;
+    name: string;
+  };
+  jobPosition?: {
+    id: string;
+    name: string;
   };
 }
 
 @Controller('master-approvals')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@UseInterceptors(UserInterceptor)
 export class MasterApprovalsController {
   constructor(
     private readonly masterApprovalsService: MasterApprovalsService,
@@ -36,13 +48,10 @@ export class MasterApprovalsController {
 
   @Post()
   create(
-    @Request() req: RequestWithUser,
+    @CurrentUser() user: User,
     @Body() createMasterApprovalDto: CreateMasterApprovalDto,
   ): Promise<MasterApprovalDto> {
-    return this.masterApprovalsService.create(
-      createMasterApprovalDto,
-      req.user.id,
-    );
+    return this.masterApprovalsService.create(createMasterApprovalDto, user.id);
   }
 
   @Get()
@@ -80,26 +89,41 @@ export class MasterApprovalsController {
   })
   @ApiResponse({ status: 200, type: Boolean })
   async checkApprovalRights(
-    @Request() req: RequestWithUser,
+    @CurrentUser() user: User,
     @Param('dataId') dataId: string,
   ): Promise<{ canApprove: boolean }> {
     return this.masterApprovalsService.checkApprovalRights(
       dataId,
-      req.user,
+      user,
+      'RiskAssessment',
+    );
+  }
+
+  @Get('check-approval-status/:dataId')
+  @ApiOperation({
+    summary: 'Check if current user has approval rights for a risk assessment',
+  })
+  @ApiResponse({ status: 200, type: Boolean })
+  async checkApprovalStatus(
+    @CurrentUser() user: User,
+    @Param('dataId') dataId: string,
+  ): Promise<ApprovalStatusHistory> {
+    return this.masterApprovalsService.checkApprovalStatus(
+      dataId,
       'RiskAssessment',
     );
   }
 
   @Patch(':id')
   update(
-    @Request() req: RequestWithUser,
+    @CurrentUser() user: User,
     @Param('id') id: string,
     @Body() updateMasterApprovalDto: UpdateMasterApprovalDto,
   ): Promise<MasterApprovalDto> {
     return this.masterApprovalsService.update(
       id,
       updateMasterApprovalDto,
-      req.user.id,
+      user.id,
     );
   }
 
@@ -117,12 +141,9 @@ export class MasterApprovalsController {
     description: 'Approval submitted successfully',
   })
   async submitApproval(
-    @Request() req: RequestWithUser,
+    @CurrentUser() user: User,
     @Body() submitApprovalDto: SubmitApprovalDto,
   ) {
-    return this.masterApprovalsService.submitApproval(
-      submitApprovalDto,
-      req.user,
-    );
+    return this.masterApprovalsService.submitApproval(submitApprovalDto, user);
   }
 }

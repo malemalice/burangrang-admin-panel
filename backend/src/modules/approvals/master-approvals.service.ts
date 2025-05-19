@@ -9,7 +9,7 @@ import {
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateMasterApprovalDto } from './dto/create-master-approval.dto';
 import { UpdateMasterApprovalDto } from './dto/update-master-approval.dto';
-import { MasterApprovalDto } from './dto/master-approval.dto';
+import { ApprovalStatusHistory, MasterApprovalDto } from './dto/master-approval.dto';
 import { Prisma } from '@prisma/client';
 import { SubmitApprovalDto } from './dto/submit-approval.dto';
 
@@ -26,38 +26,6 @@ interface User {
   id: string;
   departmentId: string | null;
   jobPositionId: string | null;
-}
-
-interface ApprovalStatus {
-  history: {
-    id: string;
-    status: string;
-    notes: string;
-    createdAt: Date;
-    department: {
-      id: string;
-      name: string;
-    };
-    jobPosition: {
-      id: string;
-      name: string;
-    };
-    creator: {
-      id: string;
-      name: string;
-    };
-  }[];
-  nextApprover: {
-    department: {
-      id: string;
-      name: string;
-    };
-    jobPosition: {
-      id: string;
-      name: string;
-    };
-  } | null;
-  currentStatus: string;
 }
 
 @Injectable()
@@ -268,6 +236,8 @@ export class MasterApprovalsService {
   ): Promise<{ canApprove: boolean }> {
     // Get approval status and next approver
     const approvalStatus = await this.checkApprovalStatus(dataId, entityName);
+    console.log(user);
+    console.log(approvalStatus.nextApprover);
 
     // If there's no next approver, user cannot approve
     if (!approvalStatus.nextApprover) {
@@ -285,7 +255,7 @@ export class MasterApprovalsService {
   async checkApprovalStatus(
     entityId: string,
     entityName: string,
-  ): Promise<ApprovalStatus> {
+  ): Promise<ApprovalStatusHistory> {
     // Get master approval configuration
     const masterApproval = await this.prisma.masterApproval.findFirst({
       where: {
@@ -355,7 +325,7 @@ export class MasterApprovalsService {
 
     // Determine current status and next approver
     let currentStatus = 'PENDING';
-    let nextApprover: ApprovalStatus['nextApprover'] = null;
+    let nextApprover: ApprovalStatusHistory['nextApprover'] = null;
 
     if (history.length > 0) {
       const lastApproval = history[history.length - 1];

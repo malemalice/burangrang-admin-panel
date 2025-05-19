@@ -253,3 +253,15 @@ export interface MasterApproval {
   createdAt: string;
   updatedAt: string;
 }
+
+export enum ApprovalStatus {
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
+export interface SubmitApprovalDto {
+  dataId: string;
+  entity: string;
+  status: ApprovalStatus;
+  notes: string;
+}

@@ -2,29 +2,50 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { FileEdit, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { FileEdit, ArrowLeft, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
 
-import { RiskAssessment } from '@/lib/types';
+import { RiskAssessment, ApprovalStatus } from '@/lib/types';
 import riskAssessmentService from '@/services/riskAssessmentService';
+import approvalService from '@/services/approvalService';
 
 const RiskAssessmentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [assessment, setAssessment] = useState<RiskAssessment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [canApprove, setCanApprove] = useState(false);
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
+  const [approvalNotes, setApprovalNotes] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const fetchAssessment = async () => {
+    const fetchData = async () => {
       try {
         if (!id) return;
-        const data = await riskAssessmentService.getById(id);
-        setAssessment(data);
+        const [assessmentData, approvalRights] = await Promise.all([
+          riskAssessmentService.getById(id),
+          approvalService.checkApprovalRights(id),
+        ]);
+        setAssessment(assessmentData);
+        setCanApprove(approvalRights.canApprove);
       } catch (error) {
         toast.error('Failed to fetch risk assessment');
         navigate('/risk-assessment');
@@ -33,8 +54,32 @@ const RiskAssessmentDetailPage = () => {
       }
     };
 
-    fetchAssessment();
+    fetchData();
   }, [id, navigate]);
+
+  const handleSubmitApproval = async () => {
+    if (!id) return;
+
+    try {
+      setIsSubmitting(true);
+      await approvalService.submitApproval({
+        dataId: id,
+        entity: 'RiskAssessment',
+        status: approvalStatus,
+        notes: approvalNotes,
+      });
+
+      toast.success('Approval submitted successfully');
+      setIsApprovalModalOpen(false);
+      // Refresh assessment data
+      const assessmentData = await riskAssessmentService.getById(id);
+      setAssessment(assessmentData);
+    } catch (error) {
+      toast.error('Failed to submit approval');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Get risk badge color based on rating
   const getRiskBadge = (rating: string) => {
@@ -90,10 +135,21 @@ const RiskAssessmentDetailPage = () => {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Assessments
         </Button>
-        <Button onClick={() => navigate(`/risk-assessment/${id}/edit`)}>
-          <FileEdit className="h-4 w-4 mr-2" />
-          Edit Assessment
-        </Button>
+        <div className="flex gap-2">
+          {canApprove && (
+            <Button 
+              variant="default"
+              onClick={() => setIsApprovalModalOpen(true)}
+            >
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              Submit Approval
+            </Button>
+          )}
+          <Button onClick={() => navigate(`/risk-assessment/${id}/edit`)}>
+            <FileEdit className="h-4 w-4 mr-2" />
+            Edit Assessment
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -211,6 +267,69 @@ const RiskAssessmentDetailPage = () => {
           </Button>
         </CardFooter>
       </Card>
+
+      <Dialog open={isApprovalModalOpen} onOpenChange={setIsApprovalModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Submit Approval</DialogTitle>
+            <DialogDescription>
+              Review and submit your approval for this risk assessment.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Approval Status</Label>
+              <RadioGroup
+                value={approvalStatus}
+                onValueChange={(value) => setApprovalStatus(value as ApprovalStatus)}
+                className="flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value={ApprovalStatus.APPROVED} id="approved" />
+                  <Label htmlFor="approved" className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    Approve
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value={ApprovalStatus.REJECTED} id="rejected" />
+                  <Label htmlFor="rejected" className="flex items-center gap-2">
+                    <XCircle className="h-4 w-4 text-red-500" />
+                    Reject
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                placeholder="Enter your approval notes..."
+                value={approvalNotes}
+                onChange={(e) => setApprovalNotes(e.target.value)}
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsApprovalModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitApproval}
+              disabled={isSubmitting || !approvalNotes.trim()}
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit Approval'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -45,26 +45,21 @@ export class RiskAssessmentService {
       },
     });
 
-    // Create approval record
-    await this.approvalsService.createApproval(
-      'RiskAssessment',
-      assessment.id,
-      userId,
-    );
-
-    const assessmentWithRelations = await this.prisma.riskAssessment.findUnique({
-      where: { id: assessment.id },
-      include: {
-        items: {
-          include: {
-            mThreat: true,
-            mHseCategory: true,
+    const assessmentWithRelations = await this.prisma.riskAssessment.findUnique(
+      {
+        where: { id: assessment.id },
+        include: {
+          items: {
+            include: {
+              mThreat: true,
+              mHseCategory: true,
+            },
           },
+          department: true,
+          assignee: true,
         },
-        department: true,
-        assignee: true,
       },
-    });
+    );
 
     if (!assessmentWithRelations) {
       throw new NotFoundException(

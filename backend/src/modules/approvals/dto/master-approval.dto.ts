@@ -75,3 +75,36 @@ export class MasterApprovalDto {
   @ApiProperty()
   updatedAt: Date;
 } 
+
+
+export interface ApprovalStatusHistory {
+  history: {
+    id: string;
+    status: string;
+    notes: string;
+    createdAt: Date;
+    department: {
+      id: string;
+      name: string;
+    };
+    jobPosition: {
+      id: string;
+      name: string;
+    };
+    creator: {
+      id: string;
+      name: string;
+    };
+  }[];
+  nextApprover: {
+    department: {
+      id: string;
+      name: string;
+    };
+    jobPosition: {
+      id: string;
+      name: string;
+    };
+  } | null;
+  currentStatus: string;
+}
