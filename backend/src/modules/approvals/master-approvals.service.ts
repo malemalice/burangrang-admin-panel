@@ -261,33 +261,20 @@ export class MasterApprovalsService {
     user: User,
     entityName: string,
   ): Promise<{ canApprove: boolean }> {
-    // Find active master approval for the entity
-    const masterApproval = await this.prisma.masterApproval.findFirst({
-      where: {
-        entity: entityName,
-        isActive: true,
-      },
-      include: {
-        items: {
-          orderBy: {
-            order: 'asc',
-          },
-        },
-      },
-    });
+    // Get approval status and next approver
+    const approvalStatus = await this.checkApprovalStatus(dataId, entityName);
 
-    if (!masterApproval) {
+    // If there's no next approver, user cannot approve
+    if (!approvalStatus.nextApprover) {
       return { canApprove: false };
     }
 
-    // Check if user's department and job position match any approval items
-    const hasApprovalRights = masterApproval.items.some(
-      (item) =>
-        item.department_id === user.departmentId &&
-        item.job_position_id === user.jobPositionId,
-    );
+    // Check if user's department and job position match the next approver
+    const canApprove =
+      approvalStatus.nextApprover.department.id === user.departmentId &&
+      approvalStatus.nextApprover.jobPosition.id === user.jobPositionId;
 
-    return { canApprove: hasApprovalRights };
+    return { canApprove };
   }
 
   async checkApprovalStatus(
