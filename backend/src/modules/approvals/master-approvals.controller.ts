@@ -16,6 +16,15 @@ import { UpdateMasterApprovalDto } from './dto/update-master-approval.dto';
 import { MasterApprovalDto } from './dto/master-approval.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+
+interface RequestWithUser extends Request {
+  user: {
+    id: string;
+    departmentId: string | null;
+    jobPositionId: string | null;
+  };
+}
 
 @Controller('master-approvals')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -26,7 +35,7 @@ export class MasterApprovalsController {
 
   @Post()
   create(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Body() createMasterApprovalDto: CreateMasterApprovalDto,
   ): Promise<MasterApprovalDto> {
     return this.masterApprovalsService.create(
@@ -64,9 +73,25 @@ export class MasterApprovalsController {
     return this.masterApprovalsService.findOne(id);
   }
 
+  @Get('check-approval/:dataId')
+  @ApiOperation({
+    summary: 'Check if current user has approval rights for a risk assessment',
+  })
+  @ApiResponse({ status: 200, type: Boolean })
+  async checkApprovalRights(
+    @Request() req: RequestWithUser,
+    @Param('dataId') dataId: string,
+  ): Promise<{ canApprove: boolean }> {
+    return this.masterApprovalsService.checkApprovalRights(
+      dataId,
+      req.user,
+      'RiskAssessment',
+    );
+  }
+
   @Patch(':id')
   update(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Param('id') id: string,
     @Body() updateMasterApprovalDto: UpdateMasterApprovalDto,
   ): Promise<MasterApprovalDto> {

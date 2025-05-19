@@ -17,6 +17,44 @@ interface FindAllOptions {
   search?: string;
 }
 
+interface User {
+  id: string;
+  departmentId: string | null;
+  jobPositionId: string | null;
+}
+
+interface ApprovalStatus {
+  history: {
+    id: string;
+    status: string;
+    notes: string;
+    createdAt: Date;
+    department: {
+      id: string;
+      name: string;
+    };
+    jobPosition: {
+      id: string;
+      name: string;
+    };
+    creator: {
+      id: string;
+      name: string;
+    };
+  }[];
+  nextApprover: {
+    department: {
+      id: string;
+      name: string;
+    };
+    jobPosition: {
+      id: string;
+      name: string;
+    };
+  } | null;
+  currentStatus: string;
+}
+
 @Injectable()
 export class MasterApprovalsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -215,6 +253,164 @@ export class MasterApprovalsService {
       })),
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
+    };
+  }
+
+  async checkApprovalRights(
+    dataId: string,
+    user: User,
+    entityName: string,
+  ): Promise<{ canApprove: boolean }> {
+    // Find active master approval for the entity
+    const masterApproval = await this.prisma.masterApproval.findFirst({
+      where: {
+        entity: entityName,
+        isActive: true,
+      },
+      include: {
+        items: {
+          orderBy: {
+            order: 'asc',
+          },
+        },
+      },
+    });
+
+    if (!masterApproval) {
+      return { canApprove: false };
+    }
+
+    // Check if user's department and job position match any approval items
+    const hasApprovalRights = masterApproval.items.some(
+      (item) =>
+        item.department_id === user.departmentId &&
+        item.job_position_id === user.jobPositionId,
+    );
+
+    return { canApprove: hasApprovalRights };
+  }
+
+  async checkApprovalStatus(
+    entityId: string,
+    entityName: string,
+  ): Promise<ApprovalStatus> {
+    // Get master approval configuration
+    const masterApproval = await this.prisma.masterApproval.findFirst({
+      where: {
+        entity: entityName,
+        isActive: true,
+      },
+      include: {
+        items: {
+          orderBy: {
+            order: 'asc',
+          },
+          include: {
+            department: true,
+            jobPosition: true,
+          },
+        },
+      },
+    });
+
+    if (!masterApproval) {
+      throw new NotFoundException(
+        `No active approval configuration found for ${entityName}`,
+      );
+    }
+
+    // Get approval history
+    const approvalHistory = await this.prisma.approval.findMany({
+      where: {
+        entityId,
+        mApprovalId: masterApproval.id,
+      },
+      include: {
+        department: true,
+        jobPosition: true,
+        creator: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
+    // Map approval history
+    const history = approvalHistory.map((approval) => ({
+      id: approval.id,
+      status: approval.status,
+      notes: approval.notes,
+      createdAt: approval.createdAt,
+      department: {
+        id: approval.department.id,
+        name: approval.department.name,
+      },
+      jobPosition: {
+        id: approval.jobPosition.id,
+        name: approval.jobPosition.name,
+      },
+      creator: {
+        id: approval.creator.id,
+        name: `${approval.creator.firstName} ${approval.creator.lastName}`,
+      },
+    }));
+
+    // Determine current status and next approver
+    let currentStatus = 'PENDING';
+    let nextApprover: ApprovalStatus['nextApprover'] = null;
+
+    if (history.length > 0) {
+      const lastApproval = history[history.length - 1];
+      currentStatus = lastApproval.status;
+
+      // If last approval was approved, find next approver
+      if (lastApproval.status === 'APPROVED') {
+        const nextApprovalItem = masterApproval.items.find(
+          (item) => item.order > approvalHistory.length,
+        );
+
+        if (nextApprovalItem) {
+          nextApprover = {
+            department: {
+              id: nextApprovalItem.department.id,
+              name: nextApprovalItem.department.name,
+            },
+            jobPosition: {
+              id: nextApprovalItem.jobPosition.id,
+              name: nextApprovalItem.jobPosition.name,
+            },
+          };
+        } else {
+          currentStatus = 'COMPLETED';
+        }
+      }
+    } else {
+      // If no approvals yet, first approver is next
+      const firstApprovalItem = masterApproval.items[0];
+      if (firstApprovalItem) {
+        nextApprover = {
+          department: {
+            id: firstApprovalItem.department.id,
+            name: firstApprovalItem.department.name,
+          },
+          jobPosition: {
+            id: firstApprovalItem.jobPosition.id,
+            name: firstApprovalItem.jobPosition.name,
+          },
+        };
+      }
+    }
+
+    return {
+      history,
+      nextApprover,
+      currentStatus,
     };
   }
 }
