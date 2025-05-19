@@ -17,6 +17,7 @@ import { MasterApprovalDto } from './dto/master-approval.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { SubmitApprovalDto } from './dto/submit-approval.dto';
 
 interface RequestWithUser extends Request {
   user: {
@@ -105,5 +106,23 @@ export class MasterApprovalsController {
   @Delete(':id')
   remove(@Param('id') id: string): Promise<void> {
     return this.masterApprovalsService.remove(id);
+  }
+
+  @Post('approval')
+  @ApiOperation({
+    summary: 'Submit an approval for an entity',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Approval submitted successfully',
+  })
+  async submitApproval(
+    @Request() req: RequestWithUser,
+    @Body() submitApprovalDto: SubmitApprovalDto,
+  ) {
+    return this.masterApprovalsService.submitApproval(
+      submitApprovalDto,
+      req.user,
+    );
   }
 }

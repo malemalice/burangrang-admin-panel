@@ -1,12 +1,17 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateMasterApprovalDto } from './dto/create-master-approval.dto';
 import { UpdateMasterApprovalDto } from './dto/update-master-approval.dto';
 import { MasterApprovalDto } from './dto/master-approval.dto';
 import { Prisma } from '@prisma/client';
+import { SubmitApprovalDto } from './dto/submit-approval.dto';
 
 interface FindAllOptions {
   page?: number;
@@ -399,5 +404,48 @@ export class MasterApprovalsService {
       nextApprover,
       currentStatus,
     };
+  }
+
+  async submitApproval(
+    submitApprovalDto: SubmitApprovalDto,
+    user: User,
+  ): Promise<void> {
+    // Get master approval configuration
+    const masterApproval = await this.prisma.masterApproval.findFirst({
+      where: {
+        entity: submitApprovalDto.entity,
+        isActive: true,
+      },
+    });
+
+    if (!masterApproval) {
+      throw new NotFoundException(
+        `No active approval configuration found for ${submitApprovalDto.entity}`,
+      );
+    }
+
+    // Check if user has approval rights
+    const approvalRights = await this.checkApprovalRights(
+      submitApprovalDto.dataId,
+      user,
+      submitApprovalDto.entity,
+    );
+
+    if (!approvalRights.canApprove) {
+      throw new BadRequestException('User does not have approval rights');
+    }
+
+    // Create approval record
+    await this.prisma.approval.create({
+      data: {
+        mApprovalId: masterApproval.id,
+        entityId: submitApprovalDto.dataId,
+        department_id: user.departmentId!,
+        job_position_id: user.jobPositionId!,
+        status: submitApprovalDto.status,
+        notes: submitApprovalDto.notes,
+        createdBy: user.id,
+      },
+    });
   }
 }
