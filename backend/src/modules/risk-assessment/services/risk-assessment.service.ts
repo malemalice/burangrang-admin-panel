@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { CreateRiskAssessmentDto } from '../dto/create-risk-assessment.dto';
 import { UpdateRiskAssessmentDto } from '../dto/update-risk-assessment.dto';
 import { RiskAssessmentDto } from '../dto/risk-assessment.dto';
-import { Prisma } from '@prisma/client';
+import { RiskAssessment, RiskAssessmentItem, Prisma } from '@prisma/client';
+import { ApprovalsService } from '../../approvals/approvals.service';
 
 interface FindAllOptions {
   page?: number;
@@ -17,16 +19,21 @@ interface FindAllOptions {
 
 @Injectable()
 export class RiskAssessmentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly approvalsService: ApprovalsService,
+  ) {}
 
   async create(
     createRiskAssessmentDto: CreateRiskAssessmentDto,
+    userId: string,
   ): Promise<RiskAssessmentDto> {
     const { items, ...data } = createRiskAssessmentDto;
 
     const assessment = await this.prisma.riskAssessment.create({
       data: {
         ...data,
+        status: 'waiting_approval',
         items: {
           create: items,
         },
@@ -34,15 +41,36 @@ export class RiskAssessmentService {
       include: {
         items: true,
         department: true,
+        assignee: true,
       },
     });
 
-    return this.mapToDto(assessment);
+    const assessmentWithRelations = await this.prisma.riskAssessment.findUnique(
+      {
+        where: { id: assessment.id },
+        include: {
+          items: {
+            include: {
+              mThreat: true,
+              mHseCategory: true,
+            },
+          },
+          department: true,
+          assignee: true,
+        },
+      },
+    );
+
+    if (!assessmentWithRelations) {
+      throw new NotFoundException(
+        `Risk assessment with ID ${assessment.id} not found`,
+      );
+    }
+
+    return this.mapToDto(assessmentWithRelations);
   }
 
-  async findAll(
-    options?: FindAllOptions,
-  ): Promise<{
+  async findAll(options?: FindAllOptions): Promise<{
     data: RiskAssessmentDto[];
     meta: { total: number; page: number; limit: number };
   }> {
@@ -79,6 +107,7 @@ export class RiskAssessmentService {
             },
           },
           department: true,
+          assignee: true,
         },
         orderBy: {
           [sortBy]: sortOrder,
@@ -106,6 +135,7 @@ export class RiskAssessmentService {
           },
         },
         department: true,
+        assignee: true,
       },
     });
 
@@ -145,8 +175,14 @@ export class RiskAssessmentService {
         }),
       },
       include: {
-        items: true,
+        items: {
+          include: {
+            mThreat: true,
+            mHseCategory: true,
+          },
+        },
         department: true,
+        assignee: true,
       },
     });
 
@@ -154,19 +190,43 @@ export class RiskAssessmentService {
   }
 
   async remove(id: string): Promise<void> {
-    try {
-      await this.prisma.riskAssessment.delete({
-        where: { id },
-      });
-    } catch (error) {
+    // First check if the assessment exists
+    const assessment = await this.prisma.riskAssessment.findUnique({
+      where: { id },
+      include: {
+        items: true,
+      },
+    });
+
+    if (!assessment) {
       throw new NotFoundException(`Risk Assessment with ID ${id} not found`);
     }
+
+    // Delete all related items first
+    await this.prisma.riskAssessmentItem.deleteMany({
+      where: { riskAssessmentId: id },
+    });
+
+    // Then delete the assessment
+    await this.prisma.riskAssessment.delete({
+      where: { id },
+    });
   }
 
-  private mapToDto(assessment: any): RiskAssessmentDto {
+  private mapToDto(
+    assessment: RiskAssessment & {
+      items: (RiskAssessmentItem & {
+        mThreat: any;
+        mHseCategory: any;
+      })[];
+      department: any;
+      assignee: any;
+    },
+  ): RiskAssessmentDto {
     return {
       id: assessment.id,
       code: assessment.code,
+      description: assessment.description ?? undefined,
       departmentId: assessment.departmentId,
       department: assessment.department,
       assessmentDate: assessment.assessmentDate,
@@ -175,7 +235,20 @@ export class RiskAssessmentService {
       createdBy: assessment.createdBy,
       status: assessment.status,
       isActive: assessment.isActive,
-      items: assessment.items,
+      items: assessment.items.map((item) => ({
+        id: item.id,
+        riskAssessmentId: item.riskAssessmentId,
+        mThreatId: item.mThreatId,
+        mThreat: item.mThreat,
+        mHseCategoryId: item.mHseCategoryId,
+        mHseCategory: item.mHseCategory,
+        likelihoodLevel: item.likelihoodLevel,
+        consequenceLevel: item.consequenceLevel,
+        riskMatrixRating: item.riskMatrixRating,
+      })),
+      assigneeId: assessment.assigneeId ?? undefined,
+      assignee: assessment.assignee,
+      actionPlan: assessment.actionPlan ?? undefined,
     };
   }
 }

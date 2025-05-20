@@ -20,6 +20,7 @@ import { RiskAssessmentModule } from './modules/risk-assessment/risk-assessment.
 import { RiskMatrixModule } from './modules/risk-matrix/risk-matrix.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 
+import { MasterApprovalsModule } from './modules/approvals/master-approvals.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -41,6 +42,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     RiskAssessmentModule,
     RiskMatrixModule,
     DashboardModule,
+    MasterApprovalsModule,
   ],
   providers: [
     Reflector,

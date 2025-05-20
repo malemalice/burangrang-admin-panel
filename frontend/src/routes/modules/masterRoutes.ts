@@ -22,6 +22,9 @@ import {
   ThreatMitigationsPage,
   CreateThreatMitigationPage,
   EditThreatMitigationPage,
+  MasterApprovalsPage,
+  CreateMasterApprovalPage,
+  EditMasterApprovalPage,
 } from '@/pages/master';
 
 /**
@@ -115,6 +118,16 @@ const masterRoutes: RouteConfig[] = [
   {
     path: '/master/threat-mitigations/:id',
     component: EditThreatMitigationPage,
+    path: '/master/approvals',
+    component: MasterApprovalsPage,
+  },
+  {
+    path: '/master/approvals/new',
+    component: CreateMasterApprovalPage,
+  },
+  {
+    path: '/master/approvals/:id/edit',
+    component: EditMasterApprovalPage,
   },
 ];
 
