@@ -168,9 +168,7 @@ const RiskAssessmentDetailPage = () => {
             </div>
             <div className="flex items-center gap-3">
               {getStatusBadge(assessment.status)}
-              <Badge variant={assessment.isActive ? 'default' : 'outline'}>
-                {assessment.isActive ? 'Active' : 'Inactive'}
-              </Badge>
+              
             </div>
           </div>
         </CardHeader>
