@@ -2,39 +2,89 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { FileEdit, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { FileEdit, ArrowLeft, AlertTriangle, CheckCircle2, XCircle, Clock } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
 
-import { RiskAssessment } from '@/lib/types';
+import { RiskAssessment, ApprovalStatus } from '@/lib/types';
 import riskAssessmentService from '@/services/riskAssessmentService';
+import approvalService, { ApprovalStatusHistory } from '@/services/approvalService';
 
 const RiskAssessmentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [assessment, setAssessment] = useState<RiskAssessment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [canApprove, setCanApprove] = useState(false);
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
+  const [approvalNotes, setApprovalNotes] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
   useEffect(() => {
-    const fetchAssessment = async () => {
+    const fetchData = async () => {
       try {
         if (!id) return;
-        const data = await riskAssessmentService.getById(id);
-        setAssessment(data);
+        const [assessmentData, approvalRights, approvalStatus] = await Promise.all([
+          riskAssessmentService.getById(id),
+          approvalService.checkApprovalRights(id),
+          approvalService.checkApprovalStatus(id),
+        ]);
+        setAssessment(assessmentData);
+        setCanApprove(approvalRights.canApprove);
+        setApprovalHistory(approvalStatus);
       } catch (error) {
         toast.error('Failed to fetch risk assessment');
         navigate('/risk-assessment');
       } finally {
         setIsLoading(false);
+        setIsLoadingHistory(false);
       }
     };
 
-    fetchAssessment();
+    fetchData();
   }, [id, navigate]);
+
+  const handleSubmitApproval = async () => {
+    if (!id) return;
+
+    try {
+      setIsSubmitting(true);
+      await approvalService.submitApproval({
+        dataId: id,
+        entity: 'RiskAssessment',
+        status: approvalStatus,
+        notes: approvalNotes,
+      });
+
+      toast.success('Approval submitted successfully');
+      setIsApprovalModalOpen(false);
+      // Refresh assessment data
+      const assessmentData = await riskAssessmentService.getById(id);
+      setAssessment(assessmentData);
+    } catch (error) {
+      toast.error('Failed to submit approval');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Get risk badge color based on rating
   const getRiskBadge = (rating: string) => {
@@ -90,10 +140,21 @@ const RiskAssessmentDetailPage = () => {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Assessments
         </Button>
-        <Button onClick={() => navigate(`/risk-assessment/${id}/edit`)}>
-          <FileEdit className="h-4 w-4 mr-2" />
-          Edit Assessment
-        </Button>
+        <div className="flex gap-2">
+          {canApprove && (
+            <Button 
+              variant="default"
+              onClick={() => setIsApprovalModalOpen(true)}
+            >
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              Submit Approval
+            </Button>
+          )}
+          <Button onClick={() => navigate(`/risk-assessment/${id}/edit`)}>
+            <FileEdit className="h-4 w-4 mr-2" />
+            Edit Assessment
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -211,6 +272,142 @@ const RiskAssessmentDetailPage = () => {
           </Button>
         </CardFooter>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Approval History</CardTitle>
+          <CardDescription>Track the approval progress of this risk assessment</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingHistory ? (
+            <div className="flex items-center justify-center p-6">
+              <p>Loading approval history...</p>
+            </div>
+          ) : !approvalHistory?.history.length ? (
+            <div className="flex items-center justify-center p-6 border rounded-md bg-muted/20">
+              <Clock className="h-5 w-5 mr-2 text-muted-foreground" />
+              <p>No approval history available.</p>
+            </div>
+          ) : (
+            <div className="relative">
+              <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+              <div className="space-y-8">
+                {approvalHistory.history.map((item, index) => (
+                  <div key={item.id} className="relative pl-8">
+                    <div className="absolute left-0 w-8 flex items-center justify-center">
+                      <div className={`w-3 h-3 rounded-full ${
+                        item.status === 'APPROVED' ? 'bg-green-500' : 
+                        item.status === 'REJECTED' ? 'bg-red-500' : 
+                        'bg-yellow-500'
+                      }`} />
+                    </div>
+                    <div className="bg-card border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={
+                            item.status === 'APPROVED' ? 'default' :
+                            item.status === 'REJECTED' ? 'destructive' :
+                            'secondary'
+                          }>
+                            {item.status}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {format(new Date(item.createdAt), 'dd MMM yyyy HH:mm')}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-sm mb-2">{item.notes}</p>
+                      <div className="text-xs text-muted-foreground">
+                        <p>Approved by: {item.creator.name}</p>
+                        <p>Department: {item.department.name}</p>
+                        <p>Position: {item.jobPosition.name}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {approvalHistory.nextApprover && (
+                  <div className="relative pl-8">
+                    <div className="absolute left-0 w-8 flex items-center justify-center">
+                      <div className="w-3 h-3 rounded-full bg-blue-500" />
+                    </div>
+                    <div className="bg-blue-50 border-blue-100 border rounded-lg p-4">
+                      <p className="font-medium mb-1">Waiting for Approval</p>
+                      <div className="text-sm text-muted-foreground">
+                        <p>Department: {approvalHistory.nextApprover.department.name}</p>
+                        <p>Position: {approvalHistory.nextApprover.jobPosition.name}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={isApprovalModalOpen} onOpenChange={setIsApprovalModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Submit Approval</DialogTitle>
+            <DialogDescription>
+              Review and submit your approval for this risk assessment.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Approval Status</Label>
+              <RadioGroup
+                value={approvalStatus}
+                onValueChange={(value) => setApprovalStatus(value as ApprovalStatus)}
+                className="flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value={ApprovalStatus.APPROVED} id="approved" />
+                  <Label htmlFor="approved" className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    Approve
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value={ApprovalStatus.REJECTED} id="rejected" />
+                  <Label htmlFor="rejected" className="flex items-center gap-2">
+                    <XCircle className="h-4 w-4 text-red-500" />
+                    Reject
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                placeholder="Enter your approval notes..."
+                value={approvalNotes}
+                onChange={(e) => setApprovalNotes(e.target.value)}
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsApprovalModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitApproval}
+              disabled={isSubmitting || !approvalNotes.trim()}
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit Approval'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

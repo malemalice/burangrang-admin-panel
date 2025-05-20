@@ -42,7 +42,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             ? "text-gray-400 border-gray-700" 
             : "text-slate-500 border-slate-200"
         )}>
-          <p>© {new Date().getFullYear()} Office Nexus System. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} HSE System. All rights reserved.</p>
         </footer>
       </div>
       

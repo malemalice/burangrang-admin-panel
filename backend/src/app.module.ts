@@ -18,7 +18,9 @@ import { ThreatsModule } from './modules/threats/threats.module';
 import { ThreatMitigationsModule } from './modules/threat-mitigations/threat-mitigations.module';
 import { RiskAssessmentModule } from './modules/risk-assessment/risk-assessment.module';
 import { RiskMatrixModule } from './modules/risk-matrix/risk-matrix.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
+import { MasterApprovalsModule } from './modules/approvals/master-approvals.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -39,6 +41,8 @@ import { RiskMatrixModule } from './modules/risk-matrix/risk-matrix.module';
     ThreatMitigationsModule,
     RiskAssessmentModule,
     RiskMatrixModule,
+    DashboardModule,
+    MasterApprovalsModule,
   ],
   providers: [
     Reflector,
