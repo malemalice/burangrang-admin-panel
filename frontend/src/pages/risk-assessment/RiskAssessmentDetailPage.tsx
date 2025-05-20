@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { FileEdit, ArrowLeft, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { FileEdit, ArrowLeft, AlertTriangle, CheckCircle2, XCircle, Clock } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -23,7 +23,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 import { RiskAssessment, ApprovalStatus } from '@/lib/types';
 import riskAssessmentService from '@/services/riskAssessmentService';
-import approvalService from '@/services/approvalService';
+import approvalService, { ApprovalStatusHistory } from '@/services/approvalService';
 
 const RiskAssessmentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -35,22 +35,27 @@ const RiskAssessmentDetailPage = () => {
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
   const [approvalNotes, setApprovalNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         if (!id) return;
-        const [assessmentData, approvalRights] = await Promise.all([
+        const [assessmentData, approvalRights, approvalStatus] = await Promise.all([
           riskAssessmentService.getById(id),
           approvalService.checkApprovalRights(id),
+          approvalService.checkApprovalStatus(id),
         ]);
         setAssessment(assessmentData);
         setCanApprove(approvalRights.canApprove);
+        setApprovalHistory(approvalStatus);
       } catch (error) {
         toast.error('Failed to fetch risk assessment');
         navigate('/risk-assessment');
       } finally {
         setIsLoading(false);
+        setIsLoadingHistory(false);
       }
     };
 
@@ -266,6 +271,79 @@ const RiskAssessmentDetailPage = () => {
             Edit Assessment
           </Button>
         </CardFooter>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Approval History</CardTitle>
+          <CardDescription>Track the approval progress of this risk assessment</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingHistory ? (
+            <div className="flex items-center justify-center p-6">
+              <p>Loading approval history...</p>
+            </div>
+          ) : !approvalHistory?.history.length ? (
+            <div className="flex items-center justify-center p-6 border rounded-md bg-muted/20">
+              <Clock className="h-5 w-5 mr-2 text-muted-foreground" />
+              <p>No approval history available.</p>
+            </div>
+          ) : (
+            <div className="relative">
+              <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+              <div className="space-y-8">
+                {approvalHistory.history.map((item, index) => (
+                  <div key={item.id} className="relative pl-8">
+                    <div className="absolute left-0 w-8 flex items-center justify-center">
+                      <div className={`w-3 h-3 rounded-full ${
+                        item.status === 'APPROVED' ? 'bg-green-500' : 
+                        item.status === 'REJECTED' ? 'bg-red-500' : 
+                        'bg-yellow-500'
+                      }`} />
+                    </div>
+                    <div className="bg-card border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={
+                            item.status === 'APPROVED' ? 'default' :
+                            item.status === 'REJECTED' ? 'destructive' :
+                            'secondary'
+                          }>
+                            {item.status}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {format(new Date(item.createdAt), 'dd MMM yyyy HH:mm')}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-sm mb-2">{item.notes}</p>
+                      <div className="text-xs text-muted-foreground">
+                        <p>Approved by: {item.creator.name}</p>
+                        <p>Department: {item.department.name}</p>
+                        <p>Position: {item.jobPosition.name}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {approvalHistory.nextApprover && (
+                  <div className="relative pl-8">
+                    <div className="absolute left-0 w-8 flex items-center justify-center">
+                      <div className="w-3 h-3 rounded-full bg-blue-500" />
+                    </div>
+                    <div className="bg-blue-50 border-blue-100 border rounded-lg p-4">
+                      <p className="font-medium mb-1">Waiting for Approval</p>
+                      <div className="text-sm text-muted-foreground">
+                        <p>Department: {approvalHistory.nextApprover.department.name}</p>
+                        <p>Position: {approvalHistory.nextApprover.jobPosition.name}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </CardContent>
       </Card>
 
       <Dialog open={isApprovalModalOpen} onOpenChange={setIsApprovalModalOpen}>

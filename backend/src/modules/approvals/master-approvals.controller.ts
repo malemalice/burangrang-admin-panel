@@ -54,7 +54,7 @@ export class MasterApprovalsController {
     const limitNumber = limit ? parseInt(limit, 10) : undefined;
     const isActiveBoolean =
       isActive === undefined ? undefined : isActive === 'true';
-
+    
     return this.masterApprovalsService.findAll({
       page: pageNumber,
       limit: limitNumber,
