@@ -1,3 +1,6 @@
+-- CreateEnum
+CREATE TYPE "RiskRatingEnum" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'EXTREME');
+
 -- CreateTable
 CREATE TABLE "users" (
     "id" TEXT NOT NULL,
@@ -112,6 +115,87 @@ CREATE TABLE "job_positions" (
 );
 
 -- CreateTable
+CREATE TABLE "m_hse_categories" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "description" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "m_hse_categories_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "m_threats" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "description" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "hseCategoryId" TEXT NOT NULL,
+
+    CONSTRAINT "m_threats_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "m_threat_mitigations" (
+    "id" TEXT NOT NULL,
+    "level" INTEGER NOT NULL,
+    "mitigationDescription" TEXT NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "threatId" TEXT NOT NULL,
+
+    CONSTRAINT "m_threat_mitigations_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "m_risk_matrix" (
+    "id" TEXT NOT NULL,
+    "likelihoodLevel" INTEGER NOT NULL,
+    "consequenceLevel" INTEGER NOT NULL,
+    "risk_rating" "RiskRatingEnum" NOT NULL,
+
+    CONSTRAINT "m_risk_matrix_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "t_risk_assessment" (
+    "id" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "description" TEXT,
+    "departmentId" TEXT NOT NULL,
+    "assessmentDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "createdBy" TEXT NOT NULL,
+    "status" TEXT NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "assigneeId" TEXT,
+    "actionPlan" TEXT,
+
+    CONSTRAINT "t_risk_assessment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "t_risk_assessment_item" (
+    "id" TEXT NOT NULL,
+    "riskAssessmentId" TEXT NOT NULL,
+    "mThreatId" TEXT NOT NULL,
+    "mHseCategoryId" TEXT NOT NULL,
+    "likelihoodLevel" INTEGER NOT NULL,
+    "consequenceLevel" INTEGER NOT NULL,
+    "riskMatrixRating" "RiskRatingEnum" NOT NULL,
+
+    CONSTRAINT "t_risk_assessment_item_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "m_approval" (
     "id" TEXT NOT NULL,
     "entity" TEXT NOT NULL,
@@ -186,6 +270,15 @@ CREATE UNIQUE INDEX "departments_code_key" ON "departments"("code");
 CREATE UNIQUE INDEX "job_positions_code_key" ON "job_positions"("code");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "m_hse_categories_code_key" ON "m_hse_categories"("code");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "m_threats_code_key" ON "m_threats"("code");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "t_risk_assessment_code_key" ON "t_risk_assessment"("code");
+
+-- CreateIndex
 CREATE INDEX "_PermissionToRole_B_index" ON "_PermissionToRole"("B");
 
 -- CreateIndex
@@ -211,6 +304,27 @@ ALTER TABLE "menus" ADD CONSTRAINT "menus_parentId_fkey" FOREIGN KEY ("parentId"
 
 -- AddForeignKey
 ALTER TABLE "offices" ADD CONSTRAINT "offices_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "offices"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "m_threats" ADD CONSTRAINT "m_threats_hseCategoryId_fkey" FOREIGN KEY ("hseCategoryId") REFERENCES "m_hse_categories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "m_threat_mitigations" ADD CONSTRAINT "m_threat_mitigations_threatId_fkey" FOREIGN KEY ("threatId") REFERENCES "m_threats"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "t_risk_assessment" ADD CONSTRAINT "t_risk_assessment_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "departments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "t_risk_assessment" ADD CONSTRAINT "t_risk_assessment_assigneeId_fkey" FOREIGN KEY ("assigneeId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "t_risk_assessment_item" ADD CONSTRAINT "t_risk_assessment_item_riskAssessmentId_fkey" FOREIGN KEY ("riskAssessmentId") REFERENCES "t_risk_assessment"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "t_risk_assessment_item" ADD CONSTRAINT "t_risk_assessment_item_mThreatId_fkey" FOREIGN KEY ("mThreatId") REFERENCES "m_threats"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "t_risk_assessment_item" ADD CONSTRAINT "t_risk_assessment_item_mHseCategoryId_fkey" FOREIGN KEY ("mHseCategoryId") REFERENCES "m_hse_categories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "m_approval_item" ADD CONSTRAINT "m_approval_item_mApprovalId_fkey" FOREIGN KEY ("mApprovalId") REFERENCES "m_approval"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

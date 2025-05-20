@@ -13,7 +13,6 @@ interface PaginationParams {
 export interface CreateMasterApprovalItemDTO {
   job_position_id: string;
   department_id: string;
-  createdBy: string;
   order?: number;
 }
 

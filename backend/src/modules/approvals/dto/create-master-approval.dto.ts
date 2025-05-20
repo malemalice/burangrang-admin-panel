@@ -14,9 +14,6 @@ export class CreateMasterApprovalItemDto {
   @IsString()
   department_id: string;
 
-  @IsString()
-  createdBy: string;
-
   @IsOptional()
   order?: number;
 }

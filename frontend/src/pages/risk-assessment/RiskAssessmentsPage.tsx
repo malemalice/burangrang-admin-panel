@@ -69,16 +69,7 @@ const RiskAssessmentsPage = () => {
         { label: 'Completed', value: 'COMPLETED' },
         { label: 'Reviewed', value: 'REVIEWED' },
       ],
-    },
-    {
-      id: 'isActive',
-      label: 'Active Status',
-      type: 'select',
-      options: [
-        { label: 'Active', value: 'true' },
-        { label: 'Inactive', value: 'false' },
-      ],
-    },
+    }
   ];
 
   const fetchAssessments = async () => {
@@ -203,11 +194,6 @@ const RiskAssessmentsPage = () => {
       ),
     },
     {
-      id: 'status',
-      header: 'Status',
-      cell: (assessment: RiskAssessment) => getStatusBadge(assessment.status),
-    },
-    {
       id: 'assessmentDate',
       header: 'Assessment Date',
       cell: (assessment: RiskAssessment) => (
@@ -219,13 +205,9 @@ const RiskAssessmentsPage = () => {
       ),
     },
     {
-      id: 'active',
-      header: 'Active',
-      cell: (assessment: RiskAssessment) => (
-        <Badge variant={assessment.isActive ? 'default' : 'outline'}>
-          {assessment.isActive ? 'Active' : 'Inactive'}
-        </Badge>
-      ),
+      id: 'status',
+      header: 'Status',
+      cell: (assessment: RiskAssessment) => getStatusBadge(assessment.status),
     },
     {
       id: 'actions',
