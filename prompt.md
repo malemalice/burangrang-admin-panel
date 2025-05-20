@@ -7,12 +7,30 @@ This project is an admin panel for managing risk assessments and HSE (Health, Sa
 
 ## Modules
 
-- **Risk Assessment**: Manages risk assessments and their items.
-- **Risk Matrix**: Handles risk matrix configurations.
-- **Threats**: Manages threats and their mitigations.
-- **Threat Mitigations**: Manages mitigations for threats.
-- **HSE Categories**: Manages HSE categories.
-- **Dashboard**: Provides metrics and analytics for risk assessments, department profiles, HSE category analysis, threat analysis, and compliance progress.
+### Core Modules
+- **User Management**: Manages user accounts and profiles
+- **Role Management**: Handles role-based access control (RBAC)
+- **Permission Management**: Manages granular permissions for roles
+- **Menu Management**: Controls navigation and access to system features
+- **Office Management**: Manages office locations and hierarchies
+- **Department Management**: Handles department organization and structure
+- **Job Position Management**: Manages job positions and responsibilities
+
+### Risk Management Modules
+- **Risk Assessment**: Manages risk assessments and their items
+- **Risk Matrix**: Handles risk matrix configurations and scoring
+- **Threats**: Manages threat identification and analysis
+- **Threat Mitigations**: Manages mitigation strategies for identified threats
+- **HSE Categories**: Manages Health, Safety, and Environment categories
+- **Approvals**: Handles approval workflows for risk assessments
+
+### Analytics
+- **Dashboard**: Provides comprehensive analytics including:
+  - Risk Overview: Key risk metrics and trends
+  - Department Profile: Department-specific risk profiles
+  - HSE Category Analysis: Analysis of HSE categories and trends
+  - Threat Analysis: Analysis of threats and their impact
+  - Compliance Progress: Tracking of compliance and mitigation progress
 
 ## Dashboard Endpoints
 
@@ -34,21 +52,29 @@ This project is an admin panel for managing risk assessments and HSE (Health, Sa
 - **NestJS** (v11.0.1) - Node.js framework for building scalable server-side applications
 - **Prisma** (v6.7.0) - Next-generation ORM with type safety
 - **PostgreSQL** - Primary database
-- **JWT** - Authentication mechanism
-- **Class Validator/Transformer** - Data validation and transformation
-- **Swagger** - API documentation
+- **JWT** (v11.0.0) - Authentication mechanism
+- **Class Validator** (v0.14.1) / **Class Transformer** (v0.5.1) - Data validation and transformation
+- **Swagger** (v11.1.6) - API documentation
+- **Passport** (v0.7.0) - Authentication middleware
+- **bcrypt** (v5.1.1) - Password hashing
+- **TypeScript** (v5.7.3) - Type-safe JavaScript
 
 ### Frontend
 - **React** (v18.3.1) - UI library
 - **Vite** (v5.4.1) - Build tool and development server
 - **TypeScript** (v5.5.3) - Type-safe JavaScript
 - **Tailwind CSS** (v3.4.11) - Utility-first CSS framework
-- **shadcn/ui** - Component library built with Radix UI
-- **React Query** (v5.56.2) - Data fetching and state management
+- **shadcn/ui** (via Radix UI v1.x) - Component library built with Radix UI
+- **React Query** (@tanstack/react-query v5.56.2) - Data fetching and state management
 - **React Router** (v6.26.2) - Client-side routing
 - **React Hook Form** (v7.53.0) - Form handling
 - **Zod** (v3.23.8) - Schema validation
-- **Sonner** - Toast notifications
+- **Sonner** (v1.5.0) - Toast notifications
+- **Axios** (v1.9.0) - HTTP client
+- **date-fns** (v3.6.0) - Date utility library
+- **Lucide React** (v0.462.0) - Icon library
+- **TipTap** (v2.12.0) - Rich text editor
+- **Recharts** (v2.12.7) - Charting library
 
 ## Backend Architecture
 
@@ -80,6 +106,13 @@ backend/
 │   │
 │   ├── app.module.ts        # Root application module
 │   └── main.ts             # Application entry point
+├── prisma/                  # Prisma configuration and migrations
+│   ├── schema.prisma       # Database schema
+│   ├── migrations/         # Database migrations
+│   └── seed.ts            # Database seeding
+├── test/                    # Test files
+├── package.json            # Dependencies
+└── tsconfig.json           # TypeScript config
 ```
 
 ### Module Structure
@@ -342,21 +375,11 @@ frontend/
 │   │   ├── ui/           # shadcn/ui components
 │   │   ├── layout/       # Layout components
 │   │   └── shared/       # Shared components
-│   ├── features/         # Feature-specific components
-│   │   ├── auth/        # Authentication related
-│   │   ├── users/       # User management
-│   │   ├── roles/       # Role management
-│   │   ├── menus/       # Menu management
-│   │   └── offices/     # Office management
+│   ├── routes/           # Route definitions and configurations
+│   ├── pages/           # Page components
 │   ├── hooks/           # Custom React hooks
-│   ├── lib/             # Utility functions
-│   │   ├── api/        # API client setup
-│   │   ├── utils/      # Helper functions
-│   │   └── types/      # TypeScript types
-│   ├── pages/          # Page components
-│   ├── services/       # API services
-│   ├── store/          # State management
-│   ├── styles/         # Global styles
+│   ├── lib/             # Utility functions and configurations
+│   ├── services/        # API services and data fetching
 │   ├── App.tsx         # Root component
 │   └── main.tsx        # Entry point
 ├── .env                # Environment variables
@@ -364,7 +387,8 @@ frontend/
 ├── package.json        # Dependencies
 ├── tsconfig.json       # TypeScript config
 ├── vite.config.ts      # Vite config
-└── .eslintrc.js        # ESLint configuration
+├── tailwind.config.ts  # Tailwind CSS config
+└── postcss.config.js   # PostCSS config
 ```
 
 ### ESLint Configuration
