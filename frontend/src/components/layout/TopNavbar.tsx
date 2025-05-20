@@ -188,7 +188,12 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
               ))}
             </div>
             <div className="p-2 border-t dark:border-gray-700 border-slate-200">
-              <Button variant="ghost" size="sm" className="w-full text-xs dark:text-gray-300 dark:hover:bg-gray-700 hover:bg-slate-100">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full text-xs dark:text-gray-300 dark:hover:bg-gray-700 hover:bg-slate-100"
+                onClick={() => navigate('/notifications')}
+              >
                 View all notifications
               </Button>
             </div>
