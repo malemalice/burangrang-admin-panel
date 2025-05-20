@@ -119,7 +119,7 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
         isDark ? "border-gray-800" : "border-white/10"
       )}>
         <h1 className="text-xl font-bold text-white">
-          {isOpen ? "Office Nexus" : "ON"}
+          {isOpen ? "HSE System" : "HSE"}
         </h1>
       </div>
 

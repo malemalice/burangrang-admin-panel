@@ -66,9 +66,9 @@ const Login = () => {
         <div className="mt-16">
           <h1 className="text-4xl font-bold mb-6">Welcome</h1>
           <p className="text-lg mb-6">
-            to Office Nexus System - the world's leading open-source
-            admin panel for your Node.js application that allows you to manage all your
-            data in one place
+            to HSE System - a comprehensive risk assessment and compliance
+            management platform that helps organizations maintain safety standards
+            and regulatory requirements
           </p>
         </div>
         
@@ -107,7 +107,7 @@ const Login = () => {
             <h2 className={cn(
               "text-3xl font-bold",
               isDark ? "text-white" : "text-slate-900"
-            )}>Office Nexus</h2>
+            )}>HSE System</h2>
             <p className={cn(
               "text-sm mt-1",
               isDark ? "text-gray-400" : "text-slate-600"
