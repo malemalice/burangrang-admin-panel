@@ -9,9 +9,14 @@ import {
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateMasterApprovalDto } from './dto/create-master-approval.dto';
 import { UpdateMasterApprovalDto } from './dto/update-master-approval.dto';
-import { ApprovalStatusHistory, MasterApprovalDto } from './dto/master-approval.dto';
+import {
+  ApprovalStatusHistory,
+  MasterApprovalDto,
+} from './dto/master-approval.dto';
 import { Prisma } from '@prisma/client';
 import { SubmitApprovalDto } from './dto/submit-approval.dto';
+import { ConfigService } from '@nestjs/config';
+import { User } from 'src/shared/types';
 
 interface FindAllOptions {
   page?: number;
@@ -22,15 +27,12 @@ interface FindAllOptions {
   search?: string;
 }
 
-interface User {
-  id: string;
-  departmentId: string | null;
-  jobPositionId: string | null;
-}
-
 @Injectable()
 export class MasterApprovalsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async create(
     createMasterApprovalDto: CreateMasterApprovalDto,
@@ -236,8 +238,6 @@ export class MasterApprovalsService {
   ): Promise<{ canApprove: boolean }> {
     // Get approval status and next approver
     const approvalStatus = await this.checkApprovalStatus(dataId, entityName);
-    console.log(user);
-    console.log(approvalStatus.nextApprover);
 
     // If there's no next approver, user cannot approve
     if (!approvalStatus.nextApprover) {
@@ -406,16 +406,64 @@ export class MasterApprovalsService {
     }
 
     // Create approval record
-    await this.prisma.approval.create({
-      data: {
-        mApprovalId: masterApproval.id,
-        entityId: submitApprovalDto.dataId,
-        department_id: user.departmentId!,
-        job_position_id: user.jobPositionId!,
-        status: submitApprovalDto.status,
-        notes: submitApprovalDto.notes,
-        createdBy: user.id,
-      },
-    });
+    try {
+      await this.prisma.approval.create({
+        data: {
+          mApprovalId: masterApproval.id,
+          entityId: submitApprovalDto.dataId,
+          department_id: user.departmentId!,
+          job_position_id: user.jobPositionId!,
+          status: submitApprovalDto.status,
+          notes: submitApprovalDto.notes,
+          createdBy: user.id,
+        },
+      });
+    } catch (error) {
+      throw new BadRequestException('User does not have approval rights');
+    }
+
+    const checkApprovalStatus = await this.checkApprovalStatus(
+      submitApprovalDto.dataId,
+      submitApprovalDto.entity,
+    );
+
+    let sourceStatus = 'COMPLETED';
+    if (checkApprovalStatus.nextApprover) {
+      sourceStatus = 'WAITING_APPROVAL';
+    }
+    await this.updateSourceEntity(
+      submitApprovalDto.dataId,
+      submitApprovalDto.entity,
+      sourceStatus,
+    );
+  }
+
+  async updateSourceEntity(
+    entityId: string,
+    entityName: string,
+    status: string,
+  ): Promise<void> {
+    // Get the source entity table name from .env
+    let approvalEntity = this.configService.get<string>('APPROVAL_ENTITY');
+
+    if (!approvalEntity) {
+      throw new BadRequestException('Source entity table name not found');
+    }
+    approvalEntity = JSON.parse(approvalEntity);
+    const tableName = approvalEntity && approvalEntity[entityName];
+
+    if (!tableName) {
+      throw new BadRequestException(
+        `Table name not found for entity ${entityName}`,
+      );
+    }
+    // Update the source entity
+    await this.prisma.$executeRaw`
+      UPDATE "${Prisma.raw(tableName)}"
+      SET status = ${status}
+      WHERE id = ${entityId}
+    `;
+
+    // TODO: Implement the logic to update the source entity
   }
 }

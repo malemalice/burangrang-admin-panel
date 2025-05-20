@@ -23,20 +23,7 @@ import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SubmitApprovalDto } from './dto/submit-approval.dto';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 import { UserInterceptor } from '../../shared/interceptors/user.interceptor';
-
-interface User {
-  id: string;
-  departmentId: string | null;
-  jobPositionId: string | null;
-  department?: {
-    id: string;
-    name: string;
-  };
-  jobPosition?: {
-    id: string;
-    name: string;
-  };
-}
+import { User } from '../../shared/types';
 
 @Controller('master-approvals')
 @UseGuards(JwtAuthGuard, RolesGuard)
