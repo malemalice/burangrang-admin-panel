@@ -3,6 +3,7 @@ import Dashboard from '@/pages/Dashboard';
 import SettingsPage from '@/pages/settings/SettingsPage';
 import NotFound from '@/pages/NotFound';
 import Login from '@/pages/Login';
+import Notifications from '@/pages/Notifications';
 
 /**
  * Core application routes
@@ -15,6 +16,10 @@ const coreRoutes: RouteConfig[] = [
   {
     path: '/settings',
     component: SettingsPage,
+  },
+  {
+    path: '/notifications',
+    component: Notifications,
   },
   {
     path: '/login',
