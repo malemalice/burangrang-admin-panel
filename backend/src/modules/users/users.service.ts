@@ -51,11 +51,16 @@ export class UsersService {
     const where: Prisma.UserWhereInput = {};
     
     if (search) {
-      where.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-      ];
+      // Optimize search by using startsWith for better performance
+      // and only search in most relevant fields
+      const searchTerm = search.trim();
+      if (searchTerm.length > 0) {
+        where.OR = [
+          { firstName: { startsWith: searchTerm, mode: 'insensitive' } },
+          { lastName: { startsWith: searchTerm, mode: 'insensitive' } },
+          { email: { startsWith: searchTerm, mode: 'insensitive' } },
+        ];
+      }
     }
 
     if (isActive !== undefined) {
