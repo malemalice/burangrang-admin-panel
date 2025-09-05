@@ -5,7 +5,7 @@ import { Input } from './input';
 import { Badge } from './badge';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { Calendar as CalendarComponent } from './calendar';
+
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { SearchableSelect, SearchableSelectOption } from './searchable-select';
 
@@ -213,12 +213,12 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                       )}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={getFilterValue(field.id) ? new Date(getFilterValue(field.id) as string) : undefined}
-                      onSelect={(date) => updateFilterValue(field.id, date ? date.toISOString() : '')}
-                      initialFocus
+                  <PopoverContent className="w-auto p-3" align="start">
+                    <Input
+                      type="date"
+                      value={getFilterValue(field.id) ? new Date(getFilterValue(field.id) as string).toISOString().split('T')[0] : ''}
+                      onChange={(e) => updateFilterValue(field.id, e.target.value ? new Date(e.target.value).toISOString() : '')}
+                      className="w-full"
                     />
                   </PopoverContent>
                 </Popover>
@@ -240,18 +240,18 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                         )}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <CalendarComponent
-                        mode="single"
-                        selected={(getFilterValue(field.id) as any)?.from ? new Date((getFilterValue(field.id) as any).from) : undefined}
-                        onSelect={(date) => {
+                    <PopoverContent className="w-auto p-3" align="start">
+                      <Input
+                        type="date"
+                        value={(getFilterValue(field.id) as any)?.from ? new Date((getFilterValue(field.id) as any).from).toISOString().split('T')[0] : ''}
+                        onChange={(e) => {
                           const current = getFilterValue(field.id) as any || {};
                           updateFilterValue(field.id, { 
                             ...current,
-                            from: date ? date.toISOString() : undefined
+                            from: e.target.value ? new Date(e.target.value).toISOString() : undefined
                           });
                         }}
-                        initialFocus
+                        className="w-full"
                       />
                     </PopoverContent>
                   </Popover>
@@ -270,18 +270,18 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                         )}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <CalendarComponent
-                        mode="single"
-                        selected={(getFilterValue(field.id) as any)?.to ? new Date((getFilterValue(field.id) as any).to) : undefined}
-                        onSelect={(date) => {
+                    <PopoverContent className="w-auto p-3" align="start">
+                      <Input
+                        type="date"
+                        value={(getFilterValue(field.id) as any)?.to ? new Date((getFilterValue(field.id) as any).to).toISOString().split('T')[0] : ''}
+                        onChange={(e) => {
                           const current = getFilterValue(field.id) as any || {};
                           updateFilterValue(field.id, { 
                             ...current,
-                            to: date ? date.toISOString() : undefined
+                            to: e.target.value ? new Date(e.target.value).toISOString() : undefined
                           });
                         }}
-                        initialFocus
+                        className="w-full"
                       />
                     </PopoverContent>
                   </Popover>
