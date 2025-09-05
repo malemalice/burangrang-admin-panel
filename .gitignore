@@ -45,3 +45,8 @@ node_modules/
 # Production build files
 /dist/
 /build/ 
+
+#e2e test files
+playwright/playwright-report
+playwright/screenshots
+playwright/test-results
