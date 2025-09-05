@@ -17,8 +17,7 @@ async function bootstrap() {
   
   // Enable CORS with frontend URL from environment
   app.enableCors({
-    // origin: [configService.get('FRONTEND_URL') || 'http://localhost:5173'],
-    origin: true,
+    origin: [configService.get('FRONTEND_URL') || 'http://localhost:5173'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
     allowedHeaders: 'Content-Type,Accept,Authorization'

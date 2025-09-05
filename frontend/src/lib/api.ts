@@ -140,10 +140,14 @@ export const authApi = {
         
         // Ensure the role is formatted consistently before returning
         const user = response.data;
-        if (user && user.role && typeof user.role === 'object' && 'name' in user.role) {
-          // If role is an object with a name property, normalize it to just the name string
-          // to maintain compatibility with components expecting a string
-          user.role = user.role.name;
+        if (user && user.role) {
+          // Normalize role to string format for consistency
+          if (typeof user.role === 'object' && 'name' in user.role) {
+            user.role = user.role.name;
+          } else if (typeof user.role !== 'string') {
+            // Fallback: convert any non-string role to string
+            user.role = String(user.role);
+          }
         }
         
         return { user };
@@ -160,8 +164,14 @@ export const authApi = {
       const result = await authApi.refreshToken();
       
       // Ensure role format is consistent 
-      if (result.user && result.user.role && typeof result.user.role === 'object' && 'name' in result.user.role) {
-        result.user.role = result.user.role.name;
+      if (result.user && result.user.role) {
+        // Normalize role to string format for consistency
+        if (typeof result.user.role === 'object' && 'name' in result.user.role) {
+          result.user.role = result.user.role.name;
+        } else if (typeof result.user.role !== 'string') {
+          // Fallback: convert any non-string role to string
+          result.user.role = String(result.user.role);
+        }
       }
       
       return result;
