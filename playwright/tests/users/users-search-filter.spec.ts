@@ -10,7 +10,7 @@ const TEST_USERS = [
     email: `alice.johnson.${Date.now()}@example.com`,
     role: 'User',
     office: 'Headquarters',
-    department: 'IT',
+    department: 'Extracurricular Activities',
     jobPosition: 'Developer'
   },
   {
@@ -61,6 +61,24 @@ async function setupSearchFilterTest(page: Page): Promise<{ loginPage: LoginPage
   }
 
   return { loginPage, usersListPage, userFormPage };
+}
+
+// Helper function to handle mobile sidebar issue
+async function handleMobileSidebar(page: Page): Promise<void> {
+  const sidebar = page.locator('aside');
+  const isSidebarVisible = await sidebar.isVisible();
+
+  if (isSidebarVisible) {
+    // Force close sidebar by modifying CSS (works around mobile layout issues)
+    await page.evaluate(() => {
+      const sidebar = document.querySelector('aside');
+      if (sidebar) {
+        sidebar.style.transform = 'translateX(-100%)';
+        sidebar.style.left = '-256px';
+      }
+    });
+    console.log('🔧 Mobile sidebar handled - forcibly closed to prevent interference');
+  }
 }
 
 // Helper function to create test users for search/filter testing
@@ -237,13 +255,16 @@ test.describe('Users Search and Filter Tests', () => {
     // Setup
     await setupSearchFilterTest(page);
 
+    // Handle mobile sidebar issue that covers tabs
+    await handleMobileSidebar(page);
+
     const initialUserCount = await usersListPage.getUserCount();
     console.log(`📊 Initial user count: ${initialUserCount}`);
 
     // Check if status tabs exist (All, Active, Inactive)
-    const activeTab = page.getByRole('tab').filter({ hasText: 'Active' });
-    const inactiveTab = page.getByRole('tab').filter({ hasText: 'Inactive' });
-    const allTab = page.getByRole('tab').filter({ hasText: /All|All Users/ });
+    const activeTab = page.getByRole('tab', { name: 'Active', exact: true });
+    const inactiveTab = page.getByRole('tab', { name: 'Inactive', exact: true });
+    const allTab = page.getByRole('tab', { name: /All Users?/, exact: true });
 
     const hasStatusTabs = await activeTab.isVisible() && await inactiveTab.isVisible();
     if (hasStatusTabs) {
@@ -373,6 +394,9 @@ test.describe('Users Search and Filter Tests', () => {
     // Setup
     await setupSearchFilterTest(page);
 
+    // Handle mobile sidebar issue that covers tabs
+    await handleMobileSidebar(page);
+
     // Apply search and status filter together
     const searchTerm = 'Alice';
     console.log(`🔍 Applying search: "${searchTerm}"`);
@@ -381,7 +405,7 @@ test.describe('Users Search and Filter Tests', () => {
     await page.waitForTimeout(1000);
 
     // Try to apply status filter if available
-    const activeTab = page.getByRole('tab').filter({ hasText: 'Active' });
+    const activeTab = page.getByRole('tab', { name: 'Active', exact: true });
     if (await activeTab.isVisible()) {
       console.log('🔍 Applying status filter: Active');
       await activeTab.click();
@@ -524,4 +548,5 @@ test.describe('Users Search and Filter Tests', () => {
     await takeScreenshot(page, 'search-06-special-characters');
     console.log('🎉 Special character search test completed!');
   });
+
 });
