@@ -1,11 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
-import { LoginPage, UsersListPage, UserFormPage, UserFormData } from './page-objects';
-
-// Test data
-const TEST_CREDENTIALS = {
-  email: 'admin@example.com',
-  password: 'admin'
-};
+import { LoginPage, UsersListPage, UserFormPage, UserFormData } from '../page-objects';
+import { TEST_CREDENTIALS } from '../constants';
 
 const VALID_USER_DATA: UserFormData = {
   firstName: 'John',
@@ -44,14 +39,14 @@ async function setupValidationTest(page: Page): Promise<{ loginPage: LoginPage; 
 
   // Login
   await loginPage.goto();
-  await loginPage.login(TEST_CREDENTIALS.email, TEST_CREDENTIALS.password);
+  await loginPage.login(TEST_CREDENTIALS.ADMIN.email, TEST_CREDENTIALS.ADMIN.password);
 
   // Navigate to users page
   await usersListPage.goto();
 
   // Handle potential redirect
   if (page.url().includes('/login')) {
-    await loginPage.login(TEST_CREDENTIALS.email, TEST_CREDENTIALS.password);
+    await loginPage.login(TEST_CREDENTIALS.ADMIN.email, TEST_CREDENTIALS.ADMIN.password);
     await usersListPage.goto();
   }
 

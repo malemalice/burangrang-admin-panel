@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { setupAuthenticatedSession } from './utils/test-helpers';
+import { setupAuthenticatedSession } from '../utils/test-helpers';
 
 test('Test direct navigation to user creation', async ({ page }) => {
   const { loginPage } = await setupAuthenticatedSession(page);

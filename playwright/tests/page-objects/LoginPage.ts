@@ -9,15 +9,15 @@ export class LoginPage {
 
   // Form elements - using getters to avoid initialization issues
   get emailInput() {
-    return this.page.getByRole('textbox', { name: '* Email' });
+    return this.page.locator('#email');
   }
 
   get passwordInput() {
-    return this.page.getByRole('textbox', { name: '* Password' });
+    return this.page.locator('#password');
   }
 
   get loginButton() {
-    return this.page.getByRole('button', { name: 'Login' });
+    return this.page.locator('button[type="submit"]').filter({ hasText: 'Login' });
   }
 
   // Demo credentials (if present)
@@ -26,18 +26,59 @@ export class LoginPage {
   }
 
   async goto() {
-    await this.page.goto('/login');
+    // First try to go to root - if not logged in, it should redirect to login
+    await this.page.goto('/');
     await this.page.waitForLoadState('networkidle');
+
+    // Check if we're on login page after navigation
+    if (!this.page.url().includes('/login')) {
+      // We're already logged in, navigate to login page explicitly
+      await this.page.goto('/login');
+      await this.page.waitForLoadState('networkidle');
+    }
   }
 
-  async login(email: string, password: string) {
+  async login(email: string, password: string, expectSuccess: boolean = true) {
+    console.log(`🔐 Attempting login for: ${email}`);
+
+    // Wait for elements to be visible
+    await this.emailInput.waitFor({ state: 'visible', timeout: 5000 });
+    await this.passwordInput.waitFor({ state: 'visible', timeout: 5000 });
+    await this.loginButton.waitFor({ state: 'visible', timeout: 5000 });
+
+    console.log('✅ Login form elements found');
+
     await this.emailInput.fill(email);
     await this.passwordInput.fill(password);
-    await this.loginButton.click();
+    console.log('✅ Form fields filled');
 
-    // Wait for redirect
-    await this.page.waitForURL(/.*dashboard|.*\/$/);
-    await this.page.waitForLoadState('networkidle');
+    await this.loginButton.click();
+    console.log('✅ Login button clicked');
+
+    if (expectSuccess) {
+      // Wait for authentication to complete - check for tokens in localStorage
+      await this.page.waitForFunction(() => {
+        return !!(localStorage.getItem('access_token') && localStorage.getItem('refresh_token'));
+      }, { timeout: 10000 });
+
+      console.log('✅ Authentication tokens stored');
+
+      // Wait for redirect to complete
+      await this.page.waitForURL((url) => !url.toString().includes('/login'), { timeout: 10000 });
+      console.log(`📍 Successfully redirected to: ${this.page.url()}`);
+
+      console.log('✅ Login process completed successfully');
+    } else {
+      // For failed login, wait a moment for the error to appear
+      await this.page.waitForTimeout(2000);
+      console.log('⏳ Waiting for login failure response');
+
+      // Check if we're still on login page (expected for failed login)
+      const currentUrl = this.page.url();
+      if (currentUrl.includes('/login')) {
+        console.log('✅ Login failed as expected - still on login page');
+      }
+    }
   }
 
   async isOnLoginPage(): Promise<boolean> {

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { setupAuthenticatedSession } from './utils/test-helpers';
+import { setupAuthenticatedSession } from '../utils/test-helpers';
 
 test('Investigate settings page structure', async ({ page }) => {
   const { loginPage } = await setupAuthenticatedSession(page);

@@ -1,15 +1,10 @@
 import { test, expect, Page } from '@playwright/test';
+import { TEST_CREDENTIALS } from '../constants';
 
-// Test data
-const TEST_CREDENTIALS = {
-  valid: {
-    email: 'admin@example.com',
-    password: 'admin'
-  },
-  invalid: {
-    email: 'wrong@example.com',
-    password: 'wrongpassword'
-  }
+// Additional test credentials for invalid cases
+const INVALID_CREDENTIALS = {
+  email: 'wrong@example.com',
+  password: 'wrongpassword'
 };
 
 // Helper function to take screenshot
@@ -98,8 +93,8 @@ test.describe('Login Functionality Tests', () => {
     const passwordInput = page.getByRole('textbox', { name: '* Password' });
     const loginButton = page.getByRole('button', { name: 'Login' });
     
-    await emailInput.fill(TEST_CREDENTIALS.valid.email);
-    await passwordInput.fill(TEST_CREDENTIALS.valid.password);
+    await emailInput.fill(TEST_CREDENTIALS.ADMIN.email);
+    await passwordInput.fill(TEST_CREDENTIALS.ADMIN.password);
     
     // Take screenshot before login
     await takeScreenshot(page, '02-login-form-filled');
@@ -143,8 +138,8 @@ test.describe('Login Functionality Tests', () => {
     const passwordInput = page.getByRole('textbox', { name: '* Password' });
     const loginButton = page.getByRole('button', { name: 'Login' });
     
-    await emailInput.fill(TEST_CREDENTIALS.invalid.email);
-    await passwordInput.fill(TEST_CREDENTIALS.invalid.password);
+    await emailInput.fill(INVALID_CREDENTIALS.email);
+    await passwordInput.fill(INVALID_CREDENTIALS.password);
     
     // Take screenshot before login
     await takeScreenshot(page, '04-invalid-credentials-filled');
@@ -237,8 +232,8 @@ test.describe('Login Functionality Tests', () => {
     const passwordInput = page.getByRole('textbox', { name: '* Password' });
     const loginButton = page.getByRole('button', { name: 'Login' });
     
-    await emailInput.fill(TEST_CREDENTIALS.valid.email);
-    await passwordInput.fill(TEST_CREDENTIALS.valid.password);
+    await emailInput.fill(TEST_CREDENTIALS.ADMIN.email);
+    await passwordInput.fill(TEST_CREDENTIALS.ADMIN.password);
     await loginButton.click();
     
     // Wait for login to complete
@@ -272,8 +267,8 @@ test.describe('Login Functionality Tests', () => {
     const passwordInput = page.getByRole('textbox', { name: '* Password' });
     const loginButton = page.getByRole('button', { name: 'Login' });
     
-    await emailInput.fill(TEST_CREDENTIALS.valid.email);
-    await passwordInput.fill(TEST_CREDENTIALS.valid.password);
+    await emailInput.fill(TEST_CREDENTIALS.ADMIN.email);
+    await passwordInput.fill(TEST_CREDENTIALS.ADMIN.password);
     await loginButton.click();
     
     // Wait for login to complete and redirect to dashboard
@@ -336,8 +331,8 @@ test.describe('Login Functionality Tests', () => {
     const passwordInput = page.getByRole('textbox', { name: '* Password' });
     const loginButton = page.getByRole('button', { name: 'Login' });
     
-    await emailInput.fill(TEST_CREDENTIALS.valid.email);
-    await passwordInput.fill(TEST_CREDENTIALS.valid.password);
+    await emailInput.fill(TEST_CREDENTIALS.ADMIN.email);
+    await passwordInput.fill(TEST_CREDENTIALS.ADMIN.password);
     await loginButton.click();
     
     // Wait for network requests to complete

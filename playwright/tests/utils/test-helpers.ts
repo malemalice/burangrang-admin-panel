@@ -1,11 +1,6 @@
 import { Page } from '@playwright/test';
 import { LoginPage, UsersListPage, UserFormPage, UserDetailPage, UserFormData } from '../page-objects';
-
-// Test data constants
-export const TEST_CREDENTIALS = {
-  email: 'admin@example.com',
-  password: 'admin'
-};
+import { TEST_CREDENTIALS, TEST_DATA } from '../constants';
 
 export const DEFAULT_USER_DATA: UserFormData = {
   firstName: 'Test',
@@ -74,14 +69,14 @@ export async function loginAndNavigateToUsers(page: Page): Promise<{
 
   // Login
   await loginPage.goto();
-  await loginPage.login(TEST_CREDENTIALS.email, TEST_CREDENTIALS.password);
+  await loginPage.login(TEST_CREDENTIALS.ADMIN.email, TEST_CREDENTIALS.ADMIN.password);
 
   // Navigate to users page
   await usersListPage.goto();
 
   // Handle potential redirect
   if (page.url().includes('/login')) {
-    await loginPage.login(TEST_CREDENTIALS.email, TEST_CREDENTIALS.password);
+    await loginPage.login(TEST_CREDENTIALS.ADMIN.email, TEST_CREDENTIALS.ADMIN.password);
     await usersListPage.goto();
   }
 

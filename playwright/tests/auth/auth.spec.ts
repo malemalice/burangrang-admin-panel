@@ -1,16 +1,11 @@
 import { test, expect, Page } from '@playwright/test';
-import { LoginPage } from './page-objects';
+import { LoginPage } from '../page-objects';
+import { TEST_CREDENTIALS } from '../constants';
 
-// Test data
-const TEST_CREDENTIALS = {
-  valid: {
-    email: 'admin@example.com',
-    password: 'admin'
-  },
-  invalid: {
-    email: 'wrong@example.com',
-    password: 'wrongpassword'
-  }
+// Additional test credentials for invalid cases
+const INVALID_CREDENTIALS = {
+  email: 'wrong@example.com',
+  password: 'wrongpassword'
 };
 
 // Helper function to take screenshot
@@ -87,7 +82,7 @@ test.describe('Authentication Tests', () => {
     console.log('🔐 Testing valid login credentials...');
 
     // Login with valid credentials
-    await loginPage.login(TEST_CREDENTIALS.valid.email, TEST_CREDENTIALS.valid.password);
+    await loginPage.login(TEST_CREDENTIALS.ADMIN.email, TEST_CREDENTIALS.ADMIN.password);
     console.log('✅ Login form submitted');
 
     // Verify redirect to dashboard
@@ -110,8 +105,8 @@ test.describe('Authentication Tests', () => {
     console.log('🔐 Testing invalid login credentials...');
 
     // Fill invalid credentials
-    await loginPage.emailInput.fill(TEST_CREDENTIALS.invalid.email);
-    await loginPage.passwordInput.fill(TEST_CREDENTIALS.invalid.password);
+    await loginPage.emailInput.fill(INVALID_CREDENTIALS.email);
+    await loginPage.passwordInput.fill(INVALID_CREDENTIALS.password);
     await takeScreenshot(page, 'auth-04-invalid-credentials-filled');
 
     // Submit form
@@ -179,7 +174,7 @@ test.describe('Authentication Tests', () => {
     console.log('🔐 Testing JWT token handling...');
 
     // Login first
-    await loginPage.login(TEST_CREDENTIALS.valid.email, TEST_CREDENTIALS.valid.password);
+    await loginPage.login(TEST_CREDENTIALS.ADMIN.email, TEST_CREDENTIALS.ADMIN.password);
 
     // Verify tokens are stored
     const tokenInfo = await checkJWTToken(page);
@@ -207,7 +202,7 @@ test.describe('Authentication Tests', () => {
     console.log('🔐 Testing logout functionality...');
 
     // Login first
-    await loginPage.login(TEST_CREDENTIALS.valid.email, TEST_CREDENTIALS.valid.password);
+    await loginPage.login(TEST_CREDENTIALS.ADMIN.email, TEST_CREDENTIALS.ADMIN.password);
     console.log('✅ Logged in successfully');
 
     // Look for logout button (common patterns)
@@ -257,7 +252,7 @@ test.describe('Authentication Tests', () => {
     });
 
     // Login with valid credentials
-    await loginPage.login(TEST_CREDENTIALS.valid.email, TEST_CREDENTIALS.valid.password);
+    await loginPage.login(TEST_CREDENTIALS.ADMIN.email, TEST_CREDENTIALS.ADMIN.password);
     console.log('✅ Login completed');
 
     // Verify network requests were made

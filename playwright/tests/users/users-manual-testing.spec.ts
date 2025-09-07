@@ -17,7 +17,7 @@ async function takeScreenshot(page: Page, name: string) {
 }
 
 // Helper function to login
-async function loginUser(page: Page, credentials = TEST_CREDENTIALS.valid) {
+async function loginUser(page: Page, credentials = TEST_CREDENTIALS.ADMIN) {
   console.log('🔐 Starting login process...');
 
   // Navigate to login page

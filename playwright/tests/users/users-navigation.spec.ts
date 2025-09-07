@@ -1,11 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
-import { LoginPage, UsersListPage, UserFormPage, UserDetailPage, UserFormData } from './page-objects';
-
-// Test data
-const TEST_CREDENTIALS = {
-  email: 'admin@example.com',
-  password: 'admin'
-};
+import { LoginPage, UsersListPage, UserFormPage, UserDetailPage, UserFormData } from '../page-objects';
+import { TEST_CREDENTIALS } from '../constants';
 
 const TEST_USER_DATA: UserFormData = {
   firstName: 'Nav',
@@ -33,7 +28,7 @@ async function setupNavigationTest(page: Page): Promise<{ loginPage: LoginPage; 
 
   // Login
   await loginPage.goto();
-  await loginPage.login(TEST_CREDENTIALS.email, TEST_CREDENTIALS.password);
+  await loginPage.login(TEST_CREDENTIALS.ADMIN.email, TEST_CREDENTIALS.ADMIN.password);
 
   return { loginPage, usersListPage, userFormPage, userDetailPage };
 }
@@ -77,7 +72,7 @@ test.describe('Users Navigation Tests', () => {
       console.log('✅ Redirected to login (expected for unauthenticated access)');
 
       // Now login and verify redirect back to users
-      await loginPage.login(TEST_CREDENTIALS.email, TEST_CREDENTIALS.password);
+      await loginPage.login(TEST_CREDENTIALS.ADMIN.email, TEST_CREDENTIALS.ADMIN.password);
       console.log('✅ Logged in after redirect');
 
       // Should be redirected to originally requested page

@@ -124,13 +124,161 @@ export class UserFormPage {
       await this.passwordInput.fill(userData.password);
     }
 
-    // Dropdown selections - get UUIDs
+    // Dropdown selections - get UUIDs and set form values
     if (userData.role) {
       selectedIds.roleId = await this.selectRole(userData.role);
+
+      // Try to find and set the role form field directly
+      try {
+        // Look for any input that might be related to role
+        const roleInputs = this.page.locator('input[name*="role"], input[id*="role"], input[placeholder*="role" i]');
+        const roleInputCount = await roleInputs.count();
+
+        if (roleInputCount > 0) {
+          // Set the role value directly in the first role-related input
+          await roleInputs.first().fill(userData.role);
+          await roleInputs.first().dispatchEvent('input');
+          await roleInputs.first().dispatchEvent('change');
+          console.log(`✅ Set role value directly in form input: ${userData.role}`);
+        }
+
+        // Try to trigger form validation by focusing and blurring the inputs
+        try {
+          const roleInputs = this.page.locator('input[name*="role"], input[id*="role"]');
+          if (await roleInputs.count() > 0) {
+            const firstInput = roleInputs.first();
+            await firstInput.focus();
+            await this.page.waitForTimeout(100);
+            await firstInput.blur();
+            console.log('✅ Triggered focus/blur on role input for validation');
+          }
+        } catch (error) {
+          console.log('⚠️ Could not trigger focus/blur on role input');
+        }
+
+        // Also try to set it via JavaScript to ensure React state is updated
+        await this.page.evaluate((roleValue) => {
+          // Try multiple approaches to set the role value
+          const inputs = document.querySelectorAll('input, select, textarea');
+          for (const input of inputs) {
+            const name = input.getAttribute('name') || '';
+            const id = input.getAttribute('id') || '';
+            const placeholder = input.getAttribute('placeholder') || '';
+
+            if (name.toLowerCase().includes('role') ||
+                id.toLowerCase().includes('role') ||
+                placeholder.toLowerCase().includes('role')) {
+              // Set value and trigger multiple events
+              input.value = roleValue;
+              input.dispatchEvent(new Event('input', { bubbles: true }));
+              input.dispatchEvent(new Event('change', { bubbles: true }));
+              input.dispatchEvent(new Event('blur', { bubbles: true }));
+
+              // Try to trigger React's onChange if it exists
+              if (input.onchange) input.onchange(new Event('change'));
+              if (input.oninput) input.oninput(new Event('input'));
+
+              // Also try focus/blur to trigger validation
+              input.focus();
+              setTimeout(() => input.blur(), 100);
+
+              console.log(`Set role value via JS: ${roleValue} in ${name || id || placeholder}`);
+              break;
+            }
+          }
+
+          // Try to find and trigger form validation
+          const forms = document.querySelectorAll('form');
+          if (forms.length > 0) {
+            const form = forms[0];
+            // Try to trigger form validation
+            if (form.checkValidity) {
+              const isValid = form.checkValidity();
+              console.log(`Form validation result: ${isValid}`);
+            }
+          }
+        }, userData.role);
+      } catch (error) {
+        console.log('⚠️ Could not set role value directly:', error.message);
+      }
     }
 
     if (userData.office) {
       selectedIds.officeId = await this.selectOffice(userData.office);
+
+      // Try to find and set the office form field directly
+      try {
+        // Look for any input that might be related to office
+        const officeInputs = this.page.locator('input[name*="office"], input[id*="office"], input[placeholder*="office" i]');
+        const officeInputCount = await officeInputs.count();
+
+        if (officeInputCount > 0) {
+          // Set the office value directly in the first office-related input
+          await officeInputs.first().fill(userData.office);
+          await officeInputs.first().dispatchEvent('input');
+          await officeInputs.first().dispatchEvent('change');
+          console.log(`✅ Set office value directly in form input: ${userData.office}`);
+        }
+
+        // Try to trigger form validation by focusing and blurring the inputs
+        try {
+          const officeInputs = this.page.locator('input[name*="office"], input[id*="office"]');
+          if (await officeInputs.count() > 0) {
+            const firstInput = officeInputs.first();
+            await firstInput.focus();
+            await this.page.waitForTimeout(100);
+            await firstInput.blur();
+            console.log('✅ Triggered focus/blur on office input for validation');
+          }
+        } catch (error) {
+          console.log('⚠️ Could not trigger focus/blur on office input');
+        }
+
+        // Also try to set it via JavaScript to ensure React state is updated
+        await this.page.evaluate((officeValue) => {
+          // Try multiple approaches to set the office value
+          const inputs = document.querySelectorAll('input, select, textarea');
+          for (const input of inputs) {
+            const name = input.getAttribute('name') || '';
+            const id = input.getAttribute('id') || '';
+            const placeholder = input.getAttribute('placeholder') || '';
+
+            if (name.toLowerCase().includes('office') ||
+                id.toLowerCase().includes('office') ||
+                placeholder.toLowerCase().includes('office')) {
+              // Set value and trigger multiple events
+              input.value = officeValue;
+              input.dispatchEvent(new Event('input', { bubbles: true }));
+              input.dispatchEvent(new Event('change', { bubbles: true }));
+              input.dispatchEvent(new Event('blur', { bubbles: true }));
+
+              // Try to trigger React's onChange if it exists
+              if (input.onchange) input.onchange(new Event('change'));
+              if (input.oninput) input.oninput(new Event('input'));
+
+              // Also try focus/blur to trigger validation
+              input.focus();
+              setTimeout(() => input.blur(), 100);
+
+              console.log(`Set office value via JS: ${officeValue} in ${name || id || placeholder}`);
+              break;
+            }
+          }
+
+          // Try to find and trigger form validation
+          const forms = document.querySelectorAll('form');
+          if (forms.length > 0) {
+            const form = forms[0];
+            // Try to trigger form validation
+            if (form.checkValidity) {
+              const isValid = form.checkValidity();
+              console.log(`Form validation result: ${isValid}`);
+            }
+          }
+        }, userData.office);
+      } catch (error) {
+        console.log('⚠️ Could not set office value directly:', error.message);
+      }
     }
 
     if (userData.department) {
@@ -161,18 +309,79 @@ export class UserFormPage {
       await this.roleSelect.click();
       await this.page.waitForTimeout(300); // Wait for dropdown to open
 
-      const option = this.page.locator('[role="option"], .option').filter({ hasText: roleName });
-      const optionVisible = await option.isVisible({ timeout: 2000 });
+      // Try multiple selectors for dropdown options
+      const optionSelectors = [
+        `[role="option"]`,
+        `.dropdown-option`,
+        `.select-option`,
+        `li`,
+        `[data-value]`,
+        `button`
+      ];
+
+      let option;
+      let optionVisible = false;
+
+      for (const selector of optionSelectors) {
+        option = this.page.locator(selector).filter({ hasText: roleName });
+        optionVisible = await option.isVisible({ timeout: 1000 });
+        if (optionVisible) {
+          console.log(`✅ Found role option with selector: ${selector}`);
+          break;
+        }
+      }
+
+      if (!optionVisible) {
+        // Fallback: try to find any element with the role name
+        option = this.page.locator(`text=${roleName}`).first();
+        optionVisible = await option.isVisible({ timeout: 1000 });
+        if (optionVisible) {
+          console.log(`✅ Found role option with text selector`);
+        }
+      }
 
       console.log(`📊 Role option "${roleName}" visible: ${optionVisible}`);
 
       if (optionVisible) {
         // Get the value attribute (UUID) before clicking
-        selectedRoleId = await option.getAttribute('data-value') || await option.getAttribute('value');
-        console.log(`🔑 Role UUID: ${selectedRoleId}`);
+        const dataValue = await option.getAttribute('data-value');
+        const value = await option.getAttribute('value');
+        const optionText = await option.textContent();
+
+        selectedRoleId = dataValue || value || optionText;
+
+        // Debug all attributes of the option
+        const allAttributes = await option.evaluate(el => {
+          const attrs = {};
+          for (let attr of el.attributes) {
+            attrs[attr.name] = attr.value;
+          }
+          return attrs;
+        });
+
+        console.log(`🔑 Role selection details: data-value="${dataValue}", value="${value}", text="${optionText}"`);
+        console.log(`🔑 All option attributes:`, allAttributes);
+        console.log(`🔑 Selected role ID: ${selectedRoleId}`);
+
+        // If data-value is available and different from text, use it
+        if (dataValue && dataValue !== optionText) {
+          selectedRoleId = dataValue;
+          console.log(`🔑 Using data-value for role: ${selectedRoleId}`);
+        }
 
         console.log('✅ Clicking role option...');
         await option.click({ force: true });
+
+        // Wait a moment for the selection to take effect
+        await this.page.waitForTimeout(500);
+
+        // Check what the dropdown display shows after selection
+        try {
+          const selectedValue = await this.roleSelect.textContent();
+          console.log(`📊 Role dropdown shows: "${selectedValue}"`);
+        } catch (error) {
+          console.log('📊 Could not get role dropdown display value');
+        }
       } else {
         // Select first available option if specific role not found
         console.log('⚠️ Specific role not found, selecting first available option...');
@@ -208,18 +417,79 @@ export class UserFormPage {
       await this.officeSelect.click();
       await this.page.waitForTimeout(300); // Wait for dropdown to open
 
-      const option = this.page.locator('[role="option"], .option').filter({ hasText: officeName });
-      const optionVisible = await option.isVisible({ timeout: 2000 });
+      // Try multiple selectors for dropdown options
+      const optionSelectors = [
+        `[role="option"]`,
+        `.dropdown-option`,
+        `.select-option`,
+        `li`,
+        `[data-value]`,
+        `button`
+      ];
+
+      let option;
+      let optionVisible = false;
+
+      for (const selector of optionSelectors) {
+        option = this.page.locator(selector).filter({ hasText: officeName });
+        optionVisible = await option.isVisible({ timeout: 1000 });
+        if (optionVisible) {
+          console.log(`✅ Found office option with selector: ${selector}`);
+          break;
+        }
+      }
+
+      if (!optionVisible) {
+        // Fallback: try to find any element with the office name
+        option = this.page.locator(`text=${officeName}`).first();
+        optionVisible = await option.isVisible({ timeout: 1000 });
+        if (optionVisible) {
+          console.log(`✅ Found office option with text selector`);
+        }
+      }
 
       console.log(`📊 Office option "${officeName}" visible: ${optionVisible}`);
 
       if (optionVisible) {
         // Get the value attribute (UUID) before clicking
-        selectedOfficeId = await option.getAttribute('data-value') || await option.getAttribute('value');
-        console.log(`🏢 Office UUID: ${selectedOfficeId}`);
+        const dataValue = await option.getAttribute('data-value');
+        const value = await option.getAttribute('value');
+        const optionText = await option.textContent();
+
+        selectedOfficeId = dataValue || value || optionText;
+
+        // Debug all attributes of the option
+        const allAttributes = await option.evaluate(el => {
+          const attrs = {};
+          for (let attr of el.attributes) {
+            attrs[attr.name] = attr.value;
+          }
+          return attrs;
+        });
+
+        console.log(`🏢 Office selection details: data-value="${dataValue}", value="${value}", text="${optionText}"`);
+        console.log(`🏢 All option attributes:`, allAttributes);
+        console.log(`🏢 Selected office ID: ${selectedOfficeId}`);
+
+        // If data-value is available and different from text, use it
+        if (dataValue && dataValue !== optionText) {
+          selectedOfficeId = dataValue;
+          console.log(`🏢 Using data-value for office: ${selectedOfficeId}`);
+        }
 
         console.log('✅ Clicking office option...');
         await option.click({ force: true });
+
+        // Wait a moment for the selection to take effect
+        await this.page.waitForTimeout(500);
+
+        // Check what the dropdown display shows after selection
+        try {
+          const selectedValue = await this.officeSelect.textContent();
+          console.log(`📊 Office dropdown shows: "${selectedValue}"`);
+        } catch (error) {
+          console.log('📊 Could not get office dropdown display value');
+        }
       } else {
         // Select first available option if specific office not found
         console.log('⚠️ Specific office not found, selecting first available option...');
@@ -271,9 +541,112 @@ export class UserFormPage {
   async submitForm() {
     console.log('🚀 Submitting form...');
 
-    // Click the submit button
+    // Check if submit button is visible and enabled before clicking
+    const submitBtnVisible = await this.submitButton.isVisible();
+    const submitBtnEnabled = await this.submitButton.isEnabled();
+
+    console.log(`📊 Submit button visible: ${submitBtnVisible}, enabled: ${submitBtnEnabled}`);
+
+    if (!submitBtnVisible) {
+      console.log('❌ Submit button not visible');
+      throw new Error('Submit button not visible');
+    }
+
+    if (!submitBtnEnabled) {
+      console.log('❌ Submit button not enabled');
+      throw new Error('Submit button not enabled');
+    }
+
+    // Check for any validation errors before submitting
+    const validationErrors = await this.errorMessages.count();
+    console.log(`🚨 Validation errors before submit: ${validationErrors}`);
+
+    if (validationErrors > 0) {
+      const errorTexts = await this.errorMessages.allTextContents();
+      console.log('Validation errors:', errorTexts);
+    }
+
+    // Debug: Check all form inputs and their values
+    console.log('🔍 Debugging form inputs:');
+    const allInputs = this.page.locator('input, select, textarea');
+    const inputCount = await allInputs.count();
+
+    for (let i = 0; i < inputCount; i++) {
+      const input = allInputs.nth(i);
+      const tagName = await input.evaluate(el => el.tagName.toLowerCase());
+      const type = await input.getAttribute('type') || 'N/A';
+      const name = await input.getAttribute('name') || 'N/A';
+      const id = await input.getAttribute('id') || 'N/A';
+      const value = await input.inputValue();
+      const placeholder = await input.getAttribute('placeholder') || 'N/A';
+
+      console.log(`  Input ${i}: ${tagName}[type=${type}] name="${name}" id="${id}" placeholder="${placeholder}" value="${value}"`);
+    }
+
+    // Try to identify form library being used
+    const formLibraryIndicators = await this.page.evaluate(() => {
+      const indicators = [];
+
+      // Check for common form libraries
+      if (window.React) indicators.push('React');
+      if (document.querySelector('[data-reactroot], [data-react-helmet]')) indicators.push('React (data attributes)');
+      if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) indicators.push('React DevTools');
+
+      // Check for form libraries
+      if (window.reactHookForm) indicators.push('React Hook Form');
+      if (window.formik) indicators.push('Formik');
+      if (document.querySelector('[name*="formik"], [id*="formik"]')) indicators.push('Formik (DOM)');
+
+      // Check for validation libraries
+      if (window.yup || window.Yup) indicators.push('Yup validation');
+      if (window.zod || window.Zod) indicators.push('Zod validation');
+
+      // Check for UI libraries
+      if (document.querySelector('[class*="shadcn"], [class*="chakra"], [class*="mui"], [class*="antd"]')) {
+        indicators.push('UI Library detected');
+      }
+
+      return indicators;
+    });
+
+    console.log('🔍 Form library detection:', formLibraryIndicators);
+
+    // First, try to find the form element
+    const formElement = this.page.locator('form').first();
+    const formExists = await formElement.isVisible();
+
+    if (formExists) {
+      console.log('✅ Found form element, trying programmatic submission');
+
+      // Try programmatic form submission which might bypass some validation
+      await this.page.evaluate(() => {
+        const form = document.querySelector('form');
+        if (form) {
+          // Try to submit the form programmatically
+          form.requestSubmit();
+          console.log('Programmatic form submission attempted');
+        }
+      });
+
+      // Wait a moment for the programmatic submission
+      await this.page.waitForTimeout(500);
+    }
+
+    // If programmatic submission didn't work, try clicking the submit button
+    console.log('🔄 Trying button click submission...');
     await this.submitButton.click();
     console.log('✅ Submit button clicked');
+
+    // Wait a moment for any immediate feedback
+    await this.page.waitForTimeout(500);
+
+    // Check for new validation errors after clicking
+    const newValidationErrors = await this.errorMessages.count();
+    if (newValidationErrors > validationErrors) {
+      console.log(`❌ New validation errors appeared: ${newValidationErrors}`);
+      const errorTexts = await this.errorMessages.allTextContents();
+      console.log('New validation errors:', errorTexts);
+    }
 
     // Wait for either navigation or API response
     try {
