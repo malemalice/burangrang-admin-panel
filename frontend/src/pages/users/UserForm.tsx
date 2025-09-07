@@ -174,9 +174,10 @@ const UserForm = ({ user, mode }: UserFormProps) => {
         toast.success('User updated successfully');
       }
       navigate('/users');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving user:', error);
-      toast.error(error.message || `Failed to ${mode} user`);
+      const errorMessage = error instanceof Error ? error.message : `Failed to ${mode} user`;
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

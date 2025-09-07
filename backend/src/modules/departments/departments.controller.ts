@@ -59,7 +59,7 @@ export class DepartmentsController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @ApiOperation({ summary: 'Update a department' })
   @ApiResponse({ status: 200, description: 'The department has been successfully updated.', type: DepartmentDto })
   @ApiResponse({ status: 404, description: 'Department not found.' })
@@ -68,7 +68,7 @@ export class DepartmentsController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @ApiOperation({ summary: 'Delete a department' })
   @ApiResponse({ status: 200, description: 'The department has been successfully deleted.' })
   @ApiResponse({ status: 404, description: 'Department not found.' })
