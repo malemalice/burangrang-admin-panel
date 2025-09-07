@@ -30,6 +30,7 @@ interface SearchableSelectProps {
   emptyText?: string;
   className?: string;
   includeNone?: boolean;
+  id?: string;
 }
 
 export function SearchableSelect({
@@ -41,7 +42,9 @@ export function SearchableSelect({
   emptyText = "No results found",
   className,
   includeNone = false,
-}: SearchableSelectProps) {
+  id,
+  ...props
+}: SearchableSelectProps & React.HTMLAttributes<HTMLButtonElement>) {
   const [open, setOpen] = useState(false);
   
   // Ensure options is always an array
@@ -58,6 +61,7 @@ export function SearchableSelect({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          id={id}
           variant="outline"
           role="combobox"
           aria-expanded={open}
@@ -66,13 +70,25 @@ export function SearchableSelect({
             !value || value === 'none' ? "text-muted-foreground" : "",
             className
           )}
+          {...props}
         >
           {displayValue}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
-        <Command className="w-full">
+      <PopoverContent 
+        className="w-full p-0" 
+        style={{ zIndex: 9999 }}
+        sideOffset={4}
+        align="start"
+        onPointerDownOutside={(e) => {
+          // Don't close when clicking on the trigger button
+          if ((e.target as Element)?.closest('[role="combobox"]')) {
+            e.preventDefault();
+          }
+        }}
+      >
+        <Command className="w-full" shouldFilter={true}>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
@@ -85,6 +101,8 @@ export function SearchableSelect({
                     if (onValueChange) onValueChange(option.value);
                     setOpen(false);
                   }}
+                  className="cursor-pointer"
+                  style={{ pointerEvents: 'auto' }}
                 >
                   <Check
                     className={cn(
@@ -92,7 +110,7 @@ export function SearchableSelect({
                       option.value === value ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {option.label}
+                  <span>{option.label}</span>
                 </CommandItem>
               )) : null}
             </CommandGroup>
