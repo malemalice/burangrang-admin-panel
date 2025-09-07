@@ -49,7 +49,7 @@ npm run test:report
 The login test suite includes:
 
 1. **Navigate to login page** - Verifies login page loads with all form elements
-2. **Valid credentials test** - Tests login with `admin@example.com` / `admin`
+2. **Valid credentials test** - Tests login with `admin@example.com` / `admin123`
 3. **Invalid credentials test** - Tests error handling with wrong credentials
 4. **Empty form submission** - Tests form validation
 5. **JWT token verification** - Checks if JWT tokens are properly stored

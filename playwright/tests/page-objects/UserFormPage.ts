@@ -46,17 +46,17 @@ export class UserFormPage {
     return this.page.locator('input[type="password"]').first();
   }
 
-  // Dropdown elements
+  // Dropdown elements - handle both empty and selected states
   get roleSelect() {
-    return this.page.locator('select[name*="role"], [role="combobox"]').filter({ hasText: /role/i }).or(
-      this.page.locator('button').filter({ hasText: /select.*role|role/i })
-    );
+    return this.page.locator('[role="combobox"]').filter({ hasText: /select.*role|role|User|Admin|Super Admin|Manager/i }).or(
+      this.page.locator('select[name*="role"], button').filter({ hasText: /select.*role|role|User|Admin|Super Admin|Manager/i })
+    ).first();
   }
 
   get officeSelect() {
-    return this.page.locator('select[name*="office"], [role="combobox"]').filter({ hasText: /office/i }).or(
-      this.page.locator('button').filter({ hasText: /select.*office|office/i })
-    );
+    return this.page.locator('[role="combobox"]').filter({ hasText: /select.*office|office|Headquarters|Branch|Remote/i }).or(
+      this.page.locator('select[name*="office"], button').filter({ hasText: /select.*office|office|Headquarters|Branch|Remote/i })
+    ).first();
   }
 
   get departmentSelect() {
@@ -304,7 +304,23 @@ export class UserFormPage {
     console.log(`🔽 Selecting role: ${roleName}`);
     let selectedRoleId: string | null = null;
 
-    if (await this.roleSelect.isVisible()) {
+    // Wait for comboboxes to be loaded
+    await this.page.waitForTimeout(1000);
+
+    // Debug: Check what elements we can find
+    const allComboboxes = this.page.locator('[role="combobox"]');
+    const comboboxCount = await allComboboxes.count();
+    console.log(`🔍 Found ${comboboxCount} combobox elements`);
+
+    for (let i = 0; i < comboboxCount; i++) {
+      const text = await allComboboxes.nth(i).textContent();
+      console.log(`🔍 Combobox ${i}: "${text}"`);
+    }
+
+    const isVisible = await this.roleSelect.isVisible();
+    console.log(`🔍 Role select visible: ${isVisible}`);
+
+    if (isVisible) {
       console.log('✅ Role select is visible, clicking...');
       await this.roleSelect.click();
       await this.page.waitForTimeout(300); // Wait for dropdown to open

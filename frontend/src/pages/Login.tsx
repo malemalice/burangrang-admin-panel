@@ -125,7 +125,7 @@ const Login = () => {
               isDark ? "text-blue-300" : "text-blue-700"
             )}>
               <strong>Email:</strong> admin@example.com<br />
-              <strong>Password:</strong> admin
+              <strong>Password:</strong> admin123
             </AlertDescription>
           </Alert>
 

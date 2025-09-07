@@ -24,21 +24,21 @@ export class UserDetailPage {
     return this.page.getByRole('button').filter({ hasText: /delete|Delete/i });
   }
 
-  // User information fields
+  // User information fields - simple selectors based on actual DOM structure
   get userName() {
-    return this.page.locator('div, span, p').filter({ hasText: /name|Name/ }).locator('xpath=following-sibling::*').first();
+    return this.page.locator('text=Name').locator('xpath=following-sibling::*').first();
   }
 
   get userEmail() {
-    return this.page.locator('div, span, p').filter({ hasText: /email|Email/i }).locator('xpath=following-sibling::*').first();
+    return this.page.locator('text=Email').locator('xpath=following-sibling::*').first();
   }
 
   get userRole() {
-    return this.page.locator('div, span, p').filter({ hasText: /role|Role/i }).locator('xpath=following-sibling::*').first();
+    return this.page.locator('text=Role').locator('xpath=following-sibling::*').first();
   }
 
   get userOffice() {
-    return this.page.locator('div, span, p').filter({ hasText: /office|Office/i }).locator('xpath=following-sibling::*').first();
+    return this.page.locator('text=Office').locator('xpath=following-sibling::*').first();
   }
 
   get userDepartment() {
@@ -100,21 +100,19 @@ export class UserDetailPage {
 
   async getUserName(): Promise<string> {
     try {
-      return await this.userName.textContent() || '';
+      const textContent = await this.userName.textContent();
+      return textContent?.trim() || '';
     } catch {
-      // Fallback: look for name in general content
-      const nameElement = this.page.locator('text=/[A-Z][a-z]+ [A-Z][a-z]+/').first();
-      return await nameElement.textContent() || '';
+      return '';
     }
   }
 
   async getUserEmail(): Promise<string> {
     try {
-      return await this.userEmail.textContent() || '';
+      const textContent = await this.userEmail.textContent();
+      return textContent?.trim() || '';
     } catch {
-      // Fallback: look for email pattern
-      const emailElement = this.page.locator('text=/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/').first();
-      return await emailElement.textContent() || '';
+      return '';
     }
   }
 

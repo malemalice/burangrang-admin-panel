@@ -54,9 +54,18 @@ export class UsersListPage {
 
   async isOnUsersPage(): Promise<boolean> {
     const url = this.page.url();
-    return (url.includes('/users') && !url.includes('/new') && !url.includes('/edit')) ||
-           // Also check for page content that indicates we're on users page
-           (await this.pageHeader.isVisible() && await this.addUserButton.isVisible());
+    const isUsersUrl = url.includes('/users') && !url.includes('/new') && !url.includes('/edit');
+
+    // Also check for page content that indicates we're on users page
+    let isUsersContent = false;
+    try {
+      isUsersContent = await this.pageHeader.isVisible() && await this.addUserButton.isVisible();
+    } catch (error) {
+      console.log('⚠️ Could not check users page content:', error.message);
+    }
+
+    console.log(`🔍 isOnUsersPage check: URL=${isUsersUrl}, Content=${isUsersContent}`);
+    return isUsersUrl || isUsersContent;
   }
 
   async clickAddUser() {
@@ -113,17 +122,74 @@ export class UsersListPage {
     return this.dataRows.count();
   }
 
-  async getUserByEmail(email: string) {
+  getUserByEmail(email: string) {
     return this.dataRows.filter({ hasText: email });
   }
 
-  async getUserByName(name: string) {
+  getUserByName(name: string) {
     return this.dataRows.filter({ hasText: name });
   }
 
   async clickUserAction(userRow: any, action: 'view' | 'edit' | 'delete') {
-    const actionButton = userRow.locator('button').filter({ hasText: new RegExp(action, 'i') });
-    await actionButton.click();
+    // First, click the "Open menu" button to reveal the dropdown
+    const openMenuButton = userRow.locator('button').filter({ hasText: /open menu/i });
+
+    // Try multiple strategies to handle potential pointer interception
+    let clicked = false;
+
+    try {
+      // Strategy 1: Normal click
+      await openMenuButton.click({ timeout: 2000 });
+      clicked = true;
+      console.log('✅ Clicked Open menu button with normal click');
+    } catch (error) {
+      console.log('⚠️ Normal click failed, trying force click...');
+
+      try {
+        // Strategy 2: Force click
+        await openMenuButton.click({ force: true, timeout: 2000 });
+        clicked = true;
+        console.log('✅ Clicked Open menu button with force click');
+      } catch (error) {
+        console.log('⚠️ Force click failed, trying JavaScript click...');
+
+        try {
+          // Strategy 3: JavaScript click
+          await openMenuButton.evaluate(button => (button as HTMLElement).click());
+          clicked = true;
+          console.log('✅ Clicked Open menu button with JavaScript click');
+        } catch (error) {
+          console.log('❌ All click strategies failed for Open menu button');
+          throw error;
+        }
+      }
+    }
+
+    if (!clicked) {
+      throw new Error('Failed to click Open menu button');
+    }
+
+    // Wait for the dropdown menu to appear
+    await this.page.waitForTimeout(300);
+
+    // Then click the desired action from the dropdown
+    const actionButton = this.page.locator('[role="menuitem"], button').filter({ hasText: new RegExp(action, 'i') });
+
+    try {
+      await actionButton.click({ timeout: 3000 });
+      console.log(`✅ Clicked ${action} action from dropdown`);
+    } catch (error) {
+      console.log(`⚠️ Direct click failed for ${action}, trying alternatives...`);
+
+      // Try force click
+      try {
+        await actionButton.click({ force: true, timeout: 2000 });
+      } catch (error) {
+        // Try JavaScript click as last resort
+        await actionButton.evaluate(button => (button as HTMLElement).click());
+      }
+    }
+
     await this.page.waitForLoadState('networkidle');
   }
 

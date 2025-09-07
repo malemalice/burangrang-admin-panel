@@ -13,7 +13,7 @@ export const BASE_URLS = {
 export const TEST_CREDENTIALS = {
   ADMIN: {
     email: 'admin@example.com',
-    password: 'admin',
+    password: 'admin123',
   },
   USER: {
     email: 'user@example.com',
