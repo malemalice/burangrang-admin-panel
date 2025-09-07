@@ -26,7 +26,8 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  @Roles(Role.ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('user:create')
   create(@Body() createUserDto: CreateUserDto): Promise<UserDto> {
     return this.usersService.create(createUserDto);
   }
@@ -67,19 +68,22 @@ export class UsersController {
   }
 
   @Get(':id')
-  // @Roles(Role.ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  @Permissions('user:read')
   findOne(@Param('id') id: string): Promise<UserDto> {
     return this.usersService.findOne(id);
   }
 
   @Patch(':id')
-  // @Roles(Role.ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('user:update')
   update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto): Promise<UserDto> {
     return this.usersService.update(id, updateUserDto);
   }
 
   @Delete(':id')
-  // @Roles(Role.ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('user:delete')
   remove(@Param('id') id: string): Promise<void> {
     return this.usersService.remove(id);
   }
