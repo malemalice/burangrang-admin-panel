@@ -21,11 +21,11 @@ import { Role } from '../../shared/types/role.enum';
 
 @Controller('offices')
 @UseGuards(JwtAuthGuard, RolesGuard)
-// @Roles(Role.ADMIN)
 export class OfficesController {
   constructor(private readonly officesService: OfficesService) {}
 
   @Post()
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   create(@Body() createOfficeDto: CreateOfficeDto): Promise<OfficeDto> {
     return this.officesService.create(createOfficeDto);
   }
@@ -63,6 +63,7 @@ export class OfficesController {
   }
 
   @Patch(':id')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   update(
     @Param('id') id: string,
     @Body() updateOfficeDto: UpdateOfficeDto,
@@ -71,6 +72,7 @@ export class OfficesController {
   }
 
   @Delete(':id')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   remove(@Param('id') id: string): Promise<void> {
     return this.officesService.remove(id);
   }
