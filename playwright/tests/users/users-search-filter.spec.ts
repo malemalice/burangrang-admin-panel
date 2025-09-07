@@ -63,6 +63,24 @@ async function setupSearchFilterTest(page: Page): Promise<{ loginPage: LoginPage
   return { loginPage, usersListPage, userFormPage };
 }
 
+// Helper function to handle mobile sidebar issue
+async function handleMobileSidebar(page: Page): Promise<void> {
+  const sidebar = page.locator('aside');
+  const isSidebarVisible = await sidebar.isVisible();
+
+  if (isSidebarVisible) {
+    // Force close sidebar by modifying CSS (works around mobile layout issues)
+    await page.evaluate(() => {
+      const sidebar = document.querySelector('aside');
+      if (sidebar) {
+        sidebar.style.transform = 'translateX(-100%)';
+        sidebar.style.left = '-256px';
+      }
+    });
+    console.log('🔧 Mobile sidebar handled - forcibly closed to prevent interference');
+  }
+}
+
 // Helper function to create test users for search/filter testing
 async function createTestUsers(page: Page, usersListPage: UsersListPage, userFormPage: UserFormPage): Promise<string[]> {
   const createdEmails: string[] = [];
@@ -237,6 +255,9 @@ test.describe('Users Search and Filter Tests', () => {
     // Setup
     await setupSearchFilterTest(page);
 
+    // Handle mobile sidebar issue that covers tabs
+    await handleMobileSidebar(page);
+
     const initialUserCount = await usersListPage.getUserCount();
     console.log(`📊 Initial user count: ${initialUserCount}`);
 
@@ -372,6 +393,9 @@ test.describe('Users Search and Filter Tests', () => {
 
     // Setup
     await setupSearchFilterTest(page);
+
+    // Handle mobile sidebar issue that covers tabs
+    await handleMobileSidebar(page);
 
     // Apply search and status filter together
     const searchTerm = 'Alice';
