@@ -56,16 +56,15 @@ export class LoginPage {
     console.log('✅ Login button clicked');
 
     if (expectSuccess) {
-      // Wait for authentication to complete - check for tokens in localStorage
+      // Wait for redirect to complete first (most reliable indicator)
+      await this.page.waitForURL((url) => !url.toString().includes('/login'), { timeout: 15000 });
+      console.log(`📍 Successfully redirected to: ${this.page.url()}`);
+
+      // Wait for authentication tokens to be stored
       await this.page.waitForFunction(() => {
         return !!(localStorage.getItem('access_token') && localStorage.getItem('refresh_token'));
-      }, { timeout: 10000 });
-
+      }, { timeout: 5000 });
       console.log('✅ Authentication tokens stored');
-
-      // Wait for redirect to complete
-      await this.page.waitForURL((url) => !url.toString().includes('/login'), { timeout: 10000 });
-      console.log(`📍 Successfully redirected to: ${this.page.url()}`);
 
       console.log('✅ Login process completed successfully');
     } else {
