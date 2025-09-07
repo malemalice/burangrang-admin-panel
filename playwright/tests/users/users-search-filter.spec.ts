@@ -10,7 +10,7 @@ const TEST_USERS = [
     email: `alice.johnson.${Date.now()}@example.com`,
     role: 'User',
     office: 'Headquarters',
-    department: 'IT',
+    department: 'Extracurricular Activities',
     jobPosition: 'Developer'
   },
   {
@@ -241,9 +241,9 @@ test.describe('Users Search and Filter Tests', () => {
     console.log(`📊 Initial user count: ${initialUserCount}`);
 
     // Check if status tabs exist (All, Active, Inactive)
-    const activeTab = page.getByRole('tab').filter({ hasText: 'Active' });
-    const inactiveTab = page.getByRole('tab').filter({ hasText: 'Inactive' });
-    const allTab = page.getByRole('tab').filter({ hasText: /All|All Users/ });
+    const activeTab = page.getByRole('tab', { name: 'Active', exact: true });
+    const inactiveTab = page.getByRole('tab', { name: 'Inactive', exact: true });
+    const allTab = page.getByRole('tab', { name: /All Users?/, exact: true });
 
     const hasStatusTabs = await activeTab.isVisible() && await inactiveTab.isVisible();
     if (hasStatusTabs) {
@@ -381,7 +381,7 @@ test.describe('Users Search and Filter Tests', () => {
     await page.waitForTimeout(1000);
 
     // Try to apply status filter if available
-    const activeTab = page.getByRole('tab').filter({ hasText: 'Active' });
+    const activeTab = page.getByRole('tab', { name: 'Active', exact: true });
     if (await activeTab.isVisible()) {
       console.log('🔍 Applying status filter: Active');
       await activeTab.click();
@@ -524,4 +524,5 @@ test.describe('Users Search and Filter Tests', () => {
     await takeScreenshot(page, 'search-06-special-characters');
     console.log('🎉 Special character search test completed!');
   });
+
 });

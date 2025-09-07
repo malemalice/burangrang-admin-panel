@@ -37,6 +37,10 @@ export class UserFormPage {
     return this.page.getByRole('combobox', { name: 'Job Position' });
   }
 
+  get statusSelect() {
+    return this.page.getByRole('combobox', { name: 'Status' });
+  }
+
   get submitButton() {
     return this.page.getByRole('button', { name: /create|save|submit|add|update/i });
   }
@@ -146,6 +150,19 @@ export class UserFormPage {
     }
   }
 
+  async setStatus(status: 'active' | 'inactive'): Promise<void> {
+    console.log(`🏷️ Setting status to: ${status}`);
+    if (await this.statusSelect.isVisible()) {
+      await this.statusSelect.click();
+      await this.page.waitForTimeout(300);
+      
+      const option = this.page.getByRole('option', { name: status === 'active' ? 'Active' : 'Inactive' });
+      await option.click();
+      
+      console.log(`✅ Selected status: ${status}`);
+    }
+  }
+
   // Form submission
   async submitForm(): Promise<void> {
     console.log('🚀 Submitting form...');
@@ -156,6 +173,10 @@ export class UserFormPage {
     // Wait for navigation or response
     await this.page.waitForLoadState('networkidle');
     console.log('✅ Form submission completed');
+  }
+
+  async clickSubmit(): Promise<void> {
+    await this.submitForm();
   }
 
   async cancelForm(): Promise<void> {
