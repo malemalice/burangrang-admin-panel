@@ -133,11 +133,23 @@ const UsersPage = () => {
         limit,
         search: searchTerm,
         filters: {
-          ...Object.entries(activeFilters).reduce((acc, [key, item]) => ({
-            ...acc,
-            [key]: item.value
-          }), {}),
-          status: activeFilters.status?.value || undefined
+          ...Object.entries(activeFilters).reduce((acc, [key, item]) => {
+            // Map status to isActive for backend compatibility
+            if (key === 'status') {
+              return {
+                ...acc,
+                isActive: item.value === 'active' ? 'true' : 'false'
+              };
+            }
+            return {
+              ...acc,
+              [key]: item.value
+            };
+          }, {}),
+          // Handle status filter specifically
+          ...(activeFilters.status?.value ? {
+            isActive: activeFilters.status.value === 'active' ? 'true' : 'false'
+          } : {})
         }
       };
 
@@ -396,9 +408,9 @@ const UsersPage = () => {
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
           <TabsList>
-            <TabsTrigger value="all">All Users</TabsTrigger>
-            <TabsTrigger value="active">Active</TabsTrigger>
-            <TabsTrigger value="inactive">Inactive</TabsTrigger>
+            <TabsTrigger value="all" data-testid="tab-all">All Users</TabsTrigger>
+            <TabsTrigger value="active" data-testid="tab-active">Active</TabsTrigger>
+            <TabsTrigger value="inactive" data-testid="tab-inactive">Inactive</TabsTrigger>
           </TabsList>
         </Tabs>
       </PageHeader>
