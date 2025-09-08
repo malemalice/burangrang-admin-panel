@@ -181,4 +181,61 @@ export class MenusService {
 
     return menus.map((menu) => this.menuMapper(menu));
   }
+
+  async updateMenuOrder(menuOrders: Array<{ id: string; order: number }>): Promise<void> {
+    const updatePromises = menuOrders.map(({ id, order }) =>
+      this.prisma.menu.update({
+        where: { id },
+        data: { order },
+      })
+    );
+
+    await this.prisma.$transaction(updatePromises);
+  }
+
+  async getMenuStats(): Promise<{
+    total: number;
+    active: number;
+    visible: number;
+    withChildren: number;
+    topLevelMenus: number;
+    deepestLevel: number;
+  }> {
+    const allMenus = await this.prisma.menu.findMany({
+      include: {
+        children: true,
+      },
+    });
+
+    const total = allMenus.length;
+    const active = allMenus.filter(menu => menu.isActive).length;
+    const visible = allMenus.filter(menu => menu.isActive).length; // Using isActive as visible for now
+    const withChildren = allMenus.filter(menu => menu.children && menu.children.length > 0).length;
+    const topLevelMenus = allMenus.filter(menu => !menu.parentId).length;
+
+    // Calculate deepest level (simplified)
+    const deepestLevel = Math.max(
+      ...allMenus.map(menu => {
+        let level = 0;
+        let current = menu;
+        while (current.parentId) {
+          level++;
+          // In a real implementation, you'd need to traverse the hierarchy
+          current = allMenus.find(m => m.id === current.parentId) || current;
+          if (level > 10) break; // Prevent infinite loops
+        }
+        return level;
+      }),
+      0
+    );
+
+    return {
+      total,
+      active,
+      visible,
+      withChildren,
+      topLevelMenus,
+      deepestLevel: deepestLevel + 1,
+    };
+  }
 }

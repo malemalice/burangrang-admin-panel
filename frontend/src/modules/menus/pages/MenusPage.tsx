@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Menu as MenuIcon, Eye, ShieldCheck, ArrowRight, MoreHorizontal } from 'lucide-react';
+import { Edit, Trash2, Plus, Menu as MenuIcon, Eye, ShieldCheck, ArrowRight, MoreHorizontal, Loader2 } from 'lucide-react';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import {
@@ -21,130 +21,53 @@ import {
   CardHeader,
   CardTitle,
 } from '@/core/components/ui/card';
-
-interface MenuItem {
-  id: string;
-  title: string;
-  path: string;
-  icon: string;
-  parent: string | null;
-  order: number;
-  visible: boolean;
-  roles: string[];
-}
-
-// Mock data
-const mockMenuItems: MenuItem[] = [
-  {
-    id: 'menu-1',
-    title: 'Dashboard',
-    path: '/',
-    icon: 'LayoutDashboard',
-    parent: null,
-    order: 1,
-    visible: true,
-    roles: ['All Roles'],
-  },
-  {
-    id: 'menu-2',
-    title: 'Users',
-    path: '/users',
-    icon: 'Users',
-    parent: null,
-    order: 2,
-    visible: true,
-    roles: ['Admin', 'Manager'],
-  },
-  {
-    id: 'menu-3',
-    title: 'Roles',
-    path: '/roles',
-    icon: 'ShieldCheck',
-    parent: null,
-    order: 3,
-    visible: true,
-    roles: ['Admin'],
-  },
-  {
-    id: 'menu-4',
-    title: 'Menus',
-    path: '/menus',
-    icon: 'Menu',
-    parent: null,
-    order: 4,
-    visible: true,
-    roles: ['Admin'],
-  },
-  {
-    id: 'menu-5',
-    title: 'Master Data',
-    path: '#',
-    icon: 'Building2',
-    parent: null,
-    order: 5,
-    visible: true,
-    roles: ['Admin', 'Manager'],
-  },
-  {
-    id: 'menu-6',
-    title: 'Offices',
-    path: '/master/offices',
-    icon: 'Building',
-    parent: 'menu-5',
-    order: 1,
-    visible: true,
-    roles: ['Admin', 'Manager'],
-  },
-  {
-    id: 'menu-7',
-    title: 'Departments',
-    path: '/master/departments',
-    icon: 'Briefcase',
-    parent: 'menu-5',
-    order: 2,
-    visible: true,
-    roles: ['Admin', 'Manager'],
-  },
-  {
-    id: 'menu-8',
-    title: 'Positions',
-    path: '/master/positions',
-    icon: 'Users',
-    parent: 'menu-5',
-    order: 3,
-    visible: true,
-    roles: ['Admin', 'Manager', 'HR'],
-  },
-  {
-    id: 'menu-9',
-    title: 'Assets',
-    path: '/master/assets',
-    icon: 'Package',
-    parent: 'menu-5',
-    order: 4,
-    visible: true,
-    roles: ['Admin', 'Manager', 'User'],
-  },
-  {
-    id: 'menu-10',
-    title: 'Settings',
-    path: '/settings',
-    icon: 'Settings',
-    parent: null,
-    order: 6,
-    visible: true,
-    roles: ['Admin'],
-  },
-];
+import { useMenus } from '../hooks/useMenus';
+import menuService from '../services/menuService';
+import { MenuDTO } from '../types/menu.types';
 
 const MenusPage = () => {
   const navigate = useNavigate();
-  const [menuItems] = useState<MenuItem[]>(mockMenuItems);
+
+  // State management following users module pattern
+  const [menus, setMenus] = useState<MenuDTO[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [totalMenus, setTotalMenus] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [menuToDelete, setMenuToDelete] = useState<MenuItem | null>(null);
+  const [menuToDelete, setMenuToDelete] = useState<MenuDTO | null>(null);
   const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+
+  // Get the service directly like users module does
+  const { deleteMenu } = useMenus();
+
+  // Memoized fetch function following users module pattern
+  const fetchMenus = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await menuService.getMenus({
+        page: pageIndex + 1, // API expects 1-based pagination
+        limit,
+      });
+
+      const menuData = response?.data || [];
+      setMenus(menuData);
+      setTotalMenus(response?.meta?.total || 0);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch menus';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [pageIndex, limit]); // Following users module pattern with proper dependencies
+
+  // Load menus when dependencies change - following users module pattern
+  useEffect(() => {
+    fetchMenus();
+  }, [fetchMenus]);
 
   const handleDropdownOpenChange = (id: string, open: boolean) => {
     setDropdownOpenStates(prev => ({
@@ -153,22 +76,32 @@ const MenusPage = () => {
     }));
   };
 
-  const handleDeleteClick = (menu: MenuItem) => {
+  const handleDeleteClick = (menu: MenuDTO) => {
     // Close the dropdown menu for this menu item
     setDropdownOpenStates(prev => ({
       ...prev,
       [menu.id]: false
     }));
-    
+
     // Set menu to delete and open the dialog
     setMenuToDelete(menu);
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
-    if (menuToDelete) {
-      // API call would go here
-      toast.success(`Menu item "${menuToDelete.title}" has been deleted`);
+  const handleDeleteConfirm = async () => {
+    if (!menuToDelete) return;
+
+    setIsLoading(true);
+    try {
+      await deleteMenu(menuToDelete.id);
+      toast.success(`Menu item "${menuToDelete.name}" has been deleted`);
+      // Refetch data following users module pattern
+      fetchMenus();
+    } catch (error) {
+      console.error('Error deleting menu:', error);
+      toast.error('Failed to delete menu item');
+    } finally {
+      setIsLoading(false);
       setDeleteDialogOpen(false);
       setMenuToDelete(null);
     }
@@ -176,15 +109,15 @@ const MenusPage = () => {
 
   const columns = [
     {
-      id: 'title',
+      id: 'name',
       header: 'Menu Item',
       isSortable: true,
-      cell: (menu: MenuItem) => (
+      cell: (menu: MenuDTO) => (
         <div className="flex items-center">
-          {menu.parent && <ArrowRight size={16} className="mr-2 text-gray-400" />}
+          {menu.parentId && <ArrowRight size={16} className="mr-2 text-gray-400" />}
           <div>
-            <p className={`font-medium ${menu.parent ? 'ml-2' : ''}`}>{menu.title}</p>
-            <p className="text-xs text-gray-500 mt-1">{menu.path}</p>
+            <p className={`font-medium ${menu.parentId ? 'ml-2' : ''}`}>{menu.name}</p>
+            <p className="text-xs text-gray-500 mt-1">{menu.path || 'N/A'}</p>
           </div>
         </div>
       ),
@@ -192,43 +125,49 @@ const MenusPage = () => {
     {
       id: 'icon',
       header: 'Icon',
-      cell: (menu: MenuItem) => <div className="text-sm">{menu.icon}</div>,
+      cell: (menu: MenuDTO) => <div className="text-sm">{menu.icon || 'N/A'}</div>,
     },
     {
       id: 'order',
       header: 'Order',
       isSortable: true,
-      cell: (menu: MenuItem) => <div className="text-center">{menu.order}</div>,
+      cell: (menu: MenuDTO) => <div className="text-center">{menu.order}</div>,
     },
     {
-      id: 'visible',
+      id: 'isActive',
       header: 'Status',
-      cell: (menu: MenuItem) => (
-        <Badge variant="outline" className={menu.visible ? 'bg-green-100 text-green-800 border-0' : 'bg-gray-100 text-gray-800 border-0'}>
-          {menu.visible ? 'Visible' : 'Hidden'}
+      cell: (menu: MenuDTO) => (
+        <Badge variant="outline" className={menu.isActive ? 'bg-green-100 text-green-800 border-0' : 'bg-gray-100 text-gray-800 border-0'}>
+          {menu.isActive ? 'Active' : 'Inactive'}
         </Badge>
       ),
     },
     {
       id: 'roles',
       header: 'Access',
-      cell: (menu: MenuItem) => (
+      cell: (menu: MenuDTO) => (
         <div className="flex flex-wrap gap-2">
-          {menu.roles.length > 2 ? (
-            <>
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-0">
-                {menu.roles[0]}
-              </Badge>
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-0">
-                +{menu.roles.length - 1} more
-              </Badge>
-            </>
+          {menu.roles && menu.roles.length > 0 ? (
+            menu.roles.length > 2 ? (
+              <>
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-0">
+                  {menu.roles[0].name}
+                </Badge>
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-0">
+                  +{menu.roles.length - 1} more
+                </Badge>
+              </>
+            ) : (
+              menu.roles.map((role) => (
+                <Badge key={role.id} variant="outline" className="bg-blue-50 text-blue-700 border-0">
+                  {role.name}
+                </Badge>
+              ))
+            )
           ) : (
-            menu.roles.map((role) => (
-              <Badge key={role} variant="outline" className="bg-blue-50 text-blue-700 border-0">
-                {role}
-              </Badge>
-            ))
+            <Badge variant="outline" className="bg-gray-50 text-gray-600 border-0">
+              No roles assigned
+            </Badge>
           )}
         </div>
       ),
@@ -236,9 +175,9 @@ const MenusPage = () => {
     {
       id: 'actions',
       header: 'Actions',
-      cell: (menu: MenuItem) => (
-        <DropdownMenu 
-          open={dropdownOpenStates[menu.id]} 
+      cell: (menu: MenuDTO) => (
+        <DropdownMenu
+          open={dropdownOpenStates[menu.id]}
           onOpenChange={(open) => handleDropdownOpenChange(menu.id, open)}
         >
           <DropdownMenuTrigger asChild>
@@ -267,6 +206,31 @@ const MenusPage = () => {
     }
   ];
 
+  // Handle error state according to TRD guidelines
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-xl font-semibold text-red-600 mb-2">Error Loading Menus</h2>
+        <p className="text-gray-600 mb-4">{error}</p>
+        <Button onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  // Show initial loading state if data hasn't been loaded yet
+  if (isLoading && menus.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading menu data...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <PageHeader
@@ -288,10 +252,19 @@ const MenusPage = () => {
             <CardDescription>Organize your menu hierarchy</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm">
-              {mockMenuItems.filter(m => m.parent === null).length} parent items with{' '}
-              {mockMenuItems.filter(m => m.parent !== null).length} child items
-            </p>
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Loading...</span>
+              </div>
+            ) : menus && menus.length > 0 ? (
+              <p className="text-sm">
+                {menus.filter(m => m?.parentId === null).length} parent items with{' '}
+                {menus.filter(m => m?.parentId !== null).length} child items
+              </p>
+            ) : (
+              <p className="text-sm text-gray-500">No menu items available</p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -302,9 +275,18 @@ const MenusPage = () => {
             <CardDescription>Role-based menu visibility</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm">
-              {Array.from(new Set(mockMenuItems.flatMap(m => m.roles))).length} roles with custom menu access
-            </p>
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Loading...</span>
+              </div>
+            ) : menus && menus.length > 0 ? (
+              <p className="text-sm">
+                {Array.from(new Set(menus.flatMap(m => m?.roles?.map(r => r?.name) || []))).length} roles with custom menu access
+              </p>
+            ) : (
+              <p className="text-sm text-gray-500">No menu items available</p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -315,31 +297,42 @@ const MenusPage = () => {
             <CardDescription>Control menu item visibility</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm">
-              {mockMenuItems.filter(m => m.visible).length} visible items, {mockMenuItems.filter(m => !m.visible).length} hidden items
-            </p>
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Loading...</span>
+              </div>
+            ) : menus && menus.length > 0 ? (
+              <p className="text-sm">
+                {menus.filter(m => m?.isActive).length} active items, {menus.filter(m => !m?.isActive).length} inactive items
+              </p>
+            ) : (
+              <p className="text-sm text-gray-500">No menu items available</p>
+            )}
           </CardContent>
         </Card>
       </div>
 
       <DataTable
         columns={columns}
-        data={menuItems}
+        data={menus}
         pagination={{
           pageIndex,
           limit,
-          pageCount: Math.ceil(menuItems.length / limit),
+          pageCount: Math.ceil(totalMenus / limit),
           onPageChange: setPageIndex,
           onPageSizeChange: setLimit,
-          total: menuItems.length
+          total: totalMenus
         }}
+        isLoading={isLoading}
       />
+
 
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Delete Menu Item"
-        description={`Are you sure you want to delete "${menuToDelete?.title}"? This may affect navigation for users.`}
+        description={`Are you sure you want to delete "${menuToDelete?.name}"? This may affect navigation for users.`}
         confirmText="Delete"
         cancelText="Cancel"
         onConfirm={handleDeleteConfirm}

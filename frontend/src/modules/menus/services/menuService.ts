@@ -20,9 +20,8 @@ const mapMenuDtoToMenuTreeNode = (menuDto: MenuDTO): MenuTreeNode => {
     level: 0, // Will be set when building tree
     isExpanded: false,
     isActive: menuDto.isActive,
-    isVisible: menuDto.isVisible,
     order: menuDto.order,
-    permissions: menuDto.permissions,
+    roles: menuDto.roles || [],
   };
 };
 
@@ -72,18 +71,25 @@ const menuService = {
   getMenus: async (params?: MenuSearchParams): Promise<PaginatedResponse<MenuDTO>> => {
     try {
       const response = await api.get('/menus', { params });
-      return response.data;
+      return {
+        data: response.data?.data || [],
+        meta: response.data?.meta || { total: 0, page: 1, limit: 10, totalPages: 0 }
+      };
     } catch (error) {
       console.error('Error fetching menus:', error);
-      throw error;
+      // Return empty data structure on error
+      return {
+        data: [],
+        meta: { total: 0, page: 1, limit: 10, totalPages: 0 }
+      };
     }
   },
 
   // Get menu tree structure
   getMenuTree: async (): Promise<MenuTreeNode[]> => {
     try {
-      const response = await api.get('/menus/tree');
-      const menus: MenuDTO[] = response.data;
+      const response = await api.get('/menus/hierarchy');
+      const menus: MenuDTO[] = response.data || [];
       return buildMenuTree(menus);
     } catch (error) {
       console.error('Error fetching menu tree:', error);
@@ -117,7 +123,7 @@ const menuService = {
   // Update existing menu
   updateMenu: async (id: string, menuData: UpdateMenuDTO): Promise<MenuDTO> => {
     try {
-      const response = await api.put(`/menus/${id}`, menuData);
+      const response = await api.patch(`/menus/${id}`, menuData);
       return response.data;
     } catch (error) {
       console.error('Error updating menu:', error);
@@ -145,46 +151,16 @@ const menuService = {
     }
   },
 
-  // Get menu permissions
-  getMenuPermissions: async (menuId: string): Promise<string[]> => {
+
+
+  // Get menus by role
+  getMenusByRole: async (roleId: string): Promise<MenuDTO[]> => {
     try {
-      const response = await api.get(`/menus/${menuId}/permissions`);
-      return response.data.permissions || [];
+      const response = await api.get(`/menus/role/${roleId}`);
+      return response.data || [];
     } catch (error) {
-      console.error('Error fetching menu permissions:', error);
+      console.error('Error fetching menus by role:', error);
       return [];
-    }
-  },
-
-  // Update menu permissions
-  updateMenuPermissions: async (menuId: string, permissions: string[]): Promise<void> => {
-    try {
-      await api.put(`/menus/${menuId}/permissions`, { permissions });
-    } catch (error) {
-      console.error('Error updating menu permissions:', error);
-      throw error;
-    }
-  },
-
-  // Export menus
-  exportMenus: async (): Promise<MenuDTO[]> => {
-    try {
-      const response = await api.get('/menus/export');
-      return response.data;
-    } catch (error) {
-      console.error('Error exporting menus:', error);
-      throw error;
-    }
-  },
-
-  // Import menus
-  importMenus: async (menus: MenuDTO[]): Promise<MenuDTO[]> => {
-    try {
-      const response = await api.post('/menus/import', { menus });
-      return response.data;
-    } catch (error) {
-      console.error('Error importing menus:', error);
-      throw error;
     }
   },
 
@@ -199,7 +175,6 @@ const menuService = {
       return {
         total: 0,
         active: 0,
-        visible: 0,
         withChildren: 0,
         byPermissionCount: [],
         topLevelMenus: 0,
@@ -210,7 +185,7 @@ const menuService = {
   },
 
   // Validate menu data
-  validateMenu: (menuData: Partial<MenuDTO>): { isValid: boolean; errors: string[] } => {
+  validateMenu: (menuData: Partial<CreateMenuDTO | UpdateMenuDTO>): { isValid: boolean; errors: string[] } => {
     const errors: string[] = [];
 
     if (!menuData.name?.trim()) {

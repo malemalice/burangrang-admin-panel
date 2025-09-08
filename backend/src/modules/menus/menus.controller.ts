@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -125,5 +126,46 @@ export class MenusController {
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   remove(@Param('id') id: string) {
     return this.menusService.remove(id);
+  }
+
+  @Put('order')
+  @ApiOperation({ summary: 'Update menu order' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        menuOrders: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              order: { type: 'number' },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Menu order updated successfully.',
+  })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  async updateMenuOrder(
+    @Body() body: { menuOrders: Array<{ id: string; order: number }> },
+  ): Promise<void> {
+    return this.menusService.updateMenuOrder(body.menuOrders);
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Get menu statistics' })
+  @ApiResponse({
+    status: 200,
+    description: 'Menu statistics retrieved successfully.',
+  })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  async getMenuStats() {
+    return this.menusService.getMenuStats();
   }
 }

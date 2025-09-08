@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import menuService from '../services/menuService';
 import {
@@ -21,18 +21,20 @@ export const useMenus = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+
   // Fetch menus with pagination and filters
-  const fetchMenus = async (params: MenuSearchParams) => {
+  const fetchMenus = useCallback(async (params: MenuSearchParams) => {
     setIsLoading(true);
     setError(null);
     try {
       const response = await menuService.getMenus(params);
-      setMenus(response.data);
-      setTotalMenus(response.meta.total);
-      setCurrentPage(params.page);
+      const menuData = response?.data || [];
+      setMenus(menuData);
+      setTotalMenus(response?.meta?.total || 0);
+      setCurrentPage(params.page || 1);
 
       // Build menu tree
-      const tree = menuService.buildMenuTree(response.data);
+      const tree = menuService.buildMenuTree(menuData);
       setMenuTree(tree);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch menus';
@@ -41,10 +43,10 @@ export const useMenus = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []); // Keep empty dependency array - this function only uses setState functions
 
   // Fetch menu tree structure
-  const fetchMenuTree = async () => {
+  const fetchMenuTree = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -57,10 +59,10 @@ export const useMenus = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   // Create a new menu item
-  const createMenu = async (menuData: CreateMenuDTO) => {
+  const createMenu = useCallback(async (menuData: CreateMenuDTO) => {
     try {
       // Validate menu data
       const validation = menuService.validateMenu(menuData);
@@ -69,11 +71,12 @@ export const useMenus = () => {
       }
 
       const newMenu = await menuService.createMenu(menuData);
-      setMenus(prev => [newMenu, ...prev]);
-      setTotalMenus(prev => prev + 1);
+      setMenus(prev => [newMenu, ...(prev || [])]);
+      setTotalMenus(prev => (prev || 0) + 1);
 
       // Rebuild tree
-      const updatedMenus = [newMenu, ...menus];
+      const currentMenus = menus || [];
+      const updatedMenus = [newMenu, ...currentMenus];
       const tree = menuService.buildMenuTree(updatedMenus);
       setMenuTree(tree);
 
@@ -84,10 +87,10 @@ export const useMenus = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
   // Update an existing menu item
-  const updateMenu = async (id: string, menuData: UpdateMenuDTO) => {
+  const updateMenu = useCallback(async (id: string, menuData: UpdateMenuDTO) => {
     try {
       // Validate menu data
       const validation = menuService.validateMenu(menuData);
@@ -96,10 +99,11 @@ export const useMenus = () => {
       }
 
       const updatedMenu = await menuService.updateMenu(id, menuData);
-      setMenus(prev => prev.map(menu => menu.id === id ? updatedMenu : menu));
+      setMenus(prev => (prev || []).map(menu => menu.id === id ? updatedMenu : menu));
 
       // Rebuild tree
-      const updatedMenus = menus.map(menu => menu.id === id ? updatedMenu : menu);
+      const currentMenus = menus || [];
+      const updatedMenus = currentMenus.map(menu => menu.id === id ? updatedMenu : menu);
       const tree = menuService.buildMenuTree(updatedMenus);
       setMenuTree(tree);
 
@@ -110,17 +114,18 @@ export const useMenus = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
   // Delete a menu item
-  const deleteMenu = async (id: string) => {
+  const deleteMenu = useCallback(async (id: string) => {
     try {
       await menuService.deleteMenu(id);
-      setMenus(prev => prev.filter(menu => menu.id !== id));
-      setTotalMenus(prev => prev - 1);
+      setMenus(prev => (prev || []).filter(menu => menu.id !== id));
+      setTotalMenus(prev => (prev || 0) - 1);
 
       // Rebuild tree
-      const updatedMenus = menus.filter(menu => menu.id !== id);
+      const currentMenus = menus || [];
+      const updatedMenus = currentMenus.filter(menu => menu.id !== id);
       const tree = menuService.buildMenuTree(updatedMenus);
       setMenuTree(tree);
 
@@ -130,10 +135,10 @@ export const useMenus = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
   // Update menu order
-  const updateMenuOrder = async (menuOrders: Array<{ id: string; order: number }>) => {
+  const updateMenuOrder = useCallback(async (menuOrders: Array<{ id: string; order: number }>) => {
     try {
       await menuService.updateMenuOrder(menuOrders);
 
@@ -146,15 +151,16 @@ export const useMenus = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, [fetchMenuTree]);
 
+  // Ensure we always return a complete object with safe defaults
   return {
-    menus,
-    menuTree,
-    totalMenus,
-    currentPage,
-    isLoading,
-    error,
+    menus: Array.isArray(menus) ? menus : [],
+    menuTree: Array.isArray(menuTree) ? menuTree : [],
+    totalMenus: typeof totalMenus === 'number' ? totalMenus : 0,
+    currentPage: typeof currentPage === 'number' ? currentPage : 1,
+    isLoading: typeof isLoading === 'boolean' ? isLoading : false,
+    error: error || null,
     fetchMenus,
     fetchMenuTree,
     createMenu,
@@ -173,7 +179,7 @@ export const useMenu = (menuId: string | null = null) => {
   const [error, setError] = useState<string | null>(null);
 
   // Fetch a single menu by ID
-  const fetchMenu = async (id: string) => {
+  const fetchMenu = useCallback(async (id: string) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -186,19 +192,20 @@ export const useMenu = (menuId: string | null = null) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   // Load menu on mount if menuId is provided
   useEffect(() => {
     if (menuId) {
       fetchMenu(menuId);
     }
-  }, [menuId]);
+  }, [menuId, fetchMenu]);
 
+  // Ensure we always return a complete object with safe defaults
   return {
-    menu,
-    isLoading,
-    error,
+    menu: menu || null,
+    isLoading: typeof isLoading === 'boolean' ? isLoading : false,
+    error: error || null,
     fetchMenu,
     setMenu,
   };
@@ -212,7 +219,7 @@ export const useMenuStats = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -225,16 +232,17 @@ export const useMenuStats = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [fetchStats]);
 
+  // Ensure we always return a complete object with safe defaults
   return {
-    stats,
-    isLoading,
-    error,
+    stats: stats || null,
+    isLoading: typeof isLoading === 'boolean' ? isLoading : false,
+    error: error || null,
     fetchStats,
   };
 };
@@ -248,7 +256,7 @@ export const useMenuPermissions = (menuId: string | null = null) => {
   const [error, setError] = useState<string | null>(null);
 
   // Fetch permissions for a menu
-  const fetchPermissions = async (id: string) => {
+  const fetchPermissions = useCallback(async (id: string) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -261,10 +269,10 @@ export const useMenuPermissions = (menuId: string | null = null) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   // Update permissions for a menu
-  const updatePermissions = async (id: string, newPermissions: string[]) => {
+  const updatePermissions = useCallback(async (id: string, newPermissions: string[]) => {
     try {
       await menuService.updateMenuPermissions(id, newPermissions);
       setPermissions(newPermissions);
@@ -274,19 +282,20 @@ export const useMenuPermissions = (menuId: string | null = null) => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
   // Load permissions on mount if menuId is provided
   useEffect(() => {
     if (menuId) {
       fetchPermissions(menuId);
     }
-  }, [menuId]);
+  }, [menuId, fetchPermissions]);
 
+  // Ensure we always return a complete object with safe defaults
   return {
-    permissions,
-    isLoading,
-    error,
+    permissions: Array.isArray(permissions) ? permissions : [],
+    isLoading: typeof isLoading === 'boolean' ? isLoading : false,
+    error: error || null,
     fetchPermissions,
     updatePermissions,
     setPermissions,

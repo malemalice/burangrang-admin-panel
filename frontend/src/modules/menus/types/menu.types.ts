@@ -5,35 +5,44 @@
 // Re-export core types that are used by menus module
 export type { MenuItem, PaginatedResponse, PaginationParams } from '@/core/lib/types';
 
-// Interface for menu data from API that matches backend structure
+// Interface for menu data from API that matches backend MenuDto structure
 export interface MenuDTO {
   id: string;
   name: string;
-  path?: string;
-  icon?: string;
-  parentId?: string;
+  path?: string | null;
+  icon?: string | null;
+  parentId?: string | null;
+  parent?: MenuDTO | null;
+  children?: Partial<MenuDTO>[];
   order: number;
   isActive: boolean;
-  isVisible: boolean;
-  permissions?: string[];
-  children?: MenuDTO[];
-  createdAt: string;
-  updatedAt: string;
+  roles: RoleDTO[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// Interface for creating a menu item
+// Role DTO to match backend structure
+export interface RoleDTO {
+  id: string;
+  name: string;
+  description?: string;
+  permissions: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Interface for creating a menu item - matches backend CreateMenuDto
 export interface CreateMenuDTO {
   name: string;
   path?: string;
   icon?: string;
   parentId?: string;
   order: number;
-  isActive?: boolean;
-  isVisible?: boolean;
-  permissions?: string[];
+  isActive: boolean;
+  roleIds?: string[]; // For role assignment
 }
 
-// Interface for updating a menu item
+// Interface for updating a menu item - matches backend UpdateMenuDto
 export interface UpdateMenuDTO {
   name?: string;
   path?: string;
@@ -41,8 +50,7 @@ export interface UpdateMenuDTO {
   parentId?: string;
   order?: number;
   isActive?: boolean;
-  isVisible?: boolean;
-  permissions?: string[];
+  roleIds?: string[]; // For role assignment
 }
 
 // Menu form data for frontend forms
@@ -50,11 +58,10 @@ export interface MenuFormData {
   name: string;
   path: string;
   icon: string;
-  parentId: string;
+  parentId: string; // Can be "none" for root level, will be converted to undefined
   order: number;
   isActive: boolean;
-  isVisible: boolean;
-  permissions: string[];
+  roleIds: string[]; // Selected role IDs for the menu
 }
 
 // Menu filter options
@@ -78,15 +85,14 @@ export interface MenuSearchParams extends PaginationParams {
 export interface MenuTreeNode {
   id: string;
   name: string;
-  path?: string;
-  icon?: string;
+  path?: string | null;
+  icon?: string | null;
   children: MenuTreeNode[];
   level: number;
   isExpanded?: boolean;
   isActive: boolean;
-  isVisible: boolean;
   order: number;
-  permissions?: string[];
+  roles: RoleDTO[];
 }
 
 // Menu statistics for dashboard/reporting
