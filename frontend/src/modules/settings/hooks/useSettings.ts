@@ -115,3 +115,74 @@ export const useSettings = () => {
     updateThemeSettings,
   };
 };
+
+/**
+ * Custom hook for managing app name setting
+ */
+export const useAppName = () => {
+  const [appName, setAppName] = useState<string>('Office Nexus');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch app name from backend
+  const fetchAppName = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const name = await settingsService.getAppName();
+      setAppName(name);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch app name';
+      setError(errorMessage);
+      console.warn('Failed to load app name from backend:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Update app name
+  const updateAppName = async (newName: string) => {
+    setIsUpdating(true);
+    setError(null);
+    try {
+      await settingsService.setAppName(newName);
+      setAppName(newName);
+      return true;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update app name';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      return false;
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Load app name on mount
+  useEffect(() => {
+    fetchAppName();
+  }, []);
+
+  return {
+    appName,
+    isLoading,
+    isUpdating,
+    error,
+    fetchAppName,
+    updateAppName,
+  };
+};
+
+/**
+ * Custom hook for managing document title based on app name
+ */
+export const useDocumentTitle = (pageTitle?: string) => {
+  const { appName } = useAppName();
+
+  useEffect(() => {
+    const baseTitle = appName || 'Office Nexus';
+    const fullTitle = pageTitle ? `${pageTitle} - ${baseTitle}` : baseTitle;
+    document.title = fullTitle;
+  }, [appName, pageTitle]);
+};

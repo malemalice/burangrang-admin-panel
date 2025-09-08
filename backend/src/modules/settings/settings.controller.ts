@@ -20,6 +20,7 @@ import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { Role } from '../../shared/types/role.enum';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { Public } from 'src/shared/decorators/public.decorator';
 
 @Controller('settings')
 @UseGuards(JwtAuthGuard)
@@ -31,6 +32,27 @@ export class SettingsController {
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   create(@Body() createSettingDto: CreateSettingDto): Promise<SettingDto> {
     return this.settingsService.create(createSettingDto);
+  }
+
+  // App-specific endpoints (must come before generic routes)
+  @Get('app')
+  @Public()
+  async getAppSettings(): Promise<{ name: string }> {
+    const name = await this.settingsService.getValueByKey('app.name');
+
+    return {
+      name: name || 'Office Nexus',
+    };
+  }
+
+  @Patch('app-name')
+  @UseGuards(RolesGuard)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  async updateAppName(@Body('name') name: string): Promise<SettingDto> {
+    return this.settingsService.updateByKey('app.name', {
+      value: name,
+      isActive: true,
+    });
   }
 
   // Theme-specific endpoints (must come before generic routes)
@@ -61,6 +83,8 @@ export class SettingsController {
     });
   }
 
+  // Move generic routes AFTER specific routes to prevent conflicts
+  // Specific routes must come BEFORE generic routes to prevent conflicts
   @Get('by-key/:key')
   async getByKey(@Param('key') key: string): Promise<SettingDto> {
     const setting = await this.settingsService.findByKey(key);
@@ -94,6 +118,14 @@ export class SettingsController {
     return { value };
   }
 
+  // Generic routes come LAST to prevent conflicts with specific routes above
+  @Get(':id')
+  @UseGuards(RolesGuard)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  findOne(@Param('id') id: string): Promise<SettingDto> {
+    return this.settingsService.findOne(id);
+  }
+
   @Get()
   @UseGuards(RolesGuard)
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
@@ -119,13 +151,6 @@ export class SettingsController {
       isActive: isActiveBoolean,
       search,
     });
-  }
-
-  @Get(':id')
-  @UseGuards(RolesGuard)
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
-  findOne(@Param('id') id: string): Promise<SettingDto> {
-    return this.settingsService.findOne(id);
   }
 
   @Patch(':id')

@@ -143,6 +143,28 @@ const settingsService = {
     ]);
   },
 
+  // Get app name setting
+  getAppName: async (): Promise<string> => {
+    try {
+      const response = await api.get('/settings/app');
+      return response.data.name;
+    } catch (error: any) {
+      console.warn('Failed to get app name, using default:', error);
+      return 'Office Nexus';
+    }
+  },
+
+  // Set app name setting
+  setAppName: async (name: string): Promise<void> => {
+    try {
+      await api.patch('/settings/app-name', { name });
+    } catch (error: any) {
+      console.error('Failed to set app name:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to update app name';
+      throw new Error(errorMessage);
+    }
+  },
+
   // Get all settings (for admin management)
   getAllSettings: async (params?: {
     page?: number;

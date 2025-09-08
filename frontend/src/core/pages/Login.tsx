@@ -9,11 +9,13 @@ import { useAuth } from '@/core/lib/auth';
 import { useTheme } from '@/core/lib/theme';
 import { themeColors, getContrastTextColor } from '@/core/lib/theme/colors';
 import { cn } from '@/core/lib/utils';
+import { useAppName } from '@/modules/settings/hooks/useSettings';
 
 const Login = () => {
   const navigate = useNavigate();
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const { isDark, theme } = useTheme();
+  const { appName } = useAppName();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -77,7 +79,7 @@ const Login = () => {
         <div className="mt-16">
           <h1 className="text-4xl font-bold mb-6">Welcome</h1>
           <p className="text-lg mb-6">
-            to Office Nexus System - the world's leading open-source
+            to {appName} System - the world's leading open-source
             admin panel for your Node.js application that allows you to manage all your
             data in one place
           </p>
@@ -118,7 +120,7 @@ const Login = () => {
             <h2 className={cn(
               "text-3xl font-bold",
               isDark ? "text-white" : "text-slate-900"
-            )}>Office Nexus</h2>
+            )}>{appName}</h2>
             <p className={cn(
               "text-sm mt-1",
               isDark ? "text-gray-400" : "text-slate-600"

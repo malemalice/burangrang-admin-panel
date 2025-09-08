@@ -6,6 +6,8 @@ import { AuthProvider } from "@/core/lib/auth";
 import { ThemeProvider } from "@/core/lib/theme";
 import routes, { publicRoutes, notFoundRoute } from "@/core/routes";
 import { renderRoutes, renderRoute } from "@/core/routes/renderRoutes";
+import { useDocumentTitle } from "@/modules/settings/hooks/useSettings";
+import { useEffect } from "react";
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -18,12 +20,21 @@ const queryClient = new QueryClient({
 });
 
 /**
+ * Component to manage document title based on app name
+ */
+const DocumentTitleManager = () => {
+  useDocumentTitle();
+  return null;
+};
+
+/**
  * App wrapper with the needed providers
  */
 const AppWrapper = ({ children }: { children: React.ReactNode }) => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <ThemeProvider>
+        <DocumentTitleManager />
         {children}
       </ThemeProvider>
     </TooltipProvider>

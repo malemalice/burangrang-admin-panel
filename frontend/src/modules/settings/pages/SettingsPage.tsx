@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { CheckCircle2, Upload } from 'lucide-react';
-import { Button } from '@/core/components/ui/button';
+import { CheckCircle2 } from 'lucide-react';
+import { Button, ThemeButton } from '@/core/components/ui/button';
 import { Input } from '@/core/components/ui/input';
 import { Label } from '@/core/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -11,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { useTheme, ThemeColor } from '@/core/lib/theme';
 import { themeColors } from '@/core/lib/theme/colors';
+import { useAppName } from '../hooks/useSettings';
 
 // Define theme options
 const themeOptions = Object.entries(themeColors).map(([id, colors]) => ({
@@ -23,20 +24,28 @@ const themeOptions = Object.entries(themeColors).map(([id, colors]) => ({
 const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState('appearance');
   const { theme, setTheme, mode, toggleMode } = useTheme();
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const { appName, updateAppName, isUpdating: isUpdatingAppName } = useAppName();
+  const [tempAppName, setTempAppName] = useState<string>('');
   
-  const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      setLogoFile(file);
-      
-      // Create preview URL
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setLogoPreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+  // Update temp app name when app name loads
+  useEffect(() => {
+    setTempAppName(appName);
+  }, [appName]);
+
+
+  const handleSaveAppName = async () => {
+    if (!tempAppName.trim()) {
+      toast.error('App name cannot be empty');
+      return;
+    }
+
+    try {
+      const success = await updateAppName(tempAppName.trim());
+      if (success) {
+        toast.success('App name updated successfully');
+      }
+    } catch (error) {
+      // Error is already handled in the hook
     }
   };
   
@@ -80,56 +89,41 @@ const SettingsPage = () => {
         <TabsContent value="appearance" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Logo</CardTitle>
+              <CardTitle>App Name</CardTitle>
               <CardDescription>
-                Upload your organization's logo
+                Set the application name that appears throughout the system
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-6">
-                <div className="h-20 w-20 border rounded-md flex items-center justify-center overflow-hidden bg-gray-50">
-                  {logoPreview ? (
-                    <img 
-                      src={logoPreview} 
-                      alt="Logo preview" 
-                      className="max-h-full max-w-full object-contain"
-                    />
-                  ) : (
-                    <div className="text-gray-400 text-sm text-center p-2">
-                      No logo uploaded
-                    </div>
-                  )}
-                </div>
-                
-                <div className="space-y-2 flex-1">
-                  <Label htmlFor="logo-upload" className="block">Upload new logo</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="logo-upload"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoChange}
-                      className="w-full max-w-sm"
-                    />
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      disabled={!logoFile}
-                      onClick={() => {
-                        setLogoFile(null);
-                        setLogoPreview(null);
-                      }}
-                    >
-                      ✕
-                    </Button>
-                  </div>
-                  <p className="text-sm text-gray-500">
-                    Recommended: SVG, PNG or JPG (max. 1MB)
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <Label htmlFor="app-name" className="block text-sm font-medium mb-2">
+                    Application Name
+                  </Label>
+                  <Input
+                    id="app-name"
+                    value={tempAppName}
+                    onChange={(e) => setTempAppName(e.target.value)}
+                    placeholder="Enter application name"
+                    className="w-full"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    This name will be displayed in the sidebar, login page, and page title
                   </p>
+                </div>
+                <div className="flex-shrink-0">
+                  <ThemeButton
+                    onClick={handleSaveAppName}
+                    disabled={isUpdatingAppName || tempAppName === appName}
+                    className="w-24"
+                  >
+                    {isUpdatingAppName ? 'Saving...' : 'Save'}
+                  </ThemeButton>
                 </div>
               </div>
             </CardContent>
           </Card>
+
           
           <Card>
             <CardHeader>
@@ -185,9 +179,9 @@ const SettingsPage = () => {
           </Card>
           
           <div className="flex justify-end">
-            <Button onClick={handleSaveAppearance}>
+            <ThemeButton onClick={handleSaveAppearance}>
               Save Changes
-            </Button>
+            </ThemeButton>
           </div>
         </TabsContent>
         
