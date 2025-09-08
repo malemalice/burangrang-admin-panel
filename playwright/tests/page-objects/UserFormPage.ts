@@ -4,37 +4,37 @@ import { UserFormData } from '../types';
 export class UserFormPage {
   constructor(private page: Page) {}
 
-  // Form elements - using exact selectors from MCP Playwright analysis
+  // Form elements - updated to match actual page structure
   get firstNameInput() {
-    return this.page.getByRole('textbox', { name: 'First Name' });
+    return this.page.getByPlaceholder('Enter first name');
   }
 
   get lastNameInput() {
-    return this.page.getByRole('textbox', { name: 'Last Name' });
+    return this.page.getByPlaceholder('Enter last name');
   }
 
   get emailInput() {
-    return this.page.getByRole('textbox', { name: 'Email' });
+    return this.page.getByPlaceholder('Enter email address');
   }
 
   get passwordInput() {
-    return this.page.getByRole('textbox', { name: 'Password' });
+    return this.page.getByPlaceholder('Enter password');
   }
 
   get roleSelect() {
-    return this.page.getByRole('combobox', { name: 'Role' });
+    return this.page.locator('[role="combobox"]').filter({ hasText: 'Select role' });
   }
 
   get officeSelect() {
-    return this.page.getByRole('combobox', { name: 'Office' });
+    return this.page.locator('[role="combobox"]').filter({ hasText: 'Select office' });
   }
 
   get departmentSelect() {
-    return this.page.getByRole('combobox', { name: 'Department' });
+    return this.page.locator('[role="combobox"]').filter({ hasText: 'Select department' });
   }
 
   get jobPositionSelect() {
-    return this.page.getByRole('combobox', { name: 'Job Position' });
+    return this.page.locator('[role="combobox"]').filter({ hasText: 'Select job position' });
   }
 
   get statusSelect() {
@@ -114,24 +114,42 @@ export class UserFormPage {
   // Dropdown selection methods
   async selectRole(roleName: string): Promise<void> {
     console.log(`🔽 Selecting role: ${roleName}`);
-    await this.roleSelect.click();
-    await this.page.waitForTimeout(300);
-    
-    const option = this.page.getByRole('option', { name: roleName });
-    await option.click();
-    
-    console.log(`✅ Selected role: ${roleName}`);
+
+    // Try a simpler approach first
+    try {
+      await this.page.selectOption('[role="combobox"]:has-text("Select role")', roleName);
+      console.log(`✅ Selected role: ${roleName}`);
+    } catch (error) {
+      // Fallback to manual selection
+      console.log('⚠️ Select option failed, trying manual approach...');
+      await this.roleSelect.click();
+      await this.page.waitForTimeout(300);
+
+      const option = this.page.getByRole('option', { name: roleName });
+      await option.click();
+
+      console.log(`✅ Selected role: ${roleName} (manual)`);
+    }
   }
 
   async selectOffice(officeName: string): Promise<void> {
     console.log(`🏢 Selecting office: ${officeName}`);
-    await this.officeSelect.click();
-    await this.page.waitForTimeout(300);
-    
-    const option = this.page.getByRole('option', { name: officeName });
-    await option.click();
-    
-    console.log(`✅ Selected office: ${officeName}`);
+
+    // Try a simpler approach first
+    try {
+      await this.page.selectOption('[role="combobox"]:has-text("Select office")', officeName);
+      console.log(`✅ Selected office: ${officeName}`);
+    } catch (error) {
+      // Fallback to manual selection
+      console.log('⚠️ Select option failed, trying manual approach...');
+      await this.officeSelect.click();
+      await this.page.waitForTimeout(300);
+
+      const option = this.page.getByRole('option', { name: officeName });
+      await option.click();
+
+      console.log(`✅ Selected office: ${officeName} (manual)`);
+    }
   }
 
   async selectDepartment(departmentName: string): Promise<void> {

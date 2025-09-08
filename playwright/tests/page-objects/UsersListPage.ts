@@ -9,13 +9,13 @@ export class UsersListPage {
 
   // Page elements
   get pageHeader() {
-    // Look for h1 specifically in the main content area, not the sidebar
+    // Look for h1 specifically in the main content area
     return this.page.locator('main h1, [role="main"] h1').filter({ hasText: /users|Users/ });
   }
 
   get addUserButton() {
-    // Look for Add User button in the main content area
-    return this.page.locator('main button, [role="main"] button').filter({ hasText: /add|Add|create|Create|new|New/ });
+    // Look for Add User button - updated selector
+    return this.page.locator('button').filter({ hasText: 'Add User' });
   }
 
   // Table elements
@@ -61,13 +61,18 @@ export class UsersListPage {
     // Also check for page content that indicates we're on users page
     let isUsersContent = false;
     try {
-      isUsersContent = await this.pageHeader.isVisible() && await this.addUserButton.isVisible();
+      // Check for multiple indicators that we're on the users page
+      const hasUsersTitle = await this.page.locator('h1').filter({ hasText: 'Users' }).isVisible();
+      const hasAddUserButton = await this.page.locator('button').filter({ hasText: 'Add User' }).isVisible();
+      const hasUsersTable = await this.page.locator('table').isVisible();
+
+      isUsersContent = hasUsersTitle && hasAddUserButton && hasUsersTable;
     } catch (error) {
       console.log('⚠️ Could not check users page content:', error.message);
     }
 
     console.log(`🔍 isOnUsersPage check: URL=${isUsersUrl}, Content=${isUsersContent}`);
-    return isUsersUrl || isUsersContent;
+    return isUsersUrl && isUsersContent;
   }
 
   async clickAddUser() {
