@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -7,16 +7,29 @@ import { FindUsersOptions } from './dto/find-users.dto';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
+import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 
 @Injectable()
 export class UsersService {
+  private userMapper: (user: any) => UserDto;
+  private userArrayMapper: (users: any[]) => UserDto[];
+  private userPaginatedMapper: (data: { data: any[]; meta: any }) => { data: UserDto[]; meta: any };
+
   constructor(
     private prisma: PrismaService,
     private errorHandler: ErrorHandlingService,
-  ) {}
-
-  private mapToDto(user: any): UserDto {
-    return new UserDto(user as Partial<UserDto>);
+    private dtoMapper: DtoMapperService,
+  ) {
+    // Initialize mappers with password exclusion
+    this.userMapper = this.dtoMapper.createMapper(UserDto, {
+      exclude: ['password'],
+    });
+    this.userArrayMapper = this.dtoMapper.createArrayMapper(UserDto, {
+      exclude: ['password'],
+    });
+    this.userPaginatedMapper = this.dtoMapper.createPaginatedMapper(UserDto, {
+      exclude: ['password'],
+    });
   }
 
   async create(createUserDto: CreateUserDto): Promise<UserDto> {
@@ -38,7 +51,7 @@ export class UsersService {
       },
     });
 
-    return this.mapToDto(user);
+    return this.userMapper(user);
   }
 
   async findAll(options?: FindUsersOptions): Promise<{
@@ -111,10 +124,10 @@ export class UsersService {
       this.prisma.user.count({ where }),
     ]);
 
-    return {
-      data: users.map((user) => this.mapToDto(user)),
+    return this.userPaginatedMapper({
+      data: users,
       meta: { total, page, limit },
-    };
+    });
   }
 
   async findOne(id: string): Promise<UserDto> {
@@ -130,7 +143,7 @@ export class UsersService {
 
     this.errorHandler.throwIfNotFoundById('User', id, user);
 
-    return this.mapToDto(user);
+    return this.userMapper(user);
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<UserDto> {
@@ -160,7 +173,7 @@ export class UsersService {
       },
     });
 
-    return this.mapToDto(updatedUser);
+    return this.userMapper(updatedUser);
   }
 
   async remove(id: string): Promise<void> {
@@ -186,7 +199,7 @@ export class UsersService {
       },
     });
 
-    return user ? this.mapToDto(user) : null;
+    return user ? this.userMapper(user) : null;
   }
 
   async findByEmailOrThrow(email: string): Promise<UserDto> {
@@ -202,6 +215,6 @@ export class UsersService {
 
     this.errorHandler.throwIfNotFoundByField('User', 'email', email, user);
 
-    return this.mapToDto(user);
+    return this.userMapper(user);
   }
 }

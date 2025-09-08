@@ -3,6 +3,7 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateOfficeDto } from './dto/create-office.dto';
 import { UpdateOfficeDto } from './dto/update-office.dto';
 import { OfficeDto } from './dto/office.dto';
+import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { Prisma } from '@prisma/client';
 
 interface FindAllOptions {
@@ -15,7 +16,56 @@ interface FindAllOptions {
 
 @Injectable()
 export class OfficesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private officeMapper: (office: any) => OfficeDto;
+  private officeArrayMapper: (offices: any[]) => OfficeDto[];
+  private officePaginatedMapper: (data: { data: any[]; meta: any }) => { data: OfficeDto[]; meta: any };
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private dtoMapper: DtoMapperService,
+  ) {
+    // Initialize mappers with recursive parent/child relationships
+    this.officeMapper = this.dtoMapper.createRelationMapper(
+      OfficeDto,
+      {
+        parent: {
+          mapper: (parent: any) => this.officeMapper(parent),
+          isArray: false,
+        },
+        children: {
+          mapper: (child: any) => this.officeMapper(child),
+          isArray: true,
+        },
+      },
+      [], // no exclusions
+    );
+
+    this.officeArrayMapper = this.dtoMapper.createArrayMapper(OfficeDto, {
+      relations: {
+        parent: {
+          mapper: (parent: any) => this.officeMapper(parent),
+          isArray: false,
+        },
+        children: {
+          mapper: (child: any) => this.officeMapper(child),
+          isArray: true,
+        },
+      },
+    });
+
+    this.officePaginatedMapper = this.dtoMapper.createPaginatedMapper(OfficeDto, {
+      relations: {
+        parent: {
+          mapper: (parent: any) => this.officeMapper(parent),
+          isArray: false,
+        },
+        children: {
+          mapper: (child: any) => this.officeMapper(child),
+          isArray: true,
+        },
+      },
+    });
+  }
 
   async create(createOfficeDto: CreateOfficeDto): Promise<OfficeDto> {
     const { parentId, ...data } = createOfficeDto;
@@ -34,7 +84,7 @@ export class OfficesService {
       },
     });
 
-    return this.mapToDto(office);
+    return this.officeMapper(office);
   }
 
   async findAll(options?: FindAllOptions): Promise<{
@@ -70,10 +120,10 @@ export class OfficesService {
       this.prisma.office.count({ where }),
     ]);
 
-    return {
-      data: offices.map((office) => this.mapToDto(office)),
+    return this.officePaginatedMapper({
+      data: offices,
       meta: { total, page, limit },
-    };
+    });
   }
 
   async findOne(id: string): Promise<OfficeDto> {
@@ -89,7 +139,7 @@ export class OfficesService {
       throw new NotFoundException(`Office with ID ${id} not found`);
     }
 
-    return this.mapToDto(office);
+    return this.officeMapper(office);
   }
 
   async update(
@@ -121,7 +171,7 @@ export class OfficesService {
       },
     });
 
-    return this.mapToDto(office);
+    return this.officeMapper(office);
   }
 
   async remove(id: string): Promise<void> {
@@ -152,40 +202,7 @@ export class OfficesService {
       },
     });
 
-    return offices.map((office) => this.mapToDto(office));
+    return this.officeArrayMapper(offices);
   }
 
-  private mapToDto(office: any): OfficeDto {
-    const off = office as {
-      id: string;
-      name: string;
-      code: string;
-      description: string | null;
-      address: string | null;
-      phone: string | null;
-      email: string | null;
-      parentId: string | null;
-      isActive: boolean;
-      children?: any[];
-      parent?: any;
-      createdAt: Date;
-      updatedAt: Date;
-    };
-
-    return {
-      id: off.id,
-      name: off.name,
-      code: off.code,
-      description: off.description || undefined,
-      address: off.address || undefined,
-      phone: off.phone || undefined,
-      email: off.email || undefined,
-      parentId: off.parentId || undefined,
-      isActive: off.isActive,
-      children: off.children?.map((child) => this.mapToDto(child)),
-      parent: off.parent ? this.mapToDto(off.parent) : undefined,
-      createdAt: off.createdAt,
-      updatedAt: off.updatedAt,
-    };
-  }
 }

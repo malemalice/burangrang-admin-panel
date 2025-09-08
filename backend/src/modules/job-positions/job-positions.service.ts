@@ -4,6 +4,7 @@ import { CreateJobPositionDto } from './dto/create-job-position.dto';
 import { UpdateJobPositionDto } from './dto/update-job-position.dto';
 import { JobPositionDto } from './dto/job-position.dto';
 import { Prisma } from '@prisma/client';
+import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 
 interface FindAllOptions {
   page?: number;
@@ -16,7 +17,19 @@ interface FindAllOptions {
 
 @Injectable()
 export class JobPositionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private jobPositionMapper: (jobPosition: any) => JobPositionDto;
+  private jobPositionArrayMapper: (jobPositions: any[]) => JobPositionDto[];
+  private jobPositionPaginatedMapper: (data: { data: any[]; meta: any }) => { data: JobPositionDto[]; meta: any };
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private dtoMapper: DtoMapperService,
+  ) {
+    // Initialize mappers
+    this.jobPositionMapper = this.dtoMapper.createSimpleMapper(JobPositionDto);
+    this.jobPositionArrayMapper = this.dtoMapper.createSimpleArrayMapper(JobPositionDto);
+    this.jobPositionPaginatedMapper = this.dtoMapper.createPaginatedMapper(JobPositionDto);
+  }
 
   async create(
     createJobPositionDto: CreateJobPositionDto,
@@ -25,7 +38,7 @@ export class JobPositionsService {
       data: createJobPositionDto,
     });
 
-    return this.mapToDto(jobPosition);
+    return this.jobPositionMapper(jobPosition);
   }
 
   async findAll(options?: FindAllOptions): Promise<{
@@ -66,10 +79,10 @@ export class JobPositionsService {
       this.prisma.jobPosition.count({ where }),
     ]);
 
-    return {
-      data: jobPositions.map((jobPosition) => this.mapToDto(jobPosition)),
+    return this.jobPositionPaginatedMapper({
+      data: jobPositions,
       meta: { total, page, limit },
-    };
+    });
   }
 
   async findOne(id: string): Promise<JobPositionDto> {
@@ -81,7 +94,7 @@ export class JobPositionsService {
       throw new NotFoundException(`Job position with ID ${id} not found`);
     }
 
-    return this.mapToDto(jobPosition);
+    return this.jobPositionMapper(jobPosition);
   }
 
   async update(
@@ -93,7 +106,7 @@ export class JobPositionsService {
       data: updateJobPositionDto,
     });
 
-    return this.mapToDto(jobPosition);
+    return this.jobPositionMapper(jobPosition);
   }
 
   async remove(id: string): Promise<void> {
@@ -102,27 +115,4 @@ export class JobPositionsService {
     });
   }
 
-  private mapToDto(jobPosition: any): JobPositionDto {
-    const jp = jobPosition as {
-      id: string;
-      name: string;
-      code: string;
-      level: number;
-      description: string | null;
-      isActive: boolean;
-      createdAt: Date;
-      updatedAt: Date;
-    };
-
-    return {
-      id: jp.id,
-      name: jp.name,
-      code: jp.code,
-      level: jp.level,
-      description: jp.description || undefined,
-      isActive: jp.isActive,
-      createdAt: jp.createdAt,
-      updatedAt: jp.updatedAt,
-    };
-  }
 }
