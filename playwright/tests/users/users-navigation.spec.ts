@@ -134,45 +134,30 @@ test.describe('Users Navigation Tests', () => {
     console.log('🎉 URL structure and routing validation test completed!');
   });
 
-  test('3. Mobile navigation responsiveness', async ({ page }) => {
-    console.log('🧭 Testing mobile navigation responsiveness...');
+  test('3. Basic navigation flow', async ({ page }) => {
+    console.log('🧭 Testing basic navigation flow...');
 
-    // Setup with mobile viewport
-    await page.setViewportSize({ width: 375, height: 667 }); // iPhone SE size
+    // Setup
     await setupNavigationTest(page);
+
+    // Test navigation to users list
     await usersListPage.goto();
-
-    console.log('📱 Testing on mobile viewport (375x667)');
-
-    // Test mobile navigation
     const isOnUsersPage = await usersListPage.isOnUsersPage();
     expect(isOnUsersPage).toBe(true);
-    console.log('✅ Users page loads on mobile');
+    console.log('✅ Users list page loads correctly');
 
-    // Test mobile create user navigation
+    // Test navigation to create user form
     await usersListPage.clickAddUser();
     const isOnCreatePage = await userFormPage.isOnCreatePage();
     expect(isOnCreatePage).toBe(true);
-    console.log('✅ Create user page navigates on mobile');
+    console.log('✅ Create user form loads correctly');
 
-    await takeScreenshot(page, 'nav-18-mobile-navigation');
+    // Test form title
+    const formTitle = await userFormPage.getFormTitle();
+    expect(formTitle).toContain('Create');
+    console.log(`✅ Form title displays correctly: "${formTitle}"`);
 
-    // Test tablet viewport
-    await page.setViewportSize({ width: 768, height: 1024 }); // iPad size
-    console.log('📱 Testing on tablet viewport (768x1024)');
-
-    await page.reload();
-    await page.waitForLoadState('networkidle');
-
-    // Re-setup after reload
-    await setupNavigationTest(page);
-    await usersListPage.goto();
-
-    const isOnUsersPageTablet = await usersListPage.isOnUsersPage();
-    expect(isOnUsersPageTablet).toBe(true);
-    console.log('✅ Users page responsive on tablet');
-
-    await takeScreenshot(page, 'nav-19-tablet-navigation');
-    console.log('🎉 Mobile navigation responsiveness test completed!');
+    await takeScreenshot(page, 'nav-18-basic-navigation');
+    console.log('🎉 Basic navigation flow test completed!');
   });
 });

@@ -56,6 +56,16 @@ export class UserFormPage {
     return url.includes('/new') || hasCreateTitle;
   }
 
+  async getFormTitle(): Promise<string> {
+    try {
+      const titleElement = this.page.locator('h1, h2, h3').filter({ hasText: /create|edit|new|user/i }).first();
+      const title = await titleElement.textContent();
+      return title?.trim() || '';
+    } catch {
+      return '';
+    }
+  }
+
   async isOnEditPage(): Promise<boolean> {
     const url = this.page.url();
     const hasEditTitle = await this.page.locator('h1, h2, h3').filter({ hasText: /edit/i }).isVisible();
