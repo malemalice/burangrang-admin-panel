@@ -84,8 +84,12 @@ const settingsService = {
     try {
       await api.patch('/settings/theme/color', { color: themeColor });
     } catch (error: any) {
-      console.warn('Failed to set theme color:', error);
-      throw error;
+      // Don't throw 401 errors as they are expected when not authenticated
+      if (error?.response?.status !== 401) {
+        console.warn('Failed to set theme color:', error);
+        throw error;
+      }
+      // Silently handle 401 errors
     }
   },
 
@@ -105,8 +109,12 @@ const settingsService = {
     try {
       await api.patch('/settings/theme/mode', { mode: themeMode });
     } catch (error: any) {
-      console.warn('Failed to set theme mode:', error);
-      throw error;
+      // Don't throw 401 errors as they are expected when not authenticated
+      if (error?.response?.status !== 401) {
+        console.warn('Failed to set theme mode:', error);
+        throw error;
+      }
+      // Silently handle 401 errors
     }
   },
 
@@ -119,7 +127,10 @@ const settingsService = {
         mode: (response.data.mode as ThemeMode) || 'light'
       };
     } catch (error: any) {
-      console.warn('Failed to get theme settings, using defaults:', error);
+      // Don't log 401 errors as they are expected when not authenticated
+      if (error?.response?.status !== 401) {
+        console.warn('Failed to get theme settings, using defaults:', error);
+      }
       return { color: 'blue', mode: 'light' };
     }
   },

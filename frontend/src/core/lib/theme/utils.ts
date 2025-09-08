@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { themeColors, themeColorsHSL, semanticColors, baseColors } from './colors';
+import { useAuth } from '@/core/lib/auth';
 
 /**
  * Theme utility types
@@ -103,6 +104,14 @@ export const useTheme = (): UseThemeReturn => {
   const loadThemeFromBackend = async () => {
     try {
       setIsLoading(true);
+
+      // Check if user is authenticated before making API calls
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        console.debug('User not authenticated, skipping backend theme load');
+        return { color: theme, mode };
+      }
+
       // Dynamically import settings service to avoid circular dependencies
       const { default: settingsService } = await import('@/modules/settings/services/settingsService');
 
@@ -117,8 +126,11 @@ export const useTheme = (): UseThemeReturn => {
       localStorage.setItem('theme-mode', themeSettings.mode);
 
       return themeSettings;
-    } catch (error) {
-      console.warn('Failed to load theme from backend, using localStorage defaults:', error);
+    } catch (error: any) {
+      // Don't log 401 errors as they are expected when not authenticated
+      if (error?.response?.status !== 401) {
+        console.warn('Failed to load theme from backend, using localStorage defaults:', error);
+      }
       // Continue with localStorage values if backend fails
       return { color: theme, mode };
     } finally {
@@ -129,12 +141,22 @@ export const useTheme = (): UseThemeReturn => {
   // Function to save theme settings to backend
   const saveThemeToBackend = async (newTheme: ThemeColor, newMode: ThemeMode) => {
     try {
+      // Check if user is authenticated before making API calls
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        console.debug('User not authenticated, skipping backend theme save');
+        return;
+      }
+
       // Dynamically import settings service to avoid circular dependencies
       const { default: settingsService } = await import('@/modules/settings/services/settingsService');
 
       await settingsService.setThemeSettings(newTheme, newMode);
-    } catch (error) {
-      console.warn('Failed to save theme to backend:', error);
+    } catch (error: any) {
+      // Don't log 401 errors as they are expected when not authenticated
+      if (error?.response?.status !== 401) {
+        console.warn('Failed to save theme to backend:', error);
+      }
       // Don't throw error - localStorage will still work as fallback
     }
   };
