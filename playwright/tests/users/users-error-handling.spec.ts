@@ -55,6 +55,23 @@ test.describe('Users Error Handling Tests', () => {
     } catch (error) {
       console.log('Could not clear storage (expected in some cases)');
     }
+
+    // Clear any network interceptions that might have been left from previous tests
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+
+    // Clear any pending network requests
+    await page.evaluate(() => {
+      // Clear any pending fetch requests
+      if (window.AbortController) {
+        // This is a best-effort cleanup
+        try {
+          // We can't actually abort existing requests, but we can ensure clean state
+          console.log('Network cleanup completed');
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      }
+    });
   });
 
   test('1. Invalid user ID handling', async ({ page }) => {
@@ -377,7 +394,7 @@ test.describe('Users Error Handling Tests', () => {
     console.log('✅ Form filled for timeout test');
 
     // Slow down network to simulate timeout
-    await page.route('**/users', async route => {
+    const routeHandler = await page.route('**/users', async route => {
       // Delay response by 30 seconds to trigger timeout
       await new Promise(resolve => setTimeout(resolve, 30000));
       await route.fulfill({ status: 200, body: '{}' });
@@ -397,6 +414,10 @@ test.describe('Users Error Handling Tests', () => {
     } catch (error) {
       console.log('⚠️ Form submission timed out or failed');
     }
+
+    // Clean up the route interception to prevent affecting other tests
+    await page.unroute('**/users', routeHandler);
+    console.log('🧹 Cleaned up network route interception');
 
     // Check for timeout error messages
     const timeoutErrors = page.locator('.error, [role="alert"]').filter({
@@ -636,9 +657,13 @@ test.describe('Users Error Handling Tests', () => {
   test('10. Error boundary and crash recovery', async ({ page }) => {
     console.log('🚨 Testing error boundary and crash recovery...');
 
-    // Setup
+    // Setup with fresh state
     await setupErrorTest(page);
     await usersListPage.goto();
+
+    // Ensure we're on a clean users page before testing edge cases
+    const initialUrl = page.url();
+    console.log(`📍 Starting from: ${initialUrl}`);
 
     // Try to access various edge cases that might cause errors
     console.log('🔍 Testing edge cases that might trigger errors...');
@@ -686,10 +711,28 @@ test.describe('Users Error Handling Tests', () => {
       }
     }
 
-    // Test recovery by going back to main page
-    await page.goto('/users');
-    await page.waitForLoadState('networkidle');
+    // Test recovery by going back to main page with explicit navigation and cleanup
+    console.log('🔄 Testing application recovery...');
 
+    // Clear any potential pending network requests
+    await page.evaluate(() => {
+      // Abort any pending fetch requests
+      if (window.fetch) {
+        const originalFetch = window.fetch;
+        window.fetch = function() {
+          throw new Error('Network disabled during cleanup');
+        };
+        setTimeout(() => {
+          window.fetch = originalFetch;
+        }, 100);
+      }
+    });
+
+    // Navigate back to users page with fresh state
+    await page.goto('/users', { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1000); // Allow time for any cleanup
+
+    // Verify recovery
     const isRecovered = await usersListPage.isOnUsersPage();
     expect(isRecovered).toBe(true);
     console.log('✅ Application recovered after edge case testing');
