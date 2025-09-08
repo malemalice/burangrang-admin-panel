@@ -18,7 +18,7 @@ import { Switch } from '@/core/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import userService from '../services/userService';
 import { CreateUserDTO, UpdateUserDTO } from '../types/user.types';
-import roleService from '@/services/roleService';
+import { roleService } from '@/modules/roles';
 import officeService from '@/services/officeService';
 import departmentService from '@/services/departmentService';
 import jobPositionService from '@/services/jobPositionService';

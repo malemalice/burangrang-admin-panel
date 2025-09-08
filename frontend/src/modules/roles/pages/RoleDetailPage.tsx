@@ -14,7 +14,7 @@ import {
 } from '@/core/components/ui/card';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Separator } from '@/core/components/ui/separator';
-import roleService from '@/services/roleService';
+import roleService from '../services/roleService';
 import { Role, Permission } from '@/core/lib/types';
 
 const RoleDetailPage = () => {

@@ -1,42 +1,14 @@
 import api from '@/core/lib/api';
-import { Role, PaginatedResponse, PaginationParams, Permission } from '@/core/lib/types';
-
-// Interface for role data from API that matches backend structure
-export interface RoleDTO {
-  id: string;
-  name: string;
-  description: string | null;
-  isActive: boolean;
-  permissions: PermissionDTO[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Interface for permission data from API
-export interface PermissionDTO {
-  id: string;
-  name: string;
-  description: string | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Interface for creating a role
-export interface CreateRoleDTO {
-  name: string;
-  description?: string;
-  permissions?: string[];
-  isActive?: boolean;
-}
-
-// Interface for updating a role
-export interface UpdateRoleDTO {
-  name?: string;
-  description?: string;
-  permissions?: string[];
-  isActive?: boolean;
-}
+import { 
+  Role, 
+  Permission,
+  PaginatedResponse, 
+  PaginationParams,
+  RoleDTO,
+  PermissionDTO,
+  CreateRoleDTO,
+  UpdateRoleDTO 
+} from '../types/role.types';
 
 // Convert RoleDTO from backend to Role model for frontend
 const mapRoleDtoToRole = (roleDto: RoleDTO): Role => {

@@ -16,7 +16,7 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
-import roleService from '@/services/roleService';
+import roleService from '../services/roleService';
 import { Role, PaginationParams } from '@/core/lib/types';
 
 const RolesPage = () => {

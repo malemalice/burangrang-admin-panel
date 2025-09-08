@@ -1,8 +1,8 @@
-import { RouteConfig } from '../types';
-import RolesPage from '@/pages/roles/RolesPage';
-import CreateRolePage from '@/pages/roles/CreateRolePage';
-import EditRolePage from '@/pages/roles/EditRolePage';
-import RoleDetailPage from '@/pages/roles/RoleDetailPage';
+import { RouteConfig } from '@/core/routes/types';
+import RolesPage from '../pages/RolesPage';
+import CreateRolePage from '../pages/CreateRolePage';
+import EditRolePage from '../pages/EditRolePage';
+import RoleDetailPage from '../pages/RoleDetailPage';
 
 /**
  * Role management module routes

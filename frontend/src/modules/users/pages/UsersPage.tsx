@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/core/components/ui/avatar
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import userService from '../services/userService';
-import roleService from '@/services/roleService';
+import { roleService } from '@/modules/roles';
 import officeService from '@/services/officeService';
 import departmentService from '@/services/departmentService';
 import jobPositionService from '@/services/jobPositionService';

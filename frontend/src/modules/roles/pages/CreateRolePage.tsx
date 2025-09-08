@@ -16,7 +16,8 @@ import {
   CardFooter,
 } from '@/core/components/ui/card';
 import { Checkbox } from '@/core/components/ui/checkbox';
-import roleService, { CreateRoleDTO } from '@/services/roleService';
+import roleService from '../services/roleService';
+import { CreateRoleDTO } from '../types/role.types';
 import { Permission } from '@/core/lib/types';
 import { Badge } from '@/core/components/ui/badge';
 import {

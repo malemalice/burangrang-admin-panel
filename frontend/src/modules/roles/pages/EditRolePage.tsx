@@ -23,7 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/core/components/ui/select';
-import roleService, { UpdateRoleDTO } from '@/services/roleService';
+import roleService from '../services/roleService';
+import { UpdateRoleDTO } from '../types/role.types';
 import { Permission, Role } from '@/core/lib/types';
 import { Badge } from '@/core/components/ui/badge';
 

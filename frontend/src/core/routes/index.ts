@@ -1,10 +1,10 @@
 import { RouteConfig } from './types';
-import roleRoutes from './modules/roleRoutes';
 import menuRoutes from './modules/menuRoutes';
 import masterRoutes from './modules/masterRoutes';
 import coreRoutes from './modules/coreRoutes';
 import { settingsRoutes } from '@/modules/settings';
 import { userRoutes } from '@/modules/users';
+import { roleRoutes } from '@/modules/roles';
 
 /**
  * Application routes registry
