@@ -33,7 +33,7 @@ import { Public } from 'src/shared/decorators/public.decorator';
 @ApiTags('settings')
 @ApiBearerAuth()
 @Controller('settings')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
@@ -47,7 +47,6 @@ export class SettingsController {
   })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
   @ApiResponse({ status: 409, description: 'Conflict - setting with this key already exists.' })
-  @UseGuards(RolesGuard)
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   create(@Body() createSettingDto: CreateSettingDto): Promise<SettingDto> {
     return this.settingsService.create(createSettingDto);
@@ -91,7 +90,6 @@ export class SettingsController {
     type: SettingDto,
   })
   @ApiResponse({ status: 400, description: 'Bad request - invalid name.' })
-  @UseGuards(RolesGuard)
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   async updateAppName(@Body('name') name: string): Promise<SettingDto> {
     return this.settingsService.updateByKey('app.name', {
@@ -213,7 +211,6 @@ export class SettingsController {
     type: SettingDto,
   })
   @ApiResponse({ status: 404, description: 'Setting not found.' })
-  @UseGuards(RolesGuard)
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   findOne(@Param('id') id: string): Promise<SettingDto> {
     return this.settingsService.findOne(id);
@@ -246,7 +243,6 @@ export class SettingsController {
       },
     },
   })
-  @UseGuards(RolesGuard)
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   findAll(
     @Query('page') page?: string,
@@ -283,7 +279,6 @@ export class SettingsController {
   })
   @ApiResponse({ status: 404, description: 'Setting not found.' })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
-  @UseGuards(RolesGuard)
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @Permissions('setting:update')
   update(
@@ -294,7 +289,6 @@ export class SettingsController {
   }
 
   @Patch('by-key/:key')
-  @UseGuards(RolesGuard)
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @Permissions('setting:update')
   updateByKey(
@@ -312,7 +306,6 @@ export class SettingsController {
     description: 'The setting has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Setting not found.' })
-  @UseGuards(RolesGuard)
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @Permissions('setting:delete')
   remove(@Param('id') id: string): Promise<void> {
@@ -320,7 +313,6 @@ export class SettingsController {
   }
 
   @Delete('by-key/:key')
-  @UseGuards(RolesGuard)
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @Permissions('setting:delete')
   removeByKey(@Param('key') key: string): Promise<void> {
