@@ -1,10 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { PermissionDto } from './dto/permission.dto';
+import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 
 @Injectable()
 export class PermissionsService {
-  constructor(private prisma: PrismaService) {}
+  private permissionMapper: (permission: any) => PermissionDto;
+  private permissionArrayMapper: (permissions: any[]) => PermissionDto[];
+
+  constructor(
+    private prisma: PrismaService,
+    private dtoMapper: DtoMapperService,
+  ) {
+    // Initialize mappers
+    this.permissionMapper = this.dtoMapper.createSimpleMapper(PermissionDto);
+    this.permissionArrayMapper = this.dtoMapper.createSimpleArrayMapper(PermissionDto);
+  }
 
   async findAll(): Promise<PermissionDto[]> {
     const permissions = await this.prisma.permission.findMany({
@@ -16,6 +27,6 @@ export class PermissionsService {
       },
     });
 
-    return permissions.map((permission) => new PermissionDto(permission));
+    return this.permissionArrayMapper(permissions);
   }
 }

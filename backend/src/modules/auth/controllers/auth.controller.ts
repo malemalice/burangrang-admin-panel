@@ -31,6 +31,7 @@ interface RequestWithUser extends Request {
 
 @Controller('auth')
 @ApiTags('Authentication')
+@ApiBearerAuth()
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 

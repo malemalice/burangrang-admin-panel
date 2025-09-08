@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -6,26 +6,37 @@ import { UserDto } from './dto/user.dto';
 import { FindUsersOptions } from './dto/find-users.dto';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { ErrorHandlingService } from '../../shared/services/error-handling.service';
+import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  private userMapper: (user: any) => UserDto;
+  private userArrayMapper: (users: any[]) => UserDto[];
+  private userPaginatedMapper: (data: { data: any[]; meta: any }) => { data: UserDto[]; meta: any };
 
-  private mapToDto(user: any): UserDto {
-    return new UserDto(user as Partial<UserDto>);
+  constructor(
+    private prisma: PrismaService,
+    private errorHandler: ErrorHandlingService,
+    private dtoMapper: DtoMapperService,
+  ) {
+    // Initialize mappers with password exclusion
+    this.userMapper = this.dtoMapper.createMapper(UserDto, {
+      exclude: ['password'],
+    });
+    this.userArrayMapper = this.dtoMapper.createArrayMapper(UserDto, {
+      exclude: ['password'],
+    });
+    this.userPaginatedMapper = this.dtoMapper.createPaginatedMapper(UserDto, {
+      exclude: ['password'],
+    });
   }
 
   async create(createUserDto: CreateUserDto): Promise<UserDto> {
-    let hashedPassword: string;
-    try {
+    const hashedPassword = await this.errorHandler.safeHashPassword(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-    } catch (error) {
-      // Type assertion to handle error safely
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      throw new Error(`Failed to hash password: ${errorMessage}`);
-    }
+      () => bcrypt.hash(createUserDto.password, 10),
+    );
 
     const user = await this.prisma.user.create({
       data: {
@@ -40,7 +51,7 @@ export class UsersService {
       },
     });
 
-    return this.mapToDto(user);
+    return this.userMapper(user);
   }
 
   async findAll(options?: FindUsersOptions): Promise<{
@@ -113,10 +124,10 @@ export class UsersService {
       this.prisma.user.count({ where }),
     ]);
 
-    return {
-      data: users.map((user) => this.mapToDto(user)),
+    return this.userPaginatedMapper({
+      data: users,
       meta: { total, page, limit },
-    };
+    });
   }
 
   async findOne(id: string): Promise<UserDto> {
@@ -130,11 +141,9 @@ export class UsersService {
       },
     });
 
-    if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('User', id, user);
 
-    return this.mapToDto(user);
+    return this.userMapper(user);
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<UserDto> {
@@ -142,22 +151,15 @@ export class UsersService {
       where: { id },
     });
 
-    if (!existingUser) {
-      throw new NotFoundException(`User with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('User', id, existingUser);
 
     const data = { ...updateUserDto };
 
     if (updateUserDto.password) {
-      try {
+      data.password = await this.errorHandler.safeHashPassword(
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        data.password = await bcrypt.hash(updateUserDto.password, 10);
-      } catch (error) {
-        // Type assertion to handle error safely
-        const errorMessage =
-          error instanceof Error ? error.message : 'Unknown error';
-        throw new Error(`Failed to hash password: ${errorMessage}`);
-      }
+        () => bcrypt.hash(updateUserDto.password, 10),
+      );
     }
 
     const updatedUser = await this.prisma.user.update({
@@ -171,7 +173,7 @@ export class UsersService {
       },
     });
 
-    return this.mapToDto(updatedUser);
+    return this.userMapper(updatedUser);
   }
 
   async remove(id: string): Promise<void> {
@@ -179,9 +181,7 @@ export class UsersService {
       where: { id },
     });
 
-    if (!existingUser) {
-      throw new NotFoundException(`User with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('User', id, existingUser);
 
     await this.prisma.user.delete({
       where: { id },
@@ -199,6 +199,22 @@ export class UsersService {
       },
     });
 
-    return user ? this.mapToDto(user) : null;
+    return user ? this.userMapper(user) : null;
+  }
+
+  async findByEmailOrThrow(email: string): Promise<UserDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: {
+        role: true,
+        office: true,
+        department: true,
+        jobPosition: true,
+      },
+    });
+
+    this.errorHandler.throwIfNotFoundByField('User', 'email', email, user);
+
+    return this.userMapper(user);
   }
 }

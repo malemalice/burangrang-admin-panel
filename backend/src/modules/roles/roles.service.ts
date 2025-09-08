@@ -1,17 +1,48 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { RoleDto } from './dto/role.dto';
 import { PermissionDto } from '../permissions/dto/permission.dto';
 import { ConfigService } from '@nestjs/config';
+import { ErrorHandlingService } from '../../shared/services/error-handling.service';
+import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 
 @Injectable()
 export class RolesService {
+  private roleMapper: (role: any) => RoleDto;
+  private roleArrayMapper: (roles: any[]) => RoleDto[];
+  private permissionMapper: (permission: any) => PermissionDto;
+  private permissionArrayMapper: (permissions: any[]) => PermissionDto[];
+
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
-  ) {}
+    private errorHandler: ErrorHandlingService,
+    private dtoMapper: DtoMapperService,
+  ) {
+    // Initialize mappers
+    this.permissionMapper = this.dtoMapper.createSimpleMapper(PermissionDto);
+    this.permissionArrayMapper = this.dtoMapper.createSimpleArrayMapper(PermissionDto);
+
+    this.roleMapper = this.dtoMapper.createMapper(RoleDto, {
+      relations: {
+        permissions: {
+          mapper: this.permissionMapper,
+          isArray: true,
+        },
+      },
+    });
+
+    this.roleArrayMapper = this.dtoMapper.createArrayMapper(RoleDto, {
+      relations: {
+        permissions: {
+          mapper: this.permissionMapper,
+          isArray: true,
+        },
+      },
+    });
+  }
 
   getDefaultPermissions(): string[] {
     const defaultPermissions = this.configService.get<string>(
@@ -58,12 +89,7 @@ export class RolesService {
       },
     });
 
-    return new RoleDto({
-      ...role,
-      permissions: role.permissions.map(
-        (permission) => new PermissionDto(permission),
-      ),
-    });
+    return this.roleMapper(role);
   }
 
   async findAll(): Promise<RoleDto[]> {
@@ -73,15 +99,7 @@ export class RolesService {
       },
     });
 
-    return roles.map(
-      (role) =>
-        new RoleDto({
-          ...role,
-          permissions: role.permissions.map(
-            (permission) => new PermissionDto(permission),
-          ),
-        }),
-    );
+    return this.roleArrayMapper(roles);
   }
 
   async findOne(id: string): Promise<RoleDto> {
@@ -92,16 +110,9 @@ export class RolesService {
       },
     });
 
-    if (!role) {
-      throw new NotFoundException(`Role with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Role', id, role);
 
-    return new RoleDto({
-      ...role,
-      permissions: role.permissions.map(
-        (permission) => new PermissionDto(permission),
-      ),
-    });
+    return this.roleMapper(role);
   }
 
   async update(id: string, updateRoleDto: UpdateRoleDto): Promise<RoleDto> {
@@ -138,9 +149,7 @@ export class RolesService {
       },
     });
 
-    if (!existingRole) {
-      throw new NotFoundException(`Role with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Role', id, existingRole);
 
     // 5. Update role with all permissions
     const role = await this.prisma.role.update({
@@ -158,12 +167,7 @@ export class RolesService {
       },
     });
 
-    return new RoleDto({
-      ...role,
-      permissions: role.permissions.map(
-        (permission) => new PermissionDto(permission),
-      ),
-    });
+    return this.roleMapper(role);
   }
 
   async remove(id: string): Promise<void> {
@@ -171,9 +175,7 @@ export class RolesService {
       where: { id },
     });
 
-    if (!existingRole) {
-      throw new NotFoundException(`Role with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Role', id, existingRole);
 
     await this.prisma.role.delete({
       where: { id },
@@ -188,13 +190,19 @@ export class RolesService {
       },
     });
 
-    return role
-      ? new RoleDto({
-          ...role,
-          permissions: role.permissions.map(
-            (permission) => new PermissionDto(permission),
-          ),
-        })
-      : null;
+    return role ? this.roleMapper(role) : null;
+  }
+
+  async findByNameOrThrow(name: string): Promise<RoleDto> {
+    const role = await this.prisma.role.findUnique({
+      where: { name },
+      include: {
+        permissions: true,
+      },
+    });
+
+    this.errorHandler.throwIfNotFoundByField('Role', 'name', name, role);
+
+    return this.roleMapper(role);
   }
 }

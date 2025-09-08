@@ -4,6 +4,7 @@ import { CreateMasterApprovalDto } from './dto/create-master-approval.dto';
 import { UpdateMasterApprovalDto } from './dto/update-master-approval.dto';
 import { MasterApprovalDto } from './dto/master-approval.dto';
 import { Prisma } from '@prisma/client';
+import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 
 interface FindAllOptions {
   page?: number;
@@ -16,7 +17,19 @@ interface FindAllOptions {
 
 @Injectable()
 export class MasterApprovalsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private masterApprovalMapper: (masterApproval: any) => MasterApprovalDto;
+  private masterApprovalArrayMapper: (masterApprovals: any[]) => MasterApprovalDto[];
+  private masterApprovalPaginatedMapper: (data: { data: any[]; meta: any }) => { data: MasterApprovalDto[]; meta: any };
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private dtoMapper: DtoMapperService,
+  ) {
+    // Initialize mappers
+    this.masterApprovalMapper = this.dtoMapper.createSimpleMapper(MasterApprovalDto);
+    this.masterApprovalArrayMapper = this.dtoMapper.createSimpleArrayMapper(MasterApprovalDto);
+    this.masterApprovalPaginatedMapper = this.dtoMapper.createPaginatedMapper(MasterApprovalDto);
+  }
 
   async create(
     createMasterApprovalDto: CreateMasterApprovalDto,
@@ -90,7 +103,7 @@ export class MasterApprovalsService {
     ]);
 
     return {
-      data: masterApprovals.map((approval) => this.mapToDto(approval)),
+      data: this.masterApprovalArrayMapper(masterApprovals),
       meta: { total, page, limit },
     };
   }
@@ -113,7 +126,7 @@ export class MasterApprovalsService {
       throw new NotFoundException(`Master approval with ID ${id} not found`);
     }
 
-    return this.mapToDto(masterApproval);
+    return this.masterApprovalMapper(masterApproval);
   }
 
   async update(

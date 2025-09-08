@@ -4,10 +4,40 @@ import { CreateMenuDto } from './dto/create-menu.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
 import { MenuDto } from './dto/menu.dto';
 import { RoleDto } from '../roles/dto/role.dto';
+import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 
 @Injectable()
 export class MenusService {
-  constructor(private prisma: PrismaService) {}
+  private menuMapper: (menu: any) => MenuDto;
+  private roleMapper: (role: any) => RoleDto;
+
+  constructor(
+    private prisma: PrismaService,
+    private dtoMapper: DtoMapperService,
+  ) {
+    // Initialize mappers for complex menu relationships
+    this.roleMapper = this.dtoMapper.createSimpleMapper(RoleDto);
+
+    // Create menu mapper with nested relationships
+    this.menuMapper = this.dtoMapper.createRelationMapper(
+      MenuDto,
+      {
+        parent: {
+          mapper: (parent: any) => this.menuMapper(parent),
+          isArray: false,
+        },
+        children: {
+          mapper: (child: any) => this.menuMapper(child),
+          isArray: true,
+        },
+        roles: {
+          mapper: this.roleMapper,
+          isArray: true,
+        },
+      },
+      [], // no exclusions
+    );
+  }
 
   async create(createMenuDto: CreateMenuDto): Promise<MenuDto> {
     const { roleIds, ...menuData } = createMenuDto;
@@ -28,12 +58,7 @@ export class MenusService {
       },
     });
 
-    return new MenuDto({
-      ...menu,
-      parent: menu.parent ? new MenuDto(menu.parent) : undefined,
-      children: menu.children?.map((child) => new MenuDto(child)),
-      roles: menu.roles.map((role) => new RoleDto(role)),
-    });
+    return this.menuMapper(menu);
   }
 
   async findAll(): Promise<MenuDto[]> {
@@ -48,15 +73,7 @@ export class MenusService {
       },
     });
 
-    return menus.map(
-      (menu) =>
-        new MenuDto({
-          ...menu,
-          parent: menu.parent ? new MenuDto(menu.parent) : undefined,
-          children: menu.children?.map((child) => new MenuDto(child)),
-          roles: menu.roles.map((role) => new RoleDto(role)),
-        }),
-    );
+    return menus.map((menu) => this.menuMapper(menu));
   }
 
   async findOne(id: string): Promise<MenuDto> {
@@ -73,12 +90,7 @@ export class MenusService {
       throw new NotFoundException(`Menu with ID ${id} not found`);
     }
 
-    return new MenuDto({
-      ...menu,
-      parent: menu.parent ? new MenuDto(menu.parent) : undefined,
-      children: menu.children?.map((child) => new MenuDto(child)),
-      roles: menu.roles.map((role) => new RoleDto(role)),
-    });
+    return this.menuMapper(menu);
   }
 
   async update(id: string, updateMenuDto: UpdateMenuDto): Promise<MenuDto> {
@@ -109,12 +121,7 @@ export class MenusService {
       },
     });
 
-    return new MenuDto({
-      ...menu,
-      parent: menu.parent ? new MenuDto(menu.parent) : undefined,
-      children: menu.children?.map((child) => new MenuDto(child)),
-      roles: menu.roles.map((role) => new RoleDto(role)),
-    });
+    return this.menuMapper(menu);
   }
 
   async remove(id: string): Promise<void> {
@@ -150,15 +157,7 @@ export class MenusService {
       },
     });
 
-    return menus.map(
-      (menu) =>
-        new MenuDto({
-          ...menu,
-          parent: menu.parent ? new MenuDto(menu.parent) : undefined,
-          children: menu.children?.map((child) => new MenuDto(child)),
-          roles: menu.roles.map((role) => new RoleDto(role)),
-        }),
-    );
+    return menus.map((menu) => this.menuMapper(menu));
   }
 
   async getMenuHierarchy(): Promise<MenuDto[]> {
@@ -180,13 +179,6 @@ export class MenusService {
       },
     });
 
-    return menus.map(
-      (menu) =>
-        new MenuDto({
-          ...menu,
-          children: menu.children?.map((child) => new MenuDto(child)),
-          roles: menu.roles.map((role) => new RoleDto(role)),
-        }),
-    );
+    return menus.map((menu) => this.menuMapper(menu));
   }
 }

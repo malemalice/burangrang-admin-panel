@@ -15,6 +15,8 @@ import { DepartmentsModule } from './modules/departments/departments.module';
 import { JobPositionsModule } from './modules/job-positions/job-positions.module';
 import { MasterApprovalsModule } from './modules/approvals/master-approvals.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { SharedModule } from './shared/shared.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -22,6 +24,7 @@ import { SettingsModule } from './modules/settings/settings.module';
       load: [appConfig],
     }),
     PrismaModule,
+    SharedModule,
     AuthModule,
     UsersModule,
     RolesModule,

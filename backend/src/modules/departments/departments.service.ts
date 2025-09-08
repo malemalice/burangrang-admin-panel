@@ -1,9 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { DepartmentDto } from './dto/department.dto';
 import { Prisma } from '@prisma/client';
+import { ErrorHandlingService } from '../../shared/services/error-handling.service';
+import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 
 interface FindAllOptions {
   page?: number;
@@ -16,7 +18,20 @@ interface FindAllOptions {
 
 @Injectable()
 export class DepartmentsService {
-  constructor(private prisma: PrismaService) {}
+  private departmentMapper: (department: any) => DepartmentDto;
+  private departmentArrayMapper: (departments: any[]) => DepartmentDto[];
+  private departmentPaginatedMapper: (data: { data: any[]; meta: any }) => { data: DepartmentDto[]; meta: any };
+
+  constructor(
+    private prisma: PrismaService,
+    private errorHandler: ErrorHandlingService,
+    private dtoMapper: DtoMapperService,
+  ) {
+    // Initialize mappers
+    this.departmentMapper = this.dtoMapper.createSimpleMapper(DepartmentDto);
+    this.departmentArrayMapper = this.dtoMapper.createSimpleArrayMapper(DepartmentDto);
+    this.departmentPaginatedMapper = this.dtoMapper.createPaginatedMapper(DepartmentDto);
+  }
 
   async create(
     createDepartmentDto: CreateDepartmentDto,
@@ -25,7 +40,7 @@ export class DepartmentsService {
       data: createDepartmentDto,
     });
 
-    return new DepartmentDto(department);
+    return this.departmentMapper(department);
   }
 
   async findAll(options?: FindAllOptions): Promise<{
@@ -75,10 +90,10 @@ export class DepartmentsService {
       take: limit,
     });
 
-    return {
-      data: departments.map((department) => new DepartmentDto(department)),
+    return this.departmentPaginatedMapper({
+      data: departments,
       meta: { total, page, limit },
-    };
+    });
   }
 
   async findOne(id: string): Promise<DepartmentDto> {
@@ -86,11 +101,9 @@ export class DepartmentsService {
       where: { id },
     });
 
-    if (!department) {
-      throw new NotFoundException(`Department with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Department', id, department);
 
-    return new DepartmentDto(department);
+    return this.departmentMapper(department);
   }
 
   async update(
@@ -101,16 +114,14 @@ export class DepartmentsService {
       where: { id },
     });
 
-    if (!existingDepartment) {
-      throw new NotFoundException(`Department with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Department', id, existingDepartment);
 
     const department = await this.prisma.department.update({
       where: { id },
       data: updateDepartmentDto,
     });
 
-    return new DepartmentDto(department);
+    return this.departmentMapper(department);
   }
 
   async remove(id: string): Promise<void> {
@@ -118,9 +129,7 @@ export class DepartmentsService {
       where: { id },
     });
 
-    if (!existingDepartment) {
-      throw new NotFoundException(`Department with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Department', id, existingDepartment);
 
     await this.prisma.department.delete({
       where: { id },
@@ -132,10 +141,8 @@ export class DepartmentsService {
       where: { code },
     });
 
-    if (!department) {
-      throw new NotFoundException(`Department with code ${code} not found`);
-    }
+    this.errorHandler.throwIfNotFoundByField('Department', 'code', code, department);
 
-    return new DepartmentDto(department);
+    return this.departmentMapper(department);
   }
 }

@@ -9,13 +9,22 @@ import { UpdateSettingDto } from './dto/update-setting.dto';
 import { SettingDto } from './dto/setting.dto';
 import { FindSettingsOptions } from './dto/find-settings.dto';
 import { Prisma } from '@prisma/client';
+import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 
 @Injectable()
 export class SettingsService {
-  constructor(private prisma: PrismaService) {}
+  private settingMapper: (setting: any) => SettingDto;
+  private settingArrayMapper: (settings: any[]) => SettingDto[];
+  private settingPaginatedMapper: (data: { data: any[]; meta: any }) => { data: SettingDto[]; meta: any };
 
-  private mapToDto(setting: any): SettingDto {
-    return new SettingDto(setting as Partial<SettingDto>);
+  constructor(
+    private prisma: PrismaService,
+    private dtoMapper: DtoMapperService,
+  ) {
+    // Initialize mappers
+    this.settingMapper = this.dtoMapper.createSimpleMapper(SettingDto);
+    this.settingArrayMapper = this.dtoMapper.createSimpleArrayMapper(SettingDto);
+    this.settingPaginatedMapper = this.dtoMapper.createPaginatedMapper(SettingDto);
   }
 
   async create(createSettingDto: CreateSettingDto): Promise<SettingDto> {
@@ -34,7 +43,7 @@ export class SettingsService {
       data: createSettingDto,
     });
 
-    return this.mapToDto(setting);
+    return this.settingMapper(setting);
   }
 
   async findAll(options?: FindSettingsOptions): Promise<{
@@ -78,10 +87,10 @@ export class SettingsService {
       this.prisma.setting.count({ where }),
     ]);
 
-    return {
-      data: settings.map((setting) => this.mapToDto(setting)),
+    return this.settingPaginatedMapper({
+      data: settings,
       meta: { total, page, limit },
-    };
+    });
   }
 
   async findOne(id: string): Promise<SettingDto> {
@@ -93,7 +102,7 @@ export class SettingsService {
       throw new NotFoundException(`Setting with ID ${id} not found`);
     }
 
-    return this.mapToDto(setting);
+    return this.settingMapper(setting);
   }
 
   async findByKey(key: string): Promise<SettingDto | null> {
@@ -101,7 +110,7 @@ export class SettingsService {
       where: { key },
     });
 
-    return setting ? this.mapToDto(setting) : null;
+    return setting ? this.settingMapper(setting) : null;
   }
 
   async getValueByKey(key: string): Promise<string | null> {
@@ -147,7 +156,7 @@ export class SettingsService {
       data: updateSettingDto,
     });
 
-    return this.mapToDto(updatedSetting);
+    return this.settingMapper(updatedSetting);
   }
 
   async updateByKey(
@@ -171,7 +180,7 @@ export class SettingsService {
               : true,
         },
       });
-      return this.mapToDto(newSetting);
+      return this.settingMapper(newSetting);
     }
 
     const updatedSetting = await this.prisma.setting.update({
@@ -179,7 +188,7 @@ export class SettingsService {
       data: updateSettingDto,
     });
 
-    return this.mapToDto(updatedSetting);
+    return this.settingMapper(updatedSetting);
   }
 
   async remove(id: string): Promise<void> {
