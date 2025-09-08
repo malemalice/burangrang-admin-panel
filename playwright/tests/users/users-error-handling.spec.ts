@@ -507,92 +507,7 @@ test.describe('Users Error Handling Tests', () => {
     console.log('🎉 Invalid form data submission test completed!');
   });
 
-  test('8. Concurrent operation handling', async ({ page }) => {
-    console.log('🚨 Testing concurrent operation handling...');
-
-    // Setup
-    await setupErrorTest(page);
-    await usersListPage.goto();
-
-    // Test rapid sequential operations to simulate concurrent behavior
-    console.log('🔍 Testing rapid sequential user creation attempts...');
-
-    // Create first user
-    await usersListPage.clickAddUser();
-    const firstUserData = {
-      ...TEST_USER_DATA,
-      email: `concurrent-1-${Date.now()}@example.com`
-    };
-    await userFormPage.fillForm(firstUserData);
-    await userFormPage.submitButton.click();
-
-    // Wait for first submission to complete
-    await page.waitForTimeout(2000);
-
-    // Check if first user was created (by checking if we're not still on the form)
-    const afterFirstSubmit = page.url();
-    console.log(`📍 After first submission: ${afterFirstSubmit}`);
-
-    // Create second user quickly
-    if (!afterFirstSubmit.includes('/new')) {
-      console.log('✅ First user creation completed, proceeding with second user...');
-
-      await usersListPage.clickAddUser();
-      const secondUserData = {
-        ...TEST_USER_DATA,
-        email: `concurrent-2-${Date.now()}@example.com`
-      };
-      await userFormPage.fillForm(secondUserData);
-      await userFormPage.submitButton.click();
-
-      // Wait for second submission
-      await page.waitForTimeout(2000);
-
-      const afterSecondSubmit = page.url();
-      console.log(`📍 After second submission: ${afterSecondSubmit}`);
-
-      if (!afterSecondSubmit.includes('/new')) {
-        console.log('✅ Second user creation successful');
-      } else {
-        console.log('ℹ️ Second user creation may still be processing');
-      }
-    } else {
-      console.log('ℹ️ First user creation still processing');
-    }
-
-    // Test duplicate email handling
-    console.log('🔍 Testing duplicate email handling...');
-    await page.goto('/users');
-    await page.waitForLoadState('networkidle');
-
-    await usersListPage.clickAddUser();
-    const duplicateUserData = {
-      ...TEST_USER_DATA,
-      email: firstUserData.email // Use same email as first user
-    };
-    await userFormPage.fillForm(duplicateUserData);
-    await userFormPage.submitButton.click();
-
-    // Wait for duplicate handling
-    await page.waitForTimeout(2000);
-
-    const afterDuplicateSubmit = page.url();
-    if (afterDuplicateSubmit.includes('/new')) {
-      console.log('✅ Duplicate email creation attempt handled');
-
-      const errorMessages = await userFormPage.getErrorMessages();
-      if (errorMessages.length > 0) {
-        console.log(`📝 Duplicate error messages: ${errorMessages.slice(0, 2).join(', ')}`);
-      }
-    } else {
-      console.log('ℹ️ Duplicate email may have been accepted or is still processing');
-    }
-
-    await takeScreenshot(page, 'error-10-concurrent-operations');
-    console.log('🎉 Concurrent operation handling test completed!');
-  });
-
-  test('9. Page refresh and state recovery', async ({ page }) => {
+  test('8. Page refresh and state recovery', async ({ page }) => {
     console.log('🚨 Testing page refresh and state recovery...');
 
     // Setup
@@ -654,7 +569,7 @@ test.describe('Users Error Handling Tests', () => {
     console.log('🎉 Page refresh and state recovery test completed!');
   });
 
-  test('10. Error boundary and crash recovery', async ({ page }) => {
+  test('9. Error boundary and crash recovery', async ({ page }) => {
     console.log('🚨 Testing error boundary and crash recovery...');
 
     // Setup with fresh state

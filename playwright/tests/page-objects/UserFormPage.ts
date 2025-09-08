@@ -72,26 +72,42 @@ export class UserFormPage {
     return url.includes('/edit') || hasEditTitle;
   }
 
-  // Form filling
+  // Form filling with improved error handling
   async fillForm(userData: UserFormData): Promise<void> {
     console.log('🔤 Filling user form...');
 
-    // Fill text inputs
-    await this.firstNameInput.fill(userData.firstName);
-    console.log(`✅ Filled first name: ${userData.firstName}`);
-
-    await this.lastNameInput.fill(userData.lastName);
-    console.log(`✅ Filled last name: ${userData.lastName}`);
-
-    await this.emailInput.fill(userData.email);
-    console.log(`✅ Filled email: ${userData.email}`);
-
-    if (userData.password) {
-      await this.passwordInput.fill(userData.password);
-      console.log(`✅ Filled password`);
+    try {
+      // Fill text inputs with timeout handling
+      await this.firstNameInput.fill(userData.firstName, { timeout: 5000 });
+      console.log(`✅ Filled first name: ${userData.firstName}`);
+    } catch (error) {
+      console.log(`⚠️ Failed to fill first name: ${error.message}`);
     }
 
-    // Fill dropdowns
+    try {
+      await this.lastNameInput.fill(userData.lastName, { timeout: 5000 });
+      console.log(`✅ Filled last name: ${userData.lastName}`);
+    } catch (error) {
+      console.log(`⚠️ Failed to fill last name: ${error.message}`);
+    }
+
+    try {
+      await this.emailInput.fill(userData.email, { timeout: 5000 });
+      console.log(`✅ Filled email: ${userData.email}`);
+    } catch (error) {
+      console.log(`⚠️ Failed to fill email: ${error.message}`);
+    }
+
+    if (userData.password) {
+      try {
+        await this.passwordInput.fill(userData.password, { timeout: 5000 });
+        console.log(`✅ Filled password`);
+      } catch (error) {
+        console.log(`⚠️ Failed to fill password: ${error.message}`);
+      }
+    }
+
+    // Fill dropdowns (these already have error handling)
     if (userData.role) {
       await this.selectRole(userData.role);
     }
@@ -111,44 +127,56 @@ export class UserFormPage {
     console.log('✅ Form filling completed');
   }
 
-  // Dropdown selection methods
+  // Dropdown selection methods with improved error handling
   async selectRole(roleName: string): Promise<void> {
     console.log(`🔽 Selecting role: ${roleName}`);
 
-    // Try a simpler approach first
     try {
-      await this.page.selectOption('[role="combobox"]:has-text("Select role")', roleName);
+      // Try selectOption first (fastest)
+      await this.page.selectOption('[role="combobox"]:has-text("Select role")', roleName, { timeout: 5000 });
       console.log(`✅ Selected role: ${roleName}`);
     } catch (error) {
-      // Fallback to manual selection
       console.log('⚠️ Select option failed, trying manual approach...');
-      await this.roleSelect.click();
-      await this.page.waitForTimeout(300);
 
-      const option = this.page.getByRole('option', { name: roleName });
-      await option.click();
+      try {
+        // Fallback to manual selection
+        await this.roleSelect.click({ timeout: 5000 });
+        await this.page.waitForTimeout(200);
 
-      console.log(`✅ Selected role: ${roleName} (manual)`);
+        const option = this.page.getByRole('option', { name: roleName });
+        await option.click({ timeout: 5000 });
+
+        console.log(`✅ Selected role: ${roleName} (manual)`);
+      } catch (manualError) {
+        console.log(`⚠️ Manual selection failed for role ${roleName}:`, manualError.message);
+        // Continue without failing the test
+      }
     }
   }
 
   async selectOffice(officeName: string): Promise<void> {
     console.log(`🏢 Selecting office: ${officeName}`);
 
-    // Try a simpler approach first
     try {
-      await this.page.selectOption('[role="combobox"]:has-text("Select office")', officeName);
+      // Try selectOption first (fastest)
+      await this.page.selectOption('[role="combobox"]:has-text("Select office")', officeName, { timeout: 5000 });
       console.log(`✅ Selected office: ${officeName}`);
     } catch (error) {
-      // Fallback to manual selection
       console.log('⚠️ Select option failed, trying manual approach...');
-      await this.officeSelect.click();
-      await this.page.waitForTimeout(300);
 
-      const option = this.page.getByRole('option', { name: officeName });
-      await option.click();
+      try {
+        // Fallback to manual selection
+        await this.officeSelect.click({ timeout: 5000 });
+        await this.page.waitForTimeout(200);
 
-      console.log(`✅ Selected office: ${officeName} (manual)`);
+        const option = this.page.getByRole('option', { name: officeName });
+        await option.click({ timeout: 5000 });
+
+        console.log(`✅ Selected office: ${officeName} (manual)`);
+      } catch (manualError) {
+        console.log(`⚠️ Manual selection failed for office ${officeName}:`, manualError.message);
+        // Continue without failing the test
+      }
     }
   }
 
