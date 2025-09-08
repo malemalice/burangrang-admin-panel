@@ -1,8 +1,8 @@
-import { RouteConfig } from '../types';
-import UsersPage from '@/pages/users/UsersPage';
-import CreateUserPage from '@/pages/users/CreateUserPage';
-import EditUserPage from '@/pages/users/EditUserPage';
-import UserDetailPage from '@/pages/users/UserDetailPage';
+import { RouteConfig } from '@/core/routes/types';
+import UsersPage from '../pages/UsersPage';
+import CreateUserPage from '../pages/CreateUserPage';
+import EditUserPage from '../pages/EditUserPage';
+import UserDetailPage from '../pages/UserDetailPage';
 
 /**
  * User management module routes

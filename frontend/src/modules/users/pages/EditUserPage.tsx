@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import UserForm from './UserForm';
-import userService from '@/services/userService';
+import userService from '../services/userService';
 import { User } from '@/core/lib/types';
 
 const EditUserPage = () => {

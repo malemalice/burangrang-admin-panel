@@ -22,7 +22,7 @@ import masterApprovalService, { CreateMasterApprovalDTO } from '@/services/maste
 import { MasterApproval } from '@/core/lib/types';
 import jobPositionService from '@/services/jobPositionService';
 import departmentService from '@/services/departmentService';
-import userService from '@/services/userService';
+import { userService } from '@/modules/users';
 
 const formSchema = z.object({
   entity: z.string().min(1, 'Entity is required'),

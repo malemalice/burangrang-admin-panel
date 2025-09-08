@@ -16,7 +16,8 @@ import {
 import { Input } from '@/core/components/ui/input';
 import { Switch } from '@/core/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import userService, { CreateUserDTO, UpdateUserDTO } from '@/services/userService';
+import userService from '../services/userService';
+import { CreateUserDTO, UpdateUserDTO } from '../types/user.types';
 import roleService from '@/services/roleService';
 import officeService from '@/services/officeService';
 import departmentService from '@/services/departmentService';

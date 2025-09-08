@@ -1,62 +1,12 @@
 import api from '@/core/lib/api';
-import { User, PaginatedResponse, PaginationParams } from '@/core/lib/types';
-
-// Interface for user data from API that matches backend structure
-export interface UserDTO {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  isActive: boolean;
-  roleId: string;
-  officeId: string;
-  departmentId?: string;
-  jobPositionId?: string;
-  role?: {
-    id: string;
-    name: string;
-  };
-  office?: {
-    id: string;
-    name: string;
-  };
-  department?: {
-    id: string;
-    name: string;
-  };
-  jobPosition?: {
-    id: string;
-    name: string;
-  };
-  lastLoginAt?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Interface for creating a user
-export interface CreateUserDTO {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  roleId: string;
-  officeId: string;
-  departmentId?: string;
-  jobPositionId?: string;
-}
-
-// Interface for updating a user
-export interface UpdateUserDTO {
-  email?: string;
-  password?: string;
-  firstName?: string;
-  lastName?: string;
-  roleId?: string;
-  officeId?: string;
-  departmentId?: string;
-  jobPositionId?: string;
-  isActive?: boolean;
-}
+import { 
+  User, 
+  PaginatedResponse, 
+  PaginationParams,
+  UserDTO,
+  CreateUserDTO,
+  UpdateUserDTO 
+} from '../types/user.types';
 
 // Convert UserDTO from backend to User model for frontend
 const mapUserDtoToUser = (userDto: UserDTO): User => {

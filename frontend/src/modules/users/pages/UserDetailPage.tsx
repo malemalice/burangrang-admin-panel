@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/core/components/ui/alert-dialog';
-import userService from '@/services/userService';
+import userService from '../services/userService';
 import type { User } from '@/core/lib/types';
 
 const UserDetailPage = () => {
