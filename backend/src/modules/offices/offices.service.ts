@@ -156,20 +156,36 @@ export class OfficesService {
   }
 
   private mapToDto(office: any): OfficeDto {
+    const off = office as {
+      id: string;
+      name: string;
+      code: string;
+      description: string | null;
+      address: string | null;
+      phone: string | null;
+      email: string | null;
+      parentId: string | null;
+      isActive: boolean;
+      children?: any[];
+      parent?: any;
+      createdAt: Date;
+      updatedAt: Date;
+    };
+
     return {
-      id: office.id,
-      name: office.name,
-      code: office.code,
-      description: office.description,
-      address: office.address,
-      phone: office.phone,
-      email: office.email,
-      parentId: office.parentId,
-      isActive: office.isActive,
-      children: office.children?.map((child) => this.mapToDto(child)),
-      parent: office.parent ? this.mapToDto(office.parent) : undefined,
-      createdAt: office.createdAt,
-      updatedAt: office.updatedAt,
+      id: off.id,
+      name: off.name,
+      code: off.code,
+      description: off.description || undefined,
+      address: off.address || undefined,
+      phone: off.phone || undefined,
+      email: off.email || undefined,
+      parentId: off.parentId || undefined,
+      isActive: off.isActive,
+      children: off.children?.map((child) => this.mapToDto(child)),
+      parent: off.parent ? this.mapToDto(off.parent) : undefined,
+      createdAt: off.createdAt,
+      updatedAt: off.updatedAt,
     };
   }
 }

@@ -5,7 +5,6 @@ import { UpdateRoleDto } from './dto/update-role.dto';
 import { RoleDto } from './dto/role.dto';
 import { PermissionDto } from '../permissions/dto/permission.dto';
 import { ConfigService } from '@nestjs/config';
-import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class RolesService {

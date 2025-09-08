@@ -183,33 +183,57 @@ export class MasterApprovalsService {
   }
 
   private mapToDto(data: any): MasterApprovalDto {
+    const approval = data as {
+      id: string;
+      entity: string;
+      isActive: boolean;
+      items?: any[];
+      createdAt: Date;
+      updatedAt: Date;
+    };
+
     return {
-      id: data.id,
-      entity: data.entity,
-      isActive: data.isActive,
-      items: data.items?.map((item: any) => ({
-        id: item.id,
-        mApprovalId: item.mApprovalId,
-        order: item.order,
-        job_position_id: item.job_position_id,
-        department_id: item.department_id,
-        createdBy: item.createdBy,
-        createdAt: item.createdAt,
-        jobPosition: {
-          id: item.jobPosition.id,
-          name: item.jobPosition.name,
-        },
-        department: {
-          id: item.department.id,
-          name: item.department.name,
-        },
-        creator: {
-          id: item.creator.id,
-          name: `${item.creator.firstName} ${item.creator.lastName}`,
-        },
-      })),
-      createdAt: data.createdAt,
-      updatedAt: data.updatedAt,
+      id: approval.id,
+      entity: approval.entity,
+      isActive: approval.isActive,
+      items: (approval.items?.map((item: any) => {
+        const itm = item as {
+          id: string;
+          mApprovalId: string;
+          order: number;
+          job_position_id: string;
+          department_id: string;
+          createdBy: string;
+          createdAt: Date;
+          jobPosition: { id: string; name: string };
+          department: { id: string; name: string };
+          creator: { id: string; firstName: string; lastName: string };
+        };
+
+        return {
+          id: itm.id,
+          mApprovalId: itm.mApprovalId,
+          order: itm.order,
+          job_position_id: itm.job_position_id,
+          department_id: itm.department_id,
+          createdBy: itm.createdBy,
+          createdAt: itm.createdAt,
+          jobPosition: {
+            id: itm.jobPosition.id,
+            name: itm.jobPosition.name,
+          },
+          department: {
+            id: itm.department.id,
+            name: itm.department.name,
+          },
+          creator: {
+            id: itm.creator.id,
+            name: `${itm.creator.firstName} ${itm.creator.lastName}`,
+          },
+        };
+      }) || []),
+      createdAt: approval.createdAt,
+      updatedAt: approval.updatedAt,
     };
   }
 }

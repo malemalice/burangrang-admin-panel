@@ -6,7 +6,6 @@ import {
   Patch,
   Param,
   Delete,
-  Query,
 } from '@nestjs/common';
 import { RolesService } from './roles.service';
 import { CreateRoleDto } from './dto/create-role.dto';
@@ -32,7 +31,7 @@ export class RolesController {
   @Get()
   @ApiOperation({ summary: 'Get all roles' })
   @ApiResponse({ status: 200, description: 'Return all roles.' })
-  findAll(@Query() query: any) {
+  findAll() {
     return this.rolesService.findAll();
   }
 

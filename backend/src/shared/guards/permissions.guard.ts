@@ -2,6 +2,17 @@ import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { PrismaService } from '../../core/services/prisma.service';
+import { Request } from 'express';
+
+interface AuthenticatedUser {
+  id: string;
+  email: string;
+  role: string;
+}
+
+interface AuthenticatedRequest extends Request {
+  user?: AuthenticatedUser;
+}
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -20,7 +31,7 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = request.user;
 
     if (!user) {

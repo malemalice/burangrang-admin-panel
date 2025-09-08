@@ -15,7 +15,7 @@ export class SettingsService {
   constructor(private prisma: PrismaService) {}
 
   private mapToDto(setting: any): SettingDto {
-    return new SettingDto(setting);
+    return new SettingDto(setting as Partial<SettingDto>);
   }
 
   async create(createSettingDto: CreateSettingDto): Promise<SettingDto> {

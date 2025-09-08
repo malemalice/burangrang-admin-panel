@@ -84,7 +84,7 @@ export class SettingsHelperService {
     try {
       const value = await this.settingsService.getValueByKey(key);
       if (value === null) return defaultValue;
-      return JSON.parse(value);
+      return JSON.parse(value) as T;
     } catch {
       return defaultValue;
     }

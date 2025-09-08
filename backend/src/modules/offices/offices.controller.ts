@@ -16,7 +16,6 @@ import { OfficeDto } from './dto/office.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
-import { Prisma } from '@prisma/client';
 import { Role } from '../../shared/types/role.enum';
 
 @Controller('offices')

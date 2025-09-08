@@ -3,7 +3,7 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserDto } from './dto/user.dto';
-import { FindUsersDto, FindUsersOptions } from './dto/find-users.dto';
+import { FindUsersOptions } from './dto/find-users.dto';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
@@ -12,11 +12,20 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   private mapToDto(user: any): UserDto {
-    return new UserDto(user);
+    return new UserDto(user as Partial<UserDto>);
   }
 
   async create(createUserDto: CreateUserDto): Promise<UserDto> {
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    let hashedPassword: string;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    } catch (error) {
+      // Type assertion to handle error safely
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to hash password: ${errorMessage}`);
+    }
 
     const user = await this.prisma.user.create({
       data: {
@@ -140,7 +149,15 @@ export class UsersService {
     const data = { ...updateUserDto };
 
     if (updateUserDto.password) {
-      data.password = await bcrypt.hash(updateUserDto.password, 10);
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        data.password = await bcrypt.hash(updateUserDto.password, 10);
+      } catch (error) {
+        // Type assertion to handle error safely
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+        throw new Error(`Failed to hash password: ${errorMessage}`);
+      }
     }
 
     const updatedUser = await this.prisma.user.update({
