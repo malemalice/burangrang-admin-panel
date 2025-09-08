@@ -1,6 +1,6 @@
 import type { Config } from "tailwindcss";
 // @ts-ignore
-import { baseColors, semanticColors } from "./src/lib/theme/colors";
+import { baseColors, semanticColors } from "./src/core/lib/theme/colors";
 // Import Tailwind animate plugin
 import tailwindcssAnimate from "tailwindcss-animate";
 
