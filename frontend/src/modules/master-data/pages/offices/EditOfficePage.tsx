@@ -15,7 +15,8 @@ import { Label } from '@/core/components/ui/label';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Alert, AlertDescription } from '@/core/components/ui/alert';
 import PageHeader from '@/core/components/ui/PageHeader';
-import officeService, { UpdateOfficeDTO } from '@/services/officeService';
+import officeService from '../../services/officeService';
+import { UpdateOfficeDTO } from '../../types/master-data.types';
 import { Office } from '@/core/lib/types';
 
 const EditOfficePage = () => {

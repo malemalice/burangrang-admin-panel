@@ -18,10 +18,11 @@ import { Input } from '@/core/components/ui/input';
 import { Switch } from '@/core/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
-import masterApprovalService, { CreateMasterApprovalDTO } from '@/services/masterApprovalService';
+import masterApprovalService from '../../services/masterApprovalService';
+import { CreateMasterApprovalDTO } from '../../types/master-data.types';
 import { MasterApproval } from '@/core/lib/types';
-import jobPositionService from '@/services/jobPositionService';
-import departmentService from '@/services/departmentService';
+import jobPositionService from '../../services/jobPositionService';
+import departmentService from '../../services/departmentService';
 import { userService } from '@/modules/users';
 
 const formSchema = z.object({

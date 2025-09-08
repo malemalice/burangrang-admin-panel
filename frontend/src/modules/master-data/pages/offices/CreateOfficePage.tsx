@@ -15,7 +15,8 @@ import { Label } from '@/core/components/ui/label';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Alert, AlertDescription } from '@/core/components/ui/alert';
 import PageHeader from '@/core/components/ui/PageHeader';
-import officeService, { CreateOfficeDTO } from '@/services/officeService';
+import officeService from '../../services/officeService';
+import { CreateOfficeDTO } from '../../types/master-data.types';
 import { Office } from '@/core/lib/types';
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
 

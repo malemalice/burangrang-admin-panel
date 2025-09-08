@@ -1,23 +1,12 @@
 import api from '@/core/lib/api';
-import { JobPosition } from '@/core/lib/types';
-
-interface PaginationParams {
-  page?: number;
-  limit?: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-  isActive?: boolean;
-  search?: string;
-}
-
-interface PaginatedResponse<T> {
-  data: T[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-  };
-}
+import { 
+  JobPosition,
+  PaginatedResponse, 
+  PaginationParams,
+  JobPositionDTO,
+  CreateJobPositionDTO,
+  UpdateJobPositionDTO 
+} from '../types/master-data.types';
 
 const jobPositionService = {
   getAll: async (params?: PaginationParams): Promise<PaginatedResponse<JobPosition>> => {

@@ -1,48 +1,12 @@
 import api from '@/core/lib/api';
-import { Office, PaginatedResponse, PaginationParams } from '@/core/lib/types';
-import { User } from '@/core/lib/types';
-
-// Interface for office data from API that matches backend structure
-export interface OfficeDTO {
-  id: string;
-  name: string;
-  code: string;
-  description?: string;
-  address?: string;
-  phone?: string;
-  email?: string;
-  parentId?: string;
-  children?: OfficeDTO[];
-  parent?: OfficeDTO;
-  users?: User[];
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Interface for creating an office
-export interface CreateOfficeDTO {
-  name: string;
-  code: string;
-  description?: string;
-  address?: string;
-  phone?: string;
-  email?: string;
-  parentId?: string;
-  isActive?: boolean;
-}
-
-// Interface for updating an office
-export interface UpdateOfficeDTO {
-  name?: string;
-  code?: string;
-  description?: string;
-  address?: string;
-  phone?: string;
-  email?: string;
-  parentId?: string;
-  isActive?: boolean;
-}
+import { 
+  Office, 
+  PaginatedResponse, 
+  PaginationParams,
+  OfficeDTO,
+  CreateOfficeDTO,
+  UpdateOfficeDTO 
+} from '../types/master-data.types';
 
 // Convert OfficeDTO from backend to Office model for frontend
 const mapOfficeDtoToOffice = (officeDto: OfficeDTO): Office => {

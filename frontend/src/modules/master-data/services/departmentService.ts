@@ -1,32 +1,12 @@
 import api from '@/core/lib/api';
-import { Department, PaginatedResponse, PaginationParams } from '@/core/lib/types';
-
-// Interface for department data from API that matches backend structure
-export interface DepartmentDTO {
-  id: string;
-  name: string;
-  code: string;
-  description?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Interface for creating a department
-export interface CreateDepartmentDTO {
-  name: string;
-  code: string;
-  description?: string;
-  isActive?: boolean;
-}
-
-// Interface for updating a department
-export interface UpdateDepartmentDTO {
-  name?: string;
-  code?: string;
-  description?: string;
-  isActive?: boolean;
-}
+import { 
+  Department, 
+  PaginatedResponse, 
+  PaginationParams,
+  DepartmentDTO,
+  CreateDepartmentDTO,
+  UpdateDepartmentDTO 
+} from '../types/master-data.types';
 
 // Convert DepartmentDTO from backend to Department model for frontend
 const mapDepartmentDtoToDepartment = (departmentDto: DepartmentDTO): Department => {

@@ -19,9 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/c
 import userService from '../services/userService';
 import { CreateUserDTO, UpdateUserDTO } from '../types/user.types';
 import { roleService } from '@/modules/roles';
-import officeService from '@/services/officeService';
-import departmentService from '@/services/departmentService';
-import jobPositionService from '@/services/jobPositionService';
+import { officeService, departmentService, jobPositionService } from '@/modules/master-data';
 import { User, Role, Office, Department, JobPosition } from '@/core/lib/types';
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
 

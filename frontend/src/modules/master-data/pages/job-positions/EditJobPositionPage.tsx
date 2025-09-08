@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import JobPositionForm from './JobPositionForm';
-import jobPositionService from '@/services/jobPositionService';
+import jobPositionService from '../../services/jobPositionService';
 import { JobPosition } from '@/core/lib/types';
 
 const EditJobPositionPage = () => {

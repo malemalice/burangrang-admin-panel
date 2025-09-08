@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Building, MoreHorizontal } from 'lucide-react';
+import { Edit, Trash2, Plus, MapPin, Phone, Mail, Building, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
   DropdownMenu,
@@ -15,68 +15,75 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
-import { Department, PaginationParams } from '@/core/lib/types';
-import departmentService from '@/services/departmentService';
+import { Office, PaginationParams } from '@/core/lib/types';
+import officeService from '../../services/officeService';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 
-export default function DepartmentsPage() {
+const OfficesPage = () => {
   const navigate = useNavigate();
-  const [departments, setDepartments] = useState<Department[]>([]);
+  const [offices, setOffices] = useState<Office[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
-  const [totalDepartments, setTotalDepartments] = useState(0);
+  const [totalOffices, setTotalOffices] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [departmentToDelete, setDepartmentToDelete] = useState<Department | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [officeToDelete, setOfficeToDelete] = useState<Office | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
-
+  
   // Define filter fields
   const filterFields: FilterField[] = [
     {
       id: 'name',
-      label: 'Department Name',
+      label: 'Office Name',
       type: 'text',
     },
     {
       id: 'code',
-      label: 'Department Code',
+      label: 'Office Code',
       type: 'text',
     },
     {
-      id: 'status',
+      id: 'address',
+      label: 'Address',
+      type: 'text',
+    },
+    {
+      id: 'isActive',
       label: 'Status',
       type: 'select',
       options: [
-        { label: 'Active', value: 'active' },
-        { label: 'Inactive', value: 'inactive' },
+        { label: 'Active', value: 'true' },
+        { label: 'Inactive', value: 'false' },
       ],
     },
   ];
 
-  const fetchDepartments = useCallback(async () => {
+  const fetchOffices = useCallback(async () => {
     setIsLoading(true);
     try {
       const params: PaginationParams = {
         page: pageIndex + 1,
         limit,
+        sortBy: 'name',
+        sortOrder: 'asc',
         search: searchTerm,
         filters: {
           ...Object.entries(activeFilters).reduce((acc, [key, item]) => ({
             ...acc,
             [key]: item.value
           }), {}),
-          isActive: activeFilters.status?.value === 'active' ? true :
-                   activeFilters.status?.value === 'inactive' ? false :
-                   undefined
-        }
+          isActive: activeFilters.isActive?.value === true ? true : 
+                   activeFilters.isActive?.value === false ? false : 
+                   undefined,
+        },
       };
 
-      const response = await departmentService.getDepartments(params);
-      setDepartments(response.data);
-      setTotalDepartments(response.meta.total);
+      const response = await officeService.getOffices(params);
+      setOffices(response.data);
+      setTotalOffices(response.meta.total);
       
       // Ensure we have data from the correct page
       const actualPage = response.meta.page;
@@ -84,17 +91,17 @@ export default function DepartmentsPage() {
         setPageIndex(actualPage - 1);
       }
     } catch (error) {
-      console.error('Failed to fetch departments:', error);
-      toast.error('Failed to load departments');
+      console.error('Failed to fetch offices:', error);
+      toast.error('Failed to load offices');
     } finally {
       setIsLoading(false);
     }
   }, [pageIndex, limit, searchTerm, activeFilters]);
 
-  // Fetch departments when pagination, search, filters, or active tab changes
+  // Fetch offices when dependencies change
   useEffect(() => {
-    fetchDepartments();
-  }, [fetchDepartments]);
+    fetchOffices();
+  }, [fetchOffices]);
 
   const handleDropdownOpenChange = (id: string, open: boolean) => {
     setDropdownOpenStates(prev => ({
@@ -103,33 +110,33 @@ export default function DepartmentsPage() {
     }));
   };
 
-  const handleDeleteClick = (department: Department) => {
-    // Close the dropdown menu for this department
+  const handleDeleteClick = (office: Office) => {
+    // Close the dropdown menu for this office
     setDropdownOpenStates(prev => ({
       ...prev,
-      [department.id]: false
+      [office.id]: false
     }));
     
-    // Set department to delete and open the dialog
-    setDepartmentToDelete(department);
+    // Set office to delete and open the dialog
+    setOfficeToDelete(office);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!departmentToDelete) return;
+    if (!officeToDelete) return;
     
     setIsLoading(true);
     try {
-      await departmentService.deleteDepartment(departmentToDelete.id);
-      toast.success(`Department "${departmentToDelete.name}" has been deleted`);
-      fetchDepartments();
+      await officeService.deleteOffice(officeToDelete.id);
+      toast.success(`Office "${officeToDelete.name}" has been deleted`);
+      fetchOffices();
     } catch (error) {
-      console.error(`Failed to delete department:`, error);
-      toast.error('Failed to delete department');
+      console.error('Failed to delete office:', error);
+      toast.error('Failed to delete office');
     } finally {
       setIsLoading(false);
       setDeleteDialogOpen(false);
-      setDepartmentToDelete(null);
+      setOfficeToDelete(null);
     }
   };
 
@@ -138,24 +145,17 @@ export default function DepartmentsPage() {
     setPageIndex(0); // Reset to first page on new search
   };
 
-  const handleApplyFilters = (filters: FilterValue[]) => {
-    const newActiveFilters: Record<string, { value: any; label: string }> = {};
+  const handleApplyFilters = (filterValues: FilterValue[]) => {
+    const newFilters: Record<string, { value: any; label: string }> = {};
     
-    filters.forEach(filter => {
-      if (filter.id === 'status') {
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: filter.value === 'active' ? 'Active' : 'Inactive'
-        };
-      } else {
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: String(filter.value)
-        };
-      }
+    filterValues.forEach(filter => {
+      newFilters[filter.id] = {
+        value: filter.value,
+        label: String(filter.value)
+      };
     });
     
-    setActiveFilters(newActiveFilters);
+    setActiveFilters(newFilters);
     setPageIndex(0); // Reset to first page on new filters
   };
 
@@ -168,11 +168,11 @@ export default function DepartmentsPage() {
       setActiveFilters({});
     } else if (value === 'active') {
       setActiveFilters({
-        status: { value: 'active', label: 'Active' }
+        isActive: { value: true, label: 'Active' }
       });
     } else if (value === 'inactive') {
       setActiveFilters({
-        status: { value: 'inactive', label: 'Inactive' }
+        isActive: { value: false, label: 'Inactive' }
       });
     }
   };
@@ -180,44 +180,85 @@ export default function DepartmentsPage() {
   const columns = [
     {
       id: 'name',
-      header: 'Department Name',
-      cell: (department: Department) => (
+      header: 'Office Name',
+      cell: (office: Office) => (
         <div>
-          <div className="font-medium">{department.name}</div>
-          <div className="text-xs text-gray-500 mt-1">
-            Code: {department.code}
+          <div className="font-medium">{office.name}</div>
+          <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+            <MapPin size={12} />
+            {office.address || 'Location not specified'}
           </div>
         </div>
       ),
     },
     {
-      id: 'description',
-      header: 'Description',
-      cell: (department: Department) => department.description || '-',
+      id: 'code',
+      header: 'Code',
+      cell: (office: Office) => office.code,
+    },
+    {
+      id: 'location',
+      header: 'Location',
+      cell: (office: Office) => office.address || '-',
     },
     {
       id: 'status',
       header: 'Status',
-      cell: (department: Department) => (
-        <Badge
-          variant="outline"
-          className={`${
-            department.isActive
-              ? 'bg-green-100 text-green-800'
-              : 'bg-gray-100 text-gray-800'
-          } border-0`}
-        >
-          {department.isActive ? 'Active' : 'Inactive'}
-        </Badge>
+      cell: (office: Office) => {
+        const isActive = office.isActive ?? true; // Default to true if undefined
+        return (
+          <Badge
+            variant="outline"
+            className={`${
+              isActive
+                ? 'bg-green-100 text-green-800'
+                : 'bg-gray-100 text-gray-800'
+            } border-0`}
+          >
+            {isActive ? 'Active' : 'Inactive'}
+          </Badge>
+        );
+      },
+    },
+    {
+      id: 'contact',
+      header: 'Contact',
+      cell: (office: Office) => (
+        <div className="text-sm space-y-1">
+          {office.phone && (
+            <div className="flex items-center gap-2">
+              <Phone size={14} className="text-gray-500" />
+              {office.phone}
+            </div>
+          )}
+          {office.email && (
+            <div className="flex items-center gap-2">
+              <Mail size={14} className="text-gray-500" />
+              {office.email}
+            </div>
+          )}
+          {!office.phone && !office.email && (
+            <div className="text-gray-500">No contact info</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'parent',
+      header: 'Parent Office',
+      cell: (office: Office) => (
+        <div>
+          {office.parent ? office.parent.name : 'Main Office'}
+        </div>
       ),
     },
     {
       id: 'actions',
       header: 'Actions',
-      cell: (department: Department) => (
+      cell: (office: Office) => (
         <DropdownMenu 
-          open={dropdownOpenStates[department.id]} 
-          onOpenChange={(open) => handleDropdownOpenChange(department.id, open)}
+          open={dropdownOpenStates[office.id]} 
+          onOpenChange={(open) => handleDropdownOpenChange(office.id, open)}
         >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -226,39 +267,39 @@ export default function DepartmentsPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/master/departments/${department.id}`)}>
+            <DropdownMenuItem onClick={() => navigate(`/master/offices/${office.id}`)}>
               <Building className="mr-2 h-4 w-4" /> View details
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/master/departments/${department.id}/edit`)}>
+            <DropdownMenuItem onClick={() => navigate(`/master/offices/${office.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => handleDeleteClick(department)}
+              onClick={() => handleDeleteClick(office)}
               className="text-red-600 focus:text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      ),
-    },
+      )
+    }
   ];
 
   return (
     <>
       <PageHeader
-        title="Departments"
-        subtitle="Manage your organization's departments"
+        title="Offices"
+        subtitle="Manage your organization's offices"
         actions={
-          <Button onClick={() => navigate('/master/departments/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Department
+          <Button onClick={() => navigate('/master/offices/new')}>
+            <Plus className="mr-2 h-4 w-4" /> Add Office
           </Button>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
           <TabsList>
-            <TabsTrigger value="all">All Departments</TabsTrigger>
+            <TabsTrigger value="all">All Offices</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
             <TabsTrigger value="inactive">Inactive</TabsTrigger>
           </TabsList>
@@ -267,15 +308,15 @@ export default function DepartmentsPage() {
 
       <DataTable
         columns={columns}
-        data={departments}
+        data={offices}
         isLoading={isLoading}
         pagination={{
           pageIndex,
           limit,
-          pageCount: Math.ceil(totalDepartments / limit),
+          pageCount: Math.ceil(totalOffices / limit),
           onPageChange: setPageIndex,
           onPageSizeChange: setLimit,
-          total: totalDepartments
+          total: totalOffices
         }}
         filterFields={filterFields}
         onSearch={handleSearch}
@@ -285,10 +326,12 @@ export default function DepartmentsPage() {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Department"
-        description={`Are you sure you want to delete "${departmentToDelete?.name}"? This action cannot be undone.`}
+        title="Delete Office"
+        description={`Are you sure you want to delete "${officeToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
       />
     </>
   );
-}
+};
+
+export default OfficesPage;

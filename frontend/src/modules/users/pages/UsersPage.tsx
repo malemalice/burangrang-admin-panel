@@ -19,9 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/t
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import userService from '../services/userService';
 import { roleService } from '@/modules/roles';
-import officeService from '@/services/officeService';
-import departmentService from '@/services/departmentService';
-import jobPositionService from '@/services/jobPositionService';
+import { officeService, departmentService, jobPositionService } from '@/modules/master-data';
 import { User } from '@/core/lib/types';
 
 const UsersPage = () => {

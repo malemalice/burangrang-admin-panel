@@ -1,31 +1,12 @@
 import api from '@/core/lib/api';
-import { MasterApproval, PaginatedResponse } from '@/core/lib/types';
-
-interface PaginationParams {
-  page?: number;
-  limit?: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-  isActive?: boolean;
-  search?: string;
-}
-
-export interface CreateMasterApprovalItemDTO {
-  job_position_id: string;
-  department_id: string;
-  createdBy: string;
-  order?: number;
-}
-
-export interface CreateMasterApprovalDTO {
-  entity: string;
-  isActive?: boolean;
-  items: CreateMasterApprovalItemDTO[];
-}
-
-export interface UpdateMasterApprovalDTO extends Partial<CreateMasterApprovalDTO> {
-  // Additional fields specific to updates can be added here
-}
+import { 
+  MasterApproval, 
+  PaginatedResponse, 
+  PaginationParams,
+  MasterApprovalDTO,
+  CreateMasterApprovalDTO,
+  UpdateMasterApprovalDTO 
+} from '../types/master-data.types';
 
 const masterApprovalService = {
   getAll: async (params?: PaginationParams): Promise<PaginatedResponse<MasterApproval>> => {

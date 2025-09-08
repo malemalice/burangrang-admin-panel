@@ -1,10 +1,10 @@
 import { RouteConfig } from './types';
 import menuRoutes from './modules/menuRoutes';
-import masterRoutes from './modules/masterRoutes';
 import coreRoutes from './modules/coreRoutes';
 import { settingsRoutes } from '@/modules/settings';
 import { userRoutes } from '@/modules/users';
 import { roleRoutes } from '@/modules/roles';
+import { masterDataRoutes } from '@/modules/master-data';
 
 /**
  * Application routes registry
@@ -15,7 +15,7 @@ const routes: RouteConfig[] = [
   ...userRoutes,
   ...roleRoutes,
   ...menuRoutes,
-  ...masterRoutes,
+  ...masterDataRoutes,
   ...settingsRoutes,
 ];
 

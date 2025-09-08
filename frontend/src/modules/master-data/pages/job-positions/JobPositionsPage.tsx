@@ -16,7 +16,7 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
-import jobPositionService from '@/services/jobPositionService';
+import jobPositionService from '../../services/jobPositionService';
 import { JobPosition } from '@/core/lib/types';
 
 const JobPositionsPage = () => {

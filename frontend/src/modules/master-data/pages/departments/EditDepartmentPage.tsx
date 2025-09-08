@@ -9,7 +9,8 @@ import { Textarea } from '@/core/components/ui/textarea';
 import { Alert, AlertDescription } from '@/core/components/ui/alert';
 import { Switch } from '@/core/components/ui/switch';
 import PageHeader from '@/core/components/ui/PageHeader';
-import departmentService, { UpdateDepartmentDTO } from '@/services/departmentService';
+import departmentService from '../../services/departmentService';
+import { UpdateDepartmentDTO } from '../../types/master-data.types';
 import { Department } from '@/core/lib/types';
 
 const EditDepartmentPage = () => {

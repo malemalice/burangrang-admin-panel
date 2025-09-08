@@ -5,7 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import PageHeader from '@/core/components/ui/PageHeader';
 import MasterApprovalForm from './MasterApprovalForm';
-import masterApprovalService from '@/services/masterApprovalService';
+import masterApprovalService from '../../services/masterApprovalService';
 import { MasterApproval } from '@/core/lib/types';
 
 const EditMasterApprovalPage = () => {

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/c
 import { Badge } from '@/core/components/ui/badge';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
-import departmentService from '@/services/departmentService';
+import departmentService from '../../services/departmentService';
 import { Department } from '@/core/lib/types';
 
 const DepartmentDetailPage = () => {

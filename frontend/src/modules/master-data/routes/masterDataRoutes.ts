@@ -1,4 +1,4 @@
-import { RouteConfig } from '../types';
+import { RouteConfig } from '@/core/routes/types';
 import {
   OfficesPage,
   CreateOfficePage,
@@ -14,12 +14,12 @@ import {
   MasterApprovalsPage,
   CreateMasterApprovalPage,
   EditMasterApprovalPage,
-} from '@/pages/master';
+} from '../pages';
 
 /**
  * Master data module routes
  */
-const masterRoutes: RouteConfig[] = [
+const masterDataRoutes: RouteConfig[] = [
   {
     path: '/master/offices',
     component: OfficesPage,
@@ -78,4 +78,4 @@ const masterRoutes: RouteConfig[] = [
   },
 ];
 
-export default masterRoutes; 
+export default masterDataRoutes; 

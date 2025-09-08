@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, CheckCircle2, MoreHorizontal } from 'lucide-react';
+import { Edit, Trash2, Plus, Building, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
   DropdownMenu,
@@ -15,19 +15,19 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
+import { Department, PaginationParams } from '@/core/lib/types';
+import departmentService from '../../services/departmentService';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
-import masterApprovalService from '@/services/masterApprovalService';
-import { MasterApproval } from '@/core/lib/types';
 
-const MasterApprovalsPage = () => {
+export default function DepartmentsPage() {
   const navigate = useNavigate();
-  const [approvals, setApprovals] = useState<MasterApproval[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
-  const [totalApprovals, setTotalApprovals] = useState(0);
+  const [totalDepartments, setTotalDepartments] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [approvalToDelete, setApprovalToDelete] = useState<MasterApproval | null>(null);
+  const [departmentToDelete, setDepartmentToDelete] = useState<Department | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
@@ -36,44 +36,47 @@ const MasterApprovalsPage = () => {
   // Define filter fields
   const filterFields: FilterField[] = [
     {
-      id: 'entity',
-      label: 'Entity',
+      id: 'name',
+      label: 'Department Name',
       type: 'text',
     },
     {
-      id: 'isActive',
+      id: 'code',
+      label: 'Department Code',
+      type: 'text',
+    },
+    {
+      id: 'status',
       label: 'Status',
       type: 'select',
       options: [
-        { label: 'Active', value: 'true' },
-        { label: 'Inactive', value: 'false' },
+        { label: 'Active', value: 'active' },
+        { label: 'Inactive', value: 'inactive' },
       ],
     },
   ];
 
-  const fetchApprovals = useCallback(async () => {
+  const fetchDepartments = useCallback(async () => {
     setIsLoading(true);
     try {
-      const params = {
+      const params: PaginationParams = {
         page: pageIndex + 1,
         limit,
-        sortBy: 'entity',
-        sortOrder: 'asc',
         search: searchTerm,
         filters: {
           ...Object.entries(activeFilters).reduce((acc, [key, item]) => ({
             ...acc,
             [key]: item.value
           }), {}),
-          isActive: activeFilters.isActive?.value === true ? true : 
-                   activeFilters.isActive?.value === false ? false : 
-                   undefined,
-        },
+          isActive: activeFilters.status?.value === 'active' ? true :
+                   activeFilters.status?.value === 'inactive' ? false :
+                   undefined
+        }
       };
 
-      const response = await masterApprovalService.getAll(params);
-      setApprovals(response.data);
-      setTotalApprovals(response.meta.total);
+      const response = await departmentService.getDepartments(params);
+      setDepartments(response.data);
+      setTotalDepartments(response.meta.total);
       
       // Ensure we have data from the correct page
       const actualPage = response.meta.page;
@@ -81,16 +84,17 @@ const MasterApprovalsPage = () => {
         setPageIndex(actualPage - 1);
       }
     } catch (error) {
-      console.error('Failed to fetch approvals:', error);
-      toast.error('Failed to load approvals');
+      console.error('Failed to fetch departments:', error);
+      toast.error('Failed to load departments');
     } finally {
       setIsLoading(false);
     }
   }, [pageIndex, limit, searchTerm, activeFilters]);
 
+  // Fetch departments when pagination, search, filters, or active tab changes
   useEffect(() => {
-    fetchApprovals();
-  }, [fetchApprovals]);
+    fetchDepartments();
+  }, [fetchDepartments]);
 
   const handleDropdownOpenChange = (id: string, open: boolean) => {
     setDropdownOpenStates(prev => ({
@@ -99,145 +103,141 @@ const MasterApprovalsPage = () => {
     }));
   };
 
-  const handleDeleteClick = (approval: MasterApproval) => {
+  const handleDeleteClick = (department: Department) => {
+    // Close the dropdown menu for this department
     setDropdownOpenStates(prev => ({
       ...prev,
-      [approval.id]: false
+      [department.id]: false
     }));
-    setApprovalToDelete(approval);
+    
+    // Set department to delete and open the dialog
+    setDepartmentToDelete(department);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!approvalToDelete) return;
+    if (!departmentToDelete) return;
     
     setIsLoading(true);
     try {
-      await masterApprovalService.delete(approvalToDelete.id);
-      toast.success(`Approval "${approvalToDelete.entity}" has been deleted`);
-      fetchApprovals();
+      await departmentService.deleteDepartment(departmentToDelete.id);
+      toast.success(`Department "${departmentToDelete.name}" has been deleted`);
+      fetchDepartments();
     } catch (error) {
-      console.error('Failed to delete approval:', error);
-      toast.error('Failed to delete approval');
+      console.error(`Failed to delete department:`, error);
+      toast.error('Failed to delete department');
     } finally {
       setIsLoading(false);
       setDeleteDialogOpen(false);
-      setApprovalToDelete(null);
+      setDepartmentToDelete(null);
     }
   };
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    setPageIndex(0);
+    setPageIndex(0); // Reset to first page on new search
   };
 
-  const handleApplyFilters = (filterValues: FilterValue[]) => {
-    const newFilters: Record<string, { value: any; label: string }> = {};
-    filterValues.forEach(filter => {
-      newFilters[filter.id] = {
-        value: filter.value,
-        label: String(filter.value)
-      };
+  const handleApplyFilters = (filters: FilterValue[]) => {
+    const newActiveFilters: Record<string, { value: any; label: string }> = {};
+    
+    filters.forEach(filter => {
+      if (filter.id === 'status') {
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: filter.value === 'active' ? 'Active' : 'Inactive'
+        };
+      } else {
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: String(filter.value)
+        };
+      }
     });
-    setActiveFilters(newFilters);
-    setPageIndex(0);
+    
+    setActiveFilters(newActiveFilters);
+    setPageIndex(0); // Reset to first page on new filters
   };
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     setPageIndex(0);
     
+    // Update filters based on tab
     if (value === 'all') {
       setActiveFilters({});
     } else if (value === 'active') {
       setActiveFilters({
-        isActive: { value: true, label: 'Active' }
+        status: { value: 'active', label: 'Active' }
       });
     } else if (value === 'inactive') {
       setActiveFilters({
-        isActive: { value: false, label: 'Inactive' }
+        status: { value: 'inactive', label: 'Inactive' }
       });
     }
   };
 
   const columns = [
     {
-      id: 'entity',
-      header: 'Entity',
-      cell: (approval: MasterApproval) => (
+      id: 'name',
+      header: 'Department Name',
+      cell: (department: Department) => (
         <div>
-          <div className="font-medium">{approval.entity}</div>
+          <div className="font-medium">{department.name}</div>
           <div className="text-xs text-gray-500 mt-1">
-            Items: {approval.items.length}
+            Code: {department.code}
           </div>
         </div>
       ),
-      isSortable: true,
     },
     {
-      id: 'items',
-      header: 'Approval Flow',
-      cell: (approval: MasterApproval) => (
-        <div className="space-y-1">
-          {approval.items.map((item, index) => (
-            <div key={item.id} className="flex items-center gap-2 text-sm">
-              <span className="text-gray-500">{index + 1}.</span>
-              <span>{item.jobPosition.name}</span>
-              <span className="text-gray-500">-</span>
-              <span>{item.department.name}</span>
-            </div>
-          ))}
-        </div>
-      ),
+      id: 'description',
+      header: 'Description',
+      cell: (department: Department) => department.description || '-',
     },
     {
-      id: 'isActive',
+      id: 'status',
       header: 'Status',
-      cell: (approval: MasterApproval) => (
+      cell: (department: Department) => (
         <Badge
           variant="outline"
           className={`${
-            approval.isActive
+            department.isActive
               ? 'bg-green-100 text-green-800'
               : 'bg-gray-100 text-gray-800'
           } border-0`}
         >
-          {approval.isActive ? 'Active' : 'Inactive'}
+          {department.isActive ? 'Active' : 'Inactive'}
         </Badge>
       ),
-      isSortable: true,
     },
     {
       id: 'actions',
-      header: '',
-      cell: (approval: MasterApproval) => (
-        <DropdownMenu
-          open={dropdownOpenStates[approval.id]}
-          onOpenChange={(open) => handleDropdownOpenChange(approval.id, open)}
+      header: 'Actions',
+      cell: (department: Department) => (
+        <DropdownMenu 
+          open={dropdownOpenStates[department.id]} 
+          onOpenChange={(open) => handleDropdownOpenChange(department.id, open)}
         >
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="h-8 w-8 p-0"
-            >
+            <Button variant="ghost" size="icon">
               <span className="sr-only">Open menu</span>
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => navigate(`/master/approvals/${approval.id}/edit`)}
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
+            <DropdownMenuItem onClick={() => navigate(`/master/departments/${department.id}`)}>
+              <Building className="mr-2 h-4 w-4" /> View details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/master/departments/${department.id}/edit`)}>
+              <Edit className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              className="text-red-600"
-              onClick={() => handleDeleteClick(approval)}
+              onClick={() => handleDeleteClick(department)}
+              className="text-red-600 focus:text-red-600"
             >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
+              <Trash2 className="mr-2 h-4 w-4" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -248,17 +248,17 @@ const MasterApprovalsPage = () => {
   return (
     <>
       <PageHeader
-        title="Master Approvals"
-        subtitle="Manage your organization's approval flows"
+        title="Departments"
+        subtitle="Manage your organization's departments"
         actions={
-          <Button onClick={() => navigate('/master/approvals/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Approval
+          <Button onClick={() => navigate('/master/departments/new')}>
+            <Plus className="mr-2 h-4 w-4" /> Add Department
           </Button>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
           <TabsList>
-            <TabsTrigger value="all">All Approvals</TabsTrigger>
+            <TabsTrigger value="all">All Departments</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
             <TabsTrigger value="inactive">Inactive</TabsTrigger>
           </TabsList>
@@ -267,15 +267,15 @@ const MasterApprovalsPage = () => {
 
       <DataTable
         columns={columns}
-        data={approvals}
+        data={departments}
         isLoading={isLoading}
         pagination={{
           pageIndex,
           limit,
-          pageCount: Math.ceil(totalApprovals / limit),
+          pageCount: Math.ceil(totalDepartments / limit),
           onPageChange: setPageIndex,
           onPageSizeChange: setLimit,
-          total: totalApprovals
+          total: totalDepartments
         }}
         filterFields={filterFields}
         onSearch={handleSearch}
@@ -285,12 +285,10 @@ const MasterApprovalsPage = () => {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Approval"
-        description={`Are you sure you want to delete "${approvalToDelete?.entity}"? This action cannot be undone.`}
+        title="Delete Department"
+        description={`Are you sure you want to delete "${departmentToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
       />
     </>
   );
-};
-
-export default MasterApprovalsPage; 
+}

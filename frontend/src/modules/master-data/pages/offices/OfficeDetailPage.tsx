@@ -10,7 +10,7 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import { Office } from '@/core/lib/types';
-import officeService from '@/services/officeService';
+import officeService from '../../services/officeService';
 
 const OfficeDetailPage = () => {
   const navigate = useNavigate();

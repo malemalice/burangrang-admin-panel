@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, MapPin, Phone, Mail, Building, MoreHorizontal } from 'lucide-react';
+import { Edit, Trash2, Plus, CheckCircle2, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
   DropdownMenu,
@@ -15,39 +15,29 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
-import { Office, PaginationParams } from '@/core/lib/types';
-import officeService from '@/services/officeService';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import masterApprovalService from '../../services/masterApprovalService';
+import { MasterApproval } from '@/core/lib/types';
 
-const OfficesPage = () => {
+const MasterApprovalsPage = () => {
   const navigate = useNavigate();
-  const [offices, setOffices] = useState<Office[]>([]);
+  const [approvals, setApprovals] = useState<MasterApproval[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
-  const [totalOffices, setTotalOffices] = useState(0);
+  const [totalApprovals, setTotalApprovals] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [officeToDelete, setOfficeToDelete] = useState<Office | null>(null);
+  const [approvalToDelete, setApprovalToDelete] = useState<MasterApproval | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
-  
+
   // Define filter fields
   const filterFields: FilterField[] = [
     {
-      id: 'name',
-      label: 'Office Name',
-      type: 'text',
-    },
-    {
-      id: 'code',
-      label: 'Office Code',
-      type: 'text',
-    },
-    {
-      id: 'address',
-      label: 'Address',
+      id: 'entity',
+      label: 'Entity',
       type: 'text',
     },
     {
@@ -61,13 +51,13 @@ const OfficesPage = () => {
     },
   ];
 
-  const fetchOffices = useCallback(async () => {
+  const fetchApprovals = useCallback(async () => {
     setIsLoading(true);
     try {
-      const params: PaginationParams = {
+      const params = {
         page: pageIndex + 1,
         limit,
-        sortBy: 'name',
+        sortBy: 'entity',
         sortOrder: 'asc',
         search: searchTerm,
         filters: {
@@ -81,9 +71,9 @@ const OfficesPage = () => {
         },
       };
 
-      const response = await officeService.getOffices(params);
-      setOffices(response.data);
-      setTotalOffices(response.meta.total);
+      const response = await masterApprovalService.getAll(params);
+      setApprovals(response.data);
+      setTotalApprovals(response.meta.total);
       
       // Ensure we have data from the correct page
       const actualPage = response.meta.page;
@@ -91,17 +81,16 @@ const OfficesPage = () => {
         setPageIndex(actualPage - 1);
       }
     } catch (error) {
-      console.error('Failed to fetch offices:', error);
-      toast.error('Failed to load offices');
+      console.error('Failed to fetch approvals:', error);
+      toast.error('Failed to load approvals');
     } finally {
       setIsLoading(false);
     }
   }, [pageIndex, limit, searchTerm, activeFilters]);
 
-  // Fetch offices when dependencies change
   useEffect(() => {
-    fetchOffices();
-  }, [fetchOffices]);
+    fetchApprovals();
+  }, [fetchApprovals]);
 
   const handleDropdownOpenChange = (id: string, open: boolean) => {
     setDropdownOpenStates(prev => ({
@@ -110,60 +99,54 @@ const OfficesPage = () => {
     }));
   };
 
-  const handleDeleteClick = (office: Office) => {
-    // Close the dropdown menu for this office
+  const handleDeleteClick = (approval: MasterApproval) => {
     setDropdownOpenStates(prev => ({
       ...prev,
-      [office.id]: false
+      [approval.id]: false
     }));
-    
-    // Set office to delete and open the dialog
-    setOfficeToDelete(office);
+    setApprovalToDelete(approval);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!officeToDelete) return;
+    if (!approvalToDelete) return;
     
     setIsLoading(true);
     try {
-      await officeService.deleteOffice(officeToDelete.id);
-      toast.success(`Office "${officeToDelete.name}" has been deleted`);
-      fetchOffices();
+      await masterApprovalService.delete(approvalToDelete.id);
+      toast.success(`Approval "${approvalToDelete.entity}" has been deleted`);
+      fetchApprovals();
     } catch (error) {
-      console.error('Failed to delete office:', error);
-      toast.error('Failed to delete office');
+      console.error('Failed to delete approval:', error);
+      toast.error('Failed to delete approval');
     } finally {
       setIsLoading(false);
       setDeleteDialogOpen(false);
-      setOfficeToDelete(null);
+      setApprovalToDelete(null);
     }
   };
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    setPageIndex(0); // Reset to first page on new search
+    setPageIndex(0);
   };
 
   const handleApplyFilters = (filterValues: FilterValue[]) => {
     const newFilters: Record<string, { value: any; label: string }> = {};
-    
     filterValues.forEach(filter => {
       newFilters[filter.id] = {
         value: filter.value,
         label: String(filter.value)
       };
     });
-    
     setActiveFilters(newFilters);
-    setPageIndex(0); // Reset to first page on new filters
+    setPageIndex(0);
   };
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     setPageIndex(0);
     
-    // Update filters based on tab
     if (value === 'all') {
       setActiveFilters({});
     } else if (value === 'active') {
@@ -179,127 +162,103 @@ const OfficesPage = () => {
 
   const columns = [
     {
-      id: 'name',
-      header: 'Office Name',
-      cell: (office: Office) => (
+      id: 'entity',
+      header: 'Entity',
+      cell: (approval: MasterApproval) => (
         <div>
-          <div className="font-medium">{office.name}</div>
-          <div className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-            <MapPin size={12} />
-            {office.address || 'Location not specified'}
+          <div className="font-medium">{approval.entity}</div>
+          <div className="text-xs text-gray-500 mt-1">
+            Items: {approval.items.length}
           </div>
         </div>
       ),
+      isSortable: true,
     },
     {
-      id: 'code',
-      header: 'Code',
-      cell: (office: Office) => office.code,
+      id: 'items',
+      header: 'Approval Flow',
+      cell: (approval: MasterApproval) => (
+        <div className="space-y-1">
+          {approval.items.map((item, index) => (
+            <div key={item.id} className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500">{index + 1}.</span>
+              <span>{item.jobPosition.name}</span>
+              <span className="text-gray-500">-</span>
+              <span>{item.department.name}</span>
+            </div>
+          ))}
+        </div>
+      ),
     },
     {
-      id: 'location',
-      header: 'Location',
-      cell: (office: Office) => office.address || '-',
-    },
-    {
-      id: 'status',
+      id: 'isActive',
       header: 'Status',
-      cell: (office: Office) => {
-        const isActive = office.isActive ?? true; // Default to true if undefined
-        return (
-          <Badge
-            variant="outline"
-            className={`${
-              isActive
-                ? 'bg-green-100 text-green-800'
-                : 'bg-gray-100 text-gray-800'
-            } border-0`}
-          >
-            {isActive ? 'Active' : 'Inactive'}
-          </Badge>
-        );
-      },
-    },
-    {
-      id: 'contact',
-      header: 'Contact',
-      cell: (office: Office) => (
-        <div className="text-sm space-y-1">
-          {office.phone && (
-            <div className="flex items-center gap-2">
-              <Phone size={14} className="text-gray-500" />
-              {office.phone}
-            </div>
-          )}
-          {office.email && (
-            <div className="flex items-center gap-2">
-              <Mail size={14} className="text-gray-500" />
-              {office.email}
-            </div>
-          )}
-          {!office.phone && !office.email && (
-            <div className="text-gray-500">No contact info</div>
-          )}
-        </div>
+      cell: (approval: MasterApproval) => (
+        <Badge
+          variant="outline"
+          className={`${
+            approval.isActive
+              ? 'bg-green-100 text-green-800'
+              : 'bg-gray-100 text-gray-800'
+          } border-0`}
+        >
+          {approval.isActive ? 'Active' : 'Inactive'}
+        </Badge>
       ),
-    },
-    {
-      id: 'parent',
-      header: 'Parent Office',
-      cell: (office: Office) => (
-        <div>
-          {office.parent ? office.parent.name : 'Main Office'}
-        </div>
-      ),
+      isSortable: true,
     },
     {
       id: 'actions',
-      header: 'Actions',
-      cell: (office: Office) => (
-        <DropdownMenu 
-          open={dropdownOpenStates[office.id]} 
-          onOpenChange={(open) => handleDropdownOpenChange(office.id, open)}
+      header: '',
+      cell: (approval: MasterApproval) => (
+        <DropdownMenu
+          open={dropdownOpenStates[approval.id]}
+          onOpenChange={(open) => handleDropdownOpenChange(approval.id, open)}
         >
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button
+              variant="ghost"
+              className="h-8 w-8 p-0"
+            >
               <span className="sr-only">Open menu</span>
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/master/offices/${office.id}`)}>
-              <Building className="mr-2 h-4 w-4" /> View details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/master/offices/${office.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
+            <DropdownMenuItem
+              onClick={() => navigate(`/master/approvals/${approval.id}/edit`)}
+            >
+              <Edit className="mr-2 h-4 w-4" />
+              Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => handleDeleteClick(office)}
-              className="text-red-600 focus:text-red-600"
+              className="text-red-600"
+              onClick={() => handleDeleteClick(approval)}
             >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      )
-    }
+      ),
+    },
   ];
 
   return (
     <>
       <PageHeader
-        title="Offices"
-        subtitle="Manage your organization's offices"
+        title="Master Approvals"
+        subtitle="Manage your organization's approval flows"
         actions={
-          <Button onClick={() => navigate('/master/offices/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Office
+          <Button onClick={() => navigate('/master/approvals/new')}>
+            <Plus className="mr-2 h-4 w-4" /> Add Approval
           </Button>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
           <TabsList>
-            <TabsTrigger value="all">All Offices</TabsTrigger>
+            <TabsTrigger value="all">All Approvals</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
             <TabsTrigger value="inactive">Inactive</TabsTrigger>
           </TabsList>
@@ -308,15 +267,15 @@ const OfficesPage = () => {
 
       <DataTable
         columns={columns}
-        data={offices}
+        data={approvals}
         isLoading={isLoading}
         pagination={{
           pageIndex,
           limit,
-          pageCount: Math.ceil(totalOffices / limit),
+          pageCount: Math.ceil(totalApprovals / limit),
           onPageChange: setPageIndex,
           onPageSizeChange: setLimit,
-          total: totalOffices
+          total: totalApprovals
         }}
         filterFields={filterFields}
         onSearch={handleSearch}
@@ -326,12 +285,12 @@ const OfficesPage = () => {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Office"
-        description={`Are you sure you want to delete "${officeToDelete?.name}"? This action cannot be undone.`}
+        title="Delete Approval"
+        description={`Are you sure you want to delete "${approvalToDelete?.entity}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
       />
     </>
   );
 };
 
-export default OfficesPage;
+export default MasterApprovalsPage; 
