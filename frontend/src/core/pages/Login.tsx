@@ -7,16 +7,21 @@ import { Alert, AlertDescription } from "@/core/components/ui/alert";
 import { Info } from "lucide-react";
 import { useAuth } from '@/core/lib/auth';
 import { useTheme } from '@/core/lib/theme';
+import { themeColors, getContrastTextColor } from '@/core/lib/theme/colors';
 import { cn } from '@/core/lib/utils';
 
 const Login = () => {
   const navigate = useNavigate();
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { isDark } = useTheme();
+  const { isDark, theme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Get theme colors for dynamic styling
+  const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
+  const textColor = getContrastTextColor(currentThemeColor);
 
   // If already authenticated, redirect to dashboard
   useEffect(() => {
@@ -62,7 +67,13 @@ const Login = () => {
       isDark ? "bg-gray-900" : "bg-slate-50"
     )}>
       {/* Left side with welcome message */}
-      <div className="hidden md:flex md:w-1/2 bg-admin-primary text-white p-10 flex-col justify-between">
+      <div
+        className="hidden md:flex md:w-1/2 p-10 flex-col justify-between"
+        style={{
+          backgroundColor: currentThemeColor,
+          color: textColor
+        }}
+      >
         <div className="mt-16">
           <h1 className="text-4xl font-bold mb-6">Welcome</h1>
           <p className="text-lg mb-6">
@@ -117,12 +128,15 @@ const Login = () => {
           {/* Demo credentials alert */}
           <Alert className={cn(
             "mb-6 border",
-            isDark ? "bg-blue-900/20 border-blue-800 text-blue-300" : "bg-blue-50 border-blue-100"
+            isDark ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"
           )}>
-            <Info className={isDark ? "h-4 w-4 text-blue-400" : "h-4 w-4 text-blue-500"} />
+            <Info
+              className="h-4 w-4"
+              style={{ color: currentThemeColor }}
+            />
             <AlertDescription className={cn(
-              "text-sm", 
-              isDark ? "text-blue-300" : "text-blue-700"
+              "text-sm",
+              isDark ? "text-gray-300" : "text-gray-700"
             )}>
               <strong>Email:</strong> admin@example.com<br />
               <strong>Password:</strong> admin123
@@ -144,8 +158,14 @@ const Login = () => {
           <form onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className={isDark ? "text-gray-300" : ""}>* Email</Label>
-                <Input 
+                <Label
+                  htmlFor="email"
+                  className={isDark ? "text-gray-300" : ""}
+                  style={{ color: isDark ? undefined : currentThemeColor }}
+                >
+                  * Email
+                </Label>
+                <Input
                   id="email"
                   type="email"
                   placeholder="example@adminjs.co"
@@ -153,12 +173,29 @@ const Login = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
                   className={isDark ? "bg-gray-800 border-gray-700 text-white placeholder:text-gray-500" : ""}
+                  style={{
+                    borderColor: currentThemeColor + '40',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = currentThemeColor;
+                    e.currentTarget.style.boxShadow = `0 0 0 2px ${currentThemeColor}20`;
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = currentThemeColor + '40';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="password" className={isDark ? "text-gray-300" : ""}>* Password</Label>
-                <Input 
+                <Label
+                  htmlFor="password"
+                  className={isDark ? "text-gray-300" : ""}
+                  style={{ color: isDark ? undefined : currentThemeColor }}
+                >
+                  * Password
+                </Label>
+                <Input
                   id="password"
                   type="password"
                   placeholder="••••••••"
@@ -166,13 +203,34 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
                   className={isDark ? "bg-gray-800 border-gray-700 text-white placeholder:text-gray-500" : ""}
+                  style={{
+                    borderColor: currentThemeColor + '40',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = currentThemeColor;
+                    e.currentTarget.style.boxShadow = `0 0 0 2px ${currentThemeColor}20`;
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = currentThemeColor + '40';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                 />
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full bg-admin-primary hover:bg-admin-primary/90"
+              <Button
+                type="submit"
+                className="w-full"
+                style={{
+                  backgroundColor: currentThemeColor,
+                  color: textColor,
+                }}
                 disabled={isLoading}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = currentThemeColor + 'E0'; // Add opacity
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = currentThemeColor;
+                }}
               >
                 {isLoading ? 'Logging in...' : 'Login'}
               </Button>

@@ -9,7 +9,8 @@ import { Switch } from '@/core/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
 import PageHeader from '@/core/components/ui/PageHeader';
-import { useTheme, ThemeColor, themeColors } from '@/core/lib/theme';
+import { useTheme, ThemeColor } from '@/core/lib/theme';
+import { themeColors } from '@/core/lib/theme/colors';
 
 // Define theme options
 const themeOptions = Object.entries(themeColors).map(([id, colors]) => ({
@@ -39,9 +40,27 @@ const SettingsPage = () => {
     }
   };
   
-  const handleSaveAppearance = () => {
-    // In a real app, this would save to backend
-    toast.success('Appearance settings saved successfully');
+  const handleSaveAppearance = async () => {
+    try {
+      // Dynamically import settings service to avoid circular dependencies
+      const { default: settingsService } = await import('../services/settingsService');
+
+      // Save theme settings to backend
+      await settingsService.setThemeSettings(theme, mode);
+
+      toast.success('Appearance settings saved successfully');
+    } catch (error: any) {
+      console.error('Error saving appearance settings:', error);
+
+      // Handle specific error cases
+      if (error.message?.includes('403') || error.message?.includes('Forbidden')) {
+        toast.error('You do not have permission to save settings');
+      } else if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+        toast.error('Please log in again to save settings');
+      } else {
+        toast.error('Failed to save appearance settings');
+      }
+    }
   };
   
   return (

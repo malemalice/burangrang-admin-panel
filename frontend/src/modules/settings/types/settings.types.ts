@@ -1,3 +1,5 @@
+import { ThemeColor, ThemeMode } from '@/core/lib/theme';
+
 /**
  * Settings module types
  */
@@ -5,7 +7,8 @@
 export interface UserSettings {
   id: string;
   userId: string;
-  theme: 'light' | 'dark' | 'system';
+  themeColor: ThemeColor;
+  themeMode: ThemeMode;
   language: string;
   notifications: {
     email: boolean;
@@ -27,7 +30,8 @@ export interface UserSettings {
 }
 
 export interface UpdateSettingsRequest {
-  theme?: 'light' | 'dark' | 'system';
+  themeColor?: ThemeColor;
+  themeMode?: ThemeMode;
   language?: string;
   notifications?: {
     email?: boolean;

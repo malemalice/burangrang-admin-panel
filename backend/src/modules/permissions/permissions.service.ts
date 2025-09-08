@@ -16,6 +16,6 @@ export class PermissionsService {
       },
     });
 
-    return permissions.map(permission => new PermissionDto(permission));
+    return permissions.map((permission) => new PermissionDto(permission));
   }
-} 
+}

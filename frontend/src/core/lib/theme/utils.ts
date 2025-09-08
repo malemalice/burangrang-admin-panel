@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { themeColors, semanticColors, baseColors } from './colors';
+import { themeColors, themeColorsHSL, semanticColors, baseColors } from './colors';
 
 /**
  * Theme utility types
@@ -20,49 +20,41 @@ export const getThemeColor = (theme: ThemeColor, colorType: 'primary' | 'seconda
  */
 export const initializeThemeVariables = (theme: ThemeColor = 'blue', mode: ThemeMode = 'light'): void => {
   const root = document.documentElement;
-  const themeColorSet = themeColors[theme];
-  
-  // Set theme-specific colors
-  root.style.setProperty('--primary-color', themeColorSet.primary);
-  root.style.setProperty('--primary-color-light', themeColorSet.accent);
-  root.style.setProperty('--primary-color-dark', themeColorSet.secondary);
-  root.style.setProperty('--secondary-color', themeColorSet.secondary);
-  root.style.setProperty('--accent-color', themeColorSet.accent);
+  const themeColorSet = themeColorsHSL[theme];
 
-  // Set light mode default app colors
+  // Set theme-specific colors in HSL format for Tailwind CSS
+  root.style.setProperty('--primary', themeColorSet.primary);
+  root.style.setProperty('--secondary', themeColorSet.secondary);
+  root.style.setProperty('--accent', themeColorSet.accent);
+
+  // Set mode-specific colors
   if (mode === 'light') {
-    // Background colors
-    root.style.setProperty('--background-color', semanticColors.app.background);
-    root.style.setProperty('--foreground-color', semanticColors.app.foreground);
-    root.style.setProperty('--muted-color', semanticColors.app.muted);
-    root.style.setProperty('--border-color', semanticColors.app.border);
-    
-    // Component-specific colors
-    root.style.setProperty('--card-background', baseColors.white);
-    root.style.setProperty('--input-border', baseColors.slate[300]);
-    root.style.setProperty('--tooltip-bg', baseColors.slate[800]);
+    // Light mode colors
+    root.style.setProperty('--background', '0 0% 100%');
+    root.style.setProperty('--foreground', '222.2 84% 4.9%');
+    root.style.setProperty('--muted', '210 40% 96.1%');
+    root.style.setProperty('--border', '214.3 31.8% 91.4%');
+    root.style.setProperty('--input', '214.3 31.8% 91.4%');
+    root.style.setProperty('--ring', '222.2 84% 4.9%');
+    root.style.setProperty('--card', '0 0% 100%');
+    root.style.setProperty('--popover', '0 0% 100%');
+  } else {
+    // Dark mode colors
+    root.style.setProperty('--background', '222.2 84% 4.9%');
+    root.style.setProperty('--foreground', '210 40% 98%');
+    root.style.setProperty('--muted', '217.2 32.6% 17.5%');
+    root.style.setProperty('--border', '217.2 32.6% 17.5%');
+    root.style.setProperty('--input', '217.2 32.6% 17.5%');
+    root.style.setProperty('--ring', '212.7 26.8% 83.9%');
+    root.style.setProperty('--card', '222.2 84% 4.9%');
+    root.style.setProperty('--popover', '222.2 84% 4.9%');
   }
-  
+
   // Status colors (same for both modes)
-  root.style.setProperty('--success-color', semanticColors.status.success.base);
-  root.style.setProperty('--warning-color', semanticColors.status.warning.base);
-  root.style.setProperty('--error-color', semanticColors.status.error.base);
-  root.style.setProperty('--info-color', semanticColors.status.info.base);
+  root.style.setProperty('--destructive', '0 84.2% 60.2%');
   
-  // Set foreground RGB values for rgba usage
-  const hexToRgb = (hex: string): {r: number, g: number, b: number} | null => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : null;
-  };
-  
-  const foregroundRgb = hexToRgb(semanticColors.app.foreground);
-  if (foregroundRgb) {
-    root.style.setProperty('--foreground-color-rgb', `${foregroundRgb.r}, ${foregroundRgb.g}, ${foregroundRgb.b}`);
-  }
+  // Set radius for consistent border radius
+  root.style.setProperty('--radius', '0.5rem');
 };
 
 /**
@@ -75,12 +67,17 @@ interface UseThemeReturn {
   setMode: (mode: ThemeMode) => void;
   toggleMode: () => void;
   isDark: boolean;
+  isLoading: boolean;
+  loadThemeFromBackend: () => Promise<{ color: ThemeColor; mode: ThemeMode }>;
 }
 
 /**
- * Hook for managing theme in the application
+ * Hook for managing theme in the application with backend persistence
  */
 export const useTheme = (): UseThemeReturn => {
+  // Loading state for backend operations
+  const [isLoading, setIsLoading] = useState(false);
+
   // Get initial theme from localStorage or use default 'blue'
   const [theme, setThemeState] = useState<ThemeColor>(() => {
     const savedTheme = localStorage.getItem('theme-color');
@@ -102,37 +99,94 @@ export const useTheme = (): UseThemeReturn => {
     initializeThemeVariables(theme, mode);
   }, []);
 
+  // Function to load theme settings from backend
+  const loadThemeFromBackend = async () => {
+    try {
+      setIsLoading(true);
+      // Dynamically import settings service to avoid circular dependencies
+      const { default: settingsService } = await import('@/modules/settings/services/settingsService');
+
+      const themeSettings = await settingsService.getThemeSettings();
+
+      // Update state with backend values
+      setThemeState(themeSettings.color);
+      setModeState(themeSettings.mode);
+
+      // Update localStorage as fallback
+      localStorage.setItem('theme-color', themeSettings.color);
+      localStorage.setItem('theme-mode', themeSettings.mode);
+
+      return themeSettings;
+    } catch (error) {
+      console.warn('Failed to load theme from backend, using localStorage defaults:', error);
+      // Continue with localStorage values if backend fails
+      return { color: theme, mode };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to save theme settings to backend
+  const saveThemeToBackend = async (newTheme: ThemeColor, newMode: ThemeMode) => {
+    try {
+      // Dynamically import settings service to avoid circular dependencies
+      const { default: settingsService } = await import('@/modules/settings/services/settingsService');
+
+      await settingsService.setThemeSettings(newTheme, newMode);
+    } catch (error) {
+      console.warn('Failed to save theme to backend:', error);
+      // Don't throw error - localStorage will still work as fallback
+    }
+  };
+
   // Save theme to localStorage when it changes and update CSS variables
   useEffect(() => {
     localStorage.setItem('theme-color', theme);
-    
+
     // Update CSS variables for the theme
     const root = document.documentElement;
-    const themeColorSet = themeColors[theme];
-    
-    root.style.setProperty('--primary-color', themeColorSet.primary);
-    root.style.setProperty('--primary-color-light', themeColorSet.accent);
-    root.style.setProperty('--primary-color-dark', themeColorSet.secondary);
-    root.style.setProperty('--secondary-color', themeColorSet.secondary);
-    root.style.setProperty('--accent-color', themeColorSet.accent);
+    const themeColorSet = themeColorsHSL[theme];
+
+    // Set primary colors in HSL format for Tailwind CSS
+    root.style.setProperty('--primary', themeColorSet.primary);
+    root.style.setProperty('--secondary', themeColorSet.secondary);
+    root.style.setProperty('--accent', themeColorSet.accent);
+
+    // Save to backend (don't await to avoid blocking UI)
+    saveThemeToBackend(theme, mode);
   }, [theme]);
 
   // Save mode to localStorage when it changes and update document class
   useEffect(() => {
     localStorage.setItem('theme-mode', mode);
-    
+
     // Apply dark mode class to document
     if (mode === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
+
+    // Save to backend (don't await to avoid blocking UI)
+    saveThemeToBackend(theme, mode);
   }, [mode]);
 
   // Set theme with validation
   const setTheme = (newTheme: ThemeColor) => {
-    if (themeColors[newTheme]) {
+    if (themeColorsHSL[newTheme]) {
       setThemeState(newTheme);
+
+      // Apply CSS variables immediately for instant feedback
+      // Use HSL values and correct variable names for Tailwind CSS
+      const root = document.documentElement;
+      const themeColorSet = themeColorsHSL[newTheme];
+
+      // Set primary colors in HSL format
+      root.style.setProperty('--primary', themeColorSet.primary);
+      root.style.setProperty('--secondary', themeColorSet.secondary);
+      root.style.setProperty('--accent', themeColorSet.accent);
+
+      console.log(`Applied theme ${newTheme}:`, themeColorSet);
     } else {
       console.warn(`Theme "${newTheme}" is not a valid theme.`);
     }
@@ -142,6 +196,15 @@ export const useTheme = (): UseThemeReturn => {
   const setMode = (newMode: ThemeMode) => {
     if (newMode === 'light' || newMode === 'dark') {
       setModeState(newMode);
+
+      // Apply dark mode class immediately for instant feedback
+      if (newMode === 'dark') {
+        document.documentElement.classList.add('dark');
+        console.log('Applied dark mode');
+      } else {
+        document.documentElement.classList.remove('dark');
+        console.log('Applied light mode');
+      }
     } else {
       console.warn(`Mode "${newMode}" is not a valid mode.`);
     }
@@ -149,7 +212,17 @@ export const useTheme = (): UseThemeReturn => {
 
   // Toggle between light and dark mode
   const toggleMode = () => {
-    setModeState(prevMode => (prevMode === 'dark' ? 'light' : 'dark'));
+    const newMode = mode === 'dark' ? 'light' : 'dark';
+    setModeState(newMode);
+
+    // Apply dark mode class immediately for instant feedback
+    if (newMode === 'dark') {
+      document.documentElement.classList.add('dark');
+      console.log('Toggled to dark mode');
+    } else {
+      document.documentElement.classList.remove('dark');
+      console.log('Toggled to light mode');
+    }
   };
 
   return {
@@ -159,6 +232,8 @@ export const useTheme = (): UseThemeReturn => {
     setMode,
     toggleMode,
     isDark: mode === 'dark',
+    isLoading,
+    loadThemeFromBackend,
   };
 };
 

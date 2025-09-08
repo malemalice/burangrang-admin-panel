@@ -62,4 +62,4 @@ export class FindUsersDto implements FindUsersOptions {
   @IsOptional()
   @IsString()
   jobPositionId?: string;
-} 
+}

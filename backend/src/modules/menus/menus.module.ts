@@ -8,4 +8,4 @@ import { PrismaService } from '../../core/prisma/prisma.service';
   providers: [MenusService, PrismaService],
   exports: [MenusService],
 })
-export class MenusModule {} 
+export class MenusModule {}

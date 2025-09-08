@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, Plus, Briefcase, MoreHorizontal } from 'lucide-react';
-import { Button } from '@/core/components/ui/button';
+import { Button, ThemeButton } from '@/core/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -235,9 +235,9 @@ const JobPositionsPage = () => {
         title="Job Positions"
         subtitle="Manage your organization's job positions"
         actions={
-          <Button onClick={() => navigate('/master/job-positions/new')}>
+          <ThemeButton onClick={() => navigate('/master/job-positions/new')}>
             <Plus className="mr-2 h-4 w-4" /> Add Position
-          </Button>
+          </ThemeButton>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

@@ -17,7 +17,7 @@ export class UsersService {
 
   async create(createUserDto: CreateUserDto): Promise<UserDto> {
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-    
+
     const user = await this.prisma.user.create({
       data: {
         ...createUserDto,
@@ -34,7 +34,10 @@ export class UsersService {
     return this.mapToDto(user);
   }
 
-  async findAll(options?: FindUsersOptions): Promise<{ data: UserDto[]; meta: { total: number; page: number; limit: number } }> {
+  async findAll(options?: FindUsersOptions): Promise<{
+    data: UserDto[];
+    meta: { total: number; page: number; limit: number };
+  }> {
     const {
       page = 1,
       limit = 10,
@@ -49,7 +52,7 @@ export class UsersService {
     } = options || {};
 
     const where: Prisma.UserWhereInput = {};
-    
+
     if (search) {
       // Optimize search by using startsWith for better performance
       // and only search in most relevant fields
@@ -102,7 +105,7 @@ export class UsersService {
     ]);
 
     return {
-      data: users.map(user => this.mapToDto(user)),
+      data: users.map((user) => this.mapToDto(user)),
       meta: { total, page, limit },
     };
   }
@@ -134,7 +137,7 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
-    let data = { ...updateUserDto };
+    const data = { ...updateUserDto };
 
     if (updateUserDto.password) {
       data.password = await bcrypt.hash(updateUserDto.password, 10);
@@ -181,4 +184,4 @@ export class UsersService {
 
     return user ? this.mapToDto(user) : null;
   }
-} 
+}

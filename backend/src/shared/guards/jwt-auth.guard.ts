@@ -9,7 +9,9 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     super();
   }
 
-  canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
+  canActivate(
+    context: ExecutionContext,
+  ): boolean | Promise<boolean> | Observable<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [
       context.getHandler(),
       context.getClass(),
@@ -29,4 +31,4 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     // For all other routes, apply JWT authentication
     return super.canActivate(context);
   }
-} 
+}

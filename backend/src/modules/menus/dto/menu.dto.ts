@@ -17,4 +17,4 @@ export class MenuDto {
   constructor(partial: Partial<MenuDto>) {
     Object.assign(this, partial);
   }
-} 
+}

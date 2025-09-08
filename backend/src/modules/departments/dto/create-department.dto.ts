@@ -13,12 +13,18 @@ export class CreateDepartmentDto {
   @IsNotEmpty()
   code: string;
 
-  @ApiProperty({ required: false, description: 'The description of the department' })
+  @ApiProperty({
+    required: false,
+    description: 'The description of the department',
+  })
   @IsString()
   @IsOptional()
   description?: string;
 
-  @ApiProperty({ default: true, description: 'Whether the department is active' })
+  @ApiProperty({
+    default: true,
+    description: 'Whether the department is active',
+  })
   @IsBoolean()
   @IsOptional()
   @Transform(({ value }) => {
@@ -27,4 +33,4 @@ export class CreateDepartmentDto {
     return value;
   })
   isActive?: boolean = true;
-} 
+}

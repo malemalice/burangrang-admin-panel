@@ -39,4 +39,4 @@ export class OfficeDto {
 
   @ApiProperty()
   updatedAt: Date;
-} 
+}

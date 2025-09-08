@@ -14,6 +14,7 @@ import {
   UsersRound
 } from 'lucide-react';
 import { useTheme } from '@/core/lib/theme';
+import { themeColors, getContrastTextColor } from '@/core/lib/theme/colors';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -34,20 +35,22 @@ interface SubMenuProps {
 }
 
 // Common styles for both NavItem and SubMenu
-const getNavStyles = (isDark: boolean, isActive = false) => {
+const getNavStyles = (isDark: boolean, isActive = false, textColor?: string) => {
   if (isActive) {
     return isDark
       ? "bg-gray-700 text-white font-medium"
-      : "bg-white/10 text-white font-medium";
+      : `bg-white/10 font-medium`;
   }
-  
+
   return isDark
     ? "text-gray-300 hover:bg-gray-700 hover:text-white"
-    : "text-white/80 hover:bg-white/10 hover:text-white";
+    : `hover:bg-white/10`;
 };
 
 const NavItem = ({ to, icon: Icon, children, isOpen = true }: NavItemProps) => {
-  const { isDark } = useTheme();
+  const { isDark, theme } = useTheme();
+  const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
+  const textColor = getContrastTextColor(currentThemeColor);
 
   return (
     <NavLink
@@ -57,6 +60,9 @@ const NavItem = ({ to, icon: Icon, children, isOpen = true }: NavItemProps) => {
         getNavStyles(isDark, isActive),
         !isOpen && "justify-center px-2"
       )}
+      style={{
+        color: textColor,
+      }}
     >
       {Icon && <Icon size={20} className={cn(!isOpen && "mx-auto")} />}
       {isOpen && <span className={cn(Icon && "ml-3")}>{children}</span>}
@@ -66,7 +72,9 @@ const NavItem = ({ to, icon: Icon, children, isOpen = true }: NavItemProps) => {
 
 const SubMenu = ({ title, icon: Icon, isOpen, children }: SubMenuProps) => {
   const [expanded, setExpanded] = useState(false);
-  const { isDark } = useTheme();
+  const { isDark, theme } = useTheme();
+  const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
+  const textColor = getContrastTextColor(currentThemeColor);
 
   return (
     <div>
@@ -77,6 +85,9 @@ const SubMenu = ({ title, icon: Icon, isOpen, children }: SubMenuProps) => {
           getNavStyles(isDark),
           !isOpen && "justify-center px-2"
         )}
+        style={{
+          color: textColor,
+        }}
       >
         <Icon size={20} className={cn(!isOpen && "mx-auto")} />
         {isOpen && (
@@ -96,23 +107,31 @@ const SubMenu = ({ title, icon: Icon, isOpen, children }: SubMenuProps) => {
 };
 
 const Sidebar = ({ isOpen }: SidebarProps) => {
-  const { isDark } = useTheme();
+  const { isDark, theme } = useTheme();
+
+  // Get the current theme color for dynamic styling
+  const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
+  const textColor = getContrastTextColor(currentThemeColor);
 
   return (
     <aside
       className={cn(
         "fixed h-full border-r shadow-sm z-30 transition-all duration-300 ease-in-out",
-        isDark
-          ? "bg-gray-900 border-gray-800"
-          : "bg-admin-primary border-admin-primary/30",
         isOpen ? "w-64" : "w-20"
       )}
+      style={{
+        backgroundColor: currentThemeColor,
+        borderColor: currentThemeColor + '30', // Add transparency
+      }}
     >
       <div className={cn(
         "flex items-center justify-center h-16 border-b px-4",
         isDark ? "border-gray-800" : "border-white/10"
       )}>
-        <h1 className="text-xl font-bold text-white">
+        <h1
+          className="text-xl font-bold"
+          style={{ color: textColor }}
+        >
           {isOpen ? "Office Nexus" : "ON"}
         </h1>
       </div>

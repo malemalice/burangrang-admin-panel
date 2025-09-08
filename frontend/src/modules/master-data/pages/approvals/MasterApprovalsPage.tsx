@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, Plus, CheckCircle2, MoreHorizontal } from 'lucide-react';
-import { Button } from '@/core/components/ui/button';
+import { Button, ThemeButton } from '@/core/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -251,9 +251,9 @@ const MasterApprovalsPage = () => {
         title="Master Approvals"
         subtitle="Manage your organization's approval flows"
         actions={
-          <Button onClick={() => navigate('/master/approvals/new')}>
+          <ThemeButton onClick={() => navigate('/master/approvals/new')}>
             <Plus className="mr-2 h-4 w-4" /> Add Approval
-          </Button>
+          </ThemeButton>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

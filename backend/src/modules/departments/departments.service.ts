@@ -18,7 +18,9 @@ interface FindAllOptions {
 export class DepartmentsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createDepartmentDto: CreateDepartmentDto): Promise<DepartmentDto> {
+  async create(
+    createDepartmentDto: CreateDepartmentDto,
+  ): Promise<DepartmentDto> {
     const department = await this.prisma.department.create({
       data: createDepartmentDto,
     });
@@ -26,7 +28,10 @@ export class DepartmentsService {
     return new DepartmentDto(department);
   }
 
-  async findAll(options?: FindAllOptions): Promise<{ data: DepartmentDto[]; meta: { total: number; page: number; limit: number } }> {
+  async findAll(options?: FindAllOptions): Promise<{
+    data: DepartmentDto[];
+    meta: { total: number; page: number; limit: number };
+  }> {
     const {
       page = 1,
       limit = 10,
@@ -38,7 +43,7 @@ export class DepartmentsService {
 
     // Build where clause
     const where: Prisma.DepartmentWhereInput = {};
-    
+
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -88,7 +93,10 @@ export class DepartmentsService {
     return new DepartmentDto(department);
   }
 
-  async update(id: string, updateDepartmentDto: UpdateDepartmentDto): Promise<DepartmentDto> {
+  async update(
+    id: string,
+    updateDepartmentDto: UpdateDepartmentDto,
+  ): Promise<DepartmentDto> {
     const existingDepartment = await this.prisma.department.findUnique({
       where: { id },
     });
@@ -130,4 +138,4 @@ export class DepartmentsService {
 
     return new DepartmentDto(department);
   }
-} 
+}

@@ -7,4 +7,4 @@ import { JobPositionsController } from './job-positions.controller';
   providers: [JobPositionsService],
   exports: [JobPositionsService],
 })
-export class JobPositionsModule {} 
+export class JobPositionsModule {}

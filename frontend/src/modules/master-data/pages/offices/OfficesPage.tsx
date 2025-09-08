@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, Plus, MapPin, Phone, Mail, Building, MoreHorizontal } from 'lucide-react';
-import { Button } from '@/core/components/ui/button';
+import { Button, ThemeButton } from '@/core/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -292,9 +292,9 @@ const OfficesPage = () => {
         title="Offices"
         subtitle="Manage your organization's offices"
         actions={
-          <Button onClick={() => navigate('/master/offices/new')}>
+          <ThemeButton onClick={() => navigate('/master/offices/new')}>
             <Plus className="mr-2 h-4 w-4" /> Add Office
-          </Button>
+          </ThemeButton>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

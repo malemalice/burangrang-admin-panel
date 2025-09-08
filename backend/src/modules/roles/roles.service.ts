@@ -15,7 +15,9 @@ export class RolesService {
   ) {}
 
   getDefaultPermissions(): string[] {
-    const defaultPermissions = this.configService.get<string>('DEFAULT_PERMISSIONS');
+    const defaultPermissions = this.configService.get<string>(
+      'DEFAULT_PERMISSIONS',
+    );
     return defaultPermissions ? defaultPermissions.split(',') : [];
   }
 
@@ -27,18 +29,20 @@ export class RolesService {
     const defaultPermissions = await this.prisma.permission.findMany({
       where: {
         name: {
-          in: defaultPermissionNames
-        }
+          in: defaultPermissionNames,
+        },
       },
       select: {
-        id: true
-      }
+        id: true,
+      },
     });
 
-    const defaultPermissionIds = defaultPermissions.map(p => p.id);
+    const defaultPermissionIds = defaultPermissions.map((p) => p.id);
 
     // 3. Combine with requested permissions
-    const allPermissionIds = [...new Set([...defaultPermissionIds, ...createRoleDto.permissions])];
+    const allPermissionIds = [
+      ...new Set([...defaultPermissionIds, ...createRoleDto.permissions]),
+    ];
 
     // 4. Create role with all permissions
     const role = await this.prisma.role.create({
@@ -47,8 +51,8 @@ export class RolesService {
         description: createRoleDto.description,
         isActive: createRoleDto.isActive,
         permissions: {
-          connect: allPermissionIds.map(id => ({ id }))
-            }
+          connect: allPermissionIds.map((id) => ({ id })),
+        },
       },
       include: {
         permissions: true,
@@ -109,18 +113,23 @@ export class RolesService {
     const defaultPermissions = await this.prisma.permission.findMany({
       where: {
         name: {
-          in: defaultPermissionNames
-        }
+          in: defaultPermissionNames,
+        },
       },
       select: {
-        id: true
-      }
+        id: true,
+      },
     });
 
-    const defaultPermissionIds = defaultPermissions.map(p => p.id);
+    const defaultPermissionIds = defaultPermissions.map((p) => p.id);
 
     // 3. Combine with requested permissions
-    const allPermissionIds = [...new Set([...defaultPermissionIds, ...(updateRoleDto.permissions || [])])];
+    const allPermissionIds = [
+      ...new Set([
+        ...defaultPermissionIds,
+        ...(updateRoleDto.permissions || []),
+      ]),
+    ];
 
     // 4. Check if role exists
     const existingRole = await this.prisma.role.findUnique({
@@ -142,8 +151,8 @@ export class RolesService {
         description: updateRoleDto.description,
         isActive: updateRoleDto.isActive,
         permissions: {
-          set: allPermissionIds.map(id => ({ id }))
-            }
+          set: allPermissionIds.map((id) => ({ id })),
+        },
       },
       include: {
         permissions: true,
@@ -189,4 +198,4 @@ export class RolesService {
         })
       : null;
   }
-} 
+}

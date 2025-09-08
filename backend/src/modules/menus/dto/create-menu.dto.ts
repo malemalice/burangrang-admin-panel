@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt, IsArray, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsInt,
+  IsArray,
+  IsUUID,
+} from 'class-validator';
 
 export class CreateMenuDto {
   @IsString()
@@ -26,4 +33,4 @@ export class CreateMenuDto {
   @IsUUID('4', { each: true })
   @IsOptional()
   roleIds?: string[];
-} 
+}

@@ -24,4 +24,4 @@ export class JobPositionDto {
 
   @ApiProperty()
   updatedAt: Date;
-} 
+}

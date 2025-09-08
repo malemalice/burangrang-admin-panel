@@ -30,4 +30,4 @@ export class CreateOfficeDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
-} 
+}

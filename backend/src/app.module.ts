@@ -14,6 +14,7 @@ import { Reflector } from '@nestjs/core';
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { JobPositionsModule } from './modules/job-positions/job-positions.module';
 import { MasterApprovalsModule } from './modules/approvals/master-approvals.module';
+import { SettingsModule } from './modules/settings/settings.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -30,13 +31,14 @@ import { MasterApprovalsModule } from './modules/approvals/master-approvals.modu
     DepartmentsModule,
     JobPositionsModule,
     MasterApprovalsModule,
+    SettingsModule,
   ],
   providers: [
     Reflector,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
-    }
+    },
   ],
 })
 export class AppModule {}

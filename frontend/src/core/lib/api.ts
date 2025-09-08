@@ -52,47 +52,69 @@ api.interceptors.request.use(
     const token = getAccessToken();
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
+      // Debug logging for settings requests
+      if (config.url?.includes('/settings/')) {
+        console.log('Sending authenticated request to:', config.url);
+      }
+    } else {
+      // Debug logging for unauthenticated requests
+      if (config.url?.includes('/settings/')) {
+        console.warn('Sending UNAUTHENTICATED request to:', config.url);
+      }
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Add response interceptor to handle token refresh
+// Add response interceptor to handle token refresh and prevent infinite loops
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
-    // If error is 401 and we haven't tried to refresh the token yet
-    if (error.response?.status === 401 && !originalRequest._retry && getRefreshToken()) {
+
+    // Prevent infinite loops by checking if we've already retried this request
+    if (originalRequest._retry) {
+      return Promise.reject(error);
+    }
+
+    // Handle 401 errors (unauthorized) - try to refresh token
+    if (error.response?.status === 401 && getRefreshToken()) {
       originalRequest._retry = true;
-      
+
       try {
         // Use the refresh token to get a new access token
         const response = await axios.post(
           `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/auth/refresh`,
           { refreshToken: getRefreshToken() }
         );
-        
+
         // Update tokens
         const { accessToken, refreshToken: newRefreshToken } = response.data;
         setAccessToken(accessToken);
         setRefreshToken(newRefreshToken);
-        
+
         // Update the Authorization header
         originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
-        
+
         // Retry the original request
         return api(originalRequest);
       } catch (refreshError) {
         // If refresh fails, clear tokens and redirect to login
         clearTokens();
+        // Clear theme loading flag so it can be retried on next login
+        sessionStorage.removeItem('theme-loaded');
         window.location.href = '/login';
         return Promise.reject(refreshError);
       }
     }
-    
+
+    // Handle 403 errors (forbidden) - don't retry, just reject
+    if (error.response?.status === 403) {
+      console.warn('403 Forbidden error:', error.response.config.url);
+      return Promise.reject(error);
+    }
+
     return Promise.reject(error);
   }
 );
@@ -119,6 +141,8 @@ export const authApi = {
     } finally {
       // Always clear tokens regardless of API success
       clearTokens();
+      // Clear theme loading flag for next login
+      sessionStorage.removeItem('theme-loaded');
     }
   },
   

@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+} from '@nestjs/common';
 import { RolesService } from './roles.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
@@ -11,7 +20,10 @@ export class RolesController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new role' })
-  @ApiResponse({ status: 201, description: 'The role has been successfully created.' })
+  @ApiResponse({
+    status: 201,
+    description: 'The role has been successfully created.',
+  })
   @ApiResponse({ status: 400, description: 'Bad request.' })
   create(@Body() createRoleDto: CreateRoleDto) {
     return this.rolesService.create(createRoleDto);
@@ -34,7 +46,10 @@ export class RolesController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a role' })
-  @ApiResponse({ status: 200, description: 'The role has been successfully updated.' })
+  @ApiResponse({
+    status: 200,
+    description: 'The role has been successfully updated.',
+  })
   @ApiResponse({ status: 404, description: 'Role not found.' })
   update(@Param('id') id: string, @Body() updateRoleDto: UpdateRoleDto) {
     return this.rolesService.update(id, updateRoleDto);
@@ -42,9 +57,12 @@ export class RolesController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a role' })
-  @ApiResponse({ status: 200, description: 'The role has been successfully deleted.' })
+  @ApiResponse({
+    status: 200,
+    description: 'The role has been successfully deleted.',
+  })
   @ApiResponse({ status: 404, description: 'Role not found.' })
   remove(@Param('id') id: string) {
     return this.rolesService.remove(id);
   }
-} 
+}

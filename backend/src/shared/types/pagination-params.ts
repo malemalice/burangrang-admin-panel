@@ -35,4 +35,4 @@ export class PaginationParams {
   @IsBoolean()
   @Type(() => Boolean)
   isActive?: boolean;
-} 
+}

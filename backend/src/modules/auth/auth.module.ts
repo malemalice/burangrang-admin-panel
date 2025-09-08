@@ -28,4 +28,4 @@ import { PermissionsGuard } from '../../shared/guards/permissions.guard';
   providers: [AuthService, JwtStrategy, PrismaService, PermissionsGuard],
   exports: [AuthService],
 })
-export class AuthModule {} 
+export class AuthModule {}
