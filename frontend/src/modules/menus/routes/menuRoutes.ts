@@ -1,5 +1,5 @@
-import { RouteConfig } from '../types';
-import MenusPage from '@/pages/menus/MenusPage';
+import { RouteConfig } from '@/core/routes/types';
+import MenusPage from '../pages/MenusPage';
 
 /**
  * Menu management module routes

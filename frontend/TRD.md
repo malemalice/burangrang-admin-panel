@@ -294,4 +294,195 @@ export const allRoutes = [
 
 ---
 
+## 📚 Appendix: Barrel Export Patterns & Guidelines
+
+### Barrel Export Best Practices
+
+#### 1. Module Structure Organization
+
+Each module MUST follow this export hierarchy:
+
+```
+modules/[module-name]/
+├── index.ts                    # Main module exports
+├── pages/
+│   ├── index.ts               # Sub-module page exports
+│   └── [sub-module]/
+│       ├── index.ts          # Component-specific exports
+│       └── [Component].tsx
+├── services/
+├── types/
+├── hooks/
+└── routes/
+```
+
+#### 2. Main Module Index.ts Pattern
+
+```typescript
+/**
+ * [Module Name] module barrel exports
+ * Following the TRD.md module structure template
+ */
+
+// Pages - Group by functionality
+export { default as [MainPage] } from './pages/[MainPage]';
+export { default as [CreatePage] } from './pages/[CreatePage]';
+export { default as [EditPage] } from './pages/[EditPage]';
+export { default as [DetailPage] } from './pages/[DetailPage]';
+
+// Routes - Single export per module
+export { default as [moduleName]Routes } from './routes/[moduleName]Routes';
+
+// Services - Export all services
+export { default as [serviceName] } from './services/[serviceName]';
+
+// Types - Group related types
+export type {
+  // Core entity types
+  [Entity],
+  [Entity]DTO,
+
+  // CRUD operation types
+  Create[Entity]DTO,
+  Update[Entity]DTO,
+
+  // Form and UI types
+  [Entity]FormData,
+  [Entity]Filters,
+  [Entity]SearchParams,
+
+  // Statistics and analytics
+  [Entity]Stats,
+
+  // Common shared types
+  PaginatedResponse,
+  PaginationParams,
+} from './types/[moduleName].types';
+
+// Hooks - Export all custom hooks
+export {
+  use[Entities],
+  use[Entity],
+  use[Entity]Stats,
+  // ... other hooks
+} from './hooks/use[ModuleName]';
+```
+
+#### 3. Sub-module Index.ts Pattern
+
+For modules with multiple sub-modules (like master-data):
+
+```typescript
+// Main pages index.ts
+export * from './offices';
+export * from './departments';
+export * from './job-positions';
+export * from './approvals';
+
+// Sub-module index.ts
+export { default as [SubModule]Page } from './[SubModule]Page';
+export { default as Create[SubModule]Page } from './Create[SubModule]Page';
+export { default as Edit[SubModule]Page } from './Edit[SubModule]Page';
+export { default as [SubModule]Form } from './[SubModule]Form'; // If applicable
+```
+
+#### 4. Import Optimization Guidelines
+
+**✅ DO - Use barrel exports for:**
+- Importing multiple components from same module
+- Importing related services
+- Importing type definitions
+- Cross-module dependencies
+
+```typescript
+// ✅ Good - Using barrel exports
+import { officeService, departmentService } from '@/modules/master-data';
+import { useUsers, useUser } from '@/modules/users';
+
+// ✅ Good - Single service import
+import { roleService } from '@/modules/roles';
+
+// ✅ Good - Type imports
+import type { User, UserDTO, CreateUserDTO } from '@/modules/users';
+```
+
+**❌ DON'T - Avoid these patterns:**
+```typescript
+// ❌ Bad - Individual component imports
+import OfficesPage from '@/modules/master-data/pages/offices/OfficesPage';
+import DepartmentsPage from '@/modules/master-data/pages/departments/DepartmentsPage';
+
+// ❌ Bad - Deep service imports
+import officeService from '@/modules/master-data/services/officeService';
+
+// ❌ Bad - Mixing import styles
+import { officeService } from '@/modules/master-data/services/officeService';
+```
+
+#### 5. Export Organization Rules
+
+1. **Group by functionality**: Pages, Routes, Services, Types, Hooks
+2. **Consistent naming**: Use camelCase for exports, PascalCase for components
+3. **Type exports**: Use `export type` for type-only exports
+4. **Default exports**: Use for main components and services
+5. **Named exports**: Use for multiple exports from same file
+
+#### 6. Maintenance Guidelines
+
+**Regular Review Checklist:**
+- [ ] All exported components are actually used
+- [ ] No duplicate exports across modules
+- [ ] Type exports are properly grouped
+- [ ] Import paths are optimized
+- [ ] Cross-module dependencies are minimal
+
+**When Adding New Exports:**
+1. Add to appropriate section in index.ts
+2. Update import statements in dependent files
+3. Test build to ensure no conflicts
+4. Update documentation if needed
+
+#### 7. Implementation Examples
+
+**Simple Module (Settings):**
+```typescript
+// index.ts
+export { default as SettingsPage } from './pages/SettingsPage';
+export { default as settingsRoutes } from './routes/settingsRoutes';
+export { default as settingsService } from './services/settingsService';
+export type { UserSettings, UpdateSettingsRequest } from './types/settings.types';
+export { useSettings } from './hooks/useSettings';
+```
+
+**Complex Module (Master Data):**
+```typescript
+// index.ts
+// Pages grouped by sub-module
+export { default as OfficesPage } from './pages/offices/OfficesPage';
+// ... other page exports
+
+// Single route export
+export { default as masterDataRoutes } from './routes/masterDataRoutes';
+
+// Multiple service exports
+export { default as officeService } from './services/officeService';
+// ... other service exports
+
+// Comprehensive type exports
+export type {
+  Office, Department, JobPosition, MasterApproval,
+  OfficeDTO, DepartmentDTO, JobPositionDTO, MasterApprovalDTO,
+  CreateOfficeDTO, UpdateOfficeDTO,
+  // ... other types
+} from './types/master-data.types';
+
+// Multiple hook exports
+export {
+  useOffices, useDepartments, useJobPositions, useMasterApprovals,
+  useMasterDataStats
+} from './hooks/useMasterData';
+```
+
+---
+
 **Next Steps**: Review this document with the development team and proceed with the migration plan outlined in `todo-refactor.md`.
