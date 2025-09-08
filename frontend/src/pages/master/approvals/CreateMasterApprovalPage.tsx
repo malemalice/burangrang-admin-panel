@@ -1,6 +1,6 @@
 import { ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import PageHeader from '@/components/ui/PageHeader';
+import { Button } from '@/core/components/ui/button';
+import PageHeader from '@/core/components/ui/PageHeader';
 import MasterApprovalForm from './MasterApprovalForm';
 
 const CreateMasterApprovalPage = () => {

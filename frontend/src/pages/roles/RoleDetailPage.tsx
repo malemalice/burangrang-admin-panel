@@ -2,20 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, Edit, Trash2, Lock, Check, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import PageHeader from '@/components/ui/PageHeader';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@/core/components/ui/button';
+import PageHeader from '@/core/components/ui/PageHeader';
+import { Badge } from '@/core/components/ui/badge';
 import { 
   Card, 
   CardContent, 
   CardDescription, 
   CardHeader, 
   CardTitle 
-} from '@/components/ui/card';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Separator } from '@/components/ui/separator';
+} from '@/core/components/ui/card';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
+import { Separator } from '@/core/components/ui/separator';
 import roleService from '@/services/roleService';
-import { Role, Permission } from '@/lib/types';
+import { Role, Permission } from '@/core/lib/types';
 
 const RoleDetailPage = () => {
   const navigate = useNavigate();

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import JobPositionForm from './JobPositionForm';
 import jobPositionService from '@/services/jobPositionService';
-import { JobPosition } from '@/lib/types';
+import { JobPosition } from '@/core/lib/types';
 
 const EditJobPositionPage = () => {
   const { id } = useParams<{ id: string }>();

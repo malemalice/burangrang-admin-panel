@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, ArrowLeft, Mail, Phone, MapPin, Building, ExternalLink } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import PageHeader from '@/components/ui/PageHeader';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import DataTable from '@/components/ui/data-table/DataTable';
-import { Office } from '@/lib/types';
+import { Button } from '@/core/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
+import { Badge } from '@/core/components/ui/badge';
+import PageHeader from '@/core/components/ui/PageHeader';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
+import DataTable from '@/core/components/ui/data-table/DataTable';
+import { Office } from '@/core/lib/types';
 import officeService from '@/services/officeService';
 
 const OfficeDetailPage = () => {

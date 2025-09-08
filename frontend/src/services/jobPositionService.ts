@@ -1,5 +1,5 @@
-import api from '@/lib/api';
-import { JobPosition } from '@/lib/types';
+import api from '@/core/lib/api';
+import { JobPosition } from '@/core/lib/types';
 
 interface PaginationParams {
   page?: number;

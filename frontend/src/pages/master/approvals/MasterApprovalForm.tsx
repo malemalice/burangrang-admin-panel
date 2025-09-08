@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { Plus, Trash2, GripVertical } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/core/components/ui/button';
 import {
   Form,
   FormControl,
@@ -13,13 +13,13 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { SearchableSelect } from '@/components/ui/searchable-select';
+} from '@/core/components/ui/form';
+import { Input } from '@/core/components/ui/input';
+import { Switch } from '@/core/components/ui/switch';
+import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import masterApprovalService, { CreateMasterApprovalDTO } from '@/services/masterApprovalService';
-import { MasterApproval } from '@/lib/types';
+import { MasterApproval } from '@/core/lib/types';
 import jobPositionService from '@/services/jobPositionService';
 import departmentService from '@/services/departmentService';
 import userService from '@/services/userService';

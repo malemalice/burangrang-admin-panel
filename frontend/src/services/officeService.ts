@@ -1,6 +1,6 @@
-import api from '@/lib/api';
-import { Office, PaginatedResponse, PaginationParams } from '@/lib/types';
-import { User } from '@/lib/types';
+import api from '@/core/lib/api';
+import { Office, PaginatedResponse, PaginationParams } from '@/core/lib/types';
+import { User } from '@/core/lib/types';
 
 // Interface for office data from API that matches backend structure
 export interface OfficeDTO {

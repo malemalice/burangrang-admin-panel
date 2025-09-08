@@ -2,27 +2,27 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, UserPlus, Eye, ShieldCheck, Check, X, Building, MoreHorizontal, Briefcase } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@/core/components/ui/badge';
+import { Button } from '@/core/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import DataTable from '@/components/ui/data-table/DataTable';
-import PageHeader from '@/components/ui/PageHeader';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FilterField, FilterValue } from '@/components/ui/filter-drawer';
+} from '@/core/components/ui/dropdown-menu';
+import DataTable from '@/core/components/ui/data-table/DataTable';
+import PageHeader from '@/core/components/ui/PageHeader';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/core/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
+import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import userService from '@/services/userService';
 import roleService from '@/services/roleService';
 import officeService from '@/services/officeService';
 import departmentService from '@/services/departmentService';
 import jobPositionService from '@/services/jobPositionService';
-import { User } from '@/lib/types';
+import { User } from '@/core/lib/types';
 
 const UsersPage = () => {
   const navigate = useNavigate();

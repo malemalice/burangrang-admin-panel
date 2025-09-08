@@ -1,5 +1,5 @@
-import api from '@/lib/api';
-import { Role, PaginatedResponse, PaginationParams, Permission } from '@/lib/types';
+import api from '@/core/lib/api';
+import { Role, PaginatedResponse, PaginationParams, Permission } from '@/core/lib/types';
 
 // Interface for role data from API that matches backend structure
 export interface RoleDTO {

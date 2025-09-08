@@ -1,5 +1,5 @@
-import api from '@/lib/api';
-import { Department, PaginatedResponse, PaginationParams } from '@/lib/types';
+import api from '@/core/lib/api';
+import { Department, PaginatedResponse, PaginationParams } from '@/core/lib/types';
 
 // Interface for department data from API that matches backend structure
 export interface DepartmentDTO {

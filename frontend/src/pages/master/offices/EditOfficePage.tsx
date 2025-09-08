@@ -2,21 +2,21 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Building } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/core/components/ui/button';
+import { Input } from '@/core/components/ui/input';
 import { 
   Select, 
   SelectContent, 
   SelectItem, 
   SelectTrigger, 
   SelectValue
-} from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import PageHeader from '@/components/ui/PageHeader';
+} from '@/core/components/ui/select';
+import { Label } from '@/core/components/ui/label';
+import { Textarea } from '@/core/components/ui/textarea';
+import { Alert, AlertDescription } from '@/core/components/ui/alert';
+import PageHeader from '@/core/components/ui/PageHeader';
 import officeService, { UpdateOfficeDTO } from '@/services/officeService';
-import { Office } from '@/lib/types';
+import { Office } from '@/core/lib/types';
 
 const EditOfficePage = () => {
   const navigate = useNavigate();

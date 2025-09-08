@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/core/components/ui/button';
 import {
   Form,
   FormControl,
@@ -12,17 +12,17 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+} from '@/core/components/ui/form';
+import { Input } from '@/core/components/ui/input';
+import { Switch } from '@/core/components/ui/switch';
+import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import userService, { CreateUserDTO, UpdateUserDTO } from '@/services/userService';
 import roleService from '@/services/roleService';
 import officeService from '@/services/officeService';
 import departmentService from '@/services/departmentService';
 import jobPositionService from '@/services/jobPositionService';
-import { User, Role, Office, Department, JobPosition } from '@/lib/types';
-import { SearchableSelect, SearchableSelectOption } from '@/components/ui/searchable-select';
+import { User, Role, Office, Department, JobPosition } from '@/core/lib/types';
+import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
 
 const formSchema = z.object({
   email: z.string().email('Valid email is required'),

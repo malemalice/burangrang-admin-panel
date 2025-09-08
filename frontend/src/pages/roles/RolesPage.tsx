@@ -2,22 +2,22 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, Plus, Lock, Check, X, MoreHorizontal, ShieldCheck } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@/core/components/ui/badge';
+import { Button } from '@/core/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import DataTable from '@/components/ui/data-table/DataTable';
-import PageHeader from '@/components/ui/PageHeader';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FilterField, FilterValue } from '@/components/ui/filter-drawer';
+} from '@/core/components/ui/dropdown-menu';
+import DataTable from '@/core/components/ui/data-table/DataTable';
+import PageHeader from '@/core/components/ui/PageHeader';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
+import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
+import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import roleService from '@/services/roleService';
-import { Role, PaginationParams } from '@/lib/types';
+import { Role, PaginationParams } from '@/core/lib/types';
 
 const RolesPage = () => {
   const navigate = useNavigate();

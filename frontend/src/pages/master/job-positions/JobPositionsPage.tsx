@@ -2,22 +2,22 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, Plus, Briefcase, MoreHorizontal } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/core/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
-import DataTable from '@/components/ui/data-table/DataTable';
-import PageHeader from '@/components/ui/PageHeader';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FilterField, FilterValue } from '@/components/ui/filter-drawer';
+} from '@/core/components/ui/dropdown-menu';
+import { Badge } from '@/core/components/ui/badge';
+import DataTable from '@/core/components/ui/data-table/DataTable';
+import PageHeader from '@/core/components/ui/PageHeader';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
+import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
+import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import jobPositionService from '@/services/jobPositionService';
-import { JobPosition } from '@/lib/types';
+import { JobPosition } from '@/core/lib/types';
 
 const JobPositionsPage = () => {
   const navigate = useNavigate();

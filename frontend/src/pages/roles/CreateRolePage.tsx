@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, Save } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import PageHeader from '@/components/ui/PageHeader';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/core/components/ui/button';
+import PageHeader from '@/core/components/ui/PageHeader';
+import { Input } from '@/core/components/ui/input';
+import { Label } from '@/core/components/ui/label';
+import { Textarea } from '@/core/components/ui/textarea';
 import {
   Card,
   CardContent,
@@ -14,18 +14,18 @@ import {
   CardTitle,
   CardDescription,
   CardFooter,
-} from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
+} from '@/core/components/ui/card';
+import { Checkbox } from '@/core/components/ui/checkbox';
 import roleService, { CreateRoleDTO } from '@/services/roleService';
-import { Permission } from '@/lib/types';
-import { Badge } from '@/components/ui/badge';
+import { Permission } from '@/core/lib/types';
+import { Badge } from '@/core/components/ui/badge';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/core/components/ui/select';
 
 const CreateRolePage = () => {
   const navigate = useNavigate();

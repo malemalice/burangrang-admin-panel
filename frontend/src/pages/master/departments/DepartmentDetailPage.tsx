@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, Edit, Trash2, Building } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import PageHeader from '@/components/ui/PageHeader';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Button } from '@/core/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { Badge } from '@/core/components/ui/badge';
+import PageHeader from '@/core/components/ui/PageHeader';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import departmentService from '@/services/departmentService';
-import { Department } from '@/lib/types';
+import { Department } from '@/core/lib/types';
 
 const DepartmentDetailPage = () => {
   const navigate = useNavigate();

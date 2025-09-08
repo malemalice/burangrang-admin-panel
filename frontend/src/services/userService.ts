@@ -1,5 +1,5 @@
-import api from '@/lib/api';
-import { User, PaginatedResponse, PaginationParams } from '@/lib/types';
+import api from '@/core/lib/api';
+import { User, PaginatedResponse, PaginationParams } from '@/core/lib/types';
 
 // Interface for user data from API that matches backend structure
 export interface UserDTO {

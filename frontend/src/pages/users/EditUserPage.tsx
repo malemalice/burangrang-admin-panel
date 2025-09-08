@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import UserForm from './UserForm';
 import userService from '@/services/userService';
-import { User } from '@/lib/types';
+import { User } from '@/core/lib/types';
 
 const EditUserPage = () => {
   const { userId } = useParams<{ userId: string }>();
