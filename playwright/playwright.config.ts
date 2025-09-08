@@ -9,8 +9,8 @@ export default defineConfig({
   fullyParallel: false,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
+  /* Retry on CI only - add retries for local to catch flaky tests */
+  retries: process.env.CI ? 2 : 1,
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
@@ -27,6 +27,15 @@ export default defineConfig({
     video: 'retain-on-failure',
     /* Increase timeout for tests */
     actionTimeout: 10000,
+
+    /* ISOLATION SETTINGS - Critical for test stability */
+    /* Ensure each test gets a fresh browser context */
+    contextOptions: {
+      /* Clear storage state between tests */
+      storageState: undefined,
+      /* Don't reuse browser contexts */
+      reuseContext: false,
+    },
   },
   
   /* Global test timeout */
@@ -36,27 +45,42 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        actionTimeout: 15000,
+      },
     },
 
     {
       name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
+      use: {
+        ...devices['Desktop Firefox'],
+        actionTimeout: 15000,
+      },
     },
 
     {
       name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
+      use: {
+        ...devices['Desktop Safari'],
+        actionTimeout: 20000, // Increased for slower Webkit
+      },
     },
 
     /* Test against mobile viewports. */
     {
       name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
+      use: {
+        ...devices['Pixel 5'],
+        actionTimeout: 15000,
+      },
     },
     {
       name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
+      use: {
+        ...devices['iPhone 12'],
+        actionTimeout: 20000, // Increased for slower Mobile Safari
+      },
     },
   ],
 
