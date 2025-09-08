@@ -103,15 +103,26 @@ export class JobPositionsService {
   }
 
   private mapToDto(jobPosition: any): JobPositionDto {
+    const jp = jobPosition as {
+      id: string;
+      name: string;
+      code: string;
+      level: number;
+      description: string | null;
+      isActive: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+    };
+
     return {
-      id: jobPosition.id,
-      name: jobPosition.name,
-      code: jobPosition.code,
-      level: jobPosition.level,
-      description: jobPosition.description,
-      isActive: jobPosition.isActive,
-      createdAt: jobPosition.createdAt,
-      updatedAt: jobPosition.updatedAt,
+      id: jp.id,
+      name: jp.name,
+      code: jp.code,
+      level: jp.level,
+      description: jp.description || undefined,
+      isActive: jp.isActive,
+      createdAt: jp.createdAt,
+      updatedAt: jp.updatedAt,
     };
   }
 }

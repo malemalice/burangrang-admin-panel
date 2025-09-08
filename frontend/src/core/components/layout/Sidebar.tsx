@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '@/core/lib/theme';
 import { themeColors, getContrastTextColor } from '@/core/lib/theme/colors';
+import { useAppName } from '@/modules/settings/hooks/useSettings';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -108,6 +109,7 @@ const SubMenu = ({ title, icon: Icon, isOpen, children }: SubMenuProps) => {
 
 const Sidebar = ({ isOpen }: SidebarProps) => {
   const { isDark, theme } = useTheme();
+  const { appName } = useAppName();
 
   // Get the current theme color for dynamic styling
   const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
@@ -132,7 +134,7 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
           className="text-xl font-bold"
           style={{ color: textColor }}
         >
-          {isOpen ? "Office Nexus" : "ON"}
+          {isOpen ? appName : (appName.substring(0, Math.min(2, appName.length)).toUpperCase() || "ON")}
         </h1>
       </div>
 

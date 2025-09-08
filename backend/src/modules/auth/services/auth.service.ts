@@ -5,6 +5,17 @@ import * as bcrypt from 'bcrypt';
 import { Response } from 'express';
 import * as crypto from 'crypto';
 
+interface AuthenticatedUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: {
+    id: string;
+    name: string;
+  };
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -14,7 +25,10 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async validateUser(email: string, password: string) {
+  async validateUser(
+    email: string,
+    plainPassword: string,
+  ): Promise<AuthenticatedUser> {
     this.logger.debug(`Attempting to validate user: ${email}`);
 
     const user = await this.prisma.user.findUnique({
@@ -27,8 +41,23 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (!user.password) {
+      this.logger.error(`User ${email} has no password set`);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
     this.logger.debug(`User found, comparing password`);
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    let isPasswordValid: boolean;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      isPasswordValid = await bcrypt.compare(plainPassword, user.password);
+    } catch (error) {
+      this.logger.error(
+        'Error comparing password',
+        error instanceof Error ? error.message : String(error),
+      );
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     if (!isPasswordValid) {
       this.logger.warn(`Invalid password for user: ${email}`);
@@ -36,11 +65,11 @@ export class AuthService {
     }
 
     this.logger.debug(`User ${email} authenticated successfully`);
-    const { password: _, ...result } = user;
-    return result;
+    const { password, ...result } = user;
+    return result as AuthenticatedUser;
   }
 
-  async login(user: any, res: Response) {
+  async login(user: AuthenticatedUser) {
     const payload = { email: user.email, sub: user.id, role: user.role.name };
     const accessToken = this.jwtService.sign(payload);
     const refreshToken = await this.createRefreshToken(user.id);
@@ -82,9 +111,15 @@ export class AuthService {
         },
       });
     } catch (error) {
-      this.logger.error(`Error creating refresh token: ${error.message}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(`Error creating refresh token: ${errorMessage}`);
       // In case of unique constraint error, try again with more randomness
-      if (error.code === 'P2002') {
+      const errorCode =
+        error && typeof error === 'object' && 'code' in error
+          ? String((error as { code: unknown }).code)
+          : '';
+      if (errorCode === 'P2002') {
         const extraRandomStr = crypto.randomBytes(64).toString('hex');
         const newToken = this.jwtService.sign(
           { sub: userId, random: extraRandomStr, timestamp: Date.now() },
@@ -107,7 +142,7 @@ export class AuthService {
     return token;
   }
 
-  async refreshToken(body: { refreshToken?: string }, res: Response) {
+  async refreshToken(body: { refreshToken?: string }) {
     if (!body.refreshToken) {
       throw new UnauthorizedException('No refresh token provided');
     }
@@ -121,7 +156,8 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const { password: _, ...user } = refreshToken.user;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: _password, ...user } = refreshToken.user;
     const accessToken = this.jwtService.sign({
       email: user.email,
       sub: user.id,
@@ -150,7 +186,7 @@ export class AuthService {
     };
   }
 
-  async logout(userId: string, res: Response) {
+  async logout(userId: string) {
     // Clear refresh token in database
     await this.prisma.refreshToken.deleteMany({
       where: { userId },

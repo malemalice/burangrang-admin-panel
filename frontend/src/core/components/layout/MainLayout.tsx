@@ -4,6 +4,7 @@ import TopNavbar from './TopNavbar';
 import { Toaster } from "sonner";
 import { cn } from '@/core/lib/utils';
 import { useTheme } from '@/core/lib/theme';
+import { useAppName } from '@/modules/settings/hooks/useSettings';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -12,6 +13,7 @@ interface MainLayoutProps {
 const MainLayout = ({ children }: MainLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { isDark } = useTheme();
+  const { appName } = useAppName();
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -42,7 +44,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             ? "text-gray-400 border-gray-700" 
             : "text-slate-500 border-slate-200"
         )}>
-          <p>© {new Date().getFullYear()} Office Nexus System. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} {appName} System. All rights reserved.</p>
         </footer>
       </div>
       

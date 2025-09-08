@@ -2,6 +2,7 @@ import React from 'react';
 import PageHeader from "@/core/components/ui/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card";
 import { Users, ShieldCheck, MenuIcon, Building2 } from "lucide-react";
+import { useAppName } from '@/modules/settings/hooks/useSettings';
 
 const statCards = [
   {
@@ -35,11 +36,13 @@ const statCards = [
 ];
 
 const Dashboard = () => {
+  const { appName } = useAppName();
+
   return (
     <div>
-      <PageHeader 
-        title="Dashboard" 
-        subtitle="Welcome to Office Nexus System"
+      <PageHeader
+        title="Dashboard"
+        subtitle={`Welcome to ${appName} System`}
       />
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

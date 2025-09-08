@@ -6,7 +6,6 @@ import {
   HttpStatus,
   Res,
   UseGuards,
-  Get,
   Req,
   Logger,
 } from '@nestjs/common';
@@ -54,13 +53,13 @@ export class AuthController {
         loginDto.password,
       );
 
-      const result = await this.authService.login(user, res);
+      const result = await this.authService.login(user);
       this.logger.debug(`Login successful for user: ${loginDto.email}`);
       return res.json(result);
     } catch (error) {
       this.logger.error(
         `Login failed for user: ${loginDto.email}`,
-        error.stack,
+        error instanceof Error ? error.stack : String(error),
       );
       throw error;
     }
@@ -76,7 +75,7 @@ export class AuthController {
     @Body() refreshTokenDto: { refreshToken: string },
     @Res() res: Response,
   ) {
-    const result = await this.authService.refreshToken(refreshTokenDto, res);
+    const result = await this.authService.refreshToken(refreshTokenDto);
     return res.json(result);
   }
 
@@ -87,7 +86,7 @@ export class AuthController {
   @ApiOperation({ summary: 'User logout' })
   @ApiResponse({ status: 200, description: 'Logout successful' })
   async logout(@Req() req: RequestWithUser, @Res() res: Response) {
-    await this.authService.logout(req.user.sub, res);
+    await this.authService.logout(req.user.sub);
     return res.json({ message: 'Logout successful' });
   }
 }

@@ -1,6 +1,5 @@
 import { Transform } from 'class-transformer';
 import { IsOptional, IsString, IsNumber, IsBoolean } from 'class-validator';
-import { Prisma } from '@prisma/client';
 
 export interface FindUsersOptions {
   page?: number;
@@ -18,12 +17,12 @@ export interface FindUsersOptions {
 export class FindUsersDto implements FindUsersOptions {
   @IsOptional()
   @IsNumber()
-  @Transform(({ value }) => parseInt(value))
+  @Transform(({ value }) => (value ? parseInt(String(value), 10) : undefined))
   page?: number = 1;
 
   @IsOptional()
   @IsNumber()
-  @Transform(({ value }) => parseInt(value))
+  @Transform(({ value }) => (value ? parseInt(String(value), 10) : undefined))
   limit?: number = 10;
 
   @IsOptional()
@@ -43,7 +42,7 @@ export class FindUsersDto implements FindUsersOptions {
   @Transform(({ value }) => {
     if (value === 'true') return true;
     if (value === 'false') return false;
-    return value;
+    return value === undefined ? undefined : Boolean(value);
   })
   isActive?: boolean;
 

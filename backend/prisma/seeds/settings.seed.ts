@@ -10,7 +10,8 @@ export const defaultSettings = [
   { key: 'system.version', value: '1.0.0', description: 'Application version' },
   { key: 'system.timezone', value: 'UTC', description: 'Default system timezone' },
 
-  // Default Language
+  // App Settings
+  { key: 'app.name', value: 'Office Nexus', description: 'Application display name' },
   { key: 'app.language', value: 'en', description: 'Default application language' },
 
   // Pagination defaults
