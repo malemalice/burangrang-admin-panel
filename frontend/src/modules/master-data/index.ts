@@ -8,12 +8,14 @@ export { default as OfficesPage } from './pages/offices/OfficesPage';
 export { default as CreateOfficePage } from './pages/offices/CreateOfficePage';
 export { default as EditOfficePage } from './pages/offices/EditOfficePage';
 export { default as OfficeDetailPage } from './pages/offices/OfficeDetailPage';
+export { default as OfficeForm } from './pages/offices/OfficeForm';
 
 // Pages - Departments
 export { default as DepartmentsPage } from './pages/departments/DepartmentsPage';
 export { default as CreateDepartmentPage } from './pages/departments/CreateDepartmentPage';
 export { default as EditDepartmentPage } from './pages/departments/EditDepartmentPage';
 export { default as DepartmentDetailPage } from './pages/departments/DepartmentDetailPage';
+export { default as DepartmentForm } from './pages/departments/DepartmentForm';
 
 // Pages - Job Positions
 export { default as JobPositionsPage } from './pages/job-positions/JobPositionsPage';
