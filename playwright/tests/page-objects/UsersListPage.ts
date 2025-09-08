@@ -9,11 +9,13 @@ export class UsersListPage {
 
   // Page elements
   get pageHeader() {
-    return this.page.locator('h1').filter({ hasText: /users|Users/ });
+    // Look for h1 specifically in the main content area, not the sidebar
+    return this.page.locator('main h1, [role="main"] h1').filter({ hasText: /users|Users/ });
   }
 
   get addUserButton() {
-    return this.page.getByRole('button').filter({ hasText: /add|Add|create|Create|new|New/ });
+    // Look for Add User button in the main content area
+    return this.page.locator('main button, [role="main"] button').filter({ hasText: /add|Add|create|Create|new|New/ });
   }
 
   // Table elements
