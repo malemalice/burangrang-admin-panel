@@ -270,8 +270,86 @@ export const semanticColors = {
 };
 
 /**
- * Theme Configuration
- * Predefined theme color sets
+ * Helper function to convert hex to HSL
+ */
+function hexToHsl(hex: string): string {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!result) return '0 0% 0%';
+
+  let r = parseInt(result[1], 16);
+  let g = parseInt(result[2], 16);
+  let b = parseInt(result[3], 16);
+
+  r /= 255;
+  g /= 255;
+  b /= 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+    switch (max) {
+      case r:
+        h = (g - b) / d + (g < b ? 6 : 0);
+        break;
+      case g:
+        h = (b - r) / d + 2;
+        break;
+      case b:
+        h = (r - g) / d + 4;
+        break;
+    }
+    h /= 6;
+  }
+
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+
+/**
+ * Theme Configuration with HSL values for Tailwind CSS
+ * Predefined theme color sets in HSL format
+ */
+export const themeColorsHSL = {
+  blue: {
+    primary: hexToHsl(baseColors.blue[600]),
+    secondary: hexToHsl(baseColors.blue[800]),
+    accent: hexToHsl(baseColors.blue[400]),
+  },
+  green: {
+    primary: hexToHsl(baseColors.green[600]),
+    secondary: hexToHsl(baseColors.green[800]),
+    accent: hexToHsl(baseColors.green[400]),
+  },
+  purple: {
+    primary: hexToHsl(baseColors.indigo[500]), // Use current sidebar color
+    secondary: hexToHsl(baseColors.indigo[600]),
+    accent: hexToHsl(baseColors.indigo[400]),
+  },
+  red: {
+    primary: hexToHsl(baseColors.red[600]),
+    secondary: hexToHsl(baseColors.red[800]),
+    accent: hexToHsl(baseColors.red[400]),
+  },
+  orange: {
+    primary: hexToHsl(baseColors.orange[600]),
+    secondary: hexToHsl(baseColors.orange[800]),
+    accent: hexToHsl(baseColors.orange[400]),
+  },
+  indigo: {
+    primary: hexToHsl(baseColors.indigo[600]),
+    secondary: hexToHsl(baseColors.indigo[800]),
+    accent: hexToHsl(baseColors.indigo[400]),
+  },
+};
+
+/**
+ * Legacy theme colors (keeping for backward compatibility)
  */
 export const themeColors = {
   blue: {
@@ -285,9 +363,9 @@ export const themeColors = {
     accent: baseColors.green[400],
   },
   purple: {
-    primary: baseColors.purple[600],
-    secondary: baseColors.purple[800],
-    accent: baseColors.purple[400],
+    primary: baseColors.indigo[500], // Use current sidebar color
+    secondary: baseColors.indigo[600],
+    accent: baseColors.indigo[400],
   },
   red: {
     primary: baseColors.red[600],
@@ -305,6 +383,32 @@ export const themeColors = {
     accent: baseColors.indigo[400],
   },
 };
+
+/**
+ * Utility function to determine if a color is bright (for text contrast)
+ */
+export function isColorBright(hexColor: string): boolean {
+  // Remove # if present
+  const hex = hexColor.replace('#', '');
+
+  // Convert to RGB
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+
+  // Calculate brightness (YIQ formula)
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+  // Return true if bright (light colors)
+  return brightness > 128;
+}
+
+/**
+ * Get appropriate text color based on background brightness
+ */
+export function getContrastTextColor(backgroundHex: string): string {
+  return isColorBright(backgroundHex) ? '#000000' : '#ffffff';
+}
 
 /**
  * User Status Badge Colors

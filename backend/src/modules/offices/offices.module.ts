@@ -7,4 +7,4 @@ import { OfficesController } from './offices.controller';
   providers: [OfficesService],
   exports: [OfficesService],
 })
-export class OfficesModule {} 
+export class OfficesModule {}

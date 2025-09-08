@@ -14,13 +14,13 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const reflector = app.get(Reflector);
   const prismaService = app.get(PrismaService);
-  
+
   // Enable CORS with frontend URL from environment
   app.enableCors({
     origin: [configService.get('FRONTEND_URL') || 'http://localhost:5173'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
-    allowedHeaders: 'Content-Type,Accept,Authorization'
+    allowedHeaders: 'Content-Type,Accept,Authorization',
   });
 
   // Use cookie parser
@@ -32,7 +32,7 @@ async function bootstrap() {
   // Enable guards
   app.useGlobalGuards(
     new JwtAuthGuard(reflector),
-    new PermissionsGuard(reflector, prismaService)
+    new PermissionsGuard(reflector, prismaService),
   );
 
   // Swagger setup

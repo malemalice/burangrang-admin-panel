@@ -41,8 +41,9 @@ export class MasterApprovalsController {
   ) {
     const pageNumber = page ? parseInt(page, 10) : undefined;
     const limitNumber = limit ? parseInt(limit, 10) : undefined;
-    const isActiveBoolean = isActive === undefined ? undefined : isActive === 'true';
-    
+    const isActiveBoolean =
+      isActive === undefined ? undefined : isActive === 'true';
+
     return this.masterApprovalsService.findAll({
       page: pageNumber,
       limit: limitNumber,
@@ -70,4 +71,4 @@ export class MasterApprovalsController {
   remove(@Param('id') id: string): Promise<void> {
     return this.masterApprovalsService.remove(id);
   }
-} 
+}

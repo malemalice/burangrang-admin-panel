@@ -24,9 +24,9 @@ export class OfficesService {
         ...data,
         ...(parentId && {
           parent: {
-            connect: { id: parentId }
-          }
-        })
+            connect: { id: parentId },
+          },
+        }),
       },
       include: {
         children: true,
@@ -37,7 +37,10 @@ export class OfficesService {
     return this.mapToDto(office);
   }
 
-  async findAll(options?: FindAllOptions): Promise<{ data: OfficeDto[]; meta: { total: number; page: number; limit: number } }> {
+  async findAll(options?: FindAllOptions): Promise<{
+    data: OfficeDto[];
+    meta: { total: number; page: number; limit: number };
+  }> {
     const {
       page = 1,
       limit = 10,
@@ -68,7 +71,7 @@ export class OfficesService {
     ]);
 
     return {
-      data: offices.map(office => this.mapToDto(office)),
+      data: offices.map((office) => this.mapToDto(office)),
       meta: { total, page, limit },
     };
   }
@@ -89,7 +92,10 @@ export class OfficesService {
     return this.mapToDto(office);
   }
 
-  async update(id: string, updateOfficeDto: UpdateOfficeDto): Promise<OfficeDto> {
+  async update(
+    id: string,
+    updateOfficeDto: UpdateOfficeDto,
+  ): Promise<OfficeDto> {
     const existingOffice = await this.prisma.office.findUnique({
       where: { id },
     });
@@ -106,8 +112,8 @@ export class OfficesService {
         ...(parentId !== undefined && {
           parent: parentId
             ? { connect: { id: parentId } }
-            : { disconnect: true }
-        })
+            : { disconnect: true },
+        }),
       },
       include: {
         children: true,
@@ -146,7 +152,7 @@ export class OfficesService {
       },
     });
 
-    return offices.map(office => this.mapToDto(office));
+    return offices.map((office) => this.mapToDto(office));
   }
 
   private mapToDto(office: any): OfficeDto {
@@ -160,10 +166,10 @@ export class OfficesService {
       email: office.email,
       parentId: office.parentId,
       isActive: office.isActive,
-      children: office.children?.map(child => this.mapToDto(child)),
+      children: office.children?.map((child) => this.mapToDto(child)),
       parent: office.parent ? this.mapToDto(office.parent) : undefined,
       createdAt: office.createdAt,
       updatedAt: office.updatedAt,
     };
   }
-} 
+}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, Plus, Menu as MenuIcon, Eye, ShieldCheck, ArrowRight, MoreHorizontal } from 'lucide-react';
-import { Button } from '@/core/components/ui/button';
+import { Button, ThemeButton } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import {
   DropdownMenu,
@@ -273,9 +273,9 @@ const MenusPage = () => {
         title="Menu Management"
         subtitle="Configure and organize application menus"
         actions={
-          <Button onClick={() => navigate('/menus/new')}>
+          <ThemeButton onClick={() => navigate('/menus/new')}>
             <Plus className="mr-2 h-4 w-4" /> Add Menu Item
-          </Button>
+          </ThemeButton>
         }
       />
 

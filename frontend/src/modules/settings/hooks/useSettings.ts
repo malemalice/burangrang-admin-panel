@@ -1,113 +1,107 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import settingsService from '../services/settingsService';
-import { UserSettings, UpdateSettingsRequest } from '../types/settings.types';
+import { ThemeColor, ThemeMode } from '@/core/lib/theme';
+
+interface SettingsState {
+  themeColor: ThemeColor;
+  themeMode: ThemeMode;
+  [key: string]: string | boolean | number;
+}
 
 /**
- * Custom hook for managing user settings
+ * Custom hook for managing application settings
  */
 export const useSettings = () => {
-  const [settings, setSettings] = useState<UserSettings | null>(null);
+  const [settings, setSettings] = useState<SettingsState>({
+    themeColor: 'blue',
+    themeMode: 'light',
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch user settings
-  const fetchSettings = async () => {
+  // Fetch theme settings from backend
+  const fetchThemeSettings = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const userSettings = await settingsService.getUserSettings();
-      setSettings(userSettings);
+      const themeSettings = await settingsService.getThemeSettings();
+      setSettings({
+        themeColor: themeSettings.color,
+        themeMode: themeSettings.mode,
+      });
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch settings';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch theme settings';
       setError(errorMessage);
-      toast.error('Failed to load settings');
+      // Don't show toast error for theme loading failures - they fall back to defaults
+      console.warn('Failed to load theme settings from backend:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Update settings
-  const updateSettings = async (updates: UpdateSettingsRequest) => {
+  // Get a specific setting value
+  const getSetting = async (key: string): Promise<string | null> => {
+    try {
+      return await settingsService.getSettingValue(key);
+    } catch (err) {
+      console.warn(`Failed to get setting ${key}:`, err);
+      return null;
+    }
+  };
+
+  // Set a specific setting value
+  const setSetting = async (key: string, value: string) => {
     setIsUpdating(true);
     setError(null);
     try {
-      const updatedSettings = await settingsService.updateSettings(updates);
-      setSettings(updatedSettings);
-      toast.success('Settings updated successfully');
-      return updatedSettings;
+      await settingsService.setSettingValue(key, value);
+
+      // Update local state if it's a theme setting
+      if (key === 'theme.color') {
+        setSettings(prev => ({ ...prev, themeColor: value as ThemeColor }));
+      } else if (key === 'theme.mode') {
+        setSettings(prev => ({ ...prev, themeMode: value as ThemeMode }));
+      }
+
+      return true;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update settings';
+      const errorMessage = err instanceof Error ? err.message : `Failed to update setting ${key}`;
       setError(errorMessage);
       toast.error(errorMessage);
-      throw err;
+      return false;
     } finally {
       setIsUpdating(false);
     }
   };
 
-  // Reset settings to default
-  const resetSettings = async () => {
+  // Update theme settings
+  const updateThemeSettings = async (color: ThemeColor, mode: ThemeMode) => {
     setIsUpdating(true);
     setError(null);
     try {
-      const resetSettings = await settingsService.resetSettings();
-      setSettings(resetSettings);
-      toast.success('Settings reset to default');
-      return resetSettings;
+      await settingsService.setThemeSettings(color, mode);
+      setSettings(prev => ({
+        ...prev,
+        themeColor: color,
+        themeMode: mode,
+      }));
+      toast.success('Theme settings updated successfully');
+      return true;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to reset settings';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update theme settings';
       setError(errorMessage);
       toast.error(errorMessage);
-      throw err;
+      return false;
     } finally {
       setIsUpdating(false);
     }
   };
 
-  // Export settings
-  const exportSettings = async () => {
-    try {
-      const blob = await settingsService.exportSettings();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'settings-export.json';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      toast.success('Settings exported successfully');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to export settings';
-      toast.error(errorMessage);
-      throw err;
-    }
-  };
-
-  // Import settings
-  const importSettings = async (file: File) => {
-    setIsUpdating(true);
-    setError(null);
-    try {
-      const importedSettings = await settingsService.importSettings(file);
-      setSettings(importedSettings);
-      toast.success('Settings imported successfully');
-      return importedSettings;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to import settings';
-      setError(errorMessage);
-      toast.error(errorMessage);
-      throw err;
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  // Load settings on mount
+  // Load theme settings on mount
   useEffect(() => {
-    fetchSettings();
+    fetchThemeSettings();
   }, []);
 
   return {
@@ -115,10 +109,9 @@ export const useSettings = () => {
     isLoading,
     isUpdating,
     error,
-    fetchSettings,
-    updateSettings,
-    resetSettings,
-    exportSettings,
-    importSettings,
+    fetchThemeSettings,
+    getSetting,
+    setSetting,
+    updateThemeSettings,
   };
 };

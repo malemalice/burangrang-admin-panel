@@ -9,4 +9,4 @@ import { PrismaModule } from '../../core/prisma/prisma.module';
   providers: [MasterApprovalsService],
   exports: [MasterApprovalsService],
 })
-export class MasterApprovalsModule {} 
+export class MasterApprovalsModule {}

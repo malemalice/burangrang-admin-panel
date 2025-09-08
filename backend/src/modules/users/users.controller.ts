@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Req,
+  Query,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -48,8 +59,9 @@ export class UsersController {
     // Convert string parameters to their proper types
     const pageNumber = page ? parseInt(page, 10) : undefined;
     const limitNumber = limit ? parseInt(limit, 10) : undefined;
-    const isActiveBoolean = isActive === undefined ? undefined : isActive === 'true';
-    
+    const isActiveBoolean =
+      isActive === undefined ? undefined : isActive === 'true';
+
     return this.usersService.findAll({
       page: pageNumber,
       limit: limitNumber,
@@ -77,7 +89,10 @@ export class UsersController {
   @Patch(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @Permissions('user:update')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto): Promise<UserDto> {
+  update(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ): Promise<UserDto> {
     return this.usersService.update(id, updateUserDto);
   }
 
@@ -87,4 +102,4 @@ export class UsersController {
   remove(@Param('id') id: string): Promise<void> {
     return this.usersService.remove(id);
   }
-} 
+}

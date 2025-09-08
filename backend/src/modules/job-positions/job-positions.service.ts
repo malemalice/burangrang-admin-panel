@@ -18,7 +18,9 @@ interface FindAllOptions {
 export class JobPositionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createJobPositionDto: CreateJobPositionDto): Promise<JobPositionDto> {
+  async create(
+    createJobPositionDto: CreateJobPositionDto,
+  ): Promise<JobPositionDto> {
     const jobPosition = await this.prisma.jobPosition.create({
       data: createJobPositionDto,
     });
@@ -26,7 +28,10 @@ export class JobPositionsService {
     return this.mapToDto(jobPosition);
   }
 
-  async findAll(options?: FindAllOptions): Promise<{ data: JobPositionDto[]; meta: { total: number; page: number; limit: number } }> {
+  async findAll(options?: FindAllOptions): Promise<{
+    data: JobPositionDto[];
+    meta: { total: number; page: number; limit: number };
+  }> {
     const {
       page = 1,
       limit = 10,
@@ -37,7 +42,7 @@ export class JobPositionsService {
     } = options || {};
 
     const where: Prisma.JobPositionWhereInput = {};
-    
+
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -62,7 +67,7 @@ export class JobPositionsService {
     ]);
 
     return {
-      data: jobPositions.map(jobPosition => this.mapToDto(jobPosition)),
+      data: jobPositions.map((jobPosition) => this.mapToDto(jobPosition)),
       meta: { total, page, limit },
     };
   }
@@ -79,7 +84,10 @@ export class JobPositionsService {
     return this.mapToDto(jobPosition);
   }
 
-  async update(id: string, updateJobPositionDto: UpdateJobPositionDto): Promise<JobPositionDto> {
+  async update(
+    id: string,
+    updateJobPositionDto: UpdateJobPositionDto,
+  ): Promise<JobPositionDto> {
     const jobPosition = await this.prisma.jobPosition.update({
       where: { id },
       data: updateJobPositionDto,
@@ -106,4 +114,4 @@ export class JobPositionsService {
       updatedAt: jobPosition.updatedAt,
     };
   }
-} 
+}

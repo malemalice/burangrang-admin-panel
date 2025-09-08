@@ -12,4 +12,4 @@ export class RoleDto {
   constructor(partial: Partial<RoleDto>) {
     Object.assign(this, partial);
   }
-} 
+}

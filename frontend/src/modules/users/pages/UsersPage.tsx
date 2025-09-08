@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, UserPlus, Eye, ShieldCheck, Check, X, Building, MoreHorizontal, Briefcase } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
-import { Button } from '@/core/components/ui/button';
+import { Button, ThemeButton } from '@/core/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -399,9 +399,9 @@ const UsersPage = () => {
         title="Users"
         subtitle="Manage your organization's users"
         actions={
-          <Button onClick={() => navigate('/users/new')}>
+          <ThemeButton onClick={() => navigate('/users/new')}>
             <UserPlus className="mr-2 h-4 w-4" /> Add User
-          </Button>
+          </ThemeButton>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

@@ -49,6 +49,13 @@ export const permissions = [
   { name: 'auth:change-password', description: 'Change user password' },
   { name: 'auth:reset-password', description: 'Reset user password' },
 
+  // Settings Management
+  { name: 'setting:create', description: 'Create new settings' },
+  { name: 'setting:read', description: 'View setting information' },
+  { name: 'setting:update', description: 'Update setting information' },
+  { name: 'setting:delete', description: 'Delete settings' },
+  { name: 'setting:list', description: 'List all settings' },
+
   // System Management
   { name: 'system:settings', description: 'Manage system settings' },
   { name: 'system:logs', description: 'View system logs' },

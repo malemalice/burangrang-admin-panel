@@ -16,7 +16,7 @@ export class AuthService {
 
   async validateUser(email: string, password: string) {
     this.logger.debug(`Attempting to validate user: ${email}`);
-    
+
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: { role: true },
@@ -64,10 +64,10 @@ export class AuthService {
     await this.prisma.refreshToken.deleteMany({
       where: { userId },
     });
-    
+
     // Add randomness to the token to ensure uniqueness
     const randomStr = crypto.randomBytes(32).toString('hex');
-    
+
     const token = this.jwtService.sign(
       { sub: userId, random: randomStr },
       { expiresIn: '7d' },
@@ -90,7 +90,7 @@ export class AuthService {
           { sub: userId, random: extraRandomStr, timestamp: Date.now() },
           { expiresIn: '7d' },
         );
-        
+
         await this.prisma.refreshToken.create({
           data: {
             token: newToken,
@@ -98,7 +98,7 @@ export class AuthService {
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
           },
         });
-        
+
         return newToken;
       }
       throw error;
@@ -158,4 +158,4 @@ export class AuthService {
 
     return { success: true };
   }
-} 
+}

@@ -25,7 +25,7 @@ export class MasterApprovalsService {
 
     // First create the master approval
     const masterApproval = await this.prisma.masterApproval.create({
-      data
+      data,
     });
 
     // Then create each item separately
@@ -36,8 +36,8 @@ export class MasterApprovalsService {
           order: item.order || 0,
           job_position_id: item.job_position_id,
           department_id: item.department_id,
-          createdBy: item.createdBy
-        }
+          createdBy: item.createdBy,
+        },
       });
     }
 
@@ -76,9 +76,9 @@ export class MasterApprovalsService {
             include: {
               jobPosition: true,
               department: true,
-              creator: true
-            }
-          }
+              creator: true,
+            },
+          },
         },
         orderBy: {
           [sortBy]: sortOrder,
@@ -103,9 +103,9 @@ export class MasterApprovalsService {
           include: {
             jobPosition: true,
             department: true,
-            creator: true
-          }
-        }
+            creator: true,
+          },
+        },
       },
     });
 
@@ -152,8 +152,8 @@ export class MasterApprovalsService {
             order: item.order || 0,
             job_position_id: item.job_position_id,
             department_id: item.department_id,
-            createdBy: item.createdBy
-          }
+            createdBy: item.createdBy,
+          },
         });
       }
     }
@@ -212,4 +212,4 @@ export class MasterApprovalsService {
       updatedAt: data.updatedAt,
     };
   }
-} 
+}

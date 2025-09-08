@@ -41,8 +41,9 @@ export class OfficesController {
     // Convert string parameters to their proper types
     const pageNumber = page ? parseInt(page, 10) : undefined;
     const limitNumber = limit ? parseInt(limit, 10) : undefined;
-    const isActiveBoolean = isActive === undefined ? undefined : isActive === 'true';
-    
+    const isActiveBoolean =
+      isActive === undefined ? undefined : isActive === 'true';
+
     return this.officesService.findAll({
       page: pageNumber,
       limit: limitNumber,
@@ -76,4 +77,4 @@ export class OfficesController {
   remove(@Param('id') id: string): Promise<void> {
     return this.officesService.remove(id);
   }
-} 
+}

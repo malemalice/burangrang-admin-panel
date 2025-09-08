@@ -9,6 +9,8 @@ interface ThemeContextType {
   setMode: (mode: ThemeMode) => void;
   toggleMode: () => void;
   isDark: boolean;
+  isLoading: boolean;
+  loadThemeFromBackend: () => Promise<{ color: ThemeColor; mode: ThemeMode }>;
 }
 
 // Create the theme context
@@ -37,7 +39,29 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   useEffect(() => {
     // Initialize theme variables when ThemeProvider mounts
     initializeThemeVariables(defaultTheme, defaultMode);
-  }, [defaultTheme, defaultMode]);
+
+    // Load theme settings from backend on app startup (only once)
+    const loadBackendTheme = async () => {
+      try {
+        if (themeValue.loadThemeFromBackend) {
+          await themeValue.loadThemeFromBackend();
+        }
+      } catch (error) {
+        console.warn('Failed to load theme from backend on startup, using defaults:', error);
+        // Theme will fall back to localStorage or default values
+      }
+    };
+
+    // Only load backend theme if user appears to be authenticated
+    // Use a flag to prevent multiple calls
+    const accessToken = localStorage.getItem('access_token');
+    const hasLoadedTheme = sessionStorage.getItem('theme-loaded');
+
+    if (accessToken && !hasLoadedTheme) {
+      sessionStorage.setItem('theme-loaded', 'true');
+      loadBackendTheme();
+    }
+  }, []); // Empty dependency array to run only once
   
   return (
     <ThemeContext.Provider value={themeValue}>

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, Plus, Lock, Check, X, MoreHorizontal, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
-import { Button } from '@/core/components/ui/button';
+import { Button, ThemeButton } from '@/core/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -256,9 +256,9 @@ const RolesPage = () => {
         title="Roles"
         subtitle="Manage roles and permissions"
         actions={
-          <Button onClick={() => navigate('/roles/new')}>
+          <ThemeButton onClick={() => navigate('/roles/new')}>
             <Plus className="mr-2 h-4 w-4" /> Create Role
-          </Button>
+          </ThemeButton>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

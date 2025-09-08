@@ -74,4 +74,4 @@ export class MasterApprovalDto {
 
   @ApiProperty()
   updatedAt: Date;
-} 
+}
