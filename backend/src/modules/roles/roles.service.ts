@@ -1,16 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { RoleDto } from './dto/role.dto';
 import { PermissionDto } from '../permissions/dto/permission.dto';
 import { ConfigService } from '@nestjs/config';
+import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 
 @Injectable()
 export class RolesService {
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
+    private errorHandler: ErrorHandlingService,
   ) {}
 
   getDefaultPermissions(): string[] {
@@ -92,9 +94,7 @@ export class RolesService {
       },
     });
 
-    if (!role) {
-      throw new NotFoundException(`Role with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Role', id, role);
 
     return new RoleDto({
       ...role,
@@ -138,9 +138,7 @@ export class RolesService {
       },
     });
 
-    if (!existingRole) {
-      throw new NotFoundException(`Role with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Role', id, existingRole);
 
     // 5. Update role with all permissions
     const role = await this.prisma.role.update({
@@ -171,9 +169,7 @@ export class RolesService {
       where: { id },
     });
 
-    if (!existingRole) {
-      throw new NotFoundException(`Role with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Role', id, existingRole);
 
     await this.prisma.role.delete({
       where: { id },
@@ -196,5 +192,23 @@ export class RolesService {
           ),
         })
       : null;
+  }
+
+  async findByNameOrThrow(name: string): Promise<RoleDto> {
+    const role = await this.prisma.role.findUnique({
+      where: { name },
+      include: {
+        permissions: true,
+      },
+    });
+
+    this.errorHandler.throwIfNotFoundByField('Role', 'name', name, role);
+
+    return new RoleDto({
+      ...role,
+      permissions: role.permissions.map(
+        (permission) => new PermissionDto(permission),
+      ),
+    });
   }
 }

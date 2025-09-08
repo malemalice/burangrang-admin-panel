@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { DepartmentDto } from './dto/department.dto';
 import { Prisma } from '@prisma/client';
+import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 
 interface FindAllOptions {
   page?: number;
@@ -16,7 +17,10 @@ interface FindAllOptions {
 
 @Injectable()
 export class DepartmentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private errorHandler: ErrorHandlingService,
+  ) {}
 
   async create(
     createDepartmentDto: CreateDepartmentDto,
@@ -86,9 +90,7 @@ export class DepartmentsService {
       where: { id },
     });
 
-    if (!department) {
-      throw new NotFoundException(`Department with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Department', id, department);
 
     return new DepartmentDto(department);
   }
@@ -101,9 +103,7 @@ export class DepartmentsService {
       where: { id },
     });
 
-    if (!existingDepartment) {
-      throw new NotFoundException(`Department with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Department', id, existingDepartment);
 
     const department = await this.prisma.department.update({
       where: { id },
@@ -118,9 +118,7 @@ export class DepartmentsService {
       where: { id },
     });
 
-    if (!existingDepartment) {
-      throw new NotFoundException(`Department with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Department', id, existingDepartment);
 
     await this.prisma.department.delete({
       where: { id },
@@ -132,9 +130,7 @@ export class DepartmentsService {
       where: { code },
     });
 
-    if (!department) {
-      throw new NotFoundException(`Department with code ${code} not found`);
-    }
+    this.errorHandler.throwIfNotFoundByField('Department', 'code', code, department);
 
     return new DepartmentDto(department);
   }
