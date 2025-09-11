@@ -15,13 +15,6 @@ const CreateMenuPage = () => {
   const menus = Array.isArray(menusData) ? menusData : [];
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Mock roles - in real app this would come from API
-  const availableRoles = [
-    { id: 'role-1', name: 'Admin' },
-    { id: 'role-2', name: 'Manager' },
-    { id: 'role-3', name: 'User' },
-    { id: 'role-4', name: 'HR' },
-  ];
 
   const handleSubmit = async (data: MenuFormData) => {
     setIsSubmitting(true);
@@ -33,7 +26,7 @@ const CreateMenuPage = () => {
         parentId: data.parentId || undefined,
         order: data.order,
         isActive: data.isActive,
-        roleIds: data.roleIds || [],
+        roleIds: data.roleIds,
       };
 
       await createMenu(createData);
@@ -62,16 +55,12 @@ const CreateMenuPage = () => {
         }
       />
 
-      <div className="max-w-2xl">
-        <MenuForm
-          parentMenus={menus.filter(menu => !menu?.parentId)} // Only root level menus can be parents
-          availableRoles={availableRoles}
-          onSubmit={handleSubmit}
-          onCancel={handleCancel}
-          isLoading={isSubmitting}
-          submitButtonText="Create Menu Item"
-        />
-      </div>
+      <MenuForm
+        onSubmit={handleSubmit}
+        onCancel={handleCancel}
+        isLoading={isSubmitting}
+        submitButtonText="Create Menu Item"
+      />
     </>
   );
 };

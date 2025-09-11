@@ -1,18 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/core/lib/utils';
-import {
-  LayoutDashboard,
-  Users,
-  ShieldCheck,
-  Menu as MenuIcon,
-  Building2,
-  Settings,
-  ChevronDown,
-  ChevronRight,
-  Building,
-  UsersRound
-} from 'lucide-react';
+import { Icon } from '@/core/components/ui/icon';
 import { useTheme } from '@/core/lib/theme';
 import { themeColors, getContrastTextColor } from '@/core/lib/theme/colors';
 import { useAppName } from '@/modules/settings/hooks/useSettings';
@@ -23,14 +12,14 @@ interface SidebarProps {
 
 interface NavItemProps {
   to: string;
-  icon?: React.ElementType;
+  icon?: string;
   children: React.ReactNode;
   isOpen?: boolean;
 }
 
 interface SubMenuProps {
   title: string;
-  icon: React.ElementType;
+  icon: string;
   isOpen: boolean;
   children: React.ReactNode;
 }
@@ -48,7 +37,7 @@ const getNavStyles = (isDark: boolean, isActive = false, textColor?: string) => 
     : `hover:bg-white/10`;
 };
 
-const NavItem = ({ to, icon: Icon, children, isOpen = true }: NavItemProps) => {
+const NavItem = ({ to, icon, children, isOpen = true }: NavItemProps) => {
   const { isDark, theme } = useTheme();
   const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
   const textColor = getContrastTextColor(currentThemeColor);
@@ -65,13 +54,13 @@ const NavItem = ({ to, icon: Icon, children, isOpen = true }: NavItemProps) => {
         color: textColor,
       }}
     >
-      {Icon && <Icon size={20} className={cn(!isOpen && "mx-auto")} />}
-      {isOpen && <span className={cn(Icon && "ml-3")}>{children}</span>}
+      {icon && <Icon name={icon} size={20} className={cn(!isOpen && "mx-auto")} />}
+      {isOpen && <span className={cn(icon && "ml-3")}>{children}</span>}
     </NavLink>
   );
 };
 
-const SubMenu = ({ title, icon: Icon, isOpen, children }: SubMenuProps) => {
+const SubMenu = ({ title, icon, isOpen, children }: SubMenuProps) => {
   const [expanded, setExpanded] = useState(false);
   const { isDark, theme } = useTheme();
   const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
@@ -90,11 +79,11 @@ const SubMenu = ({ title, icon: Icon, isOpen, children }: SubMenuProps) => {
           color: textColor,
         }}
       >
-        <Icon size={20} className={cn(!isOpen && "mx-auto")} />
+        <Icon name={icon} size={20} className={cn(!isOpen && "mx-auto")} />
         {isOpen && (
           <>
             <span className="ml-3 flex-1 text-left">{title}</span>
-            {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            {expanded ? <Icon name="ChevronDown" size={16} /> : <Icon name="ChevronRight" size={16} />}
           </>
         )}
       </button>
@@ -139,19 +128,19 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
       </div>
 
       <div className="py-4 px-2 space-y-1">
-        <NavItem to="/" icon={LayoutDashboard} isOpen={isOpen}>Dashboard</NavItem>
+        <NavItem to="/" icon="LayoutDashboard" isOpen={isOpen}>Dashboard</NavItem>
 
-        <SubMenu title="Master Data" icon={Building2} isOpen={isOpen}>
-          <NavItem to="/master/offices" icon={Building}>Offices</NavItem>
-          <NavItem to="/master/departments" icon={UsersRound}>Departments</NavItem>
-          <NavItem to="/master/job-positions" icon={UsersRound}>Job Positions</NavItem>
-          <NavItem to="/users" icon={Users} isOpen={isOpen}>Users</NavItem>
-          <NavItem to="/roles" icon={ShieldCheck} isOpen={isOpen}>Roles</NavItem>
-          <NavItem to="/menus" icon={MenuIcon} isOpen={isOpen}>Menus</NavItem>
-          <NavItem to="/master/approvals" icon={ShieldCheck} isOpen={isOpen}>Approvals</NavItem>
+        <SubMenu title="Master Data" icon="Building2" isOpen={isOpen}>
+          <NavItem to="/master/offices" icon="Building">Offices</NavItem>
+          <NavItem to="/master/departments" icon="UsersRound">Departments</NavItem>
+          <NavItem to="/master/job-positions" icon="UsersRound">Job Positions</NavItem>
+          <NavItem to="/users" icon="Users" isOpen={isOpen}>Users</NavItem>
+          <NavItem to="/roles" icon="ShieldCheck" isOpen={isOpen}>Roles</NavItem>
+          <NavItem to="/menus" icon="Menu" isOpen={isOpen}>Menus</NavItem>
+          <NavItem to="/master/approvals" icon="ShieldCheck" isOpen={isOpen}>Approvals</NavItem>
         </SubMenu>
 
-        <NavItem to="/settings" icon={Settings} isOpen={isOpen}>Settings</NavItem>
+        <NavItem to="/settings" icon="Settings" isOpen={isOpen}>Settings</NavItem>
       </div>
     </aside>
   );

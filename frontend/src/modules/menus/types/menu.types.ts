@@ -39,7 +39,7 @@ export interface CreateMenuDTO {
   parentId?: string;
   order: number;
   isActive: boolean;
-  roleIds?: string[]; // For role assignment
+  roleIds?: string[]; // Backend expects array, frontend uses single selection
 }
 
 // Interface for updating a menu item - matches backend UpdateMenuDto
@@ -50,7 +50,7 @@ export interface UpdateMenuDTO {
   parentId?: string;
   order?: number;
   isActive?: boolean;
-  roleIds?: string[]; // For role assignment
+  roleIds?: string[]; // Backend expects array, frontend uses single selection
 }
 
 // Menu form data for frontend forms
@@ -61,7 +61,7 @@ export interface MenuFormData {
   parentId: string; // Can be "none" for root level, will be converted to undefined
   order: number;
   isActive: boolean;
-  roleIds: string[]; // Selected role IDs for the menu
+  roleIds: string[]; // Selected role IDs for the menu (multiple selection)
 }
 
 // Menu filter options

@@ -17,13 +17,6 @@ const EditMenuPage = () => {
   const menus = Array.isArray(menusData) ? menusData : [];
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Mock roles - in real app this would come from API
-  const availableRoles = [
-    { id: 'role-1', name: 'Admin' },
-    { id: 'role-2', name: 'Manager' },
-    { id: 'role-3', name: 'User' },
-    { id: 'role-4', name: 'HR' },
-  ];
 
   // All hooks must be called before any conditional returns
   useEffect(() => {
@@ -44,7 +37,7 @@ const EditMenuPage = () => {
         parentId: data.parentId || undefined,
         order: data.order,
         isActive: data.isActive,
-        roleIds: data.roleIds || [],
+        roleIds: data.roleIds,
       };
 
       await updateMenu(id, updateData);
@@ -102,17 +95,13 @@ const EditMenuPage = () => {
         }
       />
 
-      <div className="max-w-2xl">
-        <MenuForm
-          menu={menu}
-          parentMenus={menus.filter(m => m?.id !== menu?.id && !m?.parentId)} // Exclude current menu and its children
-          availableRoles={availableRoles}
-          onSubmit={handleSubmit}
-          onCancel={handleCancel}
-          isLoading={isSubmitting}
-          submitButtonText="Update Menu Item"
-        />
-      </div>
+      <MenuForm
+        menu={menu}
+        onSubmit={handleSubmit}
+        onCancel={handleCancel}
+        isLoading={isSubmitting}
+        submitButtonText="Update Menu Item"
+      />
     </>
   );
 };
