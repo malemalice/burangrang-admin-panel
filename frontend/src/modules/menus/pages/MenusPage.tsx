@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, Plus, Menu as MenuIcon, Eye, ShieldCheck, ArrowRight, MoreHorizontal, Loader2 } from 'lucide-react';
@@ -22,52 +22,34 @@ import {
   CardTitle,
 } from '@/core/components/ui/card';
 import { useMenus } from '../hooks/useMenus';
-import menuService from '../services/menuService';
 import { MenuDTO } from '../types/menu.types';
 
 const MenusPage = () => {
   const navigate = useNavigate();
 
-  // State management following users module pattern
-  const [menus, setMenus] = useState<MenuDTO[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalMenus, setTotalMenus] = useState(0);
+  // Use the useMenus hook for centralized state management
+  const {
+    menus,
+    isLoading,
+    error,
+    totalMenus,
+    fetchMenus,
+    deleteMenu
+  } = useMenus();
+
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [menuToDelete, setMenuToDelete] = useState<MenuDTO | null>(null);
   const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
 
-  // Get the service directly like users module does
-  const { deleteMenu } = useMenus();
-
-  // Memoized fetch function following users module pattern
-  const fetchMenus = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await menuService.getMenus({
-        page: pageIndex + 1, // API expects 1-based pagination
-        limit,
-      });
-
-      const menuData = response?.data || [];
-      setMenus(menuData);
-      setTotalMenus(response?.meta?.total || 0);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch menus';
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [pageIndex, limit]); // Following users module pattern with proper dependencies
-
-  // Load menus when dependencies change - following users module pattern
+  // Load menus when dependencies change - using the hook's fetchMenus
   useEffect(() => {
-    fetchMenus();
-  }, [fetchMenus]);
+    fetchMenus({
+      page: pageIndex + 1, // API expects 1-based pagination
+      limit,
+    });
+  }, [fetchMenus, pageIndex, limit]);
 
   const handleDropdownOpenChange = (id: string, open: boolean) => {
     setDropdownOpenStates(prev => ({
@@ -91,17 +73,14 @@ const MenusPage = () => {
   const handleDeleteConfirm = async () => {
     if (!menuToDelete) return;
 
-    setIsLoading(true);
     try {
       await deleteMenu(menuToDelete.id);
       toast.success(`Menu item "${menuToDelete.name}" has been deleted`);
-      // Refetch data following users module pattern
-      fetchMenus();
+      // Hook automatically updates state, no need to refetch
     } catch (error) {
       console.error('Error deleting menu:', error);
       toast.error('Failed to delete menu item');
     } finally {
-      setIsLoading(false);
       setDeleteDialogOpen(false);
       setMenuToDelete(null);
     }
@@ -230,6 +209,7 @@ const MenusPage = () => {
       </div>
     );
   }
+
 
   return (
     <>

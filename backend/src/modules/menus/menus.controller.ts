@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -48,15 +49,50 @@ export class MenusController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all menus' })
+  @ApiOperation({ summary: 'Get all menus with pagination' })
   @ApiResponse({
     status: 200,
-    description: 'Return all menus.',
-    type: [MenuDto],
+    description: 'Return paginated menus.',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/MenuDto' }
+        },
+        meta: {
+          type: 'object',
+          properties: {
+            total: { type: 'number' },
+            page: { type: 'number' },
+            limit: { type: 'number' }
+          }
+        }
+      }
+    }
   })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
-  findAll() {
-    return this.menusService.findAll();
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+    @Query('search') search?: string,
+    @Query('isActive') isActive?: string,
+  ): Promise<{ data: MenuDto[]; meta: { total: number; page: number; limit: number } }> {
+    // Convert string parameters to their proper types
+    const pageNumber = page ? parseInt(page, 10) : 1;
+    const limitNumber = limit ? parseInt(limit, 10) : 10;
+    const isActiveBoolean = isActive === undefined ? undefined : isActive === 'true';
+
+    return this.menusService.findAll({
+      page: pageNumber,
+      limit: limitNumber,
+      sortBy: sortBy || 'order',
+      sortOrder: sortOrder || 'asc',
+      search,
+      isActive: isActiveBoolean,
+    });
   }
 
   @Get('hierarchy')

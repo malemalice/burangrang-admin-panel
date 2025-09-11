@@ -5,15 +5,30 @@ import { UpdateMenuDto } from './dto/update-menu.dto';
 import { MenuDto } from './dto/menu.dto';
 import { RoleDto } from '../roles/dto/role.dto';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { ErrorHandlingService } from '../../shared/services/error-handling.service';
+import { Prisma } from '@prisma/client';
+
+// Define options for findAll method
+export interface FindMenusOptions {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  isActive?: boolean;
+}
 
 @Injectable()
 export class MenusService {
   private menuMapper: (menu: any) => MenuDto;
   private roleMapper: (role: any) => RoleDto;
+  private menuArrayMapper: (menus: any[]) => MenuDto[];
+  private menuPaginatedMapper: (data: { data: any[]; meta: any }) => { data: MenuDto[]; meta: any };
 
   constructor(
     private prisma: PrismaService,
     private dtoMapper: DtoMapperService,
+    private errorHandler: ErrorHandlingService,
   ) {
     // Initialize mappers for complex menu relationships
     this.roleMapper = this.dtoMapper.createSimpleMapper(RoleDto);
@@ -37,6 +52,10 @@ export class MenusService {
       },
       [], // no exclusions
     );
+
+    // Create array and paginated mappers
+    this.menuArrayMapper = this.dtoMapper.createArrayMapper(MenuDto);
+    this.menuPaginatedMapper = this.dtoMapper.createPaginatedMapper(MenuDto);
   }
 
   async create(createMenuDto: CreateMenuDto): Promise<MenuDto> {
@@ -61,19 +80,70 @@ export class MenusService {
     return this.menuMapper(menu);
   }
 
-  async findAll(): Promise<MenuDto[]> {
+  async findAll(options?: FindMenusOptions): Promise<{
+    data: MenuDto[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'order',
+      sortOrder = 'asc',
+      search,
+      isActive,
+    } = options || {};
+
+    // Build where clause
+    const where: Prisma.MenuWhereInput = {};
+
+    if (isActive !== undefined) {
+      where.isActive = isActive;
+    }
+
+    if (search) {
+      const searchTerm = search.trim();
+      if (searchTerm.length > 0) {
+        where.OR = [
+          { name: { contains: searchTerm, mode: 'insensitive' } },
+          { path: { contains: searchTerm, mode: 'insensitive' } },
+        ];
+      }
+    }
+
+    // Get total count
+    const total = await this.prisma.menu.count({ where });
+
+    // Build order by clause
+    const orderBy: Prisma.MenuOrderByWithRelationInput = {};
+    if (sortBy === 'name' || sortBy === 'path' || sortBy === 'order' || sortBy === 'isActive') {
+      orderBy[sortBy] = sortOrder;
+    } else {
+      // Default sort by order
+      orderBy.order = 'asc';
+    }
+
+    // Get paginated data
     const menus = await this.prisma.menu.findMany({
+      where,
       include: {
         parent: true,
         children: true,
         roles: true,
       },
-      orderBy: {
-        order: 'asc',
-      },
+      orderBy,
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return menus.map((menu) => this.menuMapper(menu));
+    // Use the paginated mapper for consistent response format - match users service exactly
+    return this.menuPaginatedMapper({
+      data: menus,
+      meta: {
+        total,
+        page,
+        limit,
+      },
+    });
   }
 
   async findOne(id: string): Promise<MenuDto> {

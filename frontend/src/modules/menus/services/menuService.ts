@@ -70,17 +70,50 @@ const menuService = {
   // Get all menus with pagination and filters
   getMenus: async (params?: MenuSearchParams): Promise<PaginatedResponse<MenuDTO>> => {
     try {
-      const response = await api.get('/menus', { params });
+      const queryParams = new URLSearchParams();
+
+      // Add pagination parameters
+      if (params?.page) {
+        queryParams.append('page', params.page.toString());
+      }
+      if (params?.limit) {
+        queryParams.append('limit', params.limit.toString());
+      }
+
+      // Add sorting if provided
+      if (params?.sortBy) {
+        queryParams.append('sortBy', params.sortBy);
+        queryParams.append('sortOrder', params.sortOrder || 'asc');
+      }
+
+      // Add search if provided
+      if (params?.search) {
+        queryParams.append('search', params.search);
+      }
+
+      // Add filters if provided
+      if (params?.filters) {
+        Object.entries(params.filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            queryParams.append(key, value.toString());
+          }
+        });
+      }
+
+      const queryString = queryParams.toString();
+      const url = queryString ? `/menus?${queryString}` : '/menus';
+
+      const response = await api.get(url);
       return {
         data: response.data?.data || [],
-        meta: response.data?.meta || { total: 0, page: 1, limit: 10, totalPages: 0 }
+        meta: response.data?.meta || { total: 0, page: 1, limit: 10 }
       };
     } catch (error) {
       console.error('Error fetching menus:', error);
       // Return empty data structure on error
       return {
         data: [],
-        meta: { total: 0, page: 1, limit: 10, totalPages: 0 }
+        meta: { total: 0, page: 1, limit: 10 }
       };
     }
   },
