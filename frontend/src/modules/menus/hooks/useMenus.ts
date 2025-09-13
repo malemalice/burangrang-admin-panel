@@ -2,7 +2,7 @@
  * Menu hooks
  * Following TRD.md patterns for custom hooks
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import menuService from '../services/menuService';
 import { 
@@ -21,21 +21,15 @@ export const useMenus = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Debug logging
-  console.log('useMenus hook - menus:', menus, 'isLoading:', isLoading, 'error:', error);
-
-  const fetchMenus = async (params: MenuSearchParams) => {
-    console.log('fetchMenus called with params:', params);
+  const fetchMenus = useCallback(async (params: MenuSearchParams) => {
     setIsLoading(true);
     setError(null);
     try {
       const response: PaginatedResponse<Menu> = await menuService.getMenus(params);
-      console.log('fetchMenus response:', response);
       setMenus(response.data || []);
       setTotalMenus(response.meta?.total || 0);
       setCurrentPage(params.page);
     } catch (err) {
-      console.error('fetchMenus error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch menus';
       setError(errorMessage);
       toast.error(errorMessage);
@@ -44,7 +38,7 @@ export const useMenus = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   const createMenu = async (menuData: CreateMenuDTO) => {
     try {

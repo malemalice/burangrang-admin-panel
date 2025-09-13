@@ -25,14 +25,14 @@ const mapMenuDtoToMenu = (menuDto: MenuDTO): Menu => ({
   children: menuDto.children ? menuDto.children.map(child => mapMenuDtoToMenu(child as MenuDTO)) : [],
   order: menuDto.order,
   isActive: menuDto.isActive,
-  roles: menuDto.roles.map(role => ({
+  roles: menuDto.roles ? menuDto.roles.map(role => ({
     id: role.id,
     name: role.name,
     description: role.description,
     isActive: role.isActive,
     createdAt: new Date(role.createdAt).toISOString(),
     updatedAt: new Date(role.updatedAt).toISOString(),
-  })),
+  })) : [],
   createdAt: new Date(menuDto.createdAt).toISOString(),
   updatedAt: new Date(menuDto.updatedAt).toISOString(),
 });
@@ -79,8 +79,8 @@ const menuService = {
 
     const response = await api.get(`/menus?${queryParams.toString()}`);
     return {
-      data: response.data.data.map(mapMenuDtoToMenu),
-      meta: response.data.meta
+      data: response.data.data ? response.data.data.map(mapMenuDtoToMenu) : [],
+      meta: response.data.meta || { total: 0, page: 1, limit: 10, totalPages: 0 }
     };
   },
 
