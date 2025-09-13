@@ -252,6 +252,56 @@ export class MenusService {
     return menus.map((menu) => this.menuMapper(menu));
   }
 
+  async getSidebarMenus(): Promise<MenuDto[]> {
+    const menus = await this.prisma.menu.findMany({
+      where: {
+        isActive: true,
+        parentId: null,
+      },
+      include: {
+        children: {
+          where: {
+            isActive: true,
+          },
+          include: {
+            children: {
+              where: {
+                isActive: true,
+              },
+              include: {
+                children: {
+                  where: {
+                    isActive: true,
+                  },
+                  include: {
+                    children: {
+                      where: {
+                        isActive: true,
+                      },
+                      include: {
+                        children: true,
+                        roles: true,
+                      },
+                    },
+                    roles: true,
+                  },
+                },
+                roles: true,
+              },
+            },
+            roles: true,
+          },
+        },
+        roles: true,
+      },
+      orderBy: {
+        order: 'asc',
+      },
+    });
+
+    return menus.map((menu) => this.menuMapper(menu));
+  }
+
   async updateMenuOrder(menuOrders: Array<{ id: string; order: number }>): Promise<void> {
     const updatePromises = menuOrders.map(({ id, order }) =>
       this.prisma.menu.update({

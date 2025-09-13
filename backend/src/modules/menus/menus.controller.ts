@@ -48,51 +48,16 @@ export class MenusController {
     return this.menusService.create(createMenuDto);
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Get all menus with pagination' })
+  @Get('sidebar')
+  @ApiOperation({ summary: 'Get active menus for sidebar navigation' })
   @ApiResponse({
     status: 200,
-    description: 'Return paginated menus.',
-    schema: {
-      type: 'object',
-      properties: {
-        data: {
-          type: 'array',
-          items: { $ref: '#/components/schemas/MenuDto' }
-        },
-        meta: {
-          type: 'object',
-          properties: {
-            total: { type: 'number' },
-            page: { type: 'number' },
-            limit: { type: 'number' }
-          }
-        }
-      }
-    }
+    description: 'Return active menu hierarchy for sidebar.',
+    type: [MenuDto],
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
-  findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('sortBy') sortBy?: string,
-    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
-    @Query('search') search?: string,
-    @Query('isActive') isActive?: string,
-  ): Promise<{ data: MenuDto[]; meta: { total: number; page: number; limit: number } }> {
-    // Convert string parameters to their proper types
-    const pageNumber = page ? parseInt(page, 10) : 1;
-    const limitNumber = limit ? parseInt(limit, 10) : 10;
-    const isActiveBoolean = isActive === undefined ? undefined : isActive === 'true';
-
-    return this.menusService.findAll({
-      page: pageNumber,
-      limit: limitNumber,
-      sortBy: sortBy || 'order',
-      sortOrder: sortOrder || 'asc',
-      search,
-      isActive: isActiveBoolean,
-    });
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  async getSidebarMenus(): Promise<MenuDto[]> {
+    return await this.menusService.getSidebarMenus();
   }
 
   @Get('hierarchy')
@@ -105,6 +70,68 @@ export class MenusController {
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
   getMenuHierarchy() {
     return this.menusService.getMenuHierarchy();
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Get menu statistics' })
+  @ApiResponse({
+    status: 200,
+    description: 'Menu statistics retrieved successfully.',
+  })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  async getMenuStats() {
+    return this.menusService.getMenuStats();
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Get all menus with pagination' })
+  @ApiResponse({
+    status: 200,
+    description: 'Return paginated menus.',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/MenuDto' },
+        },
+        meta: {
+          type: 'object',
+          properties: {
+            total: { type: 'number' },
+            page: { type: 'number' },
+            limit: { type: 'number' },
+          },
+        },
+      },
+    },
+  })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+    @Query('search') search?: string,
+    @Query('isActive') isActive?: string,
+  ): Promise<{
+    data: MenuDto[];
+    meta: { total: number; page: number; limit: number };
+  }> {
+    // Convert string parameters to their proper types
+    const pageNumber = page ? parseInt(page, 10) : 1;
+    const limitNumber = limit ? parseInt(limit, 10) : 10;
+    const isActiveBoolean =
+      isActive === undefined ? undefined : isActive === 'true';
+
+    return this.menusService.findAll({
+      page: pageNumber,
+      limit: limitNumber,
+      sortBy: sortBy || 'order',
+      sortOrder: sortOrder || 'asc',
+      search,
+      isActive: isActiveBoolean,
+    });
   }
 
   @Get('role/:roleId')
@@ -192,16 +219,5 @@ export class MenusController {
     @Body() body: { menuOrders: Array<{ id: string; order: number }> },
   ): Promise<void> {
     return this.menusService.updateMenuOrder(body.menuOrders);
-  }
-
-  @Get('stats')
-  @ApiOperation({ summary: 'Get menu statistics' })
-  @ApiResponse({
-    status: 200,
-    description: 'Menu statistics retrieved successfully.',
-  })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
-  async getMenuStats() {
-    return this.menusService.getMenuStats();
   }
 }

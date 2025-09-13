@@ -53,8 +53,16 @@ export async function seedRoles(prisma: PrismaClient, permissions: Permission[])
   console.log('Creating roles...');
   const createdRoles = await Promise.all(
     roles.map((role) =>
-      prisma.role.create({
-        data: {
+      prisma.role.upsert({
+        where: { name: role.name },
+        update: {
+          description: role.description,
+          isActive: true,
+          permissions: {
+            set: role.permissions(permissions).map((id) => ({ id })),
+          },
+        },
+        create: {
           name: role.name,
           description: role.description,
           isActive: true,
@@ -65,6 +73,6 @@ export async function seedRoles(prisma: PrismaClient, permissions: Permission[])
       })
     )
   );
-  console.log('Created roles:', createdRoles.map((r) => r.name));
+  console.log('Created/Updated roles:', createdRoles.map((r) => r.name));
   return createdRoles;
 } 

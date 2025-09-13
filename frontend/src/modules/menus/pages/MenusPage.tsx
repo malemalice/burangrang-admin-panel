@@ -262,7 +262,7 @@ const MenusPage = () => {
               </div>
             ) : menus && menus.length > 0 ? (
               <p className="text-sm">
-                {Array.from(new Set(menus.flatMap(m => m?.roles?.map(r => r?.name) || []))).length} roles with custom menu access
+                {Array.from(new Set((menus || []).flatMap(m => m?.roles?.map(r => r?.name) || []))).length} roles with custom menu access
               </p>
             ) : (
               <p className="text-sm text-gray-500">No menu items available</p>
@@ -295,7 +295,7 @@ const MenusPage = () => {
 
       <DataTable
         columns={columns}
-        data={menus}
+        data={menus || []}
         pagination={{
           pageIndex,
           limit,

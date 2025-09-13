@@ -6,6 +6,7 @@ import { seedUsers } from './seeds/users.seed';
 import { seedDepartments } from './seeds/departments.seed';
 import { seedJobPositions } from './seeds/jobpositions.seed';
 import { seedSettings } from './seeds/settings.seed';
+import { seedMenus } from './seeds/menus.seed';
 
 const prisma = new PrismaClient();
 
@@ -28,6 +29,7 @@ async function main() {
       await prisma.department.deleteMany();
       await prisma.jobPosition.deleteMany();
       await prisma.setting.deleteMany();
+      await prisma.menu.deleteMany();
       console.log('All existing data cleared successfully');
     } else {
       // Clear only the specified table
@@ -53,9 +55,12 @@ async function main() {
         case 'settings':
           await prisma.setting.deleteMany();
           break;
+        case 'menus':
+          await prisma.menu.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
-          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings');
+          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus');
           process.exit(1);
       }
       console.log(`Cleared existing data for table: ${tableToSeed}`);
@@ -71,6 +76,7 @@ async function main() {
       const jobPositions = await seedJobPositions(prisma);
       await seedUsers(prisma, roles, offices);
       await seedSettings(prisma);
+      await seedMenus();
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -99,6 +105,11 @@ async function main() {
           break;
         case 'settings':
           await seedSettings(prisma);
+          break;
+        case 'menus':
+          const permsForMenus = await seedPermissions(prisma);
+          const rolesForMenus = await seedRoles(prisma, permsForMenus);
+          await seedMenus();
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);
