@@ -15,7 +15,7 @@ import { PermissionsGuard } from '../../shared/guards/permissions.guard';
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
+      useFactory: (configService: ConfigService) => ({
         secret: configService.get('app.jwtSecret'),
         signOptions: {
           expiresIn: configService.get('app.jwtExpiration'),
@@ -28,4 +28,4 @@ import { PermissionsGuard } from '../../shared/guards/permissions.guard';
   providers: [AuthService, JwtStrategy, PrismaService, PermissionsGuard],
   exports: [AuthService],
 })
-export class AuthModule {} 
+export class AuthModule {}

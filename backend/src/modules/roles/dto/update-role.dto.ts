@@ -12,7 +12,10 @@ export class UpdateRoleDto {
   @IsOptional()
   description?: string;
 
-  @ApiProperty({ description: 'List of permissions for the role', required: false })
+  @ApiProperty({
+    description: 'List of permissions for the role',
+    required: false,
+  })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
@@ -22,4 +25,4 @@ export class UpdateRoleDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
-} 
+}

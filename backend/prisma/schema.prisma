@@ -17,12 +17,18 @@ model User {
   isActive      Boolean        @default(true)
   roleId        String
   officeId      String
+  departmentId  String?
+  jobPositionId String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   lastLoginAt   DateTime?
   refreshTokens RefreshToken[]
   office        Office         @relation(fields: [officeId], references: [id])
   role          Role           @relation(fields: [roleId], references: [id])
+  department    Department?    @relation(fields: [departmentId], references: [id])
+  jobPosition   JobPosition?   @relation(fields: [jobPositionId], references: [id])
+  createdApprovalItems MasterApprovalItem[] @relation("CreatedApprovalItems")
+  createdApprovals Approval[] @relation("CreatedApprovals")
 
   @@map("users")
 }
@@ -98,4 +104,86 @@ model Office {
   users       User[]
 
   @@map("offices")
+}
+
+model Department {
+  id          String @id @default(uuid())
+  name        String
+  code        String @unique
+  description String? @db.Text
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+  users       User[]
+  approvalItems MasterApprovalItem[]
+  approvals Approval[]
+  @@map("departments")
+}
+
+model JobPosition {
+  id          String @id @default(uuid())
+  name        String
+  code        String @unique
+  level       Int
+  description String? @db.Text
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+  users       User[]
+  approvalItems MasterApprovalItem[]
+  approvals   Approval[]
+  @@map("job_positions")
+}
+
+model MasterApproval {
+  id String @id @default(uuid())
+  entity String
+  isActive Boolean @default(true)
+  items MasterApprovalItem[]
+
+  @@map("m_approval")
+}
+
+model MasterApprovalItem {
+  id String @id @default(uuid())
+  mApprovalId String
+  mApproval MasterApproval @relation(fields:[mApprovalId], references:[id])
+  order Int
+  job_position_id String
+  department_id String
+  createdBy String
+  createdAt DateTime @default(now())
+  jobPosition JobPosition @relation(fields: [job_position_id], references: [id])
+  department Department @relation(fields: [department_id], references: [id])
+  creator User @relation("CreatedApprovalItems", fields: [createdBy], references: [id])
+
+  @@map("m_approval_item")
+}
+
+model Approval {
+  id String @id @default(uuid())
+  mApprovalId String
+  entityId String
+  department_id String
+  job_position_id String
+  status String
+  notes String
+  createdAt DateTime @default(now())
+  createdBy String
+  department Department @relation(fields: [department_id], references: [id])
+  jobPosition JobPosition @relation(fields: [job_position_id], references: [id])
+  creator User @relation("CreatedApprovals", fields: [createdBy], references: [id])
+
+  @@map("t_approvals")
+}
+
+model Setting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
 }

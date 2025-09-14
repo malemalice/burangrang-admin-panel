@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateOfficeDto } from './dto/create-office.dto';
 import { UpdateOfficeDto } from './dto/update-office.dto';
 import { OfficeDto } from './dto/office.dto';
+import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { Prisma } from '@prisma/client';
 
 interface FindAllOptions {
@@ -15,7 +17,57 @@ interface FindAllOptions {
 
 @Injectable()
 export class OfficesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private officeMapper: (office: any) => OfficeDto;
+  private officeArrayMapper: (offices: any[]) => OfficeDto[];
+  private officePaginatedMapper: (data: { data: any[]; meta: any }) => { data: OfficeDto[]; meta: any };
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private dtoMapper: DtoMapperService,
+    private errorHandler: ErrorHandlingService,
+  ) {
+    // Initialize mappers with recursive parent/child relationships
+    this.officeMapper = this.dtoMapper.createRelationMapper(
+      OfficeDto,
+      {
+        parent: {
+          mapper: (parent: any) => this.officeMapper(parent),
+          isArray: false,
+        },
+        children: {
+          mapper: (child: any) => this.officeMapper(child),
+          isArray: true,
+        },
+      },
+      [], // no exclusions
+    );
+
+    this.officeArrayMapper = this.dtoMapper.createArrayMapper(OfficeDto, {
+      relations: {
+        parent: {
+          mapper: (parent: any) => this.officeMapper(parent),
+          isArray: false,
+        },
+        children: {
+          mapper: (child: any) => this.officeMapper(child),
+          isArray: true,
+        },
+      },
+    });
+
+    this.officePaginatedMapper = this.dtoMapper.createPaginatedMapper(OfficeDto, {
+      relations: {
+        parent: {
+          mapper: (parent: any) => this.officeMapper(parent),
+          isArray: false,
+        },
+        children: {
+          mapper: (child: any) => this.officeMapper(child),
+          isArray: true,
+        },
+      },
+    });
+  }
 
   async create(createOfficeDto: CreateOfficeDto): Promise<OfficeDto> {
     const { parentId, ...data } = createOfficeDto;
@@ -24,9 +76,9 @@ export class OfficesService {
         ...data,
         ...(parentId && {
           parent: {
-            connect: { id: parentId }
-          }
-        })
+            connect: { id: parentId },
+          },
+        }),
       },
       include: {
         children: true,
@@ -34,10 +86,13 @@ export class OfficesService {
       },
     });
 
-    return this.mapToDto(office);
+    return this.officeMapper(office);
   }
 
-  async findAll(options?: FindAllOptions): Promise<{ data: OfficeDto[]; meta: { total: number } }> {
+  async findAll(options?: FindAllOptions): Promise<{
+    data: OfficeDto[];
+    meta: { total: number; page: number; limit: number };
+  }> {
     const {
       page = 1,
       limit = 10,
@@ -67,10 +122,10 @@ export class OfficesService {
       this.prisma.office.count({ where }),
     ]);
 
-    return {
-      data: offices.map(office => this.mapToDto(office)),
-      meta: { total },
-    };
+    return this.officePaginatedMapper({
+      data: offices,
+      meta: { total, page, limit },
+    });
   }
 
   async findOne(id: string): Promise<OfficeDto> {
@@ -82,21 +137,20 @@ export class OfficesService {
       },
     });
 
-    if (!office) {
-      throw new NotFoundException(`Office with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Office', id, office);
 
-    return this.mapToDto(office);
+    return this.officeMapper(office);
   }
 
-  async update(id: string, updateOfficeDto: UpdateOfficeDto): Promise<OfficeDto> {
+  async update(
+    id: string,
+    updateOfficeDto: UpdateOfficeDto,
+  ): Promise<OfficeDto> {
     const existingOffice = await this.prisma.office.findUnique({
       where: { id },
     });
 
-    if (!existingOffice) {
-      throw new NotFoundException(`Office with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Office', id, existingOffice);
 
     const { parentId, ...data } = updateOfficeDto;
     const office = await this.prisma.office.update({
@@ -106,8 +160,8 @@ export class OfficesService {
         ...(parentId !== undefined && {
           parent: parentId
             ? { connect: { id: parentId } }
-            : { disconnect: true }
-        })
+            : { disconnect: true },
+        }),
       },
       include: {
         children: true,
@@ -115,7 +169,7 @@ export class OfficesService {
       },
     });
 
-    return this.mapToDto(office);
+    return this.officeMapper(office);
   }
 
   async remove(id: string): Promise<void> {
@@ -123,9 +177,7 @@ export class OfficesService {
       where: { id },
     });
 
-    if (!office) {
-      throw new NotFoundException(`Office with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Office', id, office);
 
     await this.prisma.office.delete({
       where: { id },
@@ -146,24 +198,7 @@ export class OfficesService {
       },
     });
 
-    return offices.map(office => this.mapToDto(office));
+    return this.officeArrayMapper(offices);
   }
 
-  private mapToDto(office: any): OfficeDto {
-    return {
-      id: office.id,
-      name: office.name,
-      code: office.code,
-      description: office.description,
-      address: office.address,
-      phone: office.phone,
-      email: office.email,
-      parentId: office.parentId,
-      isActive: office.isActive,
-      children: office.children?.map(child => this.mapToDto(child)),
-      parent: office.parent ? this.mapToDto(office.parent) : undefined,
-      createdAt: office.createdAt,
-      updatedAt: office.updatedAt,
-    };
-  }
-} 
+}

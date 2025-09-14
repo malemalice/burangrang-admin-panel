@@ -2,6 +2,17 @@ import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { PrismaService } from '../../core/services/prisma.service';
+import { Request } from 'express';
+
+interface AuthenticatedUser {
+  id: string;
+  email: string;
+  role: string;
+}
+
+interface AuthenticatedRequest extends Request {
+  user?: AuthenticatedUser;
+}
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -11,16 +22,16 @@ export class PermissionsGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
+      PERMISSIONS_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!requiredPermissions) {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = request.user;
 
     if (!user) {
@@ -44,7 +55,9 @@ export class PermissionsGuard implements CanActivate {
     }
 
     // Check if user's role has all required permissions
-    const userPermissions = userWithRole.role.permissions.map(p => p.name);
-    return requiredPermissions.every(permission => userPermissions.includes(permission));
+    const userPermissions = userWithRole.role.permissions.map((p) => p.name);
+    return requiredPermissions.every((permission) =>
+      userPermissions.includes(permission),
+    );
   }
-} 
+}

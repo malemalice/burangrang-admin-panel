@@ -19,4 +19,4 @@ export class CreateRoleDto {
   @ApiProperty({ description: 'Whether the role is active' })
   @IsBoolean()
   isActive: boolean;
-} 
+}

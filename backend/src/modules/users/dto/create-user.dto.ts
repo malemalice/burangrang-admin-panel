@@ -1,4 +1,11 @@
-import { IsEmail, IsNotEmpty, IsString, IsUUID, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MinLength,
+} from 'class-validator';
 
 export class CreateUserDto {
   @IsEmail()
@@ -25,4 +32,12 @@ export class CreateUserDto {
   @IsUUID()
   @IsNotEmpty()
   officeId: string;
-} 
+
+  @IsUUID()
+  @IsOptional()
+  departmentId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  jobPositionId?: string;
+}

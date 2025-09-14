@@ -1,7 +1,17 @@
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import { seedPermissions } from './seeds/permissions.seed';
+import { seedRoles } from './seeds/roles.seed';
+import { seedOffices } from './seeds/offices.seed';
+import { seedUsers } from './seeds/users.seed';
+import { seedDepartments } from './seeds/departments.seed';
+import { seedJobPositions } from './seeds/jobpositions.seed';
+import { seedSettings } from './seeds/settings.seed';
+import { seedMenus } from './seeds/menus.seed';
 
 const prisma = new PrismaClient();
+
+// Get the table name from command line arguments
+const tableToSeed = process.argv[2]?.toLowerCase();
 
 async function main() {
   try {
@@ -9,172 +19,106 @@ async function main() {
 
     // Clear existing data
     console.log('Clearing existing data...');
-    await prisma.user.deleteMany();
-    await prisma.role.deleteMany();
-    await prisma.permission.deleteMany();
-    await prisma.office.deleteMany();
-    console.log('Existing data cleared successfully');
+    
+    // If no specific table is provided, clear all tables
+    if (!tableToSeed) {
+      // Delete in order to respect foreign key constraints
+      await prisma.refreshToken.deleteMany();
+      await prisma.masterApprovalItem.deleteMany();
+      await prisma.approval.deleteMany();
+      await prisma.masterApproval.deleteMany();
+      await prisma.user.deleteMany();
+      await prisma.menu.deleteMany();
+      await prisma.role.deleteMany();
+      await prisma.permission.deleteMany();
+      await prisma.office.deleteMany();
+      await prisma.department.deleteMany();
+      await prisma.jobPosition.deleteMany();
+      await prisma.setting.deleteMany();
+      console.log('All existing data cleared successfully');
+    } else {
+      // Clear only the specified table
+      switch (tableToSeed) {
+        case 'users':
+          await prisma.user.deleteMany();
+          break;
+        case 'roles':
+          await prisma.role.deleteMany();
+          break;
+        case 'permissions':
+          await prisma.permission.deleteMany();
+          break;
+        case 'offices':
+          await prisma.office.deleteMany();
+          break;
+        case 'departments':
+          await prisma.department.deleteMany();
+          break;
+        case 'job_positions':
+          await prisma.jobPosition.deleteMany();
+          break;
+        case 'settings':
+          await prisma.setting.deleteMany();
+          break;
+        case 'menus':
+          await prisma.menu.deleteMany();
+          break;
+        default:
+          console.error(`Unknown table: ${tableToSeed}`);
+          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus');
+          process.exit(1);
+      }
+      console.log(`Cleared existing data for table: ${tableToSeed}`);
+    }
 
-    // Create default office
-    console.log('Creating default office...');
-    const defaultOffice = await prisma.office.create({
-      data: {
-        name: 'Headquarters',
-        code: 'HQ',
-        isActive: true,
-      },
-    });
-    console.log('Default office created:', defaultOffice);
-
-    // Define permissions for each module
-    console.log('Creating permissions...');
-    const permissions = [
-      // User Management
-      { name: 'user:create', description: 'Create new users' },
-      { name: 'user:read', description: 'View user information' },
-      { name: 'user:update', description: 'Update user information' },
-      { name: 'user:delete', description: 'Delete users' },
-      { name: 'user:list', description: 'List all users' },
-      { name: 'user:activate', description: 'Activate/deactivate users' },
-      { name: 'user:assign-role', description: 'Assign roles to users' },
-      { name: 'user:assign-office', description: 'Assign offices to users' },
-
-      // Role Management
-      { name: 'role:create', description: 'Create new roles' },
-      { name: 'role:read', description: 'View role information' },
-      { name: 'role:update', description: 'Update role information' },
-      { name: 'role:delete', description: 'Delete roles' },
-      { name: 'role:list', description: 'List all roles' },
-      { name: 'role:assign-permissions', description: 'Assign permissions to roles' },
-
-      // Permission Management
-      { name: 'permission:create', description: 'Create new permissions' },
-      { name: 'permission:read', description: 'View permission information' },
-      { name: 'permission:update', description: 'Update permission information' },
-      { name: 'permission:delete', description: 'Delete permissions' },
-      { name: 'permission:list', description: 'List all permissions' },
-
-      // Menu Management
-      { name: 'menu:create', description: 'Create new menu items' },
-      { name: 'menu:read', description: 'View menu information' },
-      { name: 'menu:update', description: 'Update menu information' },
-      { name: 'menu:delete', description: 'Delete menu items' },
-      { name: 'menu:list', description: 'List all menu items' },
-      { name: 'menu:assign-roles', description: 'Assign roles to menu items' },
-
-      // Office Management
-      { name: 'office:create', description: 'Create new offices' },
-      { name: 'office:read', description: 'View office information' },
-      { name: 'office:update', description: 'Update office information' },
-      { name: 'office:delete', description: 'Delete offices' },
-      { name: 'office:list', description: 'List all offices' },
-      { name: 'office:assign-users', description: 'Assign users to offices' },
-
-      // Authentication & Authorization
-      { name: 'auth:login', description: 'Login to the system' },
-      { name: 'auth:logout', description: 'Logout from the system' },
-      { name: 'auth:refresh-token', description: 'Refresh authentication token' },
-      { name: 'auth:change-password', description: 'Change user password' },
-      { name: 'auth:reset-password', description: 'Reset user password' },
-
-      // System Management
-      { name: 'system:settings', description: 'Manage system settings' },
-      { name: 'system:logs', description: 'View system logs' },
-      { name: 'system:backup', description: 'Create system backups' },
-      { name: 'system:restore', description: 'Restore system from backup' },
-    ];
-
-    // Create permissions
-    const createdPermissions = await Promise.all(
-      permissions.map((permission) =>
-        prisma.permission.create({
-          data: permission,
-        })
-      )
-    );
-    console.log(`Created ${createdPermissions.length} permissions`);
-
-    // Define roles with their permissions
-    console.log('Creating roles...');
-    const roles = [
-      {
-        name: 'Super Admin',
-        description: 'Has full access to all system features and settings',
-        permissions: createdPermissions.map((p) => p.id),
-      },
-      {
-        name: 'Administrator',
-        description: 'Has access to manage users, roles, and basic system settings',
-        permissions: createdPermissions
-          .filter((p) => !p.name.startsWith('system:'))
-          .map((p) => p.id),
-      },
-      {
-        name: 'Manager',
-        description: 'Can manage users and view reports',
-        permissions: createdPermissions
-          .filter(
-            (p) =>
-              p.name.startsWith('user:') ||
-              p.name.startsWith('office:') ||
-              p.name.startsWith('auth:')
-          )
-          .map((p) => p.id),
-      },
-      {
-        name: 'User',
-        description: 'Basic user with limited access',
-        permissions: createdPermissions
-          .filter(
-            (p) =>
-              p.name === 'auth:login' ||
-              p.name === 'auth:logout' ||
-              p.name === 'auth:change-password' ||
-              p.name === 'user:read'
-          )
-          .map((p) => p.id),
-      },
-      {
-        name: 'Guest',
-        description: 'Limited access for external users',
-        permissions: createdPermissions
-          .filter((p) => p.name === 'auth:login' || p.name === 'auth:logout')
-          .map((p) => p.id),
-      },
-    ];
-
-    // Create roles with their permissions
-    const createdRoles = await Promise.all(
-      roles.map((role) =>
-        prisma.role.create({
-          data: {
-            name: role.name,
-            description: role.description,
-            isActive: true,
-            permissions: {
-              connect: role.permissions.map((id) => ({ id })),
-            },
-          },
-        })
-      )
-    );
-    console.log('Created roles:', createdRoles.map((r) => r.name));
-
-    // Create admin user
-    console.log('Creating admin user...');
-    const hashedPassword = await bcrypt.hash('admin', 10);
-    const adminUser = await prisma.user.create({
-      data: {
-        email: 'admin@example.com',
-        password: hashedPassword,
-        firstName: 'Admin',
-        lastName: 'User',
-        isActive: true,
-        roleId: createdRoles.find((r) => r.name === 'Super Admin')!.id,
-        officeId: defaultOffice.id,
-      },
-    });
-    console.log('Admin user created:', adminUser);
+    // Seed data based on the specified table or all tables
+    if (!tableToSeed) {
+      // Seed all tables in order of dependencies
+      const permissions = await seedPermissions(prisma);
+      const roles = await seedRoles(prisma, permissions);
+      const offices = await seedOffices(prisma);
+      const departments = await seedDepartments(prisma);
+      const jobPositions = await seedJobPositions(prisma);
+      await seedUsers(prisma, roles, offices);
+      await seedSettings(prisma);
+      await seedMenus();
+      console.log('All tables seeded successfully');
+    } else {
+      // Seed only the specified table
+      switch (tableToSeed) {
+        case 'permissions':
+          await seedPermissions(prisma);
+          break;
+        case 'roles':
+          const permissions = await seedPermissions(prisma);
+          await seedRoles(prisma, permissions);
+          break;
+        case 'offices':
+          await seedOffices(prisma);
+          break;
+        case 'departments':
+          await seedDepartments(prisma);
+          break;
+        case 'job_positions':
+          await seedJobPositions(prisma);
+          break;
+        case 'users':
+          const perms = await seedPermissions(prisma);
+          const roles = await seedRoles(prisma, perms);
+          const offices = await seedOffices(prisma);
+          await seedUsers(prisma, roles, offices);
+          break;
+        case 'settings':
+          await seedSettings(prisma);
+          break;
+        case 'menus':
+          const permsForMenus = await seedPermissions(prisma);
+          const rolesForMenus = await seedRoles(prisma, permsForMenus);
+          await seedMenus();
+          break;
+      }
+      console.log(`Table ${tableToSeed} seeded successfully`);
+    }
 
     console.log('Seed completed successfully');
   } catch (error) {

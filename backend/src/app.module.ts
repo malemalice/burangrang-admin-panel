@@ -11,6 +11,11 @@ import { PrismaModule } from './core/prisma/prisma.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import appConfig from './core/config/app.config';
 import { Reflector } from '@nestjs/core';
+import { DepartmentsModule } from './modules/departments/departments.module';
+import { JobPositionsModule } from './modules/job-positions/job-positions.module';
+import { MasterApprovalsModule } from './modules/approvals/master-approvals.module';
+import { SettingsModule } from './modules/settings/settings.module';
+import { SharedModule } from './shared/shared.module';
 
 @Module({
   imports: [
@@ -19,19 +24,24 @@ import { Reflector } from '@nestjs/core';
       load: [appConfig],
     }),
     PrismaModule,
+    SharedModule,
     AuthModule,
     UsersModule,
     RolesModule,
     MenusModule,
     OfficesModule,
     PermissionsModule,
+    DepartmentsModule,
+    JobPositionsModule,
+    MasterApprovalsModule,
+    SettingsModule,
   ],
   providers: [
     Reflector,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
-    }
+    },
   ],
 })
 export class AppModule {}
