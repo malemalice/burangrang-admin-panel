@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateSettingDto } from './dto/create-setting.dto';
 import { UpdateSettingDto } from './dto/update-setting.dto';
@@ -10,6 +6,7 @@ import { SettingDto } from './dto/setting.dto';
 import { FindSettingsOptions } from './dto/find-settings.dto';
 import { Prisma } from '@prisma/client';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 
 @Injectable()
 export class SettingsService {
@@ -20,6 +17,7 @@ export class SettingsService {
   constructor(
     private prisma: PrismaService,
     private dtoMapper: DtoMapperService,
+    private errorHandler: ErrorHandlingService,
   ) {
     // Initialize mappers
     this.settingMapper = this.dtoMapper.createSimpleMapper(SettingDto);
@@ -34,9 +32,7 @@ export class SettingsService {
     });
 
     if (existingSetting) {
-      throw new BadRequestException(
-        `Setting with key '${createSettingDto.key}' already exists`,
-      );
+      this.errorHandler.throwConflict('Setting key', createSettingDto.key);
     }
 
     const setting = await this.prisma.setting.create({
@@ -98,9 +94,7 @@ export class SettingsService {
       where: { id },
     });
 
-    if (!setting) {
-      throw new NotFoundException(`Setting with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Setting', id, setting);
 
     return this.settingMapper(setting);
   }
@@ -121,9 +115,9 @@ export class SettingsService {
   async getValueByKeyOrThrow(key: string): Promise<string> {
     const value = await this.getValueByKey(key);
     if (value === null) {
-      throw new NotFoundException(`Setting with key '${key}' not found`);
+      this.errorHandler.throwIfNotFoundByField('Setting', 'key', key, null);
     }
-    return value;
+    return value as string; // Type assertion since we know it's not null after the check
   }
 
   async update(
@@ -134,9 +128,7 @@ export class SettingsService {
       where: { id },
     });
 
-    if (!existingSetting) {
-      throw new NotFoundException(`Setting with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Setting', id, existingSetting);
 
     // Check if key is being updated and if it conflicts with existing setting
     if (updateSettingDto.key && updateSettingDto.key !== existingSetting.key) {
@@ -145,9 +137,7 @@ export class SettingsService {
       });
 
       if (conflictingSetting) {
-        throw new BadRequestException(
-          `Setting with key '${updateSettingDto.key}' already exists`,
-        );
+        this.errorHandler.throwConflict('Setting key', updateSettingDto.key);
       }
     }
 
@@ -196,9 +186,7 @@ export class SettingsService {
       where: { id },
     });
 
-    if (!existingSetting) {
-      throw new NotFoundException(`Setting with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Setting', id, existingSetting);
 
     await this.prisma.setting.delete({
       where: { id },
@@ -210,9 +198,7 @@ export class SettingsService {
       where: { key },
     });
 
-    if (!existingSetting) {
-      throw new NotFoundException(`Setting with key '${key}' not found`);
-    }
+    this.errorHandler.throwIfNotFoundByField('Setting', 'key', key, existingSetting);
 
     await this.prisma.setting.delete({
       where: { key },

@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateJobPositionDto } from './dto/create-job-position.dto';
 import { UpdateJobPositionDto } from './dto/update-job-position.dto';
 import { JobPositionDto } from './dto/job-position.dto';
 import { Prisma } from '@prisma/client';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 
 interface FindAllOptions {
   page?: number;
@@ -24,6 +25,7 @@ export class JobPositionsService {
   constructor(
     private readonly prisma: PrismaService,
     private dtoMapper: DtoMapperService,
+    private errorHandler: ErrorHandlingService,
   ) {
     // Initialize mappers
     this.jobPositionMapper = this.dtoMapper.createSimpleMapper(JobPositionDto);
@@ -90,9 +92,7 @@ export class JobPositionsService {
       where: { id },
     });
 
-    if (!jobPosition) {
-      throw new NotFoundException(`Job position with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Job position', id, jobPosition);
 
     return this.jobPositionMapper(jobPosition);
   }

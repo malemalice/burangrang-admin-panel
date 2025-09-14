@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateMenuDto } from './dto/create-menu.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
@@ -156,9 +156,7 @@ export class MenusService {
       },
     });
 
-    if (!menu) {
-      throw new NotFoundException(`Menu with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Menu', id, menu);
 
     return this.menuMapper(menu);
   }
@@ -168,9 +166,7 @@ export class MenusService {
       where: { id },
     });
 
-    if (!existingMenu) {
-      throw new NotFoundException(`Menu with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Menu', id, existingMenu);
 
     const { roleIds, ...menuData } = updateMenuDto;
 
@@ -199,9 +195,7 @@ export class MenusService {
       where: { id },
     });
 
-    if (!existingMenu) {
-      throw new NotFoundException(`Menu with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Menu', id, existingMenu);
 
     await this.prisma.menu.delete({
       where: { id },

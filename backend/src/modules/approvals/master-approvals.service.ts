@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateMasterApprovalDto } from './dto/create-master-approval.dto';
 import { UpdateMasterApprovalDto } from './dto/update-master-approval.dto';
 import { MasterApprovalDto } from './dto/master-approval.dto';
 import { Prisma } from '@prisma/client';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 
 interface FindAllOptions {
   page?: number;
@@ -24,6 +25,7 @@ export class MasterApprovalsService {
   constructor(
     private readonly prisma: PrismaService,
     private dtoMapper: DtoMapperService,
+    private errorHandler: ErrorHandlingService,
   ) {
     // Initialize mappers
     this.masterApprovalMapper = this.dtoMapper.createSimpleMapper(MasterApprovalDto);
@@ -122,9 +124,7 @@ export class MasterApprovalsService {
       },
     });
 
-    if (!masterApproval) {
-      throw new NotFoundException(`Master approval with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Master approval', id, masterApproval);
 
     return this.masterApprovalMapper(masterApproval);
   }
@@ -140,9 +140,7 @@ export class MasterApprovalsService {
       where: { id },
     });
 
-    if (!existingApproval) {
-      throw new NotFoundException(`Master approval with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Master approval', id, existingApproval);
 
     // Update the approval
     await this.prisma.masterApproval.update({
@@ -180,9 +178,7 @@ export class MasterApprovalsService {
       where: { id },
     });
 
-    if (!masterApproval) {
-      throw new NotFoundException(`Master approval with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Master approval', id, masterApproval);
 
     // Delete all related items first
     await this.prisma.masterApprovalItem.deleteMany({
