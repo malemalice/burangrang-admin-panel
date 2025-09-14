@@ -252,31 +252,61 @@ export class MenusService {
     return menus.map((menu) => this.menuMapper(menu));
   }
 
-  async getSidebarMenus(): Promise<MenuDto[]> {
+  async getSidebarMenus(userRole: string): Promise<MenuDto[]> {
     const menus = await this.prisma.menu.findMany({
       where: {
         isActive: true,
         parentId: null,
+        roles: {
+          some: {
+            name: userRole,
+            isActive: true,
+          },
+        },
       },
       include: {
         children: {
           where: {
             isActive: true,
+            roles: {
+              some: {
+                name: userRole,
+                isActive: true,
+              },
+            },
           },
           include: {
             children: {
               where: {
                 isActive: true,
+                roles: {
+                  some: {
+                    name: userRole,
+                    isActive: true,
+                  },
+                },
               },
               include: {
                 children: {
                   where: {
                     isActive: true,
+                    roles: {
+                      some: {
+                        name: userRole,
+                        isActive: true,
+                      },
+                    },
                   },
                   include: {
                     children: {
                       where: {
                         isActive: true,
+                        roles: {
+                          some: {
+                            name: userRole,
+                            isActive: true,
+                          },
+                        },
                       },
                       include: {
                         children: true,

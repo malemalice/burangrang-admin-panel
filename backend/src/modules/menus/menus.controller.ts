@@ -9,6 +9,7 @@ import {
   Put,
   Query,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -26,6 +27,16 @@ import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { Role } from '../../shared/types/role.enum';
+import { Request } from 'express';
+
+// Define interface for request with user property
+interface RequestWithUser extends Request {
+  user: {
+    id: string;
+    email: string;
+    role: string;
+  };
+}
 
 @ApiTags('menus')
 @ApiBearerAuth()
@@ -49,15 +60,15 @@ export class MenusController {
   }
 
   @Get('sidebar')
-  @ApiOperation({ summary: 'Get active menus for sidebar navigation' })
+  @ApiOperation({ summary: 'Get active menus for sidebar navigation filtered by user role' })
   @ApiResponse({
     status: 200,
-    description: 'Return active menu hierarchy for sidebar.',
+    description: 'Return active menu hierarchy for sidebar filtered by user role.',
     type: [MenuDto],
   })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
-  async getSidebarMenus(): Promise<MenuDto[]> {
-    return await this.menusService.getSidebarMenus();
+  async getSidebarMenus(@Req() req: RequestWithUser): Promise<MenuDto[]> {
+    return await this.menusService.getSidebarMenus(req.user.role);
   }
 
   @Get('hierarchy')
