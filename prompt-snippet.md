@@ -1,0 +1,1 @@
+- backend already runs on port 3000 and frontend on port 8080. no need to rerun when debug or testing, for backend you can do curl api check, for both you can check by build it

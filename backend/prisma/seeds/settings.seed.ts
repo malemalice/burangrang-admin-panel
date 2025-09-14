@@ -2,21 +2,21 @@ import { PrismaClient, Setting } from '@prisma/client';
 
 export const defaultSettings = [
   // Theme Settings
-  { key: 'theme.color', value: 'blue', description: 'Default theme color for the application' },
-  { key: 'theme.mode', value: 'light', description: 'Default theme mode (light/dark)' },
+  { key: 'theme.color', value: 'blue' },
+  { key: 'theme.mode', value: 'light' },
 
   // System Settings
-  { key: 'system.name', value: 'Admin Panel', description: 'Application name' },
-  { key: 'system.version', value: '1.0.0', description: 'Application version' },
-  { key: 'system.timezone', value: 'UTC', description: 'Default system timezone' },
+  { key: 'system.name', value: 'Admin Panel' },
+  { key: 'system.version', value: '1.0.0' },
+  { key: 'system.timezone', value: 'UTC' },
 
   // App Settings
-  { key: 'app.name', value: 'Office Nexus', description: 'Application display name' },
-  { key: 'app.language', value: 'en', description: 'Default application language' },
+  { key: 'app.name', value: 'Office Nexus' },
+  { key: 'app.language', value: 'en' },
 
   // Pagination defaults
-  { key: 'pagination.default_limit', value: '10', description: 'Default pagination limit' },
-  { key: 'pagination.max_limit', value: '100', description: 'Maximum pagination limit' },
+  { key: 'pagination.default_limit', value: '10' },
+  { key: 'pagination.max_limit', value: '100' },
 ];
 
 export async function seedSettings(prisma: PrismaClient): Promise<Setting[]> {

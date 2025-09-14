@@ -4,7 +4,7 @@ import * as bcrypt from 'bcrypt';
 export const users = [
   {
     email: 'admin@example.com',
-    password: 'admin',
+    password: 'admin123',
     firstName: 'Admin',
     lastName: 'User',
     isActive: true,

@@ -22,14 +22,19 @@ async function main() {
     
     // If no specific table is provided, clear all tables
     if (!tableToSeed) {
+      // Delete in order to respect foreign key constraints
+      await prisma.refreshToken.deleteMany();
+      await prisma.masterApprovalItem.deleteMany();
+      await prisma.approval.deleteMany();
+      await prisma.masterApproval.deleteMany();
       await prisma.user.deleteMany();
+      await prisma.menu.deleteMany();
       await prisma.role.deleteMany();
       await prisma.permission.deleteMany();
       await prisma.office.deleteMany();
       await prisma.department.deleteMany();
       await prisma.jobPosition.deleteMany();
       await prisma.setting.deleteMany();
-      await prisma.menu.deleteMany();
       console.log('All existing data cleared successfully');
     } else {
       // Clear only the specified table

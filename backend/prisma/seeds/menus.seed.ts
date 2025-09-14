@@ -213,7 +213,7 @@ export const seedMenus = async () => {
         name: 'User Reports',
         path: '/users/reports',
         icon: 'BarChart3',
-        parentId: usersMenu.id,
+        parentId: userManagementMenu.id,
         order: 1,
         isActive: true,
         roles: {
@@ -227,7 +227,7 @@ export const seedMenus = async () => {
         name: 'User Activity',
         path: '/users/activity',
         icon: 'Activity',
-        parentId: usersMenu.id,
+        parentId: userManagementMenu.id,
         order: 2,
         isActive: true,
         roles: {

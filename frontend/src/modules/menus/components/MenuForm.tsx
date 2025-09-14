@@ -20,7 +20,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { Switch } from '@/core/components/ui/switch';
 import { SearchableSelect, MultiSelectSearchable } from '@/core/components/ui/searchable-select';
 import { Loader2, X } from 'lucide-react';
-import { MenuDTO, MenuFormData } from '../types/menu.types';
+import { MenuDTO, Menu, MenuFormData } from '../types/menu.types';
 import roleService from '../../roles/services/roleService';
 import menuService from '../services/menuService';
 
@@ -52,7 +52,7 @@ const MenuForm: React.FC<MenuFormProps> = ({
 }) => {
   const [availableRoles, setAvailableRoles] = useState<Array<{ id: string; name: string }>>([]);
   const [isLoadingRoles, setIsLoadingRoles] = useState(false);
-  const [availableParentMenus, setAvailableParentMenus] = useState<MenuDTO[]>([]);
+  const [availableParentMenus, setAvailableParentMenus] = useState<Menu[]>([]);
   const [isLoadingParentMenus, setIsLoadingParentMenus] = useState(false);
 
   const form = useForm<MenuFormData>({
@@ -111,8 +111,8 @@ const MenuForm: React.FC<MenuFormProps> = ({
           filteredMenus = filteredMenus.filter(m => m.id !== menu.id);
         }
 
-        // Only allow root-level menus (no parent) as parents to avoid deep nesting issues
-        filteredMenus = filteredMenus.filter(m => !m.parentId);
+        // Allow all menus as parents (including those with parent_id)
+        // Note: Circular reference prevention is handled by the current menu filter above
 
         setAvailableParentMenus(filteredMenus);
       } catch (error) {
@@ -124,7 +124,7 @@ const MenuForm: React.FC<MenuFormProps> = ({
     };
 
     fetchParentMenus();
-  }, [menu?.id]); // Re-fetch when menu changes (for edit mode)
+  }, [menu]); // Re-fetch when menu changes (for edit mode)
 
   // Update form when menu prop changes
   useEffect(() => {
