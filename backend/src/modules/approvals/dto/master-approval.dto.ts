@@ -6,6 +6,10 @@ export class JobPositionDto {
 
   @ApiProperty()
   name: string;
+
+  constructor(partial: Partial<JobPositionDto>) {
+    Object.assign(this, partial);
+  }
 }
 
 export class DepartmentDto {
@@ -14,6 +18,10 @@ export class DepartmentDto {
 
   @ApiProperty()
   name: string;
+
+  constructor(partial: Partial<DepartmentDto>) {
+    Object.assign(this, partial);
+  }
 }
 
 export class UserDto {
@@ -22,6 +30,10 @@ export class UserDto {
 
   @ApiProperty()
   name: string;
+
+  constructor(partial: Partial<UserDto>) {
+    Object.assign(this, partial);
+  }
 }
 
 export class MasterApprovalItemDto {
@@ -54,6 +66,10 @@ export class MasterApprovalItemDto {
 
   @ApiProperty({ type: () => UserDto })
   creator: UserDto;
+
+  constructor(partial: Partial<MasterApprovalItemDto>) {
+    Object.assign(this, partial);
+  }
 }
 
 export class MasterApprovalDto {
@@ -74,4 +90,8 @@ export class MasterApprovalDto {
 
   @ApiProperty()
   updatedAt: Date;
+
+  constructor(partial: Partial<MasterApprovalDto>) {
+    Object.assign(this, partial);
+  }
 }
