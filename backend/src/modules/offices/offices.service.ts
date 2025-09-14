@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateOfficeDto } from './dto/create-office.dto';
 import { UpdateOfficeDto } from './dto/update-office.dto';
 import { OfficeDto } from './dto/office.dto';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { Prisma } from '@prisma/client';
 
 interface FindAllOptions {
@@ -23,6 +24,7 @@ export class OfficesService {
   constructor(
     private readonly prisma: PrismaService,
     private dtoMapper: DtoMapperService,
+    private errorHandler: ErrorHandlingService,
   ) {
     // Initialize mappers with recursive parent/child relationships
     this.officeMapper = this.dtoMapper.createRelationMapper(
@@ -135,9 +137,7 @@ export class OfficesService {
       },
     });
 
-    if (!office) {
-      throw new NotFoundException(`Office with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Office', id, office);
 
     return this.officeMapper(office);
   }
@@ -150,9 +150,7 @@ export class OfficesService {
       where: { id },
     });
 
-    if (!existingOffice) {
-      throw new NotFoundException(`Office with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Office', id, existingOffice);
 
     const { parentId, ...data } = updateOfficeDto;
     const office = await this.prisma.office.update({
@@ -179,9 +177,7 @@ export class OfficesService {
       where: { id },
     });
 
-    if (!office) {
-      throw new NotFoundException(`Office with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Office', id, office);
 
     await this.prisma.office.delete({
       where: { id },

@@ -24,4 +24,8 @@ export class JobPositionDto {
 
   @ApiProperty()
   updatedAt: Date;
+
+  constructor(partial: Partial<JobPositionDto>) {
+    Object.assign(this, partial);
+  }
 }

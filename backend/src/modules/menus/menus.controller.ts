@@ -6,7 +6,10 @@ import {
   Patch,
   Param,
   Delete,
+  Put,
+  Query,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,6 +27,16 @@ import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { Role } from '../../shared/types/role.enum';
+import { Request } from 'express';
+
+// Define interface for request with user property
+interface RequestWithUser extends Request {
+  user: {
+    id: string;
+    email: string;
+    role: string;
+  };
+}
 
 @ApiTags('menus')
 @ApiBearerAuth()
@@ -46,16 +59,16 @@ export class MenusController {
     return this.menusService.create(createMenuDto);
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Get all menus' })
+  @Get('sidebar')
+  @ApiOperation({ summary: 'Get active menus for sidebar navigation filtered by user role' })
   @ApiResponse({
     status: 200,
-    description: 'Return all menus.',
+    description: 'Return active menu hierarchy for sidebar filtered by user role.',
     type: [MenuDto],
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
-  findAll() {
-    return this.menusService.findAll();
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  async getSidebarMenus(@Req() req: RequestWithUser): Promise<MenuDto[]> {
+    return await this.menusService.getSidebarMenus(req.user.role);
   }
 
   @Get('hierarchy')
@@ -68,6 +81,68 @@ export class MenusController {
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
   getMenuHierarchy() {
     return this.menusService.getMenuHierarchy();
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Get menu statistics' })
+  @ApiResponse({
+    status: 200,
+    description: 'Menu statistics retrieved successfully.',
+  })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  async getMenuStats() {
+    return this.menusService.getMenuStats();
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Get all menus with pagination' })
+  @ApiResponse({
+    status: 200,
+    description: 'Return paginated menus.',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/MenuDto' },
+        },
+        meta: {
+          type: 'object',
+          properties: {
+            total: { type: 'number' },
+            page: { type: 'number' },
+            limit: { type: 'number' },
+          },
+        },
+      },
+    },
+  })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+    @Query('search') search?: string,
+    @Query('isActive') isActive?: string,
+  ): Promise<{
+    data: MenuDto[];
+    meta: { total: number; page: number; limit: number };
+  }> {
+    // Convert string parameters to their proper types
+    const pageNumber = page ? parseInt(page, 10) : 1;
+    const limitNumber = limit ? parseInt(limit, 10) : 10;
+    const isActiveBoolean =
+      isActive === undefined ? undefined : isActive === 'true';
+
+    return this.menusService.findAll({
+      page: pageNumber,
+      limit: limitNumber,
+      sortBy: sortBy || 'order',
+      sortOrder: sortOrder || 'asc',
+      search,
+      isActive: isActiveBoolean,
+    });
   }
 
   @Get('role/:roleId')
@@ -125,5 +200,35 @@ export class MenusController {
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   remove(@Param('id') id: string) {
     return this.menusService.remove(id);
+  }
+
+  @Put('order')
+  @ApiOperation({ summary: 'Update menu order' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        menuOrders: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              order: { type: 'number' },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Menu order updated successfully.',
+  })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  async updateMenuOrder(
+    @Body() body: { menuOrders: Array<{ id: string; order: number }> },
+  ): Promise<void> {
+    return this.menusService.updateMenuOrder(body.menuOrders);
   }
 }

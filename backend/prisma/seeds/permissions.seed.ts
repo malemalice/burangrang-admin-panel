@@ -67,11 +67,13 @@ export async function seedPermissions(prisma: PrismaClient) {
   console.log('Creating permissions...');
   const createdPermissions = await Promise.all(
     permissions.map((permission) =>
-      prisma.permission.create({
-        data: permission,
+      prisma.permission.upsert({
+        where: { name: permission.name },
+        update: permission,
+        create: permission,
       })
     )
   );
-  console.log(`Created ${createdPermissions.length} permissions`);
+  console.log(`Created/Updated ${createdPermissions.length} permissions`);
   return createdPermissions;
 } 

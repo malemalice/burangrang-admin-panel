@@ -2,16 +2,19 @@
 ## Frontend Modular Architecture Restructuring
 
 ### 📋 Document Information
-- **Version**: 1.0
-- **Date**: 2024-01-XX
-- **Status**: Draft
+- **Version**: 1.1
+- **Date**: 2024-12-XX
+- **Status**: Active
 - **Author**: Development Team
+- **Last Updated**: Module Interaction Patterns Added
 
 ---
 
 ## 🎯 Executive Summary
 
 This document outlines the technical requirements and architectural principles for restructuring the frontend application from a traditional layered architecture to a modular, feature-based architecture. The restructuring aims to improve maintainability, scalability, and developer experience while following modern frontend best practices.
+
+**Version 1.1 Updates**: Added comprehensive module interaction patterns including API calling conventions, table display standards, CRUD operation patterns, form handling guidelines, data transformation patterns, error handling strategies, and cross-module communication protocols. Includes implementation checklists, code examples library, and development workflow guidelines.
 
 ---
 
@@ -189,6 +192,633 @@ export const allRoutes = [
 
 ---
 
+## 🔄 Module Interaction Patterns
+
+### API Calling Patterns
+
+#### 1. Service Layer Architecture
+Each module MUST follow this service pattern:
+
+```typescript
+// modules/[module-name]/services/[moduleName]Service.ts
+import api from '@/core/lib/api';
+import { [Entity]DTO, Create[Entity]DTO, Update[Entity]DTO } from '../types/[moduleName].types';
+
+// Data transformation functions
+const map[Entity]DtoTo[Entity] = ([entity]Dto: [Entity]DTO): [Entity] => ({
+  // Transform DTO to frontend model
+});
+
+const map[Entity]ToUpdateDto = ([entity]: Partial<[Entity]>): Update[Entity]DTO => ({
+  // Transform frontend model to update DTO
+});
+
+const [moduleName]Service = {
+  // GET all with pagination
+  get[Entities]: async (params: PaginationParams): Promise<PaginatedResponse<[Entity]>> => {
+    const queryParams = new URLSearchParams({
+      page: params.page.toString(),
+      limit: params.limit.toString()
+    });
+
+    // Add search and filters
+    if (params.search) queryParams.append('search', params.search);
+    if (params.filters) {
+      Object.entries(params.filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+
+    const response = await api.get(`/[entities]?${queryParams.toString()}`);
+    return {
+      data: response.data.data.map(map[Entity]DtoTo[Entity]),
+      meta: response.data.meta
+    };
+  },
+
+  // GET single entity
+  get[Entity]ById: async (id: string): Promise<[Entity]> => {
+    const response = await api.get(`/[entities]/${id}`);
+    return map[Entity]DtoTo[Entity](response.data);
+  },
+
+  // CREATE entity
+  create[Entity]: async ([entity]Data: Create[Entity]DTO): Promise<[Entity]> => {
+    const response = await api.post('/[entities]', [entity]Data);
+    return map[Entity]DtoTo[Entity](response.data);
+  },
+
+  // UPDATE entity
+  update[Entity]: async (id: string, [entity]Data: Update[Entity]DTO): Promise<[Entity]> => {
+    const response = await api.patch(`/[entities]/${id}`, [entity]Data);
+    return map[Entity]DtoTo[Entity](response.data);
+  },
+
+  // DELETE entity
+  delete[Entity]: async (id: string): Promise<void> => {
+    await api.delete(`/[entities]/${id}`);
+  }
+};
+
+export default [moduleName]Service;
+```
+
+#### 2. Inter-Module API Calls
+When one module needs data from another module:
+
+```typescript
+// ❌ DON'T - Direct service import from another module
+import { roleService } from '@/modules/roles';
+
+// ✅ DO - Import through barrel export
+import { roleService } from '@/modules/roles';
+
+// ✅ BETTER - Use shared service for common operations
+import { roleService } from '@/modules/roles';
+
+// In component/service that needs role data
+const fetchRolesForDropdown = async () => {
+  try {
+    const response = await roleService.getRoles({
+      page: 1,
+      limit: 100 // Get all for dropdown
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch roles:', error);
+    return [];
+  }
+};
+```
+
+### Table Display Patterns
+
+#### 1. DataTable Component Usage
+All tables MUST use the shared `DataTable` component:
+
+```typescript
+// modules/[module-name]/pages/[ModuleName]sPage.tsx
+import DataTable from '@/core/components/ui/data-table/DataTable';
+import PageHeader from '@/core/components/ui/PageHeader';
+import { Badge } from '@/core/components/ui/badge';
+import { Button } from '@/core/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/core/components/ui/dropdown-menu';
+import { [Entity] } from '../types/[moduleName].types';
+
+const [ModuleName]sPage = () => {
+  const [data, setData] = useState<[Entity][]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [limit, setLimit] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+
+  // Define columns with consistent structure
+  const columns = [
+    {
+      id: 'name',
+      header: 'Name',
+      cell: ([entity]: [Entity]) => (
+        <div className="flex items-center gap-3">
+          <Avatar>
+            <AvatarFallback>
+              {[entity].name.split(' ').map(n => n[0]).join('')}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <div className="font-medium">{[entity].name}</div>
+            <div className="text-sm text-gray-500">{[entity].email}</div>
+          </div>
+        </div>
+      ),
+      isSortable: true
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ([entity]: [Entity]) => (
+        <Badge variant="outline" className={`${
+          [entity].status === 'active'
+            ? 'bg-green-100 text-green-800'
+            : 'bg-gray-100 text-gray-800'
+        } border-0`}>
+          {[entity].status}
+        </Badge>
+      ),
+      isSortable: true
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: ([entity]: [Entity]) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => navigate(`/${entities}/${[entity].id}`)}>
+              <Eye className="mr-2 h-4 w-4" /> View details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/${entities}/${[entity].id}/edit`)}>
+              <Edit className="mr-2 h-4 w-4" /> Edit
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleDelete([entity])}>
+              <Trash2 className="mr-2 h-4 w-4" /> Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+      isSortable: false
+    }
+  ];
+
+  return (
+    <div>
+      <PageHeader
+        title="[ModuleName]s"
+        subtitle="Manage your organization's [entities]"
+        actions={
+          <Button onClick={() => navigate('/[entities]/new')}>
+            <Plus className="mr-2 h-4 w-4" /> Add [Entity]
+          </Button>
+        }
+      />
+
+      <DataTable
+        columns={columns}
+        data={data}
+        isLoading={isLoading}
+        pagination={{
+          pageIndex,
+          limit,
+          pageCount: Math.ceil(totalItems / limit),
+          onPageChange: setPageIndex,
+          onPageSizeChange: setLimit,
+          total: totalItems
+        }}
+        filterFields={filterFields}
+        onSearch={handleSearch}
+        onApplyFilters={handleApplyFilters}
+      />
+    </div>
+  );
+};
+```
+
+#### 2. Filter Field Configuration
+Consistent filter patterns across all modules:
+
+```typescript
+// Define filter fields for dropdowns and search
+const filterFields: FilterField[] = [
+  {
+    id: 'name',
+    label: 'Name',
+    type: 'text'
+  },
+  {
+    id: 'status',
+    label: 'Status',
+    type: 'select',
+    options: [
+      { label: 'Active', value: 'active' },
+      { label: 'Inactive', value: 'inactive' }
+    ]
+  },
+  {
+    id: 'roleId',
+    label: 'Role',
+    type: 'searchableSelect',
+    options: roles.map(role => ({
+      label: role.name,
+      value: role.id
+    }))
+  }
+];
+```
+
+### CRUD Operation Patterns
+
+#### 1. Hook-Based CRUD Operations
+Each module MUST provide custom hooks for data operations:
+
+```typescript
+// modules/[module-name]/hooks/use[ModuleName].ts
+import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
+import [moduleName]Service from '../services/[moduleName]Service';
+import { [Entity], PaginatedResponse, [Entity]SearchParams, Create[Entity]DTO, Update[Entity]DTO } from '../types/[moduleName].types';
+
+export const use[Entities] = () => {
+  const [[entities], set[Entities]] = useState<[Entity][]>([]);
+  const [total[Entities], setTotal[Entities]] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetch[Entities] = async (params: [Entity]SearchParams) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response: PaginatedResponse<[Entity]> = await [moduleName]Service.get[Entities](params);
+      set[Entities](response.data);
+      setTotal[Entities](response.meta.total);
+      setCurrentPage(params.page);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch [entities]';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const create[Entity] = async ([entity]Data: Create[Entity]DTO) => {
+    try {
+      const new[Entity] = await [moduleName]Service.create[Entity]([entity]Data);
+      set[Entities](prev => [new[Entity], ...prev]);
+      setTotal[Entities](prev => prev + 1);
+      toast.success('[Entity] created successfully');
+      return new[Entity];
+    } catch (err) {
+      toast.error('Failed to create [entity]');
+      throw err;
+    }
+  };
+
+  const update[Entity] = async (id: string, [entity]Data: Update[Entity]DTO) => {
+    try {
+      const updated[Entity] = await [moduleName]Service.update[Entity](id, [entity]Data);
+      set[Entities](prev => prev.map(item => item.id === id ? updated[Entity] : item));
+      toast.success('[Entity] updated successfully');
+      return updated[Entity];
+    } catch (err) {
+      toast.error('Failed to update [entity]');
+      throw err;
+    }
+  };
+
+  const delete[Entity] = async (id: string) => {
+    try {
+      await [moduleName]Service.delete[Entity](id);
+      set[Entities](prev => prev.filter(item => item.id !== id));
+      setTotal[Entities](prev => prev - 1);
+      toast.success('[Entity] deleted successfully');
+    } catch (err) {
+      toast.error('Failed to delete [entity]');
+      throw err;
+    }
+  };
+
+  return {
+    [entities],
+    total[Entities],
+    currentPage,
+    isLoading,
+    error,
+    fetch[Entities],
+    create[Entity],
+    update[Entity],
+    delete[Entity],
+  };
+};
+
+export const use[Entity] = (id: string | null = null) => {
+  const [[entity], set[Entity]] = useState<[Entity] | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetch[Entity] = async (entityId: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await [moduleName]Service.get[Entity]ById(entityId);
+      set[Entity](data);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch [entity]';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (id) {
+      fetch[Entity](id);
+    }
+  }, [id]);
+
+  return {
+    [entity],
+    isLoading,
+    error,
+    fetch[Entity],
+    set[Entity],
+  };
+};
+```
+
+#### 2. Form Component Patterns
+Consistent form handling across all modules:
+
+```typescript
+// modules/[module-name]/pages/[Entity]Form.tsx
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { toast } from 'sonner';
+import { Button } from '@/core/components/ui/button';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/core/components/ui/form';
+import { Input } from '@/core/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import [moduleName]Service from '../services/[moduleName]Service';
+import { Create[Entity]DTO, Update[Entity]DTO } from '../types/[moduleName].types';
+import { SearchableSelect } from '@/core/components/ui/searchable-select';
+
+const formSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Valid email is required'),
+  // ... other fields
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
+interface [Entity]FormProps {
+  [entity]?: [Entity];
+  mode: 'create' | 'edit';
+}
+
+const [Entity]Form = ({ [entity], mode }: [Entity]FormProps) => {
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      // ... other defaults
+    },
+  });
+
+  useEffect(() => {
+    if ([entity]) {
+      form.reset({
+        name: [entity].name,
+        email: [entity].email,
+        // ... map other fields
+      });
+    }
+    setIsLoading(false);
+  }, [[entity]]);
+
+  const onSubmit = async (data: FormValues) => {
+    try {
+      setIsLoading(true);
+      if (mode === 'create') {
+        await [moduleName]Service.create[Entity](data);
+        toast.success('[Entity] created successfully');
+      } else if ([entity]) {
+        await [moduleName]Service.update[Entity]([entity].id, data);
+        toast.success('[Entity] updated successfully');
+      }
+      navigate('/[entities]');
+    } catch (error) {
+      console.error('Error saving [entity]:', error);
+      toast.error(`Failed to ${mode} [entity]`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} [Entity]</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {/* ... other form fields */}
+            <div className="flex justify-end gap-4">
+              <Button type="button" variant="outline" onClick={() => navigate('/[entities]')}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {mode === 'create' ? 'Create' : 'Save Changes'}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  );
+};
+```
+
+#### 3. Cross-Module Data Dependencies
+When forms need data from other modules:
+
+```typescript
+// In [Entity]Form.tsx - Loading options from other modules
+useEffect(() => {
+  const fetchOptions = async () => {
+    try {
+      setIsLoading(true);
+
+      // Fetch options from other modules
+      const [rolesResponse, officesResponse] = await Promise.all([
+        roleService.getRoles({ page: 1, limit: 100 }),
+        officeService.getOffices({ page: 1, limit: 100 })
+      ]);
+
+      setRoles(rolesResponse.data);
+      setOffices(officesResponse.data);
+    } catch (error) {
+      console.error('Failed to load form options:', error);
+      toast.error('Failed to load form options');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  fetchOptions();
+}, []);
+```
+
+### Data Transformation Patterns
+
+#### 1. DTO to Model Mapping
+Consistent data transformation patterns:
+
+```typescript
+// modules/[module-name]/services/[moduleName]Service.ts
+
+// DTO from backend
+interface [Entity]DTO {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  // ... other backend fields
+}
+
+// Frontend model
+interface [Entity] {
+  id: string;
+  name: string;
+  status: 'active' | 'inactive';
+  createdAt: string;
+  // ... frontend-specific fields
+}
+
+// Transformation function
+const map[Entity]DtoTo[Entity] = ([entity]Dto: [Entity]DTO): [Entity] => ({
+  id: [entity]Dto.id,
+  name: [entity]Dto.name,
+  status: [entity]Dto.isActive ? 'active' : 'inactive',
+  createdAt: [entity]Dto.createdAt,
+  // ... transform other fields
+});
+
+// Reverse transformation for updates
+const map[Entity]ToUpdateDto = ([entity]: Partial<[Entity]>): Update[Entity]DTO => ({
+  name: [entity].name,
+  isActive: [entity].status === 'active',
+  // ... transform other fields
+});
+```
+
+#### 2. Pagination Response Handling
+Standard pagination response pattern:
+
+```typescript
+// Shared types in core/lib/types.ts
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    pageCount: number;
+  };
+}
+
+export interface PaginationParams {
+  page: number;
+  limit: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  filters?: Record<string, any>;
+}
+```
+
+### Error Handling Patterns
+
+#### 1. Consistent Error Messages
+Standard error handling across all modules:
+
+```typescript
+// In services
+try {
+  const response = await api.post('/[entities]', data);
+  return map[Entity]DtoTo[Entity](response.data);
+} catch (error: any) {
+  console.error('Error creating [entity]:', error);
+  const errorMessage = error.response?.data?.message || 'Failed to create [entity]';
+  throw new Error(errorMessage);
+}
+
+// In hooks/components
+try {
+  await create[Entity](data);
+} catch (err) {
+  const errorMessage = err instanceof Error ? err.message : 'Failed to create [entity]';
+  toast.error(errorMessage);
+}
+```
+
+#### 2. Loading States
+Consistent loading state management:
+
+```typescript
+// In hooks
+const [isLoading, setIsLoading] = useState(false);
+const [error, setError] = useState<string | null>(null);
+
+// In components
+if (isLoading) {
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+    </div>
+  );
+}
+```
+
+---
+
 ## 🚫 Anti-Patterns to Avoid
 
 ### 1. Circular Dependencies
@@ -210,6 +840,249 @@ export const allRoutes = [
 - Follow the module template strictly
 - Use linting rules to enforce structure
 - Regular code reviews for compliance
+
+### 5. Inconsistent API Patterns
+- ❌ DON'T mix different error handling patterns
+- ❌ DON'T skip data transformation in services
+- ❌ DON'T bypass custom hooks for direct service calls in components
+- ❌ DON'T create module-specific table components
+
+### 6. Poor Cross-Module Communication
+- ❌ DON'T access another module's internal state directly
+- ❌ DON'T create direct dependencies between modules
+- ❌ DON'T duplicate data fetching logic across modules
+
+### 7. Inconsistent Form Handling
+- ❌ DON'T skip Zod validation schemas
+- ❌ DON'T mix different form libraries
+- ❌ DON'T handle form state manually when using react-hook-form
+
+---
+
+## ✅ Implementation Checklist
+
+### Module Structure Compliance
+- [ ] **Barrel exports**: All modules have proper `index.ts` with exports
+- [ ] **Consistent folder structure**: All required folders exist (`components/`, `pages/`, `services/`, `types/`, `hooks/`, `routes/`)
+- [ ] **TypeScript path mapping**: All imports use `@/` aliases
+- [ ] **Module boundaries**: Clear separation between modules
+
+### API & Service Layer
+- [ ] **Service pattern**: All services follow the established CRUD pattern
+- [ ] **Data transformation**: DTO to model mapping implemented for all entities
+- [ ] **Error handling**: Consistent error handling across all services
+- [ ] **API consistency**: All endpoints follow RESTful patterns
+
+### Table & Data Display
+- [ ] **DataTable usage**: All tables use the shared `DataTable` component
+- [ ] **Column definitions**: Consistent column structure across modules
+- [ ] **Action menus**: Standardized action dropdowns with icons
+- [ ] **Pagination**: Consistent pagination implementation
+- [ ] **Filtering**: Proper filter field configuration
+
+### CRUD Operations
+- [ ] **Custom hooks**: All modules provide `use[Entities]` and `use[Entity]` hooks
+- [ ] **Loading states**: Proper loading state management
+- [ ] **Error states**: Comprehensive error handling with user feedback
+- [ ] **Success feedback**: Toast notifications for all operations
+
+### Form Handling
+- [ ] **Zod validation**: All forms use Zod schemas for validation
+- [ ] **React Hook Form**: Consistent form library usage
+- [ ] **Form components**: Proper form field components and layouts
+- [ ] **Cross-module dependencies**: Proper handling of related entity data
+
+### Cross-Module Communication
+- [ ] **Barrel imports**: All inter-module imports use barrel exports
+- [ ] **Service isolation**: No direct access to other modules' internal state
+- [ ] **Shared types**: Common types defined in `shared/types/`
+- [ ] **Dependency management**: Clear dependency hierarchy
+
+### Code Quality
+- [ ] **TypeScript compliance**: Full type safety across all modules
+- [ ] **Error boundaries**: Proper error boundaries where needed
+- [ ] **Performance**: No unnecessary re-renders or API calls
+- [ ] **Accessibility**: ARIA labels and keyboard navigation support
+
+---
+
+## 📚 Code Examples Library
+
+### Quick Reference Patterns
+
+#### 1. Module Setup Template
+```typescript
+// modules/[module-name]/index.ts
+export * from './components';
+export * from './pages';
+export * from './services';
+export * from './types';
+export * from './hooks';
+export * from './routes';
+```
+
+#### 2. Service Method Template
+```typescript
+// Standard CRUD methods
+get[Entities]: async (params: PaginationParams) => { /* ... */ }
+get[Entity]ById: async (id: string) => { /* ... */ }
+create[Entity]: async (data: Create[Entity]DTO) => { /* ... */ }
+update[Entity]: async (id: string, data: Update[Entity]DTO) => { /* ... */ }
+delete[Entity]: async (id: string) => { /* ... */ }
+```
+
+#### 3. Hook Template
+```typescript
+// Collection hook
+export const use[Entities] = () => {
+  const [data, setData] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchData = async (params) => { /* ... */ };
+  const createItem = async (data) => { /* ... */ };
+  const updateItem = async (id, data) => { /* ... */ };
+  const deleteItem = async (id) => { /* ... */ };
+
+  return { data, isLoading, error, fetchData, createItem, updateItem, deleteItem };
+};
+
+// Single item hook
+export const use[Entity] = (id) => {
+  const [data, setData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => { if (id) fetchData(id); }, [id]);
+
+  return { data, isLoading, error, setData };
+};
+```
+
+#### 4. Form Schema Template
+```typescript
+const formSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Valid email is required'),
+  roleId: z.string().min(1, 'Role is required'),
+  officeId: z.string().min(1, 'Office is required'),
+  departmentId: z.string().optional(),
+  jobPositionId: z.string().optional(),
+  isActive: z.boolean().default(true),
+});
+
+type FormValues = z.infer<typeof formSchema>;
+```
+
+#### 5. Table Column Template
+```typescript
+const columns = [
+  {
+    id: 'name',
+    header: 'Name',
+    cell: (item) => (
+      <div className="flex items-center gap-3">
+        <Avatar><AvatarFallback>{item.name[0]}</AvatarFallback></Avatar>
+        <div><div className="font-medium">{item.name}</div></div>
+      </div>
+    ),
+    isSortable: true
+  },
+  {
+    id: 'status',
+    header: 'Status',
+    cell: (item) => (
+      <Badge variant="outline" className={item.status === 'active' ? 'bg-green-100' : 'bg-gray-100'}>
+        {item.status}
+      </Badge>
+    ),
+    isSortable: true
+  },
+  {
+    id: 'actions',
+    header: 'Actions',
+    cell: (item) => (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => navigate(`/${item.id}`)}>
+            <Eye className="mr-2 h-4 w-4" /> View
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleDelete(item)}>
+            <Trash2 className="mr-2 h-4 w-4" /> Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ),
+    isSortable: false
+  }
+];
+```
+
+---
+
+## 🔧 Development Workflow
+
+### 1. Creating a New Module
+1. Create module folder: `src/modules/[module-name]/`
+2. Create required folders: `components/`, `pages/`, `services/`, `types/`, `hooks/`, `routes/`
+3. Implement types first (`types/[moduleName].types.ts`)
+4. Create service layer (`services/[moduleName]Service.ts`)
+5. Implement custom hooks (`hooks/use[ModuleName].ts`)
+6. Create pages following established patterns
+7. Add routes and update main routing
+8. Create barrel exports (`index.ts`)
+9. Update navigation and permissions if needed
+
+### 2. Adding Features to Existing Modules
+1. Add new types to `types/[moduleName].types.ts`
+2. Extend service with new methods
+3. Update hooks to include new functionality
+4. Create/update pages following patterns
+5. Update barrel exports
+6. Test integration with existing features
+
+### 3. Cross-Module Integration
+1. Identify shared data needs
+2. Use barrel exports for clean imports
+3. Create shared types if needed
+4. Implement proper error handling
+5. Test both modules independently
+6. Test integrated functionality
+
+---
+
+## 📊 Module Development Metrics
+
+### Quality Gates
+- **Test Coverage**: > 80% for all modules
+- **TypeScript Compliance**: 100% type safety
+- **Performance Budget**: < 100KB bundle per module
+- **Accessibility Score**: > 90 on Lighthouse
+- **SEO Score**: > 85 on Lighthouse (where applicable)
+
+### Code Review Checklist
+- [ ] Module structure follows template
+- [ ] All patterns are correctly implemented
+- [ ] No circular dependencies
+- [ ] Proper error handling
+- [ ] Loading states implemented
+- [ ] TypeScript types are complete
+- [ ] Tests are included
+- [ ] Documentation is updated
+
+---
+
+## 🎯 Next Steps
+
+1. **Review Current Implementation**: Audit existing modules against these patterns
+2. **Create Module Template**: Develop a Yeoman/generator for new modules
+3. **Establish Linting Rules**: Create ESLint rules for pattern compliance
+4. **Documentation Updates**: Keep this document synchronized with implementation
+5. **Team Training**: Ensure all developers understand these patterns
+6. **Continuous Improvement**: Regularly review and update patterns based on experience
 
 ---
 
@@ -290,7 +1163,8 @@ export const allRoutes = [
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0 | 2024-01-XX | Development Team | Initial version |
+| 1.1 | 2024-12-XX | Development Team | Added comprehensive module interaction patterns, API conventions, CRUD patterns, form handling, error handling, implementation checklists, code examples library, and development workflow guidelines |
+| 1.0 | 2024-01-XX | Development Team | Initial version with modular architecture principles |
 
 ---
 
@@ -485,4 +1359,4 @@ export {
 
 ---
 
-**Next Steps**: Review this document with the development team and proceed with the migration plan outlined in `todo-refactor.md`.
+**Next Steps**: The module interaction patterns have been documented. Proceed with implementing these patterns in existing modules and use this document as the reference for all future module development.

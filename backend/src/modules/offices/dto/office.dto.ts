@@ -39,4 +39,8 @@ export class OfficeDto {
 
   @ApiProperty()
   updatedAt: Date;
+
+  constructor(partial: Partial<OfficeDto>) {
+    Object.assign(this, partial);
+  }
 }

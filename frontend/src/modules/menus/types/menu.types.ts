@@ -1,39 +1,69 @@
 /**
- * Menus module types
+ * Menu module types
+ * Following TRD.md patterns for type definitions
  */
 
-// Re-export core types that are used by menus module
-export type { MenuItem, PaginatedResponse, PaginationParams } from '@/core/lib/types';
-
-// Interface for menu data from API that matches backend structure
+// Backend DTO types (matching backend MenuDto)
 export interface MenuDTO {
   id: string;
   name: string;
-  path?: string;
-  icon?: string;
-  parentId?: string;
+  path?: string | null;
+  icon?: string | null;
+  parentId?: string | null;
+  parent?: MenuDTO | null;
+  children?: Partial<MenuDTO>[];
   order: number;
   isActive: boolean;
-  isVisible: boolean;
-  permissions?: string[];
-  children?: MenuDTO[];
+  roles: RoleDTO[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface RoleDTO {
+  id: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Frontend model types
+export interface Menu {
+  id: string;
+  name: string;
+  path?: string | null;
+  icon?: string | null;
+  parentId?: string | null;
+  parent?: Menu | null;
+  children?: Menu[];
+  order: number;
+  isActive: boolean;
+  roles: Role[];
   createdAt: string;
   updatedAt: string;
 }
 
-// Interface for creating a menu item
+export interface Role {
+  id: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// CRUD operation types
 export interface CreateMenuDTO {
   name: string;
   path?: string;
   icon?: string;
   parentId?: string;
   order: number;
-  isActive?: boolean;
-  isVisible?: boolean;
-  permissions?: string[];
+  isActive: boolean;
+  roleIds?: string[];
 }
 
-// Interface for updating a menu item
 export interface UpdateMenuDTO {
   name?: string;
   path?: string;
@@ -41,11 +71,10 @@ export interface UpdateMenuDTO {
   parentId?: string;
   order?: number;
   isActive?: boolean;
-  isVisible?: boolean;
-  permissions?: string[];
+  roleIds?: string[];
 }
 
-// Menu form data for frontend forms
+// Form and UI types
 export interface MenuFormData {
   name: string;
   path: string;
@@ -53,131 +82,64 @@ export interface MenuFormData {
   parentId: string;
   order: number;
   isActive: boolean;
-  isVisible: boolean;
-  permissions: string[];
+  roleIds: string[];
 }
 
-// Menu filter options
 export interface MenuFilters {
-  name?: string;
-  path?: string;
-  parentId?: string;
+  search?: string;
   isActive?: boolean;
-  isVisible?: boolean;
-  hasPermissions?: boolean;
-  createdAfter?: string;
-  createdBefore?: string;
+  parentId?: string;
+  roleId?: string;
 }
 
-// Menu search parameters
-export interface MenuSearchParams extends PaginationParams {
+export interface MenuSearchParams {
+  page: number;
+  limit: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
   filters?: MenuFilters;
 }
 
-// Menu hierarchy and tree structure
-export interface MenuTreeNode {
-  id: string;
-  name: string;
-  path?: string;
-  icon?: string;
-  children: MenuTreeNode[];
-  level: number;
-  isExpanded?: boolean;
-  isActive: boolean;
-  isVisible: boolean;
-  order: number;
-  permissions?: string[];
-}
-
-// Menu statistics for dashboard/reporting
+// Statistics and analytics
 export interface MenuStats {
   total: number;
   active: number;
   visible: number;
   withChildren: number;
-  byPermissionCount: Array<{
-    range: string;
-    count: number;
-  }>;
   topLevelMenus: number;
   deepestLevel: number;
-  recentlyCreated: number;
 }
 
-// Menu assignment data
-export interface MenuPermissionAssignment {
-  id: string;
-  menuId: string;
-  permissionId: string;
-  assignedBy: string;
-  assignedAt: string;
-  isActive: boolean;
-}
-
-// Menu category for better organization
-export interface MenuCategory {
-  id: string;
-  name: string;
-  description?: string;
-  icon?: string;
-  color?: string;
-  order: number;
-  menuItems: MenuDTO[];
-}
-
-// Navigation breadcrumb data
-export interface BreadcrumbItem {
-  id: string;
-  name: string;
-  path?: string;
-  isActive: boolean;
-}
-
-// Menu access control
-export interface MenuAccessControl {
-  menuId: string;
-  userId: string;
-  roleIds: string[];
-  permissionIds: string[];
-  canAccess: boolean;
-  restrictions?: string[];
-}
-
-// Menu validation schemas
-export interface MenuValidationRules {
-  name: {
-    required: boolean;
-    minLength: number;
-    maxLength: number;
-  };
-  path: {
-    required: boolean;
-    pattern?: string;
-  };
-  icon: {
-    required: boolean;
-    allowedValues?: string[];
-  };
-  order: {
-    required: boolean;
-    min: number;
-    max: number;
+// Common shared types
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
   };
 }
 
-// Menu import/export data
-export interface MenuImportData {
-  menus: MenuDTO[];
-  validationErrors?: Array<{
-    row: number;
-    field: string;
-    message: string;
-  }>;
+export interface PaginationParams {
+  page: number;
+  limit: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  filters?: Record<string, any>;
 }
 
-export interface MenuExportData {
-  menus: MenuDTO[];
-  exportedAt: string;
-  exportedBy: string;
-  version: string;
+// Sidebar specific types
+export interface SidebarMenu extends Menu {
+  // Additional properties for sidebar rendering
+  isExpanded?: boolean;
+  isSelected?: boolean;
+  level?: number;
+}
+
+// Icon mapping type for dynamic icon rendering
+export interface IconMapping {
+  [key: string]: React.ComponentType<{ className?: string }>;
 }
