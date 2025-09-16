@@ -65,7 +65,7 @@ export class NotificationsService {
     params: FindAllQueryDto,
   ): Promise<PaginatedResponse<NotificationDto>> {
     return this.errorHandler.safeExecute(async () => {
-      const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc', isRead } = params;
+      const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc', isRead, context, typeId } = params;
       
       // Ensure limit and page are numbers with proper validation
       const pageNum = Math.max(1, typeof page === 'string' ? parseInt(page, 10) || 1 : page || 1);
@@ -95,6 +95,16 @@ export class NotificationsService {
 
       // Note: isRead filtering is handled after fetching the data
       // because we need to check the recipient's isRead status, not the notification's isRead status
+
+      // Add context filter
+      if (context) {
+        where.context = context;
+      }
+
+      // Add typeId filter
+      if (typeId) {
+        where.typeId = typeId;
+      }
 
       // Add search filter
       if (search) {

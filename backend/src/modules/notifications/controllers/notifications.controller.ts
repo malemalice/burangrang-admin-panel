@@ -27,7 +27,10 @@ import { NotificationsService } from '../services/notifications.service';
 import { NotificationDto } from '../dto/notification.dto';
 import { CreateNotificationDto } from '../dto/create-notification.dto';
 import { UpdateNotificationDto } from '../dto/update-notification.dto';
-import { PaginatedResponse, FindAllQueryDto } from '../../../shared/types/pagination-params';
+import {
+  PaginatedResponse,
+  FindAllQueryDto,
+} from '../../../shared/types/pagination-params';
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -37,13 +40,57 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get user notifications with pagination and filtering' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10)' })
-  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term for title, message, or context' })
-  @ApiQuery({ name: 'sortBy', required: false, type: String, description: 'Sort field (default: createdAt)' })
-  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Sort order (default: desc)' })
-  @ApiQuery({ name: 'isRead', required: false, type: Number, description: 'Filter by read status (1 = read, 0 = unread)' })
+  @ApiOperation({
+    summary: 'Get user notifications with pagination and filtering',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 10)',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search term for title, message, or context',
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    description: 'Sort field (default: createdAt)',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    description: 'Sort order (default: desc)',
+  })
+  @ApiQuery({
+    name: 'isRead',
+    required: false,
+    type: Boolean,
+    description: 'Filter by read status (true = read, false = unread)',
+  })
+  @ApiQuery({
+    name: 'context',
+    required: false,
+    type: String,
+    description: 'Filter by notification context (e.g., users, roles, system)',
+  })
+  @ApiQuery({
+    name: 'typeId',
+    required: false,
+    type: String,
+    description: 'Filter by notification type ID',
+  })
   @ApiResponse({ status: 200, type: [NotificationDto] })
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async getUserNotifications(
@@ -55,7 +102,10 @@ export class NotificationsController {
 
   @Get('unread-count')
   @ApiOperation({ summary: 'Get unread notification count for user' })
-  @ApiResponse({ status: 200, schema: { type: 'object', properties: { count: { type: 'number' } } } })
+  @ApiResponse({
+    status: 200,
+    schema: { type: 'object', properties: { count: { type: 'number' } } },
+  })
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async getUnreadCount(@Request() req: any): Promise<{ count: number }> {
     const count = await this.notificationsService.getUnreadCount(req.user.id);
@@ -93,7 +143,10 @@ export class NotificationsController {
     @Body() createDto: CreateNotificationDto,
     @Request() req: any,
   ): Promise<NotificationDto> {
-    return this.notificationsService.createNotificationForRoles(createDto, req.user.id);
+    return this.notificationsService.createNotificationForRoles(
+      createDto,
+      req.user.id,
+    );
   }
 
   @Patch(':id/read')
@@ -134,7 +187,10 @@ export class NotificationsController {
   @Delete(':id')
   @ApiOperation({ summary: 'Delete notification (admin only)' })
   @ApiParam({ name: 'id', type: String, description: 'Notification ID' })
-  @ApiResponse({ status: 200, description: 'Notification deleted successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Notification deleted successfully',
+  })
   @ApiResponse({ status: 404, description: 'Notification not found' })
   @Roles(Role.SUPER_ADMIN)
   async remove(@Param('id') id: string): Promise<void> {

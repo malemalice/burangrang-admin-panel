@@ -38,6 +38,8 @@ export class PaginationParams {
 
   @ApiProperty({ required: false })
   @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
   isRead?: boolean;
 }
 
@@ -47,6 +49,16 @@ export class FindAllQueryDto extends PaginationParams {
   @IsNumber()
   @Type(() => Number)
   limit?: number = 10;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  context?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  typeId?: string;
 }
 
 export interface PaginatedResponse<T> {

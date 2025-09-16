@@ -61,12 +61,7 @@ const notificationService = {
     if (params.filters) {
       Object.entries(params.filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
-          // Handle boolean values properly for isRead parameter
-          if (key === 'isRead' && typeof value === 'boolean') {
-            queryParams.append(key, value.toString());
-          } else if (key !== 'isRead') {
-            queryParams.append(key, value.toString());
-          }
+          queryParams.append(key, value.toString());
         }
       });
     }
