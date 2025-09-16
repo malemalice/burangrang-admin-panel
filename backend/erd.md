@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document provides comprehensive guidelines for understanding and working with the database schema of the Office Nexus Admin Panel backend system. The ERD serves as a visual and conceptual guide for developers, AI assistants, and system architects.
+This document provides comprehensive guidelines for understanding and working with the database schema of the BurangrangAdmin Panel backend system. The ERD serves as a visual and conceptual guide for developers, AI assistants, and system architects.
 
 ## Database Schema Summary
 
@@ -455,4 +455,4 @@ const menus = await prisma.menu.findMany({
 - Track who created approval items
 - Maintain user activity logs
 
-This ERD serves as the authoritative reference for understanding the database structure and relationships in the Office Nexus Admin Panel system. Use it to guide development, debugging, and system understanding. 🚀
+This ERD serves as the authoritative reference for understanding the database structure and relationships in the BurangrangAdmin Panel system. Use it to guide development, debugging, and system understanding. 🚀

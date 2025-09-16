@@ -101,7 +101,7 @@ export async function seedSampleNotifications() {
   const sampleNotifications = [
     {
       title: 'Welcome to the System',
-      message: 'Welcome to the Office Nexus Admin Panel! Your account has been successfully created.',
+      message: 'Welcome to the BurangrangAdmin Panel! Your account has been successfully created.',
       context: 'system',
       contextId: firstUser.id,
       typeId: systemActivityType.id,

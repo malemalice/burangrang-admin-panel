@@ -1,6 +1,6 @@
-# Office Nexus System - Frontend
+# BurangrangSystem - Frontend
 
-This is the frontend application for the Office Nexus System, built with React, Vite, TypeScript, and Shadcn UI components.
+This is the frontend application for the BurangrangSystem, built with React, Vite, TypeScript, and Shadcn UI components.
 
 ## Tech Stack
 

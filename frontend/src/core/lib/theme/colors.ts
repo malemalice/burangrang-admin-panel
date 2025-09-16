@@ -1,5 +1,5 @@
 /**
- * Office Nexus Design System - Color System
+ * BurangrangDesign System - Color System
  * 
  * This file defines the color tokens for the entire application.
  * Always use these tokens instead of hard-coded color values.
