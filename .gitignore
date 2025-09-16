@@ -51,3 +51,6 @@ playwright/playwright-report
 playwright/screenshots
 playwright/test-results
 .playwright-mcp
+
+.cursorindexingignore
+.specstory
