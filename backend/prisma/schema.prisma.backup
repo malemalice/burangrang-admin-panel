@@ -30,7 +30,7 @@ model User {
   createdApprovalItems MasterApprovalItem[] @relation("CreatedApprovalItems")
   createdApprovals Approval[] @relation("CreatedApprovals")
 
-  @@map("t_users")
+  @@map("users")
 }
 
 model RefreshToken {
@@ -41,7 +41,7 @@ model RefreshToken {
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
 
-  @@map("t_refresh_tokens")
+  @@map("refresh_tokens")
 }
 
 model Role {
@@ -55,7 +55,7 @@ model Role {
   menus       Menu[]       @relation("MenuToRole")
   permissions Permission[] @relation("PermissionToRole")
 
-  @@map("m_roles")
+  @@map("roles")
 }
 
 model Permission {
@@ -67,7 +67,7 @@ model Permission {
   updatedAt   DateTime @updatedAt
   roles       Role[]   @relation("PermissionToRole")
 
-  @@map("m_permissions")
+  @@map("permissions")
 }
 
 model Menu {
@@ -84,7 +84,7 @@ model Menu {
   children  Menu[]   @relation("MenuHierarchy")
   roles     Role[]   @relation("MenuToRole")
 
-  @@map("m_menus")
+  @@map("menus")
 }
 
 model Office {
@@ -103,7 +103,7 @@ model Office {
   children    Office[] @relation("OfficeHierarchy")
   users       User[]
 
-  @@map("m_offices")
+  @@map("offices")
 }
 
 model Department {
@@ -117,7 +117,7 @@ model Department {
   users       User[]
   approvalItems MasterApprovalItem[]
   approvals Approval[]
-  @@map("m_departments")
+  @@map("departments")
 }
 
 model JobPosition {
@@ -132,7 +132,7 @@ model JobPosition {
   users       User[]
   approvalItems MasterApprovalItem[]
   approvals   Approval[]
-  @@map("m_job_positions")
+  @@map("job_positions")
 }
 
 model MasterApproval {
@@ -185,5 +185,5 @@ model Setting {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("m_settings")
+  @@map("settings")
 }
