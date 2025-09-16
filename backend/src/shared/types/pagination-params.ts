@@ -35,4 +35,26 @@ export class PaginationParams {
   @IsBoolean()
   @Type(() => Boolean)
   isActive?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  isRead?: boolean;
+}
+
+export class FindAllQueryDto extends PaginationParams {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  limit?: number = 10;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 }
