@@ -23,6 +23,7 @@ import { cn } from '@/core/lib/utils';
 import { useAuth } from '@/core/lib/auth';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '@/core/lib/theme';
+import { NotificationDropdown } from '@/modules/notifications';
 
 interface TopNavbarProps {
   toggleSidebar: () => void;
@@ -157,43 +158,7 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
           {isDark ? <Sun size={20} /> : <Moon size={20} />}
         </Button>
         
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="relative text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
-            >
-              <Bell size={20} />
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
-                3
-              </span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80 dark:bg-gray-800 dark:border-gray-700">
-            <div className="flex items-center justify-between px-4 py-2 border-b dark:border-gray-700 border-slate-200">
-              <h4 className="font-medium text-sm dark:text-white">Notifications</h4>
-              <Button variant="ghost" size="sm" className="text-xs dark:text-gray-300 dark:hover:bg-gray-700 hover:bg-slate-100">
-                Mark all as read
-              </Button>
-            </div>
-            <div className="max-h-[300px] overflow-y-auto">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="px-4 py-2 hover:bg-slate-50 dark:hover:bg-gray-700 border-b dark:border-gray-700 border-slate-200 last:border-0">
-                  <p className="text-sm dark:text-white">
-                    <span className="font-medium">John Doe</span> added a new document
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">2 hours ago</p>
-                </div>
-              ))}
-            </div>
-            <div className="p-2 border-t dark:border-gray-700 border-slate-200">
-              <Button variant="ghost" size="sm" className="w-full text-xs dark:text-gray-300 dark:hover:bg-gray-700 hover:bg-slate-100">
-                View all notifications
-              </Button>
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <NotificationDropdown />
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

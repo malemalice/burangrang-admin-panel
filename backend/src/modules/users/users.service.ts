@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { ActivityLoggerService } from '../../shared/services/activity-logger.service';
 
 @Injectable()
 export class UsersService {
@@ -19,6 +20,7 @@ export class UsersService {
     private prisma: PrismaService,
     private errorHandler: ErrorHandlingService,
     private dtoMapper: DtoMapperService,
+    private activityLogger: ActivityLoggerService,
   ) {
     // Initialize mappers with password exclusion
     this.userMapper = this.dtoMapper.createMapper(UserDto, {
@@ -32,7 +34,7 @@ export class UsersService {
     });
   }
 
-  async create(createUserDto: CreateUserDto): Promise<UserDto> {
+  async create(createUserDto: CreateUserDto, createdBy: string): Promise<UserDto> {
     const hashedPassword = await this.errorHandler.safeHashPassword(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       () => bcrypt.hash(createUserDto.password, 10),
@@ -50,6 +52,14 @@ export class UsersService {
         jobPosition: true,
       },
     });
+
+    // Log user creation activity
+    await this.activityLogger.logUserActivity('create', {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+    }, createdBy);
 
     return this.userMapper(user);
   }

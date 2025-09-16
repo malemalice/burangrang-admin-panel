@@ -29,10 +29,8 @@ model User {
   jobPosition   JobPosition?   @relation(fields: [jobPositionId], references: [id])
   createdApprovalItems MasterApprovalItem[] @relation("CreatedApprovalItems")
   createdApprovals Approval[] @relation("CreatedApprovals")
-  createdNotifications Notification[] @relation("NotificationCreator")
-  notificationRecipients NotificationRecipient[] @relation("NotificationRecipient")
 
-  @@map("t_users")
+  @@map("users")
 }
 
 model RefreshToken {
@@ -43,7 +41,7 @@ model RefreshToken {
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
 
-  @@map("t_refresh_tokens")
+  @@map("refresh_tokens")
 }
 
 model Role {
@@ -56,9 +54,8 @@ model Role {
   users       User[]
   menus       Menu[]       @relation("MenuToRole")
   permissions Permission[] @relation("PermissionToRole")
-  notificationRecipients NotificationRecipient[]
 
-  @@map("m_roles")
+  @@map("roles")
 }
 
 model Permission {
@@ -70,7 +67,7 @@ model Permission {
   updatedAt   DateTime @updatedAt
   roles       Role[]   @relation("PermissionToRole")
 
-  @@map("m_permissions")
+  @@map("permissions")
 }
 
 model Menu {
@@ -87,7 +84,7 @@ model Menu {
   children  Menu[]   @relation("MenuHierarchy")
   roles     Role[]   @relation("MenuToRole")
 
-  @@map("m_menus")
+  @@map("menus")
 }
 
 model Office {
@@ -106,7 +103,7 @@ model Office {
   children    Office[] @relation("OfficeHierarchy")
   users       User[]
 
-  @@map("m_offices")
+  @@map("offices")
 }
 
 model Department {
@@ -120,7 +117,7 @@ model Department {
   users       User[]
   approvalItems MasterApprovalItem[]
   approvals Approval[]
-  @@map("m_departments")
+  @@map("departments")
 }
 
 model JobPosition {
@@ -135,7 +132,7 @@ model JobPosition {
   users       User[]
   approvalItems MasterApprovalItem[]
   approvals   Approval[]
-  @@map("m_job_positions")
+  @@map("job_positions")
 }
 
 model MasterApproval {
@@ -188,58 +185,5 @@ model Setting {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("m_settings")
-}
-
-// Notification System Models
-model NotificationType {
-  id          String         @id @default(uuid())
-  name        String         @unique
-  description String?
-  isActive    Boolean        @default(true)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  notifications Notification[]
-
-  @@map("m_notification_types")
-}
-
-model Notification {
-  id                String           @id @default(uuid())
-  title             String
-  message           String
-  context           String?          // Module/context where notification was triggered
-  contextId         String?          // Specific ID of the context (e.g., user ID, document ID)
-  typeId            String
-  isRead            Boolean          @default(false)
-  isActive          Boolean          @default(true)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  readAt            DateTime?
-  
-  // Relations
-  type              NotificationType @relation(fields: [typeId], references: [id])
-  recipients        NotificationRecipient[]
-  createdBy         String
-  creator           User             @relation("NotificationCreator", fields: [createdBy], references: [id])
-
-  @@map("t_notifications")
-}
-
-model NotificationRecipient {
-  id             String       @id @default(uuid())
-  notificationId String
-  roleId         String
-  userId         String?      // Optional: specific user if targeting individual
-  isRead         Boolean      @default(false)
-  readAt         DateTime?
-  createdAt      DateTime     @default(now())
-  
-  // Relations
-  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
-  role           Role         @relation(fields: [roleId], references: [id])
-  user           User?        @relation("NotificationRecipient", fields: [userId], references: [id])
-
-  @@unique([notificationId, roleId, userId])
-  @@map("t_notification_recipients")
+  @@map("settings")
 }

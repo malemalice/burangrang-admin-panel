@@ -7,6 +7,7 @@ import { seedDepartments } from './seeds/departments.seed';
 import { seedJobPositions } from './seeds/jobpositions.seed';
 import { seedSettings } from './seeds/settings.seed';
 import { seedMenus } from './seeds/menus.seed';
+import { seedNotifications } from './seeds/notification-types.seed';
 
 const prisma = new PrismaClient();
 
@@ -23,6 +24,9 @@ async function main() {
     // If no specific table is provided, clear all tables
     if (!tableToSeed) {
       // Delete in order to respect foreign key constraints
+      await prisma.notificationRecipient.deleteMany();
+      await prisma.notification.deleteMany();
+      await prisma.notificationType.deleteMany();
       await prisma.refreshToken.deleteMany();
       await prisma.masterApprovalItem.deleteMany();
       await prisma.approval.deleteMany();
@@ -63,9 +67,14 @@ async function main() {
         case 'menus':
           await prisma.menu.deleteMany();
           break;
+        case 'notifications':
+          await prisma.notificationRecipient.deleteMany();
+          await prisma.notification.deleteMany();
+          await prisma.notificationType.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
-          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus');
+          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications');
           process.exit(1);
       }
       console.log(`Cleared existing data for table: ${tableToSeed}`);
@@ -82,6 +91,7 @@ async function main() {
       await seedUsers(prisma, roles, offices);
       await seedSettings(prisma);
       await seedMenus();
+      await seedNotifications();
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -115,6 +125,9 @@ async function main() {
           const permsForMenus = await seedPermissions(prisma);
           const rolesForMenus = await seedRoles(prisma, permsForMenus);
           await seedMenus();
+          break;
+        case 'notifications':
+          await seedNotifications();
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

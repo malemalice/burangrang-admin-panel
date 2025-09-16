@@ -61,8 +61,8 @@ export class UsersController {
   })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @Permissions('user:create')
-  create(@Body() createUserDto: CreateUserDto): Promise<UserDto> {
-    return this.usersService.create(createUserDto);
+  create(@Body() createUserDto: CreateUserDto, @Req() req: any): Promise<UserDto> {
+    return this.usersService.create(createUserDto, req.user.id);
   }
 
   @Get()
