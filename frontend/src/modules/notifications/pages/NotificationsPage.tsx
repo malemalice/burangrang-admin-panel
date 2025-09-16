@@ -4,9 +4,9 @@ import { Button } from '@/core/components/ui/button';
 import { Input } from '@/core/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 import { Badge } from '@/core/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
-import { RefreshCw, Search, Filter, Check, X, Trash2 } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
+import { RefreshCw, Search, Check } from 'lucide-react';
 import { useNotifications, useNotificationTypes, useUnreadCount } from '../hooks/useNotifications';
 import NotificationList from '../components/NotificationList';
 import { NotificationSearchParams, NotificationFilters } from '../types/notification.types';
@@ -42,7 +42,7 @@ const NotificationsPage: React.FC = () => {
       sortOrder: 'desc',
       filters: {
         ...filters,
-        isRead: activeTab === 'unread' ? 0 : activeTab === 'read' ? 1 : undefined,
+        isRead: activeTab === 'unread' ? false : activeTab === 'read' ? true : undefined,
       },
     };
 
@@ -100,7 +100,7 @@ const NotificationsPage: React.FC = () => {
       sortOrder: 'desc',
       filters: {
         ...filters,
-        isRead: activeTab === 'unread' ? 0 : activeTab === 'read' ? 1 : undefined,
+        isRead: activeTab === 'unread' ? false : activeTab === 'read' ? true : undefined,
       },
     };
 
@@ -111,7 +111,7 @@ const NotificationsPage: React.FC = () => {
   const readCount = totalNotifications - unreadCount;
 
   return (
-    <div className="space-y-6">
+    <>
       <PageHeader
         title="Notifications"
         subtitle="Manage your notifications and stay updated with system activities"
@@ -140,35 +140,57 @@ const NotificationsPage: React.FC = () => {
         }
       />
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Notifications</CardTitle>
-            <Badge variant="outline">{totalNotifications}</Badge>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <RefreshCw size={18} /> Total Notifications
+            </CardTitle>
+            <CardDescription>All notifications in the system</CardDescription>
           </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-2xl font-bold">{totalNotifications}</span>
+              <Badge variant="outline">{totalNotifications}</Badge>
+            </div>
+          </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Unread</CardTitle>
-            <Badge variant="destructive">{unreadCount}</Badge>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Check size={18} /> Unread Notifications
+            </CardTitle>
+            <CardDescription>Notifications that need attention</CardDescription>
           </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-2xl font-bold text-red-600">{unreadCount}</span>
+              <Badge variant="destructive">{unreadCount}</Badge>
+            </div>
+          </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Read</CardTitle>
-            <Badge variant="secondary">{readCount}</Badge>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Check size={18} /> Read Notifications
+            </CardTitle>
+            <CardDescription>Notifications you've already seen</CardDescription>
           </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-2xl font-bold text-green-600">{readCount}</span>
+              <Badge variant="secondary">{readCount}</Badge>
+            </div>
+          </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card>
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle className="text-lg">Filters</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Search</label>
               <div className="relative">
@@ -225,63 +247,43 @@ const NotificationsPage: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Date Range</label>
-              <div className="flex gap-2">
-                <Input
-                  type="date"
-                  value={filters.dateFrom || ''}
-                  onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
-                  className="text-sm"
-                />
-                <Input
-                  type="date"
-                  value={filters.dateTo || ''}
-                  onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-                  className="text-sm"
-                />
-              </div>
-            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Notifications List */}
-      <Card>
-        <CardHeader>
-          <Tabs value={activeTab} onValueChange={handleTabChange}>
-            <TabsList>
-              <TabsTrigger value="all">
-                All ({totalNotifications})
-              </TabsTrigger>
-              <TabsTrigger value="unread">
-                Unread ({unreadCount})
-              </TabsTrigger>
-              <TabsTrigger value="read">
-                Read ({readCount})
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </CardHeader>
-        <CardContent>
-          <NotificationList
-            notifications={notifications}
-            isLoading={isLoading}
-            onMarkAsRead={handleMarkAsRead}
-            onRefresh={handleRefresh}
-            showActions={true}
-            emptyMessage={
-              activeTab === 'unread' 
-                ? 'No unread notifications' 
-                : activeTab === 'read'
-                ? 'No read notifications'
-                : 'No notifications found'
-            }
-          />
-        </CardContent>
-      </Card>
-    </div>
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="all">
+            All ({totalNotifications})
+          </TabsTrigger>
+          <TabsTrigger value="unread">
+            Unread ({unreadCount})
+          </TabsTrigger>
+          <TabsTrigger value="read">
+            Read ({readCount})
+          </TabsTrigger>
+        </TabsList>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <NotificationList
+              notifications={notifications}
+              isLoading={isLoading}
+              onMarkAsRead={handleMarkAsRead}
+              onRefresh={handleRefresh}
+              showActions={true}
+              emptyMessage={
+                activeTab === 'unread' 
+                  ? 'No unread notifications' 
+                  : activeTab === 'read'
+                  ? 'No read notifications'
+                  : 'No notifications found'
+              }
+            />
+          </CardContent>
+        </Card>
+      </Tabs>
+    </>
   );
 };
 
