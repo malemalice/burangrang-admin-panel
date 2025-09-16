@@ -16,12 +16,37 @@ The system uses **PostgreSQL** with **Prisma ORM** and follows a hierarchical, r
 4. **Approval System**: Master Approvals, Approval Items, Transaction Approvals
 5. **System Configuration**: Settings, Refresh Tokens
 
+## Database Table Structure Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    DATABASE TABLES                              │
+├─────────────────────────────────────────────────────────────────┤
+│  MASTER DATA TABLES (m_ prefix)                                │
+│  ┌─────────────┬─────────────┬─────────────┬─────────────┐     │
+│  │ m_roles     │ m_permissions│ m_offices   │ m_departments│    │
+│  │ m_job_positions│ m_menus   │ m_settings │ m_approval  │     │
+│  │ m_approval_item           │             │             │     │
+│  └─────────────┴─────────────┴─────────────┴─────────────┘     │
+├─────────────────────────────────────────────────────────────────┤
+│  TRANSACTIONAL DATA TABLES (t_ prefix)                         │
+│  ┌─────────────┬─────────────┬─────────────┐                   │
+│  │ t_users     │ t_refresh_tokens│ t_approvals│               │
+│  └─────────────┴─────────────┴─────────────┘                   │
+├─────────────────────────────────────────────────────────────────┤
+│  JUNCTION TABLES (Prisma default)                               │
+│  ┌─────────────┬─────────────┐                                 │
+│  │ _PermissionToRole │ _MenuToRole │                         │
+│  └─────────────┴─────────────┘                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 ## Entity Relationship Diagram (Mermaid)
 
 ```mermaid
 erDiagram
     %% Core User Management
-    User {
+    t_users {
         string id PK
         string email UK
         string password
@@ -37,7 +62,7 @@ erDiagram
         datetime lastLoginAt
     }
 
-    Role {
+    m_roles {
         string id PK
         string name UK
         string description
@@ -46,7 +71,7 @@ erDiagram
         datetime updatedAt
     }
 
-    Permission {
+    m_permissions {
         string id PK
         string name UK
         string description
@@ -56,7 +81,7 @@ erDiagram
     }
 
     %% Organizational Structure
-    Office {
+    m_offices {
         string id PK
         string name
         string code UK
@@ -70,7 +95,7 @@ erDiagram
         datetime updatedAt
     }
 
-    Department {
+    m_departments {
         string id PK
         string name
         string code UK
@@ -80,7 +105,7 @@ erDiagram
         datetime updatedAt
     }
 
-    JobPosition {
+    m_job_positions {
         string id PK
         string name
         string code UK
@@ -92,7 +117,7 @@ erDiagram
     }
 
     %% Navigation & Access
-    Menu {
+    m_menus {
         string id PK
         string name
         string path
@@ -105,13 +130,13 @@ erDiagram
     }
 
     %% Approval System
-    MasterApproval {
+    m_approval {
         string id PK
         string entity
         boolean isActive
     }
 
-    MasterApprovalItem {
+    m_approval_item {
         string id PK
         string mApprovalId FK
         int order
@@ -121,7 +146,7 @@ erDiagram
         datetime createdAt
     }
 
-    Approval {
+    t_approvals {
         string id PK
         string mApprovalId FK
         string entityId
@@ -134,7 +159,7 @@ erDiagram
     }
 
     %% System Configuration
-    Setting {
+    m_settings {
         string id PK
         string key UK
         string value
@@ -143,7 +168,7 @@ erDiagram
         datetime updatedAt
     }
 
-    RefreshToken {
+    t_refresh_tokens {
         string id PK
         string token UK
         string userId FK
@@ -152,40 +177,40 @@ erDiagram
     }
 
     %% Relationships
-    User ||--o{ RefreshToken : "has many"
-    User }o--|| Role : "belongs to"
-    User }o--|| Office : "belongs to"
-    User }o--o| Department : "optional belongs to"
-    User }o--o| JobPosition : "optional belongs to"
-    User ||--o{ MasterApprovalItem : "creates"
-    User ||--o{ Approval : "creates"
+    t_users ||--o{ t_refresh_tokens : "has many"
+    t_users }o--|| m_roles : "belongs to"
+    t_users }o--|| m_offices : "belongs to"
+    t_users }o--o| m_departments : "optional belongs to"
+    t_users }o--o| m_job_positions : "optional belongs to"
+    t_users ||--o{ m_approval_item : "creates"
+    t_users ||--o{ t_approvals : "creates"
 
-    Role ||--o{ User : "has many"
-    Role }o--o{ Permission : "many-to-many"
-    Role }o--o{ Menu : "many-to-many"
+    m_roles ||--o{ t_users : "has many"
+    m_roles }o--o{ m_permissions : "many-to-many"
+    m_roles }o--o{ m_menus : "many-to-many"
 
-    Office ||--o{ User : "has many"
-    Office ||--o{ Office : "parent-child hierarchy"
+    m_offices ||--o{ t_users : "has many"
+    m_offices ||--o{ m_offices : "parent-child hierarchy"
 
-    Department ||--o{ User : "has many"
-    Department ||--o{ MasterApprovalItem : "approval items"
-    Department ||--o{ Approval : "approvals"
+    m_departments ||--o{ t_users : "has many"
+    m_departments ||--o{ m_approval_item : "approval items"
+    m_departments ||--o{ t_approvals : "approvals"
 
-    JobPosition ||--o{ User : "has many"
-    JobPosition ||--o{ MasterApprovalItem : "approval items"
-    JobPosition ||--o{ Approval : "approvals"
+    m_job_positions ||--o{ t_users : "has many"
+    m_job_positions ||--o{ m_approval_item : "approval items"
+    m_job_positions ||--o{ t_approvals : "approvals"
 
-    Menu ||--o{ Menu : "parent-child hierarchy"
-    Menu }o--o{ Role : "many-to-many"
+    m_menus ||--o{ m_menus : "parent-child hierarchy"
+    m_menus }o--o{ m_roles : "many-to-many"
 
-    MasterApproval ||--o{ MasterApprovalItem : "has many"
-    MasterApprovalItem }o--|| JobPosition : "requires"
-    MasterApprovalItem }o--|| Department : "requires"
-    MasterApprovalItem }o--|| User : "created by"
+    m_approval ||--o{ m_approval_item : "has many"
+    m_approval_item }o--|| m_job_positions : "requires"
+    m_approval_item }o--|| m_departments : "requires"
+    m_approval_item }o--|| t_users : "created by"
 
-    Approval }o--|| Department : "belongs to"
-    Approval }o--|| JobPosition : "belongs to"
-    Approval }o--|| User : "created by"
+    t_approvals }o--|| m_departments : "belongs to"
+    t_approvals }o--|| m_job_positions : "belongs to"
+    t_approvals }o--|| t_users : "created by"
 ```
 
 ## Entity Descriptions
@@ -297,15 +322,20 @@ erDiagram
 ### Primary Keys
 - All entities use UUID primary keys (`@id @default(uuid())`)
 
+### Table Naming Convention
+- **Master Data Tables**: Prefixed with `m_` (m_roles, m_permissions, m_offices, m_departments, m_job_positions, m_menus, m_settings, m_approval, m_approval_item)
+- **Transactional Data Tables**: Prefixed with `t_` (t_users, t_refresh_tokens, t_approvals)
+- **Junction Tables**: Prisma default naming (_PermissionToRole, _MenuToRole)
+
 ### Unique Constraints
-- `users.email` - Unique email addresses
-- `roles.name` - Unique role names
-- `permissions.name` - Unique permission names
-- `offices.code` - Unique office codes
-- `departments.code` - Unique department codes
-- `job_positions.code` - Unique job position codes
-- `refresh_tokens.token` - Unique refresh tokens
-- `settings.key` - Unique setting keys
+- `t_users.email` - Unique email addresses
+- `m_roles.name` - Unique role names
+- `m_permissions.name` - Unique permission names
+- `m_offices.code` - Unique office codes
+- `m_departments.code` - Unique department codes
+- `m_job_positions.code` - Unique job position codes
+- `t_refresh_tokens.token` - Unique refresh tokens
+- `m_settings.key` - Unique setting keys
 
 ### Foreign Key Constraints
 - **Cascade Updates**: All foreign keys use `ON UPDATE CASCADE`

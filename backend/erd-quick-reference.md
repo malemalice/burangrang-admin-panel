@@ -69,6 +69,11 @@ prisma.menu.findMany({
 })
 ```
 
+## Table Naming Convention
+- **Master Data Tables**: Prefixed with `m_` (m_roles, m_permissions, m_offices, m_departments, m_job_positions, m_menus, m_settings, m_approval, m_approval_item)
+- **Transactional Data Tables**: Prefixed with `t_` (t_users, t_refresh_tokens, t_approvals)
+- **Junction Tables**: Prisma default naming (_PermissionToRole, _MenuToRole)
+
 ## Constraints
 - All PKs: UUID
 - Unique: email, role.name, permission.name, office.code, dept.code, job.code, setting.key, token
