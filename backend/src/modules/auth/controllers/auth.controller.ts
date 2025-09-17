@@ -47,7 +47,6 @@ export class AuthController {
     @Body() loginDto: { email: string; password: string },
     @Res() res: Response,
   ) {
-    this.logger.debug(`Login attempt for email: ${loginDto.email}`);
     try {
       const user = await this.authService.validateUser(
         loginDto.email,
@@ -55,7 +54,6 @@ export class AuthController {
       );
 
       const result = await this.authService.login(user);
-      this.logger.debug(`Login successful for user: ${loginDto.email}`);
       return res.json(result);
     } catch (error) {
       this.logger.error(

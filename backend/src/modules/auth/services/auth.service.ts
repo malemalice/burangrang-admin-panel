@@ -46,7 +46,6 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    this.logger.debug(`User found, comparing password`);
     let isPasswordValid: boolean;
     try {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -71,7 +70,7 @@ export class AuthService {
 
   async login(user: AuthenticatedUser) {
     const payload = { email: user.email, sub: user.id, role: user.role.name };
-    const accessToken = this.jwtService.sign(payload);
+    const accessToken = this.jwtService.sign(payload, { expiresIn: 3600 }); // 1 hour in seconds
     const refreshToken = await this.createRefreshToken(user.id);
 
     // Return both tokens in the response body instead of cookies
@@ -89,57 +88,69 @@ export class AuthService {
   }
 
   async createRefreshToken(userId: string) {
-    // First, delete any existing refresh tokens for this user
-    await this.prisma.refreshToken.deleteMany({
-      where: { userId },
-    });
-
-    // Add randomness to the token to ensure uniqueness
-    const randomStr = crypto.randomBytes(32).toString('hex');
-
-    const token = this.jwtService.sign(
-      { sub: userId, random: randomStr },
-      { expiresIn: '7d' },
-    );
-
-    try {
-      await this.prisma.refreshToken.create({
-        data: {
-          token,
-          userId,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        },
+    // Use a transaction to ensure atomicity and prevent race conditions
+    return await this.prisma.$transaction(async (tx) => {
+      // First, delete any existing refresh tokens for this user
+      const deleteResult = await tx.refreshToken.deleteMany({
+        where: { userId },
       });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.logger.error(`Error creating refresh token: ${errorMessage}`);
-      // In case of unique constraint error, try again with more randomness
-      const errorCode =
-        error && typeof error === 'object' && 'code' in error
-          ? String((error as { code: unknown }).code)
-          : '';
-      if (errorCode === 'P2002') {
-        const extraRandomStr = crypto.randomBytes(64).toString('hex');
-        const newToken = this.jwtService.sign(
-          { sub: userId, random: extraRandomStr, timestamp: Date.now() },
-          { expiresIn: '7d' },
-        );
 
-        await this.prisma.refreshToken.create({
+      this.logger.debug(
+        `Deleted ${deleteResult.count} existing refresh token(s) for user ${userId}`,
+      );
+
+      // Add randomness to the token to ensure uniqueness
+      const randomStr = crypto.randomBytes(32).toString('hex');
+
+      const token = this.jwtService.sign(
+        { sub: userId, random: randomStr },
+        { expiresIn: '7d' },
+      );
+
+      try {
+        await tx.refreshToken.create({
           data: {
-            token: newToken,
+            token,
             userId,
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
           },
         });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        this.logger.error(`Error creating refresh token: ${errorMessage}`);
+        
+        // In case of unique constraint error, try again with more randomness
+        const errorCode =
+          error && typeof error === 'object' && 'code' in error
+            ? String((error as { code: unknown }).code)
+            : '';
+        if (errorCode === 'P2002') {
+          this.logger.warn(
+            `Token collision detected for user ${userId}, generating new token with extra randomness`,
+          );
+          
+          const extraRandomStr = crypto.randomBytes(64).toString('hex');
+          const newToken = this.jwtService.sign(
+            { sub: userId, random: extraRandomStr, timestamp: Date.now() },
+            { expiresIn: '7d' },
+          );
 
-        return newToken;
+          await tx.refreshToken.create({
+            data: {
+              token: newToken,
+              userId,
+              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            },
+          });
+
+          return newToken;
+        }
+        throw error;
       }
-      throw error;
-    }
 
-    return token;
+      return token;
+    });
   }
 
   async refreshToken(body: { refreshToken?: string }) {
@@ -162,12 +173,17 @@ export class AuthService {
       email: user.email,
       sub: user.id,
       role: user.role.name,
-    });
+    }, { expiresIn: 3600 }); // 1 hour in seconds
 
-    // Delete the used refresh token
-    await this.prisma.refreshToken.delete({
+    // Delete the used refresh token using deleteMany to avoid race condition errors
+    // This won't throw an error if the record doesn't exist (P2025)
+    const deleteResult = await this.prisma.refreshToken.deleteMany({
       where: { id: refreshToken.id },
     });
+
+    this.logger.debug(
+      `Deleted ${deleteResult.count} refresh token(s) for user ${user.id}`,
+    );
 
     // Create new refresh token
     const newRefreshToken = await this.createRefreshToken(user.id);
@@ -187,11 +203,25 @@ export class AuthService {
   }
 
   async logout(userId: string) {
-    // Clear refresh token in database
-    await this.prisma.refreshToken.deleteMany({
-      where: { userId },
-    });
+    try {
+      // Clear refresh token in database
+      const deleteResult = await this.prisma.refreshToken.deleteMany({
+        where: { userId },
+      });
 
-    return { success: true };
+      this.logger.debug(
+        `Logged out user ${userId}, deleted ${deleteResult.count} refresh token(s)`,
+      );
+
+      return { success: true };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(`Error during logout for user ${userId}: ${errorMessage}`);
+      
+      // Don't throw error for logout - it should always succeed
+      // even if token deletion fails
+      return { success: true };
+    }
   }
 }

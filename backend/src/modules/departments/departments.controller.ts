@@ -33,6 +33,7 @@ export class DepartmentsController {
     type: DepartmentDto,
   })
   @ApiResponse({ status: 400, description: 'Bad request.' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   create(
     @Body() createDepartmentDto: CreateDepartmentDto,
   ): Promise<DepartmentDto> {
@@ -46,6 +47,7 @@ export class DepartmentsController {
     description: 'Return all departments.',
     type: [DepartmentDto],
   })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -78,6 +80,7 @@ export class DepartmentsController {
     type: DepartmentDto,
   })
   @ApiResponse({ status: 404, description: 'Department not found.' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   findOne(@Param('id') id: string): Promise<DepartmentDto> {
     return this.departmentsService.findOne(id);
   }
@@ -118,6 +121,7 @@ export class DepartmentsController {
     type: DepartmentDto,
   })
   @ApiResponse({ status: 404, description: 'Department not found.' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   findByCode(@Param('code') code: string): Promise<DepartmentDto> {
     return this.departmentsService.findByCode(code);
   }

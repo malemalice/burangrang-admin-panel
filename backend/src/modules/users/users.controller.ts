@@ -28,7 +28,6 @@ import { Roles } from '../../shared/decorators/roles.decorator';
 import { Role } from '../../shared/types/role.enum';
 import { Request } from 'express';
 import { UserDto } from './dto/user.dto';
-import { Permissions } from 'src/shared/decorators/permissions.decorator';
 
 // Define interface for request with user property
 interface RequestWithUser extends Request {
@@ -60,7 +59,6 @@ export class UsersController {
     description: 'Conflict - user with this email already exists.',
   })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
-  @Permissions('user:create')
   create(@Body() createUserDto: CreateUserDto, @Req() req: any): Promise<UserDto> {
     return this.usersService.create(createUserDto, req.user.id);
   }
@@ -134,8 +132,7 @@ export class UsersController {
       },
     },
   })
-  // @Roles(Role.ADMIN)
-  @Permissions('user:list')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -166,6 +163,7 @@ export class UsersController {
 
   @Get('me')
   @ApiOperation({ summary: 'Get current user profile' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   @ApiResponse({
     status: 200,
     description: 'Return current user profile.',
@@ -193,7 +191,6 @@ export class UsersController {
     description: 'Forbidden - insufficient permissions.',
   })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
-  @Permissions('user:read')
   findOne(@Param('id') id: string): Promise<UserDto> {
     return this.usersService.findOne(id);
   }
@@ -214,7 +211,6 @@ export class UsersController {
     description: 'Forbidden - insufficient permissions.',
   })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
-  @Permissions('user:update')
   update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
@@ -235,7 +231,6 @@ export class UsersController {
     description: 'Forbidden - insufficient permissions.',
   })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
-  @Permissions('user:delete')
   remove(@Param('id') id: string): Promise<void> {
     return this.usersService.remove(id);
   }

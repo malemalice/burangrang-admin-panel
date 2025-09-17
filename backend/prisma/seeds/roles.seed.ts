@@ -21,7 +21,8 @@ export const roles = [
           (p) =>
             p.name.startsWith('user:') ||
             p.name.startsWith('office:') ||
-            p.name.startsWith('auth:')
+            p.name.startsWith('auth:') ||
+            p.name.startsWith('notification:')
         )
         .map((p) => p.id),
   },
@@ -35,7 +36,12 @@ export const roles = [
             p.name === 'auth:login' ||
             p.name === 'auth:logout' ||
             p.name === 'auth:change-password' ||
-            p.name === 'user:read'
+            p.name === 'user:read' ||
+            p.name === 'notification:read' ||
+            p.name === 'notification:mark-read' ||
+            p.name === 'notification:mark-all-read' ||
+            p.name === 'notification:unread-count' ||
+            p.name === 'notification:types'
         )
         .map((p) => p.id),
   },

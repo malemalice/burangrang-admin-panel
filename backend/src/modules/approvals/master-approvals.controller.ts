@@ -24,6 +24,8 @@ import { UpdateMasterApprovalDto } from './dto/update-master-approval.dto';
 import { MasterApprovalDto } from './dto/master-approval.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
+import { Roles } from '../../shared/decorators/roles.decorator';
+import { Role } from '../../shared/types/role.enum';
 
 @ApiTags('master-approvals')
 @ApiBearerAuth()
@@ -43,6 +45,7 @@ export class MasterApprovalsController {
     type: MasterApprovalDto,
   })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   create(
     @Body() createMasterApprovalDto: CreateMasterApprovalDto,
   ): Promise<MasterApprovalDto> {
@@ -76,6 +79,7 @@ export class MasterApprovalsController {
       },
     },
   })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -108,6 +112,7 @@ export class MasterApprovalsController {
     type: MasterApprovalDto,
   })
   @ApiResponse({ status: 404, description: 'Master approval not found.' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
   findOne(@Param('id') id: string): Promise<MasterApprovalDto> {
     return this.masterApprovalsService.findOne(id);
   }
@@ -123,6 +128,7 @@ export class MasterApprovalsController {
   })
   @ApiResponse({ status: 404, description: 'Master approval not found.' })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   update(
     @Param('id') id: string,
     @Body() updateMasterApprovalDto: UpdateMasterApprovalDto,
@@ -138,6 +144,7 @@ export class MasterApprovalsController {
     description: 'The master approval has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Master approval not found.' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   remove(@Param('id') id: string): Promise<void> {
     return this.masterApprovalsService.remove(id);
   }
