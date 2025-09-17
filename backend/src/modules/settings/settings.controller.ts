@@ -27,7 +27,6 @@ import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { Role } from '../../shared/types/role.enum';
-import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { Public } from 'src/shared/decorators/public.decorator';
 
 @ApiTags('settings')
@@ -55,6 +54,7 @@ export class SettingsController {
   // App-specific endpoints (must come before generic routes)
   @Get('app')
   @ApiOperation({ summary: 'Get application settings' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   @ApiResponse({
     status: 200,
     description: 'Return application settings.',
@@ -76,6 +76,7 @@ export class SettingsController {
 
   @Patch('app-name')
   @ApiOperation({ summary: 'Update application name' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @ApiBody({
     schema: {
       type: 'object',
@@ -101,6 +102,7 @@ export class SettingsController {
   // Theme-specific endpoints (must come before generic routes)
   @Get('theme')
   @ApiOperation({ summary: 'Get theme settings' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   @ApiResponse({
     status: 200,
     description: 'Return theme settings.',
@@ -124,6 +126,7 @@ export class SettingsController {
 
   @Patch('theme/color')
   @ApiOperation({ summary: 'Update theme color' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @ApiBody({
     schema: {
       type: 'object',
@@ -146,6 +149,7 @@ export class SettingsController {
 
   @Patch('theme/mode')
   @ApiOperation({ summary: 'Update theme mode' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @ApiBody({
     schema: {
       type: 'object',
@@ -169,6 +173,7 @@ export class SettingsController {
   // Move generic routes AFTER specific routes to prevent conflicts
   // Specific routes must come BEFORE generic routes to prevent conflicts
   @Get('by-key/:key')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async getByKey(@Param('key') key: string): Promise<SettingDto> {
     const setting = await this.settingsService.findByKey(key);
     if (!setting) {
@@ -178,6 +183,7 @@ export class SettingsController {
   }
 
   @Get('value/:key')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async getValueByKey(@Param('key') key: string): Promise<{ value: string }> {
     let value = await this.settingsService.getValueByKey(key);
 
@@ -280,7 +286,6 @@ export class SettingsController {
   @ApiResponse({ status: 404, description: 'Setting not found.' })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
-  @Permissions('setting:update')
   update(
     @Param('id') id: string,
     @Body() updateSettingDto: UpdateSettingDto,
@@ -290,7 +295,6 @@ export class SettingsController {
 
   @Patch('by-key/:key')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
-  @Permissions('setting:update')
   updateByKey(
     @Param('key') key: string,
     @Body() updateSettingDto: UpdateSettingDto,
@@ -307,14 +311,12 @@ export class SettingsController {
   })
   @ApiResponse({ status: 404, description: 'Setting not found.' })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
-  @Permissions('setting:delete')
   remove(@Param('id') id: string): Promise<void> {
     return this.settingsService.remove(id);
   }
 
   @Delete('by-key/:key')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
-  @Permissions('setting:delete')
   removeByKey(@Param('key') key: string): Promise<void> {
     return this.settingsService.removeByKey(key);
   }

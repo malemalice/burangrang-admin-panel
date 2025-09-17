@@ -51,6 +51,7 @@ export class OfficesController {
 
   @Get()
   @ApiOperation({ summary: 'Get all offices with pagination and filtering' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (starts from 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of items per page' })
   @ApiQuery({ name: 'sortBy', required: false, type: String, description: 'Field to sort by' })
@@ -99,6 +100,7 @@ export class OfficesController {
 
   @Get('hierarchy')
   @ApiOperation({ summary: 'Get office hierarchy' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   @ApiResponse({
     status: 200,
     description: 'Return office hierarchy.',
@@ -110,6 +112,7 @@ export class OfficesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get an office by ID' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   @ApiParam({ name: 'id', description: 'Office ID', type: String })
   @ApiResponse({
     status: 200,

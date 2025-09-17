@@ -24,6 +24,8 @@ import { UpdateJobPositionDto } from './dto/update-job-position.dto';
 import { JobPositionDto } from './dto/job-position.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
+import { Roles } from '../../shared/decorators/roles.decorator';
+import { Role } from '../../shared/types/role.enum';
 
 @ApiTags('job-positions')
 @ApiBearerAuth()
@@ -42,6 +44,7 @@ export class JobPositionsController {
   })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
   @ApiResponse({ status: 409, description: 'Conflict - job position with this code already exists.' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   create(
     @Body() createJobPositionDto: CreateJobPositionDto,
   ): Promise<JobPositionDto> {
@@ -75,6 +78,7 @@ export class JobPositionsController {
       },
     },
   })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -107,6 +111,7 @@ export class JobPositionsController {
     type: JobPositionDto,
   })
   @ApiResponse({ status: 404, description: 'Job position not found.' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   findOne(@Param('id') id: string): Promise<JobPositionDto> {
     return this.jobPositionsService.findOne(id);
   }
@@ -122,6 +127,7 @@ export class JobPositionsController {
   })
   @ApiResponse({ status: 404, description: 'Job position not found.' })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   update(
     @Param('id') id: string,
     @Body() updateJobPositionDto: UpdateJobPositionDto,
@@ -137,6 +143,7 @@ export class JobPositionsController {
     description: 'The job position has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Job position not found.' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   remove(@Param('id') id: string): Promise<void> {
     return this.jobPositionsService.remove(id);
   }

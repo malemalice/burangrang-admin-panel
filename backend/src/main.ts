@@ -35,7 +35,6 @@ async function bootstrap() {
   // Enable guards
   app.useGlobalGuards(
     new JwtAuthGuard(reflector),
-    new PermissionsGuard(reflector, prismaService),
   );
 
   // Swagger setup
