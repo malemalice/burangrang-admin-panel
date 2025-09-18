@@ -16,6 +16,7 @@ import { JobPositionsModule } from './modules/job-positions/job-positions.module
 import { MasterApprovalsModule } from './modules/approvals/master-approvals.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { CategoriesModule } from './modules/categories/categories.module';
 import { SharedModule } from './shared/shared.module';
 
 @Module({
@@ -37,6 +38,7 @@ import { SharedModule } from './shared/shared.module';
     MasterApprovalsModule,
     SettingsModule,
     NotificationsModule,
+    CategoriesModule,
   ],
   providers: [
     Reflector,

@@ -120,6 +120,21 @@ export interface JobPosition {
   updatedAt: Date;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  imageUrl?: string;
+  parentId?: string;
+  parentName?: string;
+  order: number;
+  status: 'active' | 'inactive';
+  childrenCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Common response and request types
 
 export interface ApiResponse<T> {
