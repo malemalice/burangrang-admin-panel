@@ -18,7 +18,7 @@ import { PermissionsGuard } from '../../shared/guards/permissions.guard';
       useFactory: (configService: ConfigService) => ({
         secret: configService.get('app.jwtSecret'),
         signOptions: {
-          expiresIn: configService.get('app.jwtExpiration'),
+          expiresIn: '1h', // Default fallback expiry
         },
       }),
       inject: [ConfigService],
