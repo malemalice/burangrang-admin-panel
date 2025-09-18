@@ -6,6 +6,8 @@ import { roleRoutes } from '@/modules/roles';
 import { masterDataRoutes } from '@/modules/master-data';
 import { menuRoutes } from '@/modules/menus';
 import { notificationRoutes } from '@/modules/notifications';
+import { categoryRoutes } from '@/modules/categories';
+import { productTypesRoutes } from '@/modules/product-types';
 
 /**
  * Application routes registry
@@ -19,6 +21,8 @@ const routes: RouteConfig[] = [
   ...masterDataRoutes,
   ...settingsRoutes,
   ...notificationRoutes,
+  ...categoryRoutes,
+  ...productTypesRoutes,
 ];
 
 // Public routes that don't require authentication
