@@ -54,7 +54,6 @@ export class SettingsController {
   // App-specific endpoints (must come before generic routes)
   @Get('app')
   @ApiOperation({ summary: 'Get application settings' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   @ApiResponse({
     status: 200,
     description: 'Return application settings.',
