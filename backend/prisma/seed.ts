@@ -9,6 +9,7 @@ import { seedSettings } from './seeds/settings.seed';
 import { seedMenus } from './seeds/menus.seed';
 import { seedNotifications } from './seeds/notification-types.seed';
 import { seedCategories } from './seeds/categories.seed';
+import { seedProductTypes } from './seeds/product-types.seed';
 
 const prisma = new PrismaClient();
 
@@ -41,6 +42,7 @@ async function main() {
       await prisma.jobPosition.deleteMany();
       await prisma.setting.deleteMany();
       await prisma.category.deleteMany();
+      await prisma.productType.deleteMany();
       console.log('All existing data cleared successfully');
     } else {
       // Clear only the specified table
@@ -77,9 +79,12 @@ async function main() {
         case 'categories':
           await prisma.category.deleteMany();
           break;
+        case 'product_types':
+          await prisma.productType.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
-          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories');
+          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types');
           process.exit(1);
       }
       console.log(`Cleared existing data for table: ${tableToSeed}`);
@@ -98,6 +103,7 @@ async function main() {
       await seedMenus();
       await seedNotifications();
       await seedCategories();
+      await seedProductTypes();
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -137,6 +143,9 @@ async function main() {
           break;
         case 'categories':
           await seedCategories();
+          break;
+        case 'product_types':
+          await seedProductTypes();
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

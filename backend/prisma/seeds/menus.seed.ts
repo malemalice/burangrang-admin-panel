@@ -182,6 +182,24 @@ export const seedMenus = async () => {
       },
     });
 
+    const productTypesMenu = await prisma.menu.create({
+      data: {
+        name: 'Product Types',
+        path: '/product-types',
+        icon: 'Tag',
+        parentId: masterDataMenu.id,
+        order: 6,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
     // Create User Management submenus
     const usersMenu = await prisma.menu.create({
       data: {
