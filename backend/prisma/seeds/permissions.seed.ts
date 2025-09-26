@@ -93,6 +93,27 @@ export const permissions = [
   { name: 'department:update', description: 'Update departments' },
   { name: 'department:delete', description: 'Delete departments' },
   { name: 'department:list', description: 'List all departments' },
+
+  // Course Management
+  { name: 'course:create', description: 'Create new courses' },
+  { name: 'course:read', description: 'View course information' },
+  { name: 'course:update', description: 'Update course information' },
+  { name: 'course:delete', description: 'Delete courses' },
+  { name: 'course:list', description: 'List all courses' },
+  { name: 'course:publish', description: 'Publish/unpublish courses' },
+  { name: 'course:assign-instructor', description: 'Assign instructors to courses' },
+  { name: 'course:manage-categories', description: 'Manage course categories' },
+  { name: 'course:view-analytics', description: 'View course analytics' },
+
+  // Chapter Management
+  { name: 'chapter:create', description: 'Create new chapters' },
+  { name: 'chapter:read', description: 'View chapter information' },
+  { name: 'chapter:update', description: 'Update chapter information' },
+  { name: 'chapter:delete', description: 'Delete chapters' },
+  { name: 'chapter:list', description: 'List all chapters' },
+  { name: 'chapter:reorder', description: 'Reorder chapters' },
+  { name: 'chapter:publish', description: 'Publish/unpublish chapters' },
+  { name: 'chapter:manage-content', description: 'Manage chapter content' },
 ];
 
 export async function seedPermissions(prisma: PrismaClient) {

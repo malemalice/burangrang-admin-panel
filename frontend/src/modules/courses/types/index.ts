@@ -1,0 +1,20 @@
+// Course types exports
+export type {
+  Course,
+  Chapter,
+  CreateCourseDTO,
+  UpdateCourseDTO,
+  CourseSearchParams,
+  CourseFilters,
+  CreateChapterDTO,
+  UpdateChapterDTO,
+  ChapterSearchParams,
+  ChapterFilters,
+  CourseFormData,
+  ChapterFormData,
+  CourseStats,
+  CourseDTO,
+  ChapterDTO,
+  PaginatedResponse,
+  PaginationParams,
+} from './course.types';

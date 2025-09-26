@@ -10,6 +10,8 @@ import { seedMenus } from './seeds/menus.seed';
 import { seedNotifications } from './seeds/notification-types.seed';
 import { seedCategories } from './seeds/categories.seed';
 import { seedProductTypes } from './seeds/product-types.seed';
+import { seedCourses } from './seeds/courses.seed';
+import { seedChapters } from './seeds/chapters.seed';
 
 const prisma = new PrismaClient();
 
@@ -26,6 +28,8 @@ async function main() {
     // If no specific table is provided, clear all tables
     if (!tableToSeed) {
       // Delete in order to respect foreign key constraints
+      await prisma.chapter.deleteMany();
+      await prisma.course.deleteMany();
       await prisma.notificationRecipient.deleteMany();
       await prisma.notification.deleteMany();
       await prisma.notificationType.deleteMany();
@@ -82,9 +86,16 @@ async function main() {
         case 'product_types':
           await prisma.productType.deleteMany();
           break;
+        case 'courses':
+          await prisma.chapter.deleteMany();
+          await prisma.course.deleteMany();
+          break;
+        case 'chapters':
+          await prisma.chapter.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
-          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types');
+          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters');
           process.exit(1);
       }
       console.log(`Cleared existing data for table: ${tableToSeed}`);
@@ -98,12 +109,14 @@ async function main() {
       const offices = await seedOffices(prisma);
       const departments = await seedDepartments(prisma);
       const jobPositions = await seedJobPositions(prisma);
-      await seedUsers(prisma, roles, offices);
+      const users = await seedUsers(prisma, roles, offices);
       await seedSettings(prisma);
       await seedMenus();
       await seedNotifications();
-      await seedCategories();
+      const categories = await seedCategories(prisma);
       await seedProductTypes();
+      const courses = await seedCourses(prisma, users, categories);
+      await seedChapters(prisma, courses);
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -142,10 +155,27 @@ async function main() {
           await seedNotifications();
           break;
         case 'categories':
-          await seedCategories();
+          await seedCategories(prisma);
           break;
         case 'product_types':
           await seedProductTypes();
+          break;
+        case 'courses':
+          const permsForCourses = await seedPermissions(prisma);
+          const rolesForCourses = await seedRoles(prisma, permsForCourses);
+          const officesForCourses = await seedOffices(prisma);
+          const usersForCourses = await seedUsers(prisma, rolesForCourses, officesForCourses);
+          const categoriesForCourses = await seedCategories(prisma);
+          await seedCourses(prisma, usersForCourses, categoriesForCourses);
+          break;
+        case 'chapters':
+          const permsForChapters = await seedPermissions(prisma);
+          const rolesForChapters = await seedRoles(prisma, permsForChapters);
+          const officesForChapters = await seedOffices(prisma);
+          const usersForChapters = await seedUsers(prisma, rolesForChapters, officesForChapters);
+          const categoriesForChapters = await seedCategories(prisma);
+          const coursesForChapters = await seedCourses(prisma, usersForChapters, categoriesForChapters);
+          await seedChapters(prisma, coursesForChapters);
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

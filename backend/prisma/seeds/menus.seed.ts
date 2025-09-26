@@ -54,11 +54,82 @@ export const seedMenus = async () => {
       },
     });
 
+    const productsMenu = await prisma.menu.create({
+      data: {
+        name: 'Products',
+        path: '#',
+        icon: 'ShoppingBag',
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    const coursesMenu = await prisma.menu.create({
+      data: {
+        name: 'Courses',
+        path: '/courses',
+        icon: 'Book',
+        order: 1,
+        parentId: productsMenu.id,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    const categoriesMenu = await prisma.menu.create({
+      data: {
+        name: 'Categories',
+        path: '/categories',
+        icon: 'Tag',
+        parentId: productsMenu.id,
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    const productTypesMenu = await prisma.menu.create({
+      data: {
+        name: 'Product Types',
+        path: '/product-types',
+        icon: 'Tag',
+        parentId: productsMenu.id,
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
     const masterDataMenu = await prisma.menu.create({
       data: {
         name: 'Master Data',
         icon: 'Building2',
-        order: 2,
+        order: 3,
         isActive: true,
         roles: {
           connect: [
@@ -74,7 +145,7 @@ export const seedMenus = async () => {
       data: {
         name: 'User Management',
         icon: 'Users',
-        order: 3,
+        order: 4,
         isActive: true,
         roles: {
           connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
@@ -87,7 +158,7 @@ export const seedMenus = async () => {
         name: 'Settings',
         path: '/settings',
         icon: 'Settings',
-        order: 4,
+        order: 5,
         isActive: true,
         roles: {
           connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
@@ -164,42 +235,6 @@ export const seedMenus = async () => {
       },
     });
 
-    const categoriesMenu = await prisma.menu.create({
-      data: {
-        name: 'Categories',
-        path: '/categories',
-        icon: 'Tag',
-        parentId: masterDataMenu.id,
-        order: 5,
-        isActive: true,
-        roles: {
-          connect: [
-            { id: superAdminRole.id },
-            { id: adminRole.id },
-            { id: managerRole.id },
-          ],
-        },
-      },
-    });
-
-    const productTypesMenu = await prisma.menu.create({
-      data: {
-        name: 'Product Types',
-        path: '/product-types',
-        icon: 'Tag',
-        parentId: masterDataMenu.id,
-        order: 6,
-        isActive: true,
-        roles: {
-          connect: [
-            { id: superAdminRole.id },
-            { id: adminRole.id },
-            { id: managerRole.id },
-          ],
-        },
-      },
-    });
-
     // Create User Management submenus
     const usersMenu = await prisma.menu.create({
       data: {
@@ -243,49 +278,6 @@ export const seedMenus = async () => {
       },
     });
 
-    // Create nested submenus for demonstration (3rd level)
-    const userReportsMenu = await prisma.menu.create({
-      data: {
-        name: 'User Reports',
-        path: '/users/reports',
-        icon: 'BarChart3',
-        parentId: userManagementMenu.id,
-        order: 1,
-        isActive: true,
-        roles: {
-          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
-        },
-      },
-    });
-
-    const userActivityMenu = await prisma.menu.create({
-      data: {
-        name: 'User Activity',
-        path: '/users/activity',
-        icon: 'Activity',
-        parentId: userManagementMenu.id,
-        order: 2,
-        isActive: true,
-        roles: {
-          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
-        },
-      },
-    });
-
-    // Create 4th level menu for demonstration
-    const userActivityLogsMenu = await prisma.menu.create({
-      data: {
-        name: 'Activity Logs',
-        path: '/users/activity/logs',
-        icon: 'FileText',
-        parentId: userActivityMenu.id,
-        order: 1,
-        isActive: true,
-        roles: {
-          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
-        },
-      },
-    });
 
     console.log('✅ Menus seeded successfully');
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
