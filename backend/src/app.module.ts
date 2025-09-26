@@ -18,6 +18,8 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ProductTypesModule } from './modules/product-types/product-types.module';
+import { CoursesModule } from './modules/courses/courses.module';
+import { ChaptersModule } from './modules/chapters/chapters.module';
 import { SharedModule } from './shared/shared.module';
 
 @Module({
@@ -41,6 +43,8 @@ import { SharedModule } from './shared/shared.module';
     NotificationsModule,
     CategoriesModule,
     ProductTypesModule,
+    CoursesModule,
+    ChaptersModule,
   ],
   providers: [
     Reflector,

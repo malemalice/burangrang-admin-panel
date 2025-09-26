@@ -1,8 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
-
-export async function seedCategories() {
+export async function seedCategories(prisma: PrismaClient): Promise<any[]> {
   console.log('🌱 Seeding categories...');
 
   // Create root categories
@@ -165,6 +163,9 @@ export async function seedCategories() {
   });
 
   console.log('✅ Categories seeded successfully');
+  
+  // Return all categories
+  return await prisma.category.findMany();
 }
 
 export default seedCategories;
