@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { 
   Edit, 
@@ -42,6 +42,7 @@ import { Course, Chapter } from '../types/course.types';
 const CourseDetailPage = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { course, isLoading: courseLoading, fetchCourse } = useCourse(courseId || null);
   const { 
     chapters, 
@@ -53,7 +54,7 @@ const CourseDetailPage = () => {
   
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [chapterToDelete, setChapterToDelete] = useState<Chapter | null>(null);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
 
   // Load course data
   useEffect(() => {

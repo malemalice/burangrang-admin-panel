@@ -59,7 +59,7 @@ const CoursesPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [instructors, setInstructors] = useState<{ id: string; name: string }[]>([]);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
-  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [activeFilters, setActiveFilters] = useState<Record<string, { value: string | number | boolean; label: string }>>({});
   const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
 
   // Define filter fields for courses
@@ -141,7 +141,7 @@ const CoursesPage = () => {
         setInstructors(
           instructorsResponse.data.map(user => ({
             id: user.id,
-            name: `${user.firstName} ${user.lastName}`
+            name: `${user.name}`
           }))
         );
         setCategories(
@@ -190,7 +190,7 @@ const CoursesPage = () => {
     // Apply active filters
     Object.entries(activeFilters).forEach(([key, filter]) => {
       if (filter.value !== undefined && filter.value !== '') {
-        (params as any)[key] = filter.value;
+        (params as Record<string, string | number | boolean>)[key] = filter.value;
       }
     });
 
@@ -206,8 +206,25 @@ const CoursesPage = () => {
     setPageIndex(0);
   };
 
-  const handleApplyFilters = (filters: Record<string, FilterValue>) => {
-    setActiveFilters(filters);
+  const handleApplyFilters = (filters: FilterValue[]) => {
+    const filterMap: Record<string, { value: string | number | boolean; label: string }> = {};
+    filters.forEach(filter => {
+      if (filter.value !== undefined && filter.value !== '') {
+        // Convert complex filter values to simple types
+        let simpleValue: string | number | boolean;
+        if (typeof filter.value === 'string' || typeof filter.value === 'number' || typeof filter.value === 'boolean') {
+          simpleValue = filter.value;
+        } else {
+          simpleValue = filter.value.toString();
+        }
+        
+        filterMap[filter.id] = {
+          value: simpleValue,
+          label: simpleValue.toString()
+        };
+      }
+    });
+    setActiveFilters(filterMap);
     setPageIndex(0);
   };
 
@@ -229,10 +246,6 @@ const CoursesPage = () => {
     }
   };
 
-  const handleDeleteCancel = () => {
-    setDeleteDialogOpen(false);
-    setCourseToDelete(null);
-  };
 
   const toggleDropdown = (courseId: string) => {
     setDropdownOpenStates(prev => ({
@@ -386,7 +399,7 @@ const CoursesPage = () => {
             <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit course
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}/chapters`)}>
+            <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}?tab=chapters`)}>
               <BookOpen className="mr-2 h-4 w-4" /> Manage chapters
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -497,7 +510,6 @@ const CoursesPage = () => {
         confirmText="Delete"
         cancelText="Cancel"
         onConfirm={handleDeleteConfirm}
-        onCancel={handleDeleteCancel}
         variant="destructive"
       />
     </div>
