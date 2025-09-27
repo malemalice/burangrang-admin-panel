@@ -26,13 +26,14 @@ import courseService from '../services/courseService';
 import { CourseFormData } from '../types/course.types';
 import { userService } from '@/modules/users';
 import { categoryService } from '@/modules/categories';
+import { ImageUpload } from '@/modules/uploads';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   slug: z.string().min(1, 'Slug is required'),
   description: z.string().optional(),
   shortDescription: z.string().optional(),
-  thumbnailUrl: z.string().url('Invalid URL').optional().or(z.literal('')),
+  thumbnailUrl: z.string().optional().or(z.literal('')),
   difficulty: z.enum(['beginner', 'intermediate', 'advanced']),
   language: z.string().min(1, 'Language is required'),
   instructorId: z.string().min(1, 'Instructor is required'),
@@ -89,7 +90,7 @@ const CourseForm = ({ mode }: CourseFormProps) => {
         setInstructors(
           instructorsResponse.data.map(user => ({
             id: user.id,
-            name: `${user.firstName} ${user.lastName}`
+            name: user.name
           }))
         );
         setCategories(
@@ -112,7 +113,7 @@ const CourseForm = ({ mode }: CourseFormProps) => {
     if (mode === 'edit' && courseId) {
       fetchCourse(courseId);
     }
-  }, [mode, courseId]);
+  }, [mode, courseId, fetchCourse]);
 
   // Populate form when course data is loaded
   useEffect(() => {
@@ -136,7 +137,7 @@ const CourseForm = ({ mode }: CourseFormProps) => {
         isPublished: course.isPublished,
       });
     }
-  }, [course, mode]);
+  }, [course, mode, form]);
 
   const generateSlug = (title: string) => {
     return courseService.generateSlug(title);
@@ -170,9 +171,19 @@ const CourseForm = ({ mode }: CourseFormProps) => {
       setIsSubmitting(true);
 
       const courseData = {
-        ...data,
+        title: data.title,
+        slug: data.slug,
+        description: data.description,
+        shortDescription: data.shortDescription,
+        thumbnailUrl: data.thumbnailUrl,
+        difficulty: data.difficulty,
+        language: data.language,
+        instructorId: data.instructorId,
+        status: data.status,
         price: data.price || undefined,
         salePrice: data.salePrice || undefined,
+        categoryIds: data.categoryIds,
+        isPublished: data.isPublished,
       };
 
       if (mode === 'create') {
@@ -307,11 +318,16 @@ const CourseForm = ({ mode }: CourseFormProps) => {
                     name="thumbnailUrl"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Thumbnail URL</FormLabel>
                         <FormControl>
-                          <Input 
-                            placeholder="https://example.com/image.jpg" 
-                            {...field} 
+                          <ImageUpload
+                            value={field.value || ''}
+                            onChange={(value) => field.onChange(value || '')}
+                            categoryName="course-materials"
+                            isPublic={true}
+                            maxSize={5 * 1024 * 1024} // 5MB for course thumbnails
+                            allowedTypes={['image/jpeg', 'image/png', 'image/gif', 'image/webp']}
+                            placeholder="Upload course thumbnail image"
+                            disabled={isSubmitting}
                           />
                         </FormControl>
                         <FormMessage />

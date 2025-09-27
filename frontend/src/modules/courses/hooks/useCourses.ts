@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import courseService from '../services/courseService';
 import { 
@@ -102,7 +102,7 @@ export const useCourse = (id: string | null = null) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCourse = async (courseId: string) => {
+  const fetchCourse = useCallback(async (courseId: string) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -115,9 +115,9 @@ export const useCourse = (id: string | null = null) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const fetchCourseBySlug = async (slug: string) => {
+  const fetchCourseBySlug = useCallback(async (slug: string) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -130,13 +130,13 @@ export const useCourse = (id: string | null = null) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (id) {
       fetchCourse(id);
     }
-  }, [id]);
+  }, [id, fetchCourse]);
 
   return {
     course,
