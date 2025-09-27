@@ -10,6 +10,9 @@ import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { StorageFactoryService } from '../../shared/services/storage-factory.service';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
+import { FileStorageProviderDto } from './dto/file-storage-provider.dto';
+import { FileCategoryDto } from './dto/file-category.dto';
+import { UserDto } from '../users/dto/user.dto';
 
 @Injectable()
 export class UploadsService {
@@ -24,40 +27,46 @@ export class UploadsService {
     private readonly storageFactory: StorageFactoryService,
   ) {
     this.fileUploadMapper = this.dtoMapper.createRelationMapper(FileUploadDto, {
-      storageProvider: this.dtoMapper.createSimpleMapper(require('./dto/file-storage-provider.dto').FileStorageProviderDto),
-      category: this.dtoMapper.createSimpleMapper(require('./dto/file-category.dto').FileCategoryDto),
-      uploader: this.dtoMapper.createSimpleMapper(require('../users/dto/user.dto').UserDto),
+      storageProvider: {
+        mapper: this.dtoMapper.createSimpleMapper(FileStorageProviderDto),
+      },
+      category: {
+        mapper: this.dtoMapper.createSimpleMapper(FileCategoryDto),
+      },
+      uploader: {
+        mapper: this.dtoMapper.createSimpleMapper(UserDto),
+      },
     });
     this.fileUploadArrayMapper = this.dtoMapper.createArrayMapper(FileUploadDto, {
       relations: {
         storageProvider: {
-          mapper: this.dtoMapper.createSimpleMapper(require('./dto/file-storage-provider.dto').FileStorageProviderDto),
+          mapper: this.dtoMapper.createSimpleMapper(FileStorageProviderDto),
         },
         category: {
-          mapper: this.dtoMapper.createSimpleMapper(require('./dto/file-category.dto').FileCategoryDto),
+          mapper: this.dtoMapper.createSimpleMapper(FileCategoryDto),
         },
         uploader: {
-          mapper: this.dtoMapper.createSimpleMapper(require('../users/dto/user.dto').UserDto),
+          mapper: this.dtoMapper.createSimpleMapper(UserDto),
         },
       },
     });
     this.fileUploadPaginatedMapper = this.dtoMapper.createPaginatedMapper(FileUploadDto, {
       relations: {
         storageProvider: {
-          mapper: this.dtoMapper.createSimpleMapper(require('./dto/file-storage-provider.dto').FileStorageProviderDto),
+          mapper: this.dtoMapper.createSimpleMapper(FileStorageProviderDto),
         },
         category: {
-          mapper: this.dtoMapper.createSimpleMapper(require('./dto/file-category.dto').FileCategoryDto),
+          mapper: this.dtoMapper.createSimpleMapper(FileCategoryDto),
         },
         uploader: {
-          mapper: this.dtoMapper.createSimpleMapper(require('../users/dto/user.dto').UserDto),
+          mapper: this.dtoMapper.createSimpleMapper(UserDto),
         },
       },
     });
   }
 
   async uploadFile(
-    file: Express.Multer.File,
+    file: any,
     categoryId: string,
     uploadedBy: string,
     isPublic: boolean = false,
@@ -363,7 +372,7 @@ export class UploadsService {
     });
   }
 
-  private validateFile(file: Express.Multer.File, category: any): void {
+  private validateFile(file: any, category: any): void {
     // Check file size
     if (file.size > category.maxSize) {
       throw new Error(`File size exceeds maximum allowed size of ${category.maxSize} bytes`);

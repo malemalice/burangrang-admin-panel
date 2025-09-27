@@ -12,13 +12,20 @@ import {
   UploadedFile,
   Res,
   Req,
-  HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+  ApiParam,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
 import { Response, Request } from 'express';
 import { UploadsService } from './uploads.service';
-import { CreateFileUploadDto } from './dto/create-file-upload.dto';
 import { UpdateFileUploadDto } from './dto/update-file-upload.dto';
 import { FindFileUploadsDto } from './dto/find-file-uploads.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
@@ -72,7 +79,7 @@ export class UploadsController {
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: any,
     @Body('categoryId') categoryId: string,
     @Body('isPublic') isPublic: string = 'false',
     @Body('expiresAt') expiresAt?: string,
@@ -95,7 +102,9 @@ export class UploadsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all file uploads with pagination and filtering' })
+  @ApiOperation({
+    summary: 'Get all file uploads with pagination and filtering',
+  })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
@@ -105,7 +114,10 @@ export class UploadsController {
   @ApiQuery({ name: 'categoryId', required: false, type: String })
   @ApiQuery({ name: 'uploadedBy', required: false, type: String })
   @ApiQuery({ name: 'mimeType', required: false, type: String })
-  @ApiResponse({ status: 200, description: 'File uploads retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'File uploads retrieved successfully',
+  })
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
   async findAll(@Query() query: FindFileUploadsDto) {
     return this.uploadsService.findAll(query);
@@ -128,15 +140,15 @@ export class UploadsController {
       req.ip,
       req.get('User-Agent'),
     );
-    
+
     const fileUpload = await this.uploadsService.findOne(id);
-    
+
     res.set({
       'Content-Type': fileUpload.mimeType,
       'Content-Disposition': `inline; filename="${fileUpload.originalName}"`,
       'Content-Length': fileUpload.size.toString(),
     });
-    
+
     res.send(fileBuffer);
   }
 
@@ -157,22 +169,25 @@ export class UploadsController {
       req.ip,
       req.get('User-Agent'),
     );
-    
+
     const fileUpload = await this.uploadsService.findByAccessToken(accessToken);
-    
+
     res.set({
       'Content-Type': fileUpload.mimeType,
       'Content-Disposition': `inline; filename="${fileUpload.originalName}"`,
       'Content-Length': fileUpload.size.toString(),
     });
-    
+
     res.send(fileBuffer);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get file upload by ID' })
   @ApiParam({ name: 'id', type: String })
-  @ApiResponse({ status: 200, description: 'File upload retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'File upload retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'File upload not found' })
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async findOne(@Param('id') id: string) {
