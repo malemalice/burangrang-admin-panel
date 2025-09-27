@@ -12,6 +12,8 @@ import { seedCategories } from './seeds/categories.seed';
 import { seedProductTypes } from './seeds/product-types.seed';
 import { seedCourses } from './seeds/courses.seed';
 import { seedChapters } from './seeds/chapters.seed';
+import { seedFileCategories } from './seeds/file-categories.seed';
+import { seedFileStorageProviders } from './seeds/file-storage-providers.seed';
 
 const prisma = new PrismaClient();
 
@@ -47,6 +49,10 @@ async function main() {
       await prisma.setting.deleteMany();
       await prisma.category.deleteMany();
       await prisma.productType.deleteMany();
+      await prisma.fileAccessLog.deleteMany();
+      await prisma.fileUpload.deleteMany();
+      await prisma.fileCategory.deleteMany();
+      await prisma.fileStorageProvider.deleteMany();
       console.log('All existing data cleared successfully');
     } else {
       // Clear only the specified table
@@ -93,9 +99,19 @@ async function main() {
         case 'chapters':
           await prisma.chapter.deleteMany();
           break;
+        case 'file_categories':
+          await prisma.fileCategory.deleteMany();
+          break;
+        case 'file_storage_providers':
+          await prisma.fileStorageProvider.deleteMany();
+          break;
+        case 'file_uploads':
+          await prisma.fileAccessLog.deleteMany();
+          await prisma.fileUpload.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
-          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters');
+          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, file_categories, file_storage_providers, file_uploads');
           process.exit(1);
       }
       console.log(`Cleared existing data for table: ${tableToSeed}`);
@@ -117,6 +133,8 @@ async function main() {
       await seedProductTypes();
       const courses = await seedCourses(prisma, users, categories);
       await seedChapters(prisma, courses);
+      await seedFileStorageProviders();
+      await seedFileCategories();
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -176,6 +194,16 @@ async function main() {
           const categoriesForChapters = await seedCategories(prisma);
           const coursesForChapters = await seedCourses(prisma, usersForChapters, categoriesForChapters);
           await seedChapters(prisma, coursesForChapters);
+          break;
+        case 'file_categories':
+          await seedFileCategories();
+          break;
+        case 'file_storage_providers':
+          await seedFileStorageProviders();
+          break;
+        case 'file_uploads':
+          // Note: file uploads are created through the API, not seeded
+          console.log('File uploads are created through the API, not seeded');
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

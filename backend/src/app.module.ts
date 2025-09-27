@@ -20,6 +20,7 @@ import { CategoriesModule } from './modules/categories/categories.module';
 import { ProductTypesModule } from './modules/product-types/product-types.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { ChaptersModule } from './modules/chapters/chapters.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
 import { SharedModule } from './shared/shared.module';
 
 @Module({
@@ -45,6 +46,7 @@ import { SharedModule } from './shared/shared.module';
     ProductTypesModule,
     CoursesModule,
     ChaptersModule,
+    UploadsModule,
   ],
   providers: [
     Reflector,
