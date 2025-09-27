@@ -101,6 +101,17 @@ export class UploadsController {
     );
   }
 
+  @Get('categories')
+  @ApiOperation({ summary: 'Get all file categories' })
+  @ApiResponse({
+    status: 200,
+    description: 'File categories retrieved successfully',
+  })
+  @Public()
+  async getCategories() {
+    return await this.uploadsService.getCategories();
+  }
+
   @Get()
   @ApiOperation({
     summary: 'Get all file uploads with pagination and filtering',

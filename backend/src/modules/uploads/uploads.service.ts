@@ -26,15 +26,20 @@ export class UploadsService {
     private readonly dtoMapper: DtoMapperService,
     private readonly storageFactory: StorageFactoryService,
   ) {
-    this.fileUploadMapper = this.dtoMapper.createRelationMapper(FileUploadDto, {
-      storageProvider: {
-        mapper: this.dtoMapper.createSimpleMapper(FileStorageProviderDto),
+    this.fileUploadMapper = this.dtoMapper.createMapper(FileUploadDto, {
+      relations: {
+        storageProvider: {
+          mapper: this.dtoMapper.createSimpleMapper(FileStorageProviderDto),
+        },
+        category: {
+          mapper: this.dtoMapper.createSimpleMapper(FileCategoryDto),
+        },
+        uploader: {
+          mapper: this.dtoMapper.createSimpleMapper(UserDto),
+        },
       },
-      category: {
-        mapper: this.dtoMapper.createSimpleMapper(FileCategoryDto),
-      },
-      uploader: {
-        mapper: this.dtoMapper.createSimpleMapper(UserDto),
+      transform: {
+        size: (value: any) => Number(value), // Convert BigInt to number
       },
     });
     this.fileUploadArrayMapper = this.dtoMapper.createArrayMapper(FileUploadDto, {
@@ -49,6 +54,9 @@ export class UploadsService {
           mapper: this.dtoMapper.createSimpleMapper(UserDto),
         },
       },
+      transform: {
+        size: (value: any) => Number(value), // Convert BigInt to number
+      },
     });
     this.fileUploadPaginatedMapper = this.dtoMapper.createPaginatedMapper(FileUploadDto, {
       relations: {
@@ -61,6 +69,9 @@ export class UploadsService {
         uploader: {
           mapper: this.dtoMapper.createSimpleMapper(UserDto),
         },
+      },
+      transform: {
+        size: (value: any) => Number(value), // Convert BigInt to number
       },
     });
   }
@@ -325,6 +336,23 @@ export class UploadsService {
     await this.prisma.fileUpload.delete({
       where: { id },
     });
+  }
+
+  async getCategories(): Promise<any[]> {
+    const categories = await this.prisma.fileCategory.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+    });
+
+    return categories.map(category => ({
+      id: category.id,
+      name: category.name,
+      allowedTypes: category.allowedTypes,
+      maxSize: Number(category.maxSize), // Convert BigInt to number
+      isActive: category.isActive,
+      createdAt: category.createdAt,
+      updatedAt: category.updatedAt,
+    }));
   }
 
   async downloadFile(id: string, accessedBy?: string, ipAddress?: string, userAgent?: string): Promise<Buffer> {
