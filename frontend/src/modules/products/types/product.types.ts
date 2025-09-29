@@ -79,6 +79,7 @@ export interface Product {
   sku: string;
   productType: 'EBOOK' | 'COURSE' | 'VIDEO' | 'BUNDLE';
   status: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
+  stockQuantity: number;
   downloadLimit?: number;
   viewCount: number;
   rating: number;
@@ -132,6 +133,7 @@ export interface CreateProductDTO {
   sku: string;
   productType: 'EBOOK' | 'COURSE' | 'VIDEO' | 'BUNDLE';
   status?: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
+  stockQuantity: number;
   downloadLimit?: number;
   thumbnailUrl?: string;
   fileUrl?: string; // URL to uploaded file (PDF, etc.)
@@ -151,6 +153,7 @@ export interface UpdateProductDTO {
   sku?: string;
   productType?: 'EBOOK' | 'COURSE' | 'VIDEO' | 'BUNDLE';
   status?: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
+  stockQuantity?: number;
   downloadLimit?: number;
   thumbnailUrl?: string;
   fileUrl?: string; // URL to uploaded file (PDF, etc.)
@@ -170,6 +173,7 @@ export interface ProductFormData {
   sku: string;
   productType: 'EBOOK' | 'COURSE' | 'VIDEO' | 'BUNDLE';
   status: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
+  stockQuantity: number;
   downloadLimit?: number;
   thumbnailUrl?: string;
   fileUrl?: string; // URL to uploaded file (PDF, etc.)

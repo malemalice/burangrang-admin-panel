@@ -133,14 +133,14 @@ const ProductDetailPage = () => {
                     <Eye className="h-4 w-4" />
                     Views
                   </div>
-                  <div className="font-medium">{product.viewCount.toLocaleString()}</div>
+                  <div className="font-medium">{(product.viewCount || 0).toLocaleString()}</div>
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Star className="h-4 w-4" />
                     Rating
                   </div>
-                  <div className="font-medium">{product.rating.toFixed(1)} ({product.reviewCount} reviews)</div>
+                  <div className="font-medium">{(product.rating || 0).toFixed(1)} ({product.reviewCount || 0} reviews)</div>
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -240,10 +240,6 @@ const ProductDetailPage = () => {
                 <span className="font-medium">{product.sku}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Stock</span>
-                <span className="font-medium">{product.stockQuantity.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-muted-foreground">Status</span>
                 <Badge variant="outline" className={`${
                   product.isActive
@@ -257,6 +253,20 @@ const ProductDetailPage = () => {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Course</span>
                   <Badge variant="secondary">Has Course</Badge>
+                </div>
+              )}
+              {product.fileUrl && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Asset</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(product.fileUrl, '_blank')}
+                    className="h-auto py-1 px-2"
+                  >
+                    <Link className="h-3 w-3 mr-1" />
+                    View Asset
+                  </Button>
                 </div>
               )}
             </CardContent>

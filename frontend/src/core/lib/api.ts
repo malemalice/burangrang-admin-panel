@@ -52,15 +52,6 @@ api.interceptors.request.use(
     const token = getAccessToken();
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
-      // Debug logging for settings requests
-      if (config.url?.includes('/settings/')) {
-        console.log('Sending authenticated request to:', config.url);
-      }
-    } else {
-      // Debug logging for unauthenticated requests
-      if (config.url?.includes('/settings/')) {
-        console.warn('Sending UNAUTHENTICATED request to:', config.url);
-      }
     }
     return config;
   },
