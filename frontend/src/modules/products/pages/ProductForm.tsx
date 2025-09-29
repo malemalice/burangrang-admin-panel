@@ -213,7 +213,7 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
         status: data.status,
         downloadLimit: data.downloadLimit && data.downloadLimit > 0 ? data.downloadLimit : undefined, // ✅ Fixed: Convert 0 back to undefined
         thumbnailUrl: data.thumbnailUrl || undefined,
-        fileUrl: data.fileUrl && data.fileUrl !== '' ? data.fileUrl : undefined, // Include file URL for EBOOK products
+        fileUrl: data.fileUrl && data.fileUrl.trim() !== '' ? data.fileUrl : undefined, // Include file URL for EBOOK products
         isActive: data.isActive,
         categoryIds: data.categoryIds,
         courseId: data.courseId && data.courseId !== 'none' ? data.courseId : undefined, // Include course association for COURSE products
@@ -603,10 +603,14 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                   name="fileUrl"
                   render={({ field }) => (
                     <FormItem>
+                      <FormLabel>PDF File</FormLabel>
                       <FormControl>
                         <FileUpload
                           value={field.value || ''}
-                          onChange={(value) => field.onChange(value || '')}
+                          onChange={(value) => {
+                            // Ensure we handle empty values properly
+                            field.onChange(value && value.trim() !== '' ? value : '');
+                          }}
                           categoryName="documents"
                           isPublic={true}
                           maxSize={50 * 1024 * 1024} // 50MB for documents
@@ -614,6 +618,7 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                           acceptedFileTypes=".pdf"
                           placeholder="Upload PDF file for this ebook"
                           disabled={isLoading}
+                          existingFileName={product?.fileUrl ? product.fileUrl.split('/').pop() : undefined}
                         />
                       </FormControl>
                       <p className="text-sm text-gray-600">

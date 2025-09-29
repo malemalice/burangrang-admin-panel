@@ -92,6 +92,7 @@ const uploadService = {
   ): Promise<FileUpload> => {
     // Get category by name to get the ID
     const category = await uploadService.getCategoryByName(categoryName);
+    
     if (!category) {
       throw new Error(`Category '${categoryName}' not found`);
     }
@@ -131,14 +132,23 @@ const uploadService = {
 
   // GET public file URL
   getPublicFileUrl: (fileId: string): string => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    return `${baseUrl}/uploads/public/${fileId}`;
+    const mediaUrl = import.meta.env.VITE_MEDIA_URL || 'http://localhost:3000';
+    return `${mediaUrl}/uploads/public/${fileId}`;
   },
 
   // GET private file URL
   getPrivateFileUrl: (accessToken: string): string => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    return `${baseUrl}/uploads/private/${accessToken}`;
+    const mediaUrl = import.meta.env.VITE_MEDIA_URL || 'http://localhost:3000';
+    return `${mediaUrl}/uploads/private/${accessToken}`;
+  },
+
+  // Ensure URL is full URL (convert relative to absolute)
+  ensureFullUrl: (url: string): string => {
+    if (url.startsWith('http')) {
+      return url;
+    }
+    const mediaUrl = import.meta.env.VITE_MEDIA_URL || 'http://localhost:3000';
+    return `${mediaUrl}${url.startsWith('/') ? url : `/${url}`}`;
   },
 };
 

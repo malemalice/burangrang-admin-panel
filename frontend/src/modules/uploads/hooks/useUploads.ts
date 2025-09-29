@@ -178,7 +178,7 @@ export const useImageUpload = () => {
       clearInterval(progressInterval);
       setUploadProgress(100);
       
-      toast.success('Image uploaded successfully');
+      toast.success('File uploaded successfully');
       return result;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to upload image';
