@@ -17,8 +17,7 @@ export interface Course {
   status: 'draft' | 'review' | 'published' | 'archived';
   isPublished: boolean;
   publishedAt?: string;
-  price?: number;
-  salePrice?: number;
+  productId?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -42,6 +41,12 @@ export interface Course {
     duration: number;
     isPublished: boolean;
   }[];
+  product?: {
+    id: string;
+    name: string;
+    price: number;
+    salePrice?: number;
+  };
 }
 
 // Chapter entity types
@@ -90,8 +95,7 @@ export interface CourseDTO {
   status: string;
   isPublished: boolean;
   publishedAt?: string;
-  price?: number;
-  salePrice?: number;
+  productId?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -113,6 +117,12 @@ export interface CourseDTO {
     duration: number;
     isPublished: boolean;
   }[];
+  product?: {
+    id: string;
+    name: string;
+    price: number;
+    salePrice?: number;
+  };
 }
 
 export interface ChapterDTO {
@@ -150,8 +160,7 @@ export interface CreateCourseDTO {
   language?: string;
   instructorId: string;
   status?: 'draft' | 'review' | 'published' | 'archived';
-  price?: number;
-  salePrice?: number;
+  productId?: string;
   categoryIds?: string[];
 }
 
@@ -248,8 +257,7 @@ export interface CourseFormData {
   language: string;
   instructorId: string;
   status: 'draft' | 'review' | 'published' | 'archived';
-  price: number | null;
-  salePrice: number | null;
+  productId: string;
   categoryIds: string[];
   isPublished: boolean;
 }

@@ -31,6 +31,42 @@
 $ npm install
 ```
 
+## Environment Variables
+
+Create a `.env` file in the backend directory with the following variables:
+
+```env
+# Database
+DATABASE_URL="postgresql://username:password@localhost:5432/database_name"
+
+# API Configuration
+API_URL="http://localhost:3000"
+PORT=3000
+
+# Media/File Upload Configuration
+MEDIA_URL="http://localhost:3000"
+
+# JWT Configuration
+JWT_SECRET="your-jwt-secret-key"
+JWT_EXPIRES_IN="7d"
+
+# Storage Configuration
+STORAGE_TYPE="local" # local, s3, etc.
+
+# AWS S3 Configuration (if using S3)
+AWS_ACCESS_KEY_ID=""
+AWS_SECRET_ACCESS_KEY=""
+AWS_REGION=""
+AWS_BUCKET_NAME=""
+
+# Other Configuration
+NODE_ENV="development"
+```
+
+### Important Notes:
+- `MEDIA_URL`: Used specifically for generating file upload URLs. This can be different from `API_URL` to serve media files from a CDN or separate media server.
+- `API_URL`: Used for general API endpoints and internal service communication.
+
 ## Compile and run the project
 
 ```bash

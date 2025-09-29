@@ -317,9 +317,9 @@ const CourseDetailPage = () => {
                     <div className="text-3xl font-bold">
                       {getPriceDisplay(course).display}
                     </div>
-                    {getPriceDisplay(course).hasDiscount && course.price && (
+                    {getPriceDisplay(course).hasDiscount && course.product && (
                       <div className="text-sm text-gray-500 line-through mt-1">
-                        ${course.price.toFixed(2)}
+                        ${course.product.price.toFixed(2)}
                       </div>
                     )}
                   </div>

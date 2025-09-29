@@ -28,14 +28,14 @@ const mapCourseDtoToCourse = (courseDto: CourseDTO): Course => ({
   status: courseDto.status as 'draft' | 'review' | 'published' | 'archived',
   isPublished: courseDto.isPublished,
   publishedAt: courseDto.publishedAt,
-  price: typeof courseDto.price === 'number' ? courseDto.price : (courseDto.price ? Number(courseDto.price) : undefined),
-  salePrice: typeof courseDto.salePrice === 'number' ? courseDto.salePrice : (courseDto.salePrice ? Number(courseDto.salePrice) : undefined),
+  productId: courseDto.productId,
   isActive: courseDto.isActive,
   createdAt: courseDto.createdAt,
   updatedAt: courseDto.updatedAt,
   instructor: courseDto.instructor,
   categories: courseDto.categories,
   chapters: courseDto.chapters,
+  product: courseDto.product,
 });
 
 const mapCourseToUpdateDto = (course: Partial<Course>): UpdateCourseDTO => ({
@@ -48,8 +48,7 @@ const mapCourseToUpdateDto = (course: Partial<Course>): UpdateCourseDTO => ({
   language: course.language,
   instructorId: course.instructorId,
   status: course.status,
-  price: course.price,
-  salePrice: course.salePrice,
+  productId: course.productId,
   isPublished: course.isPublished,
   publishedAt: course.publishedAt,
   isActive: course.isActive,
@@ -175,10 +174,14 @@ const courseService = {
     }
   },
 
-  // Helper function to calculate price display
+  // Helper function to calculate price display from associated product
   getPriceDisplay: (course: Course): { display: string; hasDiscount: boolean } => {
-    const price = typeof course.price === 'number' ? course.price : 0;
-    const salePrice = typeof course.salePrice === 'number' ? course.salePrice : 0;
+    if (!course.product) {
+      return { display: 'Free', hasDiscount: false };
+    }
+
+    const price = course.product.price || 0;
+    const salePrice = course.product.salePrice || 0;
     
     if (price === 0) {
       return { display: 'Free', hasDiscount: false };

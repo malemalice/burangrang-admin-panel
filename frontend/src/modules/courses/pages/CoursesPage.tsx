@@ -262,10 +262,6 @@ const CoursesPage = () => {
     return courseService.getStatusColor(status);
   };
 
-  const getPriceDisplay = (course: Course) => {
-    return courseService.getPriceDisplay(course);
-  };
-
   const formatDuration = (minutes: number) => {
     return courseService.formatDuration(minutes);
   };
@@ -360,24 +356,6 @@ const CoursesPage = () => {
         </div>
       ),
       isSortable: false
-    },
-    {
-      id: 'price',
-      header: 'Price',
-      cell: (course: Course) => {
-        const priceInfo = getPriceDisplay(course);
-        return (
-          <div className="text-right">
-            <div className="font-medium">{priceInfo.display}</div>
-            {priceInfo.hasDiscount && course.price && (
-              <div className="text-sm text-gray-500 line-through">
-                ${course.price.toFixed(2)}
-              </div>
-            )}
-          </div>
-        );
-      },
-      isSortable: true
     },
     {
       id: 'actions',

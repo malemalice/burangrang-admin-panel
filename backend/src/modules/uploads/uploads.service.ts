@@ -26,54 +26,43 @@ export class UploadsService {
     private readonly dtoMapper: DtoMapperService,
     private readonly storageFactory: StorageFactoryService,
   ) {
-    this.fileUploadMapper = this.dtoMapper.createMapper(FileUploadDto, {
-      relations: {
-        storageProvider: {
-          mapper: this.dtoMapper.createSimpleMapper(FileStorageProviderDto),
+    this.fileUploadMapper = (entity: any) => {
+      const baseDto = this.dtoMapper.mapToDto(FileUploadDto, entity, {
+        relations: {
+          storageProvider: {
+            mapper: this.dtoMapper.createSimpleMapper(FileStorageProviderDto),
+          },
+          category: {
+            mapper: this.dtoMapper.createSimpleMapper(FileCategoryDto),
+          },
+          uploader: {
+            mapper: this.dtoMapper.createSimpleMapper(UserDto),
+          },
         },
-        category: {
-          mapper: this.dtoMapper.createSimpleMapper(FileCategoryDto),
+        transform: {
+          size: (value: any) => Number(value), // Convert BigInt to number
         },
-        uploader: {
-          mapper: this.dtoMapper.createSimpleMapper(UserDto),
-        },
-      },
-      transform: {
-        size: (value: any) => Number(value), // Convert BigInt to number
-      },
-    });
-    this.fileUploadArrayMapper = this.dtoMapper.createArrayMapper(FileUploadDto, {
-      relations: {
-        storageProvider: {
-          mapper: this.dtoMapper.createSimpleMapper(FileStorageProviderDto),
-        },
-        category: {
-          mapper: this.dtoMapper.createSimpleMapper(FileCategoryDto),
-        },
-        uploader: {
-          mapper: this.dtoMapper.createSimpleMapper(UserDto),
-        },
-      },
-      transform: {
-        size: (value: any) => Number(value), // Convert BigInt to number
-      },
-    });
-    this.fileUploadPaginatedMapper = this.dtoMapper.createPaginatedMapper(FileUploadDto, {
-      relations: {
-        storageProvider: {
-          mapper: this.dtoMapper.createSimpleMapper(FileStorageProviderDto),
-        },
-        category: {
-          mapper: this.dtoMapper.createSimpleMapper(FileCategoryDto),
-        },
-        uploader: {
-          mapper: this.dtoMapper.createSimpleMapper(UserDto),
-        },
-      },
-      transform: {
-        size: (value: any) => Number(value), // Convert BigInt to number
-      },
-    });
+      });
+
+      // Add computed fields manually
+      const mediaUrl = process.env.MEDIA_URL || 'http://localhost:3000';
+      baseDto.downloadUrl = entity.isPublic 
+        ? `${mediaUrl}/uploads/public/${entity.id}`
+        : `${mediaUrl}/uploads/private/${entity.accessToken}`;
+      baseDto.fileExtension = entity.originalName?.split('.').pop() || '';
+      baseDto.isExpired = entity.expiresAt ? new Date() > entity.expiresAt : false;
+
+      return baseDto;
+    };
+    this.fileUploadArrayMapper = (entities: any[]) => {
+      return entities.map(this.fileUploadMapper);
+    };
+    this.fileUploadPaginatedMapper = (paginatedData: { data: any[]; meta: any }) => {
+      return {
+        data: this.fileUploadArrayMapper(paginatedData.data),
+        meta: paginatedData.meta
+      };
+    };
   }
 
   async uploadFile(

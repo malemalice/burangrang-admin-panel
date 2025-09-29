@@ -14,6 +14,7 @@ import { seedCourses } from './seeds/courses.seed';
 import { seedChapters } from './seeds/chapters.seed';
 import { seedFileCategories } from './seeds/file-categories.seed';
 import { seedFileStorageProviders } from './seeds/file-storage-providers.seed';
+import { seedProducts } from './seeds/products.seed';
 
 const prisma = new PrismaClient();
 
@@ -32,6 +33,10 @@ async function main() {
       // Delete in order to respect foreign key constraints
       await prisma.chapter.deleteMany();
       await prisma.course.deleteMany();
+      await prisma.productDownload.deleteMany();
+      await prisma.productFile.deleteMany();
+      await prisma.productCategory.deleteMany();
+      await prisma.product.deleteMany();
       await prisma.notificationRecipient.deleteMany();
       await prisma.notification.deleteMany();
       await prisma.notificationType.deleteMany();
@@ -109,9 +114,15 @@ async function main() {
           await prisma.fileAccessLog.deleteMany();
           await prisma.fileUpload.deleteMany();
           break;
+        case 'products':
+          await prisma.productDownload.deleteMany();
+          await prisma.productFile.deleteMany();
+          await prisma.productCategory.deleteMany();
+          await prisma.product.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
-          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, file_categories, file_storage_providers, file_uploads');
+          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, file_categories, file_storage_providers, file_uploads, products');
           process.exit(1);
       }
       console.log(`Cleared existing data for table: ${tableToSeed}`);
@@ -133,6 +144,7 @@ async function main() {
       await seedProductTypes();
       const courses = await seedCourses(prisma, users, categories);
       await seedChapters(prisma, courses);
+      await seedProducts();
       await seedFileStorageProviders();
       await seedFileCategories();
       console.log('All tables seeded successfully');
@@ -204,6 +216,15 @@ async function main() {
         case 'file_uploads':
           // Note: file uploads are created through the API, not seeded
           console.log('File uploads are created through the API, not seeded');
+          break;
+        case 'products':
+          const permsForProducts = await seedPermissions(prisma);
+          const rolesForProducts = await seedRoles(prisma, permsForProducts);
+          const officesForProducts = await seedOffices(prisma);
+          const usersForProducts = await seedUsers(prisma, rolesForProducts, officesForProducts);
+          const categoriesForProducts = await seedCategories(prisma);
+          await seedProductTypes();
+          await seedProducts();
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

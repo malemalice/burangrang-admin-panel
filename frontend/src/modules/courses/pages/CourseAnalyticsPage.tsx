@@ -58,8 +58,8 @@ const CourseAnalyticsPage = () => {
             totalCompletions: Math.floor(course.studentCount * 0.785)
           },
           revenue: {
-            total: course.price ? course.studentCount * course.price : 0,
-            thisMonth: course.price ? Math.floor(course.studentCount * 0.1 * course.price) : 0,
+            total: course.product ? course.studentCount * course.product.price : 0,
+            thisMonth: course.product ? Math.floor(course.studentCount * 0.1 * course.product.price) : 0,
             growth: 8.7
           },
           engagement: {

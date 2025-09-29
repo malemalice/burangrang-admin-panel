@@ -37,14 +37,34 @@ This is the frontend application for the BurangrangSystem, built with React, Vit
    yarn install
    ```
 
-3. Start the development server
+3. Create environment file
+   
+   Create a `.env` file in the frontend directory:
+   ```env
+   # API Configuration
+   VITE_API_URL="http://localhost:3000"
+   
+   # Media/File Upload Configuration
+   VITE_MEDIA_URL="http://localhost:3000"
+   
+   # Application Configuration
+   VITE_APP_NAME="SoulYouSee"
+   VITE_APP_VERSION="1.0.0"
+   ```
+
+4. Start the development server
    ```bash
    npm run dev
    # or
    yarn dev
    ```
 
-4. Open [http://localhost:8080](http://localhost:8080) to view the application in your browser
+5. Open [http://localhost:8080](http://localhost:8080) to view the application in your browser
+
+### Environment Variables
+
+- `VITE_API_URL`: Backend API base URL for general API calls
+- `VITE_MEDIA_URL`: Media server URL for file uploads and downloads (can be different from API_URL for CDN usage)
 
 ## Available Scripts
 

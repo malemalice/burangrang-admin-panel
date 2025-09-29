@@ -489,8 +489,9 @@ erDiagram
 
 #### Product
 - **Primary Entity**: Digital products (ebooks, courses, videos)
-- **Key Fields**: name, slug (unique), price, productType, status
+- **Key Fields**: name, slug (unique), price, salePrice, productType, status
 - **Product Types**: EBOOK, COURSE, VIDEO, BUNDLE
+- **Pricing**: Centralized price management - all products have price and salePrice fields
 - **Relationships**: 
   - Belongs to: User (creator), Category
   - One-to-Many: ProductFiles, Downloads, OrderItems
@@ -515,8 +516,9 @@ erDiagram
 #### Course
 - **Purpose**: Learning management system courses
 - **Key Fields**: title, slug (unique), instructorId, status
+- **Pricing**: Inherits pricing from associated Product (no separate pricing fields)
 - **Relationships**: 
-  - Belongs to: Product, User (instructor)
+  - Belongs to: Product (required - courses must have associated product for pricing), User (instructor)
   - One-to-Many: Chapters, Enrollments, OrderItems
 
 #### Chapter
@@ -649,23 +651,23 @@ erDiagram
 
 ### 1. Product Purchase Flow
 ```
-Customer → Order → OrderItem → Product/Course → Enrollment (if course)
+Customer → Order → OrderItem → Product (with pricing) → Course (inherits pricing) → Enrollment (if course)
 ```
 
 ### 2. Course Learning Flow
 ```
-User → Enrollment → Course → Chapter → Progress
+User → Enrollment → Course (with Product pricing) → Chapter → Progress
 ```
 
 ### 3. Digital Download Flow
 ```
-User → Order → Product → ProductFile → Download
+User → Order → Product (with pricing) → ProductFile → Download
 ```
 
 ### 4. Discount Application Flow
 ```
-Coupon → Order → Discount Calculation
-Promotion → Product → Price Adjustment
+Coupon → Order → Discount Calculation (based on Product pricing)
+Promotion → Product → Price Adjustment (centralized in Product table)
 ```
 
 ## AI Assistant Guidelines
@@ -675,10 +677,10 @@ Promotion → Product → Price Adjustment
 1. **Always Consider Relationships**: When querying products, include related entities (category, files, course if applicable)
 
 2. **Handle Product Types**: 
-   - EBOOK: Has ProductFiles for download
-   - COURSE: Has associated Course entity with Chapters
-   - VIDEO: Can be YouTube embed or hosted video
-   - BUNDLE: Contains multiple products
+   - EBOOK: Has ProductFiles for download, pricing managed in Product
+   - COURSE: Has associated Course entity with Chapters, pricing inherited from Product
+   - VIDEO: Can be YouTube embed or hosted video, pricing managed in Product
+   - BUNDLE: Contains multiple products, pricing managed in Product
 
 3. **Respect Enrollments**: 
    - Users must be enrolled to access course content
@@ -693,7 +695,7 @@ Promotion → Product → Price Adjustment
 5. **Handle Discounts**: 
    - Apply coupons to orders
    - Apply promotions to products
-   - Calculate final prices correctly
+   - Calculate final prices correctly (all pricing centralized in Product table)
 
 6. **Consider Soft Deletes**: 
    - Most entities have `isActive` field
@@ -702,7 +704,7 @@ Promotion → Product → Price Adjustment
 ### Common Query Patterns:
 
 ```typescript
-// Get product with all relationships
+// Get product with all relationships and pricing
 const product = await prisma.product.findUnique({
   where: { id: productId },
   include: {
@@ -713,12 +715,23 @@ const product = await prisma.product.findUnique({
   }
 });
 
-// Get user's enrolled courses with progress
+// For courses, pricing is inherited from the associated product
+const courseWithPricing = await prisma.course.findUnique({
+  where: { id: courseId },
+  include: {
+    product: true, // Get pricing from associated product
+    chapters: true,
+    instructor: true
+  }
+});
+
+// Get user's enrolled courses with progress and pricing
 const enrollments = await prisma.enrollment.findMany({
   where: { userId: userId },
   include: {
     course: {
       include: {
+        product: true, // Get pricing from associated product
         chapters: {
           orderBy: { order: 'asc' }
         }
@@ -739,8 +752,12 @@ const order = await prisma.order.findUnique({
     customer: true,
     items: {
       include: {
-        product: true,
-        course: true
+        product: true, // Contains pricing information
+        course: {
+          include: {
+            product: true // Course pricing inherited from product
+          }
+        }
       }
     },
     payments: true,
@@ -748,7 +765,7 @@ const order = await prisma.order.findUnique({
   }
 });
 
-// Get course chapters for student
+// Get course chapters for student with pricing
 const chapters = await prisma.chapter.findMany({
   where: {
     course: {
@@ -757,6 +774,13 @@ const chapters = await prisma.chapter.findMany({
           userId: userId,
           status: 'ACTIVE'
         }
+      }
+    }
+  },
+  include: {
+    course: {
+      include: {
+        product: true // Get pricing from associated product
       }
     }
   },

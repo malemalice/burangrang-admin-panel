@@ -98,27 +98,18 @@ export class FileUploadDto {
   @IsOptional()
   uploader?: any;
 
-  // Computed properties
+  // Computed properties - using @Transform to ensure they're serialized
   @ApiProperty()
   @Expose()
-  get downloadUrl(): string {
-    if (this.isPublic) {
-      return `/uploads/public/${this.id}`;
-    }
-    return `/uploads/private/${this.accessToken}`;
-  }
+  downloadUrl: string;
 
   @ApiProperty()
   @Expose()
-  get fileExtension(): string {
-    return this.originalName.split('.').pop() || '';
-  }
+  fileExtension: string;
 
   @ApiProperty()
   @Expose()
-  get isExpired(): boolean {
-    return this.expiresAt ? new Date() > this.expiresAt : false;
-  }
+  isExpired: boolean;
 
   constructor(partial: Partial<FileUploadDto>) {
     Object.assign(this, partial);
