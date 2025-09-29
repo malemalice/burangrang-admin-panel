@@ -249,7 +249,21 @@ const ProductDetailPage = () => {
                   {product.isActive ? 'Active' : 'Inactive'}
                 </Badge>
               </div>
-              {product.hasCourse && (
+              {product.productType === 'COURSE' && product.course && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Course</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(`/courses/${product.course?.id}`, '_blank')}
+                    className="h-auto py-1 px-2"
+                  >
+                    <Link className="h-3 w-3 mr-1" />
+                    View Course
+                  </Button>
+                </div>
+              )}
+              {product.hasCourse && product.productType !== 'COURSE' && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Course</span>
                   <Badge variant="secondary">Has Course</Badge>
