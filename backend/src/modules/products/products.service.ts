@@ -28,11 +28,12 @@ export class ProductsService {
   }
 
   async create(createProductDto: CreateProductDto, createdBy: string): Promise<ProductDto> {
-    const { categoryIds, ...productData } = createProductDto;
+    const { categoryIds, fileUrl, ...productData } = createProductDto;
 
     const product = await this.prisma.product.create({
       data: {
         ...productData,
+        fileUrl, // Store the file URL reference
         createdBy,
         categories: categoryIds ? {
           create: categoryIds.map(categoryId => ({
@@ -213,7 +214,7 @@ export class ProductsService {
   }
 
   async update(id: string, updateProductDto: UpdateProductDto, updatedBy: string): Promise<ProductDto> {
-    const { categoryIds, ...productData } = updateProductDto;
+    const { categoryIds, fileUrl, ...productData } = updateProductDto;
 
     // Check if product exists
     await this.findOne(id);
@@ -222,6 +223,7 @@ export class ProductsService {
       where: { id },
       data: {
         ...productData,
+        fileUrl, // Update the file URL reference
         ...(categoryIds && {
           categories: {
             deleteMany: {},

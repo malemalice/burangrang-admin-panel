@@ -129,4 +129,13 @@ export class CreateProductDto {
   @IsUUID('4', { each: true })
   @IsOptional()
   categoryIds?: string[];
+
+  @ApiProperty({
+    description: 'The file URL for digital products (PDFs, etc.)',
+    example: 'http://localhost:3000/uploads/public/550e8400-e29b-41d4-a716-446655440003',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  fileUrl?: string;
 }

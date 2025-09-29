@@ -178,6 +178,14 @@ export class ProductDto {
   @Expose()
   course?: any;
 
+  @ApiProperty({
+    description: 'The main file URL for digital products (PDFs, etc.)',
+    example: 'http://localhost:3000/uploads/public/550e8400-e29b-41d4-a716-446655440003',
+    required: false,
+  })
+  @Expose()
+  fileUrl?: string;
+
   constructor(partial: Partial<ProductDto>) {
     Object.assign(this, partial);
   }

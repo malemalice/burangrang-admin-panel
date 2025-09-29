@@ -28,6 +28,7 @@ const mapProductDtoToProduct = (productDto: ProductDTO): Product => {
     rating: Number(productDto.rating) || 0, // Ensure rating is always a number
     reviewCount: Number(productDto.reviewCount),
     thumbnailUrl: productDto.thumbnailUrl,
+    fileUrl: productDto.fileUrl,
     createdBy: productDto.createdBy,
     isActive: productDto.isActive,
     createdAt: productDto.createdAt,
@@ -59,6 +60,7 @@ const mapProductToCreateDto = (product: Partial<Product>): CreateProductDTO => {
     status: product.status || 'DRAFT',
     downloadLimit: product.downloadLimit,
     thumbnailUrl: product.thumbnailUrl,
+    fileUrl: product.fileUrl,
     isActive: product.isActive ?? true,
     categoryIds: product.categoryIds,
     courseId: product.course?.id,
@@ -79,6 +81,7 @@ const mapProductToUpdateDto = (product: Partial<Product>): UpdateProductDTO => {
     status: product.status,
     downloadLimit: product.downloadLimit,
     thumbnailUrl: product.thumbnailUrl,
+    fileUrl: product.fileUrl,
     isActive: product.isActive,
     categoryIds: product.categoryIds,
     courseId: product.course?.id,

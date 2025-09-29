@@ -30,6 +30,7 @@ import productService from '../services/productService';
 import { categoryService } from '@/modules/categories';
 import { courseService } from '@/modules/courses';
 import { ImageUpload } from '@/modules/uploads';
+import FileUpload from '@/modules/uploads/components/FileUpload';
 import { 
   Product, 
   CreateProductDTO, 
@@ -54,6 +55,7 @@ const formSchema = z.object({
   isActive: z.boolean().default(true),
   categoryIds: z.array(z.string()).default([]),
   courseId: z.string().optional(), // Course selection for COURSE product type
+  fileUrl: z.string().url('Invalid file URL').optional().or(z.literal('')), // PDF file URL for EBOOK product type
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -88,6 +90,7 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
       isActive: true,
       categoryIds: [],
       courseId: 'none',
+      fileUrl: '',
     },
   });
 
@@ -142,6 +145,7 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
         isActive: product.isActive,
         categoryIds: product.categoryIds || [],
         courseId: product.course?.id || 'none',
+        fileUrl: product.fileUrl || '',
       });
     }
   }, [product, dataReady, form]);
@@ -209,6 +213,7 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
         status: data.status,
         downloadLimit: data.downloadLimit && data.downloadLimit > 0 ? data.downloadLimit : undefined, // ✅ Fixed: Convert 0 back to undefined
         thumbnailUrl: data.thumbnailUrl || undefined,
+        fileUrl: data.fileUrl && data.fileUrl !== '' ? data.fileUrl : undefined, // Include file URL for EBOOK products
         isActive: data.isActive,
         categoryIds: data.categoryIds,
         courseId: data.courseId && data.courseId !== 'none' ? data.courseId : undefined, // Include course association for COURSE products
@@ -335,6 +340,10 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                         // Clear course selection when product type changes
                         if (value !== 'COURSE') {
                           form.setValue('courseId', 'none');
+                        }
+                        // Clear file selection when product type changes
+                        if (value !== 'EBOOK') {
+                          form.setValue('fileUrl', '');
                         }
                       }} defaultValue={field.value}>
                         <FormControl>
@@ -584,6 +593,38 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                 />
               </div>
             </div>
+
+            {/* File Upload for EBOOK products */}
+            {form.watch('productType') === 'EBOOK' && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Digital Content</h3>
+                <FormField
+                  control={form.control}
+                  name="fileUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <FileUpload
+                          value={field.value || ''}
+                          onChange={(value) => field.onChange(value || '')}
+                          categoryName="documents"
+                          isPublic={true}
+                          maxSize={50 * 1024 * 1024} // 50MB for documents
+                          allowedTypes={['application/pdf']}
+                          acceptedFileTypes=".pdf"
+                          placeholder="Upload PDF file for this ebook"
+                          disabled={isLoading}
+                        />
+                      </FormControl>
+                      <p className="text-sm text-gray-600">
+                        Upload a PDF file for this ebook. Maximum file size: 50MB.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
 
             {/* Description */}
             <FormField

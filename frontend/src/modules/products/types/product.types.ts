@@ -23,6 +23,7 @@ export interface ProductDTO {
   rating: number;
   reviewCount: number;
   thumbnailUrl?: string;
+  fileUrl?: string; // URL to uploaded file (PDF, etc.)
   createdBy: string;
   isActive: boolean;
   createdAt: string;
@@ -83,6 +84,7 @@ export interface Product {
   rating: number;
   reviewCount: number;
   thumbnailUrl?: string;
+  fileUrl?: string; // URL to uploaded file (PDF, etc.)
   createdBy: string;
   isActive: boolean;
   createdAt: string;
@@ -109,6 +111,14 @@ export interface Product {
     status: string;
     isPublished: boolean;
   };
+  files?: Array<{ // Added files property
+    id: string;
+    fileName: string;
+    originalName: string;
+    fileType: string;
+    fileSize: number;
+    mimeType: string;
+  }>;
 }
 
 // Interface for creating a product
@@ -124,6 +134,7 @@ export interface CreateProductDTO {
   status?: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
   downloadLimit?: number;
   thumbnailUrl?: string;
+  fileUrl?: string; // URL to uploaded file (PDF, etc.)
   isActive?: boolean;
   categoryIds?: string[];
   courseId?: string; // Course association for COURSE products
@@ -142,6 +153,7 @@ export interface UpdateProductDTO {
   status?: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
   downloadLimit?: number;
   thumbnailUrl?: string;
+  fileUrl?: string; // URL to uploaded file (PDF, etc.)
   isActive?: boolean;
   categoryIds?: string[];
   courseId?: string; // Course association for COURSE products
@@ -160,6 +172,7 @@ export interface ProductFormData {
   status: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
   downloadLimit?: number;
   thumbnailUrl?: string;
+  fileUrl?: string; // URL to uploaded file (PDF, etc.)
   isActive: boolean;
   categoryIds: string[];
   courseId?: string; // Course association for COURSE products

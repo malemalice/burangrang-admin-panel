@@ -435,6 +435,7 @@ model Product {
   rating           Decimal  @default(0) @db.Decimal(3, 2) // 0.00 to 5.00
   reviewCount      Int      @default(0)
   thumbnailUrl     String?
+  fileUrl          String?  // URL to uploaded file (PDF, etc.)
   createdBy        String
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())
