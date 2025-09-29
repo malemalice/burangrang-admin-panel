@@ -84,7 +84,7 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
       price: 0,
       salePrice: 0, // ✅ Fixed: Use 0 instead of undefined for numeric fields
       sku: '',
-      productType: PRODUCT_TYPE_NAMES.E_BOOK, // ✅ Use global constant
+      productType: product?.productType || PRODUCT_TYPE_NAMES.E_BOOK, // ✅ Use product type if available
       status: 'DRAFT',
       downloadLimit: 0, // ✅ Fixed: Use 0 instead of undefined for numeric fields
       thumbnailUrl: '',
@@ -131,6 +131,12 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
       }));
       setSelectedCategories(selectedCats);
       
+      // Ensure productType is valid, fallback to EBOOK if not
+      const validProductType = product.productType && Object.values(PRODUCT_TYPE_NAMES).includes(product.productType as ProductTypeName) 
+        ? product.productType as ProductTypeName
+        : PRODUCT_TYPE_NAMES.E_BOOK;
+      
+      
       form.reset({
         name: product.name,
         slug: product.slug,
@@ -139,7 +145,7 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
         price: product.price,
         salePrice: product.salePrice || 0, // ✅ Fixed: Use 0 instead of undefined
         sku: product.sku,
-        productType: product.productType,
+        productType: validProductType, // ✅ Ensure valid product type
         status: product.status,
         downloadLimit: product.downloadLimit || 0, // ✅ Fixed: Use 0 instead of undefined
         thumbnailUrl: product.thumbnailUrl || '',
@@ -346,7 +352,7 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                         if (value !== PRODUCT_TYPE_NAMES.E_BOOK) {
                           form.setValue('fileUrl', '');
                         }
-                      }} defaultValue={field.value}>
+                      }} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select product type" />

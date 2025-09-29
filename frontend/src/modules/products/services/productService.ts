@@ -45,6 +45,9 @@ const mapProductDtoToProduct = (productDto: ProductDTO): Product => {
     hasCourse: !!productDto.course,
     finalPrice: calculateFinalPrice(Number(productDto.price), productDto.salePrice ? Number(productDto.salePrice) : undefined),
     isOnSale: !!(productDto.salePrice && Number(productDto.salePrice) > 0),
+    // Map course information
+    course: productDto.course,
+    files: productDto.files,
   };
 };
 

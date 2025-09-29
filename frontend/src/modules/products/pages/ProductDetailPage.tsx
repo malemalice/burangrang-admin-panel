@@ -250,18 +250,35 @@ const ProductDetailPage = () => {
                   {product.isActive ? 'Active' : 'Inactive'}
                 </Badge>
               </div>
-              {product.productType === PRODUCT_TYPE_NAMES.COURSE && product.course && (
+              {product.productType === PRODUCT_TYPE_NAMES.COURSE && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Course</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(`/courses/${product.course?.id}`, '_blank')}
-                    className="h-auto py-1 px-2"
-                  >
-                    <Link className="h-3 w-3 mr-1" />
-                    View Course
-                  </Button>
+                  {product.course ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(`/courses/${product.course.id}`, '_blank')}
+                      className="h-auto py-1 px-2"
+                    >
+                      <Link className="h-3 w-3 mr-1" />
+                      View Course
+                    </Button>
+                  ) : (
+                    <div className="flex flex-col items-end gap-2">
+                      <Badge variant="destructive" className="text-xs">
+                        No Course Associated
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleEdit}
+                        className="h-auto py-1 px-2 text-xs"
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Assign Course
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
               {product.hasCourse && product.productType !== PRODUCT_TYPE_NAMES.COURSE && (

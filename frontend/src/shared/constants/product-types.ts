@@ -5,14 +5,14 @@
  */
 
 export const PRODUCT_TYPE_NAMES = {
-  E_BOOK: 'E-Book',
-  COURSE: 'Course',
-  VIDEO: 'Video',
-  BUNDLE: 'Bundle',
-  SOFTWARE: 'Software',
-  TEMPLATE: 'Template',
-  AUDIO: 'Audio',
-  DOCUMENT: 'Document',
+  E_BOOK: 'EBOOK',
+  COURSE: 'COURSE',
+  VIDEO: 'VIDEO',
+  BUNDLE: 'BUNDLE',
+  SOFTWARE: 'SOFTWARE',
+  TEMPLATE: 'TEMPLATE',
+  AUDIO: 'AUDIO',
+  DOCUMENT: 'DOCUMENT',
 } as const;
 
 export const PRODUCT_TYPE_DESCRIPTIONS = {
@@ -30,42 +30,42 @@ export const PRODUCT_TYPE_DESCRIPTIONS = {
 export const PRODUCT_TYPE_OPTIONS = [
   {
     value: PRODUCT_TYPE_NAMES.E_BOOK,
-    label: PRODUCT_TYPE_NAMES.E_BOOK,
+    label: 'E-Book',
     description: PRODUCT_TYPE_DESCRIPTIONS[PRODUCT_TYPE_NAMES.E_BOOK],
   },
   {
     value: PRODUCT_TYPE_NAMES.COURSE,
-    label: PRODUCT_TYPE_NAMES.COURSE,
+    label: 'Course',
     description: PRODUCT_TYPE_DESCRIPTIONS[PRODUCT_TYPE_NAMES.COURSE],
   },
   {
     value: PRODUCT_TYPE_NAMES.VIDEO,
-    label: PRODUCT_TYPE_NAMES.VIDEO,
+    label: 'Video',
     description: PRODUCT_TYPE_DESCRIPTIONS[PRODUCT_TYPE_NAMES.VIDEO],
   },
   {
     value: PRODUCT_TYPE_NAMES.BUNDLE,
-    label: PRODUCT_TYPE_NAMES.BUNDLE,
+    label: 'Bundle',
     description: PRODUCT_TYPE_DESCRIPTIONS[PRODUCT_TYPE_NAMES.BUNDLE],
   },
   {
     value: PRODUCT_TYPE_NAMES.SOFTWARE,
-    label: PRODUCT_TYPE_NAMES.SOFTWARE,
+    label: 'Software',
     description: PRODUCT_TYPE_DESCRIPTIONS[PRODUCT_TYPE_NAMES.SOFTWARE],
   },
   {
     value: PRODUCT_TYPE_NAMES.TEMPLATE,
-    label: PRODUCT_TYPE_NAMES.TEMPLATE,
+    label: 'Template',
     description: PRODUCT_TYPE_DESCRIPTIONS[PRODUCT_TYPE_NAMES.TEMPLATE],
   },
   {
     value: PRODUCT_TYPE_NAMES.AUDIO,
-    label: PRODUCT_TYPE_NAMES.AUDIO,
+    label: 'Audio',
     description: PRODUCT_TYPE_DESCRIPTIONS[PRODUCT_TYPE_NAMES.AUDIO],
   },
   {
     value: PRODUCT_TYPE_NAMES.DOCUMENT,
-    label: PRODUCT_TYPE_NAMES.DOCUMENT,
+    label: 'Document',
     description: PRODUCT_TYPE_DESCRIPTIONS[PRODUCT_TYPE_NAMES.DOCUMENT],
   },
 ] as const;

@@ -28,7 +28,7 @@ export class ProductsService {
   }
 
   async create(createProductDto: CreateProductDto, createdBy: string): Promise<ProductDto> {
-    const { categoryIds, fileUrl, ...productData } = createProductDto;
+    const { categoryIds, fileUrl, courseId, ...productData } = createProductDto;
 
     const product = await this.prisma.product.create({
       data: {
@@ -40,6 +40,8 @@ export class ProductsService {
             categoryId,
           })),
         } : undefined,
+        // Note: Course relation is handled by updating the Course's productId field
+        // We'll handle this in a separate operation after product creation
       },
       include: {
         createdByUser: {
@@ -59,6 +61,48 @@ export class ProductsService {
         course: true,
       },
     });
+
+    // Handle course relation if courseId is provided
+    if (courseId) {
+      await this.prisma.course.update({
+        where: { id: courseId },
+        data: { productId: product.id },
+      });
+      
+      // Refetch product with updated course relation
+      const updatedProduct = await this.prisma.product.findUnique({
+        where: { id: product.id },
+        include: {
+          createdByUser: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          categories: {
+            include: {
+              category: true,
+            },
+          },
+          files: true,
+          course: true,
+        },
+      });
+      
+      // Log product creation activity
+      await this.activityLogger.logActivity(
+        'products',
+        product.id,
+        `Created product: ${product.name} (SKU: ${product.sku})`,
+        [], // Will be populated by logActivity method
+        createdBy,
+        'product_activity',
+      );
+
+      return this.productMapper(updatedProduct);
+    }
 
     // Log product creation activity
     await this.activityLogger.logActivity(
@@ -214,7 +258,7 @@ export class ProductsService {
   }
 
   async update(id: string, updateProductDto: UpdateProductDto, updatedBy: string): Promise<ProductDto> {
-    const { categoryIds, fileUrl, ...productData } = updateProductDto;
+    const { categoryIds, fileUrl, courseId, ...productData } = updateProductDto;
 
     // Check if product exists
     await this.findOne(id);
@@ -232,6 +276,8 @@ export class ProductsService {
             })),
           },
         }),
+        // Note: Course relation is handled by updating the Course's productId field
+        // We'll handle this in a separate operation after product update
       },
       include: {
         createdByUser: {
@@ -251,6 +297,57 @@ export class ProductsService {
         course: true,
       },
     });
+
+    // Handle course relation if courseId is provided
+    if (courseId !== undefined) {
+      if (courseId) {
+        // Connect course to this product
+        await this.prisma.course.update({
+          where: { id: courseId },
+          data: { productId: product.id },
+        });
+      } else {
+        // Disconnect any existing course from this product
+        await this.prisma.course.updateMany({
+          where: { productId: product.id },
+          data: { productId: null },
+        });
+      }
+      
+      // Refetch product with updated course relation
+      const updatedProduct = await this.prisma.product.findUnique({
+        where: { id: product.id },
+        include: {
+          createdByUser: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          categories: {
+            include: {
+              category: true,
+            },
+          },
+          files: true,
+          course: true,
+        },
+      });
+      
+      // Log product update activity
+      await this.activityLogger.logActivity(
+        'products',
+        product.id,
+        `Updated product: ${product.name} (SKU: ${product.sku})`,
+        [], // Will be populated by logActivity method
+        updatedBy,
+        'product_activity',
+      );
+
+      return this.productMapper(updatedProduct);
+    }
 
     // Log product update activity
     await this.activityLogger.logActivity(
