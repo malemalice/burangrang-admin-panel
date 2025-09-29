@@ -40,3 +40,13 @@ export {
   formatPrice,
   calculateFinalPrice,
 } from './types/product.types';
+
+// Re-export global product type constants for convenience
+export {
+  PRODUCT_TYPE_NAMES,
+  PRODUCT_TYPE_DESCRIPTIONS,
+  PRODUCT_TYPE_OPTIONS,
+  getProductTypeDescription,
+  getProductTypeOption,
+  isValidProductType,
+} from '@/shared/constants/product-types';

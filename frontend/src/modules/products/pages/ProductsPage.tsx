@@ -19,6 +19,7 @@ import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { useProducts } from '../hooks/useProducts';
 import { categoryService } from '@/modules/categories';
 import { Product, ProductFilters, getProductStatusInfo, getProductTypeLabel, formatPrice } from '../types/product.types';
+import { PRODUCT_TYPE_OPTIONS } from '@/shared/constants/product-types';
 
 const ProductsPage = () => {
   const navigate = useNavigate();
@@ -61,10 +62,10 @@ const ProductsPage = () => {
       type: 'select',
       options: [
         { label: 'All Types', value: 'all' },
-        { label: 'E-Book', value: 'EBOOK' },
-        { label: 'Course', value: 'COURSE' },
-        { label: 'Video', value: 'VIDEO' },
-        { label: 'Bundle', value: 'BUNDLE' },
+        ...PRODUCT_TYPE_OPTIONS.map(option => ({
+          label: option.label,
+          value: option.value
+        }))
       ]
     },
     {

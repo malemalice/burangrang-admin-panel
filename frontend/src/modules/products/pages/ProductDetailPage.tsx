@@ -24,6 +24,7 @@ import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { useProduct } from '../hooks/useProducts';
 import { formatPrice, getProductStatusInfo, getProductTypeLabel } from '../types/product.types';
+import { PRODUCT_TYPE_NAMES } from '@/shared/constants/product-types';
 
 const ProductDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -249,7 +250,7 @@ const ProductDetailPage = () => {
                   {product.isActive ? 'Active' : 'Inactive'}
                 </Badge>
               </div>
-              {product.productType === 'COURSE' && product.course && (
+              {product.productType === PRODUCT_TYPE_NAMES.COURSE && product.course && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Course</span>
                   <Button
@@ -263,7 +264,7 @@ const ProductDetailPage = () => {
                   </Button>
                 </div>
               )}
-              {product.hasCourse && product.productType !== 'COURSE' && (
+              {product.hasCourse && product.productType !== PRODUCT_TYPE_NAMES.COURSE && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Course</span>
                   <Badge variant="secondary">Has Course</Badge>

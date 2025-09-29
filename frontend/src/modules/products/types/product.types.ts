@@ -5,6 +5,8 @@
 // Re-export core types that are used by products module
 export type { PaginatedResponse, PaginationParams } from '@/core/lib/types';
 
+import { ProductTypeName, PRODUCT_TYPE_OPTIONS } from '@/shared/constants/product-types';
+
 // Interface for product data from API that matches backend structure
 export interface ProductDTO {
   id: string;
@@ -15,7 +17,7 @@ export interface ProductDTO {
   price: number;
   salePrice?: number;
   sku: string;
-  productType: 'EBOOK' | 'COURSE' | 'VIDEO' | 'BUNDLE';
+  productType: ProductTypeName; // ✅ Use global constant type
   status: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
   stockQuantity: number;
   downloadLimit?: number;
@@ -77,7 +79,7 @@ export interface Product {
   price: number;
   salePrice?: number;
   sku: string;
-  productType: 'EBOOK' | 'COURSE' | 'VIDEO' | 'BUNDLE';
+  productType: ProductTypeName; // ✅ Use global constant type
   status: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
   stockQuantity: number;
   downloadLimit?: number;
@@ -131,7 +133,7 @@ export interface CreateProductDTO {
   price: number;
   salePrice?: number;
   sku: string;
-  productType: 'EBOOK' | 'COURSE' | 'VIDEO' | 'BUNDLE';
+  productType: ProductTypeName; // ✅ Use global constant type
   status?: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
   stockQuantity: number;
   downloadLimit?: number;
@@ -151,7 +153,7 @@ export interface UpdateProductDTO {
   price?: number;
   salePrice?: number;
   sku?: string;
-  productType?: 'EBOOK' | 'COURSE' | 'VIDEO' | 'BUNDLE';
+  productType?: ProductTypeName; // ✅ Use global constant type
   status?: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
   stockQuantity?: number;
   downloadLimit?: number;
@@ -171,7 +173,7 @@ export interface ProductFormData {
   price: number;
   salePrice?: number;
   sku: string;
-  productType: 'EBOOK' | 'COURSE' | 'VIDEO' | 'BUNDLE';
+  productType: ProductTypeName; // ✅ Use global constant type
   status: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
   stockQuantity: number;
   downloadLimit?: number;
@@ -186,7 +188,7 @@ export interface ProductFormData {
 export interface ProductFilters {
   name?: string;
   sku?: string;
-  productType?: 'EBOOK' | 'COURSE' | 'VIDEO' | 'BUNDLE' | 'all';
+  productType?: ProductTypeName | 'all'; // ✅ Use global constant type
   status?: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED' | 'all';
   category?: string;
   creator?: string;
@@ -221,13 +223,8 @@ export interface ProductStats {
   averageRating: number;
 }
 
-// Product type options for forms
-export const PRODUCT_TYPES = [
-  { value: 'EBOOK', label: 'E-Book' },
-  { value: 'COURSE', label: 'Course' },
-  { value: 'VIDEO', label: 'Video' },
-  { value: 'BUNDLE', label: 'Bundle' },
-] as const;
+// ✅ Import global constants instead of hardcoded values
+export { PRODUCT_TYPE_OPTIONS as PRODUCT_TYPES } from '@/shared/constants/product-types';
 
 // Product status options for forms
 export const PRODUCT_STATUSES = [
@@ -240,7 +237,7 @@ export const PRODUCT_STATUSES = [
 
 // Helper function to get product type label
 export const getProductTypeLabel = (type: string): string => {
-  const productType = PRODUCT_TYPES.find(pt => pt.value === type);
+  const productType = PRODUCT_TYPE_OPTIONS.find(pt => pt.value === type);
   return productType?.label || type;
 };
 

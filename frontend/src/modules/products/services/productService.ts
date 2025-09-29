@@ -9,6 +9,7 @@ import {
   ProductStats,
   calculateFinalPrice
 } from '../types/product.types';
+import { PRODUCT_TYPE_NAMES } from '@/shared/constants/product-types';
 
 // Convert ProductDTO from backend to Product model for frontend
 const mapProductDtoToProduct = (productDto: ProductDTO): Product => {
@@ -57,7 +58,7 @@ const mapProductToCreateDto = (product: Partial<Product>): CreateProductDTO => {
     price: product.price || 0,
     salePrice: product.salePrice,
     sku: product.sku || '',
-    productType: product.productType || 'EBOOK',
+    productType: product.productType || PRODUCT_TYPE_NAMES.E_BOOK,
     status: product.status || 'DRAFT',
     stockQuantity: product.stockQuantity || 0,
     downloadLimit: product.downloadLimit,

@@ -39,6 +39,7 @@ import {
   PRODUCT_TYPES,
   PRODUCT_STATUSES 
 } from '../types/product.types';
+import { PRODUCT_TYPE_NAMES, ProductTypeName } from '@/shared/constants/product-types';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
@@ -48,7 +49,7 @@ const formSchema = z.object({
   price: z.number().min(0, 'Price must be positive'),
   salePrice: z.number().min(0, 'Sale price must be positive').optional(),
   sku: z.string().min(1, 'SKU is required'),
-  productType: z.enum(['EBOOK', 'COURSE', 'VIDEO', 'BUNDLE']),
+  productType: z.enum(Object.values(PRODUCT_TYPE_NAMES) as [string, ...string[]]) as z.ZodType<ProductTypeName>, // ✅ Use global constants with proper typing
   status: z.enum(['DRAFT', 'REVIEW', 'APPROVED', 'PUBLISHED', 'ARCHIVED']),
   downloadLimit: z.number().min(1, 'Download limit must be at least 1').optional(),
   thumbnailUrl: z.string().url('Invalid URL').optional().or(z.literal('')),
@@ -83,7 +84,7 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
       price: 0,
       salePrice: 0, // ✅ Fixed: Use 0 instead of undefined for numeric fields
       sku: '',
-      productType: 'EBOOK',
+      productType: PRODUCT_TYPE_NAMES.E_BOOK, // ✅ Use global constant
       status: 'DRAFT',
       downloadLimit: 0, // ✅ Fixed: Use 0 instead of undefined for numeric fields
       thumbnailUrl: '',
@@ -338,11 +339,11 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                       <Select onValueChange={(value) => {
                         field.onChange(value);
                         // Clear course selection when product type changes
-                        if (value !== 'COURSE') {
+                        if (value !== PRODUCT_TYPE_NAMES.COURSE) {
                           form.setValue('courseId', 'none');
                         }
                         // Clear file selection when product type changes
-                        if (value !== 'EBOOK') {
+                        if (value !== PRODUCT_TYPE_NAMES.E_BOOK) {
                           form.setValue('fileUrl', '');
                         }
                       }} defaultValue={field.value}>
@@ -390,7 +391,7 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                 />
 
                 {/* Course Selection - Only show when product type is COURSE */}
-                {form.watch('productType') === 'COURSE' && (
+                {form.watch('productType') === PRODUCT_TYPE_NAMES.COURSE && (
                   <FormField
                     control={form.control}
                     name="courseId"
@@ -595,7 +596,7 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
             </div>
 
             {/* File Upload for EBOOK products */}
-            {form.watch('productType') === 'EBOOK' && (
+            {form.watch('productType') === PRODUCT_TYPE_NAMES.E_BOOK && (
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">Digital Content</h3>
                 <FormField
