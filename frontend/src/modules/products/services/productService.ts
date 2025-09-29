@@ -23,7 +23,6 @@ const mapProductDtoToProduct = (productDto: ProductDTO): Product => {
     sku: productDto.sku,
     productType: productDto.productType,
     status: productDto.status,
-    stockQuantity: Number(productDto.stockQuantity),
     downloadLimit: productDto.downloadLimit ? Number(productDto.downloadLimit) : undefined,
     viewCount: Number(productDto.viewCount),
     rating: Number(productDto.rating) || 0, // Ensure rating is always a number
@@ -58,11 +57,11 @@ const mapProductToCreateDto = (product: Partial<Product>): CreateProductDTO => {
     sku: product.sku || '',
     productType: product.productType || 'EBOOK',
     status: product.status || 'DRAFT',
-    stockQuantity: product.stockQuantity || 0,
     downloadLimit: product.downloadLimit,
     thumbnailUrl: product.thumbnailUrl,
     isActive: product.isActive ?? true,
     categoryIds: product.categoryIds,
+    courseId: product.course?.id,
   };
 };
 
@@ -78,11 +77,11 @@ const mapProductToUpdateDto = (product: Partial<Product>): UpdateProductDTO => {
     sku: product.sku,
     productType: product.productType,
     status: product.status,
-    stockQuantity: product.stockQuantity,
     downloadLimit: product.downloadLimit,
     thumbnailUrl: product.thumbnailUrl,
     isActive: product.isActive,
     categoryIds: product.categoryIds,
+    courseId: product.course?.id,
   };
 };
 

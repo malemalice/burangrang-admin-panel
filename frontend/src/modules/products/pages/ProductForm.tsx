@@ -28,6 +28,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { X } from 'lucide-react';
 import productService from '../services/productService';
 import { categoryService } from '@/modules/categories';
+import { courseService } from '@/modules/courses';
 import { ImageUpload } from '@/modules/uploads';
 import { 
   Product, 
@@ -48,11 +49,11 @@ const formSchema = z.object({
   sku: z.string().min(1, 'SKU is required'),
   productType: z.enum(['EBOOK', 'COURSE', 'VIDEO', 'BUNDLE']),
   status: z.enum(['DRAFT', 'REVIEW', 'APPROVED', 'PUBLISHED', 'ARCHIVED']),
-  stockQuantity: z.number().min(0, 'Stock quantity must be positive'),
   downloadLimit: z.number().min(1, 'Download limit must be at least 1').optional(),
   thumbnailUrl: z.string().url('Invalid URL').optional().or(z.literal('')),
   isActive: z.boolean().default(true),
   categoryIds: z.array(z.string()).default([]),
+  courseId: z.string().optional(), // Course selection for COURSE product type
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -65,6 +66,7 @@ interface ProductFormProps {
 const ProductForm = ({ product, mode }: ProductFormProps) => {
   const navigate = useNavigate();
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [courses, setCourses] = useState<{ id: string; title: string; description?: string; thumbnailUrl?: string }[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<{ id: string; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dataReady, setDataReady] = useState(false);
@@ -81,11 +83,11 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
       sku: '',
       productType: 'EBOOK',
       status: 'DRAFT',
-      stockQuantity: 0,
       downloadLimit: 0, // ✅ Fixed: Use 0 instead of undefined for numeric fields
       thumbnailUrl: '',
       isActive: true,
       categoryIds: [],
+      courseId: 'none',
     },
   });
 
@@ -95,8 +97,13 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
         setIsLoading(true);
         setDataReady(false);
         
-        const categoriesResponse = await categoryService.getCategories({ page: 1, limit: 100 });
+        const [categoriesResponse, coursesResponse] = await Promise.all([
+          categoryService.getCategories({ page: 1, limit: 100 }),
+          courseService.getCourses({ page: 1, limit: 100 })
+        ]);
+        
         setCategories(categoriesResponse.data);
+        setCourses(coursesResponse.data);
         
         setDataReady(true);
       } catch (error) {
@@ -130,11 +137,11 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
         sku: product.sku,
         productType: product.productType,
         status: product.status,
-        stockQuantity: product.stockQuantity,
         downloadLimit: product.downloadLimit || 0, // ✅ Fixed: Use 0 instead of undefined
         thumbnailUrl: product.thumbnailUrl || '',
         isActive: product.isActive,
         categoryIds: product.categoryIds || [],
+        courseId: product.course?.id || 'none',
       });
     }
   }, [product, dataReady, form]);
@@ -161,6 +168,30 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
     }
   };
 
+  // Handle course selection and inherit course data
+  const handleCourseSelection = (courseId: string) => {
+    const selectedCourse = courses.find(course => course.id === courseId);
+    if (!selectedCourse) return;
+
+    // Inherit course data when course is selected
+    form.setValue('courseId', courseId);
+    
+    // Auto-fill product details from course
+    form.setValue('name', selectedCourse.title);
+    form.setValue('description', selectedCourse.description || '');
+    form.setValue('thumbnailUrl', selectedCourse.thumbnailUrl || '');
+    
+    // Auto-generate slug from course title
+    const generatedSlug = productService.generateSlug(selectedCourse.title);
+    form.setValue('slug', generatedSlug);
+    
+    // Auto-generate SKU from course
+    const generatedSku = `COURSE-${selectedCourse.id.slice(0, 8).toUpperCase()}`;
+    form.setValue('sku', generatedSku);
+    
+    toast.success('Course data inherited successfully');
+  };
+
   const onSubmit = async (data: FormValues) => {
     try {
       setIsLoading(true);
@@ -176,11 +207,11 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
         sku: data.sku,
         productType: data.productType,
         status: data.status,
-        stockQuantity: data.stockQuantity,
         downloadLimit: data.downloadLimit && data.downloadLimit > 0 ? data.downloadLimit : undefined, // ✅ Fixed: Convert 0 back to undefined
         thumbnailUrl: data.thumbnailUrl || undefined,
         isActive: data.isActive,
         categoryIds: data.categoryIds,
+        courseId: data.courseId && data.courseId !== 'none' ? data.courseId : undefined, // Include course association for COURSE products
       };
 
       if (mode === 'create') {
@@ -299,7 +330,13 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Product Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={(value) => {
+                        field.onChange(value);
+                        // Clear course selection when product type changes
+                        if (value !== 'COURSE') {
+                          form.setValue('courseId', 'none');
+                        }
+                      }} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select product type" />
@@ -342,6 +379,63 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                     </FormItem>
                   )}
                 />
+
+                {/* Course Selection - Only show when product type is COURSE */}
+                {form.watch('productType') === 'COURSE' && (
+                  <FormField
+                    control={form.control}
+                    name="courseId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Select Course</FormLabel>
+                        <Select 
+                          onValueChange={(value) => {
+                            field.onChange(value === 'none' ? '' : value);
+                            if (value && value !== 'none') {
+                              handleCourseSelection(value);
+                            }
+                          }} 
+                          value={field.value || 'none'}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select course to inherit data from" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">No course selected</SelectItem>
+                            {courses.map((course) => (
+                              <SelectItem key={course.id} value={course.id}>
+                                <div className="flex items-center gap-2">
+                                  {course.thumbnailUrl && (
+                                    <img 
+                                      src={course.thumbnailUrl} 
+                                      alt={course.title}
+                                      className="w-6 h-6 rounded object-cover"
+                                    />
+                                  )}
+                                  <div>
+                                    <div className="font-medium">{course.title}</div>
+                                    {course.description && (
+                                      <div className="text-xs text-gray-500 truncate max-w-[200px]">
+                                        {course.description}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-sm text-gray-600">
+                          Select a course to automatically inherit its title, description, and thumbnail. 
+                          The product will be linked to this course.
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
                 <FormField
                   control={form.control}
@@ -461,30 +555,10 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
               </div>
             </div>
 
-            {/* Inventory & Limits */}
+            {/* Digital Product Limits */}
             <div className="space-y-4">
-              <h3 className="text-lg font-medium">Inventory & Limits</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="stockQuantity"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Stock Quantity</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number"
-                          min="0"
-                          placeholder="0"
-                          {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
+              <h3 className="text-lg font-medium">Digital Product Settings</h3>
+              <div className="grid grid-cols-1 gap-4">
                 <FormField
                   control={form.control}
                   name="downloadLimit"
@@ -501,6 +575,9 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                           onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                         />
                       </FormControl>
+                      <p className="text-sm text-gray-600">
+                        Leave empty for unlimited downloads. Set a number to limit how many times customers can download this digital product.
+                      </p>
                       <FormMessage />
                     </FormItem>
                   )}

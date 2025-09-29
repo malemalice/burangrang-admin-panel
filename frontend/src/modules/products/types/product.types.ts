@@ -78,7 +78,6 @@ export interface Product {
   sku: string;
   productType: 'EBOOK' | 'COURSE' | 'VIDEO' | 'BUNDLE';
   status: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
-  stockQuantity: number;
   downloadLimit?: number;
   viewCount: number;
   rating: number;
@@ -96,6 +95,20 @@ export interface Product {
   hasCourse?: boolean;
   finalPrice?: number;
   isOnSale?: boolean;
+  course?: {
+    id: string;
+    title: string;
+    slug: string;
+    description?: string;
+    totalChapters: number;
+    totalDuration: number;
+    difficulty: string;
+    language: string;
+    rating: number;
+    studentCount: number;
+    status: string;
+    isPublished: boolean;
+  };
 }
 
 // Interface for creating a product
@@ -109,11 +122,11 @@ export interface CreateProductDTO {
   sku: string;
   productType: 'EBOOK' | 'COURSE' | 'VIDEO' | 'BUNDLE';
   status?: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
-  stockQuantity?: number;
   downloadLimit?: number;
   thumbnailUrl?: string;
   isActive?: boolean;
   categoryIds?: string[];
+  courseId?: string; // Course association for COURSE products
 }
 
 // Interface for updating a product
@@ -127,11 +140,11 @@ export interface UpdateProductDTO {
   sku?: string;
   productType?: 'EBOOK' | 'COURSE' | 'VIDEO' | 'BUNDLE';
   status?: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
-  stockQuantity?: number;
   downloadLimit?: number;
   thumbnailUrl?: string;
   isActive?: boolean;
   categoryIds?: string[];
+  courseId?: string; // Course association for COURSE products
 }
 
 // Product form data for frontend forms
@@ -145,11 +158,11 @@ export interface ProductFormData {
   sku: string;
   productType: 'EBOOK' | 'COURSE' | 'VIDEO' | 'BUNDLE';
   status: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
-  stockQuantity: number;
   downloadLimit?: number;
   thumbnailUrl?: string;
   isActive: boolean;
   categoryIds: string[];
+  courseId?: string; // Course association for COURSE products
 }
 
 // Product filter options
