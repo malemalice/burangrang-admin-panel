@@ -9,13 +9,12 @@ export const courses = [
     thumbnailUrl: 'https://via.placeholder.com/400x300/4F46E5/FFFFFF?text=Web+Dev',
     difficulty: 'beginner',
     language: 'en',
-    price: 99.99,
-    salePrice: 79.99,
     status: 'published',
     isPublished: true,
     publishedAt: new Date('2024-01-15'),
     instructorEmail: 'admin@example.com',
     categoryNames: ['Programming', 'Web Development'],
+    productSku: 'REACT-001', // Associate with Complete React Development Course product
   },
   {
     title: 'Advanced React Development',
@@ -25,13 +24,12 @@ export const courses = [
     thumbnailUrl: 'https://via.placeholder.com/400x300/06B6D4/FFFFFF?text=React+Advanced',
     difficulty: 'advanced',
     language: 'en',
-    price: 149.99,
-    salePrice: 119.99,
     status: 'published',
     isPublished: true,
     publishedAt: new Date('2024-02-01'),
     instructorEmail: 'admin@example.com',
     categoryNames: ['Programming', 'Frontend Development'],
+    productSku: 'TS-001', // Associate with Advanced TypeScript Video Series product
   },
   {
     title: 'Database Design Fundamentals',
@@ -41,11 +39,11 @@ export const courses = [
     thumbnailUrl: 'https://via.placeholder.com/400x300/10B981/FFFFFF?text=Database',
     difficulty: 'intermediate',
     language: 'en',
-    price: 89.99,
     status: 'draft',
     isPublished: false,
     instructorEmail: 'admin@example.com',
     categoryNames: ['Database', 'Backend Development'],
+    // No product association - free course
   },
   {
     title: 'Mobile App Development with React Native',
@@ -55,11 +53,11 @@ export const courses = [
     thumbnailUrl: 'https://via.placeholder.com/400x300/8B5CF6/FFFFFF?text=Mobile+Dev',
     difficulty: 'intermediate',
     language: 'en',
-    price: 129.99,
     status: 'review',
     isPublished: false,
     instructorEmail: 'admin@example.com',
     categoryNames: ['Mobile Development', 'React Native'],
+    productSku: 'NODE-001', // Associate with Node.js Backend Development product
   },
   {
     title: 'DevOps and Cloud Deployment',
@@ -69,12 +67,12 @@ export const courses = [
     thumbnailUrl: 'https://via.placeholder.com/400x300/F59E0B/FFFFFF?text=DevOps',
     difficulty: 'advanced',
     language: 'en',
-    price: 179.99,
     status: 'published',
     isPublished: true,
     publishedAt: new Date('2024-03-01'),
     instructorEmail: 'admin@example.com',
     categoryNames: ['DevOps', 'Cloud Computing'],
+    productSku: 'FULLSTACK-001', // Associate with Full Stack Developer Bundle product
   },
 ];
 
@@ -98,6 +96,19 @@ export async function seedCourses(
         courseData.categoryNames.includes(cat.name)
       );
 
+      // Find associated product if productSku is provided
+      let productId: string | undefined;
+      if (courseData.productSku) {
+        const product = await prisma.product.findUnique({
+          where: { sku: courseData.productSku }
+        });
+        if (product) {
+          productId = product.id;
+        } else {
+          console.warn(`Product with SKU ${courseData.productSku} not found for course ${courseData.title}`);
+        }
+      }
+
       const course = await prisma.course.create({
         data: {
           title: courseData.title,
@@ -107,12 +118,11 @@ export async function seedCourses(
           thumbnailUrl: courseData.thumbnailUrl,
           difficulty: courseData.difficulty,
           language: courseData.language,
-          price: courseData.price,
-          salePrice: courseData.salePrice,
           status: courseData.status,
           isPublished: courseData.isPublished,
           publishedAt: courseData.publishedAt,
           instructorId: instructor.id,
+          productId: productId,
           categories: {
             connect: courseCategories.map(cat => ({ id: cat.id }))
           }
@@ -120,10 +130,11 @@ export async function seedCourses(
         include: {
           instructor: true,
           categories: true,
+          product: true,
         },
       });
 
-      console.log(`✓ Created course: ${course.title}`);
+      console.log(`✓ Created course: ${course.title}${productId ? ` (associated with product)` : ' (free course)'}`);
       return course;
     })
   );

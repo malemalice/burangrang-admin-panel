@@ -170,7 +170,7 @@ const Login = () => {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="example@adminjs.co"
+                  placeholder="admin@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}

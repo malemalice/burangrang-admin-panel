@@ -93,17 +93,15 @@ export class CourseDto {
   @IsDateString()
   publishedAt?: Date;
 
-  @ApiProperty({ description: 'Course price', type: 'number', format: 'decimal', required: false })
+  @ApiProperty({ description: 'Associated product for pricing', required: false })
   @Expose()
   @IsOptional()
-  @Type(() => Number)
-  price?: number;
-
-  @ApiProperty({ description: 'Course sale price', type: 'number', format: 'decimal', required: false })
-  @Expose()
-  @IsOptional()
-  @Type(() => Number)
-  salePrice?: number;
+  product?: {
+    id: string;
+    name: string;
+    price: number;
+    salePrice?: number;
+  };
 
   @ApiProperty({ description: 'Whether course is active' })
   @Expose()

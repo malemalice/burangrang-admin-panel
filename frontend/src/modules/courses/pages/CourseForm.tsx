@@ -26,6 +26,7 @@ import courseService from '../services/courseService';
 import { CourseFormData } from '../types/course.types';
 import { userService } from '@/modules/users';
 import { categoryService } from '@/modules/categories';
+import { productService } from '@/modules/products';
 import { ImageUpload } from '@/modules/uploads';
 
 const formSchema = z.object({
@@ -38,8 +39,7 @@ const formSchema = z.object({
   language: z.string().min(1, 'Language is required'),
   instructorId: z.string().min(1, 'Instructor is required'),
   status: z.enum(['draft', 'review', 'published', 'archived']),
-  price: z.number().min(0, 'Price must be positive').optional().nullable(),
-  salePrice: z.number().min(0, 'Sale price must be positive').optional().nullable(),
+    productId: z.string().optional(),
   categoryIds: z.array(z.string()),
   isPublished: z.boolean(),
 });
@@ -57,6 +57,7 @@ const CourseForm = ({ mode }: CourseFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [instructors, setInstructors] = useState<{ id: string; name: string }[]>([]);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [products, setProducts] = useState<{ id: string; name: string; price: number; salePrice?: number }[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<{ id: string; name: string }[]>([]);
 
   const form = useForm<FormValues>({
@@ -71,8 +72,7 @@ const CourseForm = ({ mode }: CourseFormProps) => {
       language: 'en',
       instructorId: '',
       status: 'draft',
-      price: null,
-      salePrice: null,
+      productId: 'none',
       categoryIds: [],
       isPublished: false,
     },
@@ -82,9 +82,10 @@ const CourseForm = ({ mode }: CourseFormProps) => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [instructorsResponse, categoriesResponse] = await Promise.all([
+        const [instructorsResponse, categoriesResponse, productsResponse] = await Promise.all([
           userService.getUsers({ page: 1, limit: 100 }),
-          categoryService.getCategories({ page: 1, limit: 100 })
+          categoryService.getCategories({ page: 1, limit: 100 }),
+          productService.getProducts({ page: 1, limit: 100 })
         ]);
 
         setInstructors(
@@ -97,6 +98,14 @@ const CourseForm = ({ mode }: CourseFormProps) => {
           categoriesResponse.data.map(category => ({
             id: category.id,
             name: category.name
+          }))
+        );
+        setProducts(
+          productsResponse.data.map(product => ({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            salePrice: product.salePrice
           }))
         );
       } catch (error) {
@@ -131,8 +140,7 @@ const CourseForm = ({ mode }: CourseFormProps) => {
         language: course.language,
         instructorId: course.instructorId,
         status: course.status,
-        price: course.price || null,
-        salePrice: course.salePrice || null,
+        productId: course.productId || 'none',
         categoryIds: selectedCats.map(cat => cat.id),
         isPublished: course.isPublished,
       });
@@ -180,8 +188,7 @@ const CourseForm = ({ mode }: CourseFormProps) => {
         language: data.language,
         instructorId: data.instructorId,
         status: data.status,
-        price: data.price || undefined,
-        salePrice: data.salePrice || undefined,
+        productId: data.productId && data.productId !== 'none' ? data.productId : undefined,
         categoryIds: data.categoryIds,
         isPublished: data.isPublished,
       };
@@ -514,42 +521,39 @@ const CourseForm = ({ mode }: CourseFormProps) => {
                 <CardContent className="space-y-4">
                   <FormField
                     control={form.control}
-                    name="price"
+                    name="productId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Price ($)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="0.00"
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
-                          />
-                        </FormControl>
+                        <FormLabel>Associated Product (for pricing)</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a product for pricing (optional)" />
+                            </SelectTrigger>
+                          </FormControl>
+              <SelectContent>
+                <SelectItem value="none">No product (Free course)</SelectItem>
+                {products.map((product) => (
+                  <SelectItem key={product.id} value={product.id}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>{product.name}</span>
+                      <span className="text-sm text-gray-500 ml-2">
+                        ${product.price.toFixed(2)}
+                        {product.salePrice && product.salePrice < product.price && (
+                          <span className="text-green-600 ml-1">
+                            (Sale: ${product.salePrice.toFixed(2)})
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+                        </Select>
                         <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="salePrice"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Sale Price ($)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="0.00"
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
-                          />
-                        </FormControl>
-                        <FormMessage />
+                        <p className="text-sm text-gray-500">
+                          Select a product to associate pricing with this course. Leave empty for free courses.
+                        </p>
                       </FormItem>
                     )}
                   />

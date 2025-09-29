@@ -56,19 +56,10 @@ export class CreateCourseDto {
   @IsOptional()
   status?: string = 'draft';
 
-  @ApiProperty({ description: 'Course price', type: 'number', format: 'decimal', required: false })
+  @ApiProperty({ description: 'Product ID for pricing (required for paid courses)', required: false })
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  @Type(() => Number)
-  price?: number;
-
-  @ApiProperty({ description: 'Course sale price', type: 'number', format: 'decimal', required: false })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  @Type(() => Number)
-  salePrice?: number;
+  @IsString()
+  productId?: string;
 
   @ApiProperty({ description: 'Category IDs to assign to the course', type: [String], required: false })
   @IsOptional()
