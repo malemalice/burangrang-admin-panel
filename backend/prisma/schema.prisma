@@ -34,6 +34,8 @@ model User {
   instructorCourses Course[] @relation("CourseInstructor")
   uploadedFiles FileUpload[]
   fileAccessLogs FileAccessLog[]
+  createdProducts Product[] @relation("ProductCreator")
+  productDownloads ProductDownload[] @relation("ProductDownloader")
 
   @@map("t_users")
 }
@@ -276,6 +278,7 @@ model Category {
   
   // Relations
   courses     Course[]   @relation("CourseToCategory")
+  products    ProductCategory[]
 
   @@map("m_categories")
 }
@@ -283,6 +286,7 @@ model Category {
 // Course Management (LMS) Models
 model Course {
   id              String     @id @default(uuid())
+  productId       String?    @unique // Optional foreign key to Product
   title           String
   slug            String     @unique
   description     String?    @db.Text
@@ -309,6 +313,7 @@ model Course {
   instructor      User       @relation("CourseInstructor", fields: [instructorId], references: [id])
   chapters        Chapter[]
   categories      Category[] @relation("CourseToCategory")
+  product         Product?   @relation("CourseProduct", fields: [productId], references: [id], onDelete: SetNull)
 
   @@map("t_courses")
 }
@@ -412,4 +417,88 @@ model FileAccessLog {
   user    User?      @relation(fields: [accessedBy], references: [id])
 
   @@map("t_file_access_logs")
+}
+
+// Product - Transactional Data (Ecommerce Core)
+model Product {
+  id               String   @id @default(uuid())
+  name             String
+  slug             String   @unique
+  description      String?
+  shortDescription String?
+  price            Decimal  @db.Decimal(10, 2)
+  salePrice        Decimal? @db.Decimal(10, 2)
+  sku              String   @unique
+  productType      String   // EBOOK, COURSE, VIDEO, BUNDLE
+  status           String   @default("DRAFT") // DRAFT, REVIEW, APPROVED, PUBLISHED, ARCHIVED
+  stockQuantity    Int      @default(0)
+  downloadLimit    Int?     // Null = unlimited downloads
+  viewCount        Int      @default(0)
+  rating           Decimal  @default(0) @db.Decimal(3, 2) // 0.00 to 5.00
+  reviewCount      Int      @default(0)
+  thumbnailUrl     String?
+  createdBy        String
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  createdByUser User         @relation("ProductCreator", fields: [createdBy], references: [id])
+  categories    ProductCategory[]
+  files         ProductFile[]
+  course        Course?      @relation("CourseProduct")
+  downloads     ProductDownload[] @relation("ProductDownloads")
+
+  @@map("t_products")
+}
+
+// Product Category Junction Table (Many-to-Many)
+model ProductCategory {
+  productId  String
+  categoryId String
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+  @@map("_ProductToCategory")
+}
+
+// Product File - Transactional Data (Digital Assets)
+model ProductFile {
+  id          String   @id @default(uuid())
+  productId   String
+  fileName    String
+  originalName String
+  filePath    String
+  fileType    String   // PDF, VIDEO, IMAGE, DOCUMENT
+  fileSize    BigInt   // File size in bytes
+  mimeType    String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  product   Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  downloads ProductDownload[]
+
+  @@map("t_product_files")
+}
+
+// Product Download - Transactional Data (Download Tracking)
+model ProductDownload {
+  id         String   @id @default(uuid())
+  userId     String
+  productId  String
+  fileId     String?
+  ipAddress  String
+  userAgent  String
+  downloadedAt DateTime @default(now())
+
+  // Relations
+  user    User         @relation("ProductDownloader", fields: [userId], references: [id])
+  product Product      @relation("ProductDownloads", fields: [productId], references: [id])
+  file    ProductFile? @relation(fields: [fileId], references: [id])
+
+  @@map("t_product_downloads")
 }

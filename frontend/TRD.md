@@ -444,11 +444,11 @@ const filterFields: FilterField[] = [
 ### CRUD Operation Patterns
 
 #### 1. Hook-Based CRUD Operations
-Each module MUST provide custom hooks for data operations:
+Each module MUST provide custom hooks for data operations with proper memoization to avoid infinite loading issues:
 
 ```typescript
 // modules/[module-name]/hooks/use[ModuleName].ts
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import [moduleName]Service from '../services/[moduleName]Service';
 import { [Entity], PaginatedResponse, [Entity]SearchParams, Create[Entity]DTO, Update[Entity]DTO } from '../types/[moduleName].types';
@@ -460,7 +460,8 @@ export const use[Entities] = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetch[Entities] = async (params: [Entity]SearchParams) => {
+  // ✅ CRITICAL: Memoize all functions that are used in useEffect dependencies
+  const fetch[Entities] = useCallback(async (params: [Entity]SearchParams) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -475,9 +476,10 @@ export const use[Entities] = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []); // Empty dependency array - function is stable
 
-  const create[Entity] = async ([entity]Data: Create[Entity]DTO) => {
+  // ✅ CRITICAL: Memoize CRUD operations to prevent unnecessary re-renders
+  const create[Entity] = useCallback(async ([entity]Data: Create[Entity]DTO) => {
     try {
       const new[Entity] = await [moduleName]Service.create[Entity]([entity]Data);
       set[Entities](prev => [new[Entity], ...prev]);
@@ -488,9 +490,9 @@ export const use[Entities] = () => {
       toast.error('Failed to create [entity]');
       throw err;
     }
-  };
+  }, []);
 
-  const update[Entity] = async (id: string, [entity]Data: Update[Entity]DTO) => {
+  const update[Entity] = useCallback(async (id: string, [entity]Data: Update[Entity]DTO) => {
     try {
       const updated[Entity] = await [moduleName]Service.update[Entity](id, [entity]Data);
       set[Entities](prev => prev.map(item => item.id === id ? updated[Entity] : item));
@@ -500,9 +502,9 @@ export const use[Entities] = () => {
       toast.error('Failed to update [entity]');
       throw err;
     }
-  };
+  }, []);
 
-  const delete[Entity] = async (id: string) => {
+  const delete[Entity] = useCallback(async (id: string) => {
     try {
       await [moduleName]Service.delete[Entity](id);
       set[Entities](prev => prev.filter(item => item.id !== id));
@@ -512,7 +514,7 @@ export const use[Entities] = () => {
       toast.error('Failed to delete [entity]');
       throw err;
     }
-  };
+  }, []);
 
   return {
     [entities],
@@ -532,7 +534,8 @@ export const use[Entity] = (id: string | null = null) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetch[Entity] = async (entityId: string) => {
+  // ✅ CRITICAL: Memoize fetch function to prevent infinite loops
+  const fetch[Entity] = useCallback(async (entityId: string) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -545,13 +548,14 @@ export const use[Entity] = (id: string | null = null) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
+  // ✅ CRITICAL: Include memoized function in dependency array
   useEffect(() => {
     if (id) {
       fetch[Entity](id);
     }
-  }, [id]);
+  }, [id, fetch[Entity]]);
 
   return {
     [entity],
@@ -563,7 +567,72 @@ export const use[Entity] = (id: string | null = null) => {
 };
 ```
 
-#### 2. Form Component Patterns
+#### 2. Page Component Patterns
+Consistent page component patterns to avoid infinite loading issues:
+
+```typescript
+// modules/[module-name]/pages/[ModuleName]sPage.tsx
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { use[Entities] } from '../hooks/use[ModuleName]';
+
+const [ModuleName]sPage = () => {
+  const navigate = useNavigate();
+  const { 
+    [entities], 
+    total[Entities], 
+    currentPage, 
+    isLoading, 
+    error, 
+    fetch[Entities], 
+    delete[Entity] 
+  } = use[Entities]();
+
+  // ✅ CRITICAL: Use separate pagination state for UI
+  const [pageIndex, setPageIndex] = useState(0);
+  const [limit, setLimit] = useState(10);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+
+  // ✅ CRITICAL: Memoize data loading function
+  const load[Entities] = useCallback(async () => {
+    const params: [Entity]SearchParams = {
+      page: pageIndex + 1,
+      limit,
+      search: searchTerm || undefined,
+      // Apply filters...
+    };
+
+    await fetch[Entities](params);
+  }, [pageIndex, limit, searchTerm, activeFilters, fetch[Entities]]);
+
+  // ✅ CRITICAL: Single useEffect for data loading
+  useEffect(() => {
+    load[Entities]();
+  }, [load[Entities]]);
+
+  // ✅ CRITICAL: Separate useEffect for initial data (filters, options)
+  useEffect(() => {
+    const loadInitialData = async () => {
+      // Load filter options, stats, etc.
+    };
+    loadInitialData();
+  }, []); // Empty dependency array - run once on mount
+
+  return (
+    // Component JSX...
+  );
+};
+```
+
+**Key Principles for Page Components:**
+
+1. **Memoized Data Loading**: Use `useCallback` for data loading functions
+2. **Separate useEffect**: One for data loading, one for initial setup
+3. **Stable Dependencies**: All functions in useEffect dependencies must be memoized
+4. **UI State Separation**: Keep UI pagination state separate from hook state
+
+#### 3. Form Component Patterns
 Consistent form handling across all modules:
 
 ```typescript
@@ -774,6 +843,123 @@ export interface PaginationParams {
 }
 ```
 
+### Infinite Loading Prevention Patterns
+
+#### 1. Memoized Hook Functions
+**CRITICAL**: All functions exposed from hooks MUST be memoized to prevent infinite loops:
+
+```typescript
+// ✅ CORRECT - Memoized functions
+const fetchProducts = useCallback(async (params: ProductSearchParams) => {
+  // ... implementation
+}, []); // Empty dependency array for stable reference
+
+const createProduct = useCallback(async (data: CreateProductDTO) => {
+  // ... implementation  
+}, []);
+
+// ❌ WRONG - Non-memoized functions cause infinite loops
+const fetchProducts = async (params: ProductSearchParams) => {
+  // ... implementation
+};
+```
+
+#### 2. Fixed useEffect Dependencies
+**CRITICAL**: Always include memoized functions in useEffect dependency arrays:
+
+```typescript
+// ✅ CORRECT - Include memoized function in dependencies
+useEffect(() => {
+  if (id) {
+    fetchProduct(id);
+  }
+}, [id, fetchProduct]); // fetchProduct is memoized with useCallback
+
+// ❌ WRONG - Missing function dependency causes stale closure
+useEffect(() => {
+  if (id) {
+    fetchProduct(id);
+  }
+}, [id]); // fetchProduct not in dependencies = stale closure
+```
+
+#### 3. Simplified Page Logic
+**CRITICAL**: Avoid complex callback wrappers in page components:
+
+```typescript
+// ✅ CORRECT - Direct useEffect with memoized dependencies
+useEffect(() => {
+  const loadData = async () => {
+    await fetchProducts({
+      page: pageIndex + 1,
+      limit,
+      search: searchTerm,
+      filters: activeFilters,
+    });
+  };
+  loadData();
+}, [pageIndex, limit, searchTerm, activeFilters, fetchProducts]);
+
+// ❌ WRONG - Complex callback wrapper causes dependency issues
+const loadData = useCallback(async () => {
+  // ... logic
+}, [pageIndex, limit, searchTerm, activeFilters, fetchProducts]);
+
+useEffect(() => {
+  loadData();
+}, [loadData]); // Circular dependency risk
+```
+
+#### 4. Hook Implementation Checklist
+**MANDATORY** for all custom hooks:
+
+- [ ] Import `useCallback` from React
+- [ ] Wrap ALL exported functions with `useCallback`
+- [ ] Use empty dependency arrays `[]` for stable functions
+- [ ] Include memoized functions in `useEffect` dependencies
+- [ ] Separate data loading from initial setup in page components
+- [ ] Use separate `useEffect` for initial data (filters, options)
+
+#### 5. Common Anti-Patterns to Avoid
+
+```typescript
+// ❌ ANTI-PATTERN: Non-memoized function in hook
+const fetchData = async (params) => {
+  // ... implementation
+};
+
+// ❌ ANTI-PATTERN: Missing function in useEffect dependencies
+useEffect(() => {
+  fetchData(params);
+}, [params]); // Missing fetchData
+
+// ❌ ANTI-PATTERN: Complex callback wrapper in page
+const loadData = useCallback(async () => {
+  // ... complex logic
+}, [many, dependencies]);
+
+useEffect(() => {
+  loadData();
+}, [loadData]); // Circular dependency risk
+
+// ❌ ANTI-PATTERN: Mixed data loading and initialization
+useEffect(() => {
+  // Loading data
+  fetchProducts(params);
+  // Loading filter options  
+  fetchCategories();
+  // Loading stats
+  fetchStats();
+}, [params]); // Too many responsibilities
+```
+
+#### 6. Reference Implementations
+Follow these established patterns:
+
+- **✅ Courses Module**: `frontend/src/modules/courses/hooks/useCourses.ts`
+- **✅ Product Types Module**: `frontend/src/modules/product-types/hooks/useProductTypes.ts`
+- **✅ Courses Page**: `frontend/src/modules/courses/pages/CoursesPage.tsx`
+
 ### Error Handling Patterns
 
 #### 1. Consistent Error Messages
@@ -857,6 +1043,13 @@ if (isLoading) {
 - ❌ DON'T mix different form libraries
 - ❌ DON'T handle form state manually when using react-hook-form
 
+### 8. Infinite Loading Anti-Patterns
+- ❌ DON'T create non-memoized functions in hooks
+- ❌ DON'T miss function dependencies in useEffect arrays
+- ❌ DON'T create complex callback wrappers in page components
+- ❌ DON'T mix data loading with initialization in single useEffect
+- ❌ DON'T forget to import useCallback from React
+
 ---
 
 ## ✅ Implementation Checklist
@@ -882,9 +1075,12 @@ if (isLoading) {
 
 ### CRUD Operations
 - [ ] **Custom hooks**: All modules provide `use[Entities]` and `use[Entity]` hooks
+- [ ] **Memoized functions**: ALL hook functions wrapped with `useCallback`
+- [ ] **Stable dependencies**: Empty dependency arrays `[]` for stable functions
 - [ ] **Loading states**: Proper loading state management
 - [ ] **Error states**: Comprehensive error handling with user feedback
 - [ ] **Success feedback**: Toast notifications for all operations
+- [ ] **Infinite loop prevention**: No circular dependencies in useEffect
 
 ### Form Handling
 - [ ] **Zod validation**: All forms use Zod schemas for validation
@@ -933,29 +1129,36 @@ delete[Entity]: async (id: string) => { /* ... */ }
 
 #### 3. Hook Template
 ```typescript
-// Collection hook
+// Collection hook - CRITICAL: All functions must be memoized
 export const use[Entities] = () => {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchData = async (params) => { /* ... */ };
-  const createItem = async (data) => { /* ... */ };
-  const updateItem = async (id, data) => { /* ... */ };
-  const deleteItem = async (id) => { /* ... */ };
+  // ✅ CRITICAL: Memoize all functions to prevent infinite loops
+  const fetchData = useCallback(async (params) => { /* ... */ }, []);
+  const createItem = useCallback(async (data) => { /* ... */ }, []);
+  const updateItem = useCallback(async (id, data) => { /* ... */ }, []);
+  const deleteItem = useCallback(async (id) => { /* ... */ }, []);
 
   return { data, isLoading, error, fetchData, createItem, updateItem, deleteItem };
 };
 
-// Single item hook
+// Single item hook - CRITICAL: Memoize fetch function
 export const use[Entity] = (id) => {
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => { if (id) fetchData(id); }, [id]);
+  // ✅ CRITICAL: Memoize fetch function
+  const fetchData = useCallback(async (entityId) => { /* ... */ }, []);
 
-  return { data, isLoading, error, setData };
+  // ✅ CRITICAL: Include memoized function in dependencies
+  useEffect(() => { 
+    if (id) fetchData(id); 
+  }, [id, fetchData]);
+
+  return { data, isLoading, error, setData, fetchData };
 };
 ```
 

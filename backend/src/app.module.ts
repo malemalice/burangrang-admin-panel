@@ -21,6 +21,7 @@ import { ProductTypesModule } from './modules/product-types/product-types.module
 import { CoursesModule } from './modules/courses/courses.module';
 import { ChaptersModule } from './modules/chapters/chapters.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
+import { ProductsModule } from './modules/products/products.module';
 import { SharedModule } from './shared/shared.module';
 
 @Module({
@@ -47,6 +48,7 @@ import { SharedModule } from './shared/shared.module';
     CoursesModule,
     ChaptersModule,
     UploadsModule,
+    ProductsModule,
   ],
   providers: [
     Reflector,
