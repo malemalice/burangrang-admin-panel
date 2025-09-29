@@ -131,8 +131,6 @@ const ImageUpload = ({
 
   return (
     <div className={cn('space-y-2', className)}>
-      <Label>Course Thumbnail</Label>
-      
       {value ? (
         <ImagePreview
           src={value}

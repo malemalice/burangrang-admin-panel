@@ -24,9 +24,11 @@ import {
   SelectValue,
 } from '@/core/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
+import { Badge } from '@/core/components/ui/badge';
+import { X } from 'lucide-react';
 import productService from '../services/productService';
 import { categoryService } from '@/modules/categories';
+import { ImageUpload } from '@/modules/uploads';
 import { 
   Product, 
   CreateProductDTO, 
@@ -63,14 +65,9 @@ interface ProductFormProps {
 const ProductForm = ({ product, mode }: ProductFormProps) => {
   const navigate = useNavigate();
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<{ id: string; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dataReady, setDataReady] = useState(false);
-
-  // Convert categories to SearchableSelectOption format
-  const categoryOptions: SearchableSelectOption[] = categories.map(category => ({
-    value: category.id,
-    label: category.name
-  }));
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -80,12 +77,12 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
       description: '',
       shortDescription: '',
       price: 0,
-      salePrice: undefined,
+      salePrice: 0, // ✅ Fixed: Use 0 instead of undefined for numeric fields
       sku: '',
       productType: 'EBOOK',
       status: 'DRAFT',
       stockQuantity: 0,
-      downloadLimit: undefined,
+      downloadLimit: 0, // ✅ Fixed: Use 0 instead of undefined for numeric fields
       thumbnailUrl: '',
       isActive: true,
       categoryIds: [],
@@ -115,18 +112,26 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
 
   useEffect(() => {
     if (product && dataReady) {
+      // Set selected categories based on product data
+      // Since Product has categoryIds and categoryNames, we need to reconstruct the category objects
+      const selectedCats = (product.categoryIds || []).map((categoryId, index) => ({
+        id: categoryId,
+        name: product.categoryNames?.[index] || 'Unknown Category'
+      }));
+      setSelectedCategories(selectedCats);
+      
       form.reset({
         name: product.name,
         slug: product.slug,
         description: product.description || '',
         shortDescription: product.shortDescription || '',
         price: product.price,
-        salePrice: product.salePrice || undefined,
+        salePrice: product.salePrice || 0, // ✅ Fixed: Use 0 instead of undefined
         sku: product.sku,
         productType: product.productType,
         status: product.status,
         stockQuantity: product.stockQuantity,
-        downloadLimit: product.downloadLimit || undefined,
+        downloadLimit: product.downloadLimit || 0, // ✅ Fixed: Use 0 instead of undefined
         thumbnailUrl: product.thumbnailUrl || '',
         isActive: product.isActive,
         categoryIds: product.categoryIds || [],
@@ -140,6 +145,22 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
     form.setValue('slug', generatedSlug);
   };
 
+  // Handle category selection toggle
+  const handleCategoryToggle = (categoryId: string) => {
+    const category = categories.find(cat => cat.id === categoryId);
+    if (!category) return;
+
+    const isSelected = selectedCategories.some(cat => cat.id === categoryId);
+    
+    if (isSelected) {
+      setSelectedCategories(prev => prev.filter(cat => cat.id !== categoryId));
+      form.setValue('categoryIds', form.getValues('categoryIds').filter(id => id !== categoryId));
+    } else {
+      setSelectedCategories(prev => [...prev, category]);
+      form.setValue('categoryIds', [...form.getValues('categoryIds'), categoryId]);
+    }
+  };
+
   const onSubmit = async (data: FormValues) => {
     try {
       setIsLoading(true);
@@ -151,12 +172,12 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
         description: data.description || undefined,
         shortDescription: data.shortDescription || undefined,
         price: data.price,
-        salePrice: data.salePrice || undefined,
+        salePrice: data.salePrice && data.salePrice > 0 ? data.salePrice : undefined, // ✅ Fixed: Convert 0 back to undefined
         sku: data.sku,
         productType: data.productType,
         status: data.status,
         stockQuantity: data.stockQuantity,
-        downloadLimit: data.downloadLimit || undefined,
+        downloadLimit: data.downloadLimit && data.downloadLimit > 0 ? data.downloadLimit : undefined, // ✅ Fixed: Convert 0 back to undefined
         thumbnailUrl: data.thumbnailUrl || undefined,
         isActive: data.isActive,
         categoryIds: data.categoryIds,
@@ -325,17 +346,41 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                 <FormField
                   control={form.control}
                   name="categoryIds"
-                  render={({ field }) => (
+                  render={() => (
                     <FormItem>
                       <FormLabel>Categories</FormLabel>
                       <FormControl>
-                        <SearchableSelect
-                          options={categoryOptions}
-                          value={field.value}
-                          onChange={field.onChange}
-                          placeholder="Select categories"
-                          multiple
-                        />
+                        <div className="space-y-2">
+                          <p className="text-sm text-gray-600">Select categories for this product</p>
+                          <div className="flex flex-wrap gap-2">
+                            {categories.map(category => (
+                              <Badge
+                                key={category.id}
+                                variant={selectedCategories.some(cat => cat.id === category.id) ? "default" : "outline"}
+                                className="cursor-pointer"
+                                onClick={() => handleCategoryToggle(category.id)}
+                              >
+                                {category.name}
+                              </Badge>
+                            ))}
+                          </div>
+                          {selectedCategories.length > 0 && (
+                            <div className="mt-4">
+                              <p className="text-sm font-medium mb-2">Selected categories:</p>
+                              <div className="flex flex-wrap gap-2">
+                                {selectedCategories.map(category => (
+                                  <Badge key={category.id} className="flex items-center gap-1">
+                                    {category.name}
+                                    <X 
+                                      className="h-3 w-3 cursor-pointer" 
+                                      onClick={() => handleCategoryToggle(category.id)}
+                                    />
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -347,9 +392,18 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                   name="thumbnailUrl"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Thumbnail URL</FormLabel>
+                      <FormLabel>Product Thumbnail</FormLabel>
                       <FormControl>
-                        <Input placeholder="https://example.com/image.jpg" {...field} />
+                        <ImageUpload
+                          value={field.value || ''}
+                          onChange={(value) => field.onChange(value || '')}
+                          categoryName="system-assets"
+                          isPublic={true}
+                          maxSize={10 * 1024 * 1024} // 10MB for system assets (product thumbnails)
+                          allowedTypes={['image/jpeg', 'image/png', 'image/gif', 'image/webp']}
+                          placeholder="Upload product thumbnail image"
+                          disabled={isLoading}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -396,7 +450,8 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                           min="0"
                           placeholder="0.00"
                           {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value) || undefined)}
+                          value={field.value || ''} // ✅ Fixed: Handle undefined values properly
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                         />
                       </FormControl>
                       <FormMessage />
@@ -442,7 +497,8 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                           min="1"
                           placeholder="Unlimited"
                           {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value) || undefined)}
+                          value={field.value || ''} // ✅ Fixed: Handle undefined values properly
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                         />
                       </FormControl>
                       <FormMessage />
