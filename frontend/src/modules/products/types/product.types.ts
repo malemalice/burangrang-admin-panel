@@ -25,7 +25,7 @@ export interface ProductDTO {
   rating: number;
   reviewCount: number;
   thumbnailUrl?: string;
-  fileUrl?: string; // URL to uploaded file (PDF, etc.)
+  fileUrl?: string; // URL to uploaded file (PDF for EBOOK, video/audio link for VIDEO/AUDIO)
   createdBy: string;
   isActive: boolean;
   createdAt: string;
@@ -87,7 +87,7 @@ export interface Product {
   rating: number;
   reviewCount: number;
   thumbnailUrl?: string;
-  fileUrl?: string; // URL to uploaded file (PDF, etc.)
+  fileUrl?: string; // URL to uploaded file (PDF for EBOOK, video/audio link for VIDEO/AUDIO)
   createdBy: string;
   isActive: boolean;
   createdAt: string;
@@ -138,7 +138,7 @@ export interface CreateProductDTO {
   stockQuantity: number;
   downloadLimit?: number;
   thumbnailUrl?: string;
-  fileUrl?: string; // URL to uploaded file (PDF, etc.)
+  fileUrl?: string; // URL to uploaded file (PDF for EBOOK, video/audio link for VIDEO/AUDIO)
   isActive?: boolean;
   categoryIds?: string[];
   courseId?: string; // Course association for COURSE products
@@ -158,7 +158,7 @@ export interface UpdateProductDTO {
   stockQuantity?: number;
   downloadLimit?: number;
   thumbnailUrl?: string;
-  fileUrl?: string; // URL to uploaded file (PDF, etc.)
+  fileUrl?: string; // URL to uploaded file (PDF for EBOOK, video/audio link for VIDEO/AUDIO)
   isActive?: boolean;
   categoryIds?: string[];
   courseId?: string; // Course association for COURSE products
@@ -178,7 +178,7 @@ export interface ProductFormData {
   stockQuantity: number;
   downloadLimit?: number;
   thumbnailUrl?: string;
-  fileUrl?: string; // URL to uploaded file (PDF, etc.)
+  fileUrl?: string; // URL to uploaded file (PDF for EBOOK, video/audio link for VIDEO/AUDIO)
   isActive: boolean;
   categoryIds: string[];
   courseId?: string; // Course association for COURSE products

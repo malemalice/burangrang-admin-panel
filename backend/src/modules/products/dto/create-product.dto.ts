@@ -131,7 +131,7 @@ export class CreateProductDto {
   categoryIds?: string[];
 
   @ApiProperty({
-    description: 'The file URL for digital products (PDFs, etc.)',
+    description: 'The file URL for digital products. For EBOOK: PDF file URL, for VIDEO/AUDIO: video/audio link URL',
     example: 'http://localhost:3000/uploads/public/550e8400-e29b-41d4-a716-446655440003',
     required: false,
   })

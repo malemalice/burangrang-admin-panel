@@ -56,7 +56,7 @@ const formSchema = z.object({
   isActive: z.boolean().default(true),
   categoryIds: z.array(z.string()).default([]),
   courseId: z.string().optional(), // Course selection for COURSE product type
-  fileUrl: z.string().url('Invalid file URL').optional().or(z.literal('')), // PDF file URL for EBOOK product type
+  fileUrl: z.string().url('Please enter a valid URL').optional().or(z.literal('')), // File URL for EBOOK (PDF), VIDEO/AUDIO (link URL) product types
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -348,8 +348,8 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                         if (value !== PRODUCT_TYPE_NAMES.COURSE) {
                           form.setValue('courseId', 'none');
                         }
-                        // Clear file selection when product type changes
-                        if (value !== PRODUCT_TYPE_NAMES.E_BOOK) {
+                        // Clear file selection when product type changes to types that don't use fileUrl
+                        if (value === PRODUCT_TYPE_NAMES.COURSE || value === PRODUCT_TYPE_NAMES.BUNDLE) {
                           form.setValue('fileUrl', '');
                         }
                       }} value={field.value}>
@@ -630,6 +630,62 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                       </FormControl>
                       <p className="text-sm text-gray-600">
                         Upload a PDF file for this ebook. Maximum file size: 50MB.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+
+            {/* URL Input for VIDEO products */}
+            {form.watch('productType') === PRODUCT_TYPE_NAMES.VIDEO && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Video Content</h3>
+                <FormField
+                  control={form.control}
+                  name="fileUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Video URL</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="url"
+                          placeholder="https://example.com/video.mp4 or YouTube/Vimeo embed URL"
+                          {...field}
+                          disabled={isLoading}
+                        />
+                      </FormControl>
+                      <p className="text-sm text-gray-600">
+                        Enter the direct URL to the video file or a YouTube/Vimeo embed URL. This will be used as the main video content for this product.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+
+            {/* URL Input for AUDIO products */}
+            {form.watch('productType') === PRODUCT_TYPE_NAMES.AUDIO && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Audio Content</h3>
+                <FormField
+                  control={form.control}
+                  name="fileUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Audio URL</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="url"
+                          placeholder="https://example.com/audio.mp3 or streaming URL"
+                          {...field}
+                          disabled={isLoading}
+                        />
+                      </FormControl>
+                      <p className="text-sm text-gray-600">
+                        Enter the direct URL to the audio file or streaming URL. This will be used as the main audio content for this product.
                       </p>
                       <FormMessage />
                     </FormItem>
