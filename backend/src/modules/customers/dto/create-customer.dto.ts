@@ -84,7 +84,7 @@ export class CreateCustomerDto {
   @ApiProperty({ description: 'Date of birth', required: false })
   @IsOptional()
   @IsDateString()
-  dateOfBirth?: Date;
+  dateOfBirth?: string;
 
   @ApiProperty({ description: 'Gender', required: false })
   @IsOptional()

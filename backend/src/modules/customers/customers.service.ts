@@ -122,15 +122,15 @@ export class CustomersService {
       // Create customer profile
       const customer = await this.prisma.customer.create({
         data: {
-          userId,
-          phone: createCustomerDto.phone,
-          address: createCustomerDto.address,
-          city: createCustomerDto.city,
-          state: createCustomerDto.state,
-          country: createCustomerDto.country,
-          postalCode: createCustomerDto.postalCode,
-          dateOfBirth: createCustomerDto.dateOfBirth,
-          gender: createCustomerDto.gender,
+          userId: userId!, // userId is guaranteed to be defined at this point
+          phone: createCustomerDto.phone || null,
+          address: createCustomerDto.address || null,
+          city: createCustomerDto.city || null,
+          state: createCustomerDto.state || null,
+          country: createCustomerDto.country || null,
+          postalCode: createCustomerDto.postalCode || null,
+          dateOfBirth: createCustomerDto.dateOfBirth ? new Date(createCustomerDto.dateOfBirth) : null,
+          gender: createCustomerDto.gender || null,
           isActive: createCustomerDto.isActive ?? true,
         },
         include: {
@@ -148,9 +148,9 @@ export class CustomersService {
       // Log customer creation activity
       await this.activityLogger.logUserActivity('create', {
         id: customer.id,
-        firstName: customer.user.firstName,
-        lastName: customer.user.lastName,
-        email: customer.user.email,
+        firstName: customer.user?.firstName || user.firstName,
+        lastName: customer.user?.lastName || user.lastName,
+        email: customer.user?.email || user.email,
       }, createdBy);
 
       return this.customerMapper(customer);
