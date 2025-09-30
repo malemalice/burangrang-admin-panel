@@ -19,6 +19,8 @@ import { OrderFormData, ORDER_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS } from '../
 import ordersService from '../services/ordersService';
 import customerService from '@/modules/customers/services/customerService';
 import { Customer, CreateCustomerDTO } from '@/modules/customers/types/customer.types';
+import productService from '@/modules/products/services/productService';
+import { Product } from '@/modules/products/types/product.types';
 
 const formSchema = z.object({
   customerId: z.string().min(1, 'Customer is required'),
@@ -29,12 +31,9 @@ const formSchema = z.object({
   totalAmount: z.number().min(0, 'Total amount must be positive'),
   currency: z.string().min(1, 'Currency is required'),
   paymentStatus: z.enum(['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED']),
-  shippingAddress: z.string().optional(),
-  billingAddress: z.string().optional(),
   notes: z.string().optional(),
   items: z.array(z.object({
-    productId: z.string().optional(),
-    courseId: z.string().optional(),
+    productId: z.string().min(1, 'Product is required'),
     quantity: z.number().min(1, 'Quantity must be at least 1'),
     unitPrice: z.number().min(0, 'Unit price must be positive'),
     totalPrice: z.number().min(0, 'Total price must be positive'),
@@ -52,8 +51,7 @@ const OrderForm = ({ mode }: OrderFormProps) => {
   const { id } = useParams<{ id: string }>();
   const [isLoading, setIsLoading] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
-  const [courses, setCourses] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
 
@@ -70,10 +68,8 @@ const OrderForm = ({ mode }: OrderFormProps) => {
       totalAmount: 0,
       currency: 'USD',
       paymentStatus: 'PENDING',
-      shippingAddress: '',
-      billingAddress: '',
       notes: '',
-      items: [{ productId: '', courseId: '', quantity: 1, unitPrice: 0, totalPrice: 0 }],
+      items: [{ productId: '', quantity: 1, unitPrice: 0, totalPrice: 0 }],
     },
   });
 
@@ -93,12 +89,9 @@ const OrderForm = ({ mode }: OrderFormProps) => {
         totalAmount: order.totalAmount,
         currency: order.currency,
         paymentStatus: order.paymentStatus,
-        shippingAddress: order.shippingAddress || '',
-        billingAddress: order.billingAddress || '',
         notes: order.notes || '',
         items: order.items?.map(item => ({
           productId: item.productId || '',
-          courseId: item.courseId || '',
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           totalPrice: item.totalPrice,
@@ -123,14 +116,32 @@ const OrderForm = ({ mode }: OrderFormProps) => {
     }
   }, []);
 
+  // Load products with memoization to prevent infinite loops
+  const loadProducts = useCallback(async () => {
+    try {
+      const response = await productService.getProducts({
+        page: 1,
+        limit: 100, // Get all products for dropdown
+        sortBy: 'name',
+        sortOrder: 'asc',
+        filters: { isActive: 'active' } // Only active products
+      });
+      setProducts(response.data);
+    } catch (error) {
+      console.error('Failed to load products:', error);
+      toast.error('Failed to load products');
+    }
+  }, []);
+
   useEffect(() => {
     const loadFormData = async () => {
       try {
         setIsLoading(true);
-        // Load customers, products, and courses for dropdowns
-        await loadCustomers();
-        setProducts([]);
-        setCourses([]);
+        // Load customers and products for dropdowns
+        await Promise.all([
+          loadCustomers(),
+          loadProducts()
+        ]);
       } catch (error) {
         console.error('Failed to load form data:', error);
         toast.error('Failed to load form data');
@@ -140,7 +151,7 @@ const OrderForm = ({ mode }: OrderFormProps) => {
     };
 
     loadFormData();
-  }, [loadCustomers]);
+  }, [loadCustomers, loadProducts]);
 
   const calculateTotals = (items: FormValues['items']) => {
     const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -164,8 +175,18 @@ const OrderForm = ({ mode }: OrderFormProps) => {
     }
   };
 
+  const handleProductSelect = (index: number, productId: string) => {
+    const selectedProduct = products.find(p => p.id === productId);
+    if (selectedProduct) {
+      const finalPrice = selectedProduct.finalPrice || selectedProduct.price;
+      form.setValue(`items.${index}.unitPrice`, finalPrice);
+      form.setValue(`items.${index}.productId`, productId);
+      updateItemTotal(index);
+    }
+  };
+
   const addItem = () => {
-    append({ productId: '', courseId: '', quantity: 1, unitPrice: 0, totalPrice: 0 });
+    append({ productId: '', quantity: 1, unitPrice: 0, totalPrice: 0 });
   };
 
   const removeItem = (index: number) => {
@@ -206,10 +227,35 @@ const OrderForm = ({ mode }: OrderFormProps) => {
       setIsLoading(true);
       
       if (mode === 'create') {
-        await ordersService.createOrder(data);
+        await ordersService.createOrder({
+          customerId: data.customerId,
+          status: data.status,
+          subtotal: data.subtotal,
+          taxAmount: data.taxAmount,
+          discountAmount: data.discountAmount,
+          totalAmount: data.totalAmount,
+          currency: data.currency,
+          paymentStatus: data.paymentStatus,
+          notes: data.notes,
+          items: data.items.map(item => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice,
+          }))
+        });
         toast.success('Order created successfully');
       } else if (id) {
-        await ordersService.updateOrder(id, data);
+        await ordersService.updateOrder(id, {
+          status: data.status,
+          subtotal: data.subtotal,
+          taxAmount: data.taxAmount,
+          discountAmount: data.discountAmount,
+          totalAmount: data.totalAmount,
+          currency: data.currency,
+          paymentStatus: data.paymentStatus,
+          notes: data.notes,
+        });
         toast.success('Order updated successfully');
       }
       
@@ -360,58 +406,29 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                 {fields.map((field, index) => (
                   <Card key={field.id}>
                     <CardContent className="pt-4">
-                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <FormField
                           control={form.control}
                           name={`items.${index}.productId`}
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Product</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select product" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {products.map((product) => (
-                                    <SelectItem key={product.id} value={product.id}>
-                                      <div className="flex items-center gap-2">
-                                        <Package className="h-4 w-4" />
-                                        {product.name}
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.courseId`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Course</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select course" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {courses.map((course) => (
-                                    <SelectItem key={course.id} value={course.id}>
-                                      <div className="flex items-center gap-2">
-                                        <BookOpen className="h-4 w-4" />
-                                        {course.title}
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <SearchableSelect
+                                options={products.map(product => ({
+                                  value: product.id,
+                                  label: product.name,
+                                  subtitle: product.finalPrice ? `$${product.finalPrice.toFixed(2)}` : `$${product.price.toFixed(2)}`,
+                                  icon: product.hasCourse ? <BookOpen className="h-4 w-4" /> : <Package className="h-4 w-4" />
+                                }))}
+                                value={field.value}
+                                onValueChange={(value) => {
+                                  field.onChange(value);
+                                  handleProductSelect(index, value);
+                                }}
+                                placeholder="Search and select product..."
+                                searchPlaceholder="Search products by name..."
+                                emptyText="No products found"
+                              />
                               <FormMessage />
                             </FormItem>
                           )}
@@ -451,10 +468,8 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                                   step="0.01"
                                   min="0"
                                   {...field}
-                                  onChange={(e) => {
-                                    field.onChange(parseFloat(e.target.value) || 0);
-                                    updateItemTotal(index);
-                                  }}
+                                  readOnly
+                                  className="bg-gray-50"
                                 />
                               </FormControl>
                               <FormMessage />
@@ -477,6 +492,7 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                                       min="0"
                                       {...field}
                                       readOnly
+                                      className="bg-gray-50"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -527,37 +543,7 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                 </CardContent>
               </Card>
 
-              {/* Addresses and Notes */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="shippingAddress"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Shipping Address</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Enter shipping address" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="billingAddress"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Billing Address</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Enter billing address" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
+              {/* Notes */}
               <FormField
                 control={form.control}
                 name="notes"

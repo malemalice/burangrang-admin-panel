@@ -24,10 +24,6 @@ const OrdersPage = () => {
 
   const { stats, isLoading: statsLoading } = useOrderStats();
 
-  // Debug logging to understand the data structure
-  console.log('Stats data:', stats);
-  console.log('Stats loading:', statsLoading);
-
   // ✅ CRITICAL: Use separate pagination state for UI
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
