@@ -20,7 +20,6 @@ const mapCustomerDtoToCustomer = (customerDto: CustomerDTO): Customer => ({
 });
 
 const mapCustomerToUpdateDto = (customer: Partial<Customer>): UpdateCustomerDTO => ({
-  userId: customer.userId,
   phone: customer.phone,
   address: customer.address,
   city: customer.city,
@@ -29,7 +28,6 @@ const mapCustomerToUpdateDto = (customer: Partial<Customer>): UpdateCustomerDTO 
   postalCode: customer.postalCode,
   dateOfBirth: customer.dateOfBirth,
   gender: customer.gender,
-  isActive: customer.isActive,
 });
 
 const customerService = {

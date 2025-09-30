@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CustomerDto } from './dto/customer.dto';
 import { FindCustomersOptions } from './dto/find-customers.dto';
+import { UserDto } from '../users/dto/user.dto';
 import { Prisma } from '@prisma/client';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
@@ -24,9 +25,9 @@ export class CustomersService {
     private activityLogger: ActivityLoggerService,
     private notificationService: NotificationService,
   ) {
-    // Initialize mappers
-    this.customerMapper = this.dtoMapper.createMapper(CustomerDto);
-    this.customerArrayMapper = this.dtoMapper.createArrayMapper(CustomerDto);
+    // Initialize mappers with simple mapping
+    this.customerMapper = this.dtoMapper.createSimpleMapper(CustomerDto);
+    this.customerArrayMapper = this.dtoMapper.createSimpleArrayMapper(CustomerDto);
     this.customerPaginatedMapper = this.dtoMapper.createPaginatedMapper(CustomerDto);
   }
 
@@ -252,9 +253,7 @@ export class CustomersService {
         },
       });
 
-      if (!customer) {
-        throw new NotFoundException('Customer not found');
-      }
+      this.errorHandler.throwIfNotFoundById('Customer', id, customer);
 
       return this.customerMapper(customer);
     } catch (error) {
@@ -279,9 +278,7 @@ export class CustomersService {
         },
       });
 
-      if (!customer) {
-        throw new NotFoundException('Customer not found');
-      }
+      this.errorHandler.throwIfNotFoundByField('Customer', 'userId', userId, customer);
 
       return this.customerMapper(customer);
     } catch (error) {
@@ -297,9 +294,7 @@ export class CustomersService {
         where: { id },
       });
 
-      if (!existingCustomer) {
-        throw new NotFoundException('Customer not found');
-      }
+      this.errorHandler.throwIfNotFoundById('Customer', id, existingCustomer);
 
       // Update customer profile (only customer-specific fields, no userId changes allowed)
       const customer = await this.prisma.customer.update({
@@ -350,9 +345,7 @@ export class CustomersService {
         },
       });
 
-      if (!customer) {
-        throw new NotFoundException('Customer not found');
-      }
+      this.errorHandler.throwIfNotFoundById('Customer', id, customer);
 
       await this.prisma.customer.delete({
         where: { id },

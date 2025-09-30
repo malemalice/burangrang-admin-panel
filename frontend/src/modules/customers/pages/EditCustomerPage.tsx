@@ -9,14 +9,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/core/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
-import { Switch } from '@/core/components/ui/switch';
 import { ArrowLeft } from 'lucide-react';
-import { useUsers } from '@/modules/users/hooks/useUsers';
 import { useCustomer, useCustomers } from '../hooks/useCustomers';
 import { UpdateCustomerDTO } from '../types/customer.types';
 
 const formSchema = z.object({
-  userId: z.string().min(1, 'User is required'),
   phone: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
@@ -25,7 +22,6 @@ const formSchema = z.object({
   postalCode: z.string().optional(),
   dateOfBirth: z.string().optional(),
   gender: z.string().optional(),
-  isActive: z.boolean().default(true),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -36,12 +32,10 @@ const EditCustomerPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { customer, isLoading: customerLoading } = useCustomer(id || null);
   const { updateCustomer } = useCustomers();
-  const { users, fetchUsers } = useUsers();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      userId: '',
       phone: '',
       address: '',
       city: '',
@@ -50,28 +44,13 @@ const EditCustomerPage = () => {
       postalCode: '',
       dateOfBirth: '',
       gender: '',
-      isActive: true,
     },
   });
-
-  // Load users for the dropdown
-  useEffect(() => {
-    const loadUsers = async () => {
-      try {
-        await fetchUsers({ page: 1, limit: 100 });
-      } catch (error) {
-        console.error('Failed to load users:', error);
-        toast.error('Failed to load users');
-      }
-    };
-    loadUsers();
-  }, [fetchUsers]);
 
   // Update form when customer data is loaded
   useEffect(() => {
     if (customer) {
       form.reset({
-        userId: customer.userId,
         phone: customer.phone || '',
         address: customer.address || '',
         city: customer.city || '',
@@ -80,7 +59,6 @@ const EditCustomerPage = () => {
         postalCode: customer.postalCode || '',
         dateOfBirth: customer.dateOfBirth || '',
         gender: customer.gender || '',
-        isActive: customer.isActive,
       });
     }
   }, [customer, form]);
@@ -93,7 +71,6 @@ const EditCustomerPage = () => {
       
       // Transform form data to DTO
       const customerData: UpdateCustomerDTO = {
-        userId: data.userId,
         phone: data.phone || undefined,
         address: data.address || undefined,
         city: data.city || undefined,
@@ -102,7 +79,6 @@ const EditCustomerPage = () => {
         postalCode: data.postalCode || undefined,
         dateOfBirth: data.dateOfBirth || undefined,
         gender: data.gender || undefined,
-        isActive: data.isActive,
       };
 
       await updateCustomer(id, customerData);
@@ -159,30 +135,28 @@ const EditCustomerPage = () => {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="userId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>User *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a user" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {users.map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.firstName} {user.lastName} ({user.email})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Read-only user information */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">User</label>
+                <div className="p-3 bg-gray-50 rounded-md border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-medium text-primary">
+                        {customer?.user?.firstName?.[0]}{customer?.user?.lastName?.[0]}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="font-medium">
+                        {customer?.user?.firstName} {customer?.user?.lastName}
+                      </div>
+                      <div className="text-sm text-gray-500">{customer?.user?.email}</div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    User information cannot be changed here. To change user details, edit the user profile separately.
+                  </div>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
@@ -312,26 +286,21 @@ const EditCustomerPage = () => {
                 />
               </div>
 
-              <FormField
-                control={form.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Active Status</FormLabel>
-                      <div className="text-sm text-muted-foreground">
-                        Enable or disable this customer profile
-                      </div>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+              {/* Read-only status information */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Status</label>
+                <div className="p-3 bg-gray-50 rounded-md border">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${customer?.isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    <span className="text-sm font-medium">
+                      {customer?.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    Customer status is managed through the user account. To change status, edit the user profile separately.
+                  </div>
+                </div>
+              </div>
 
               <div className="flex justify-end gap-4">
                 <Button type="button" variant="outline" onClick={() => navigate('/customers')}>
