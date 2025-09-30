@@ -86,8 +86,6 @@ export type OrderStatus =
   | 'PENDING'
   | 'CONFIRMED'
   | 'PROCESSING'
-  | 'SHIPPED'
-  | 'DELIVERED'
   | 'CANCELLED'
   | 'REFUNDED';
 
@@ -215,9 +213,8 @@ export interface OrderStats {
   pendingOrders: number;
   confirmedOrders: number;
   processingOrders: number;
-  shippedOrders: number;
-  deliveredOrders: number;
   cancelledOrders: number;
+  refundedOrders: number;
   totalRevenue: number;
   monthlyRevenue: number;
 }
@@ -248,8 +245,6 @@ export const ORDER_STATUS_OPTIONS = [
   { label: 'Pending', value: 'PENDING' },
   { label: 'Confirmed', value: 'CONFIRMED' },
   { label: 'Processing', value: 'PROCESSING' },
-  { label: 'Shipped', value: 'SHIPPED' },
-  { label: 'Delivered', value: 'DELIVERED' },
   { label: 'Cancelled', value: 'CANCELLED' },
   { label: 'Refunded', value: 'REFUNDED' },
 ] as const;
@@ -271,10 +266,6 @@ export const getOrderStatusColor = (status: OrderStatus): string => {
       return 'bg-blue-100 text-blue-800';
     case 'PROCESSING':
       return 'bg-purple-100 text-purple-800';
-    case 'SHIPPED':
-      return 'bg-indigo-100 text-indigo-800';
-    case 'DELIVERED':
-      return 'bg-green-100 text-green-800';
     case 'CANCELLED':
       return 'bg-red-100 text-red-800';
     case 'REFUNDED':

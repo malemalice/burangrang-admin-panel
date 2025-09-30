@@ -8,6 +8,9 @@ export { default as OrdersPage } from './pages/OrdersPage';
 export { default as OrderForm } from './pages/OrderForm';
 export { default as OrderDetailPage } from './pages/OrderDetailPage';
 
+// Components - Module-specific components
+export * from './components';
+
 // Routes - Single export per module
 export { default as ordersRoutes } from './routes/ordersRoutes';
 

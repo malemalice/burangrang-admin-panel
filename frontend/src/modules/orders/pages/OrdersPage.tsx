@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Eye, Edit, Trash2, MoreHorizontal, Package, DollarSign, Clock, CheckCircle } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, MoreHorizontal, Package, DollarSign, Clock, CheckCircle, XCircle } from 'lucide-react';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Badge } from '@/core/components/ui/badge';
@@ -11,6 +11,7 @@ import { useOrders, useOrderStats } from '../hooks/useOrders';
 import { Order, OrderSearchParams, ORDER_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS, getOrderStatusColor, getPaymentStatusColor } from '../types/order.types';
 import { formatCurrencyDisplay } from '@/shared/utils/currency';
 import { FilterValue } from '@/core/components/ui/filter-drawer';
+import OrderStatusFlow from '../components/OrderStatusFlow';
 
 const OrdersPage = () => {
   const navigate = useNavigate();
@@ -195,8 +196,11 @@ const OrdersPage = () => {
             <DropdownMenuItem onClick={() => handleStatusChange(order, 'CONFIRMED')}>
               <CheckCircle className="mr-2 h-4 w-4" /> Confirm
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleStatusChange(order, 'PROCESSING')}>
+              <Clock className="mr-2 h-4 w-4" /> Process
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleStatusChange(order, 'CANCELLED')}>
-              <Clock className="mr-2 h-4 w-4" /> Cancel
+              <XCircle className="mr-2 h-4 w-4" /> Cancel
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
@@ -244,6 +248,9 @@ const OrdersPage = () => {
           </Button>
         }
       />
+
+        {/* Order Status Flow */}
+        <OrderStatusFlow />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -294,7 +301,7 @@ const OrdersPage = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Delivered Orders</CardTitle>
+              <CardTitle className="text-sm font-medium">Processing Orders</CardTitle>
               <CheckCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -302,7 +309,7 @@ const OrdersPage = () => {
                 {statsLoading ? (
                   <div className="h-8 w-16 bg-gray-200 animate-pulse rounded" />
                 ) : (
-                  stats?.deliveredOrders || 0
+                  stats?.processingOrders || 0
                 )}
               </div>
             </CardContent>
