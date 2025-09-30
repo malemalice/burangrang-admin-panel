@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,10 +11,14 @@ import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 import { Badge } from '@/core/components/ui/badge';
-import { Plus, Trash2, Package, BookOpen } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/core/components/ui/dialog';
+import { Plus, Trash2, Package, BookOpen, UserPlus, Search } from 'lucide-react';
+import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { useOrder } from '../hooks/useOrders';
 import { OrderFormData, ORDER_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS } from '../types/order.types';
 import ordersService from '../services/ordersService';
+import customerService from '@/modules/customers/services/customerService';
+import { Customer, CreateCustomerDTO } from '@/modules/customers/types/customer.types';
 
 const formSchema = z.object({
   customerId: z.string().min(1, 'Customer is required'),
@@ -47,9 +51,11 @@ const OrderForm = ({ mode }: OrderFormProps) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [isLoading, setIsLoading] = useState(false);
-  const [customers, setCustomers] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
+  const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
 
   const { order, isLoading: isLoadingOrder } = useOrder(mode === 'edit' ? id || null : null);
 
@@ -101,13 +107,28 @@ const OrderForm = ({ mode }: OrderFormProps) => {
     }
   }, [order, mode, form]);
 
+  // Load customers with memoization to prevent infinite loops
+  const loadCustomers = useCallback(async () => {
+    try {
+      const response = await customerService.getCustomers({
+        page: 1,
+        limit: 100, // Get all customers for dropdown
+        sortBy: 'firstName',
+        sortOrder: 'asc'
+      });
+      setCustomers(response.data);
+    } catch (error) {
+      console.error('Failed to load customers:', error);
+      toast.error('Failed to load customers');
+    }
+  }, []);
+
   useEffect(() => {
     const loadFormData = async () => {
       try {
         setIsLoading(true);
         // Load customers, products, and courses for dropdowns
-        // This would typically be done through separate API calls
-        setCustomers([]);
+        await loadCustomers();
         setProducts([]);
         setCourses([]);
       } catch (error) {
@@ -119,7 +140,7 @@ const OrderForm = ({ mode }: OrderFormProps) => {
     };
 
     loadFormData();
-  }, []);
+  }, [loadCustomers]);
 
   const calculateTotals = (items: FormValues['items']) => {
     const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -152,6 +173,31 @@ const OrderForm = ({ mode }: OrderFormProps) => {
       remove(index);
       const items = form.getValues('items').filter((_, i) => i !== index);
       calculateTotals(items);
+    }
+  };
+
+  // Create new customer function
+  const createNewCustomer = async (customerData: CreateCustomerDTO) => {
+    try {
+      setIsCreatingCustomer(true);
+      const newCustomer = await customerService.createCustomer(customerData);
+      
+      // Add new customer to the list
+      setCustomers(prev => [newCustomer, ...prev]);
+      
+      // Auto-select the newly created customer
+      form.setValue('customerId', newCustomer.id);
+      
+      // Close dialog
+      setIsCustomerDialogOpen(false);
+      
+      toast.success('Customer created successfully and selected');
+    } catch (error) {
+      console.error('Failed to create customer:', error);
+      toast.error('Failed to create customer');
+      throw error;
+    } finally {
+      setIsCreatingCustomer(false);
     }
   };
 
@@ -201,20 +247,37 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Customer</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select customer" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {customers.map((customer) => (
-                            <SelectItem key={customer.id} value={customer.id}>
-                              {customer.user?.firstName} {customer.user?.lastName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <SearchableSelect
+                            options={customers.map(customer => ({
+                              value: customer.id,
+                              label: `${customer.user?.firstName || ''} ${customer.user?.lastName || ''}`.trim() || 'Unknown Customer'
+                            }))}
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            placeholder="Search and select customer..."
+                            searchPlaceholder="Search customers by name..."
+                            emptyText="No customers found. Create a new one?"
+                          />
+                        </div>
+                        <Dialog open={isCustomerDialogOpen} onOpenChange={setIsCustomerDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button type="button" variant="outline" size="icon" title="Add new customer">
+                              <UserPlus className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                              <DialogTitle>Add New Customer</DialogTitle>
+                            </DialogHeader>
+                            <CustomerQuickCreateForm
+                              onSubmit={createNewCustomer}
+                              isLoading={isCreatingCustomer}
+                            />
+                          </DialogContent>
+                        </Dialog>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -522,6 +585,129 @@ const OrderForm = ({ mode }: OrderFormProps) => {
         </CardContent>
       </Card>
     </div>
+  );
+};
+
+// Quick Customer Creation Form Component
+interface CustomerQuickCreateFormProps {
+  onSubmit: (data: CreateCustomerDTO) => Promise<void>;
+  isLoading: boolean;
+}
+
+const CustomerQuickCreateForm = ({ onSubmit, isLoading }: CustomerQuickCreateFormProps) => {
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validation
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      toast.error('First name and last name are required');
+      return;
+    }
+
+    if (!formData.email.trim() && !formData.phone.trim()) {
+      toast.error('Either email or phone number is required');
+      return;
+    }
+
+    try {
+      await onSubmit({
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim() || undefined,
+        phone: formData.phone.trim() || undefined,
+      });
+      
+      // Reset form
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+      });
+    } catch (error) {
+      // Error handling is done in parent component
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label htmlFor="firstName" className="text-sm font-medium">
+            First Name *
+          </label>
+          <Input
+            id="firstName"
+            value={formData.firstName}
+            onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+            placeholder="Enter first name"
+            required
+          />
+        </div>
+        <div>
+          <label htmlFor="lastName" className="text-sm font-medium">
+            Last Name *
+          </label>
+          <Input
+            id="lastName"
+            value={formData.lastName}
+            onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+            placeholder="Enter last name"
+            required
+          />
+        </div>
+      </div>
+      
+      <div>
+        <label htmlFor="email" className="text-sm font-medium">
+          Email
+        </label>
+        <Input
+          id="email"
+          type="email"
+          value={formData.email}
+          onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+          placeholder="Enter email address"
+        />
+      </div>
+      
+      <div>
+        <label htmlFor="phone" className="text-sm font-medium">
+          Phone
+        </label>
+        <Input
+          id="phone"
+          value={formData.phone}
+          onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+          placeholder="Enter phone number"
+        />
+      </div>
+      
+      <div className="text-xs text-gray-500">
+        * Required fields. Either email or phone must be provided.
+      </div>
+      
+      <div className="flex justify-end gap-2 pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {/* Dialog will be closed by parent */}}
+          disabled={isLoading}
+        >
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? 'Creating...' : 'Create Customer'}
+        </Button>
+      </div>
+    </form>
   );
 };
 
