@@ -72,6 +72,24 @@ export const seedMenus = async () => {
       },
     });
 
+    const CustomersMenu = await prisma.menu.create({
+      data: {
+        name: 'Customers',
+        path: '/customers',
+        icon: 'Users',
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     const productsMenu = await prisma.menu.create({
       data: {
         name: 'Products',
