@@ -29,7 +29,6 @@ const formSchema = z.object({
   taxAmount: z.number().min(0, 'Tax amount must be positive'),
   discountAmount: z.number().min(0, 'Discount amount must be positive'),
   totalAmount: z.number().min(0, 'Total amount must be positive'),
-  currency: z.string().min(1, 'Currency is required'),
   paymentStatus: z.enum(['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED']),
   notes: z.string().optional(),
   items: z.array(z.object({
@@ -66,7 +65,6 @@ const OrderForm = ({ mode }: OrderFormProps) => {
       taxAmount: 0,
       discountAmount: 0,
       totalAmount: 0,
-      currency: 'USD',
       paymentStatus: 'PENDING',
       notes: '',
       items: [{ productId: '', quantity: 1, unitPrice: 0, totalPrice: 0 }],
@@ -87,7 +85,6 @@ const OrderForm = ({ mode }: OrderFormProps) => {
         taxAmount: order.taxAmount,
         discountAmount: order.discountAmount,
         totalAmount: order.totalAmount,
-        currency: order.currency,
         paymentStatus: order.paymentStatus,
         notes: order.notes || '',
         items: order.items?.map(item => ({
@@ -178,7 +175,7 @@ const OrderForm = ({ mode }: OrderFormProps) => {
   const handleProductSelect = (index: number, productId: string) => {
     const selectedProduct = products.find(p => p.id === productId);
     if (selectedProduct) {
-      const finalPrice = selectedProduct.finalPrice || selectedProduct.price;
+      const finalPrice = selectedProduct.finalPrice || selectedProduct.price || 0;
       form.setValue(`items.${index}.unitPrice`, finalPrice);
       form.setValue(`items.${index}.productId`, productId);
       updateItemTotal(index);
@@ -234,7 +231,7 @@ const OrderForm = ({ mode }: OrderFormProps) => {
           taxAmount: data.taxAmount,
           discountAmount: data.discountAmount,
           totalAmount: data.totalAmount,
-          currency: data.currency,
+          currency: 'IDR', // Default to Indonesian Rupiah
           paymentStatus: data.paymentStatus,
           notes: data.notes,
           items: data.items.map(item => ({
@@ -252,7 +249,6 @@ const OrderForm = ({ mode }: OrderFormProps) => {
           taxAmount: data.taxAmount,
           discountAmount: data.discountAmount,
           totalAmount: data.totalAmount,
-          currency: data.currency,
           paymentStatus: data.paymentStatus,
           notes: data.notes,
         });
@@ -354,19 +350,6 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="currency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Currency</FormLabel>
-                      <FormControl>
-                        <Input placeholder="USD" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 <FormField
                   control={form.control}
@@ -417,7 +400,7 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                                 options={products.map(product => ({
                                   value: product.id,
                                   label: product.name,
-                                  subtitle: product.finalPrice ? `$${product.finalPrice.toFixed(2)}` : `$${product.price.toFixed(2)}`,
+                                  subtitle: product.finalPrice ? `Rp ${product.finalPrice.toLocaleString('id-ID')}` : `Rp ${product.price.toLocaleString('id-ID')}`,
                                   icon: product.hasCourse ? <BookOpen className="h-4 w-4" /> : <Package className="h-4 w-4" />
                                 }))}
                                 value={field.value}
@@ -525,19 +508,19 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span>Subtotal:</span>
-                      <span>${form.watch('subtotal').toFixed(2)}</span>
+                      <span>Rp {form.watch('subtotal').toLocaleString('id-ID')}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Tax:</span>
-                      <span>${form.watch('taxAmount').toFixed(2)}</span>
+                      <span>Rp {form.watch('taxAmount').toLocaleString('id-ID')}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Discount:</span>
-                      <span>-${form.watch('discountAmount').toFixed(2)}</span>
+                      <span>-Rp {form.watch('discountAmount').toLocaleString('id-ID')}</span>
                     </div>
                     <div className="flex justify-between font-bold text-lg border-t pt-2">
                       <span>Total:</span>
-                      <span>${form.watch('totalAmount').toFixed(2)}</span>
+                      <span>Rp {form.watch('totalAmount').toLocaleString('id-ID')}</span>
                     </div>
                   </div>
                 </CardContent>
