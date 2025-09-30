@@ -1,4 +1,4 @@
-import { Exclude, Expose } from 'class-transformer';
+import { Exclude, Expose, Transform, Type } from 'class-transformer';
 
 export class UserDto {
   id: string;
@@ -15,9 +15,33 @@ export class UserDto {
   lastLoginAt?: Date | null;
 
   // Include the role object
+  @Expose()
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    // Ensure proper serialization of nested objects
+    return typeof value === 'object' && value !== null ? value : undefined;
+  })
   role?: any;
+
+  @Expose()
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    return typeof value === 'object' && value !== null ? value : undefined;
+  })
   office?: any;
+
+  @Expose()
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    return typeof value === 'object' && value !== null ? value : undefined;
+  })
   department?: any;
+
+  @Expose()
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    return typeof value === 'object' && value !== null ? value : undefined;
+  })
   jobPosition?: any;
 
   // Add a getter to extract role name as a string
