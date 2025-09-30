@@ -5,15 +5,12 @@ import * as cookieParser from 'cookie-parser';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { JwtAuthGuard } from './shared/guards/jwt-auth.guard';
-import { PermissionsGuard } from './shared/guards/permissions.guard';
 import { Reflector } from '@nestjs/core';
-import { PrismaService } from './core/services/prisma.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
   const reflector = app.get(Reflector);
-  const prismaService = app.get(PrismaService);
 
   // Enable CORS with frontend URL from environment
   app.enableCors({
@@ -27,18 +24,23 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Enable validation pipes
-  app.useGlobalPipes(new ValidationPipe({
-    transform: true,
-    whitelist: true,
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+    }),
+  );
 
-  // Enable class-transformer serialization
-  app.useGlobalInterceptors(new ClassSerializerInterceptor(reflector));
+  // Enable class-transformer serialization with safe options
+  app.useGlobalInterceptors(
+    new ClassSerializerInterceptor(reflector, {
+      enableImplicitConversion: true,
+      excludeExtraneousValues: false,
+    }),
+  );
 
   // Enable guards
-  app.useGlobalGuards(
-    new JwtAuthGuard(reflector),
-  );
+  app.useGlobalGuards(new JwtAuthGuard(reflector));
 
   // Swagger setup
   const config = new DocumentBuilder()

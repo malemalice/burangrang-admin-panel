@@ -55,13 +55,8 @@ export class CustomersService {
         this.prisma.office.findFirst({ where: { isActive: true } }),
       ]);
 
-      if (!defaultRole) {
-        throw new NotFoundException('Default role "User" not found. Please contact system administrator.');
-      }
-
-      if (!defaultOffice) {
-        throw new NotFoundException('Default office not found. Please contact system administrator.');
-      }
+      this.errorHandler.throwIfNotFound('Default role "User"', 'name', defaultRole);
+      this.errorHandler.throwIfNotFound('Default office', 'isActive', defaultOffice);
 
       // Generate temporary password and send via email/SMS
       const temporaryPassword = this.notificationService.generateTemporaryPassword();

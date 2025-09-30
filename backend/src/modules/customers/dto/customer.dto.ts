@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Expose } from 'class-transformer';
+import { Expose, Transform, Type } from 'class-transformer';
 import { UserDto } from '../../users/dto/user.dto';
 
 export class CustomerDto {
@@ -57,6 +57,15 @@ export class CustomerDto {
 
   @ApiProperty({ description: 'Associated user information', required: false })
   @Expose()
+  @Type(() => UserDto)
+  @Transform(({ value }): UserDto | undefined => {
+    if (!value) return undefined;
+    // Ensure proper serialization of nested objects
+    if (typeof value === 'object' && value !== null) {
+      return new UserDto(value as Partial<UserDto>);
+    }
+    return value as UserDto;
+  })
   user?: UserDto;
 
   constructor(partial: Partial<CustomerDto>) {
