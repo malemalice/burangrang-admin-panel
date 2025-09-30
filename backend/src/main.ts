@@ -32,10 +32,12 @@ async function bootstrap() {
   );
 
   // Enable class-transformer serialization with safe options
+  // CRITICAL: excludeExtraneousValues MUST be true to prevent serializing Prisma internals
+  // This ensures only properties with @Expose() decorator are serialized
   app.useGlobalInterceptors(
     new ClassSerializerInterceptor(reflector, {
       enableImplicitConversion: true,
-      excludeExtraneousValues: false,
+      excludeExtraneousValues: true,  // ✅ Only serialize @Expose() properties
     }),
   );
 

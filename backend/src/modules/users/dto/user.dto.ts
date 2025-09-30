@@ -1,17 +1,40 @@
 import { Exclude, Expose, Transform, Type } from 'class-transformer';
 
 export class UserDto {
+  @Expose()
   id: string;
+
+  @Expose()
   email: string;
+
+  @Expose()
   firstName: string;
+
+  @Expose()
   lastName: string;
+
+  @Expose()
   isActive: boolean;
+
+  @Expose()
   roleId: string;
+
+  @Expose()
   officeId: string;
+
+  @Expose()
   departmentId?: string;
+
+  @Expose()
   jobPositionId?: string;
+
+  @Expose()
   createdAt: Date;
+
+  @Expose()
   updatedAt: Date;
+
+  @Expose()
   lastLoginAt?: Date | null;
 
   // Include the role object
