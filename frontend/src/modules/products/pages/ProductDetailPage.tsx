@@ -23,7 +23,7 @@ import { Separator } from '@/core/components/ui/separator';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { useProduct } from '../hooks/useProducts';
-import { formatPrice, getProductStatusInfo, getProductTypeLabel } from '../types/product.types';
+import { formatPrice, formatPriceDisplay, getProductStatusInfo, getProductTypeLabel } from '../types/product.types';
 import { PRODUCT_TYPE_NAMES } from '@/shared/constants/product-types';
 
 const ProductDetailPage = () => {
@@ -200,31 +200,31 @@ const ProductDetailPage = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5" />
-                Pricing
+                Pricing (Indonesian Rupiah)
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Regular Price</span>
-                  <span className="font-medium">{formatPrice(product.price)}</span>
+                  <span className="font-medium">{formatPriceDisplay(product.price)}</span>
                 </div>
                 {product.isOnSale && product.salePrice && (
                   <>
                     <Separator />
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">Sale Price</span>
-                      <span className="font-medium text-green-600">{formatPrice(product.salePrice)}</span>
+                      <span className="font-medium text-green-600">{formatPriceDisplay(product.salePrice)}</span>
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      Save {formatPrice(product.price - product.salePrice)}
+                      Save {formatPriceDisplay(product.price - product.salePrice)}
                     </div>
                   </>
                 )}
                 <Separator />
                 <div className="flex justify-between items-center text-lg font-semibold">
                   <span>Final Price</span>
-                  <span>{formatPrice(product.finalPrice || product.price)}</span>
+                  <span>{formatPriceDisplay(product.finalPrice || product.price)}</span>
                 </div>
               </div>
             </CardContent>

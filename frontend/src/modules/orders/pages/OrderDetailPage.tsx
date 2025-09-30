@@ -7,6 +7,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { Separator } from '@/core/components/ui/separator';
 import { useOrder } from '../hooks/useOrders';
 import { getOrderStatusColor, getPaymentStatusColor } from '../types/order.types';
+import { formatCurrencyDisplay } from '@/shared/utils/currency';
 
 const OrderDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -101,8 +102,8 @@ const OrderDetailPage = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">${item.unitPrice.toFixed(2)} each</p>
-                      <p className="text-lg font-bold">${item.totalPrice.toFixed(2)}</p>
+                      <p className="font-medium">{formatCurrencyDisplay(item.unitPrice)} each</p>
+                      <p className="text-lg font-bold">{formatCurrencyDisplay(item.totalPrice)}</p>
                     </div>
                   </div>
                 ))}
@@ -122,20 +123,20 @@ const OrderDetailPage = () => {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
-                  <span>${order.subtotal.toFixed(2)}</span>
+                  <span>{formatCurrencyDisplay(order.subtotal, order.currency)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Tax</span>
-                  <span>${order.taxAmount.toFixed(2)}</span>
+                  <span>{formatCurrencyDisplay(order.taxAmount, order.currency)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Discount</span>
-                  <span>-${order.discountAmount.toFixed(2)}</span>
+                  <span>-{formatCurrencyDisplay(order.discountAmount, order.currency)}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total</span>
-                  <span>${order.totalAmount.toFixed(2)} {order.currency}</span>
+                  <span>{formatCurrencyDisplay(order.totalAmount, order.currency)}</span>
                 </div>
               </div>
             </CardContent>
@@ -306,7 +307,7 @@ const OrderDetailPage = () => {
                       <div className="mt-2">
                         <p className="text-sm font-medium">Amount</p>
                         <p className="text-sm text-gray-600">
-                          {payment.currency} {payment.amount.toFixed(2)}
+                          {formatCurrencyDisplay(payment.amount, payment.currency)}
                         </p>
                       </div>
                       {payment.processedAt && (

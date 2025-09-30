@@ -1,3 +1,6 @@
+// Currency constants
+export const DEFAULT_ORDER_CURRENCY = 'IDR';
+
 // Base types for Order and OrderItem entities
 export interface OrderItem {
   id: string;

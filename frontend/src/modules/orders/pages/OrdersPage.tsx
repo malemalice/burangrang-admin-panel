@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/c
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/core/components/ui/dropdown-menu';
 import { useOrders, useOrderStats } from '../hooks/useOrders';
 import { Order, OrderSearchParams, ORDER_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS, getOrderStatusColor, getPaymentStatusColor } from '../types/order.types';
+import { formatCurrencyDisplay } from '@/shared/utils/currency';
+import { FilterValue } from '@/core/components/ui/filter-drawer';
 
 const OrdersPage = () => {
   const navigate = useNavigate();
@@ -28,7 +30,7 @@ const OrdersPage = () => {
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [activeFilters, setActiveFilters] = useState<FilterValue[]>([]);
 
   // ✅ CRITICAL: Memoize data loading function
   const loadOrders = useCallback(async () => {
@@ -39,7 +41,7 @@ const OrdersPage = () => {
       sortBy: 'createdAt',
       sortOrder: 'desc',
       ...Object.fromEntries(
-        Object.entries(activeFilters).map(([key, filter]) => [key, filter.value])
+        activeFilters.map(filter => [filter.id, filter.value])
       ),
     };
 
@@ -61,7 +63,7 @@ const OrdersPage = () => {
     setPageIndex(0); // Reset to first page when searching
   };
 
-  const handleApplyFilters = (filters: Record<string, { value: any; label: string }>) => {
+  const handleApplyFilters = (filters: FilterValue[]) => {
     setActiveFilters(filters);
     setPageIndex(0); // Reset to first page when filtering
   };
@@ -145,19 +147,8 @@ const OrdersPage = () => {
       header: 'Total',
       cell: (order: Order) => (
         <div className="flex items-center gap-2">
-          <DollarSign className="h-4 w-4 text-green-600" />
           <span className="font-medium">
-            {order.currency} {(() => {
-              try {
-                const amount = order.totalAmount;
-                if (amount === null || amount === undefined) return '0.00';
-                const numAmount = typeof amount === 'number' ? amount : Number(amount);
-                return isNaN(numAmount) ? '0.00' : numAmount.toFixed(2);
-              } catch (error) {
-                console.error('Error formatting totalAmount:', error);
-                return '0.00';
-              }
-            })()}
+            {formatCurrencyDisplay(order.totalAmount, order.currency)}
           </span>
         </div>
       ),
@@ -226,19 +217,19 @@ const OrdersPage = () => {
     {
       id: 'orderNumber',
       label: 'Order Number',
-      type: 'text'
+      type: 'text' as const
     },
     {
       id: 'status',
       label: 'Status',
-      type: 'select',
-      options: ORDER_STATUS_OPTIONS
+      type: 'select' as const,
+      options: ORDER_STATUS_OPTIONS.map(option => ({ label: option.label, value: option.value }))
     },
     {
       id: 'paymentStatus',
       label: 'Payment Status',
-      type: 'select',
-      options: PAYMENT_STATUS_OPTIONS
+      type: 'select' as const,
+      options: PAYMENT_STATUS_OPTIONS.map(option => ({ label: option.label, value: option.value }))
     }
   ];
 
@@ -281,17 +272,7 @@ const OrdersPage = () => {
                 {statsLoading ? (
                   <div className="h-8 w-20 bg-gray-200 animate-pulse rounded" />
                 ) : (
-                  `$${(() => {
-                    try {
-                      const revenue = stats?.totalRevenue;
-                      if (revenue === null || revenue === undefined) return '0.00';
-                      const numRevenue = typeof revenue === 'number' ? revenue : Number(revenue);
-                      return isNaN(numRevenue) ? '0.00' : numRevenue.toFixed(2);
-                    } catch (error) {
-                      console.error('Error formatting revenue:', error);
-                      return '0.00';
-                    }
-                  })()}`
+                  formatCurrencyDisplay(stats?.totalRevenue)
                 )}
               </div>
             </CardContent>

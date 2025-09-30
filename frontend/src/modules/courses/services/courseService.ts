@@ -3,11 +3,12 @@ import {
   Course, 
   CourseDTO, 
   CreateCourseDTO, 
-  UpdateCourseDTO,
+  UpdateCourseDTO, 
   CourseSearchParams,
   PaginatedResponse,
   CourseStats
 } from '../types/course.types';
+import { formatCurrencyDisplay } from '@/shared/utils/currency';
 
 // Data transformation functions
 const mapCourseDtoToCourse = (courseDto: CourseDTO): Course => ({
@@ -189,13 +190,13 @@ const courseService = {
 
     if (salePrice > 0 && salePrice < price) {
       return {
-        display: `$${salePrice.toFixed(2)}`,
+        display: formatCurrencyDisplay(salePrice),
         hasDiscount: true
       };
     }
 
     return {
-      display: `$${price.toFixed(2)}`,
+      display: formatCurrencyDisplay(price),
       hasDiscount: false
     };
   },

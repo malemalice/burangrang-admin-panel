@@ -250,16 +250,12 @@ export const getProductStatusInfo = (status: string) => {
   };
 };
 
-// Helper function to format price
-export const formatPrice = (price: number | string, currency = 'USD'): string => {
-  const numericPrice = typeof price === 'string' ? parseFloat(price) : price;
-  if (isNaN(numericPrice)) {
-    return '$0.00';
-  }
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-  }).format(numericPrice);
+// Import currency utilities
+import { formatCurrency, formatCurrencyDisplay, formatCurrencyInput, parseCurrency } from '@/shared/utils/currency';
+
+// Helper function to format price with Rupiah currency
+export const formatPrice = (price: number | string, currency = 'IDR'): string => {
+  return formatCurrency(price, currency);
 };
 
 // Helper function to calculate final price (considering sale price)
@@ -272,4 +268,17 @@ export const calculateFinalPrice = (price: number | string, salePrice?: number |
   }
   
   return numericSalePrice && !isNaN(numericSalePrice) && numericSalePrice > 0 ? numericSalePrice : numericPrice;
+};
+
+// Additional currency helper functions for products
+export const formatPriceDisplay = (price: number | string): string => {
+  return formatCurrencyDisplay(price);
+};
+
+export const formatPriceInput = (price: number | string): string => {
+  return formatCurrencyInput(price);
+};
+
+export const parsePrice = (priceString: string): number => {
+  return parseCurrency(priceString);
 };

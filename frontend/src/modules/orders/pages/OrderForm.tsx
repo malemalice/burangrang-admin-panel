@@ -21,6 +21,7 @@ import customerService from '@/modules/customers/services/customerService';
 import { Customer, CreateCustomerDTO } from '@/modules/customers/types/customer.types';
 import productService from '@/modules/products/services/productService';
 import { Product } from '@/modules/products/types/product.types';
+import { formatCurrencyDisplay, DEFAULT_CURRENCY } from '@/shared/utils/currency';
 
 const formSchema = z.object({
   customerId: z.string().min(1, 'Customer is required'),
@@ -231,7 +232,7 @@ const OrderForm = ({ mode }: OrderFormProps) => {
           taxAmount: data.taxAmount,
           discountAmount: data.discountAmount,
           totalAmount: data.totalAmount,
-          currency: 'IDR', // Default to Indonesian Rupiah
+          currency: DEFAULT_CURRENCY, // Default to Indonesian Rupiah
           paymentStatus: data.paymentStatus,
           notes: data.notes,
           items: data.items.map(item => ({
@@ -400,7 +401,7 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                                 options={products.map(product => ({
                                   value: product.id,
                                   label: product.name,
-                                  subtitle: product.finalPrice ? `Rp ${product.finalPrice.toLocaleString('id-ID')}` : `Rp ${product.price.toLocaleString('id-ID')}`,
+                                  subtitle: product.finalPrice ? formatCurrencyDisplay(product.finalPrice) : formatCurrencyDisplay(product.price),
                                   icon: product.hasCourse ? <BookOpen className="h-4 w-4" /> : <Package className="h-4 w-4" />
                                 }))}
                                 value={field.value}
@@ -508,19 +509,19 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span>Subtotal:</span>
-                      <span>Rp {form.watch('subtotal').toLocaleString('id-ID')}</span>
+                      <span>{formatCurrencyDisplay(form.watch('subtotal'))}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Tax:</span>
-                      <span>Rp {form.watch('taxAmount').toLocaleString('id-ID')}</span>
+                      <span>{formatCurrencyDisplay(form.watch('taxAmount'))}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Discount:</span>
-                      <span>-Rp {form.watch('discountAmount').toLocaleString('id-ID')}</span>
+                      <span>-{formatCurrencyDisplay(form.watch('discountAmount'))}</span>
                     </div>
                     <div className="flex justify-between font-bold text-lg border-t pt-2">
                       <span>Total:</span>
-                      <span>Rp {form.watch('totalAmount').toLocaleString('id-ID')}</span>
+                      <span>{formatCurrencyDisplay(form.watch('totalAmount'))}</span>
                     </div>
                   </div>
                 </CardContent>

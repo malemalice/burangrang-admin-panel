@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/t
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { useProducts } from '../hooks/useProducts';
 import { categoryService } from '@/modules/categories';
-import { Product, ProductFilters, getProductStatusInfo, getProductTypeLabel, formatPrice } from '../types/product.types';
+import { Product, ProductFilters, getProductStatusInfo, getProductTypeLabel, formatPrice, formatPriceDisplay } from '../types/product.types';
 import { PRODUCT_TYPE_OPTIONS } from '@/shared/constants/product-types';
 
 const ProductsPage = () => {
@@ -271,14 +271,14 @@ const ProductsPage = () => {
           {product.isOnSale ? (
             <div>
               <div className="text-sm text-gray-500 line-through">
-                {formatPrice(product.price)}
+                {formatPriceDisplay(product.price)}
               </div>
               <div className="font-medium text-green-600">
-                {formatPrice(product.salePrice!)}
+                {formatPriceDisplay(product.salePrice!)}
               </div>
             </div>
           ) : (
-            <div className="font-medium">{formatPrice(product.price)}</div>
+            <div className="font-medium">{formatPriceDisplay(product.price)}</div>
           )}
         </div>
       ),
