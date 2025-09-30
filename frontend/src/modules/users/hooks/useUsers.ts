@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import userService from '../services/userService';
 import { 
@@ -20,8 +20,8 @@ export const useUsers = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch users with pagination and filters
-  const fetchUsers = async (params: UserSearchParams) => {
+  // ✅ CRITICAL: Memoize fetchUsers function to prevent infinite loops
+  const fetchUsers = useCallback(async (params: UserSearchParams) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -36,10 +36,10 @@ export const useUsers = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []); // Empty dependency array - function is stable
 
-  // Create a new user
-  const createUser = async (userData: CreateUserDTO) => {
+  // ✅ CRITICAL: Memoize CRUD operations to prevent unnecessary re-renders
+  const createUser = useCallback(async (userData: CreateUserDTO) => {
     try {
       const newUser = await userService.createUser(userData);
       setUsers(prev => [newUser, ...prev]);
@@ -51,10 +51,9 @@ export const useUsers = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
-  // Update an existing user
-  const updateUser = async (id: string, userData: UpdateUserDTO) => {
+  const updateUser = useCallback(async (id: string, userData: UpdateUserDTO) => {
     try {
       const updatedUser = await userService.updateUser(id, userData);
       setUsers(prev => prev.map(user => user.id === id ? updatedUser : user));
@@ -65,10 +64,9 @@ export const useUsers = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
-  // Delete a user
-  const deleteUser = async (id: string) => {
+  const deleteUser = useCallback(async (id: string) => {
     try {
       await userService.deleteUser(id);
       setUsers(prev => prev.filter(user => user.id !== id));
@@ -79,7 +77,7 @@ export const useUsers = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
   return {
     users,
@@ -102,8 +100,8 @@ export const useUser = (userId: string | null = null) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch a single user by ID
-  const fetchUser = async (id: string) => {
+  // ✅ CRITICAL: Memoize fetchUser function to prevent infinite loops
+  const fetchUser = useCallback(async (id: string) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -116,14 +114,14 @@ export const useUser = (userId: string | null = null) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  // Load user on mount if userId is provided
+  // ✅ CRITICAL: Include memoized function in dependency array
   useEffect(() => {
     if (userId) {
       fetchUser(userId);
     }
-  }, [userId]);
+  }, [userId, fetchUser]);
 
   return {
     user,
@@ -142,7 +140,8 @@ export const useUserStats = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchStats = async () => {
+  // ✅ CRITICAL: Memoize fetchStats function to prevent infinite loops
+  const fetchStats = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -168,11 +167,12 @@ export const useUserStats = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
+  // ✅ CRITICAL: Include memoized function in dependency array
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [fetchStats]);
 
   return {
     stats,
