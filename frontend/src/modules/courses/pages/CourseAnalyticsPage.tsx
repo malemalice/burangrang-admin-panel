@@ -22,6 +22,7 @@ import { useCourse } from '../hooks/useCourses';
 import { useCourseStats } from '../hooks/useCourses';
 import courseService from '../services/courseService';
 import { Course } from '../types/course.types';
+import { formatCurrencyDisplay } from '@/shared/utils/currency';
 
 const CourseAnalyticsPage = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -106,10 +107,7 @@ const CourseAnalyticsPage = () => {
   }, [course]);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
+    return formatCurrencyDisplay(amount);
   };
 
   const formatDuration = (minutes: number) => {

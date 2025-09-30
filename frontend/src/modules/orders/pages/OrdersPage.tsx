@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Eye, Edit, Trash2, MoreHorizontal, Package, DollarSign, Clock, CheckCircle } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, MoreHorizontal, Package, DollarSign, Clock, CheckCircle, XCircle } from 'lucide-react';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Badge } from '@/core/components/ui/badge';
@@ -9,6 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/c
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/core/components/ui/dropdown-menu';
 import { useOrders, useOrderStats } from '../hooks/useOrders';
 import { Order, OrderSearchParams, ORDER_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS, getOrderStatusColor, getPaymentStatusColor } from '../types/order.types';
+import { formatCurrencyDisplay } from '@/shared/utils/currency';
+import { FilterValue } from '@/core/components/ui/filter-drawer';
+import OrderStatusFlow from '../components/OrderStatusFlow';
 
 const OrdersPage = () => {
   const navigate = useNavigate();
@@ -24,15 +27,11 @@ const OrdersPage = () => {
 
   const { stats, isLoading: statsLoading } = useOrderStats();
 
-  // Debug logging to understand the data structure
-  console.log('Stats data:', stats);
-  console.log('Stats loading:', statsLoading);
-
   // ✅ CRITICAL: Use separate pagination state for UI
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [activeFilters, setActiveFilters] = useState<FilterValue[]>([]);
 
   // ✅ CRITICAL: Memoize data loading function
   const loadOrders = useCallback(async () => {
@@ -43,7 +42,7 @@ const OrdersPage = () => {
       sortBy: 'createdAt',
       sortOrder: 'desc',
       ...Object.fromEntries(
-        Object.entries(activeFilters).map(([key, filter]) => [key, filter.value])
+        activeFilters.map(filter => [filter.id, filter.value])
       ),
     };
 
@@ -65,7 +64,7 @@ const OrdersPage = () => {
     setPageIndex(0); // Reset to first page when searching
   };
 
-  const handleApplyFilters = (filters: Record<string, { value: any; label: string }>) => {
+  const handleApplyFilters = (filters: FilterValue[]) => {
     setActiveFilters(filters);
     setPageIndex(0); // Reset to first page when filtering
   };
@@ -149,19 +148,8 @@ const OrdersPage = () => {
       header: 'Total',
       cell: (order: Order) => (
         <div className="flex items-center gap-2">
-          <DollarSign className="h-4 w-4 text-green-600" />
           <span className="font-medium">
-            {order.currency} {(() => {
-              try {
-                const amount = order.totalAmount;
-                if (amount === null || amount === undefined) return '0.00';
-                const numAmount = typeof amount === 'number' ? amount : Number(amount);
-                return isNaN(numAmount) ? '0.00' : numAmount.toFixed(2);
-              } catch (error) {
-                console.error('Error formatting totalAmount:', error);
-                return '0.00';
-              }
-            })()}
+            {formatCurrencyDisplay(order.totalAmount, order.currency)}
           </span>
         </div>
       ),
@@ -208,8 +196,11 @@ const OrdersPage = () => {
             <DropdownMenuItem onClick={() => handleStatusChange(order, 'CONFIRMED')}>
               <CheckCircle className="mr-2 h-4 w-4" /> Confirm
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleStatusChange(order, 'PROCESSING')}>
+              <Clock className="mr-2 h-4 w-4" /> Process
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleStatusChange(order, 'CANCELLED')}>
-              <Clock className="mr-2 h-4 w-4" /> Cancel
+              <XCircle className="mr-2 h-4 w-4" /> Cancel
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
@@ -230,19 +221,19 @@ const OrdersPage = () => {
     {
       id: 'orderNumber',
       label: 'Order Number',
-      type: 'text'
+      type: 'text' as const
     },
     {
       id: 'status',
       label: 'Status',
-      type: 'select',
-      options: ORDER_STATUS_OPTIONS
+      type: 'select' as const,
+      options: ORDER_STATUS_OPTIONS.map(option => ({ label: option.label, value: option.value }))
     },
     {
       id: 'paymentStatus',
       label: 'Payment Status',
-      type: 'select',
-      options: PAYMENT_STATUS_OPTIONS
+      type: 'select' as const,
+      options: PAYMENT_STATUS_OPTIONS.map(option => ({ label: option.label, value: option.value }))
     }
   ];
 
@@ -257,6 +248,9 @@ const OrdersPage = () => {
           </Button>
         }
       />
+
+        {/* Order Status Flow */}
+        <OrderStatusFlow />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -285,17 +279,7 @@ const OrdersPage = () => {
                 {statsLoading ? (
                   <div className="h-8 w-20 bg-gray-200 animate-pulse rounded" />
                 ) : (
-                  `$${(() => {
-                    try {
-                      const revenue = stats?.totalRevenue;
-                      if (revenue === null || revenue === undefined) return '0.00';
-                      const numRevenue = typeof revenue === 'number' ? revenue : Number(revenue);
-                      return isNaN(numRevenue) ? '0.00' : numRevenue.toFixed(2);
-                    } catch (error) {
-                      console.error('Error formatting revenue:', error);
-                      return '0.00';
-                    }
-                  })()}`
+                  formatCurrencyDisplay(stats?.totalRevenue)
                 )}
               </div>
             </CardContent>
@@ -317,7 +301,7 @@ const OrdersPage = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Delivered Orders</CardTitle>
+              <CardTitle className="text-sm font-medium">Processing Orders</CardTitle>
               <CheckCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -325,7 +309,7 @@ const OrdersPage = () => {
                 {statsLoading ? (
                   <div className="h-8 w-16 bg-gray-200 animate-pulse rounded" />
                 ) : (
-                  stats?.deliveredOrders || 0
+                  stats?.processingOrders || 0
                 )}
               </div>
             </CardContent>

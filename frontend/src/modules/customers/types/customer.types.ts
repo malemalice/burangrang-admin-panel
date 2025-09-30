@@ -15,7 +15,12 @@ export interface CustomerDTO {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  user?: User;
+  user?: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
 }
 
 // Frontend Customer model
@@ -33,7 +38,12 @@ export interface Customer {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  user?: User;
+  user?: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
 }
 
 // CRUD operation types

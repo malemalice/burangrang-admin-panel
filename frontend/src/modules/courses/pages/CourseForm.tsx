@@ -28,6 +28,7 @@ import { userService } from '@/modules/users';
 import { categoryService } from '@/modules/categories';
 import { productService } from '@/modules/products';
 import { ImageUpload } from '@/modules/uploads';
+import { formatCurrencyDisplay } from '@/shared/utils/currency';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -538,10 +539,10 @@ const CourseForm = ({ mode }: CourseFormProps) => {
                     <div className="flex items-center justify-between w-full">
                       <span>{product.name}</span>
                       <span className="text-sm text-gray-500 ml-2">
-                        ${product.price.toFixed(2)}
+                        {formatCurrencyDisplay(product.price)}
                         {product.salePrice && product.salePrice < product.price && (
                           <span className="text-green-600 ml-1">
-                            (Sale: ${product.salePrice.toFixed(2)})
+                            (Sale: {formatCurrencyDisplay(product.salePrice)})
                           </span>
                         )}
                       </span>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,10 +11,17 @@ import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 import { Badge } from '@/core/components/ui/badge';
-import { Plus, Trash2, Package, BookOpen } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/core/components/ui/dialog';
+import { Plus, Trash2, Package, BookOpen, UserPlus, Search } from 'lucide-react';
+import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { useOrder } from '../hooks/useOrders';
 import { OrderFormData, ORDER_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS } from '../types/order.types';
 import ordersService from '../services/ordersService';
+import customerService from '@/modules/customers/services/customerService';
+import { Customer, CreateCustomerDTO } from '@/modules/customers/types/customer.types';
+import productService from '@/modules/products/services/productService';
+import { Product } from '@/modules/products/types/product.types';
+import { formatCurrencyDisplay, DEFAULT_CURRENCY } from '@/shared/utils/currency';
 
 const formSchema = z.object({
   customerId: z.string().min(1, 'Customer is required'),
@@ -23,14 +30,10 @@ const formSchema = z.object({
   taxAmount: z.number().min(0, 'Tax amount must be positive'),
   discountAmount: z.number().min(0, 'Discount amount must be positive'),
   totalAmount: z.number().min(0, 'Total amount must be positive'),
-  currency: z.string().min(1, 'Currency is required'),
   paymentStatus: z.enum(['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED']),
-  shippingAddress: z.string().optional(),
-  billingAddress: z.string().optional(),
   notes: z.string().optional(),
   items: z.array(z.object({
-    productId: z.string().optional(),
-    courseId: z.string().optional(),
+    productId: z.string().min(1, 'Product is required'),
     quantity: z.number().min(1, 'Quantity must be at least 1'),
     unitPrice: z.number().min(0, 'Unit price must be positive'),
     totalPrice: z.number().min(0, 'Total price must be positive'),
@@ -47,9 +50,10 @@ const OrderForm = ({ mode }: OrderFormProps) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [isLoading, setIsLoading] = useState(false);
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
-  const [courses, setCourses] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
 
   const { order, isLoading: isLoadingOrder } = useOrder(mode === 'edit' ? id || null : null);
 
@@ -62,12 +66,9 @@ const OrderForm = ({ mode }: OrderFormProps) => {
       taxAmount: 0,
       discountAmount: 0,
       totalAmount: 0,
-      currency: 'USD',
       paymentStatus: 'PENDING',
-      shippingAddress: '',
-      billingAddress: '',
       notes: '',
-      items: [{ productId: '', courseId: '', quantity: 1, unitPrice: 0, totalPrice: 0 }],
+      items: [{ productId: '', quantity: 1, unitPrice: 0, totalPrice: 0 }],
     },
   });
 
@@ -85,14 +86,10 @@ const OrderForm = ({ mode }: OrderFormProps) => {
         taxAmount: order.taxAmount,
         discountAmount: order.discountAmount,
         totalAmount: order.totalAmount,
-        currency: order.currency,
         paymentStatus: order.paymentStatus,
-        shippingAddress: order.shippingAddress || '',
-        billingAddress: order.billingAddress || '',
         notes: order.notes || '',
         items: order.items?.map(item => ({
           productId: item.productId || '',
-          courseId: item.courseId || '',
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           totalPrice: item.totalPrice,
@@ -101,15 +98,48 @@ const OrderForm = ({ mode }: OrderFormProps) => {
     }
   }, [order, mode, form]);
 
+  // Load customers with memoization to prevent infinite loops
+  const loadCustomers = useCallback(async () => {
+    try {
+      const response = await customerService.getCustomers({
+        page: 1,
+        limit: 100, // Get all customers for dropdown
+        sortBy: 'firstName',
+        sortOrder: 'asc'
+      });
+      setCustomers(response.data);
+    } catch (error) {
+      console.error('Failed to load customers:', error);
+      toast.error('Failed to load customers');
+    }
+  }, []);
+
+  // Load products with memoization to prevent infinite loops
+  const loadProducts = useCallback(async () => {
+    try {
+      const response = await productService.getProducts({
+        page: 1,
+        limit: 100, // Get all products for dropdown
+        sortBy: 'name',
+        sortOrder: 'asc',
+        filters: { isActive: 'active' } // Only active products
+      });
+      setProducts(response.data);
+    } catch (error) {
+      console.error('Failed to load products:', error);
+      toast.error('Failed to load products');
+    }
+  }, []);
+
   useEffect(() => {
     const loadFormData = async () => {
       try {
         setIsLoading(true);
-        // Load customers, products, and courses for dropdowns
-        // This would typically be done through separate API calls
-        setCustomers([]);
-        setProducts([]);
-        setCourses([]);
+        // Load customers and products for dropdowns
+        await Promise.all([
+          loadCustomers(),
+          loadProducts()
+        ]);
       } catch (error) {
         console.error('Failed to load form data:', error);
         toast.error('Failed to load form data');
@@ -119,7 +149,7 @@ const OrderForm = ({ mode }: OrderFormProps) => {
     };
 
     loadFormData();
-  }, []);
+  }, [loadCustomers, loadProducts]);
 
   const calculateTotals = (items: FormValues['items']) => {
     const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -143,8 +173,18 @@ const OrderForm = ({ mode }: OrderFormProps) => {
     }
   };
 
+  const handleProductSelect = (index: number, productId: string) => {
+    const selectedProduct = products.find(p => p.id === productId);
+    if (selectedProduct) {
+      const finalPrice = selectedProduct.finalPrice || selectedProduct.price || 0;
+      form.setValue(`items.${index}.unitPrice`, finalPrice);
+      form.setValue(`items.${index}.productId`, productId);
+      updateItemTotal(index);
+    }
+  };
+
   const addItem = () => {
-    append({ productId: '', courseId: '', quantity: 1, unitPrice: 0, totalPrice: 0 });
+    append({ productId: '', quantity: 1, unitPrice: 0, totalPrice: 0 });
   };
 
   const removeItem = (index: number) => {
@@ -155,15 +195,64 @@ const OrderForm = ({ mode }: OrderFormProps) => {
     }
   };
 
+  // Create new customer function
+  const createNewCustomer = async (customerData: CreateCustomerDTO) => {
+    try {
+      setIsCreatingCustomer(true);
+      const newCustomer = await customerService.createCustomer(customerData);
+      
+      // Add new customer to the list
+      setCustomers(prev => [newCustomer, ...prev]);
+      
+      // Auto-select the newly created customer
+      form.setValue('customerId', newCustomer.id);
+      
+      // Close dialog
+      setIsCustomerDialogOpen(false);
+      
+      toast.success('Customer created successfully and selected');
+    } catch (error) {
+      console.error('Failed to create customer:', error);
+      toast.error('Failed to create customer');
+      throw error;
+    } finally {
+      setIsCreatingCustomer(false);
+    }
+  };
+
   const onSubmit = async (data: FormValues) => {
     try {
       setIsLoading(true);
       
       if (mode === 'create') {
-        await ordersService.createOrder(data);
+        await ordersService.createOrder({
+          customerId: data.customerId,
+          status: data.status,
+          subtotal: data.subtotal,
+          taxAmount: data.taxAmount,
+          discountAmount: data.discountAmount,
+          totalAmount: data.totalAmount,
+          currency: DEFAULT_CURRENCY, // Default to Indonesian Rupiah
+          paymentStatus: data.paymentStatus,
+          notes: data.notes,
+          items: data.items.map(item => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice,
+          }))
+        });
         toast.success('Order created successfully');
       } else if (id) {
-        await ordersService.updateOrder(id, data);
+        await ordersService.updateOrder(id, {
+          status: data.status,
+          subtotal: data.subtotal,
+          taxAmount: data.taxAmount,
+          discountAmount: data.discountAmount,
+          totalAmount: data.totalAmount,
+          paymentStatus: data.paymentStatus,
+          notes: data.notes,
+        });
         toast.success('Order updated successfully');
       }
       
@@ -201,20 +290,37 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Customer</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select customer" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {customers.map((customer) => (
-                            <SelectItem key={customer.id} value={customer.id}>
-                              {customer.user?.firstName} {customer.user?.lastName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <SearchableSelect
+                            options={customers.map(customer => ({
+                              value: customer.id,
+                              label: `${customer.user?.firstName || ''} ${customer.user?.lastName || ''}`.trim() || 'Unknown Customer'
+                            }))}
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            placeholder="Search and select customer..."
+                            searchPlaceholder="Search customers by name..."
+                            emptyText="No customers found. Create a new one?"
+                          />
+                        </div>
+                        <Dialog open={isCustomerDialogOpen} onOpenChange={setIsCustomerDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button type="button" variant="outline" size="icon" title="Add new customer">
+                              <UserPlus className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                              <DialogTitle>Add New Customer</DialogTitle>
+                            </DialogHeader>
+                            <CustomerQuickCreateForm
+                              onSubmit={createNewCustomer}
+                              isLoading={isCreatingCustomer}
+                            />
+                          </DialogContent>
+                        </Dialog>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -245,19 +351,6 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="currency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Currency</FormLabel>
-                      <FormControl>
-                        <Input placeholder="USD" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 <FormField
                   control={form.control}
@@ -297,58 +390,29 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                 {fields.map((field, index) => (
                   <Card key={field.id}>
                     <CardContent className="pt-4">
-                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <FormField
                           control={form.control}
                           name={`items.${index}.productId`}
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Product</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select product" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {products.map((product) => (
-                                    <SelectItem key={product.id} value={product.id}>
-                                      <div className="flex items-center gap-2">
-                                        <Package className="h-4 w-4" />
-                                        {product.name}
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.courseId`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Course</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select course" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {courses.map((course) => (
-                                    <SelectItem key={course.id} value={course.id}>
-                                      <div className="flex items-center gap-2">
-                                        <BookOpen className="h-4 w-4" />
-                                        {course.title}
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <SearchableSelect
+                                options={products.map(product => ({
+                                  value: product.id,
+                                  label: product.name,
+                                  subtitle: product.finalPrice ? formatCurrencyDisplay(product.finalPrice) : formatCurrencyDisplay(product.price),
+                                  icon: product.hasCourse ? <BookOpen className="h-4 w-4" /> : <Package className="h-4 w-4" />
+                                }))}
+                                value={field.value}
+                                onValueChange={(value) => {
+                                  field.onChange(value);
+                                  handleProductSelect(index, value);
+                                }}
+                                placeholder="Search and select product..."
+                                searchPlaceholder="Search products by name..."
+                                emptyText="No products found"
+                              />
                               <FormMessage />
                             </FormItem>
                           )}
@@ -388,10 +452,8 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                                   step="0.01"
                                   min="0"
                                   {...field}
-                                  onChange={(e) => {
-                                    field.onChange(parseFloat(e.target.value) || 0);
-                                    updateItemTotal(index);
-                                  }}
+                                  readOnly
+                                  className="bg-gray-50"
                                 />
                               </FormControl>
                               <FormMessage />
@@ -414,6 +476,7 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                                       min="0"
                                       {...field}
                                       readOnly
+                                      className="bg-gray-50"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -446,55 +509,25 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span>Subtotal:</span>
-                      <span>${form.watch('subtotal').toFixed(2)}</span>
+                      <span>{formatCurrencyDisplay(form.watch('subtotal'))}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Tax:</span>
-                      <span>${form.watch('taxAmount').toFixed(2)}</span>
+                      <span>{formatCurrencyDisplay(form.watch('taxAmount'))}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Discount:</span>
-                      <span>-${form.watch('discountAmount').toFixed(2)}</span>
+                      <span>-{formatCurrencyDisplay(form.watch('discountAmount'))}</span>
                     </div>
                     <div className="flex justify-between font-bold text-lg border-t pt-2">
                       <span>Total:</span>
-                      <span>${form.watch('totalAmount').toFixed(2)}</span>
+                      <span>{formatCurrencyDisplay(form.watch('totalAmount'))}</span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Addresses and Notes */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="shippingAddress"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Shipping Address</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Enter shipping address" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="billingAddress"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Billing Address</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Enter billing address" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
+              {/* Notes */}
               <FormField
                 control={form.control}
                 name="notes"
@@ -522,6 +555,129 @@ const OrderForm = ({ mode }: OrderFormProps) => {
         </CardContent>
       </Card>
     </div>
+  );
+};
+
+// Quick Customer Creation Form Component
+interface CustomerQuickCreateFormProps {
+  onSubmit: (data: CreateCustomerDTO) => Promise<void>;
+  isLoading: boolean;
+}
+
+const CustomerQuickCreateForm = ({ onSubmit, isLoading }: CustomerQuickCreateFormProps) => {
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validation
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      toast.error('First name and last name are required');
+      return;
+    }
+
+    if (!formData.email.trim() && !formData.phone.trim()) {
+      toast.error('Either email or phone number is required');
+      return;
+    }
+
+    try {
+      await onSubmit({
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim() || undefined,
+        phone: formData.phone.trim() || undefined,
+      });
+      
+      // Reset form
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+      });
+    } catch (error) {
+      // Error handling is done in parent component
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label htmlFor="firstName" className="text-sm font-medium">
+            First Name *
+          </label>
+          <Input
+            id="firstName"
+            value={formData.firstName}
+            onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+            placeholder="Enter first name"
+            required
+          />
+        </div>
+        <div>
+          <label htmlFor="lastName" className="text-sm font-medium">
+            Last Name *
+          </label>
+          <Input
+            id="lastName"
+            value={formData.lastName}
+            onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+            placeholder="Enter last name"
+            required
+          />
+        </div>
+      </div>
+      
+      <div>
+        <label htmlFor="email" className="text-sm font-medium">
+          Email
+        </label>
+        <Input
+          id="email"
+          type="email"
+          value={formData.email}
+          onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+          placeholder="Enter email address"
+        />
+      </div>
+      
+      <div>
+        <label htmlFor="phone" className="text-sm font-medium">
+          Phone
+        </label>
+        <Input
+          id="phone"
+          value={formData.phone}
+          onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+          placeholder="Enter phone number"
+        />
+      </div>
+      
+      <div className="text-xs text-gray-500">
+        * Required fields. Either email or phone must be provided.
+      </div>
+      
+      <div className="flex justify-end gap-2 pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {/* Dialog will be closed by parent */}}
+          disabled={isLoading}
+        >
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? 'Creating...' : 'Create Customer'}
+        </Button>
+      </div>
+    </form>
   );
 };
 

@@ -38,6 +38,7 @@ import { useChapters } from '../hooks/useChapters';
 import courseService from '../services/courseService';
 import chapterService from '../services/chapterService';
 import { Course, Chapter } from '../types/course.types';
+import { formatCurrencyDisplay } from '@/shared/utils/currency';
 
 const CourseDetailPage = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -319,7 +320,7 @@ const CourseDetailPage = () => {
                     </div>
                     {getPriceDisplay(course).hasDiscount && course.product && (
                       <div className="text-sm text-gray-500 line-through mt-1">
-                        ${course.product.price.toFixed(2)}
+                        {formatCurrencyDisplay(course.product.price)}
                       </div>
                     )}
                   </div>

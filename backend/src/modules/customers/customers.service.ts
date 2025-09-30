@@ -183,7 +183,16 @@ export class CustomersService {
       // Build orderBy clause
       const orderBy: Prisma.CustomerOrderByWithRelationInput = {};
       if (options?.sortBy) {
-        orderBy[options.sortBy] = options.sortOrder || 'desc';
+        // Handle user-related fields that need to be sorted via the user relation
+        const userRelatedFields = ['firstName', 'lastName', 'email'];
+        if (userRelatedFields.includes(options.sortBy)) {
+          orderBy.user = {
+            [options.sortBy]: options.sortOrder || 'asc'
+          };
+        } else {
+          // Handle direct customer fields
+          orderBy[options.sortBy] = options.sortOrder || 'desc';
+        }
       } else {
         orderBy.createdAt = 'desc';
       }
