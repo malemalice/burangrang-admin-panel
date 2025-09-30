@@ -94,7 +94,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Products',
         path: '#',
-        icon: 'ShoppingBag',
+        icon: 'Package',
         order: 3,
         isActive: true,
         roles: {
@@ -112,7 +112,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Products',
         path: '/products',
-        icon: 'ShoppingBag',
+        icon: 'Package',
         order: 1,
         parentId: productsMenu.id,
         isActive: true,
@@ -130,7 +130,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Courses',
         path: '/courses',
-        icon: 'Book',
+        icon: 'BookOpen',
         order: 1,
         parentId: productsMenu.id,
         isActive: true,
@@ -148,7 +148,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Categories',
         path: '/categories',
-        icon: 'Tag',
+        icon: 'Tags',
         parentId: productsMenu.id,
         order: 2,
         isActive: true,
@@ -166,7 +166,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Product Types',
         path: '/product-types',
-        icon: 'Tag',
+        icon: 'Type',
         parentId: productsMenu.id,
         order: 3,
         isActive: true,
@@ -183,8 +183,8 @@ export const seedMenus = async () => {
     const masterDataMenu = await prisma.menu.create({
       data: {
         name: 'Master Data',
-        icon: 'Building2',
-        order: 3,
+        icon: 'Database',
+        order: 98,
         isActive: true,
         roles: {
           connect: [
@@ -196,24 +196,12 @@ export const seedMenus = async () => {
       },
     });
 
-    const userManagementMenu = await prisma.menu.create({
-      data: {
-        name: 'User Management',
-        icon: 'Users',
-        order: 4,
-        isActive: true,
-        roles: {
-          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
-        },
-      },
-    });
-
     const settingsMenu = await prisma.menu.create({
       data: {
         name: 'Settings',
         path: '/settings',
         icon: 'Settings',
-        order: 5,
+        order: 99,
         isActive: true,
         roles: {
           connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
@@ -244,7 +232,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Departments',
         path: '/master/departments',
-        icon: 'UsersRound',
+        icon: 'Building2',
         parentId: masterDataMenu.id,
         order: 2,
         isActive: true,
@@ -309,7 +297,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Roles',
         path: '/roles',
-        icon: 'ShieldCheck',
+        icon: 'Shield',
         parentId: masterDataMenu.id,
         order: 2,
         isActive: true,
