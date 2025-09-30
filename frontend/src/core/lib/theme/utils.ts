@@ -207,8 +207,6 @@ export const useTheme = (): UseThemeReturn => {
       root.style.setProperty('--primary', themeColorSet.primary);
       root.style.setProperty('--secondary', themeColorSet.secondary);
       root.style.setProperty('--accent', themeColorSet.accent);
-
-      console.log(`Applied theme ${newTheme}:`, themeColorSet);
     } else {
       console.warn(`Theme "${newTheme}" is not a valid theme.`);
     }

@@ -15,6 +15,9 @@ import { seedChapters } from './seeds/chapters.seed';
 import { seedFileCategories } from './seeds/file-categories.seed';
 import { seedFileStorageProviders } from './seeds/file-storage-providers.seed';
 import { seedProducts } from './seeds/products.seed';
+import { seedCustomers } from './seeds/customers.seed';
+import { seedPaymentMethods } from './seeds/payment-methods.seed';
+import { seedOrders } from './seeds/orders.seed';
 
 const prisma = new PrismaClient();
 
@@ -30,13 +33,8 @@ async function main() {
     
     // If no specific table is provided, clear all tables
     if (!tableToSeed) {
-      // Delete in order to respect foreign key constraints
-      await prisma.chapter.deleteMany();
-      await prisma.course.deleteMany();
-      await prisma.productDownload.deleteMany();
-      await prisma.productFile.deleteMany();
-      await prisma.productCategory.deleteMany();
-      await prisma.product.deleteMany();
+      // Delete in correct order to handle foreign key constraints
+      // Start with tables that have no dependencies
       await prisma.notificationRecipient.deleteMany();
       await prisma.notification.deleteMany();
       await prisma.notificationType.deleteMany();
@@ -44,6 +42,46 @@ async function main() {
       await prisma.masterApprovalItem.deleteMany();
       await prisma.approval.deleteMany();
       await prisma.masterApproval.deleteMany();
+      
+      // Delete progress records (depends on enrollment and chapter)
+      await prisma.progress.deleteMany();
+      
+      // Delete enrollments (depends on user, course, and order)
+      await prisma.enrollment.deleteMany();
+      
+      // Delete payments (depends on order and payment method)
+      await prisma.payment.deleteMany();
+      
+      // Delete order items (depends on order, product, and course)
+      await prisma.orderItem.deleteMany();
+      
+      // Delete orders (depends on customer)
+      await prisma.order.deleteMany();
+      
+      // Delete customers (depends on user)
+      await prisma.customer.deleteMany();
+      
+      // Delete payment methods (no dependencies)
+      await prisma.paymentMethod.deleteMany();
+      
+      // Delete file-related tables (depends on users)
+      await prisma.fileAccessLog.deleteMany();
+      await prisma.fileUpload.deleteMany();
+      await prisma.fileCategory.deleteMany();
+      await prisma.fileStorageProvider.deleteMany();
+      
+      // Delete product-related tables
+      await prisma.productDownload.deleteMany();
+      await prisma.productFile.deleteMany();
+      await prisma.productCategory.deleteMany();
+      await prisma.product.deleteMany();
+      await prisma.productType.deleteMany();
+      
+      // Delete course-related tables
+      await prisma.chapter.deleteMany();
+      await prisma.course.deleteMany();
+      
+      // Delete users and related tables (delete users last)
       await prisma.user.deleteMany();
       await prisma.menu.deleteMany();
       await prisma.role.deleteMany();
@@ -53,11 +91,7 @@ async function main() {
       await prisma.jobPosition.deleteMany();
       await prisma.setting.deleteMany();
       await prisma.category.deleteMany();
-      await prisma.productType.deleteMany();
-      await prisma.fileAccessLog.deleteMany();
-      await prisma.fileUpload.deleteMany();
-      await prisma.fileCategory.deleteMany();
-      await prisma.fileStorageProvider.deleteMany();
+      
       console.log('All existing data cleared successfully');
     } else {
       // Clear only the specified table
@@ -120,9 +154,22 @@ async function main() {
           await prisma.productCategory.deleteMany();
           await prisma.product.deleteMany();
           break;
+        case 'customers':
+          await prisma.customer.deleteMany();
+          break;
+        case 'payment_methods':
+          await prisma.paymentMethod.deleteMany();
+          break;
+        case 'orders':
+          await prisma.progress.deleteMany();
+          await prisma.enrollment.deleteMany();
+          await prisma.payment.deleteMany();
+          await prisma.orderItem.deleteMany();
+          await prisma.order.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
-          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, file_categories, file_storage_providers, file_uploads, products');
+          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, file_categories, file_storage_providers, file_uploads, products, customers, payment_methods, orders');
           process.exit(1);
       }
       console.log(`Cleared existing data for table: ${tableToSeed}`);
@@ -147,6 +194,9 @@ async function main() {
       await seedProducts();
       await seedFileStorageProviders();
       await seedFileCategories();
+      await seedPaymentMethods();
+      await seedCustomers();
+      await seedOrders();
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -225,6 +275,29 @@ async function main() {
           const categoriesForProducts = await seedCategories(prisma);
           await seedProductTypes();
           await seedProducts();
+          break;
+        case 'customers':
+          const permsForCustomers = await seedPermissions(prisma);
+          const rolesForCustomers = await seedRoles(prisma, permsForCustomers);
+          const officesForCustomers = await seedOffices(prisma);
+          await seedUsers(prisma, rolesForCustomers, officesForCustomers);
+          await seedCustomers();
+          break;
+        case 'payment_methods':
+          await seedPaymentMethods();
+          break;
+        case 'orders':
+          const permsForOrders = await seedPermissions(prisma);
+          const rolesForOrders = await seedRoles(prisma, permsForOrders);
+          const officesForOrders = await seedOffices(prisma);
+          const usersForOrders = await seedUsers(prisma, rolesForOrders, officesForOrders);
+          const categoriesForOrders = await seedCategories(prisma);
+          await seedProductTypes();
+          await seedCourses(prisma, usersForOrders, categoriesForOrders);
+          await seedProducts();
+          await seedPaymentMethods();
+          await seedCustomers();
+          await seedOrders();
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

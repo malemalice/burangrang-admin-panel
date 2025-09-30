@@ -54,6 +54,42 @@ export const seedMenus = async () => {
       },
     });
 
+    const OrdersMenu = await prisma.menu.create({
+      data: {
+        name: 'Orders',
+        path: '/orders',
+        icon: 'ShoppingCart',
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    const CustomersMenu = await prisma.menu.create({
+      data: {
+        name: 'Customers',
+        path: '/customers',
+        icon: 'Users',
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     const productsMenu = await prisma.menu.create({
       data: {
         name: 'Products',
@@ -143,6 +179,7 @@ export const seedMenus = async () => {
         },
       },
     });
+
     const masterDataMenu = await prisma.menu.create({
       data: {
         name: 'Master Data',

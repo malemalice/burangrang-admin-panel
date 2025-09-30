@@ -4,6 +4,7 @@ import { DtoMapperService } from './services/dto-mapper.service';
 import { ActivityLoggerService } from './services/activity-logger.service';
 import { LocalStorageService } from './services/local-storage.service';
 import { StorageFactoryService } from './services/storage-factory.service';
+import { NotificationService } from './services/notification.service';
 import { PrismaModule } from '../core/prisma/prisma.module';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
@@ -17,6 +18,7 @@ import { PermissionsGuard } from './guards/permissions.guard';
     ActivityLoggerService, 
     LocalStorageService,
     StorageFactoryService,
+    NotificationService,
     JwtAuthGuard, 
     RolesGuard, 
     PermissionsGuard
@@ -28,6 +30,7 @@ import { PermissionsGuard } from './guards/permissions.guard';
     ActivityLoggerService, 
     LocalStorageService,
     StorageFactoryService,
+    NotificationService,
     JwtAuthGuard, 
     RolesGuard, 
     PermissionsGuard

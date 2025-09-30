@@ -8,7 +8,6 @@ import {
   Delete,
   UseGuards,
   Query,
-  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -199,8 +198,9 @@ export class SettingsController {
       value = defaultValue;
     }
 
+    // Use the service method that properly handles the error case
     if (value === null) {
-      throw new NotFoundException(`Setting with key '${key}' not found`);
+      value = await this.settingsService.getValueByKeyOrThrow(key);
     }
 
     return { value };

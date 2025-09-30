@@ -38,6 +38,9 @@ export {
   getProductTypeLabel,
   getProductStatusInfo,
   formatPrice,
+  formatPriceDisplay,
+  formatPriceInput,
+  parsePrice,
   calculateFinalPrice,
 } from './types/product.types';
 

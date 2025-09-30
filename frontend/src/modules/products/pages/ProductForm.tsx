@@ -37,7 +37,9 @@ import {
   UpdateProductDTO, 
   ProductFormData,
   PRODUCT_TYPES,
-  PRODUCT_STATUSES 
+  PRODUCT_STATUSES,
+  formatPriceInput,
+  parsePrice
 } from '../types/product.types';
 import { PRODUCT_TYPE_NAMES, ProductTypeName } from '@/shared/constants/product-types';
 
@@ -524,24 +526,34 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
 
             {/* Pricing */}
             <div className="space-y-4">
-              <h3 className="text-lg font-medium">Pricing</h3>
+              <h3 className="text-lg font-medium">Pricing (in Indonesian Rupiah)</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Price</FormLabel>
+                      <FormLabel>Price (Rp)</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="0.00"
-                          {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                        />
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
+                            Rp
+                          </span>
+                          <Input 
+                            type="text"
+                            placeholder="0"
+                            className="pl-8"
+                            value={field.value ? formatPriceInput(field.value) : ''}
+                            onChange={(e) => {
+                              const parsed = parsePrice(e.target.value);
+                              field.onChange(parsed);
+                            }}
+                          />
+                        </div>
                       </FormControl>
+                      <p className="text-sm text-gray-600">
+                        Enter price in Indonesian Rupiah (e.g., 50000 for Rp 50,000)
+                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -552,18 +564,27 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                   name="salePrice"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Sale Price (Optional)</FormLabel>
+                      <FormLabel>Sale Price (Optional) (Rp)</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="0.00"
-                          {...field}
-                          value={field.value || ''} // ✅ Fixed: Handle undefined values properly
-                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                        />
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
+                            Rp
+                          </span>
+                          <Input 
+                            type="text"
+                            placeholder="0"
+                            className="pl-8"
+                            value={field.value && field.value > 0 ? formatPriceInput(field.value) : ''}
+                            onChange={(e) => {
+                              const parsed = parsePrice(e.target.value);
+                              field.onChange(parsed > 0 ? parsed : 0);
+                            }}
+                          />
+                        </div>
                       </FormControl>
+                      <p className="text-sm text-gray-600">
+                        Enter sale price in Indonesian Rupiah (e.g., 40000 for Rp 40,000)
+                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
