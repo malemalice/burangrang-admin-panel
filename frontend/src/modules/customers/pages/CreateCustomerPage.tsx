@@ -9,28 +9,21 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/core/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
-import { Switch } from '@/core/components/ui/switch';
-import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
-import { ArrowLeft, UserPlus, UserCheck } from 'lucide-react';
-import { useUsers } from '@/modules/users/hooks/useUsers';
+import { ArrowLeft, UserPlus } from 'lucide-react';
 import { useCustomers } from '../hooks/useCustomers';
 import { CreateCustomerDTO } from '../types/customer.types';
 
 const formSchema = z.object({
-  // User selection mode
-  userMode: z.enum(['existing', 'new']),
-  userId: z.string().optional(),
-  // User creation fields (required when userMode is 'new')
+  // Essential fields for lean form
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  // Phone OR Email required (at least one)
+  phone: z.string().optional(),
   email: z.string().email('Valid email is required').optional(),
-  password: z.string().min(6, 'Password must be at least 6 characters').optional(),
-  firstName: z.string().min(1, 'First name is required').optional(),
-  lastName: z.string().min(1, 'Last name is required').optional(),
-  roleId: z.string().optional(),
-  officeId: z.string().optional(),
+  // Optional user fields
   departmentId: z.string().optional(),
   jobPositionId: z.string().optional(),
-  // Customer fields
-  phone: z.string().optional(),
+  // Optional customer-specific fields (hidden by default in lean form)
   address: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
@@ -38,17 +31,12 @@ const formSchema = z.object({
   postalCode: z.string().optional(),
   dateOfBirth: z.string().optional(),
   gender: z.string().optional(),
-  isActive: z.boolean().default(true),
 }).refine((data) => {
-  if (data.userMode === 'existing') {
-    return data.userId && data.userId.length > 0;
-  } else if (data.userMode === 'new') {
-    return data.email && data.password && data.firstName && data.lastName;
-  }
-  return true;
+  // At least one contact method is required
+  return data.phone || data.email;
 }, {
-  message: 'Please fill in all required fields',
-  path: ['userMode']
+  message: 'Either phone number or email address is required',
+  path: ['phone']
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -57,26 +45,18 @@ const CreateCustomerPage = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const { createCustomer } = useCustomers();
-  const { users, fetchUsers } = useUsers();
-  const [roles, setRoles] = useState<any[]>([]);
-  const [offices, setOffices] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [jobPositions, setJobPositions] = useState<any[]>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      userMode: 'existing',
-      userId: '',
-      email: '',
-      password: '',
       firstName: '',
       lastName: '',
-      roleId: '',
-      officeId: '',
+      phone: '',
+      email: '',
       departmentId: '',
       jobPositionId: '',
-      phone: '',
       address: '',
       city: '',
       state: '',
@@ -84,23 +64,17 @@ const CreateCustomerPage = () => {
       postalCode: '',
       dateOfBirth: '',
       gender: '',
-      isActive: true,
     },
   });
 
-  // Load all required data
+  // Load optional data for dropdowns
   useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoading(true);
         
-        // Load users
-        await fetchUsers({ page: 1, limit: 100 });
-        
-        // TODO: Load roles, offices, departments, job positions
+        // TODO: Load departments and job positions from their respective services
         // For now, we'll use empty arrays - these should be loaded from their respective services
-        setRoles([]);
-        setOffices([]);
         setDepartments([]);
         setJobPositions([]);
         
@@ -112,15 +86,24 @@ const CreateCustomerPage = () => {
       }
     };
     loadData();
-  }, [fetchUsers]);
+  }, []);
 
   const onSubmit = async (data: FormValues) => {
     try {
       setIsLoading(true);
       
-      // Transform form data to DTO based on user mode
+      // Transform form data to DTO - lean form with minimal required fields
       const customerData: CreateCustomerDTO = {
+        // Essential fields for lean form
+        firstName: data.firstName,
+        lastName: data.lastName,
+        // Phone OR Email required (at least one)
         phone: data.phone || undefined,
+        email: data.email || undefined,
+        // Optional user fields
+        departmentId: data.departmentId || undefined,
+        jobPositionId: data.jobPositionId || undefined,
+        // Optional customer-specific fields
         address: data.address || undefined,
         city: data.city || undefined,
         state: data.state || undefined,
@@ -128,23 +111,7 @@ const CreateCustomerPage = () => {
         postalCode: data.postalCode || undefined,
         dateOfBirth: data.dateOfBirth || undefined,
         gender: data.gender || undefined,
-        isActive: data.isActive,
       };
-
-      if (data.userMode === 'existing') {
-        // Use existing user
-        customerData.userId = data.userId;
-      } else {
-        // Create new user
-        customerData.email = data.email;
-        customerData.password = data.password;
-        customerData.firstName = data.firstName;
-        customerData.lastName = data.lastName;
-        customerData.roleId = data.roleId;
-        customerData.officeId = data.officeId;
-        customerData.departmentId = data.departmentId;
-        customerData.jobPositionId = data.jobPositionId;
-      }
 
       await createCustomer(customerData);
       navigate('/customers');
@@ -168,7 +135,7 @@ const CreateCustomerPage = () => {
         </Button>
         <div>
           <h1 className="text-2xl font-bold">Create Customer</h1>
-          <p className="text-gray-600">Add a new customer profile</p>
+          <p className="text-gray-600">Quick customer registration - password will be sent via email or SMS</p>
         </div>
       </div>
 
@@ -179,106 +146,62 @@ const CreateCustomerPage = () => {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* User Mode Selection */}
-              <FormField
-                control={form.control}
-                name="userMode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>User Selection Mode</FormLabel>
-                    <FormControl>
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        className="flex flex-col space-y-1"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="existing" id="existing" />
-                          <label htmlFor="existing" className="flex items-center gap-2 cursor-pointer">
-                            <UserCheck className="h-4 w-4" />
-                            Use existing user
-                          </label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="new" id="new" />
-                          <label htmlFor="new" className="flex items-center gap-2 cursor-pointer">
-                            <UserPlus className="h-4 w-4" />
-                            Create new user
-                          </label>
-                        </div>
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Existing User Selection */}
-              {form.watch('userMode') === 'existing' && (
-                <FormField
-                  control={form.control}
-                  name="userId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>User *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+              {/* Essential Fields - Lean Form */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium flex items-center gap-2">
+                  <UserPlus className="h-4 w-4" />
+                  Essential Information
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name *</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a user" />
-                          </SelectTrigger>
+                          <Input placeholder="Enter first name" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          {users.map((user) => (
-                            <SelectItem key={user.id} value={user.id}>
-                              {user.firstName} {user.lastName} ({user.email})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter last name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-              {/* New User Creation Fields */}
-              {form.watch('userMode') === 'new' && (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="firstName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>First Name *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter first name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="lastName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Last Name *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter last name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter phone number" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <FormField
                     control={form.control}
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email *</FormLabel>
+                        <FormLabel>Email Address</FormLabel>
                         <FormControl>
                           <Input type="email" placeholder="Enter email address" {...field} />
                         </FormControl>
@@ -286,72 +209,22 @@ const CreateCustomerPage = () => {
                       </FormItem>
                     )}
                   />
+                </div>
 
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Password *</FormLabel>
-                        <FormControl>
-                          <Input type="password" placeholder="Enter password (min 6 characters)" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-blue-700">
+                    <strong>Note:</strong> At least one contact method (phone or email) is required. 
+                    A temporary password will be automatically generated and sent to the customer.
+                  </p>
+                </div>
+              </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="roleId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Role</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select role (optional)" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {roles.map((role) => (
-                                <SelectItem key={role.id} value={role.id}>
-                                  {role.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="officeId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Office</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select office (optional)" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {offices.map((office) => (
-                                <SelectItem key={office.id} value={office.id}>
-                                  {office.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
+              {/* Optional Fields - Collapsed by Default */}
+              <details className="group">
+                <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-900">
+                  Show additional information (optional)
+                </summary>
+                <div className="mt-4 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -402,157 +275,117 @@ const CreateCustomerPage = () => {
                       )}
                     />
                   </div>
-                </>
-              )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter phone number" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="gender"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Gender</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormField
+                    control={form.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Address</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select gender" />
-                          </SelectTrigger>
+                          <Input placeholder="Enter address" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="male">Male</SelectItem>
-                          <SelectItem value="female">Female</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                          <SelectItem value="prefer-not-to-say">Prefer not to say</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <FormField
-                control={form.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Address</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter address" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="city"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>City</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter city" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="state"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>State/Province</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter state" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="country"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Country</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter country" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField
-                  control={form.control}
-                  name="city"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>City</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter city" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="postalCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Postal Code</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter postal code" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="dateOfBirth"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Date of Birth</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-                <FormField
-                  control={form.control}
-                  name="state"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>State/Province</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter state" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="country"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Country</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter country" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="postalCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Postal Code</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter postal code" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="dateOfBirth"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Date of Birth</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Active Status</FormLabel>
-                      <div className="text-sm text-muted-foreground">
-                        Enable or disable this customer profile
-                      </div>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+                  <FormField
+                    control={form.control}
+                    name="gender"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Gender</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select gender" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="male">Male</SelectItem>
+                            <SelectItem value="female">Female</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                            <SelectItem value="prefer-not-to-say">Prefer not to say</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </details>
 
               <div className="flex justify-end gap-4">
                 <Button type="button" variant="outline" onClick={() => navigate('/customers')}>

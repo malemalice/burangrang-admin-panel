@@ -38,18 +38,16 @@ export interface Customer {
 
 // CRUD operation types
 export interface CreateCustomerDTO {
-  userId?: string; // Optional - will create user if not provided
-  // User creation fields (required if userId is not provided)
+  // Essential fields for lean form
+  firstName: string;
+  lastName: string;
+  // Phone OR Email required (at least one)
+  phone?: string;
   email?: string;
-  password?: string;
-  firstName?: string;
-  lastName?: string;
-  roleId?: string;
-  officeId?: string;
+  // Optional user fields (will use defaults if not provided)
   departmentId?: string;
   jobPositionId?: string;
-  // Customer fields
-  phone?: string;
+  // Optional customer-specific fields (hidden by default in lean form)
   address?: string;
   city?: string;
   state?: string;
@@ -57,11 +55,10 @@ export interface CreateCustomerDTO {
   postalCode?: string;
   dateOfBirth?: string;
   gender?: string;
-  isActive?: boolean;
 }
 
 export interface UpdateCustomerDTO {
-  userId?: string;
+  // Only customer-specific fields can be updated (no user fields)
   phone?: string;
   address?: string;
   city?: string;
@@ -70,24 +67,20 @@ export interface UpdateCustomerDTO {
   postalCode?: string;
   dateOfBirth?: string;
   gender?: string;
-  isActive?: boolean;
 }
 
 // Form and UI types
 export interface CustomerFormData {
-  // User selection mode
-  userId: string;
-  // User creation fields (when creating new user)
-  email: string;
-  password: string;
+  // Essential fields for lean form
   firstName: string;
   lastName: string;
-  roleId: string;
-  officeId: string;
+  // Phone OR Email required (at least one)
+  phone: string;
+  email: string;
+  // Optional user fields
   departmentId: string;
   jobPositionId: string;
-  // Customer fields
-  phone: string;
+  // Optional customer-specific fields (hidden by default in lean form)
   address: string;
   city: string;
   state: string;
@@ -95,7 +88,6 @@ export interface CustomerFormData {
   postalCode: string;
   dateOfBirth: string;
   gender: string;
-  isActive: boolean;
 }
 
 export interface CustomerFilters {

@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ActivityLoggerService } from '../../shared/services/activity-logger.service';
+import { NotificationService } from '../../shared/services/notification.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -21,6 +22,7 @@ export class CustomersService {
     private errorHandler: ErrorHandlingService,
     private dtoMapper: DtoMapperService,
     private activityLogger: ActivityLoggerService,
+    private notificationService: NotificationService,
   ) {
     // Initialize mappers
     this.customerMapper = this.dtoMapper.createMapper(CustomerDto);
@@ -30,34 +32,13 @@ export class CustomersService {
 
   async create(createCustomerDto: CreateCustomerDto, createdBy: string): Promise<CustomerDto> {
     try {
-      let userId = createCustomerDto.userId;
-      let user;
+      // Validate that at least one contact method is provided
+      if (!createCustomerDto.email && !createCustomerDto.phone) {
+        throw new BadRequestException('Either email or phone number is required');
+      }
 
-      // If userId is provided, verify user exists and doesn't have customer profile
-      if (userId) {
-        user = await this.prisma.user.findUnique({
-          where: { id: userId },
-        });
-
-        if (!user) {
-          throw new NotFoundException('User not found');
-        }
-
-        // Check if user already has a customer profile
-        const existingCustomer = await this.prisma.customer.findUnique({
-          where: { userId },
-        });
-
-        if (existingCustomer) {
-          throw new ConflictException('Customer profile already exists for this user');
-        }
-      } else {
-        // Create new user with provided data or defaults
-        if (!createCustomerDto.email || !createCustomerDto.password || !createCustomerDto.firstName || !createCustomerDto.lastName) {
-          throw new BadRequestException('Email, password, first name, and last name are required when creating a new user');
-        }
-
-        // Check if user with this email already exists
+      // If email is provided, check if user already exists
+      if (createCustomerDto.email) {
         const existingUser = await this.prisma.user.findUnique({
           where: { email: createCustomerDto.email },
         });
@@ -65,64 +46,62 @@ export class CustomersService {
         if (existingUser) {
           throw new ConflictException('User with this email already exists');
         }
-
-        // Get default role and office
-        const [defaultRole, defaultOffice] = await Promise.all([
-          createCustomerDto.roleId 
-            ? this.prisma.role.findUnique({ where: { id: createCustomerDto.roleId } })
-            : this.prisma.role.findFirst({ where: { name: 'User' } }),
-          createCustomerDto.officeId
-            ? this.prisma.office.findUnique({ where: { id: createCustomerDto.officeId } })
-            : this.prisma.office.findFirst({ where: { isActive: true } }),
-        ]);
-
-        if (!defaultRole) {
-          throw new NotFoundException('Default role not found. Please contact system administrator.');
-        }
-
-        if (!defaultOffice) {
-          throw new NotFoundException('Default office not found. Please contact system administrator.');
-        }
-
-        // Hash password
-        const hashedPassword = await bcrypt.hash(createCustomerDto.password, 10);
-
-        // Create user
-        user = await this.prisma.user.create({
-          data: {
-            email: createCustomerDto.email,
-            password: hashedPassword,
-            firstName: createCustomerDto.firstName,
-            lastName: createCustomerDto.lastName,
-            roleId: defaultRole.id,
-            officeId: defaultOffice.id,
-            departmentId: createCustomerDto.departmentId,
-            jobPositionId: createCustomerDto.jobPositionId,
-            isActive: true,
-          },
-          include: {
-            role: true,
-            office: true,
-            department: true,
-            jobPosition: true,
-          },
-        });
-
-        userId = user.id;
-
-        // Log user creation activity
-        await this.activityLogger.logUserActivity('create', {
-          id: user.id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-        }, createdBy);
       }
 
-      // Create customer profile
+      // Auto-fill mandatory user attributes with defaults
+      const [defaultRole, defaultOffice] = await Promise.all([
+        this.prisma.role.findFirst({ where: { name: 'User' } }),
+        this.prisma.office.findFirst({ where: { isActive: true } }),
+      ]);
+
+      if (!defaultRole) {
+        throw new NotFoundException('Default role "User" not found. Please contact system administrator.');
+      }
+
+      if (!defaultOffice) {
+        throw new NotFoundException('Default office not found. Please contact system administrator.');
+      }
+
+      // Generate temporary password and send via email/SMS
+      const temporaryPassword = this.notificationService.generateTemporaryPassword();
+      const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+
+      // Generate email from phone if no email provided
+      const userEmail = createCustomerDto.email || `temp-${Date.now()}@customer.local`;
+
+      // Create user with auto-filled mandatory attributes
+      const user = await this.prisma.user.create({
+        data: {
+          email: userEmail,
+          password: hashedPassword,
+          firstName: createCustomerDto.firstName,
+          lastName: createCustomerDto.lastName,
+          roleId: defaultRole.id, // Auto-filled: default User role
+          officeId: defaultOffice.id, // Auto-filled: default office
+          departmentId: createCustomerDto.departmentId || null, // Optional
+          jobPositionId: createCustomerDto.jobPositionId || null, // Optional
+          isActive: true, // Auto-filled: always active
+        },
+        include: {
+          role: true,
+          office: true,
+          department: true,
+          jobPosition: true,
+        },
+      });
+
+      // Log user creation activity
+      await this.activityLogger.logUserActivity('create', {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+      }, createdBy);
+
+      // Create customer profile (no duplicate attributes - only customer-specific fields)
       const customer = await this.prisma.customer.create({
         data: {
-          userId: userId!, // userId is guaranteed to be defined at this point
+          userId: user.id,
           phone: createCustomerDto.phone || null,
           address: createCustomerDto.address || null,
           city: createCustomerDto.city || null,
@@ -131,7 +110,7 @@ export class CustomersService {
           postalCode: createCustomerDto.postalCode || null,
           dateOfBirth: createCustomerDto.dateOfBirth ? new Date(createCustomerDto.dateOfBirth) : null,
           gender: createCustomerDto.gender || null,
-          isActive: createCustomerDto.isActive ?? true,
+          // isActive, createdAt, updatedAt are inherited from User table - no duplicates
         },
         include: {
           user: {
@@ -145,12 +124,21 @@ export class CustomersService {
         },
       });
 
+      // Send password via appropriate channel (email or SMS)
+      await this.notificationService.sendPassword(
+        createCustomerDto.email,
+        createCustomerDto.phone,
+        temporaryPassword,
+        createCustomerDto.firstName,
+        createCustomerDto.lastName
+      );
+
       // Log customer creation activity
       await this.activityLogger.logUserActivity('create', {
         id: customer.id,
-        firstName: customer.user?.firstName || user.firstName,
-        lastName: customer.user?.lastName || user.lastName,
-        email: customer.user?.email || user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
       }, createdBy);
 
       return this.customerMapper(customer);
@@ -313,20 +301,19 @@ export class CustomersService {
         throw new NotFoundException('Customer not found');
       }
 
-      // If userId is being updated, check for conflicts
-      if (updateCustomerDto.userId && updateCustomerDto.userId !== existingCustomer.userId) {
-        const conflictingCustomer = await this.prisma.customer.findUnique({
-          where: { userId: updateCustomerDto.userId },
-        });
-
-        if (conflictingCustomer) {
-          throw new ConflictException('Customer profile already exists for this user');
-        }
-      }
-
+      // Update customer profile (only customer-specific fields, no userId changes allowed)
       const customer = await this.prisma.customer.update({
         where: { id },
-        data: updateCustomerDto,
+        data: {
+          phone: updateCustomerDto.phone ?? existingCustomer.phone,
+          address: updateCustomerDto.address ?? existingCustomer.address,
+          city: updateCustomerDto.city ?? existingCustomer.city,
+          state: updateCustomerDto.state ?? existingCustomer.state,
+          country: updateCustomerDto.country ?? existingCustomer.country,
+          postalCode: updateCustomerDto.postalCode ?? existingCustomer.postalCode,
+          dateOfBirth: updateCustomerDto.dateOfBirth ? new Date(updateCustomerDto.dateOfBirth) : existingCustomer.dateOfBirth,
+          gender: updateCustomerDto.gender ?? existingCustomer.gender,
+        },
         include: {
           user: {
             include: {

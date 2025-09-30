@@ -1,61 +1,41 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsDateString, IsBoolean, IsEmail, IsNotEmpty, MinLength, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsEmail, IsNotEmpty, IsUUID, ValidateIf } from 'class-validator';
 
 export class CreateCustomerDto {
-  @ApiProperty({ description: 'Associated User ID (optional - will create user if not provided)', required: false })
-  @IsOptional()
-  @IsString()
-  userId?: string;
-
-  // User creation fields (required if userId is not provided)
-  @ApiProperty({ description: 'User email address', required: false })
-  @IsOptional()
-  @IsEmail()
-  email?: string;
-
-  @ApiProperty({ description: 'User password (minimum 6 characters)', required: false })
-  @IsOptional()
-  @IsString()
-  @MinLength(6)
-  password?: string;
-
-  @ApiProperty({ description: 'User first name', required: false })
-  @IsOptional()
+  // Essential fields for lean form
+  @ApiProperty({ description: 'User first name' })
   @IsString()
   @IsNotEmpty()
-  firstName?: string;
+  firstName: string;
 
-  @ApiProperty({ description: 'User last name', required: false })
-  @IsOptional()
+  @ApiProperty({ description: 'User last name' })
   @IsString()
   @IsNotEmpty()
-  lastName?: string;
+  lastName: string;
 
-  @ApiProperty({ description: 'User role ID (optional - will use default User role if not provided)', required: false })
-  @IsOptional()
-  @IsUUID()
-  roleId?: string;
-
-  @ApiProperty({ description: 'User office ID (optional - will use default office if not provided)', required: false })
-  @IsOptional()
-  @IsUUID()
-  officeId?: string;
-
-  @ApiProperty({ description: 'User department ID', required: false })
-  @IsOptional()
-  @IsUUID()
-  departmentId?: string;
-
-  @ApiProperty({ description: 'User job position ID', required: false })
-  @IsOptional()
-  @IsUUID()
-  jobPositionId?: string;
-
-  @ApiProperty({ description: 'Phone number', required: false })
+  // Phone OR Email required (at least one)
+  @ApiProperty({ description: 'Phone number (required if email not provided)', required: false })
   @IsOptional()
   @IsString()
   phone?: string;
 
+  @ApiProperty({ description: 'User email address (required if phone not provided)', required: false })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  // Optional user fields (will use defaults if not provided)
+  @ApiProperty({ description: 'User department ID (optional - will be null if not provided)', required: false })
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string;
+
+  @ApiProperty({ description: 'User job position ID (optional - will be null if not provided)', required: false })
+  @IsOptional()
+  @IsUUID()
+  jobPositionId?: string;
+
+  // Optional customer-specific fields (hidden by default in lean form)
   @ApiProperty({ description: 'Address', required: false })
   @IsOptional()
   @IsString()
@@ -90,9 +70,4 @@ export class CreateCustomerDto {
   @IsOptional()
   @IsString()
   gender?: string;
-
-  @ApiProperty({ description: 'Is customer active', required: false, default: true })
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
 }
