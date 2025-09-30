@@ -77,7 +77,7 @@ export const seedMenus = async () => {
         name: 'Customers',
         path: '/customers',
         icon: 'Users',
-        order: 3,
+        order: 4,
         isActive: true,
         roles: {
           connect: [
@@ -95,7 +95,7 @@ export const seedMenus = async () => {
         name: 'Products',
         path: '#',
         icon: 'ShoppingBag',
-        order: 2,
+        order: 3,
         isActive: true,
         roles: {
           connect: [
@@ -296,7 +296,7 @@ export const seedMenus = async () => {
         name: 'Users',
         path: '/users',
         icon: 'Users',
-        parentId: userManagementMenu.id,
+        parentId: masterDataMenu.id,
         order: 1,
         isActive: true,
         roles: {
@@ -310,7 +310,7 @@ export const seedMenus = async () => {
         name: 'Roles',
         path: '/roles',
         icon: 'ShieldCheck',
-        parentId: userManagementMenu.id,
+        parentId: masterDataMenu.id,
         order: 2,
         isActive: true,
         roles: {
@@ -324,7 +324,7 @@ export const seedMenus = async () => {
         name: 'Menus',
         path: '/menus',
         icon: 'Menu',
-        parentId: userManagementMenu.id,
+        parentId: masterDataMenu.id,
         order: 3,
         isActive: true,
         roles: {
@@ -336,10 +336,6 @@ export const seedMenus = async () => {
 
     console.log('✅ Menus seeded successfully');
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
-    console.log(`   - Top-level menus: 4`);
-    console.log(`   - Submenus: 6`);
-    console.log(`   - Nested submenus: 2`);
-    console.log(`   - Deep nested: 1`);
   } catch (error) {
     console.error('❌ Error seeding menus:', error);
     throw error;
