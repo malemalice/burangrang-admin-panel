@@ -1,10 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsOptional, IsNumber, IsEnum, Min } from 'class-validator';
+import { OrderStatus, PaymentStatus, ORDER_STATUS_VALUES, PAYMENT_STATUS_VALUES } from 'src/shared/types';
 
 export class UpdateOrderDto {
-  @ApiProperty({ enum: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'], required: false })
+  @ApiProperty({ enum: ORDER_STATUS_VALUES, required: false })
   @IsOptional()
-  @IsEnum(['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'])
+  @IsEnum(ORDER_STATUS_VALUES)
   status?: string;
 
   @ApiProperty({ required: false })
@@ -36,9 +37,9 @@ export class UpdateOrderDto {
   @IsString()
   currency?: string;
 
-  @ApiProperty({ enum: ['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED'], required: false })
+  @ApiProperty({ enum: PAYMENT_STATUS_VALUES, required: false })
   @IsOptional()
-  @IsEnum(['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED'])
+  @IsEnum(PAYMENT_STATUS_VALUES)
   paymentStatus?: string;
 
   @ApiProperty({ required: false })

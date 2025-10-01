@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, IsNumber, IsArray, ValidateNested, IsUUID, IsEnum, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { OrderStatus, PaymentStatus, ORDER_STATUS_VALUES, PAYMENT_STATUS_VALUES } from 'src/shared/types';
 
 export class CreateOrderItemDto {
   @ApiProperty({ required: false })
@@ -35,9 +36,9 @@ export class CreateOrderDto {
   @IsNotEmpty()
   customerId: string;
 
-  @ApiProperty({ enum: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'], required: false })
+  @ApiProperty({ enum: ORDER_STATUS_VALUES, required: false })
   @IsOptional()
-  @IsEnum(['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'])
+  @IsEnum(ORDER_STATUS_VALUES)
   status?: string;
 
   @ApiProperty()
@@ -67,9 +68,9 @@ export class CreateOrderDto {
   @IsString()
   currency?: string;
 
-  @ApiProperty({ enum: ['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED'], required: false })
+  @ApiProperty({ enum: PAYMENT_STATUS_VALUES, required: false })
   @IsOptional()
-  @IsEnum(['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED'])
+  @IsEnum(PAYMENT_STATUS_VALUES)
   paymentStatus?: string;
 
   @ApiProperty({ required: false })

@@ -192,6 +192,90 @@ export const allRoutes = [
 
 ---
 
+## 📦 Order Status Management
+
+### Overview
+
+The Order Status Management system provides a comprehensive workflow for digital product orders, following industry best practices for ecommerce platforms. The system ensures clear communication of order progress and proper access control for digital products.
+
+### Order Status Flow
+
+The system implements a 7-status workflow optimized for digital products:
+
+```typescript
+export type OrderStatus = 
+  | 'PENDING'           // Order received, awaiting payment
+  | 'PAYMENT_PENDING'   // Payment initiated, awaiting confirmation  
+  | 'PAYMENT_FAILED'    // Payment failed, retry needed
+  | 'CONFIRMED'         // Payment confirmed, preparing access
+  | 'FULFILLED'         // ✅ User has access to digital product (DONE)
+  | 'CANCELLED'         // Order cancelled before completion
+  | 'REFUNDED';         // Order refunded, access revoked
+```
+
+### Status Definitions
+
+| Status | Description | User Access | Payment Status | Next Actions |
+|--------|-------------|-------------|----------------|--------------|
+| **PENDING** | Order received, awaiting payment | ❌ No access | PENDING | Pay or Cancel |
+| **PAYMENT_PENDING** | Payment initiated, awaiting confirmation | ❌ No access | PENDING | Wait or Retry |
+| **PAYMENT_FAILED** | Payment failed, retry needed | ❌ No access | FAILED | Retry or Cancel |
+| **CONFIRMED** | Payment confirmed, preparing access | ❌ No access | PAID | System processes |
+| **FULFILLED** | ✅ **User has access to digital product** | ✅ **Full access** | PAID | Access product |
+| **CANCELLED** | Order cancelled before completion | ❌ No access | CANCELLED | Terminal |
+| **REFUNDED** | Order refunded, access revoked | ❌ No access | REFUNDED | Terminal |
+
+### Frontend Implementation
+
+#### Status Display Components
+```typescript
+// OrderStatusFlow component shows the complete workflow
+const ORDER_STATUS_FLOW = [
+  { status: 'PENDING', label: 'Order Received', icon: Clock },
+  { status: 'PAYMENT_PENDING', label: 'Payment Processing', icon: CreditCard },
+  { status: 'CONFIRMED', label: 'Payment Confirmed', icon: CheckCircle },
+  { status: 'FULFILLED', label: '✅ Fulfilled', icon: Download },
+  { status: 'CANCELLED', label: 'Cancelled', icon: XCircle },
+  { status: 'REFUNDED', label: 'Refunded', icon: RotateCcw }
+];
+```
+
+#### Status Options for Forms
+```typescript
+export const ORDER_STATUS_OPTIONS = [
+  { label: 'Order Received', value: 'PENDING' },
+  { label: 'Payment Processing', value: 'PAYMENT_PENDING' },
+  { label: 'Payment Failed', value: 'PAYMENT_FAILED' },
+  { label: 'Payment Confirmed', value: 'CONFIRMED' },
+  { label: 'Fulfilled', value: 'FULFILLED' },
+  { label: 'Cancelled', value: 'CANCELLED' },
+  { label: 'Refunded', value: 'REFUNDED' },
+];
+```
+
+#### Color Coding
+```typescript
+export const getOrderStatusColor = (status: OrderStatus): string => {
+  switch (status) {
+    case 'PENDING': return 'bg-yellow-100 text-yellow-800';
+    case 'PAYMENT_PENDING': return 'bg-blue-100 text-blue-800';
+    case 'PAYMENT_FAILED': return 'bg-red-100 text-red-800';
+    case 'CONFIRMED': return 'bg-green-100 text-green-800';
+    case 'FULFILLED': return 'bg-emerald-100 text-emerald-800';
+    case 'CANCELLED': return 'bg-red-100 text-red-800';
+    case 'REFUNDED': return 'bg-gray-100 text-gray-800';
+  }
+};
+```
+
+### Business Rules
+
+1. **FULFILLED Status**: Indicates order completion and user access to digital products
+2. **Access Control**: Digital product access is granted only at FULFILLED status
+3. **Clear Communication**: Status descriptions clearly explain what each status means
+4. **Visual Indicators**: Icons and colors help users understand order progress
+5. **Action Guidance**: Each status provides clear next steps for users
+
 ## 🔄 Module Interaction Patterns
 
 ### API Calling Patterns
