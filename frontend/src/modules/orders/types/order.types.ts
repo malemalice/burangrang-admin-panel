@@ -213,8 +213,10 @@ export interface OrderItemFormData {
 export interface OrderStats {
   totalOrders: number;
   pendingOrders: number;
+  paymentPendingOrders: number;
+  paymentFailedOrders: number;
   confirmedOrders: number;
-  processingOrders: number;
+  fulfilledOrders: number;
   cancelledOrders: number;
   refundedOrders: number;
   totalRevenue: number;
@@ -248,7 +250,7 @@ export const ORDER_STATUS_OPTIONS = [
   { label: 'Payment Processing', value: 'PAYMENT_PENDING' },
   { label: 'Payment Failed', value: 'PAYMENT_FAILED' },
   { label: 'Payment Confirmed', value: 'CONFIRMED' },
-  { label: 'Access Granted', value: 'FULFILLED' },
+  { label: 'Fulfilled', value: 'FULFILLED' },
   { label: 'Cancelled', value: 'CANCELLED' },
   { label: 'Refunded', value: 'REFUNDED' },
 ] as const;

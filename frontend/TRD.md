@@ -234,7 +234,7 @@ const ORDER_STATUS_FLOW = [
   { status: 'PENDING', label: 'Order Received', icon: Clock },
   { status: 'PAYMENT_PENDING', label: 'Payment Processing', icon: CreditCard },
   { status: 'CONFIRMED', label: 'Payment Confirmed', icon: CheckCircle },
-  { status: 'FULFILLED', label: '✅ Access Granted', icon: Download },
+  { status: 'FULFILLED', label: '✅ Fulfilled', icon: Download },
   { status: 'CANCELLED', label: 'Cancelled', icon: XCircle },
   { status: 'REFUNDED', label: 'Refunded', icon: RotateCcw }
 ];
@@ -247,7 +247,7 @@ export const ORDER_STATUS_OPTIONS = [
   { label: 'Payment Processing', value: 'PAYMENT_PENDING' },
   { label: 'Payment Failed', value: 'PAYMENT_FAILED' },
   { label: 'Payment Confirmed', value: 'CONFIRMED' },
-  { label: 'Access Granted', value: 'FULFILLED' },
+  { label: 'Fulfilled', value: 'FULFILLED' },
   { label: 'Cancelled', value: 'CANCELLED' },
   { label: 'Refunded', value: 'REFUNDED' },
 ];

@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { OrderStatus, PaymentStatus, ORDER_STATUS_VALUES, PAYMENT_STATUS_VALUES } from '../../src/shared/types';
 
 const prisma = new PrismaClient();
 
@@ -39,8 +40,8 @@ export async function seedOrders() {
   }
 
   // Create orders dynamically based on available customers
-  const orderStatuses = ['PENDING', 'PAYMENT_PENDING', 'PAYMENT_FAILED', 'CONFIRMED', 'FULFILLED', 'CANCELLED', 'REFUNDED'];
-  const paymentStatuses = ['PENDING', 'PAID', 'FAILED', 'REFUNDED'];
+  const orderStatuses = ORDER_STATUS_VALUES;
+  const paymentStatuses = PAYMENT_STATUS_VALUES;
   
   // Define the order type
   interface OrderData {
@@ -143,8 +144,8 @@ export async function seedOrders() {
             userId: customers.find(c => c.id === orderInfo.customerId)?.userId || '',
             courseId: item.courseId,
             orderId: order.id,
-            status: orderInfo.status === 'FULFILLED' ? 'ACTIVE' : 'PENDING',
-            enrolledAt: orderInfo.status === 'FULFILLED' ? new Date() : undefined,
+            status: orderInfo.status === OrderStatus.FULFILLED ? 'ACTIVE' : 'PENDING',
+            enrolledAt: orderInfo.status === OrderStatus.FULFILLED ? new Date() : undefined,
           },
         });
       }

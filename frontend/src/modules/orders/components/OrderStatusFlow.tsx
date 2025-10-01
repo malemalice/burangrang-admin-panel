@@ -30,7 +30,7 @@ const ORDER_STATUS_FLOW = [
   },
   {
     status: 'FULFILLED',
-    label: '✅ Access Granted',
+    label: '✅ Fulfilled',
     description: 'Your digital product is ready! Access it in your dashboard',
     icon: Download,
     color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
