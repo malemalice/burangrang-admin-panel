@@ -39,7 +39,7 @@ export async function seedProducts() {
       status: 'PUBLISHED',
       stockQuantity: 100,
       downloadLimit: 5,
-      thumbnailUrl: 'https://example.com/thumbnails/react-course.jpg',
+      thumbnailUrl: 'https://picsum.photos/400/300?random=1',
       categoryIds: [categories[0].id],
     },
     {
@@ -53,7 +53,7 @@ export async function seedProducts() {
       status: 'PUBLISHED',
       stockQuantity: 1000,
       downloadLimit: 3,
-      thumbnailUrl: 'https://example.com/thumbnails/js-ebook.jpg',
+      thumbnailUrl: 'https://picsum.photos/400/300?random=2',
       categoryIds: [categories[0].id],
     },
     {
@@ -67,7 +67,7 @@ export async function seedProducts() {
       status: 'PUBLISHED',
       stockQuantity: 50,
       downloadLimit: 10,
-      thumbnailUrl: 'https://example.com/thumbnails/typescript-video.jpg',
+      thumbnailUrl: 'https://picsum.photos/400/300?random=3',
       categoryIds: categories.length > 1 ? [categories[1].id] : [categories[0].id],
     },
     {
@@ -82,7 +82,7 @@ export async function seedProducts() {
       status: 'PUBLISHED',
       stockQuantity: 25,
       downloadLimit: 15,
-      thumbnailUrl: 'https://example.com/thumbnails/fullstack-bundle.jpg',
+      thumbnailUrl: 'https://picsum.photos/400/300?random=4',
       categoryIds: categories.slice(0, 2).map(c => c.id),
     },
     {
@@ -96,7 +96,7 @@ export async function seedProducts() {
       status: 'REVIEW',
       stockQuantity: 75,
       downloadLimit: 5,
-      thumbnailUrl: 'https://example.com/thumbnails/nodejs-course.jpg',
+      thumbnailUrl: 'https://picsum.photos/400/300?random=5',
       categoryIds: [categories[0].id],
     },
     {
@@ -110,7 +110,7 @@ export async function seedProducts() {
       status: 'DRAFT',
       stockQuantity: 500,
       downloadLimit: 3,
-      thumbnailUrl: 'https://example.com/thumbnails/python-ebook.jpg',
+      thumbnailUrl: 'https://picsum.photos/400/300?random=6',
       categoryIds: categories.length > 2 ? [categories[2].id] : [categories[0].id],
     },
   ];
