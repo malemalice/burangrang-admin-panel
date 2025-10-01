@@ -425,11 +425,11 @@ export class OrdersService {
 
   private validateStatusTransition(currentStatus: string, newStatus: string): void {
     const validTransitions: Record<string, string[]> = {
-      PENDING: ['CONFIRMED', 'CANCELLED'],
-      CONFIRMED: ['PROCESSING', 'CANCELLED'],
-      PROCESSING: ['SHIPPED', 'CANCELLED'],
-      SHIPPED: ['DELIVERED'],
-      DELIVERED: ['REFUNDED'],
+      PENDING: ['PAYMENT_PENDING', 'CANCELLED'],
+      PAYMENT_PENDING: ['CONFIRMED', 'PAYMENT_FAILED', 'CANCELLED'],
+      PAYMENT_FAILED: ['PAYMENT_PENDING', 'CANCELLED'],
+      CONFIRMED: ['FULFILLED', 'CANCELLED'],
+      FULFILLED: ['REFUNDED'],
       CANCELLED: [],
       REFUNDED: [],
     };

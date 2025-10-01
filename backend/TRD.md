@@ -1040,6 +1040,75 @@ findAll() { }
 
 **Target Overall Score: 95%+**
 
+## Order Status Management
+
+### Overview
+
+The Order Status Management system provides a comprehensive workflow for digital product orders, following industry best practices for ecommerce platforms. The system ensures clear communication of order progress and proper access control for digital products.
+
+### Order Status Flow
+
+The system implements a 7-status workflow optimized for digital products:
+
+```typescript
+export type OrderStatus = 
+  | 'PENDING'           // Order received, awaiting payment
+  | 'PAYMENT_PENDING'   // Payment initiated, awaiting confirmation  
+  | 'PAYMENT_FAILED'    // Payment failed, retry needed
+  | 'CONFIRMED'         // Payment confirmed, preparing access
+  | 'FULFILLED'         // ✅ User has access to digital product (DONE)
+  | 'CANCELLED'         // Order cancelled before completion
+  | 'REFUNDED';         // Order refunded, access revoked
+```
+
+### Status Definitions
+
+| Status | Description | User Access | Payment Status | Next Actions |
+|--------|-------------|-------------|----------------|--------------|
+| **PENDING** | Order received, awaiting payment | ❌ No access | PENDING | Pay or Cancel |
+| **PAYMENT_PENDING** | Payment initiated, awaiting confirmation | ❌ No access | PENDING | Wait or Retry |
+| **PAYMENT_FAILED** | Payment failed, retry needed | ❌ No access | FAILED | Retry or Cancel |
+| **CONFIRMED** | Payment confirmed, preparing access | ❌ No access | PAID | System processes |
+| **FULFILLED** | ✅ **User has access to digital product** | ✅ **Full access** | PAID | Access product |
+| **CANCELLED** | Order cancelled before completion | ❌ No access | CANCELLED | Terminal |
+| **REFUNDED** | Order refunded, access revoked | ❌ No access | REFUNDED | Terminal |
+
+### Status Transitions
+
+```typescript
+const validTransitions: Record<string, string[]> = {
+  PENDING: ['PAYMENT_PENDING', 'CANCELLED'],
+  PAYMENT_PENDING: ['CONFIRMED', 'PAYMENT_FAILED', 'CANCELLED'],
+  PAYMENT_FAILED: ['PAYMENT_PENDING', 'CANCELLED'],
+  CONFIRMED: ['FULFILLED', 'CANCELLED'],
+  FULFILLED: ['REFUNDED'], // Only refund is possible after fulfillment
+  CANCELLED: [], // Terminal state
+  REFUNDED: [], // Terminal state
+};
+```
+
+### Business Rules
+
+1. **FULFILLED Status**: Indicates order completion and user access to digital products
+2. **Enrollment Creation**: Course enrollments are created when order reaches FULFILLED status
+3. **Access Control**: Digital product access is granted only at FULFILLED status
+4. **No Backward Transitions**: Once an order progresses, it cannot go backward
+5. **Terminal States**: CANCELLED and REFUNDED are final states
+
+### Implementation Guidelines
+
+#### Backend Implementation
+- Use enum validation in all DTOs
+- Implement status transition validation in service layer
+- Create enrollments at FULFILLED status
+- Log all status changes for audit trail
+
+#### Frontend Implementation
+- Display clear status descriptions to users
+- Use appropriate icons and colors for each status
+- Show progress indicators for order flow
+- Provide access links when status is FULFILLED
+
 ## Upload Module
 
 ### Overview

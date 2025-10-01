@@ -38,7 +38,11 @@ export class OrdersController {
   @Post()
   @ApiOperation({ summary: 'Create new order' })
   @ApiBody({ type: CreateOrderDto })
-  @ApiResponse({ status: 201, type: OrderDto, description: 'Order created successfully' })
+  @ApiResponse({
+    status: 201,
+    type: OrderDto,
+    description: 'Order created successfully',
+  })
   @ApiResponse({ status: 400, description: 'Bad request - Invalid order data' })
   @ApiResponse({ status: 404, description: 'Customer not found' })
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
@@ -105,7 +109,7 @@ export class OrdersController {
       properties: { 
         status: { 
           type: 'string', 
-          enum: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'] 
+          enum: ['PENDING', 'PAYMENT_PENDING', 'PAYMENT_FAILED', 'CONFIRMED', 'FULFILLED', 'CANCELLED', 'REFUNDED'] 
         } 
       } 
     } 

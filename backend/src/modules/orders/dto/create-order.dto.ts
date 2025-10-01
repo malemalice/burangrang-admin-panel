@@ -35,9 +35,9 @@ export class CreateOrderDto {
   @IsNotEmpty()
   customerId: string;
 
-  @ApiProperty({ enum: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'], required: false })
+  @ApiProperty({ enum: ['PENDING', 'PAYMENT_PENDING', 'PAYMENT_FAILED', 'CONFIRMED', 'FULFILLED', 'CANCELLED', 'REFUNDED'], required: false })
   @IsOptional()
-  @IsEnum(['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'])
+  @IsEnum(['PENDING', 'PAYMENT_PENDING', 'PAYMENT_FAILED', 'CONFIRMED', 'FULFILLED', 'CANCELLED', 'REFUNDED'])
   status?: string;
 
   @ApiProperty()

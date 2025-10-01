@@ -39,7 +39,7 @@ export async function seedOrders() {
   }
 
   // Create orders dynamically based on available customers
-  const orderStatuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+  const orderStatuses = ['PENDING', 'PAYMENT_PENDING', 'PAYMENT_FAILED', 'CONFIRMED', 'FULFILLED', 'CANCELLED', 'REFUNDED'];
   const paymentStatuses = ['PENDING', 'PAID', 'FAILED', 'REFUNDED'];
   
   // Define the order type
@@ -143,8 +143,8 @@ export async function seedOrders() {
             userId: customers.find(c => c.id === orderInfo.customerId)?.userId || '',
             courseId: item.courseId,
             orderId: order.id,
-            status: orderInfo.status === 'DELIVERED' ? 'ACTIVE' : 'PENDING',
-            enrolledAt: orderInfo.status === 'DELIVERED' ? new Date() : undefined,
+            status: orderInfo.status === 'FULFILLED' ? 'ACTIVE' : 'PENDING',
+            enrolledAt: orderInfo.status === 'FULFILLED' ? new Date() : undefined,
           },
         });
       }

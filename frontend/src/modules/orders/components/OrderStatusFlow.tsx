@@ -1,37 +1,45 @@
-import { CheckCircle, Clock, AlertCircle, XCircle, ArrowRight } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, XCircle, ArrowRight, CreditCard, Download, RotateCcw } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 
-// Digital product order status flow (removed delivery-related statuses)
+// Digital product order status flow - optimized for digital products
 const ORDER_STATUS_FLOW = [
   {
     status: 'PENDING',
-    label: 'Pending',
-    description: 'Order received, awaiting payment confirmation',
+    label: 'Order Received',
+    description: 'Your order has been received and is awaiting payment',
     icon: Clock,
     color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
     iconColor: 'text-yellow-600'
   },
   {
-    status: 'CONFIRMED',
-    label: 'Confirmed',
-    description: 'Payment confirmed, preparing digital access',
-    icon: CheckCircle,
+    status: 'PAYMENT_PENDING',
+    label: 'Payment Processing',
+    description: 'Your payment is being processed',
+    icon: CreditCard,
     color: 'bg-blue-100 text-blue-800 border-blue-200',
     iconColor: 'text-blue-600'
   },
   {
-    status: 'PROCESSING',
-    label: 'Processing',
-    description: 'Setting up digital product access',
-    icon: AlertCircle,
-    color: 'bg-purple-100 text-purple-800 border-purple-200',
-    iconColor: 'text-purple-600'
+    status: 'CONFIRMED',
+    label: 'Payment Confirmed',
+    description: 'Payment confirmed, preparing your digital access',
+    icon: CheckCircle,
+    color: 'bg-green-100 text-green-800 border-green-200',
+    iconColor: 'text-green-600'
+  },
+  {
+    status: 'FULFILLED',
+    label: '✅ Access Granted',
+    description: 'Your digital product is ready! Access it in your dashboard',
+    icon: Download,
+    color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    iconColor: 'text-emerald-600'
   },
   {
     status: 'CANCELLED',
     label: 'Cancelled',
-    description: 'Order cancelled by customer or system',
+    description: 'This order has been cancelled',
     icon: XCircle,
     color: 'bg-red-100 text-red-800 border-red-200',
     iconColor: 'text-red-600'
@@ -39,8 +47,8 @@ const ORDER_STATUS_FLOW = [
   {
     status: 'REFUNDED',
     label: 'Refunded',
-    description: 'Order refunded, access revoked',
-    icon: XCircle,
+    description: 'This order has been refunded',
+    icon: RotateCcw,
     color: 'bg-gray-100 text-gray-800 border-gray-200',
     iconColor: 'text-gray-600'
   }
