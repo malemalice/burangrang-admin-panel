@@ -142,11 +142,14 @@ $ npm run prisma:seed menus
 ### Database Management
 
 ```bash
-# Generate Prisma client
+# Generate Prisma client (after schema changes)
 $ npx prisma generate
 
-# Run database migrations
-$ npx prisma migrate dev
+# Create and apply migration (after schema changes)
+$ npx prisma migrate dev --name your_migration_name
+
+# Apply migrations in production
+$ npx prisma migrate deploy
 
 # Reset database (WARNING: This will delete all data)
 $ npx prisma migrate reset
@@ -154,6 +157,11 @@ $ npx prisma migrate reset
 # View database in Prisma Studio
 $ npx prisma studio
 ```
+
+**Prisma Workflow:**
+1. **Development**: Edit `schema.prisma` → Run `npx prisma migrate dev` → Run `npx prisma generate`
+2. **Production**: Run `npx prisma migrate deploy` → Run `npx prisma generate`
+3. **After schema changes**: Always create migrations, never skip this step
 
 ## Run tests
 

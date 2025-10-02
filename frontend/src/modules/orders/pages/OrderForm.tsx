@@ -25,7 +25,7 @@ import { formatCurrencyDisplay, DEFAULT_CURRENCY } from '@/shared/utils/currency
 
 const formSchema = z.object({
   customerId: z.string().min(1, 'Customer is required'),
-  status: z.enum(['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED']),
+  status: z.enum(['PENDING', 'PAYMENT_PENDING', 'PAYMENT_FAILED', 'CONFIRMED', 'FULFILLED', 'CANCELLED', 'REFUNDED']),
   subtotal: z.number().min(0, 'Subtotal must be positive'),
   taxAmount: z.number().min(0, 'Tax amount must be positive'),
   discountAmount: z.number().min(0, 'Discount amount must be positive'),

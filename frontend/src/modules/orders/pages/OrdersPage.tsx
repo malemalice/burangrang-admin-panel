@@ -196,8 +196,8 @@ const OrdersPage = () => {
             <DropdownMenuItem onClick={() => handleStatusChange(order, 'CONFIRMED')}>
               <CheckCircle className="mr-2 h-4 w-4" /> Confirm
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleStatusChange(order, 'PROCESSING')}>
-              <Clock className="mr-2 h-4 w-4" /> Process
+            <DropdownMenuItem onClick={() => handleStatusChange(order, 'FULFILLED')}>
+              <CheckCircle className="mr-2 h-4 w-4" /> Mark as Fulfilled
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleStatusChange(order, 'CANCELLED')}>
               <XCircle className="mr-2 h-4 w-4" /> Cancel
@@ -301,7 +301,7 @@ const OrdersPage = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Processing Orders</CardTitle>
+              <CardTitle className="text-sm font-medium">Fulfilled Orders</CardTitle>
               <CheckCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -309,7 +309,7 @@ const OrdersPage = () => {
                 {statsLoading ? (
                   <div className="h-8 w-16 bg-gray-200 animate-pulse rounded" />
                 ) : (
-                  stats?.processingOrders || 0
+                  stats?.fulfilledOrders || 0
                 )}
               </div>
             </CardContent>

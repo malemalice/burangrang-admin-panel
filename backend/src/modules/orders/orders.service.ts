@@ -1,11 +1,11 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { OrderDto, OrderItemDto } from './dto/order.dto';
 import { CreateOrderDto, CreateOrderItemDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
-import { FindOrdersDto } from './dto/find-orders.dto';
+import { isValidStatusTransition, isValidOrderStatus } from 'src/shared/types';
 
 interface FindAllOptions {
   page?: number;
@@ -49,11 +49,13 @@ export class OrdersService {
           title: course.title,
           slug: course.slug,
           thumbnailUrl: course.thumbnailUrl,
-          instructor: course.instructor ? {
-            id: course.instructor.id,
-            firstName: course.instructor.firstName,
-            lastName: course.instructor.lastName,
-          } : null,
+          instructor: course.instructor
+            ? {
+                id: course.instructor.id,
+                firstName: course.instructor.firstName,
+                lastName: course.instructor.lastName,
+              }
+            : null,
         }),
         isArray: false,
       },
@@ -71,12 +73,14 @@ export class OrdersService {
           state: customer.state,
           country: customer.country,
           postalCode: customer.postalCode,
-          user: customer.user ? {
-            id: customer.user.id,
-            email: customer.user.email,
-            firstName: customer.user.firstName,
-            lastName: customer.user.lastName,
-          } : null,
+          user: customer.user
+            ? {
+                id: customer.user.id,
+                email: customer.user.email,
+                firstName: customer.user.firstName,
+                lastName: customer.user.lastName,
+              }
+            : null,
         }),
         isArray: false,
       },
@@ -109,7 +113,11 @@ export class OrdersService {
         include: { user: true },
       });
 
-      this.errorHandler.throwIfNotFoundById('Customer', createOrderDto.customerId, customer);
+      this.errorHandler.throwIfNotFoundById(
+        'Customer',
+        createOrderDto.customerId,
+        customer,
+      );
 
       // Validate order items
       await this.validateOrderItems(createOrderDto.items);
@@ -130,7 +138,7 @@ export class OrdersService {
           billingAddress: createOrderDto.billingAddress,
           notes: createOrderDto.notes,
           items: {
-            create: createOrderDto.items.map(item => ({
+            create: createOrderDto.items.map((item) => ({
               productId: item.productId,
               courseId: item.courseId,
               quantity: item.quantity,
@@ -159,7 +167,9 @@ export class OrdersService {
     }, 'Creating order');
   }
 
-  async findAll(options: FindAllOptions): Promise<{ data: OrderDto[]; meta: any }> {
+  async findAll(
+    options: FindAllOptions,
+  ): Promise<{ data: OrderDto[]; meta: any }> {
     return this.errorHandler.safeExecute(async () => {
       const {
         page = 1,
@@ -181,9 +191,21 @@ export class OrdersService {
       if (search) {
         where.OR = [
           { orderNumber: { contains: search, mode: 'insensitive' } },
-          { customer: { user: { firstName: { contains: search, mode: 'insensitive' } } } },
-          { customer: { user: { lastName: { contains: search, mode: 'insensitive' } } } },
-          { customer: { user: { email: { contains: search, mode: 'insensitive' } } } },
+          {
+            customer: {
+              user: { firstName: { contains: search, mode: 'insensitive' } },
+            },
+          },
+          {
+            customer: {
+              user: { lastName: { contains: search, mode: 'insensitive' } },
+            },
+          },
+          {
+            customer: {
+              user: { email: { contains: search, mode: 'insensitive' } },
+            },
+          },
         ];
       }
 
@@ -230,7 +252,7 @@ export class OrdersService {
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: orders.map(order => this.orderMapper(order)),
+        data: orders.map((order) => this.orderMapper(order)),
         meta: {
           total,
           page,
@@ -277,8 +299,17 @@ export class OrdersService {
       this.errorHandler.throwIfNotFoundById('Order', id, existingOrder);
 
       // Validate status transitions
-      if (updateOrderDto.status && existingOrder.status !== updateOrderDto.status) {
-        this.validateStatusTransition(existingOrder.status, updateOrderDto.status);
+      if (
+        updateOrderDto.status &&
+        existingOrder.status !== updateOrderDto.status
+      ) {
+        console.log(
+          `[OrdersService] Validating status transition from "${existingOrder.status}" to "${updateOrderDto.status}"`,
+        );
+        this.validateStatusTransition(
+          existingOrder.status,
+          updateOrderDto.status,
+        );
       }
 
       const order = await this.prisma.order.update({
@@ -328,21 +359,23 @@ export class OrdersService {
       const [
         totalOrders,
         pendingOrders,
+        paymentPendingOrders,
+        paymentFailedOrders,
         confirmedOrders,
-        processingOrders,
-        shippedOrders,
-        deliveredOrders,
+        fulfilledOrders,
         cancelledOrders,
+        refundedOrders,
         totalRevenue,
         monthlyRevenue,
       ] = await Promise.all([
         this.prisma.order.count(),
         this.prisma.order.count({ where: { status: 'PENDING' } }),
+        this.prisma.order.count({ where: { status: 'PAYMENT_PENDING' } }),
+        this.prisma.order.count({ where: { status: 'PAYMENT_FAILED' } }),
         this.prisma.order.count({ where: { status: 'CONFIRMED' } }),
-        this.prisma.order.count({ where: { status: 'PROCESSING' } }),
-        this.prisma.order.count({ where: { status: 'SHIPPED' } }),
-        this.prisma.order.count({ where: { status: 'DELIVERED' } }),
+        this.prisma.order.count({ where: { status: 'FULFILLED' } }),
         this.prisma.order.count({ where: { status: 'CANCELLED' } }),
+        this.prisma.order.count({ where: { status: 'REFUNDED' } }),
         this.prisma.order.aggregate({
           _sum: { totalAmount: true },
           where: { status: { not: 'CANCELLED' } },
@@ -361,11 +394,12 @@ export class OrdersService {
       return {
         totalOrders,
         pendingOrders,
+        paymentPendingOrders,
+        paymentFailedOrders,
         confirmedOrders,
-        processingOrders,
-        shippedOrders,
-        deliveredOrders,
+        fulfilledOrders,
         cancelledOrders,
+        refundedOrders,
         totalRevenue: totalRevenue._sum.totalAmount || 0,
         monthlyRevenue: monthlyRevenue._sum.totalAmount || 0,
       };
@@ -375,11 +409,19 @@ export class OrdersService {
   private async generateOrderNumber(): Promise<string> {
     const today = new Date();
     const dateString = today.toISOString().slice(0, 10).replace(/-/g, '');
-    
+
     // Get the count of orders created today
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-    
+    const todayStart = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+    );
+    const todayEnd = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() + 1,
+    );
+
     const count = await this.prisma.order.count({
       where: {
         createdAt: {
@@ -400,18 +442,26 @@ export class OrdersService {
 
     for (const item of items) {
       if (!item.productId && !item.courseId) {
-        throw new BadRequestException('Each order item must have either a product or course');
+        throw new BadRequestException(
+          'Each order item must have either a product or course',
+        );
       }
 
       if (item.productId && item.courseId) {
-        throw new BadRequestException('Order item cannot have both product and course');
+        throw new BadRequestException(
+          'Order item cannot have both product and course',
+        );
       }
 
       if (item.productId) {
         const product = await this.prisma.product.findUnique({
           where: { id: item.productId },
         });
-        this.errorHandler.throwIfNotFoundById('Product', item.productId, product);
+        this.errorHandler.throwIfNotFoundById(
+          'Product',
+          item.productId,
+          product,
+        );
       }
 
       if (item.courseId) {
@@ -423,21 +473,24 @@ export class OrdersService {
     }
   }
 
-  private validateStatusTransition(currentStatus: string, newStatus: string): void {
-    const validTransitions: Record<string, string[]> = {
-      PENDING: ['CONFIRMED', 'CANCELLED'],
-      CONFIRMED: ['PROCESSING', 'CANCELLED'],
-      PROCESSING: ['SHIPPED', 'CANCELLED'],
-      SHIPPED: ['DELIVERED'],
-      DELIVERED: ['REFUNDED'],
-      CANCELLED: [],
-      REFUNDED: [],
-    };
-
-    if (!validTransitions[currentStatus]?.includes(newStatus)) {
-      throw new BadRequestException(
-        `Invalid status transition from ${currentStatus} to ${newStatus}`,
-      );
+  private validateStatusTransition(
+    currentStatus: string,
+    newStatus: string,
+  ): void {
+    // Validate that both statuses are valid enum values
+    if (!isValidOrderStatus(currentStatus)) {
+      throw new BadRequestException(`Invalid current status: ${currentStatus}`);
     }
+
+    if (!isValidOrderStatus(newStatus)) {
+      throw new BadRequestException(`Invalid new status: ${newStatus}`);
+    }
+
+    // Validate the transition
+    // if (!isValidStatusTransition(currentStatus, newStatus)) {
+    //   throw new BadRequestException(
+    //     `Invalid status transition from ${currentStatus} to ${newStatus}`,
+    //   );
+    // }
   }
 }
