@@ -15,12 +15,13 @@ async function bootstrap() {
   const reflector = app.get(Reflector);
   const prismaService = app.get(PrismaService);
 
-  // Enable CORS with frontend URL from environment
+  // Enable CORS with multiple frontend domains
+  const corsConfig = configService.get('app.cors');
   app.enableCors({
-    origin: [configService.get('FRONTEND_URL') || 'http://localhost:5173'],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    credentials: true,
-    allowedHeaders: 'Content-Type,Accept,Authorization',
+    origin: corsConfig.origins,
+    methods: corsConfig.methods,
+    credentials: corsConfig.credentials,
+    allowedHeaders: corsConfig.allowedHeaders,
   });
 
   // Use cookie parser
