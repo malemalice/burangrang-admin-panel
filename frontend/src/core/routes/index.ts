@@ -10,6 +10,8 @@ import { categoryRoutes } from '@/modules/categories';
 import { productTypesRoutes } from '@/modules/product-types';
 import { courseRoutes } from '@/modules/courses';
 import { productRoutes } from '@/modules/products';
+import { ordersRoutes } from '@/modules/orders';
+import { customerRoutes } from '@/modules/customers';
 
 /**
  * Application routes registry
@@ -27,6 +29,8 @@ const routes: RouteConfig[] = [
   ...productTypesRoutes,
   ...courseRoutes,
   ...productRoutes,
+  ...ordersRoutes,
+  ...customerRoutes,
 ];
 
 // Public routes that don't require authentication
