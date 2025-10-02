@@ -26,6 +26,7 @@ import { FindProductsDto } from './dto/find-products.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
+import { Public } from '../../shared/decorators/public.decorator';
 import { Role } from '../../shared/types/role.enum';
 import { Request } from 'express';
 import { ProductDto } from './dto/product.dto';
@@ -60,7 +61,10 @@ export class ProductsController {
     description: 'Conflict - product with this SKU or slug already exists.',
   })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
-  create(@Body() createProductDto: CreateProductDto, @Req() req: RequestWithUser): Promise<ProductDto> {
+  create(
+    @Body() createProductDto: CreateProductDto,
+    @Req() req: RequestWithUser,
+  ): Promise<ProductDto> {
     return this.productsService.create(createProductDto, req.user.id);
   }
 
@@ -152,6 +156,84 @@ export class ProductsController {
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   findAll(@Query() query: FindProductsDto) {
     return this.productsService.findAll(query);
+  }
+
+  @Get('public')
+  @Public()
+  @ApiOperation({ summary: 'Get published products (public access)' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (starts from 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of items per page',
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    description: 'Field to sort by',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    description: 'Sort order',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search term for name, description, or SKU',
+  })
+  @ApiQuery({
+    name: 'productType',
+    required: false,
+    enum: ['EBOOK', 'COURSE', 'VIDEO', 'BUNDLE'],
+    description: 'Filter by product type',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    type: String,
+    description: 'Filter by category ID',
+  })
+  @ApiQuery({
+    name: 'minPrice',
+    required: false,
+    type: Number,
+    description: 'Minimum price filter',
+  })
+  @ApiQuery({
+    name: 'maxPrice',
+    required: false,
+    type: Number,
+    description: 'Maximum price filter',
+  })
+  @ApiQuery({
+    name: 'onSale',
+    required: false,
+    type: Boolean,
+    description: 'Filter products that are on sale',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Published products retrieved successfully.',
+    type: [ProductDto],
+  })
+  async findPublished(@Query() query: FindProductsDto) {
+    // Only return published and active products for public access
+    const publicQuery = {
+      ...query,
+      status: 'PUBLISHED',
+      isActive: true,
+    };
+    return this.productsService.findAll(publicQuery);
   }
 
   @Get('stats')

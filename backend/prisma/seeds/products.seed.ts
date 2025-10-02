@@ -5,26 +5,26 @@ const prisma = new PrismaClient();
 export async function seedProducts() {
   console.log('🌱 Seeding products...');
 
-  // Get a user to be the creator
-  const user = await prisma.user.findFirst();
-  if (!user) {
-    console.log('❌ No users found. Please seed users first.');
-    return;
-  }
+  try {
+    // Get a user to be the creator
+    const user = await prisma.user.findFirst();
+    if (!user) {
+      throw new Error('No users found. Please seed users first.');
+    }
 
-  // Get categories for products
-  const categories = await prisma.category.findMany();
-  if (categories.length === 0) {
-    console.log('❌ No categories found. Please seed categories first.');
-    return;
-  }
+    // Get categories for products
+    const categories = await prisma.category.findMany();
+    if (categories.length === 0) {
+      throw new Error('No categories found. Please seed categories first.');
+    }
 
-  // Get product types
-  const productTypes = await prisma.productType.findMany();
-  if (productTypes.length === 0) {
-    console.log('❌ No product types found. Please seed product types first.');
-    return;
-  }
+    // Get product types
+    const productTypes = await prisma.productType.findMany();
+    if (productTypes.length === 0) {
+      throw new Error('No product types found. Please seed product types first.');
+    }
+
+    console.log(`📊 Found ${categories.length} categories and ${productTypes.length} product types`);
 
   const sampleProducts = [
     {
@@ -115,30 +115,67 @@ export async function seedProducts() {
     },
   ];
 
-  for (const productData of sampleProducts) {
-    const { categoryIds, ...productInfo } = productData;
-    
-    const product = await prisma.product.upsert({
-      where: { sku: productInfo.sku },
-      update: productInfo,
-      create: {
-        ...productInfo,
-        createdBy: user.id,
-        categories: {
-          create: categoryIds.map(categoryId => ({
-            categoryId,
-          })),
-        },
-      },
-      include: {
-        categories: true,
-      },
-    });
+    let successCount = 0;
+    let errorCount = 0;
 
-    console.log(`✅ Created/Updated product: ${product.name} (${product.sku})`);
+    for (const productData of sampleProducts) {
+      try {
+        const { categoryIds, ...productInfo } = productData;
+        
+        // Validate that all category IDs exist
+        const validCategoryIds = categoryIds.filter(categoryId => 
+          categories.some(cat => cat.id === categoryId)
+        );
+        
+        if (validCategoryIds.length !== categoryIds.length) {
+          const invalidIds = categoryIds.filter(id => !validCategoryIds.includes(id));
+          console.warn(`⚠️  Invalid category IDs for product ${productInfo.sku}: ${invalidIds.join(', ')}`);
+        }
+
+        const product = await prisma.product.upsert({
+          where: { sku: productInfo.sku },
+          update: {
+            ...productInfo,
+            categories: {
+              deleteMany: {}, // Remove existing category relations
+              create: validCategoryIds.map(categoryId => ({
+                categoryId,
+              })),
+            },
+          },
+          create: {
+            ...productInfo,
+            createdBy: user.id,
+            categories: {
+              create: validCategoryIds.map(categoryId => ({
+                categoryId,
+              })),
+            },
+          },
+          include: {
+            categories: {
+              include: {
+                category: true,
+              },
+            },
+          },
+        });
+
+        console.log(`✅ Created/Updated product: ${product.name} (${product.sku}) with ${product.categories.length} categories`);
+        successCount++;
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`❌ Failed to create/update product ${productData.sku}:`, errorMessage);
+        errorCount++;
+      }
+    }
+
+    console.log(`🎉 Products seeding completed! Success: ${successCount}, Errors: ${errorCount}`);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('❌ Products seeding failed:', errorMessage);
+    throw error;
   }
-
-  console.log('🎉 Products seeding completed!');
 }
 
 export default seedProducts;

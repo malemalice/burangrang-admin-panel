@@ -189,9 +189,9 @@ async function main() {
       await seedNotifications();
       const categories = await seedCategories(prisma);
       await seedProductTypes();
+      await seedProducts();
       const courses = await seedCourses(prisma, users, categories);
       await seedChapters(prisma, courses);
-      await seedProducts();
       await seedFileStorageProviders();
       await seedFileCategories();
       await seedPaymentMethods();
@@ -246,6 +246,8 @@ async function main() {
           const officesForCourses = await seedOffices(prisma);
           const usersForCourses = await seedUsers(prisma, rolesForCourses, officesForCourses);
           const categoriesForCourses = await seedCategories(prisma);
+          await seedProductTypes();
+          await seedProducts();
           await seedCourses(prisma, usersForCourses, categoriesForCourses);
           break;
         case 'chapters':
@@ -254,6 +256,8 @@ async function main() {
           const officesForChapters = await seedOffices(prisma);
           const usersForChapters = await seedUsers(prisma, rolesForChapters, officesForChapters);
           const categoriesForChapters = await seedCategories(prisma);
+          await seedProductTypes();
+          await seedProducts();
           const coursesForChapters = await seedCourses(prisma, usersForChapters, categoriesForChapters);
           await seedChapters(prisma, coursesForChapters);
           break;
@@ -293,8 +297,8 @@ async function main() {
           const usersForOrders = await seedUsers(prisma, rolesForOrders, officesForOrders);
           const categoriesForOrders = await seedCategories(prisma);
           await seedProductTypes();
-          await seedCourses(prisma, usersForOrders, categoriesForOrders);
           await seedProducts();
+          await seedCourses(prisma, usersForOrders, categoriesForOrders);
           await seedPaymentMethods();
           await seedCustomers();
           await seedOrders();
