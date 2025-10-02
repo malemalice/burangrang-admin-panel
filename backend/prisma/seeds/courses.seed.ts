@@ -2,11 +2,11 @@ import { PrismaClient, User, Category } from '@prisma/client';
 
 export const courses = [
   {
-    title: 'Introduction to Web Development',
-    slug: 'intro-web-development',
+    title: 'Introduction to Cognitive Behavioral Therapy',
+    slug: 'intro-cognitive-behavioral-therapy',
     description:
-      'Learn the fundamentals of web development including HTML, CSS, and JavaScript. This comprehensive course covers everything you need to know to start building modern web applications.',
-    shortDescription: 'Master the basics of web development with HTML, CSS, and JavaScript',
+      'Learn the fundamentals of CBT, including identifying negative thought patterns, challenging cognitive distortions, and developing healthier thinking habits. This comprehensive course covers everything you need to know to start applying CBT techniques in your daily life.',
+    shortDescription: 'Master the basics of CBT for anxiety, depression, and emotional regulation',
     thumbnailUrl: 'https://picsum.photos/400/300?random=7',
     difficulty: 'beginner',
     language: 'en',
@@ -14,15 +14,15 @@ export const courses = [
     isPublished: true,
     publishedAt: new Date('2024-01-15'),
     instructorEmail: 'admin@example.com',
-    categoryNames: ['Programming', 'Web Development'],
-    productSku: 'REACT-001', // Associate with Complete React Development Course product
+    categoryNames: ['Cognitive Behavioral Therapy (CBT)', 'Therapy & Counseling'],
+    productSku: 'CBT-001', // Associate with Complete CBT Mastery Course product
   },
   {
-    title: 'Advanced React Development',
-    slug: 'advanced-react-development',
+    title: 'Advanced Mindfulness and Meditation Practices',
+    slug: 'advanced-mindfulness-meditation',
     description:
-      'Deep dive into React development with advanced patterns, state management, performance optimization, and modern React features like hooks and context.',
-    shortDescription: 'Master advanced React concepts and patterns',
+      'Deep dive into advanced mindfulness techniques, meditation practices, and awareness training. Learn to cultivate present-moment awareness, develop concentration, and integrate mindfulness into daily life for lasting mental wellness.',
+    shortDescription: 'Master advanced mindfulness and meditation techniques',
     thumbnailUrl: 'https://picsum.photos/400/300?random=8',
     difficulty: 'advanced',
     language: 'en',
@@ -30,54 +30,102 @@ export const courses = [
     isPublished: true,
     publishedAt: new Date('2024-02-01'),
     instructorEmail: 'admin@example.com',
-    categoryNames: ['Programming', 'Frontend Development'],
-    productSku: 'TS-001', // Associate with Advanced TypeScript Video Series product
+    categoryNames: ['Meditation Practices', 'Mindfulness & Meditation'],
+    productSku: 'MINDFUL-001', // Associate with Mindfulness Meditation Guide eBook product
   },
   {
-    title: 'Database Design Fundamentals',
-    slug: 'database-design-fundamentals',
+    title: 'Trauma Recovery and Healing Fundamentals',
+    slug: 'trauma-recovery-healing-fundamentals',
     description:
-      'Learn how to design efficient and scalable databases. Cover normalization, relationships, indexing, and best practices for database architecture.',
-    shortDescription: 'Master database design principles and best practices',
+      'Learn evidence-based approaches to trauma recovery, including understanding trauma responses, building resilience, and developing healthy coping strategies. This course provides a safe foundation for healing and growth.',
+    shortDescription: 'Master trauma-informed care and healing techniques',
     thumbnailUrl: 'https://picsum.photos/400/300?random=9',
     difficulty: 'intermediate',
     language: 'en',
     status: 'draft',
     isPublished: false,
     instructorEmail: 'admin@example.com',
-    categoryNames: ['Database', 'Backend Development'],
+    categoryNames: ['Trauma Recovery & Healing', 'Therapy & Counseling'],
     // No product association - free course
   },
   {
-    title: 'Mobile App Development with React Native',
-    slug: 'mobile-app-react-native',
+    title: 'Anxiety Management and Coping Strategies',
+    slug: 'anxiety-management-coping-strategies',
     description:
-      'Build cross-platform mobile applications using React Native. Learn navigation, state management, native modules, and deployment strategies.',
-    shortDescription: 'Create mobile apps with React Native',
+      'Comprehensive course on managing anxiety, panic attacks, and worry. Learn practical techniques for anxiety reduction, building confidence, and developing resilience in challenging situations.',
+    shortDescription: 'Master anxiety management and coping techniques',
     thumbnailUrl: 'https://picsum.photos/400/300?random=10',
     difficulty: 'intermediate',
     language: 'en',
     status: 'review',
     isPublished: false,
     instructorEmail: 'admin@example.com',
-    categoryNames: ['Mobile Development', 'React Native'],
-    productSku: 'NODE-001', // Associate with Node.js Backend Development product
+    categoryNames: ['Anxiety & Depression Management', 'Stress Management'],
+    productSku: 'ANXIETY-001', // Associate with Anxiety Management Workshop product
   },
   {
-    title: 'DevOps and Cloud Deployment',
-    slug: 'devops-cloud-deployment',
+    title: 'Emotional Intelligence and Regulation',
+    slug: 'emotional-intelligence-regulation',
     description:
-      'Master DevOps practices and cloud deployment strategies. Learn Docker, Kubernetes, CI/CD pipelines, and cloud services like AWS and Azure.',
-    shortDescription: 'Learn DevOps practices and cloud deployment',
+      'Develop emotional intelligence skills including self-awareness, emotional regulation, empathy, and social skills. Learn to understand and manage emotions effectively for better relationships and personal growth.',
+    shortDescription: 'Master emotional intelligence and regulation skills',
     thumbnailUrl: 'https://picsum.photos/400/300?random=11',
-    difficulty: 'advanced',
+    difficulty: 'intermediate',
     language: 'en',
     status: 'published',
     isPublished: true,
     publishedAt: new Date('2024-03-01'),
     instructorEmail: 'admin@example.com',
-    categoryNames: ['DevOps', 'Cloud Computing'],
-    productSku: 'FULLSTACK-001', // Associate with Full Stack Developer Bundle product
+    categoryNames: ['Emotional Regulation', 'Personal Growth & Development'],
+    productSku: 'EQ-001', // Associate with Emotional Intelligence Handbook product
+  },
+  {
+    title: 'Sleep Wellness and Relaxation Techniques',
+    slug: 'sleep-wellness-relaxation-techniques',
+    description:
+      'Learn evidence-based techniques for improving sleep quality, managing insomnia, and establishing healthy sleep routines. Includes guided meditations, relaxation exercises, and sleep hygiene practices.',
+    shortDescription: 'Master sleep improvement and relaxation techniques',
+    thumbnailUrl: 'https://picsum.photos/400/300?random=12',
+    difficulty: 'beginner',
+    language: 'en',
+    status: 'published',
+    isPublished: true,
+    publishedAt: new Date('2024-03-15'),
+    instructorEmail: 'admin@example.com',
+    categoryNames: ['Sleep & Wellness', 'Stress Management'],
+    productSku: 'SLEEP-001', // Associate with Sleep Wellness Toolkit product
+  },
+  {
+    title: 'Building Healthy Relationships',
+    slug: 'building-healthy-relationships',
+    description:
+      'Learn essential skills for building and maintaining healthy relationships, including communication techniques, boundary setting, conflict resolution, and emotional intimacy.',
+    shortDescription: 'Master relationship skills and communication techniques',
+    thumbnailUrl: 'https://picsum.photos/400/300?random=13',
+    difficulty: 'beginner',
+    language: 'en',
+    status: 'published',
+    isPublished: true,
+    publishedAt: new Date('2024-04-01'),
+    instructorEmail: 'admin@example.com',
+    categoryNames: ['Relationships & Communication', 'Personal Growth & Development'],
+    // No product association - free course
+  },
+  {
+    title: 'Addiction Recovery and Support',
+    slug: 'addiction-recovery-support',
+    description:
+      'Comprehensive course on addiction recovery, including understanding addiction, building support systems, developing coping strategies, and maintaining long-term recovery.',
+    shortDescription: 'Master addiction recovery and support strategies',
+    thumbnailUrl: 'https://picsum.photos/400/300?random=14',
+    difficulty: 'advanced',
+    language: 'en',
+    status: 'published',
+    isPublished: true,
+    publishedAt: new Date('2024-04-15'),
+    instructorEmail: 'admin@example.com',
+    categoryNames: ['Addiction Recovery & Support', 'Therapy & Counseling'],
+    // No product association - free course
   },
 ];
 
@@ -86,7 +134,7 @@ export async function seedCourses(
   users: User[],
   categories: Category[],
 ) {
-  console.log('🌱 Creating courses...');
+  console.log('🌱 Creating mental health courses...');
 
   try {
     if (users.length === 0) {
@@ -215,7 +263,7 @@ export async function seedCourses(
     }
 
     console.log(
-      `🎉 Created ${successCount} courses successfully! Errors: ${errorCount}`,
+      `🎉 Created ${successCount} mental health courses successfully! Errors: ${errorCount}`,
     );
     return createdCourses;
   } catch (error: unknown) {

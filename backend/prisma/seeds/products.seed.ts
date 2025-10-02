@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export async function seedProducts() {
-  console.log('🌱 Seeding products...');
+  console.log('🌱 Seeding mental health products...');
 
   try {
     // Get a user to be the creator
@@ -26,99 +26,130 @@ export async function seedProducts() {
 
     console.log(`📊 Found ${categories.length} categories and ${productTypes.length} product types`);
 
-  const sampleProducts = [
-    {
-      name: 'Complete React Development Course',
-      slug: 'complete-react-development-course',
-      description: 'Master React from basics to advanced concepts including hooks, context, and modern patterns.',
-      shortDescription: 'Learn React development from scratch to advanced level',
-      price: 99.99,
-      salePrice: 79.99,
-      sku: 'REACT-001',
-      productType: 'COURSE',
-      status: 'PUBLISHED',
-      stockQuantity: 100,
-      downloadLimit: 5,
-      thumbnailUrl: 'https://picsum.photos/400/300?random=1',
-      categoryIds: [categories[0].id],
-    },
-    {
-      name: 'JavaScript Fundamentals eBook',
-      slug: 'javascript-fundamentals-ebook',
-      description: 'A comprehensive guide to JavaScript fundamentals including ES6+ features, async programming, and best practices.',
-      shortDescription: 'Complete guide to JavaScript fundamentals',
-      price: 29.99,
-      sku: 'JS-001',
-      productType: 'EBOOK',
-      status: 'PUBLISHED',
-      stockQuantity: 1000,
-      downloadLimit: 3,
-      thumbnailUrl: 'https://picsum.photos/400/300?random=2',
-      categoryIds: [categories[0].id],
-    },
-    {
-      name: 'Advanced TypeScript Video Series',
-      slug: 'advanced-typescript-video-series',
-      description: 'Deep dive into TypeScript advanced features including generics, decorators, and advanced type manipulation.',
-      shortDescription: 'Master advanced TypeScript concepts',
-      price: 149.99,
-      sku: 'TS-001',
-      productType: 'VIDEO',
-      status: 'PUBLISHED',
-      stockQuantity: 50,
-      downloadLimit: 10,
-      thumbnailUrl: 'https://picsum.photos/400/300?random=3',
-      categoryIds: categories.length > 1 ? [categories[1].id] : [categories[0].id],
-    },
-    {
-      name: 'Full Stack Developer Bundle',
-      slug: 'full-stack-developer-bundle',
-      description: 'Complete package including frontend, backend, and DevOps courses for becoming a full-stack developer.',
-      shortDescription: 'Complete full-stack development package',
-      price: 299.99,
-      salePrice: 199.99,
-      sku: 'FULLSTACK-001',
-      productType: 'BUNDLE',
-      status: 'PUBLISHED',
-      stockQuantity: 25,
-      downloadLimit: 15,
-      thumbnailUrl: 'https://picsum.photos/400/300?random=4',
-      categoryIds: categories.slice(0, 2).map(c => c.id),
-    },
-    {
-      name: 'Node.js Backend Development',
-      slug: 'nodejs-backend-development',
-      description: 'Learn to build robust backend applications with Node.js, Express, and modern development practices.',
-      shortDescription: 'Master Node.js backend development',
-      price: 89.99,
-      sku: 'NODE-001',
-      productType: 'COURSE',
-      status: 'REVIEW',
-      stockQuantity: 75,
-      downloadLimit: 5,
-      thumbnailUrl: 'https://picsum.photos/400/300?random=5',
-      categoryIds: [categories[0].id],
-    },
-    {
-      name: 'Python Data Science Handbook',
-      slug: 'python-data-science-handbook',
-      description: 'Comprehensive guide to data science with Python, covering pandas, numpy, matplotlib, and machine learning.',
-      shortDescription: 'Complete Python data science guide',
-      price: 49.99,
-      sku: 'PYTHON-001',
-      productType: 'EBOOK',
-      status: 'DRAFT',
-      stockQuantity: 500,
-      downloadLimit: 3,
-      thumbnailUrl: 'https://picsum.photos/400/300?random=6',
-      categoryIds: categories.length > 2 ? [categories[2].id] : [categories[0].id],
-    },
-  ];
+    const mentalHealthProducts = [
+      {
+        name: 'Complete CBT Mastery Course',
+        slug: 'complete-cbt-mastery-course',
+        description: 'Master Cognitive Behavioral Therapy techniques for anxiety, depression, and emotional regulation. Learn evidence-based strategies to transform negative thought patterns and build lasting mental wellness.',
+        shortDescription: 'Comprehensive CBT course for mental health professionals and self-learners',
+        price: 199.99,
+        salePrice: 149.99,
+        sku: 'CBT-001',
+        productType: 'COURSE',
+        status: 'PUBLISHED',
+        stockQuantity: 100,
+        downloadLimit: 5,
+        thumbnailUrl: 'https://picsum.photos/400/300?random=1',
+        categoryIds: [categories.find(c => c.slug === 'cognitive-behavioral-therapy')?.id || categories[0].id],
+      },
+      {
+        name: 'Mindfulness Meditation Guide eBook',
+        slug: 'mindfulness-meditation-guide-ebook',
+        description: 'A comprehensive guide to mindfulness meditation practices, breathing techniques, and awareness exercises. Perfect for beginners and those looking to deepen their meditation practice.',
+        shortDescription: 'Complete guide to mindfulness and meditation practices',
+        price: 29.99,
+        sku: 'MINDFUL-001',
+        productType: 'EBOOK',
+        status: 'PUBLISHED',
+        stockQuantity: 1000,
+        downloadLimit: 3,
+        thumbnailUrl: 'https://picsum.photos/400/300?random=2',
+        categoryIds: [categories.find(c => c.slug === 'meditation-practices')?.id || categories[0].id],
+      },
+      {
+        name: 'Trauma Recovery Video Series',
+        slug: 'trauma-recovery-video-series',
+        description: 'Professional video series on trauma-informed care, healing techniques, and recovery strategies. Created by licensed therapists specializing in trauma recovery.',
+        shortDescription: 'Professional trauma recovery and healing video series',
+        price: 299.99,
+        sku: 'TRAUMA-001',
+        productType: 'VIDEO',
+        status: 'PUBLISHED',
+        stockQuantity: 50,
+        downloadLimit: 10,
+        thumbnailUrl: 'https://picsum.photos/400/300?random=3',
+        categoryIds: [categories.find(c => c.slug === 'trauma-recovery')?.id || categories[0].id],
+      },
+      {
+        name: 'Mental Wellness Complete Bundle',
+        slug: 'mental-wellness-complete-bundle',
+        description: 'Complete package including CBT course, mindfulness guide, stress management tools, and therapeutic exercises. Everything you need for comprehensive mental wellness.',
+        shortDescription: 'Complete mental wellness package with courses, guides, and tools',
+        price: 499.99,
+        salePrice: 299.99,
+        sku: 'WELLNESS-001',
+        productType: 'BUNDLE',
+        status: 'PUBLISHED',
+        stockQuantity: 25,
+        downloadLimit: 15,
+        thumbnailUrl: 'https://picsum.photos/400/300?random=4',
+        categoryIds: [
+          categories.find(c => c.slug === 'cognitive-behavioral-therapy')?.id || categories[0].id,
+          categories.find(c => c.slug === 'mindfulness-meditation')?.id || categories[1].id,
+        ],
+      },
+      {
+        name: 'Anxiety Management Workshop',
+        slug: 'anxiety-management-workshop',
+        description: 'Interactive workshop on anxiety management techniques, panic attack prevention, and building resilience. Includes practical exercises and coping strategies.',
+        shortDescription: 'Comprehensive anxiety management and coping strategies workshop',
+        price: 89.99,
+        sku: 'ANXIETY-001',
+        productType: 'COURSE',
+        status: 'REVIEW',
+        stockQuantity: 75,
+        downloadLimit: 5,
+        thumbnailUrl: 'https://picsum.photos/400/300?random=5',
+        categoryIds: [categories.find(c => c.slug === 'anxiety-depression')?.id || categories[0].id],
+      },
+      {
+        name: 'Emotional Intelligence Handbook',
+        slug: 'emotional-intelligence-handbook',
+        description: 'Comprehensive guide to developing emotional intelligence, understanding emotions, and improving interpersonal relationships. Essential for personal and professional growth.',
+        shortDescription: 'Complete guide to emotional intelligence and relationship skills',
+        price: 39.99,
+        sku: 'EQ-001',
+        productType: 'EBOOK',
+        status: 'DRAFT',
+        stockQuantity: 500,
+        downloadLimit: 3,
+        thumbnailUrl: 'https://picsum.photos/400/300?random=6',
+        categoryIds: [categories.find(c => c.slug === 'emotional-regulation')?.id || categories[0].id],
+      },
+      {
+        name: 'Sleep Wellness Toolkit',
+        slug: 'sleep-wellness-toolkit',
+        description: 'Digital toolkit for improving sleep quality, managing insomnia, and establishing healthy sleep routines. Includes guided meditations, sleep tracking tools, and relaxation techniques.',
+        shortDescription: 'Complete toolkit for better sleep and relaxation',
+        price: 49.99,
+        sku: 'SLEEP-001',
+        productType: 'EBOOK',
+        status: 'PUBLISHED',
+        stockQuantity: 200,
+        downloadLimit: 5,
+        thumbnailUrl: 'https://picsum.photos/400/300?random=7',
+        categoryIds: [categories.find(c => c.slug === 'sleep-wellness')?.id || categories[0].id],
+      },
+      {
+        name: 'Mood Tracking & Journaling App',
+        slug: 'mood-tracking-journaling-app',
+        description: 'Digital app for mood tracking, emotional journaling, and mental health monitoring. Features include mood charts, gratitude journaling, and progress tracking.',
+        shortDescription: 'Digital mood tracking and emotional journaling application',
+        price: 19.99,
+        sku: 'MOOD-001',
+        productType: 'EBOOK',
+        status: 'PUBLISHED',
+        stockQuantity: 1000,
+        downloadLimit: 1,
+        thumbnailUrl: 'https://picsum.photos/400/300?random=8',
+        categoryIds: [categories.find(c => c.slug === 'mood-tracking')?.id || categories[0].id],
+      },
+    ];
 
     let successCount = 0;
     let errorCount = 0;
 
-    for (const productData of sampleProducts) {
+    for (const productData of mentalHealthProducts) {
       try {
         const { categoryIds, ...productInfo } = productData;
         
@@ -170,7 +201,7 @@ export async function seedProducts() {
       }
     }
 
-    console.log(`🎉 Products seeding completed! Success: ${successCount}, Errors: ${errorCount}`);
+    console.log(`🎉 Mental health products seeding completed! Success: ${successCount}, Errors: ${errorCount}`);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('❌ Products seeding failed:', errorMessage);
