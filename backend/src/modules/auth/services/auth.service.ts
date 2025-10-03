@@ -11,6 +11,8 @@ import * as bcrypt from 'bcrypt';
 import { Response } from 'express';
 import * as crypto from 'crypto';
 import { SignupDto } from '../dto/signup.dto';
+import { ForgotPasswordDto } from '../dto/forgot-password.dto';
+import { ResetPasswordDto } from '../dto/reset-password.dto';
 
 interface AuthenticatedUser {
   id: string;
@@ -295,6 +297,113 @@ export class AuthService {
         lastName: user.lastName,
         role: user.role.name,
       },
+    };
+  }
+
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+    const { email } = forgotPasswordDto;
+
+    // Check if user exists
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      this.logger.warn(`Password reset requested for non-existent email: ${email}`);
+      return {
+        message: 'If an account with this email exists, a password reset link has been sent.',
+      };
+    }
+
+    // Check if user has a password (not OAuth-only user)
+    if (!user.password) {
+      this.logger.warn(`Password reset requested for OAuth-only user: ${email}`);
+      return {
+        message: 'If an account with this email exists, a password reset link has been sent.',
+      };
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Store reset token in database
+    await this.prisma.passwordResetToken.create({
+      data: {
+        token: resetToken,
+        userId: user.id,
+        email: user.email,
+        expiresAt,
+      },
+    });
+
+    // In development, log the reset link instead of sending email
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+    
+    this.logger.log(`Password reset requested for user: ${email}`);
+    this.logger.log(`Reset URL: ${resetUrl}`);
+    this.logger.log(`Reset token: ${resetToken}`);
+    this.logger.log(`Token expires at: ${expiresAt.toISOString()}`);
+
+    return {
+      message: 'Password reset link sent to your email',
+      resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined,
+    };
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto) {
+    const { token, newPassword } = resetPasswordDto;
+
+    // Find the reset token
+    const resetToken = await this.prisma.passwordResetToken.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (!resetToken) {
+      this.logger.warn(`Invalid password reset token attempted: ${token}`);
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    // Check if token is expired
+    if (resetToken.expiresAt < new Date()) {
+      this.logger.warn(`Expired password reset token attempted: ${token}`);
+      // Clean up expired token
+      await this.prisma.passwordResetToken.delete({
+        where: { id: resetToken.id },
+      });
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    // Check if token is already used
+    if (resetToken.isUsed) {
+      this.logger.warn(`Already used password reset token attempted: ${token}`);
+      throw new BadRequestException('Reset token has already been used');
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update user password and mark token as used
+    await this.prisma.$transaction(async (tx) => {
+      // Update user password
+      await tx.user.update({
+        where: { id: resetToken.userId },
+        data: { password: hashedPassword },
+      });
+
+      // Mark token as used
+      await tx.passwordResetToken.update({
+        where: { id: resetToken.id },
+        data: { isUsed: true },
+      });
+    });
+
+    this.logger.log(`Password reset successful for user: ${resetToken.email}`);
+
+    return {
+      message: 'Password has been reset successfully',
     };
   }
 }
