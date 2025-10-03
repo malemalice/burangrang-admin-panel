@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy, VerifyCallback, StrategyOptions } from 'passport-google-oauth20';
+import {
+  Strategy,
+  VerifyCallback,
+  StrategyOptions,
+} from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../core/services/prisma.service';
 import { AuthService } from '../services/auth.service';
@@ -17,7 +21,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const callbackURL = configService.get<string>('app.googleCallbackUrl');
 
     if (!clientID || !clientSecret || !callbackURL) {
-      throw new Error('Google OAuth configuration is missing. Please check your environment variables.');
+      throw new Error(
+        'Google OAuth configuration is missing. Please check your environment variables.',
+      );
     }
 
     const options: StrategyOptions = {
@@ -26,8 +32,12 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       callbackURL,
       scope: ['email', 'profile'],
       passReqToCallback: false,
+      // Enable PKCE for additional security
+      pkce: true,
+      // Enable state parameter for CSRF protection
+      state: true,
     };
-    
+
     super(options);
   }
 
@@ -37,12 +47,11 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     profile: any,
     done: VerifyCallback,
   ): Promise<any> {
-    const { id, name, emails, photos } = profile;
-    
+    const { name, emails } = profile;
+
     const email = emails?.[0]?.value;
     const firstName = name?.givenName || '';
     const lastName = name?.familyName || '';
-    const avatar = photos?.[0]?.value;
 
     if (!email) {
       return done(new Error('No email found in Google profile'), false);
@@ -84,10 +93,38 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
             officeId: defaultOffice.id,
             isActive: true,
             // No password for OAuth users
-            password: null,
+            password: null as any,
           },
           include: { role: true },
         });
+      } else {
+        // User exists - check if they have a password set
+        if (user.password) {
+          // User was registered manually with password, allow SSO login
+          // Update profile if needed
+          if (user.firstName !== firstName || user.lastName !== lastName) {
+            user = await this.prisma.user.update({
+              where: { id: user.id },
+              data: {
+                firstName,
+                lastName,
+              },
+              include: { role: true },
+            });
+          }
+        } else {
+          // User was created via SSO before, update their profile if needed
+          if (user.firstName !== firstName || user.lastName !== lastName) {
+            user = await this.prisma.user.update({
+              where: { id: user.id },
+              data: {
+                firstName,
+                lastName,
+              },
+              include: { role: true },
+            });
+          }
+        }
       }
 
       // Update last login
@@ -95,10 +132,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         where: { id: user.id },
         data: { lastLoginAt: new Date() },
       });
-
-      if (!user) {
-        return done(new Error('User not found'), false);
-      }
 
       const userPayload = {
         id: user.id,
