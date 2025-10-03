@@ -5,6 +5,10 @@ export default registerAs('app', () => ({
   jwtSecret: process.env.JWT_SECRET || 'default-secret',
   jwtExpiration: process.env.JWT_EXPIRATION || '1d',
   refreshTokenExpiration: process.env.REFRESH_TOKEN_EXPIRATION || '7d',
+  googleClientId: process.env.GOOGLE_CLIENT_ID,
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  googleCallbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/auth/google/callback',
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   cors: {
     // Support multiple frontend domains
     origins: process.env.CORS_ORIGINS

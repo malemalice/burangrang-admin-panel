@@ -8,6 +8,9 @@ import {
   UseGuards,
   Req,
   Logger,
+  Get,
+  UseInterceptors,
+  ClassSerializerInterceptor,
 } from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
 import {
@@ -19,6 +22,7 @@ import {
 import { Response, Request } from 'express';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { Public } from '../../../shared/decorators/public.decorator';
+import { AuthGuard } from '@nestjs/passport';
 
 // Create interface for the request with user property
 interface RequestWithUser extends Request {
@@ -87,5 +91,45 @@ export class AuthController {
   async logout(@Req() req: RequestWithUser, @Res() res: Response) {
     await this.authService.logout(req.user.sub);
     return res.json({ message: 'Logout successful' });
+  }
+
+  @Get('google')
+  @Public()
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Google OAuth login' })
+  @ApiResponse({ status: 302, description: 'Redirects to Google OAuth' })
+  async googleAuth(@Req() req: Request) {
+    // This endpoint initiates the Google OAuth flow
+    // Passport will handle the redirect to Google
+  }
+
+  @Get('google/callback')
+  @Public()
+  @UseGuards(AuthGuard('google'))
+  @UseInterceptors(ClassSerializerInterceptor)
+  @ApiOperation({ summary: 'Google OAuth callback' })
+  @ApiResponse({ status: 200, description: 'Google OAuth successful' })
+  @ApiResponse({ status: 401, description: 'Google OAuth failed' })
+  async googleAuthCallback(@Req() req: Request, @Res() res: Response) {
+    try {
+      const user = req.user as any;
+      
+      if (!user) {
+        return res.status(401).json({ message: 'Google authentication failed' });
+      }
+
+      // Generate JWT tokens for the authenticated user
+      const result = await this.authService.login(user);
+      
+      // Redirect to frontend with tokens as query parameters
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const redirectUrl = `${frontendUrl}/auth/callback?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`;
+      
+      return res.redirect(redirectUrl);
+    } catch (error) {
+      this.logger.error('Google OAuth callback error:', error);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      return res.redirect(`${frontendUrl}/login?error=google_auth_failed`);
+    }
   }
 }

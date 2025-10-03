@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import roleService from '../services/roleService';
 import { 
@@ -21,8 +21,8 @@ export const useRoles = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch roles with pagination and filters
-  const fetchRoles = async (params: RoleSearchParams) => {
+  // ✅ CRITICAL: Memoize fetchRoles to prevent infinite loops
+  const fetchRoles = useCallback(async (params: RoleSearchParams) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -37,10 +37,10 @@ export const useRoles = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []); // Empty dependency array for stable reference
 
-  // Create a new role
-  const createRole = async (roleData: CreateRoleDTO) => {
+  // ✅ CRITICAL: Memoize createRole to prevent infinite loops
+  const createRole = useCallback(async (roleData: CreateRoleDTO) => {
     try {
       const newRole = await roleService.createRole(roleData);
       setRoles(prev => [newRole, ...prev]);
@@ -52,10 +52,10 @@ export const useRoles = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
-  // Update an existing role
-  const updateRole = async (id: string, roleData: UpdateRoleDTO) => {
+  // ✅ CRITICAL: Memoize updateRole to prevent infinite loops
+  const updateRole = useCallback(async (id: string, roleData: UpdateRoleDTO) => {
     try {
       const updatedRole = await roleService.updateRole(id, roleData);
       setRoles(prev => prev.map(role => role.id === id ? updatedRole : role));
@@ -66,10 +66,10 @@ export const useRoles = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
-  // Delete a role
-  const deleteRole = async (id: string) => {
+  // ✅ CRITICAL: Memoize deleteRole to prevent infinite loops
+  const deleteRole = useCallback(async (id: string) => {
     try {
       await roleService.deleteRole(id);
       setRoles(prev => prev.filter(role => role.id !== id));
@@ -80,7 +80,7 @@ export const useRoles = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
   return {
     roles,
@@ -103,8 +103,8 @@ export const useRole = (roleId: string | null = null) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch a single role by ID
-  const fetchRole = async (id: string) => {
+  // ✅ CRITICAL: Memoize fetchRole to prevent infinite loops
+  const fetchRole = useCallback(async (id: string) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -117,14 +117,14 @@ export const useRole = (roleId: string | null = null) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  // Load role on mount if roleId is provided
+  // ✅ CRITICAL: Include memoized function in dependencies
   useEffect(() => {
     if (roleId) {
       fetchRole(roleId);
     }
-  }, [roleId]);
+  }, [roleId, fetchRole]);
 
   return {
     role,
@@ -143,8 +143,8 @@ export const usePermissions = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch all permissions
-  const fetchPermissions = async () => {
+  // ✅ CRITICAL: Memoize fetchPermissions to prevent infinite loops
+  const fetchPermissions = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -157,12 +157,12 @@ export const usePermissions = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  // Load permissions on mount
+  // ✅ CRITICAL: Include memoized function in dependencies
   useEffect(() => {
     fetchPermissions();
-  }, []);
+  }, [fetchPermissions]);
 
   return {
     permissions,
@@ -180,7 +180,8 @@ export const useRoleStats = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchStats = async () => {
+  // ✅ CRITICAL: Memoize fetchStats to prevent infinite loops
+  const fetchStats = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -206,11 +207,12 @@ export const useRoleStats = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
+  // ✅ CRITICAL: Include memoized function in dependencies
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [fetchStats]);
 
   return {
     stats,

@@ -84,7 +84,7 @@ const CreateRolePage = () => {
     if (!permission) return;
 
     // Don't allow changing default permissions
-    if (roleService.isDefaultPermission(permission.name, defaultPermissions)) {
+    if (permission.name && roleService.isDefaultPermission(permission.name, defaultPermissions)) {
       return;
     }
 
@@ -245,7 +245,7 @@ const CreateRolePage = () => {
                             className={`font-medium cursor-pointer ${isDefault ? 'text-gray-400' : ''}`}
                         >
                             <span className="flex items-center gap-2">
-                          {permission.name}
+                          {permission.name || 'Unknown Permission'}
                               {isDefault && (
                                 <Badge variant="secondary" className="text-xs">
                                   Default

@@ -90,7 +90,14 @@ const RoleDetailPage = () => {
   }
 
   // Group permissions by alphabetical order
-  const sortedPermissions = [...role.permissions].sort((a, b) => a.name.localeCompare(b.name));
+  const sortedPermissions = (role.permissions || [])
+    .filter(permission => permission && permission.name) // Filter out invalid permissions
+    .sort((a, b) => {
+      // Handle cases where name might be undefined or null
+      const nameA = a.name || '';
+      const nameB = b.name || '';
+      return nameA.localeCompare(nameB);
+    });
 
   return (
     <>
@@ -179,7 +186,7 @@ const RoleDetailPage = () => {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Permissions ({role.permissions.length})</CardTitle>
+            <CardTitle>Permissions ({sortedPermissions.length})</CardTitle>
             <CardDescription>List of permissions assigned to this role</CardDescription>
           </CardHeader>
           <CardContent>
