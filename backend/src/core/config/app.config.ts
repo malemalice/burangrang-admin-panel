@@ -5,4 +5,22 @@ export default registerAs('app', () => ({
   jwtSecret: process.env.JWT_SECRET || 'default-secret',
   jwtExpiration: process.env.JWT_EXPIRATION || '1d',
   refreshTokenExpiration: process.env.REFRESH_TOKEN_EXPIRATION || '7d',
+  cors: {
+    // Support multiple frontend domains
+    origins: process.env.CORS_ORIGINS
+      ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim())
+      : [
+          'http://localhost:3000', // webapp frontend
+          'http://localhost:5173', // webv2 frontend
+          'http://localhost:3001', // additional frontend if needed
+        ],
+    credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Accept',
+      'Authorization',
+      'X-Requested-With',
+    ],
+  },
 }));
