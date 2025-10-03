@@ -18,11 +18,14 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiBody,
 } from '@nestjs/swagger';
 import { Response, Request } from 'express';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { Public } from '../../../shared/decorators/public.decorator';
 import { AuthGuard } from '@nestjs/passport';
+import { LoginDto } from '../dto/login.dto';
+import { AuthResponseDto } from '../dto/auth-response.dto';
 
 // Create interface for the request with user property
 interface RequestWithUser extends Request {
@@ -45,10 +48,11 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'User login' })
-  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiBody({ type: LoginDto })
+  @ApiResponse({ status: 200, type: AuthResponseDto, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(
-    @Body() loginDto: { email: string; password: string },
+    @Body() loginDto: LoginDto,
     @Res() res: Response,
   ) {
     try {
@@ -120,6 +124,8 @@ export class AuthController {
 
       // Generate JWT tokens for the authenticated user
       const result = await this.authService.login(user);
+      console.log('result CALLBACK');
+      console.log(result);
       
       // Redirect to frontend with tokens as query parameters
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
