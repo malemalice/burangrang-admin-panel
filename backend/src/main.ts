@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import * as cookieParser from 'cookie-parser';
+import * as session from 'express-session';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { JwtAuthGuard } from './shared/guards/jwt-auth.guard';
@@ -26,6 +27,20 @@ async function bootstrap() {
 
   // Use cookie parser
   app.use(cookieParser());
+
+  // Configure session middleware for OAuth 2.0 + PKCE
+  app.use(
+    session({
+      secret: configService.get('app.sessionSecret') || 'your-session-secret-key',
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      },
+    }),
+  );
 
   // Enable validation pipes
   app.useGlobalPipes(new ValidationPipe({

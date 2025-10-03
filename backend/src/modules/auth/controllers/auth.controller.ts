@@ -128,8 +128,6 @@ export class AuthController {
 
       // Generate JWT tokens for the authenticated user
       const result = await this.authService.login(user);
-      console.log('result CALLBACK');
-      console.log(result);
 
       // Redirect to frontend with tokens as query parameters
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
