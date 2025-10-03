@@ -1,9 +1,16 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  Logger,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../../core/services/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { Response } from 'express';
 import * as crypto from 'crypto';
+import { SignupDto } from '../dto/signup.dto';
 
 interface AuthenticatedUser {
   id: string;
@@ -64,7 +71,7 @@ export class AuthService {
     }
 
     this.logger.debug(`User ${email} authenticated successfully`);
-    const { password, ...result } = user;
+    const { password: _password, ...result } = user;
     return result as AuthenticatedUser;
   }
 
@@ -217,11 +224,93 @@ export class AuthService {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.error(`Error during logout for user ${userId}: ${errorMessage}`);
+      this.logger.error(
+        `Error during logout for user ${userId}: ${errorMessage}`,
+      );
       
       // Don't throw error for logout - it should always succeed
       // even if token deletion fails
       return { success: true };
     }
+  }
+
+  async signup(signupDto: SignupDto) {
+    this.logger.debug(`Attempting to signup user: ${signupDto.email}`);
+
+    // Check if user already exists
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: signupDto.email },
+    });
+
+    if (existingUser) {
+      this.logger.warn(`User already exists with email: ${signupDto.email}`);
+      throw new ConflictException('User with this email already exists');
+    }
+
+    // Get default role (User role)
+    const defaultRole = await this.prisma.role.findFirst({
+      where: { name: 'User' },
+    });
+
+    if (!defaultRole) {
+      this.logger.error('Default role "User" not found');
+      throw new BadRequestException('Default role not found');
+    }
+
+    // Get default office
+    const defaultOffice = await this.prisma.office.findFirst({
+      where: { isActive: true },
+    });
+
+    if (!defaultOffice) {
+      this.logger.error('No active office found');
+      throw new BadRequestException('No active office found');
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(signupDto.password, 10);
+
+    // Create user
+    const user = await this.prisma.user.create({
+      data: {
+        email: signupDto.email,
+        password: hashedPassword,
+        firstName: signupDto.firstName,
+        lastName: signupDto.lastName,
+        roleId: defaultRole.id,
+        officeId: defaultOffice.id,
+        isActive: true,
+      },
+      include: { role: true },
+    });
+
+    this.logger.debug(`User created successfully: ${user.email}`);
+
+    // Create customer profile if phone is provided
+    if (signupDto.phone) {
+      await this.prisma.customer.create({
+        data: {
+          userId: user.id,
+          phone: signupDto.phone,
+        },
+      });
+    }
+
+    // Generate JWT tokens
+    const payload = { email: user.email, sub: user.id, role: user.role.name };
+    const accessToken = this.jwtService.sign(payload, { expiresIn: 3600 }); // 1 hour
+    const refreshToken = await this.createRefreshToken(user.id);
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role.name,
+      },
+    };
   }
 }

@@ -26,6 +26,7 @@ import { Public } from '../../../shared/decorators/public.decorator';
 import { AuthGuard } from '@nestjs/passport';
 import { LoginDto } from '../dto/login.dto';
 import { AuthResponseDto } from '../dto/auth-response.dto';
+import { SignupDto } from '../dto/signup.dto';
 
 // Create interface for the request with user property
 interface RequestWithUser extends Request {
@@ -49,12 +50,13 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'User login' })
   @ApiBody({ type: LoginDto })
-  @ApiResponse({ status: 200, type: AuthResponseDto, description: 'Login successful' })
+  @ApiResponse({
+    status: 200,
+    type: AuthResponseDto,
+    description: 'Login successful',
+  })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  async login(
-    @Body() loginDto: LoginDto,
-    @Res() res: Response,
-  ) {
+  async login(@Body() loginDto: LoginDto, @Res() res: Response) {
     try {
       const user = await this.authService.validateUser(
         loginDto.email,
@@ -102,7 +104,7 @@ export class AuthController {
   @UseGuards(AuthGuard('google'))
   @ApiOperation({ summary: 'Google OAuth login' })
   @ApiResponse({ status: 302, description: 'Redirects to Google OAuth' })
-  async googleAuth(@Req() req: Request) {
+  async googleAuth() {
     // This endpoint initiates the Google OAuth flow
     // Passport will handle the redirect to Google
   }
@@ -117,25 +119,55 @@ export class AuthController {
   async googleAuthCallback(@Req() req: Request, @Res() res: Response) {
     try {
       const user = req.user as any;
-      
+
       if (!user) {
-        return res.status(401).json({ message: 'Google authentication failed' });
+        return res
+          .status(401)
+          .json({ message: 'Google authentication failed' });
       }
 
       // Generate JWT tokens for the authenticated user
       const result = await this.authService.login(user);
       console.log('result CALLBACK');
       console.log(result);
-      
+
       // Redirect to frontend with tokens as query parameters
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
       const redirectUrl = `${frontendUrl}/auth/callback?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`;
-      
+
       return res.redirect(redirectUrl);
     } catch (error) {
       this.logger.error('Google OAuth callback error:', error);
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
       return res.redirect(`${frontendUrl}/login?error=google_auth_failed`);
+    }
+  }
+
+  @Post('signup')
+  @Public()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'User registration' })
+  @ApiBody({ type: SignupDto })
+  @ApiResponse({
+    status: 201,
+    type: AuthResponseDto,
+    description: 'User registered successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - validation error' })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - user with this email already exists',
+  })
+  async signup(@Body() signupDto: SignupDto, @Res() res: Response) {
+    try {
+      const result = await this.authService.signup(signupDto);
+      return res.json(result);
+    } catch (error) {
+      this.logger.error(
+        `Signup failed for user: ${signupDto.email}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
     }
   }
 }
