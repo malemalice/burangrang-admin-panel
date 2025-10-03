@@ -27,6 +27,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { LoginDto } from '../dto/login.dto';
 import { AuthResponseDto } from '../dto/auth-response.dto';
 import { SignupDto } from '../dto/signup.dto';
+import { ForgotPasswordDto } from '../dto/forgot-password.dto';
+import { ResetPasswordDto } from '../dto/reset-password.dto';
+import { ForgotPasswordResponseDto } from '../dto/forgot-password-response.dto';
 
 // Create interface for the request with user property
 interface RequestWithUser extends Request {
@@ -163,6 +166,62 @@ export class AuthController {
     } catch (error) {
       this.logger.error(
         `Signup failed for user: ${signupDto.email}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
+    }
+  }
+
+  @Post('forgot-password')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request password reset' })
+  @ApiBody({ type: ForgotPasswordDto })
+  @ApiResponse({
+    status: 200,
+    type: ForgotPasswordResponseDto,
+    description: 'Password reset link sent successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - validation error' })
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto, @Res() res: Response) {
+    try {
+      const result = await this.authService.forgotPassword(forgotPasswordDto);
+      return res.json(result);
+    } catch (error) {
+      this.logger.error(
+        `Forgot password failed for email: ${forgotPasswordDto.email}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
+    }
+  }
+
+  @Post('reset-password')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset password with token' })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Password has been reset successfully',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - invalid or expired token' })
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto, @Res() res: Response) {
+    try {
+      const result = await this.authService.resetPassword(resetPasswordDto);
+      return res.json(result);
+    } catch (error) {
+      this.logger.error(
+        'Password reset failed',
         error instanceof Error ? error.stack : String(error),
       );
       throw error;
