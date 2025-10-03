@@ -36,8 +36,6 @@ export class AuthService {
     email: string,
     plainPassword: string,
   ): Promise<AuthenticatedUser> {
-    this.logger.debug(`Attempting to validate user: ${email}`);
-
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: { role: true },
@@ -70,7 +68,6 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    this.logger.debug(`User ${email} authenticated successfully`);
     const { password: _password, ...result } = user;
     return result as AuthenticatedUser;
   }
@@ -102,9 +99,6 @@ export class AuthService {
         where: { userId },
       });
 
-      this.logger.debug(
-        `Deleted ${deleteResult.count} existing refresh token(s) for user ${userId}`,
-      );
 
       // Add randomness to the token to ensure uniqueness
       const randomStr = crypto.randomBytes(32).toString('hex');
@@ -188,9 +182,6 @@ export class AuthService {
       where: { id: refreshToken.id },
     });
 
-    this.logger.debug(
-      `Deleted ${deleteResult.count} refresh token(s) for user ${user.id}`,
-    );
 
     // Create new refresh token
     const newRefreshToken = await this.createRefreshToken(user.id);
@@ -216,9 +207,6 @@ export class AuthService {
         where: { userId },
       });
 
-      this.logger.debug(
-        `Logged out user ${userId}, deleted ${deleteResult.count} refresh token(s)`,
-      );
 
       return { success: true };
     } catch (error) {
@@ -235,8 +223,6 @@ export class AuthService {
   }
 
   async signup(signupDto: SignupDto) {
-    this.logger.debug(`Attempting to signup user: ${signupDto.email}`);
-
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
       where: { email: signupDto.email },
@@ -283,8 +269,6 @@ export class AuthService {
       },
       include: { role: true },
     });
-
-    this.logger.debug(`User created successfully: ${user.email}`);
 
     // Create customer profile if phone is provided
     if (signupDto.phone) {

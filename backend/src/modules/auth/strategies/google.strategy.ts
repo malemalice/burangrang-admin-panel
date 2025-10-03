@@ -9,6 +9,18 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../core/services/prisma.service';
 import { AuthService } from '../services/auth.service';
 
+interface UserWithRole {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  password: string | null;
+  role: {
+    id: string;
+    name: string;
+  };
+}
+
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(
@@ -47,7 +59,10 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     profile: any,
     done: VerifyCallback,
   ): Promise<any> {
-    const { name, emails } = profile;
+    const { name, emails } = profile as {
+      name?: { givenName?: string; familyName?: string };
+      emails?: Array<{ value: string }>;
+    };
 
     const email = emails?.[0]?.value;
     const firstName = name?.givenName || '';
@@ -59,7 +74,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
 
     try {
       // Check if user exists
-      let user = await this.prisma.user.findUnique({
+      let user: UserWithRole | null = await this.prisma.user.findUnique({
         where: { email },
         include: { role: true },
       });
