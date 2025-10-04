@@ -257,6 +257,124 @@ export class ProductsService {
     return this.productMapper(product);
   }
 
+  async findPublishedOne(id: string): Promise<ProductDto> {
+    const product = await this.prisma.product.findUnique({
+      where: { 
+        id,
+        status: 'PUBLISHED',
+        isActive: true,
+      },
+      include: {
+        createdByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            // Remove email for public access - not needed for course detail page
+          },
+        },
+        categories: {
+          include: {
+            category: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                // Only include essential category fields for public access
+              },
+            },
+          },
+        },
+        // Remove files include - not needed for course detail page
+        course: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            description: true,
+            shortDescription: true,
+            thumbnailUrl: true,
+            totalChapters: true,
+            totalDuration: true,
+            difficulty: true,
+            language: true,
+            rating: true,
+            reviewCount: true,
+            studentCount: true,
+            instructorId: true,
+            status: true,
+            isPublished: true,
+            isActive: true,
+            // Only include essential course fields for public access
+          },
+        },
+      },
+    });
+
+    this.errorHandler.throwIfNotFoundById('Published Product', id, product);
+
+    return this.productMapper(product);
+  }
+
+  async findPublishedOneBySlug(slug: string): Promise<ProductDto> {
+    const product = await this.prisma.product.findUnique({
+      where: { 
+        slug,
+        status: 'PUBLISHED',
+        isActive: true,
+      },
+      include: {
+        createdByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            // Remove email for public access - not needed for course detail page
+          },
+        },
+        categories: {
+          include: {
+            category: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                // Only include essential category fields for public access
+              },
+            },
+          },
+        },
+        // Remove files include - not needed for course detail page
+        course: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            description: true,
+            shortDescription: true,
+            thumbnailUrl: true,
+            totalChapters: true,
+            totalDuration: true,
+            difficulty: true,
+            language: true,
+            rating: true,
+            reviewCount: true,
+            studentCount: true,
+            instructorId: true,
+            status: true,
+            isPublished: true,
+            isActive: true,
+            // Only include essential course fields for public access
+          },
+        },
+      },
+    });
+
+    this.errorHandler.throwIfNotFoundById('Published Product', slug, product);
+
+    return this.productMapper(product);
+  }
+
   async update(id: string, updateProductDto: UpdateProductDto, updatedBy: string): Promise<ProductDto> {
     const { categoryIds, fileUrl, courseId, ...productData } = updateProductDto;
 

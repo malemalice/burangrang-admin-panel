@@ -197,6 +197,40 @@ export class ChaptersService {
     return chapters.map(chapter => this.chapterMapper(chapter));
   }
 
+  async findPublishedByCourse(courseId: string): Promise<ChapterDto[]> {
+    // Verify course exists and is active (not necessarily published)
+    const course = await this.prisma.course.findUnique({
+      where: { 
+        id: courseId,
+        isActive: true,
+      },
+    });
+
+    this.errorHandler.throwIfNotFoundById('Course', courseId, course);
+
+    const chapters = await this.prisma.chapter.findMany({
+      where: {
+        courseId,
+        isActive: true,
+        isPublished: true,
+      },
+      select: {
+        id: true,
+        courseId: true,
+        title: true,
+        order: true,
+        duration: true,
+        // Only include fields needed for curriculum display
+        // Remove sensitive fields like contentUrl, youtubeVideoId, content, etc.
+      },
+      orderBy: {
+        order: 'asc',
+      },
+    });
+
+    return chapters.map(chapter => this.chapterMapper(chapter));
+  }
+
   async findOne(id: string): Promise<ChapterDto> {
     const chapter = await this.prisma.chapter.findUnique({
       where: { id },

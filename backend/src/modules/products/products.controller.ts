@@ -236,6 +236,42 @@ export class ProductsController {
     return this.productsService.findAll(publicQuery);
   }
 
+  @Get('public/:id')
+  @Public()
+  @ApiOperation({ summary: 'Get a published product by ID (public access)' })
+  @ApiParam({
+    name: 'id',
+    type: String,
+    description: 'Product ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Published product retrieved successfully.',
+    type: ProductDto,
+  })
+  @ApiResponse({ status: 404, description: 'Product not found or not published.' })
+  async findPublishedOne(@Param('id') id: string): Promise<ProductDto> {
+    return this.productsService.findPublishedOne(id);
+  }
+
+  @Get('public/slug/:slug')
+  @Public()
+  @ApiOperation({ summary: 'Get a published product by slug (public access)' })
+  @ApiParam({
+    name: 'slug',
+    type: String,
+    description: 'Product slug',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Published product retrieved successfully.',
+    type: ProductDto,
+  })
+  @ApiResponse({ status: 404, description: 'Product not found or not published.' })
+  async findPublishedOneBySlug(@Param('slug') slug: string): Promise<ProductDto> {
+    return this.productsService.findPublishedOneBySlug(slug);
+  }
+
   @Get('stats')
   @ApiOperation({ summary: 'Get product statistics' })
   @ApiResponse({
