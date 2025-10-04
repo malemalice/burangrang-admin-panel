@@ -22,6 +22,8 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
@@ -175,6 +177,50 @@ export class UsersController {
   })
   async getProfile(@Req() req: RequestWithUser): Promise<UserDto> {
     return this.usersService.findOne(req.user.id);
+  }
+
+  @Patch('me')
+  @ApiOperation({ summary: 'Update current user profile' })
+  @ApiBody({ type: UpdateProfileDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile updated successfully.',
+    type: UserDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - invalid or missing token.' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  async updateProfile(
+    @Req() req: RequestWithUser,
+    @Body() updateProfileDto: UpdateProfileDto,
+  ): Promise<UserDto> {
+    return this.usersService.updateProfile(req.user.id, updateProfileDto);
+  }
+
+  @Post('me/change-password')
+  @ApiOperation({ summary: 'Change current user password' })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Password changed successfully.',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Password changed successfully',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - invalid current password or token.' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  async changePassword(
+    @Req() req: RequestWithUser,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    return this.usersService.changePassword(req.user.id, changePasswordDto);
   }
 
   @Get(':id')
