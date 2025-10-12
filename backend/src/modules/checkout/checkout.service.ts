@@ -334,9 +334,9 @@ export class CheckoutService {
    * Step 7: Create Xendit QRIS QR Code
    */
   private async createXenditQRCode(order: any, totalAmount: number) {
-    // Calculate expiry date (24 hours from now)
+    // Calculate expiry date (5 hours from now)
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
+    expiresAt.setHours(expiresAt.getHours() + 5);
 
     // Round up amount for IDR (no decimals allowed)
     const roundedAmount = Math.ceil(totalAmount);

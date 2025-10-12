@@ -21,6 +21,7 @@ import {
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
+import { Public } from '../../shared/decorators/public.decorator';
 import { Role } from '../../shared/types/role.enum';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -128,6 +129,30 @@ export class OrdersController {
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
   async getStats(): Promise<any> {
     return this.ordersService.getOrderStats();
+  }
+
+  @Get(':id/status')
+  @Public()
+  @ApiOperation({ summary: 'Get order status (public endpoint for payment verification)' })
+  @ApiParam({ name: 'id', type: String, description: 'Order ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Order status retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string' },
+        paymentStatus: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async getOrderStatus(@Param('id') id: string): Promise<{ status: string; paymentStatus: string }> {
+    const order = await this.ordersService.findOne(id);
+    return {
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+    };
   }
 
   @Get(':id')
