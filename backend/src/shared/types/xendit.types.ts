@@ -161,20 +161,36 @@ export interface XenditQRCodeResponse {
 /**
  * QRIS QR Code Webhook Payload
  * Webhook sent when QR code is paid
+ * Based on actual Xendit webhook structure (2022-07-31 API version)
  */
 export interface XenditQRCodeWebhookPayload {
-  id: string; // QR code ID
-  reference_id: string;
-  type: 'DYNAMIC';
-  currency: string;
-  amount: number;
-  status: 'COMPLETED' | 'ACTIVE';
-  channel_code: string;
-  qr_string: string;
-  callback_url?: string;
   created: string;
-  updated: string;
-  metadata?: Record<string, any>;
+  business_id: string;
+  event: 'qr.payment';
+  data: {
+    id: string; // Payment ID (qrpy_xxx)
+    type: 'DYNAMIC' | 'STATIC';
+    qr_id: string; // QR code ID (qr_xxx)
+    amount: number;
+    status: 'SUCCEEDED' | 'FAILED';
+    created: string;
+    currency: string;
+    metadata?: Record<string, any>;
+    qr_string: string;
+    expires_at: string;
+    business_id: string;
+    channel_code: string;
+    reference_id: string; // Order number
+    payment_detail: {
+      name: string | null;
+      source: string; // e.g., "DANA", "GOPAY", "OVO"
+      receipt_id: string | null;
+      customer_pan: string | null;
+      merchant_pan: string | null;
+      account_details: any | null;
+    };
+  };
+  api_version: string;
 }
 
 export const XENDIT_PAYMENT_CHANNELS: XenditPaymentChannel[] = [

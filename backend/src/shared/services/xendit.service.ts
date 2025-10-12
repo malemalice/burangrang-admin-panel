@@ -191,14 +191,36 @@ export class XenditService {
   }
 
   /**
-   * Verify webhook signature
+   * Verify webhook using x-callback-token
+   * 
+   * Xendit includes x-callback-token header in each webhook request.
+   * This token should match the XENDIT_WEBHOOK_TOKEN configured in your environment.
+   * 
+   * @param callbackToken - Value from x-callback-token header
+   * @returns true if token is valid, false otherwise
    */
   verifyWebhookSignature(callbackToken: string): boolean {
     if (!this.webhookToken) {
-      this.logger.warn('Webhook token not configured, skipping verification');
+      this.logger.error('XENDIT_WEBHOOK_TOKEN not configured in environment');
       return false;
     }
-    return callbackToken === this.webhookToken;
+
+    if (!callbackToken) {
+      this.logger.error('x-callback-token header is missing from webhook request');
+      return false;
+    }
+
+    const isValid = callbackToken === this.webhookToken;
+    
+    if (!isValid) {
+      this.logger.error('Webhook token verification failed - token does not match');
+      this.logger.debug(`Expected: ${this.webhookToken.substring(0, 10)}...`);
+      this.logger.debug(`Received: ${callbackToken.substring(0, 10)}...`);
+    } else {
+      this.logger.log('Webhook token verified successfully');
+    }
+
+    return isValid;
   }
 
   /**

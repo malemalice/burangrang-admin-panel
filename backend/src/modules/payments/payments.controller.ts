@@ -21,6 +21,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiBody,
 } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
@@ -33,7 +34,7 @@ import { Roles } from '../../shared/decorators/roles.decorator';
 import { Public } from '../../shared/decorators/public.decorator';
 import { Role } from '../../shared/types/role.enum';
 import { XenditService } from '../../shared/services/xendit.service';
-import { XenditWebhookPayload, XenditQRCodeWebhookPayload } from '../../shared/types/xendit.types';
+import { XenditQRCodeWebhookPayload } from '../../shared/types/xendit.types';
 
 @ApiTags('payments')
 @ApiBearerAuth()
@@ -94,7 +95,10 @@ export class PaymentsController {
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, type: PaymentDto })
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
-  async update(@Param('id') id: string, @Body() updatePaymentDto: UpdatePaymentDto) {
+  async update(
+    @Param('id') id: string,
+    @Body() updatePaymentDto: UpdatePaymentDto,
+  ) {
     return this.paymentsService.update(id, updatePaymentDto);
   }
 
@@ -108,59 +112,138 @@ export class PaymentsController {
   }
 
   /**
-   * Xendit Webhook Endpoint
-   * Receives payment status updates from Xendit (Invoice and QR Code)
+   * Xendit QRIS Webhook Endpoint
+   * Receives payment status updates from Xendit QRIS QR Code payments
+   *
+   * Webhook format based on Xendit API 2022-07-31
+   * Event: qr.payment
    */
   @Post('webhook/xendit')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Xendit webhook for payment status updates (Invoice and QRIS QR Code)' })
-  @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid webhook signature' })
+  @ApiOperation({
+    summary: 'Xendit webhook for QRIS QR Code payment status updates',
+    description:
+      'Handles qr.payment event from Xendit when QRIS payment is completed. ' +
+      'Verifies webhook authenticity using x-callback-token header (must match XENDIT_WEBHOOK_TOKEN in .env).',
+  })
+  @ApiBody({
+    description: 'Xendit QRIS webhook payload',
+    schema: {
+      type: 'object',
+      required: ['created', 'business_id', 'event', 'data', 'api_version'],
+      properties: {
+        created: { type: 'string', example: '2025-10-12T13:16:54.859Z' },
+        business_id: { type: 'string', example: '670484e3e91755a865dfad36' },
+        event: { type: 'string', enum: ['qr.payment'], example: 'qr.payment' },
+        data: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'qrpy_d44280fc-25c8-4b37-a095-849ce33dd970' },
+            type: { type: 'string', enum: ['DYNAMIC', 'STATIC'], example: 'DYNAMIC' },
+            qr_id: { type: 'string', example: 'qr_2af87464-7e69-404c-b309-7368f1fcfecd' },
+            amount: { type: 'number', example: 300 },
+            status: { type: 'string', enum: ['SUCCEEDED', 'FAILED'], example: 'SUCCEEDED' },
+            currency: { type: 'string', example: 'IDR' },
+            reference_id: { type: 'string', example: 'ORD-1760274607146-KP2C1CRWN' },
+            payment_detail: {
+              type: 'object',
+              properties: {
+                source: { type: 'string', example: 'DANA' },
+              },
+            },
+          },
+        },
+        api_version: { type: 'string', example: '2022-07-31' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Webhook processed successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid webhook signature or event type',
+  })
   async handleXenditWebhook(
-    @Body() webhookData: XenditWebhookPayload | XenditQRCodeWebhookPayload,
+    @Body() webhookData: XenditQRCodeWebhookPayload,
     @Headers('x-callback-token') callbackToken: string,
-  ) {
-    this.logger.log(`Received Xendit webhook with status: ${webhookData.status}`);
+  ): Promise<any> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const webhookEvent = (webhookData as any)?.event || 'unknown';
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    const webhookStatus = (webhookData as any)?.data?.status || 'unknown';
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    const referenceId = (webhookData as any)?.data?.reference_id || 'unknown';
 
-    // Verify webhook signature
+    this.logger.log(
+      `Received Xendit webhook - Event: ${webhookEvent}, Status: ${webhookStatus}, Reference: ${referenceId}`,
+    );
+
+    // Verify webhook using x-callback-token header
     const isValid = this.xenditService.verifyWebhookSignature(callbackToken);
+    
     if (!isValid) {
-      this.logger.error('Invalid webhook signature');
-      throw new BadRequestException('Invalid webhook signature');
+      this.logger.error('Webhook verification failed - invalid or missing x-callback-token');
+      throw new BadRequestException('Invalid webhook token');
     }
 
-    // Process webhook based on type and status
+    // Validate event type
+    if (webhookEvent !== 'qr.payment') {
+      this.logger.warn(`Unhandled webhook event: ${webhookEvent}`);
+      throw new BadRequestException(`Unsupported event type: ${webhookEvent}`);
+    }
+
+    // Process QRIS payment webhook
     try {
-      // Check if it's a QR Code webhook (has qr_string field)
-      if ('qr_string' in webhookData) {
-        // QRIS QR Code webhook
-        this.logger.log(`Processing QRIS QR Code webhook: ${webhookData.reference_id}`);
-        
-        if (webhookData.status === 'COMPLETED') {
-          await this.paymentsService.handleQRCodePaid(webhookData);
-        }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const amount = (webhookData as any).data.amount;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const paymentSource = (webhookData as any).data.payment_detail.source;
+
+      this.logger.log(
+        `Processing QRIS payment - Reference: ${referenceId}, ` +
+          `Amount: ${amount}, Status: ${webhookStatus}, ` +
+          `Source: ${paymentSource}`,
+      );
+
+      if (webhookStatus === 'SUCCEEDED') {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        await this.paymentsService.handleQRCodePaid(webhookData);
+        this.logger.log(`QRIS payment processed successfully: ${referenceId}`);
+      } else if (webhookStatus === 'FAILED') {
+        this.logger.warn(`QRIS payment failed: ${referenceId}`);
+        // Could add handleQRCodeFailed if needed
       } else {
-        // Invoice webhook
-        this.logger.log(`Processing Invoice webhook: ${webhookData.external_id}`);
-        
-        switch (webhookData.status) {
-          case 'PAID':
-            await this.paymentsService.handleInvoicePaid(webhookData);
-            break;
-          case 'EXPIRED':
-            await this.paymentsService.handleInvoiceExpired(webhookData);
-            break;
-          default:
-            this.logger.warn(`Unhandled webhook status: ${webhookData.status}`);
-        }
+        this.logger.warn(`Unhandled QRIS payment status: ${webhookStatus}`);
       }
 
-      return { received: true, status: webhookData.status };
+      return {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        received: true,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        event: webhookEvent,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        status: webhookStatus,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        reference_id: referenceId,
+      };
     } catch (error) {
-      this.logger.error('Error processing webhook:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(
+        `Error processing QRIS webhook: ${errorMessage}`,
+        errorStack,
+      );
       // Return 200 to prevent Xendit from retrying
-      return { received: true, error: 'Processing error' };
+      return {
+        received: true,
+        error: 'Processing error',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        reference_id: referenceId,
+      };
     }
   }
 }

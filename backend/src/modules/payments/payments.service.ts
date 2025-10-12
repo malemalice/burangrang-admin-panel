@@ -6,7 +6,7 @@ import { XenditService } from '../../shared/services/xendit.service';
 import { PaymentDto } from './dto/payment.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
-import { XenditWebhookPayload, XenditQRCodeWebhookPayload } from '../../shared/types/xendit.types';
+import { XenditQRCodeWebhookPayload } from '../../shared/types/xendit.types';
 
 interface FindAllOptions {
   page?: number;
@@ -253,203 +253,35 @@ export class PaymentsService {
   }
 
   /**
-   * Handle Xendit webhook for invoice paid
-   */
-  async handleInvoicePaid(webhookData: XenditWebhookPayload): Promise<void> {
-    return this.errorHandler.safeExecute(async () => {
-      this.logger.log(`Processing paid invoice: ${webhookData.external_id}`);
-
-      // Find order by order number (external_id)
-      const order = await this.prisma.order.findUnique({
-        where: { orderNumber: webhookData.external_id },
-        include: {
-          items: {
-            include: {
-              course: true,
-            },
-          },
-          customer: {
-            include: {
-              user: true,
-            },
-          },
-        },
-      });
-
-      if (!order) {
-        this.logger.error(`Order not found for external_id: ${webhookData.external_id}`);
-        return;
-      }
-
-      // Find payment for this order
-      const payment = await this.prisma.payment.findFirst({
-        where: { orderId: order.id },
-      });
-
-      if (!payment) {
-        this.logger.error(`Payment not found for order: ${order.id}`);
-        return;
-      }
-
-      // Update payment status
-      await this.prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: 'COMPLETED',
-          processedAt: new Date(),
-          gatewayResponse: webhookData as any,
-        },
-      });
-
-      // Update order status
-      await this.prisma.order.update({
-        where: { id: order.id },
-        data: {
-          status: 'CONFIRMED',
-          paymentStatus: 'PAID',
-        },
-      });
-
-      // Create enrollments for course items
-      for (const item of order.items) {
-        if (item.courseId && item.course) {
-          const existingEnrollment = await this.prisma.enrollment.findUnique({
-            where: {
-              userId_courseId: {
-                userId: order.customer.userId,
-                courseId: item.courseId,
-              },
-            },
-          });
-
-          if (!existingEnrollment) {
-            await this.prisma.enrollment.create({
-              data: {
-                userId: order.customer.userId,
-                courseId: item.courseId,
-                orderId: order.id,
-                status: 'ACTIVE',
-              },
-            });
-            this.logger.log(
-              `Enrollment created for user ${order.customer.userId} in course ${item.courseId}`,
-            );
-          }
-        }
-      }
-
-      this.logger.log(`Invoice paid processed successfully: ${webhookData.external_id}`);
-    }, 'Handling invoice paid webhook');
-  }
-
-  /**
-   * Handle Xendit webhook for invoice expired
-   */
-  async handleInvoiceExpired(webhookData: XenditWebhookPayload): Promise<void> {
-    return this.errorHandler.safeExecute(async () => {
-      this.logger.log(`Processing expired invoice: ${webhookData.external_id}`);
-
-      // Find order by order number
-      const order = await this.prisma.order.findUnique({
-        where: { orderNumber: webhookData.external_id },
-      });
-
-      if (!order) {
-        this.logger.error(`Order not found for external_id: ${webhookData.external_id}`);
-        return;
-      }
-
-      // Find payment for this order
-      const payment = await this.prisma.payment.findFirst({
-        where: { orderId: order.id },
-      });
-
-      if (!payment) {
-        this.logger.error(`Payment not found for order: ${order.id}`);
-        return;
-      }
-
-      // Update payment status
-      await this.prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: 'CANCELLED',
-          gatewayResponse: webhookData as any,
-        },
-      });
-
-      // Update order status
-      await this.prisma.order.update({
-        where: { id: order.id },
-        data: {
-          status: 'CANCELLED',
-          paymentStatus: 'FAILED',
-        },
-      });
-
-      this.logger.log(`Invoice expired processed successfully: ${webhookData.external_id}`);
-    }, 'Handling invoice expired webhook');
-  }
-
-  /**
-   * Handle Xendit webhook for payment failed
-   */
-  async handlePaymentFailed(webhookData: XenditWebhookPayload): Promise<void> {
-    return this.errorHandler.safeExecute(async () => {
-      this.logger.log(`Processing failed payment: ${webhookData.external_id}`);
-
-      // Find order by order number
-      const order = await this.prisma.order.findUnique({
-        where: { orderNumber: webhookData.external_id },
-      });
-
-      if (!order) {
-        this.logger.error(`Order not found for external_id: ${webhookData.external_id}`);
-        return;
-      }
-
-      // Find payment for this order
-      const payment = await this.prisma.payment.findFirst({
-        where: { orderId: order.id },
-      });
-
-      if (!payment) {
-        this.logger.error(`Payment not found for order: ${order.id}`);
-        return;
-      }
-
-      // Update payment status
-      await this.prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: 'FAILED',
-          gatewayResponse: webhookData as any,
-        },
-      });
-
-      // Update order status
-      await this.prisma.order.update({
-        where: { id: order.id },
-        data: {
-          status: 'PAYMENT_FAILED',
-          paymentStatus: 'FAILED',
-        },
-      });
-
-      this.logger.log(`Payment failed processed successfully: ${webhookData.external_id}`);
-    }, 'Handling payment failed webhook');
-  }
-
-  /**
-   * Handle Xendit webhook for QRIS QR Code paid
+   * Handle Xendit QRIS QR Code Payment Webhook
+   * 
+   * Processes successful QRIS payments and updates:
+   * - Payment status to COMPLETED (t_payments)
+   * - Order status to FULFILLED (t_orders) - User now has access
+   * - Creates course enrollments (t_enrollments)
+   * 
+   * References ERD:
+   * - t_orders: orderNumber → webhookData.data.reference_id
+   * - t_payments: orderId, transactionId, status, gatewayResponse
+   * - t_customers: userId for enrollment
+   * - t_enrollments: userId, courseId, orderId, status
    */
   async handleQRCodePaid(webhookData: XenditQRCodeWebhookPayload): Promise<void> {
     return this.errorHandler.safeExecute(async () => {
-      this.logger.log(`Processing QRIS QR Code payment: ${webhookData.reference_id}`);
+      const referenceId = webhookData.data.reference_id;
+      const paymentId = webhookData.data.id;
+      const amount = webhookData.data.amount;
+      const paymentSource = webhookData.data.payment_detail.source;
+
+      this.logger.log(
+        `Processing QRIS payment - Reference: ${referenceId}, ` +
+        `Payment ID: ${paymentId}, Amount: ${amount}, Source: ${paymentSource}`
+      );
 
       // Find order by order number (reference_id)
+      // ERD Reference: t_orders.orderNumber
       const order = await this.prisma.order.findUnique({
-        where: { orderNumber: webhookData.reference_id },
+        where: { orderNumber: referenceId },
         include: {
           items: {
             include: {
@@ -465,11 +297,14 @@ export class PaymentsService {
       });
 
       if (!order) {
-        this.logger.error(`Order not found for reference_id: ${webhookData.reference_id}`);
+        this.logger.error(`Order not found for reference_id: ${referenceId}`);
         return;
       }
 
+      this.logger.log(`Found order ${order.id} for customer ${order.customer.user.email}`);
+
       // Find payment for this order
+      // ERD Reference: t_payments.orderId
       const payment = await this.prisma.payment.findFirst({
         where: { orderId: order.id },
       });
@@ -479,7 +314,8 @@ export class PaymentsService {
         return;
       }
 
-      // Update payment status
+      // Update payment status to COMPLETED
+      // ERD Reference: t_payments (status, processedAt, gatewayResponse)
       await this.prisma.payment.update({
         where: { id: payment.id },
         data: {
@@ -489,16 +325,23 @@ export class PaymentsService {
         },
       });
 
-      // Update order status
+      this.logger.log(`Payment ${payment.id} updated to COMPLETED`);
+
+      // Update order status to FULFILLED (user now has access)
+      // ERD Reference: t_orders (status, paymentStatus)
+      // TRD Reference: Order Status Management - FULFILLED means user has access
       await this.prisma.order.update({
         where: { id: order.id },
         data: {
-          status: 'CONFIRMED',
+          status: 'FULFILLED', // ✅ User has access to digital products
           paymentStatus: 'PAID',
         },
       });
 
+      this.logger.log(`Order ${order.id} status updated to FULFILLED`);
+
       // Create enrollments for course items
+      // ERD Reference: t_enrollments (userId, courseId, orderId, status)
       for (const item of order.items) {
         if (item.courseId && item.course) {
           // Check if enrollment already exists
@@ -519,21 +362,28 @@ export class PaymentsService {
                 courseId: item.courseId,
                 orderId: order.id,
                 status: 'ACTIVE',
+                enrolledAt: new Date(),
               },
             });
 
             this.logger.log(
-              `Created enrollment for user ${order.customer.userId} in course ${item.courseId}`,
+              `✅ Created enrollment for user ${order.customer.user.email} ` +
+              `(${order.customer.userId}) in course ${item.course.title} (${item.courseId})`
             );
           } else {
             this.logger.log(
-              `Enrollment already exists for user ${order.customer.userId} in course ${item.courseId}`,
+              `Enrollment already exists for user ${order.customer.user.email} ` +
+              `in course ${item.course.title}`
             );
           }
         }
       }
 
-      this.logger.log(`QRIS QR Code payment processed successfully: ${webhookData.reference_id}`);
+      this.logger.log(
+        `✅ QRIS payment processed successfully - Reference: ${referenceId}, ` +
+        `Order: ${order.orderNumber}, Amount: ${amount} ${webhookData.data.currency}, ` +
+        `Payment Source: ${paymentSource}`
+      );
     }, 'Handling QRIS QR Code paid webhook');
   }
 }
