@@ -24,6 +24,8 @@ import { UploadsModule } from './modules/uploads/uploads.module';
 import { ProductsModule } from './modules/products/products.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { CustomersModule } from './modules/customers/customers.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { CheckoutModule } from './modules/checkout/checkout.module';
 import { SharedModule } from './shared/shared.module';
 
 @Module({
@@ -53,6 +55,8 @@ import { SharedModule } from './shared/shared.module';
     ProductsModule,
     OrdersModule,
     CustomersModule,
+    PaymentsModule,
+    CheckoutModule,
   ],
   providers: [
     Reflector,
