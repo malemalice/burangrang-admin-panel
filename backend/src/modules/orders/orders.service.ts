@@ -493,4 +493,52 @@ export class OrdersService {
     //   );
     // }
   }
+
+  async getPaymentDetails(id: string): Promise<any> {
+    return this.errorHandler.safeExecute(async () => {
+      const order = await this.prisma.order.findUnique({
+        where: { id },
+        include: {
+          items: {
+            include: {
+              product: true,
+              course: true,
+            },
+          },
+          payments: {
+            include: {
+              paymentMethod: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+      });
+
+      this.errorHandler.throwIfNotFoundById('Order', id, order);
+
+      // Get payment details
+      const payment = order.payments[0];
+      const gatewayResponse = payment?.gatewayResponse as any;
+
+      return {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        totalAmount: Number(order.totalAmount),
+        currency: order.currency,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        paymentMethodCode: payment?.paymentMethod?.code || 'QRIS',
+        qrString: gatewayResponse?.qr_string || '',
+        expiryDate: gatewayResponse?.expires_at || new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
+        items: order.items.map((item) => ({
+          id: item.id,
+          productName: item.product?.name || item.course?.title || 'Unknown Product',
+          quantity: item.quantity,
+          unitPrice: Number(item.unitPrice),
+          totalPrice: Number(item.totalPrice),
+        })),
+      };
+    }, 'Fetching order payment details');
+  }
 }

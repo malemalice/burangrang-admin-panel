@@ -155,6 +155,19 @@ export class OrdersController {
     };
   }
 
+  @Get(':id/payment-details')
+  @Public()
+  @ApiOperation({ summary: 'Get order payment details (public endpoint for payment page)' })
+  @ApiParam({ name: 'id', type: String, description: 'Order ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Order payment details retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async getPaymentDetails(@Param('id') id: string): Promise<any> {
+    return this.ordersService.getPaymentDetails(id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get order by ID' })
   @ApiParam({ name: 'id', type: String, description: 'Order ID' })
