@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CheckoutResponseDto {
   @ApiProperty({ description: 'Order ID' })
@@ -13,11 +13,20 @@ export class CheckoutResponseDto {
   @ApiProperty({ description: 'Transaction ID' })
   transactionId: string;
 
-  @ApiProperty({ description: 'Xendit invoice URL for payment' })
-  paymentUrl: string;
+  @ApiProperty({ description: 'Payment method code (e.g., QRIS, OVO, BCA)' })
+  paymentMethodCode: string;
 
-  @ApiProperty({ description: 'Xendit invoice ID' })
-  invoiceId: string;
+  @ApiPropertyOptional({ description: 'Xendit invoice URL for payment (for non-QRIS methods)' })
+  paymentUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Xendit invoice ID (for non-QRIS methods)' })
+  invoiceId?: string;
+
+  @ApiPropertyOptional({ description: 'QRIS QR Code ID (for QRIS payment method)' })
+  qrCodeId?: string;
+
+  @ApiPropertyOptional({ description: 'QRIS QR Code string to generate QR image (for QRIS payment method)' })
+  qrString?: string;
 
   @ApiProperty({ description: 'Order status' })
   status: string;
@@ -31,7 +40,7 @@ export class CheckoutResponseDto {
   @ApiProperty({ description: 'Currency code' })
   currency: string;
 
-  @ApiProperty({ description: 'Invoice expiry date' })
+  @ApiProperty({ description: 'Payment expiry date' })
   expiryDate: string;
 
   constructor(partial: Partial<CheckoutResponseDto>) {

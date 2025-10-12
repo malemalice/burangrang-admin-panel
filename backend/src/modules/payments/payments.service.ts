@@ -6,7 +6,7 @@ import { XenditService } from '../../shared/services/xendit.service';
 import { PaymentDto } from './dto/payment.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
-import { XenditWebhookPayload } from '../../shared/types/xendit.types';
+import { XenditWebhookPayload, XenditQRCodeWebhookPayload } from '../../shared/types/xendit.types';
 
 interface FindAllOptions {
   page?: number;
@@ -438,6 +438,103 @@ export class PaymentsService {
 
       this.logger.log(`Payment failed processed successfully: ${webhookData.external_id}`);
     }, 'Handling payment failed webhook');
+  }
+
+  /**
+   * Handle Xendit webhook for QRIS QR Code paid
+   */
+  async handleQRCodePaid(webhookData: XenditQRCodeWebhookPayload): Promise<void> {
+    return this.errorHandler.safeExecute(async () => {
+      this.logger.log(`Processing QRIS QR Code payment: ${webhookData.reference_id}`);
+
+      // Find order by order number (reference_id)
+      const order = await this.prisma.order.findUnique({
+        where: { orderNumber: webhookData.reference_id },
+        include: {
+          items: {
+            include: {
+              course: true,
+            },
+          },
+          customer: {
+            include: {
+              user: true,
+            },
+          },
+        },
+      });
+
+      if (!order) {
+        this.logger.error(`Order not found for reference_id: ${webhookData.reference_id}`);
+        return;
+      }
+
+      // Find payment for this order
+      const payment = await this.prisma.payment.findFirst({
+        where: { orderId: order.id },
+      });
+
+      if (!payment) {
+        this.logger.error(`Payment not found for order: ${order.id}`);
+        return;
+      }
+
+      // Update payment status
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'COMPLETED',
+          processedAt: new Date(),
+          gatewayResponse: webhookData as any,
+        },
+      });
+
+      // Update order status
+      await this.prisma.order.update({
+        where: { id: order.id },
+        data: {
+          status: 'CONFIRMED',
+          paymentStatus: 'PAID',
+        },
+      });
+
+      // Create enrollments for course items
+      for (const item of order.items) {
+        if (item.courseId && item.course) {
+          // Check if enrollment already exists
+          const existingEnrollment = await this.prisma.enrollment.findUnique({
+            where: {
+              userId_courseId: {
+                userId: order.customer.userId,
+                courseId: item.courseId,
+              },
+            },
+          });
+
+          // Create enrollment if doesn't exist
+          if (!existingEnrollment) {
+            await this.prisma.enrollment.create({
+              data: {
+                userId: order.customer.userId,
+                courseId: item.courseId,
+                orderId: order.id,
+                status: 'ACTIVE',
+              },
+            });
+
+            this.logger.log(
+              `Created enrollment for user ${order.customer.userId} in course ${item.courseId}`,
+            );
+          } else {
+            this.logger.log(
+              `Enrollment already exists for user ${order.customer.userId} in course ${item.courseId}`,
+            );
+          }
+        }
+      }
+
+      this.logger.log(`QRIS QR Code payment processed successfully: ${webhookData.reference_id}`);
+    }, 'Handling QRIS QR Code paid webhook');
   }
 }
 

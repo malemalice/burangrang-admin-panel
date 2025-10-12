@@ -33,7 +33,7 @@ import { Roles } from '../../shared/decorators/roles.decorator';
 import { Public } from '../../shared/decorators/public.decorator';
 import { Role } from '../../shared/types/role.enum';
 import { XenditService } from '../../shared/services/xendit.service';
-import { XenditWebhookPayload } from '../../shared/types/xendit.types';
+import { XenditWebhookPayload, XenditQRCodeWebhookPayload } from '../../shared/types/xendit.types';
 
 @ApiTags('payments')
 @ApiBearerAuth()
@@ -109,19 +109,19 @@ export class PaymentsController {
 
   /**
    * Xendit Webhook Endpoint
-   * Receives payment status updates from Xendit
+   * Receives payment status updates from Xendit (Invoice and QR Code)
    */
   @Post('webhook/xendit')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Xendit webhook for payment status updates' })
+  @ApiOperation({ summary: 'Xendit webhook for payment status updates (Invoice and QRIS QR Code)' })
   @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
   @ApiResponse({ status: 400, description: 'Invalid webhook signature' })
   async handleXenditWebhook(
-    @Body() webhookData: XenditWebhookPayload,
+    @Body() webhookData: XenditWebhookPayload | XenditQRCodeWebhookPayload,
     @Headers('x-callback-token') callbackToken: string,
   ) {
-    this.logger.log(`Received Xendit webhook: ${webhookData.status}`);
+    this.logger.log(`Received Xendit webhook with status: ${webhookData.status}`);
 
     // Verify webhook signature
     const isValid = this.xenditService.verifyWebhookSignature(callbackToken);
@@ -130,17 +130,30 @@ export class PaymentsController {
       throw new BadRequestException('Invalid webhook signature');
     }
 
-    // Process webhook based on status
+    // Process webhook based on type and status
     try {
-      switch (webhookData.status) {
-        case 'PAID':
-          await this.paymentsService.handleInvoicePaid(webhookData);
-          break;
-        case 'EXPIRED':
-          await this.paymentsService.handleInvoiceExpired(webhookData);
-          break;
-        default:
-          this.logger.warn(`Unhandled webhook status: ${webhookData.status}`);
+      // Check if it's a QR Code webhook (has qr_string field)
+      if ('qr_string' in webhookData) {
+        // QRIS QR Code webhook
+        this.logger.log(`Processing QRIS QR Code webhook: ${webhookData.reference_id}`);
+        
+        if (webhookData.status === 'COMPLETED') {
+          await this.paymentsService.handleQRCodePaid(webhookData);
+        }
+      } else {
+        // Invoice webhook
+        this.logger.log(`Processing Invoice webhook: ${webhookData.external_id}`);
+        
+        switch (webhookData.status) {
+          case 'PAID':
+            await this.paymentsService.handleInvoicePaid(webhookData);
+            break;
+          case 'EXPIRED':
+            await this.paymentsService.handleInvoiceExpired(webhookData);
+            break;
+          default:
+            this.logger.warn(`Unhandled webhook status: ${webhookData.status}`);
+        }
       }
 
       return { received: true, status: webhookData.status };

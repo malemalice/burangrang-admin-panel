@@ -158,6 +158,8 @@ async function main() {
           await prisma.customer.deleteMany();
           break;
         case 'payment_methods':
+          // Delete payments first (foreign key dependency)
+          await prisma.payment.deleteMany();
           await prisma.paymentMethod.deleteMany();
           break;
         case 'orders':

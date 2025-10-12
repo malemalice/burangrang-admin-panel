@@ -8,6 +8,8 @@ import { ConfigService } from '@nestjs/config';
 import {
   XenditInvoiceRequest,
   XenditInvoiceResponse,
+  XenditQRCodeRequest,
+  XenditQRCodeResponse,
   XenditError,
 } from '../types/xendit.types';
 
@@ -236,6 +238,105 @@ export class XenditService {
       this.logger.error('Error expiring Xendit invoice:', error);
       throw new HttpException(
         'Failed to expire invoice',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Create a QRIS QR Code for payment
+   * Uses Xendit QR Codes API with Basic Auth (username = secretKey, password = empty)
+   * @param qrCodeData - QR Code creation parameters
+   * @returns QR Code response with qr_string
+   */
+  async createQRCode(qrCodeData: XenditQRCodeRequest): Promise<XenditQRCodeResponse> {
+    if (!this.isConfigured()) {
+      throw new HttpException(
+        'Xendit is not configured. Please set XENDIT_SECRET_KEY.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
+    try {
+      this.logger.log(`Creating Xendit QR Code for reference_id: ${qrCodeData.reference_id}`);
+
+      const response = await fetch(`${this.baseUrl}/qr_codes`, {
+        method: 'POST',
+        headers: {
+          'Authorization': this.getAuthHeader(),
+          'Content-Type': 'application/json',
+          'api-version': '2022-07-31', // QR Codes API uses this version
+        },
+        body: JSON.stringify(qrCodeData),
+      });
+
+      const data = await response.json();
+      console.log('data', data);
+      if (!response.ok) {
+        const error = data as XenditError;
+        this.logger.error(`Xendit QR Code API error: ${error.error_code} - ${error.message}`);
+        throw new HttpException(
+          `Xendit QR Code creation failed: ${error.message}`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      this.logger.log(`Xendit QR Code created successfully: ${data.id}`);
+      return data as XenditQRCodeResponse;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error('Error creating Xendit QR Code:', error);
+      throw new HttpException(
+        'Failed to create QR Code',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Get QR Code by Xendit QR Code ID
+   * @param qrCodeId - The QR Code ID (e.g., "qr_efa7b052-a22c-4094-be3e-56ecf0d609f3")
+   * @returns QR Code details
+   */
+  async getQRCode(qrCodeId: string): Promise<XenditQRCodeResponse> {
+    if (!this.isConfigured()) {
+      throw new HttpException(
+        'Xendit is not configured',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
+    try {
+      this.logger.log(`Fetching Xendit QR Code: ${qrCodeId}`);
+
+      const response = await fetch(`${this.baseUrl}/qr_codes/${qrCodeId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': this.getAuthHeader(),
+          'api-version': '2022-07-31', // QR Codes API uses this version
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const error = data as XenditError;
+        throw new HttpException(
+          `Failed to fetch QR Code: ${error.message}`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      return data as XenditQRCodeResponse;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error('Error fetching Xendit QR Code:', error);
+      throw new HttpException(
+        'Failed to fetch QR Code',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

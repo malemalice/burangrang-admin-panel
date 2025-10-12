@@ -129,6 +129,54 @@ export interface XenditError {
   message: string;
 }
 
+/**
+ * QRIS QR Code API Types
+ * Xendit QR Codes API - https://developers.xendit.co/api-reference/#qr-codes
+ */
+export interface XenditQRCodeRequest {
+  reference_id: string; // Order number or unique reference
+  type: 'DYNAMIC' | 'STATIC';
+  currency: string; // IDR
+  amount: number;
+  expires_at?: string; // ISO 8601 format
+  metadata?: Record<string, any>;
+}
+
+export interface XenditQRCodeResponse {
+  id: string; // e.g., "qr_f3ddb912-cb6f-4a9b-b556-653889eaceaa"
+  reference_id: string;
+  type: 'DYNAMIC' | 'STATIC';
+  currency: string;
+  channel_code: string; // e.g., "ID_XENDIT"
+  amount: number;
+  expires_at: string;
+  metadata: Record<string, any> | null;
+  business_id: string;
+  created: string;
+  updated: string;
+  qr_string: string; // The QR code string to generate QR image
+  status: 'ACTIVE' | 'INACTIVE' | 'DELETED';
+}
+
+/**
+ * QRIS QR Code Webhook Payload
+ * Webhook sent when QR code is paid
+ */
+export interface XenditQRCodeWebhookPayload {
+  id: string; // QR code ID
+  reference_id: string;
+  type: 'DYNAMIC';
+  currency: string;
+  amount: number;
+  status: 'COMPLETED' | 'ACTIVE';
+  channel_code: string;
+  qr_string: string;
+  callback_url?: string;
+  created: string;
+  updated: string;
+  metadata?: Record<string, any>;
+}
+
 export const XENDIT_PAYMENT_CHANNELS: XenditPaymentChannel[] = [
   { code: 'CREDIT_CARD', name: 'Credit Card', type: 'CREDIT_CARD', isPopular: true },
   { code: 'OVO', name: 'OVO', type: 'E_WALLET', isPopular: true },

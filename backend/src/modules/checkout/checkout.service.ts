@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { CheckoutRequestDto } from './dto/checkout-request.dto';
 import { CheckoutResponseDto } from './dto/checkout-response.dto';
 import { Decimal } from '@prisma/client/runtime/library';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class CheckoutService {
@@ -17,6 +18,24 @@ export class CheckoutService {
     private readonly xenditService: XenditService,
     private readonly configService: ConfigService,
   ) {}
+
+  /**
+   * Generate a random secure password for guest users
+   */
+  private generateRandomPassword(): string {
+    const length = 16;
+    const charset =
+      'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    let password = '';
+    const randomValues = new Uint32Array(length);
+    crypto.getRandomValues(randomValues);
+
+    for (let i = 0; i < length; i++) {
+      password += charset[randomValues[i] % charset.length];
+    }
+
+    return password;
+  }
 
   /**
    * Main checkout flow
@@ -46,40 +65,73 @@ export class CheckoutService {
       // Step 6: Create payment record
       const payment = await this.createPayment(order, paymentMethod, totals.total);
 
-      // Step 7: Create Xendit invoice
-      const xenditInvoice = await this.createXenditInvoice(
-        order,
-        customer,
-        user,
-        checkoutData,
-        validatedItems,
-        totals.total,
-      );
+      // Step 7: Create Xendit payment (QRIS QR Code or Invoice based on payment method)
+      if (paymentMethod.code === 'QRIS') {
+        // Use QR Code API for QRIS
+        const qrCode = await this.createXenditQRCode(order, totals.total);
 
-      // Step 8: Update payment with Xendit response
-      await this.prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          gatewayResponse: xenditInvoice as any,
-        },
-      });
+        // Step 8: Update payment with Xendit QR Code response
+        await this.prisma.payment.update({
+          where: { id: payment.id },
+          data: {
+            gatewayResponse: qrCode as any,
+          },
+        });
 
-      this.logger.log(`Checkout completed successfully for order: ${order.orderNumber}`);
+        this.logger.log(`Checkout completed successfully for order: ${order.orderNumber} with QRIS`);
 
-      // Return checkout response
-      return new CheckoutResponseDto({
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        paymentId: payment.id,
-        transactionId: payment.transactionId,
-        paymentUrl: xenditInvoice.invoice_url,
-        invoiceId: xenditInvoice.id,
-        status: order.status,
-        paymentStatus: order.paymentStatus,
-        totalAmount: Number(order.totalAmount),
-        currency: order.currency,
-        expiryDate: xenditInvoice.expiry_date,
-      });
+        // Return checkout response for QRIS
+        return new CheckoutResponseDto({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          paymentId: payment.id,
+          transactionId: payment.transactionId,
+          paymentMethodCode: paymentMethod.code,
+          qrCodeId: qrCode.id,
+          qrString: qrCode.qr_string,
+          status: order.status,
+          paymentStatus: order.paymentStatus,
+          totalAmount: Number(order.totalAmount),
+          currency: order.currency,
+          expiryDate: qrCode.expires_at,
+        });
+      } else {
+        // Use Invoice API for other payment methods
+        const xenditInvoice = await this.createXenditInvoice(
+          order,
+          customer,
+          user,
+          checkoutData,
+          validatedItems,
+          totals.total,
+        );
+
+        // Step 8: Update payment with Xendit response
+        await this.prisma.payment.update({
+          where: { id: payment.id },
+          data: {
+            gatewayResponse: xenditInvoice as any,
+          },
+        });
+
+        this.logger.log(`Checkout completed successfully for order: ${order.orderNumber}`);
+
+        // Return checkout response for Invoice
+        return new CheckoutResponseDto({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          paymentId: payment.id,
+          transactionId: payment.transactionId,
+          paymentMethodCode: paymentMethod.code,
+          paymentUrl: xenditInvoice.invoice_url,
+          invoiceId: xenditInvoice.id,
+          status: order.status,
+          paymentStatus: order.paymentStatus,
+          totalAmount: Number(order.totalAmount),
+          currency: order.currency,
+          expiryDate: xenditInvoice.expiry_date,
+        });
+      }
     }, 'Processing checkout');
   }
 
@@ -115,11 +167,17 @@ export class CheckoutService {
         throw new BadRequestException('HQ office not found in system');
       }
 
-      // Create new user (guest - password is null)
+      // Generate random password for guest user
+      const randomPassword = this.generateRandomPassword();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+      // Create new user (guest - with random password)
       user = await this.prisma.user.create({
         data: {
           email: checkoutData.email,
-          password: null, // Guest user, can set password later
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          password: hashedPassword,
           firstName: checkoutData.firstName,
           lastName: checkoutData.lastName,
           roleId: userRole.id,
@@ -129,7 +187,7 @@ export class CheckoutService {
         include: { customerProfile: true },
       });
 
-      this.logger.log(`Guest user created: ${user.id}`);
+      this.logger.log(`Guest user created: ${user.id} with random password`);
     }
 
     // Check if customer profile exists
@@ -312,7 +370,31 @@ export class CheckoutService {
   }
 
   /**
-   * Step 7: Create Xendit invoice
+   * Step 7a: Create Xendit QR Code for QRIS payment
+   */
+  private async createXenditQRCode(order: any, totalAmount: number) {
+    // Calculate expiry date (24 hours from now)
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+
+    const qrCode = await this.xenditService.createQRCode({
+      reference_id: order.orderNumber,
+      type: 'DYNAMIC',
+      currency: 'IDR',
+      amount: totalAmount,
+      expires_at: expiresAt.toISOString(),
+      metadata: {
+        orderId: order.id,
+      },
+    });
+
+    this.logger.log(`Xendit QR Code created: ${qrCode.id}`);
+
+    return qrCode;
+  }
+
+  /**
+   * Step 7b: Create Xendit invoice (for non-QRIS payment methods)
    */
   private async createXenditInvoice(
     order: any,
