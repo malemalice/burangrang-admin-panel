@@ -558,4 +558,89 @@ export class ProductsService {
       averageRating: Number(averageRating._avg.rating || 0),
     };
   }
+
+  /**
+   * Get random published products for recommendations
+   * @param limit - Number of random products to return (default: 6)
+   * @param excludeIds - Product IDs to exclude from recommendations
+   * @returns Array of random published products
+   */
+  async findRandom(limit: number = 6, excludeIds: string[] = []): Promise<ProductDto[]> {
+    // Get total count of published products
+    const totalCount = await this.prisma.product.count({
+      where: {
+        status: 'PUBLISHED',
+        isActive: true,
+        id: { notIn: excludeIds },
+      },
+    });
+
+    // If we have fewer products than requested, adjust limit
+    const actualLimit = Math.min(limit, totalCount);
+    
+    if (actualLimit === 0) {
+      return [];
+    }
+
+    // Generate random skip value to get random products
+    // For better randomness, we'll get a larger set and pick randomly from them
+    const fetchCount = Math.min(totalCount, actualLimit * 3);
+    const randomSkip = Math.max(0, Math.floor(Math.random() * (totalCount - fetchCount + 1)));
+
+    // Fetch products with random offset
+    const products = await this.prisma.product.findMany({
+      where: {
+        status: 'PUBLISHED',
+        isActive: true,
+        id: { notIn: excludeIds },
+      },
+      skip: randomSkip,
+      take: fetchCount,
+      include: {
+        createdByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        categories: {
+          include: {
+            category: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
+        files: {
+          select: {
+            id: true,
+            fileName: true,
+            filePath: true,
+            fileType: true,
+          },
+        },
+        course: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            totalChapters: true,
+            totalDuration: true,
+            difficulty: true,
+          },
+        },
+      },
+    });
+
+    // Shuffle the fetched products and take the requested limit
+    const shuffled = products.sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, actualLimit);
+
+    return this.productArrayMapper(selected);
+  }
 }
