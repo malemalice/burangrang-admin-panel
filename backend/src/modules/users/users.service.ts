@@ -6,6 +6,7 @@ import { UserDto } from './dto/user.dto';
 import { FindUsersOptions } from './dto/find-users.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { PurchasedItemDto } from './dto/purchased-item.dto';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
@@ -299,5 +300,150 @@ export class UsersService {
     }, userId);
 
     return { message: 'Password changed successfully' };
+  }
+
+  /**
+   * Get user's purchased items from fulfilled orders
+   * Includes both courses (with enrollment info) and non-course products
+   */
+  async getPurchasedItems(userId: string): Promise<PurchasedItemDto[]> {
+    return this.errorHandler.safeExecute(async () => {
+      console.log(`🔍 [UsersService] Getting purchased items for user: ${userId}`);
+      
+      // Verify user exists
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { customerProfile: true },
+      });
+
+      this.errorHandler.throwIfNotFoundById('User', userId, user);
+
+      console.log(`✅ [UsersService] User found:`, {
+        userId: user.id,
+        email: user.email,
+        hasCustomerProfile: !!user.customerProfile,
+        customerId: user.customerProfile?.id
+      });
+
+      if (!user.customerProfile) {
+        console.log('⚠️ [UsersService] User has no customer profile, returning empty array');
+        return []; // User has no customer profile, no purchases
+      }
+
+      // Get all order items from FULFILLED orders
+      const orderItems = await this.prisma.orderItem.findMany({
+        where: {
+          order: {
+            customerId: user.customerProfile.id,
+            status: 'FULFILLED', // Only fulfilled orders
+          },
+        },
+        include: {
+          order: true,
+          product: true,
+          course: {
+            include: {
+              instructor: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          order: {
+            orderDate: 'desc', // Most recent first
+          },
+        },
+      });
+
+      console.log(`✅ [UsersService] Found ${orderItems.length} order items from FULFILLED orders`);
+      
+      if (orderItems.length > 0) {
+        console.log('📦 [UsersService] Order items details:', 
+          JSON.stringify(orderItems.map(item => ({
+            id: item.id,
+            orderId: item.orderId,
+            orderNumber: item.order.orderNumber,
+            orderStatus: item.order.status,
+            productId: item.productId,
+            courseId: item.courseId,
+            hasProduct: !!item.product,
+            hasCourse: !!item.course,
+            productName: item.product?.name,
+            productType: item.product?.productType,
+            courseName: item.course?.title,
+            unitPrice: item.unitPrice,
+          })), null, 2)
+        );
+      } else {
+        console.log('⚠️ [UsersService] No order items found - check if orders have FULFILLED status');
+      }
+
+      // Get enrollments for this user
+      const enrollments = await this.prisma.enrollment.findMany({
+        where: {
+          userId: userId,
+        },
+      });
+
+      console.log(`✅ [UsersService] Found ${enrollments.length} enrollments for user`);
+
+      // Create a map of courseId -> enrollment for quick lookup
+      const enrollmentMap = new Map(
+        enrollments.map((e) => [e.courseId, e]),
+      );
+
+      // Map order items to PurchasedItemDto
+      const purchasedItems: PurchasedItemDto[] = orderItems.map((item) => {
+        // Determine if this is a course or product
+        const isCourse = !!item.courseId && !!item.course;
+        const enrollment = isCourse && item.courseId ? enrollmentMap.get(item.courseId) : null;
+
+        // Extract course or product data with proper null handling
+        const courseData = isCourse && item.course ? item.course : null;
+        const productData = !isCourse && item.product ? item.product : null;
+
+        return new PurchasedItemDto({
+          id: item.id,
+          orderId: item.orderId,
+          orderNumber: item.order.orderNumber,
+          productId: item.productId || undefined,
+          courseId: item.courseId || undefined,
+          title: courseData?.title || productData?.name || 'Unknown',
+          description: courseData?.description || productData?.description || undefined,
+          shortDescription: courseData?.shortDescription || productData?.shortDescription || undefined,
+          thumbnailUrl: courseData?.thumbnailUrl || productData?.thumbnailUrl || undefined,
+          productType: isCourse ? 'COURSE' : (productData?.productType || 'EBOOK'),
+          price: Number(item.unitPrice),
+          purchaseDate: item.order.orderDate,
+          enrollmentStatus: enrollment?.status,
+          progress: enrollment ? Number(enrollment.progress) : undefined,
+          lastAccessedAt: enrollment?.lastAccessedAt || undefined,
+          isCompleted: enrollment?.status === 'COMPLETED' || false,
+          slug: courseData?.slug || productData?.slug || undefined,
+          totalChapters: courseData?.totalChapters || undefined,
+          totalDuration: courseData?.totalDuration || undefined,
+          difficulty: courseData?.difficulty || undefined,
+        });
+      });
+
+      console.log(`✅ [UsersService] Mapped to ${purchasedItems.length} purchased items`);
+      console.log('📦 [UsersService] Final purchased items:', 
+        JSON.stringify(purchasedItems.map(item => ({
+          id: item.id,
+          title: item.title,
+          productType: item.productType,
+          price: item.price,
+          isCompleted: item.isCompleted,
+          slug: item.slug,
+        })), null, 2)
+      );
+      
+      return purchasedItems;
+    }, 'Getting user purchased items');
   }
 }

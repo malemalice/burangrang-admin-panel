@@ -24,6 +24,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { PurchasedItemDto } from './dto/purchased-item.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
@@ -61,7 +62,10 @@ export class UsersController {
     description: 'Conflict - user with this email already exists.',
   })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
-  create(@Body() createUserDto: CreateUserDto, @Req() req: any): Promise<UserDto> {
+  create(
+    @Body() createUserDto: CreateUserDto,
+    @Req() req: any,
+  ): Promise<UserDto> {
     return this.usersService.create(createUserDto, req.user.id);
   }
 
@@ -144,7 +148,10 @@ export class UsersController {
     @Query('search') search?: string,
     @Query('officeId') officeId?: string,
     @Query('roleId') roleId?: string,
-  ): Promise<{ data: UserDto[]; meta: { total: number; page: number; limit: number } }> {
+  ): Promise<{
+    data: UserDto[];
+    meta: { total: number; page: number; limit: number };
+  }> {
     // Convert string parameters to their proper types
     const pageNumber = page ? parseInt(page, 10) : undefined;
     const limitNumber = limit ? parseInt(limit, 10) : undefined;
@@ -188,7 +195,10 @@ export class UsersController {
     type: UserDto,
   })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
-  @ApiResponse({ status: 401, description: 'Unauthorized - invalid or missing token.' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid or missing token.',
+  })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async updateProfile(
     @Req() req: RequestWithUser,
@@ -214,13 +224,39 @@ export class UsersController {
     },
   })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
-  @ApiResponse({ status: 401, description: 'Unauthorized - invalid current password or token.' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid current password or token.',
+  })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async changePassword(
     @Req() req: RequestWithUser,
     @Body() changePasswordDto: ChangePasswordDto,
   ): Promise<{ message: string }> {
     return this.usersService.changePassword(req.user.id, changePasswordDto);
+  }
+
+  @Get('me/purchased-items')
+  @ApiOperation({
+    summary: 'Get current user purchased items',
+    description:
+      'Returns all purchased items (both courses and products) from fulfilled orders with enrollment status for courses',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Return list of purchased items.',
+    type: [PurchasedItemDto],
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid or missing token.',
+  })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  async getPurchasedItems(
+    @Req() req: RequestWithUser,
+  ): Promise<PurchasedItemDto[]> {
+    const items = await this.usersService.getPurchasedItems(req.user.id);
+    return items;
   }
 
   @Get(':id')
