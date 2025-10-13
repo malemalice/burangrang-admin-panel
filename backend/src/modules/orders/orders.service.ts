@@ -303,9 +303,6 @@ export class OrdersService {
         updateOrderDto.status &&
         existingOrder.status !== updateOrderDto.status
       ) {
-        console.log(
-          `[OrdersService] Validating status transition from "${existingOrder.status}" to "${updateOrderDto.status}"`,
-        );
         this.validateStatusTransition(
           existingOrder.status,
           updateOrderDto.status,

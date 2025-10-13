@@ -214,8 +214,6 @@ export class XenditService {
     
     if (!isValid) {
       this.logger.error('Webhook token verification failed - token does not match');
-      this.logger.debug(`Expected: ${this.webhookToken.substring(0, 10)}...`);
-      this.logger.debug(`Received: ${callbackToken.substring(0, 10)}...`);
     } else {
       this.logger.log('Webhook token verified successfully');
     }
@@ -293,7 +291,6 @@ export class XenditService {
       });
 
       const data = await response.json();
-      console.log('data', data);
       if (!response.ok) {
         const error = data as XenditError;
         this.logger.error(`Xendit QR Code API error: ${error.error_code} - ${error.message}`);

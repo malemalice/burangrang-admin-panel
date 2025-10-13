@@ -308,8 +308,6 @@ export class UsersService {
    */
   async getPurchasedItems(userId: string): Promise<PurchasedItemDto[]> {
     return this.errorHandler.safeExecute(async () => {
-      console.log(`🔍 [UsersService] Getting purchased items for user: ${userId}`);
-      
       // Verify user exists
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -318,15 +316,7 @@ export class UsersService {
 
       this.errorHandler.throwIfNotFoundById('User', userId, user);
 
-      console.log(`✅ [UsersService] User found:`, {
-        userId: user.id,
-        email: user.email,
-        hasCustomerProfile: !!user.customerProfile,
-        customerId: user.customerProfile?.id
-      });
-
       if (!user.customerProfile) {
-        console.log('⚠️ [UsersService] User has no customer profile, returning empty array');
         return []; // User has no customer profile, no purchases
       }
 
@@ -360,37 +350,12 @@ export class UsersService {
         },
       });
 
-      console.log(`✅ [UsersService] Found ${orderItems.length} order items from FULFILLED orders`);
-      
-      if (orderItems.length > 0) {
-        console.log('📦 [UsersService] Order items details:', 
-          JSON.stringify(orderItems.map(item => ({
-            id: item.id,
-            orderId: item.orderId,
-            orderNumber: item.order.orderNumber,
-            orderStatus: item.order.status,
-            productId: item.productId,
-            courseId: item.courseId,
-            hasProduct: !!item.product,
-            hasCourse: !!item.course,
-            productName: item.product?.name,
-            productType: item.product?.productType,
-            courseName: item.course?.title,
-            unitPrice: item.unitPrice,
-          })), null, 2)
-        );
-      } else {
-        console.log('⚠️ [UsersService] No order items found - check if orders have FULFILLED status');
-      }
-
       // Get enrollments for this user
       const enrollments = await this.prisma.enrollment.findMany({
         where: {
           userId: userId,
         },
       });
-
-      console.log(`✅ [UsersService] Found ${enrollments.length} enrollments for user`);
 
       // Create a map of courseId -> enrollment for quick lookup
       const enrollmentMap = new Map(
@@ -431,18 +396,6 @@ export class UsersService {
         });
       });
 
-      console.log(`✅ [UsersService] Mapped to ${purchasedItems.length} purchased items`);
-      console.log('📦 [UsersService] Final purchased items:', 
-        JSON.stringify(purchasedItems.map(item => ({
-          id: item.id,
-          title: item.title,
-          productType: item.productType,
-          price: item.price,
-          isCompleted: item.isCompleted,
-          slug: item.slug,
-        })), null, 2)
-      );
-      
       return purchasedItems;
     }, 'Getting user purchased items');
   }

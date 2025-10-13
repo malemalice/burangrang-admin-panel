@@ -188,7 +188,6 @@ export class SettingsController {
     // If theme setting doesn't exist, create it with default value
     if (value === null && key.startsWith('theme.')) {
       const defaultValue = key === 'theme.color' ? 'blue' : 'light';
-      console.log(`Creating default theme setting: ${key} = ${defaultValue}`);
 
       await this.settingsService.updateByKey(key, {
         value: defaultValue,
