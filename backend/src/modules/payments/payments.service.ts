@@ -340,49 +340,18 @@ export class PaymentsService {
 
       this.logger.log(`Order ${order.id} status updated to FULFILLED`);
 
-      // Create enrollments for course items
-      // ERD Reference: t_enrollments (userId, courseId, orderId, status)
-      for (const item of order.items) {
-        if (item.courseId && item.course) {
-          // Check if enrollment already exists
-          const existingEnrollment = await this.prisma.enrollment.findUnique({
-            where: {
-              userId_courseId: {
-                userId: order.customer.userId,
-                courseId: item.courseId,
-              },
-            },
-          });
-
-          // Create enrollment if doesn't exist
-          if (!existingEnrollment) {
-            await this.prisma.enrollment.create({
-              data: {
-                userId: order.customer.userId,
-                courseId: item.courseId,
-                orderId: order.id,
-                status: 'ACTIVE',
-                enrolledAt: new Date(),
-              },
-            });
-
-            this.logger.log(
-              `✅ Created enrollment for user ${order.customer.user.email} ` +
-              `(${order.customer.userId}) in course ${item.course.title} (${item.courseId})`
-            );
-          } else {
-            this.logger.log(
-              `Enrollment already exists for user ${order.customer.user.email} ` +
-              `in course ${item.course.title}`
-            );
-          }
-        }
-      }
+      // Note: Enrollments are NOT auto-created during payment
+      // Users must manually enroll via POST /enrollments endpoint from frontend
+      // This allows users to:
+      // 1. Purchase once and enroll multiple times (for retakes)
+      // 2. Control when they want to start the course
+      // 3. Re-enroll after completing the course
 
       this.logger.log(
         `✅ QRIS payment processed successfully - Reference: ${referenceId}, ` +
         `Order: ${order.orderNumber}, Amount: ${amount} ${webhookData.data.currency}, ` +
-        `Payment Source: ${paymentSource}`
+        `Payment Source: ${paymentSource}. ` +
+        `User must manually enroll via CourseDetail page.`
       );
     }, 'Handling QRIS QR Code paid webhook');
   }

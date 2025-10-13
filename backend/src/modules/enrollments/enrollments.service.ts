@@ -24,27 +24,39 @@ export class EnrollmentsService {
 
       this.errorHandler.throwIfNotFoundById('Course', courseId, course);
 
-      // Check if user already enrolled
-      const existingEnrollment = await this.prisma.enrollment.findUnique({
+      // Check if user has an ACTIVE enrollment (allow re-enrollment after completion)
+      const activeEnrollment = await this.prisma.enrollment.findFirst({
         where: {
-          userId_courseId: {
-            userId,
-            courseId,
-          },
+          userId,
+          courseId,
+          status: 'ACTIVE', // Only check for active enrollments
         },
       });
 
-      if (existingEnrollment) {
-        throw new ConflictException('User is already enrolled in this course');
+      if (activeEnrollment) {
+        throw new ConflictException('User already has an active enrollment in this course');
       }
 
-      // Create enrollment
+      // Auto-complete any previous COMPLETED enrollments (for tracking history)
+      await this.prisma.enrollment.updateMany({
+        where: {
+          userId,
+          courseId,
+          status: 'COMPLETED',
+        },
+        data: {
+          completedAt: new Date(),
+        },
+      });
+
+      // Create new enrollment (allows retakes)
       const enrollment = await this.prisma.enrollment.create({
         data: {
           userId,
           courseId,
           status: 'ACTIVE',
           enrolledAt: new Date(),
+          progress: 0,
         },
       });
 
