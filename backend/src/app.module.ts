@@ -26,6 +26,8 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
+import { ProgressModule } from './modules/progress/progress.module';
+import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { SharedModule } from './shared/shared.module';
 
 @Module({
@@ -51,6 +53,8 @@ import { SharedModule } from './shared/shared.module';
     ProductTypesModule,
     CoursesModule,
     ChaptersModule,
+    ProgressModule,
+    EnrollmentsModule,
     UploadsModule,
     ProductsModule,
     OrdersModule,

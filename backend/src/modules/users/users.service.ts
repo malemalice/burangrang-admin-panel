@@ -333,6 +333,7 @@ export class UsersService {
           product: true,
           course: {
             include: {
+              product: true, // Include product relation to get product slug for courses
               instructor: {
                 select: {
                   id: true,
@@ -389,7 +390,9 @@ export class UsersService {
           progress: enrollment ? Number(enrollment.progress) : undefined,
           lastAccessedAt: enrollment?.lastAccessedAt || undefined,
           isCompleted: enrollment?.status === 'COMPLETED' || false,
-          slug: courseData?.slug || productData?.slug || undefined,
+          // IMPORTANT: For courses, use product slug (course.product.slug), not course slug
+          // CourseDetail expects product slug because it calls getPublicProductBySlug()
+          slug: (isCourse && courseData?.product?.slug) || productData?.slug || undefined,
           totalChapters: courseData?.totalChapters || undefined,
           totalDuration: courseData?.totalDuration || undefined,
           difficulty: courseData?.difficulty || undefined,
