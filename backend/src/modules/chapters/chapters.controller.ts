@@ -107,7 +107,7 @@ export class ChaptersController {
   }
 
   @Get('course/:courseId')
-  @ApiOperation({ summary: 'Get all chapters for a specific course' })
+  @ApiOperation({ summary: 'Get all chapters for a specific course (admin only)' })
   @ApiParam({ name: 'courseId', type: String, description: 'Course ID' })
   @ApiResponse({ 
     status: 200, 
@@ -133,6 +133,24 @@ export class ChaptersController {
   @ApiResponse({ status: 404, description: 'Course not found or not active' })
   async findPublishedByCourse(@Param('courseId') courseId: string): Promise<ChapterDto[]> {
     return this.chaptersService.findPublishedByCourse(courseId);
+  }
+
+  @Get('purchased/course/:courseId')
+  @ApiOperation({ summary: 'Get course chapters for purchased users' })
+  @ApiParam({ name: 'courseId', type: String, description: 'Course ID' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Course chapters with full content retrieved successfully', 
+    type: [ChapterDto] 
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized - authentication required' })
+  @ApiResponse({ status: 403, description: 'Forbidden - user has not purchased this course' })
+  @ApiResponse({ status: 404, description: 'Course not found' })
+  async findPurchasedCourseChapters(
+    @Param('courseId') courseId: string,
+    @Req() req: RequestWithUser
+  ): Promise<ChapterDto[]> {
+    return this.chaptersService.findPurchasedCourseChapters(courseId, req.user.id);
   }
 
   @Get(':id')

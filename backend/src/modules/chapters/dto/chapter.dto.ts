@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsInt, IsBoolean, IsDateString, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsInt,
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+} from 'class-validator';
 import { Expose } from 'class-transformer';
 
 export class ChapterDto {
@@ -34,27 +41,36 @@ export class ChapterDto {
   @IsInt()
   duration: number;
 
-  @ApiProperty({ 
-    description: 'Content type', 
-    enum: ['video', 'pdf', 'text', 'youtube'] 
+  @ApiProperty({
+    description: 'Content type',
+    enum: ['video', 'pdf', 'text', 'youtube'],
   })
   @Expose()
   @IsEnum(['video', 'pdf', 'text', 'youtube'])
   contentType: string;
 
-  @ApiProperty({ description: 'Content URL for video/pdf files', required: false })
+  @ApiProperty({
+    description: 'Content URL for video/pdf files',
+    required: false,
+  })
   @Expose()
   @IsOptional()
   @IsString()
   contentUrl?: string;
 
-  @ApiProperty({ description: 'YouTube video ID for YouTube content', required: false })
+  @ApiProperty({
+    description: 'YouTube video ID for YouTube content',
+    required: false,
+  })
   @Expose()
   @IsOptional()
   @IsString()
   youtubeVideoId?: string;
 
-  @ApiProperty({ description: 'Text content for text-based chapters', required: false })
+  @ApiProperty({
+    description: 'Text content for text-based chapters',
+    required: false,
+  })
   @Expose()
   @IsOptional()
   @IsString()
