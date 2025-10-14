@@ -158,6 +158,38 @@ export class ProductsController {
     return this.productsService.findAll(query);
   }
 
+  @Get('public/random')
+  @Public()
+  @ApiOperation({ summary: 'Get random published products for recommendations (public access)' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of random products to return (default: 6)',
+    example: 6,
+  })
+  @ApiQuery({
+    name: 'excludeIds',
+    required: false,
+    type: String,
+    description: 'Comma-separated product IDs to exclude from recommendations',
+    example: 'id1,id2,id3',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Random published products retrieved successfully.',
+    type: [ProductDto],
+  })
+  async findRandom(
+    @Query('limit') limit?: string,
+    @Query('excludeIds') excludeIds?: string,
+  ): Promise<ProductDto[]> {
+    const parsedLimit = limit ? parseInt(limit, 10) : 6;
+    const parsedExcludeIds = excludeIds ? excludeIds.split(',').map(id => id.trim()) : [];
+    
+    return this.productsService.findRandom(parsedLimit, parsedExcludeIds);
+  }
+
   @Get('public')
   @Public()
   @ApiOperation({ summary: 'Get published products (public access)' })

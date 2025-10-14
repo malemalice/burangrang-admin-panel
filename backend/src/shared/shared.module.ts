@@ -5,6 +5,7 @@ import { ActivityLoggerService } from './services/activity-logger.service';
 import { LocalStorageService } from './services/local-storage.service';
 import { StorageFactoryService } from './services/storage-factory.service';
 import { NotificationService } from './services/notification.service';
+import { XenditService } from './services/xendit.service';
 import { PrismaModule } from '../core/prisma/prisma.module';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
@@ -19,6 +20,7 @@ import { PermissionsGuard } from './guards/permissions.guard';
     LocalStorageService,
     StorageFactoryService,
     NotificationService,
+    XenditService,
     JwtAuthGuard, 
     RolesGuard, 
     PermissionsGuard
@@ -31,6 +33,7 @@ import { PermissionsGuard } from './guards/permissions.guard';
     LocalStorageService,
     StorageFactoryService,
     NotificationService,
+    XenditService,
     JwtAuthGuard, 
     RolesGuard, 
     PermissionsGuard

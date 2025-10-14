@@ -1131,6 +1131,68 @@ const validTransitions: Record<string, string[]> = {
 - Show progress indicators for order flow
 - Provide access links when status is FULFILLED
 
+## Product Type UI Mapping
+
+### Overview
+
+The SoulYouSee platform uses different product type naming conventions between the backend API and the frontend UI (webv2) to provide better user experience and brand alignment.
+
+### Product Type Aliases
+
+#### Backend Product Types (API)
+The backend uses standardized product type enums for data consistency:
+
+```typescript
+export enum ProductType {
+  EBOOK = 'EBOOK',
+  COURSE = 'COURSE',
+  VIDEO = 'VIDEO',
+  BUNDLE = 'BUNDLE'
+}
+```
+
+#### Frontend UI Display Names (webv2 Only)
+The webv2 frontend application uses branded display names for product types:
+
+| Backend Type | Frontend UI Display | Description |
+|--------------|---------------------|-------------|
+| `COURSE` | **Kelas Healing** | E-learning courses focused on mental health and personal growth |
+| `EBOOK` | **Toolkit Refleksi** | Digital toolkits and reflection guides |
+| `VIDEO` | **Toolkit Refleksi** | Video-based content and workshops |
+| `BUNDLE` | **Toolkit Refleksi** | Bundled content packages |
+
+### Implementation Notes
+
+1. **Backend Consistency**: The backend continues to use standard product type enums (`COURSE`, `EBOOK`, `VIDEO`, `BUNDLE`)
+2. **Frontend Mapping**: Only the webv2 frontend UI displays these as "Kelas Healing" and "Toolkit Refleksi"
+3. **No Code Changes**: This is purely a UI display mapping - no changes to backend APIs, database schema, or business logic
+4. **API Communication**: All API requests and responses continue to use standard backend product types
+
+### Usage in Frontend
+
+```typescript
+// Frontend display mapping (webv2 only)
+export const getProductTypeDisplayName = (backendType: ProductType): string => {
+  switch (backendType) {
+    case 'COURSE':
+      return 'Kelas Healing';
+    case 'EBOOK':
+    case 'VIDEO':
+    case 'BUNDLE':
+      return 'Toolkit Refleksi';
+    default:
+      return 'Product';
+  }
+};
+```
+
+### Business Context
+
+- **Kelas Healing**: Represents structured e-learning experiences with modules, lessons, and interactive content
+- **Toolkit Refleksi**: Represents self-paced resources, guides, and reflection tools for personal development
+
+This naming strategy aligns with the SoulYouSee brand identity and makes the product categories more meaningful and accessible to Indonesian users.
+
 ## Upload Module
 
 ### Overview

@@ -6,6 +6,7 @@ import { UserDto } from './dto/user.dto';
 import { FindUsersOptions } from './dto/find-users.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { PurchasedItemDto } from './dto/purchased-item.dto';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
@@ -299,5 +300,106 @@ export class UsersService {
     }, userId);
 
     return { message: 'Password changed successfully' };
+  }
+
+  /**
+   * Get user's purchased items from fulfilled orders
+   * Includes both courses (with enrollment info) and non-course products
+   */
+  async getPurchasedItems(userId: string): Promise<PurchasedItemDto[]> {
+    return this.errorHandler.safeExecute(async () => {
+      // Verify user exists
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { customerProfile: true },
+      });
+
+      this.errorHandler.throwIfNotFoundById('User', userId, user);
+
+      if (!user.customerProfile) {
+        return []; // User has no customer profile, no purchases
+      }
+
+      // Get all order items from FULFILLED orders
+      const orderItems = await this.prisma.orderItem.findMany({
+        where: {
+          order: {
+            customerId: user.customerProfile.id,
+            status: 'FULFILLED', // Only fulfilled orders
+          },
+        },
+        include: {
+          order: true,
+          product: true,
+          course: {
+            include: {
+              product: true, // Include product relation to get product slug for courses
+              instructor: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          order: {
+            orderDate: 'desc', // Most recent first
+          },
+        },
+      });
+
+      // Get enrollments for this user
+      const enrollments = await this.prisma.enrollment.findMany({
+        where: {
+          userId: userId,
+        },
+      });
+
+      // Create a map of courseId -> enrollment for quick lookup
+      const enrollmentMap = new Map(
+        enrollments.map((e) => [e.courseId, e]),
+      );
+
+      // Map order items to PurchasedItemDto
+      const purchasedItems: PurchasedItemDto[] = orderItems.map((item) => {
+        // Determine if this is a course or product
+        const isCourse = !!item.courseId && !!item.course;
+        const enrollment = isCourse && item.courseId ? enrollmentMap.get(item.courseId) : null;
+
+        // Extract course or product data with proper null handling
+        const courseData = isCourse && item.course ? item.course : null;
+        const productData = !isCourse && item.product ? item.product : null;
+
+        return new PurchasedItemDto({
+          id: item.id,
+          orderId: item.orderId,
+          orderNumber: item.order.orderNumber,
+          productId: item.productId || undefined,
+          courseId: item.courseId || undefined,
+          title: courseData?.title || productData?.name || 'Unknown',
+          description: courseData?.description || productData?.description || undefined,
+          shortDescription: courseData?.shortDescription || productData?.shortDescription || undefined,
+          thumbnailUrl: courseData?.thumbnailUrl || productData?.thumbnailUrl || undefined,
+          productType: isCourse ? 'COURSE' : (productData?.productType || 'EBOOK'),
+          price: Number(item.unitPrice),
+          purchaseDate: item.order.orderDate,
+          enrollmentStatus: enrollment?.status,
+          progress: enrollment ? Number(enrollment.progress) : undefined,
+          lastAccessedAt: enrollment?.lastAccessedAt || undefined,
+          isCompleted: enrollment?.status === 'COMPLETED' || false,
+          // IMPORTANT: For courses, use product slug (course.product.slug), not course slug
+          // CourseDetail expects product slug because it calls getPublicProductBySlug()
+          slug: (isCourse && courseData?.product?.slug) || productData?.slug || undefined,
+          totalChapters: courseData?.totalChapters || undefined,
+          totalDuration: courseData?.totalDuration || undefined,
+          difficulty: courseData?.difficulty || undefined,
+        });
+      });
+
+      return purchasedItems;
+    }, 'Getting user purchased items');
   }
 }

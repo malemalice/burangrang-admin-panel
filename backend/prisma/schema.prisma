@@ -650,7 +650,9 @@ model Enrollment {
   order   Order?   @relation(fields: [orderId], references: [id])
   progressRecords Progress[]
 
-  @@unique([userId, courseId])
+  // Removed @@unique([userId, courseId]) to allow re-enrollment after course completion
+  // Users can enroll multiple times (for retakes) but only one ACTIVE enrollment at a time
+  @@index([userId, courseId, status])
   @@map("t_enrollments")
 }
 
