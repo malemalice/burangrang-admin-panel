@@ -6,6 +6,12 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
+
+# Copy TypeScript and NestJS config files
+COPY tsconfig*.json ./
+COPY nest-cli.json ./
+
+# Copy Prisma schema
 COPY prisma ./prisma/
 
 # Install dependencies (including dev dependencies for build)
@@ -13,7 +19,10 @@ RUN npm ci && \
     npm cache clean --force
 
 # Copy application source
-COPY . .
+COPY src ./src/
+
+# Copy PM2 ecosystem config
+COPY ecosystem.config.js ./
 
 # Debug: List copied files
 RUN echo "=== Checking copied files ===" && \
