@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'soulyousee-api',
-      script: './dist/main.js',
+      script: './dist/src/main.js',
       instances: 'max', // Use all available CPU cores
       exec_mode: 'cluster', // Enable cluster mode
       autorestart: true,

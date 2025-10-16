@@ -24,36 +24,14 @@ COPY src ./src/
 # Copy PM2 ecosystem config
 COPY ecosystem.config.js ./
 
-# Debug: List copied files
-RUN echo "=== Checking copied files ===" && \
-    ls -la && \
-    echo "=== Checking src directory ===" && \
-    ls -la src/ && \
-    echo "=== Checking if main.ts exists ===" && \
-    test -f src/main.ts && echo "main.ts found" || echo "ERROR: main.ts NOT found"
-
 # Generate Prisma Client
 RUN npx prisma generate
 
 # Build application and verify output
-RUN echo "=== Starting build process ===" && \
-    npm run build -- --verbose && \
-    echo "=== Build completed, checking current directory ===" && \
-    ls -la && \
-    echo "=== Checking if dist directory exists ===" && \
-    if [ -d "dist" ]; then \
-        echo "dist directory found" && \
-        ls -la dist/ && \
-        if [ -d "dist/src" ]; then \
-            echo "Found dist/src instead of dist/main.js - listing contents:" && \
-            ls -la dist/src/ && \
-            test -f dist/src/main.js && echo "Found at dist/src/main.js"; \
-        fi; \
-    else \
-        echo "ERROR: dist directory not found at all!"; \
-        exit 1; \
-    fi && \
-    test -f dist/main.js || test -f dist/src/main.js || (echo "ERROR: main.js not found in expected locations" && exit 1)
+RUN npm run build && \
+    echo "=== Build completed ===" && \
+    ls -la dist/src/ && \
+    test -f dist/src/main.js || (echo "ERROR: dist/src/main.js not found after build" && exit 1)
 
 # Production stage
 FROM node:18-alpine AS production
@@ -80,10 +58,8 @@ RUN npx prisma generate
 # Copy built application from builder
 COPY --chown=nodejs:nodejs --from=builder /app/dist ./dist
 
-# Debug: Verify dist was copied
-RUN echo "=== Checking dist directory after copy ===" && \
-    ls -la dist/ && \
-    test -f dist/main.js && echo "main.js found in production stage" || (echo "ERROR: main.js NOT found in production stage" && exit 1)
+# Verify build artifacts exist
+RUN test -f dist/src/main.js || (echo "ERROR: dist/src/main.js not found in production stage" && exit 1)
 
 # Copy PM2 ecosystem config from builder
 COPY --chown=nodejs:nodejs --from=builder /app/ecosystem.config.js ./
