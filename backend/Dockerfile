@@ -8,8 +8,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install dependencies
-RUN npm ci --only=production && \
+# Install dependencies (including dev dependencies for build)
+RUN npm ci && \
     npm cache clean --force
 
 # Copy application source
@@ -24,9 +24,6 @@ RUN npm run build
 # Production stage
 FROM node:18-alpine AS production
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
-
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
@@ -37,8 +34,9 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install production dependencies only
+# Install production dependencies and PM2
 RUN npm ci --only=production && \
+    npm install -g pm2 && \
     npm cache clean --force
 
 # Copy Prisma schema and generate client
@@ -47,6 +45,9 @@ RUN npx prisma generate
 
 # Copy built application from builder
 COPY --chown=nodejs:nodejs --from=builder /app/dist ./dist
+
+# Copy PM2 ecosystem config from builder
+COPY --chown=nodejs:nodejs --from=builder /app/ecosystem.config.js ./
 
 # Create uploads directory
 RUN mkdir -p uploads && chown -R nodejs:nodejs uploads
@@ -61,9 +62,6 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
   CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Use dumb-init to handle signals properly
-ENTRYPOINT ["dumb-init", "--"]
-
-# Start application
-CMD ["node", "dist/main.js"]
+# Start application with PM2
+CMD ["pm2-runtime", "start", "ecosystem.config.js"]
 
