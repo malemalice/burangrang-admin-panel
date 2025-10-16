@@ -15,11 +15,21 @@ RUN npm ci && \
 # Copy application source
 COPY . .
 
+# Debug: List copied files
+RUN echo "=== Checking copied files ===" && \
+    ls -la && \
+    echo "=== Checking src directory ===" && \
+    ls -la src/ && \
+    echo "=== Checking if main.ts exists ===" && \
+    test -f src/main.ts && echo "main.ts found" || echo "ERROR: main.ts NOT found"
+
 # Generate Prisma Client
 RUN npx prisma generate
 
-# Build application
-RUN npm run build
+# Build application and verify output
+RUN npm run build && \
+    ls -la dist/ && \
+    test -f dist/main.js || (echo "ERROR: dist/main.js not found after build" && exit 1)
 
 # Production stage
 FROM node:18-alpine AS production
@@ -45,6 +55,11 @@ RUN npx prisma generate
 
 # Copy built application from builder
 COPY --chown=nodejs:nodejs --from=builder /app/dist ./dist
+
+# Debug: Verify dist was copied
+RUN echo "=== Checking dist directory after copy ===" && \
+    ls -la dist/ && \
+    test -f dist/main.js && echo "main.js found in production stage" || (echo "ERROR: main.js NOT found in production stage" && exit 1)
 
 # Copy PM2 ecosystem config from builder
 COPY --chown=nodejs:nodejs --from=builder /app/ecosystem.config.js ./
