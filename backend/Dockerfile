@@ -36,9 +36,24 @@ RUN echo "=== Checking copied files ===" && \
 RUN npx prisma generate
 
 # Build application and verify output
-RUN npm run build && \
-    ls -la dist/ && \
-    test -f dist/main.js || (echo "ERROR: dist/main.js not found after build" && exit 1)
+RUN echo "=== Starting build process ===" && \
+    npm run build -- --verbose && \
+    echo "=== Build completed, checking current directory ===" && \
+    ls -la && \
+    echo "=== Checking if dist directory exists ===" && \
+    if [ -d "dist" ]; then \
+        echo "dist directory found" && \
+        ls -la dist/ && \
+        if [ -d "dist/src" ]; then \
+            echo "Found dist/src instead of dist/main.js - listing contents:" && \
+            ls -la dist/src/ && \
+            test -f dist/src/main.js && echo "Found at dist/src/main.js"; \
+        fi; \
+    else \
+        echo "ERROR: dist directory not found at all!"; \
+        exit 1; \
+    fi && \
+    test -f dist/main.js || test -f dist/src/main.js || (echo "ERROR: main.js not found in expected locations" && exit 1)
 
 # Production stage
 FROM node:18-alpine AS production
