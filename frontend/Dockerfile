@@ -7,6 +7,13 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
+# Copy .env file (if exists, for default values)
+COPY .env* ./
+
+# Accept build arguments (can override .env file)
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 # Install dependencies
 RUN npm ci && \
     npm cache clean --force
@@ -14,7 +21,7 @@ RUN npm ci && \
 # Copy application source
 COPY . .
 
-# Build application
+# Build application with environment variables
 RUN npm run build
 
 # Production stage with Nginx
