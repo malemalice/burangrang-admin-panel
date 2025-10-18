@@ -2,6 +2,9 @@
 
 This directory contains GitHub Actions workflows for deploying the frontend admin panel to production.
 
+> **Note**: This repository is a **monorepo** containing both `frontend/` and `backend/` applications.  
+> Workflows are located at the repository root (`.github/workflows/`) as per GitHub Actions convention.
+
 ## 🚀 Workflows
 
 ### 1. Deploy to Production (`deploy-production.yml`)
@@ -55,7 +58,7 @@ Configure these secrets in your GitHub repository settings (`Settings > Secrets 
 | `VPS_HOST` | VPS hostname or IP address | `123.456.789.0` or `vps.example.com` |
 | `VPS_USER` | SSH username for VPS | `root` or `deploy` |
 | `DEPLOYMENT_PATH` | Path to deployment directory on VPS | `/root/soulyousee-deployment` |
-| `WEBAPP_PATH` | Path to webapp repository on VPS | `/root/webapp` |
+| `WEBAPP_PATH` | Path to webapp repository (monorepo root) on VPS | `/root/webapp` or `/root/soulyousee` |
 
 ## 📋 Setup Instructions
 
@@ -93,11 +96,12 @@ Add the remaining secrets to GitHub repository settings.
 
 Make sure on your VPS:
 1. Git repositories are cloned:
-   - `$WEBAPP_PATH` - webapp repository
+   - `$WEBAPP_PATH` - webapp repository (monorepo containing frontend/ and backend/)
    - `$DEPLOYMENT_PATH` - soulyousee-deployment repository
 2. Docker and Docker Compose are installed
-3. `.env` file is configured in `$WEBAPP_PATH/frontend/`
+3. `.env` file is configured in `$WEBAPP_PATH/frontend/` (if needed)
 4. `docker-compose.yml` is properly configured in `$DEPLOYMENT_PATH`
+5. docker-compose.yml has correct context path: `../soulyousee/frontend` or `../webapp/frontend`
 
 ## 🏗️ Build Strategy
 
