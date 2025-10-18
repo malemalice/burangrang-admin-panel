@@ -7,12 +7,6 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Copy .env file (if exists, for default values)
-COPY .env* ./
-
-# Accept build arguments (can override .env file)
-ARG VITE_API_URL
-ENV VITE_API_URL=$VITE_API_URL
 
 # Install dependencies
 RUN npm ci && \
@@ -56,4 +50,3 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
-
