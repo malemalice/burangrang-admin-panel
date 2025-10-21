@@ -5,29 +5,32 @@ import { ActivityLoggerService } from './services/activity-logger.service';
 import { LocalStorageService } from './services/local-storage.service';
 import { StorageFactoryService } from './services/storage-factory.service';
 import { PrismaModule } from '../core/prisma/prisma.module';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { PermissionsGuard } from './guards/permissions.guard';
 
 @Module({
   imports: [PrismaModule],
   providers: [
-    ErrorHandlingService, 
-    DtoMapperService, 
-    ActivityLoggerService, 
+    ErrorHandlingService,
+    DtoMapperService,
+    ActivityLoggerService,
     LocalStorageService,
     StorageFactoryService,
-    JwtAuthGuard, 
-    RolesGuard, 
-    PermissionsGuard
+    JwtAuthGuard,
+    RolesGuard,
+    PermissionsGuard,
   ],
   exports: [
-    PrismaModule, 
-    ErrorHandlingService, 
-    DtoMapperService, 
-    ActivityLoggerService, 
+    PrismaModule,
+    ErrorHandlingService,
+    DtoMapperService,
+    ActivityLoggerService,
     LocalStorageService,
     StorageFactoryService,
-    JwtAuthGuard, 
-    RolesGuard, 
-    PermissionsGuard
+    JwtAuthGuard,
+    RolesGuard,
+    PermissionsGuard,
   ],
 })
 export class SharedModule {}
