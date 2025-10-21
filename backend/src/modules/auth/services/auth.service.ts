@@ -272,16 +272,6 @@ export class AuthService {
       include: { role: true },
     });
 
-    // Create customer profile if phone is provided
-    if (signupDto.phone) {
-      await this.prisma.customer.create({
-        data: {
-          userId: user.id,
-          phone: signupDto.phone,
-        },
-      });
-    }
-
     // Generate JWT tokens
     const payload = { email: user.email, sub: user.id, role: user.role.name };
     const accessToken = this.jwtService.sign(payload, { expiresIn: 3600 }); // 1 hour
