@@ -8,6 +8,8 @@ import { seedJobPositions } from './seeds/jobpositions.seed';
 import { seedSettings } from './seeds/settings.seed';
 import { seedMenus } from './seeds/menus.seed';
 import { seedNotifications } from './seeds/notification-types.seed';
+import { seedFileCategories } from './seeds/file-categories.seed';
+import { seedFileStorageProviders } from './seeds/file-storage-providers.seed';
 
 const prisma = new PrismaClient();
 
@@ -39,6 +41,10 @@ async function main() {
       await prisma.department.deleteMany();
       await prisma.jobPosition.deleteMany();
       await prisma.setting.deleteMany();
+      await prisma.fileAccessLog.deleteMany();
+      await prisma.fileUpload.deleteMany();
+      await prisma.fileCategory.deleteMany();
+      await prisma.fileStorageProvider.deleteMany();
       console.log('All existing data cleared successfully');
     } else {
       // Clear only the specified table
@@ -72,9 +78,20 @@ async function main() {
           await prisma.notification.deleteMany();
           await prisma.notificationType.deleteMany();
           break;
+        
+        case 'file_categories':
+          await prisma.fileCategory.deleteMany();
+          break;
+        case 'file_storage_providers':
+          await prisma.fileStorageProvider.deleteMany();
+          break;
+        case 'file_uploads':
+          await prisma.fileAccessLog.deleteMany();
+          await prisma.fileUpload.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
-          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications');
+          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, file_categories, file_storage_providers, file_uploads');
           process.exit(1);
       }
       console.log(`Cleared existing data for table: ${tableToSeed}`);
@@ -92,6 +109,8 @@ async function main() {
       await seedSettings(prisma);
       await seedMenus();
       await seedNotifications();
+      await seedFileStorageProviders();
+      await seedFileCategories();
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -128,6 +147,16 @@ async function main() {
           break;
         case 'notifications':
           await seedNotifications();
+          break;
+        case 'file_categories':
+          await seedFileCategories();
+          break;
+        case 'file_storage_providers':
+          await seedFileStorageProviders();
+          break;
+        case 'file_uploads':
+          // Note: file uploads are created through the API, not seeded
+          console.log('File uploads are created through the API, not seeded');
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);
