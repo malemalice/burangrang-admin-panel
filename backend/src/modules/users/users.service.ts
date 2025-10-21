@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserDto } from './dto/user.dto';
 import { FindUsersOptions } from './dto/find-users.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
@@ -226,5 +228,76 @@ export class UsersService {
     this.errorHandler.throwIfNotFoundByField('User', 'email', email, user);
 
     return this.userMapper(user);
+  }
+
+  async updateProfile(userId: string, updateProfileDto: UpdateProfileDto): Promise<UserDto> {
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    this.errorHandler.throwIfNotFoundById('User', userId, existingUser);
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        firstName: updateProfileDto.firstName,
+        lastName: updateProfileDto.lastName,
+      },
+      include: {
+        role: true,
+        office: true,
+        department: true,
+        jobPosition: true,
+      },
+    });
+
+    // Log profile update activity
+    await this.activityLogger.logUserActivity('update', {
+      id: updatedUser.id,
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName,
+      email: updatedUser.email,
+    }, userId);
+
+    return this.userMapper(updatedUser);
+  }
+
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto): Promise<{ message: string }> {
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    this.errorHandler.throwIfNotFoundById('User', userId, existingUser);
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(
+      changePasswordDto.currentPassword,
+      existingUser.password,
+    );
+
+    if (!isCurrentPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    // Hash new password
+    const hashedNewPassword = await this.errorHandler.safeHashPassword(
+      () => bcrypt.hash(changePasswordDto.newPassword, 10),
+    );
+
+    // Update password
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedNewPassword },
+    });
+
+    // Log password change activity
+    await this.activityLogger.logUserActivity('update', {
+      id: existingUser.id,
+      firstName: existingUser.firstName,
+      lastName: existingUser.lastName,
+      email: existingUser.email,
+    }, userId);
+
+    return { message: 'Password changed successfully' };
   }
 }

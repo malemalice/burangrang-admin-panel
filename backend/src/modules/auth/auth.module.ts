@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './services/auth.service';
 import { AuthController } from './controllers/auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { GoogleStrategy } from './strategies/google.strategy';
 import { PrismaService } from '../../core/services/prisma.service';
 import { UsersModule } from '../users/users.module';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
@@ -25,7 +26,7 @@ import { PermissionsGuard } from '../../shared/guards/permissions.guard';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, PrismaService, PermissionsGuard],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, PrismaService, PermissionsGuard],
   exports: [AuthService],
 })
 export class AuthModule {}
