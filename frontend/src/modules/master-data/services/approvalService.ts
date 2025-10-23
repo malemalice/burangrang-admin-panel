@@ -1,5 +1,5 @@
-import api from '@/lib/api';
-import { SubmitApprovalDto } from '@/lib/types';
+import api from '@/core/lib/api';
+import { SubmitApprovalDto } from '@/core/lib/types';
 
 export interface ApprovalHistory {
   id: string;

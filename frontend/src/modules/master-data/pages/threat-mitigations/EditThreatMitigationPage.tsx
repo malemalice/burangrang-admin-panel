@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import ThreatMitigationForm from './ThreatMitigationForm';
-import threatMitigationService from '@/services/threatMitigationService';
-import { ThreatMitigation } from '@/lib/types';
+import { threatMitigationService } from '@/modules/master-data';
+import { ThreatMitigation } from '@/core/lib/types';
 
 const EditThreatMitigationPage = () => {
   const { id } = useParams<{ id: string }>();

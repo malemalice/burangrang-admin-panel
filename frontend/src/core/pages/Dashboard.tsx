@@ -1,8 +1,8 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import PageHeader from "@/components/ui/PageHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import PageHeader from "@/core/components/ui/PageHeader";
+import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card";
+import { Progress } from "@/core/components/ui/progress";
 import {
   AlertTriangle,
   CheckCircle,
@@ -13,7 +13,7 @@ import {
   FileCheck,
   Building2,
 } from "lucide-react";
-import DashboardService from '@/services/dashboard.service';
+import { DashboardService } from '@/modules/master-data';
 import { format } from 'date-fns';
 
 const riskLevelColors = {

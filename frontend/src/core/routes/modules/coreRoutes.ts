@@ -1,9 +1,9 @@
 import { RouteConfig } from '../types';
-import Dashboard from '@/pages/Dashboard';
-import SettingsPage from '@/pages/settings/SettingsPage';
-import NotFound from '@/pages/NotFound';
-import Login from '@/pages/Login';
-import Notifications from '@/pages/Notifications';
+import Dashboard from '@/core/pages/Dashboard';
+import SettingsPage from '@/modules/settings/pages/SettingsPage';
+import NotFound from '@/core/pages/NotFound';
+import Login from '@/core/pages/Login';
+import Notifications from '@/core/pages/Notifications';
 
 /**
  * Core application routes

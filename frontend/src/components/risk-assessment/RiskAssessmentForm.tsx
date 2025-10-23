@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import { PlusCircle, X, AlertTriangle } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/core/components/ui/button';
 import {
   Form,
   FormControl,
@@ -14,29 +14,26 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+} from '@/core/components/ui/form';
+import { Input } from '@/core/components/ui/input';
+import { Switch } from '@/core/components/ui/switch';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { SearchableSelect, SearchableSelectOption } from '@/components/ui/searchable-select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Editor } from '@/components/ui/editor';
+} from '@/core/components/ui/select';
+import { Badge } from '@/core/components/ui/badge';
+import { Separator } from '@/core/components/ui/separator';
+import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/core/components/ui/table';
+import { Editor } from '@/core/components/ui/editor';
 
-import { RiskAssessment, RiskRatingEnum, Department, Threat, HseCategory, User } from '@/lib/types';
-import riskAssessmentService, { CreateRiskAssessmentDTO } from '@/services/riskAssessmentService';
-import departmentService from '@/services/departmentService';
-import hseCategoryService from '@/services/hseCategoryService';
-import threatService from '@/services/threatService';
-import userService from '@/services/userService';
+import { RiskAssessment, RiskRatingEnum, Department, Threat, HseCategory, User } from '@/core/lib/types';
+import { riskAssessmentService, departmentService, hseCategoryService, threatService, type CreateRiskAssessmentDTO } from '@/modules/master-data';
+import { userService } from '@/modules/users';
 
 // Form schema for validation
 const formSchema = z.object({

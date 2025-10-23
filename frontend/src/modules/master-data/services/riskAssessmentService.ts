@@ -1,5 +1,5 @@
-import { RiskAssessment, PaginatedResponse, PaginationParams } from '@/lib/types';
-import api from '@/lib/api';
+import { RiskAssessment, PaginatedResponse, PaginationParams } from '@/core/lib/types';
+import api from '@/core/lib/api';
 
 export interface CreateRiskAssessmentDTO {
   code: string;

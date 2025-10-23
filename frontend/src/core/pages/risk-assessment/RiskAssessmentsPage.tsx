@@ -13,24 +13,24 @@ import {
   Tag
 } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/core/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { Input } from '@/core/components/ui/input';
+import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { FilterDrawer, FilterField } from '@/components/ui/filter-drawer';
-import DataTable from '@/components/ui/data-table/DataTable';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
+} from '@/core/components/ui/dropdown-menu';
+import { FilterDrawer, FilterField } from '@/core/components/ui/filter-drawer';
+import DataTable from '@/core/components/ui/data-table/DataTable';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/core/components/ui/alert-dialog';
+import { Badge } from '@/core/components/ui/badge';
 
-import { RiskAssessment } from '@/lib/types';
-import riskAssessmentService from '@/services/riskAssessmentService';
+import { RiskAssessment } from '@/core/lib/types';
+import { riskAssessmentService } from '@/modules/master-data';
 
 const RiskAssessmentsPage = () => {
   const navigate = useNavigate();

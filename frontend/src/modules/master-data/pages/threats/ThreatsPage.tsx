@@ -2,24 +2,23 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, Plus, AlertTriangle, MoreHorizontal, Tag } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/core/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
-import DataTable from '@/components/ui/data-table/DataTable';
-import PageHeader from '@/components/ui/PageHeader';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FilterField, FilterValue } from '@/components/ui/filter-drawer';
-import threatService from '@/services/threatService';
-import hseCategoryService from '@/services/hseCategoryService';
-import { Threat, HseCategory } from '@/lib/types';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+} from '@/core/components/ui/dropdown-menu';
+import { Badge } from '@/core/components/ui/badge';
+import DataTable from '@/core/components/ui/data-table/DataTable';
+import PageHeader from '@/core/components/ui/PageHeader';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
+import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
+import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { threatService, hseCategoryService } from '@/modules/master-data';
+import { Threat, HseCategory } from '@/core/lib/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 
 const ThreatsPage = () => {
   const navigate = useNavigate();

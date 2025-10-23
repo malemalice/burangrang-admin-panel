@@ -4,7 +4,7 @@ import {
   CreateRiskAssessmentPage,
   EditRiskAssessmentPage,
   RiskAssessmentDetailPage
-} from '@/pages/risk-assessment';
+} from '@/core/pages/risk-assessment';
 
 /**
  * Module routes for operational components

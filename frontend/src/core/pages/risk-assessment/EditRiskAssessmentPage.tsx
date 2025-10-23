@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import RiskAssessmentForm from '@/components/risk-assessment/RiskAssessmentForm';
-import riskAssessmentService from '@/services/riskAssessmentService';
-import { RiskAssessment } from '@/lib/types';
+import { riskAssessmentService } from '@/modules/master-data';
+import { RiskAssessment } from '@/core/lib/types';
 
 const EditRiskAssessmentPage = () => {
   const { id } = useParams<{ id: string }>();

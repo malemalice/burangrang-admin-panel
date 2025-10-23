@@ -1,7 +1,7 @@
 import React from 'react';
 import { Bell, CheckCircle, AlertTriangle, Info } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/core/components/ui/card";
+import { Badge } from "@/core/components/ui/badge";
 import { format } from 'date-fns';
 
 // Dummy notification data

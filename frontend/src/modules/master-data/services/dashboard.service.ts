@@ -1,4 +1,4 @@
-import api from '@/lib/api';
+import api from '@/core/lib/api';
 
 export interface RiskDistribution {
   LOW: number;

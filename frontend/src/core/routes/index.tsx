@@ -1,4 +1,4 @@
-import Notifications from '@/pages/Notifications';
+import Notifications from '@/core/pages/Notifications';
 
 {
   path: '/notifications',

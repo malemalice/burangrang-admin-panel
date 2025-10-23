@@ -67,7 +67,7 @@ export class MasterApprovalsService {
           order: item.order || 0,
           job_position_id: item.job_position_id,
           department_id: item.department_id,
-          createdBy: item.createdBy,
+          createdBy: userId,
         },
       });
     }
@@ -180,7 +180,7 @@ export class MasterApprovalsService {
             order: item.order || 0,
             job_position_id: item.job_position_id,
             department_id: item.department_id,
-            createdBy: item.createdBy,
+            createdBy: userId,
           },
         });
       }

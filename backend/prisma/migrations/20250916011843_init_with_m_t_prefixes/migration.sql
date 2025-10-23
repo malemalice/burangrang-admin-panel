@@ -209,8 +209,8 @@ CREATE TABLE "m_approval_item" (
     "id" TEXT NOT NULL,
     "mApprovalId" TEXT NOT NULL,
     "order" INTEGER NOT NULL,
-    "job_position_id" TEXT NOT NULL,
-    "department_id" TEXT NOT NULL,
+    "jobPositionId" TEXT NOT NULL,
+    "departmentId" TEXT NOT NULL,
     "createdBy" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -222,8 +222,8 @@ CREATE TABLE "t_approvals" (
     "id" TEXT NOT NULL,
     "mApprovalId" TEXT NOT NULL,
     "entityId" TEXT NOT NULL,
-    "department_id" TEXT NOT NULL,
-    "job_position_id" TEXT NOT NULL,
+    "departmentId" TEXT NOT NULL,
+    "jobPositionId" TEXT NOT NULL,
     "status" TEXT NOT NULL,
     "notes" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -327,10 +327,10 @@ ALTER TABLE "m_threats" ADD CONSTRAINT "m_threats_hseCategoryId_fkey" FOREIGN KE
 ALTER TABLE "m_threat_mitigations" ADD CONSTRAINT "m_threat_mitigations_threatId_fkey" FOREIGN KEY ("threatId") REFERENCES "m_threats"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "t_risk_assessment" ADD CONSTRAINT "t_risk_assessment_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "departments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "t_risk_assessment" ADD CONSTRAINT "t_risk_assessment_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "m_departments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "t_risk_assessment" ADD CONSTRAINT "t_risk_assessment_assigneeId_fkey" FOREIGN KEY ("assigneeId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "t_risk_assessment" ADD CONSTRAINT "t_risk_assessment_assigneeId_fkey" FOREIGN KEY ("assigneeId") REFERENCES "t_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "t_risk_assessment_item" ADD CONSTRAINT "t_risk_assessment_item_riskAssessmentId_fkey" FOREIGN KEY ("riskAssessmentId") REFERENCES "t_risk_assessment"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -345,19 +345,19 @@ ALTER TABLE "t_risk_assessment_item" ADD CONSTRAINT "t_risk_assessment_item_mHse
 ALTER TABLE "m_approval_item" ADD CONSTRAINT "m_approval_item_mApprovalId_fkey" FOREIGN KEY ("mApprovalId") REFERENCES "m_approval"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "m_approval_item" ADD CONSTRAINT "m_approval_item_job_position_id_fkey" FOREIGN KEY ("job_position_id") REFERENCES "m_job_positions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "m_approval_item" ADD CONSTRAINT "m_approval_item_jobPositionId_fkey" FOREIGN KEY ("jobPositionId") REFERENCES "m_job_positions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "m_approval_item" ADD CONSTRAINT "m_approval_item_department_id_fkey" FOREIGN KEY ("department_id") REFERENCES "m_departments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "m_approval_item" ADD CONSTRAINT "m_approval_item_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "m_departments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "m_approval_item" ADD CONSTRAINT "m_approval_item_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "t_users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "t_approvals" ADD CONSTRAINT "t_approvals_department_id_fkey" FOREIGN KEY ("department_id") REFERENCES "m_departments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "t_approvals" ADD CONSTRAINT "t_approvals_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "m_departments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "t_approvals" ADD CONSTRAINT "t_approvals_job_position_id_fkey" FOREIGN KEY ("job_position_id") REFERENCES "m_job_positions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "t_approvals" ADD CONSTRAINT "t_approvals_jobPositionId_fkey" FOREIGN KEY ("jobPositionId") REFERENCES "m_job_positions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "t_approvals" ADD CONSTRAINT "t_approvals_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "t_users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

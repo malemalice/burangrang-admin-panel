@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import HseCategoryForm from './HseCategoryForm';
-import hseCategoryService from '@/services/hseCategoryService';
-import { HseCategory } from '@/lib/types';
+import { hseCategoryService } from '@/modules/master-data';
+import { HseCategory } from '@/core/lib/types';
 
 const EditHseCategoryPage = () => {
   const { id } = useParams<{ id: string }>();

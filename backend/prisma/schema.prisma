@@ -263,12 +263,12 @@ model MasterApprovalItem {
   mApprovalId String
   mApproval MasterApproval @relation(fields:[mApprovalId], references:[id])
   order Int
-  job_position_id String
-  department_id String
+  jobPositionId String
+  departmentId String
   createdBy String
   createdAt DateTime @default(now())
-  jobPosition JobPosition @relation(fields: [job_position_id], references: [id])
-  department Department @relation(fields: [department_id], references: [id])
+  jobPosition JobPosition @relation(fields: [jobPositionId], references: [id])
+  department Department @relation(fields: [departmentId], references: [id])
   creator User @relation("CreatedApprovalItems", fields: [createdBy], references: [id])
 
   @@map("m_approval_item")
@@ -278,14 +278,14 @@ model Approval {
   id String @id @default(uuid())
   mApprovalId String
   entityId String
-  department_id String
-  job_position_id String
+  departmentId String
+  jobPositionId String
   status String
   notes String
   createdAt DateTime @default(now())
   createdBy String
-  department Department @relation(fields: [department_id], references: [id])
-  jobPosition JobPosition @relation(fields: [job_position_id], references: [id])
+  department Department @relation(fields: [departmentId], references: [id])
+  jobPosition JobPosition @relation(fields: [jobPositionId], references: [id])
   creator User @relation("CreatedApprovals", fields: [createdBy], references: [id])
 
   @@map("t_approvals")

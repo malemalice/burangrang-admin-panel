@@ -90,9 +90,6 @@ async function main() {
         case 'risk_matrix':
           await prisma.riskMatrix.deleteMany();
           break;
-        default:
-          console.error(`Unknown table: ${tableToSeed}`);
-          console.log('Available tables: users, roles, permissions, offices, departments, jobpositions, hse_categories, threats, threat_mitigations, risk_matrix');
         case 'settings':
           await prisma.setting.deleteMany();
           break;

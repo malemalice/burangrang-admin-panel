@@ -28,7 +28,6 @@ import {
 } from './dto/master-approval.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SubmitApprovalDto } from './dto/submit-approval.dto';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 import { UserInterceptor } from '../../shared/interceptors/user.interceptor';

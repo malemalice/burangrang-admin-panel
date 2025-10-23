@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/core/components/ui/button';
 import {
   Form,
   FormControl,
@@ -12,21 +12,20 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+} from '@/core/components/ui/form';
+import { Input } from '@/core/components/ui/input';
+import { Textarea } from '@/core/components/ui/textarea';
+import { Switch } from '@/core/components/ui/switch';
+import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import threatService from '@/services/threatService';
-import hseCategoryService from '@/services/hseCategoryService';
-import { Threat, HseCategory } from '@/lib/types';
+} from '@/core/components/ui/select';
+import { threatService, hseCategoryService } from '@/modules/master-data';
+import { Threat, HseCategory } from '@/core/lib/types';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),

@@ -5,11 +5,11 @@ import { format } from 'date-fns';
 import { FileEdit, ArrowLeft, AlertTriangle, CheckCircle2, XCircle, Clock, FileDown } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/core/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/core/components/ui/card';
+import { Badge } from '@/core/components/ui/badge';
+import { Separator } from '@/core/components/ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/core/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -17,14 +17,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Textarea } from '@/components/ui/textarea';
+} from '@/core/components/ui/dialog';
+import { Label } from '@/core/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
+import { Textarea } from '@/core/components/ui/textarea';
 
-import { RiskAssessment, ApprovalStatus } from '@/lib/types';
-import riskAssessmentService from '@/services/riskAssessmentService';
-import approvalService, { ApprovalStatusHistory } from '@/services/approvalService';
+import { RiskAssessment, ApprovalStatus } from '@/core/lib/types';
+import { riskAssessmentService, approvalService, type ApprovalStatusHistory } from '@/modules/master-data';
 
 const RiskAssessmentDetailPage = () => {
   const { id } = useParams<{ id: string }>();

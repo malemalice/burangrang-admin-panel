@@ -1,5 +1,5 @@
-import api from '@/lib/api';
-import { HseCategory } from '@/lib/types';
+import api from '@/core/lib/api';
+import { HseCategory } from '@/core/lib/types';
 
 interface PaginationParams {
   page?: number;

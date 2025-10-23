@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import ThreatForm from './ThreatForm';
-import threatService from '@/services/threatService';
-import { Threat } from '@/lib/types';
+import { threatService } from '@/modules/master-data';
+import { Threat } from '@/core/lib/types';
 
 const EditThreatPage = () => {
   const { id } = useParams<{ id: string }>();

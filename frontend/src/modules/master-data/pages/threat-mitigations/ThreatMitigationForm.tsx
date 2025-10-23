@@ -10,7 +10,7 @@ import {
   CardTitle,
   CardContent,
   CardFooter,
-} from '@/components/ui/card';
+} from '@/core/components/ui/card';
 import {
   Form,
   FormControl,
@@ -19,21 +19,20 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
+} from '@/core/components/ui/form';
+import { Input } from '@/core/components/ui/input';
+import { Button } from '@/core/components/ui/button';
+import { Textarea } from '@/core/components/ui/textarea';
+import { Switch } from '@/core/components/ui/switch';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import threatMitigationService from '@/services/threatMitigationService';
-import threatService from '@/services/threatService';
-import { ThreatMitigation, Threat } from '@/lib/types';
+} from '@/core/components/ui/select';
+import { threatMitigationService, threatService } from '@/modules/master-data';
+import { ThreatMitigation, Threat } from '@/core/lib/types';
 
 // Define form schema
 const formSchema = z.object({
