@@ -118,6 +118,8 @@ const masterDataRoutes: RouteConfig[] = [
   {
     path: '/master/threat-mitigations/:id',
     component: EditThreatMitigationPage,
+  },
+  {
     path: '/master/approvals',
     component: MasterApprovalsPage,
   },

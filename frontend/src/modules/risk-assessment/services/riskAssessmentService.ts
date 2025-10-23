@@ -55,4 +55,5 @@ const riskAssessmentService = {
   }
 };
 
-export default riskAssessmentService; 
+export default riskAssessmentService;
+

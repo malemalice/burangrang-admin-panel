@@ -3,7 +3,7 @@ import NotificationsPage from '../pages/NotificationsPage';
 
 const notificationRoutes: RouteConfig[] = [
   {
-    path: 'notifications',
+    path: '/notifications',
     component: NotificationsPage,
   },
 ];

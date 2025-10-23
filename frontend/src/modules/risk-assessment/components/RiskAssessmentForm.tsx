@@ -32,7 +32,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Editor } from '@/core/components/ui/editor';
 
 import { RiskAssessment, RiskRatingEnum, Department, Threat, HseCategory, User } from '@/core/lib/types';
-import { riskAssessmentService, departmentService, hseCategoryService, threatService, type CreateRiskAssessmentDTO } from '@/modules/master-data';
+import riskAssessmentService, { type CreateRiskAssessmentDTO } from '../services/riskAssessmentService';
+import { departmentService, hseCategoryService, threatService } from '@/modules/master-data';
 import { userService } from '@/modules/users';
 
 // Form schema for validation
@@ -587,4 +588,5 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
   );
 };
 
-export default RiskAssessmentForm; 
+export default RiskAssessmentForm;
+

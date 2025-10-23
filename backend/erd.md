@@ -10,11 +10,15 @@ The system uses **PostgreSQL** with **Prisma ORM** and follows a hierarchical, r
 
 ### Core Entities
 
-1. **User Management**: Users, Roles, Permissions
+1. **User Management**: Users, Roles, Permissions, Password Reset Tokens
 2. **Organizational Structure**: Offices, Departments, Job Positions  
 3. **Navigation & Access**: Menus, Role-Menu relationships
 4. **Approval System**: Master Approvals, Approval Items, Transaction Approvals
-5. **System Configuration**: Settings, Refresh Tokens
+5. **HSE Management**: HSE Categories, Threats, Threat Mitigations
+6. **Risk Assessment**: Risk Matrix, Risk Assessments, Risk Assessment Items
+7. **Notification System**: Notification Types, Notifications, Notification Recipients
+8. **File Upload System**: File Storage Providers, File Categories, File Uploads, File Access Logs
+9. **System Configuration**: Settings, Refresh Tokens
 
 ## Database Table Structure Overview
 
@@ -26,13 +30,18 @@ The system uses **PostgreSQL** with **Prisma ORM** and follows a hierarchical, r
 │  ┌─────────────┬─────────────┬─────────────┬─────────────┐     │
 │  │ m_roles     │ m_permissions│ m_offices   │ m_departments│    │
 │  │ m_job_positions│ m_menus   │ m_settings │ m_approval  │     │
-│  │ m_approval_item           │             │             │     │
+│  │ m_approval_item│ m_hse_categories│ m_threats│            │   │
+│  │ m_threat_mitigations│ m_risk_matrix│ m_notification_types│  │
+│  │ m_file_storage_providers│ m_file_categories│            │   │
 │  └─────────────┴─────────────┴─────────────┴─────────────┘     │
 ├─────────────────────────────────────────────────────────────────┤
 │  TRANSACTIONAL DATA TABLES (t_ prefix)                         │
-│  ┌─────────────┬─────────────┬─────────────┐                   │
-│  │ t_users     │ t_refresh_tokens│ t_approvals│               │
-│  └─────────────┴─────────────┴─────────────┘                   │
+│  ┌─────────────┬─────────────┬─────────────┬─────────────┐     │
+│  │ t_users     │ t_refresh_tokens│ t_password_reset_tokens│   │
+│  │ t_approvals │ t_risk_assessment│ t_risk_assessment_item│    │
+│  │ t_notifications│ t_notification_recipients│ t_file_uploads│ │
+│  │ t_file_access_logs│                │                   │    │
+│  └─────────────┴─────────────┴─────────────┴─────────────┘     │
 ├─────────────────────────────────────────────────────────────────┤
 │  JUNCTION TABLES (Prisma default)                               │
 │  ┌─────────────┬─────────────┐                                 │
@@ -41,176 +50,571 @@ The system uses **PostgreSQL** with **Prisma ORM** and follows a hierarchical, r
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Entity Relationship Diagram (Mermaid)
+## Entity Relationship Diagram (DBML)
 
-```mermaid
-erDiagram
-    %% Core User Management
-    t_users {
-        string id PK
-        string email UK
-        string password
-        string firstName
-        string lastName
-        boolean isActive
-        string roleId FK
-        string officeId FK
-        string departmentId FK
-        string jobPositionId FK
-        datetime createdAt
-        datetime updatedAt
-        datetime lastLoginAt
-    }
+> **Visualize this ERD**: Copy the DBML code below and paste it into [dbdiagram.io](https://dbdiagram.io) for interactive visualization.
 
-    m_roles {
-        string id PK
-        string name UK
-        string description
-        boolean isActive
-        datetime createdAt
-        datetime updatedAt
-    }
+```dbml
+Project BurangrangAdminPanel {
+  database_type: 'PostgreSQL'
+  Note: '''
+  # BurangrangAdmin Panel - HSE Dashboard
+  Database schema for Health, Safety, and Environment Management System
+  
+  ## Key Features
+  - User Management with RBAC
+  - Risk Assessment & HSE Management
+  - Approval Workflows
+  - Notification System
+  - File Upload Management
+  '''
+}
 
-    m_permissions {
-        string id PK
-        string name UK
-        string description
-        boolean isActive
-        datetime createdAt
-        datetime updatedAt
-    }
+//// -- ENUMS --
 
-    %% Organizational Structure
-    m_offices {
-        string id PK
-        string name
-        string code UK
-        string description
-        string address
-        string phone
-        string email
-        string parentId FK
-        boolean isActive
-        datetime createdAt
-        datetime updatedAt
-    }
+Enum RiskRatingEnum {
+  LOW [note: 'Low risk level']
+  MEDIUM [note: 'Medium risk level']
+  HIGH [note: 'High risk level']
+  EXTREME [note: 'Extreme risk level']
+}
 
-    m_departments {
-        string id PK
-        string name
-        string code UK
-        text description
-        boolean isActive
-        datetime createdAt
-        datetime updatedAt
-    }
+//// -- CORE USER MANAGEMENT --
 
-    m_job_positions {
-        string id PK
-        string name
-        string code UK
-        int level
-        text description
-        boolean isActive
-        datetime createdAt
-        datetime updatedAt
-    }
+Table t_users {
+  id varchar [pk, note: 'UUID primary key']
+  email varchar [unique, not null, note: 'Unique email address']
+  password varchar [null, note: 'Password hash - nullable for SSO users']
+  firstName varchar [not null]
+  lastName varchar [not null]
+  isActive boolean [not null, default: true]
+  roleId varchar [not null, ref: > m_roles.id]
+  officeId varchar [not null, ref: > m_offices.id]
+  departmentId varchar [null, ref: > m_departments.id]
+  jobPositionId varchar [null, ref: > m_job_positions.id]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  lastLoginAt timestamp [null]
+  
+  Note: 'Central user management table with organizational relationships'
+  indexes {
+    email [unique]
+    roleId
+    officeId
+    (departmentId, jobPositionId)
+  }
+}
 
-    %% Navigation & Access
-    m_menus {
-        string id PK
-        string name
-        string path
-        string icon
-        string parentId FK
-        int order
-        boolean isActive
-        datetime createdAt
-        datetime updatedAt
-    }
+Table m_roles {
+  id varchar [pk]
+  name varchar [unique, not null]
+  description varchar [null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'User roles for RBAC'
+  indexes {
+    name [unique]
+  }
+}
 
-    %% Approval System
-    m_approval {
-        string id PK
-        string entity
-        boolean isActive
-    }
+Table m_permissions {
+  id varchar [pk]
+  name varchar [unique, not null]
+  description varchar [null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Granular permissions for access control'
+  indexes {
+    name [unique]
+  }
+}
 
-    m_approval_item {
-        string id PK
-        string mApprovalId FK
-        int order
-        string job_position_id FK
-        string department_id FK
-        string createdBy FK
-        datetime createdAt
-    }
+Table t_refresh_tokens {
+  id varchar [pk]
+  token varchar [unique, not null]
+  userId varchar [not null, ref: > t_users.id]
+  expiresAt timestamp [not null]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'JWT refresh token management'
+  indexes {
+    token [unique]
+    userId
+  }
+}
 
-    t_approvals {
-        string id PK
-        string mApprovalId FK
-        string entityId
-        string department_id FK
-        string job_position_id FK
-        string status
-        string notes
-        datetime createdAt
-        string createdBy FK
-    }
+Table t_password_reset_tokens {
+  id varchar [pk]
+  token varchar [unique, not null]
+  userId varchar [not null, ref: > t_users.id]
+  email varchar [not null]
+  expiresAt timestamp [not null]
+  isUsed boolean [not null, default: false]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Password reset token management'
+  indexes {
+    token [unique]
+    userId
+  }
+}
 
-    %% System Configuration
-    m_settings {
-        string id PK
-        string key UK
-        string value
-        boolean isActive
-        datetime createdAt
-        datetime updatedAt
-    }
+//// -- ORGANIZATIONAL STRUCTURE --
 
-    t_refresh_tokens {
-        string id PK
-        string token UK
-        string userId FK
-        datetime expiresAt
-        datetime createdAt
-    }
+Table m_offices {
+  id varchar [pk]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description varchar [null]
+  address varchar [null]
+  phone varchar [null]
+  email varchar [null]
+  parentId varchar [null, ref: > m_offices.id, note: 'Self-referencing for hierarchy']
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Hierarchical office structure'
+  indexes {
+    code [unique]
+    parentId
+  }
+}
 
-    %% Relationships
-    t_users ||--o{ t_refresh_tokens : "has many"
-    t_users }o--|| m_roles : "belongs to"
-    t_users }o--|| m_offices : "belongs to"
-    t_users }o--o| m_departments : "optional belongs to"
-    t_users }o--o| m_job_positions : "optional belongs to"
-    t_users ||--o{ m_approval_item : "creates"
-    t_users ||--o{ t_approvals : "creates"
+Table m_departments {
+  id varchar [pk]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text [null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Organizational departments'
+  indexes {
+    code [unique]
+  }
+}
 
-    m_roles ||--o{ t_users : "has many"
-    m_roles }o--o{ m_permissions : "many-to-many"
-    m_roles }o--o{ m_menus : "many-to-many"
+Table m_job_positions {
+  id varchar [pk]
+  name varchar [not null]
+  code varchar [unique, not null]
+  level int [not null, note: 'Hierarchy level']
+  description text [null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Job positions with hierarchy levels'
+  indexes {
+    code [unique]
+    level
+  }
+}
 
-    m_offices ||--o{ t_users : "has many"
-    m_offices ||--o{ m_offices : "parent-child hierarchy"
+//// -- NAVIGATION & ACCESS --
 
-    m_departments ||--o{ t_users : "has many"
-    m_departments ||--o{ m_approval_item : "approval items"
-    m_departments ||--o{ t_approvals : "approvals"
+Table m_menus {
+  id varchar [pk]
+  name varchar [not null]
+  path varchar [null]
+  icon varchar [null]
+  parentId varchar [null, ref: > m_menus.id, note: 'Self-referencing for hierarchy']
+  order int [not null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Hierarchical menu structure with role-based access'
+  indexes {
+    parentId
+    order
+  }
+}
 
-    m_job_positions ||--o{ t_users : "has many"
-    m_job_positions ||--o{ m_approval_item : "approval items"
-    m_job_positions ||--o{ t_approvals : "approvals"
+//// -- APPROVAL SYSTEM --
 
-    m_menus ||--o{ m_menus : "parent-child hierarchy"
-    m_menus }o--o{ m_roles : "many-to-many"
+Table m_approval {
+  id varchar [pk]
+  entity varchar [not null, note: 'Entity type identifier']
+  isActive boolean [not null, default: true]
+  
+  Note: 'Master approval workflow templates'
+}
 
-    m_approval ||--o{ m_approval_item : "has many"
-    m_approval_item }o--|| m_job_positions : "requires"
-    m_approval_item }o--|| m_departments : "requires"
-    m_approval_item }o--|| t_users : "created by"
+Table m_approval_item {
+  id varchar [pk]
+  mApprovalId varchar [not null, ref: > m_approval.id]
+  order int [not null, note: 'Approval sequence order']
+  jobPositionId varchar [not null, ref: > m_job_positions.id]
+  departmentId varchar [not null, ref: > m_departments.id]
+  createdBy varchar [not null, ref: > t_users.id]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Approval workflow steps'
+  indexes {
+    mApprovalId
+    (jobPositionId, departmentId)
+  }
+}
 
-    t_approvals }o--|| m_departments : "belongs to"
-    t_approvals }o--|| m_job_positions : "belongs to"
-    t_approvals }o--|| t_users : "created by"
+Table t_approvals {
+  id varchar [pk]
+  mApprovalId varchar [not null]
+  entityId varchar [not null, note: 'ID of the entity being approved']
+  departmentId varchar [not null, ref: > m_departments.id]
+  jobPositionId varchar [not null, ref: > m_job_positions.id]
+  status varchar [not null]
+  notes varchar [not null]
+  createdAt timestamp [not null, default: `now()`]
+  createdBy varchar [not null, ref: > t_users.id]
+  
+  Note: 'Transaction-level approval records'
+  indexes {
+    mApprovalId
+    entityId
+    (departmentId, jobPositionId)
+  }
+}
+
+//// -- HSE MANAGEMENT --
+
+Table m_hse_categories {
+  id varchar [pk]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text [null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Health, Safety, and Environment categories'
+  indexes {
+    code [unique]
+  }
+}
+
+Table m_threats {
+  id varchar [pk]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text [null]
+  isActive boolean [not null, default: true]
+  hseCategoryId varchar [not null, ref: > m_hse_categories.id]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'HSE threats and hazards'
+  indexes {
+    code [unique]
+    hseCategoryId
+  }
+}
+
+Table m_threat_mitigations {
+  id varchar [pk]
+  level int [not null, note: 'Mitigation level']
+  mitigationDescription text [not null]
+  isActive boolean [not null, default: true]
+  threatId varchar [not null, ref: > m_threats.id]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Mitigation strategies for threats'
+  indexes {
+    threatId
+    level
+  }
+}
+
+//// -- RISK ASSESSMENT --
+
+Table m_risk_matrix {
+  id varchar [pk]
+  likelihoodLevel int [not null]
+  consequenceLevel int [not null]
+  risk_rating RiskRatingEnum [not null]
+  
+  Note: 'Risk rating calculation matrix (lookup table)'
+  indexes {
+    (likelihoodLevel, consequenceLevel) [unique]
+  }
+}
+
+Table t_risk_assessment {
+  id varchar [pk]
+  code varchar [unique, not null]
+  description text [null]
+  departmentId varchar [not null, ref: > m_departments.id]
+  assessmentDate timestamp [not null, default: `now()`]
+  createdBy varchar [not null, note: 'User ID who created']
+  status varchar [not null]
+  isActive boolean [not null, default: true]
+  assigneeId varchar [null, ref: > t_users.id]
+  actionPlan text [null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Risk assessment records'
+  indexes {
+    code [unique]
+    departmentId
+    assigneeId
+    status
+  }
+}
+
+Table t_risk_assessment_item {
+  id varchar [pk]
+  riskAssessmentId varchar [not null, ref: > t_risk_assessment.id]
+  mThreatId varchar [not null, ref: > m_threats.id]
+  mHseCategoryId varchar [not null, ref: > m_hse_categories.id]
+  likelihoodLevel int [not null]
+  consequenceLevel int [not null]
+  riskMatrixRating RiskRatingEnum [not null]
+  
+  Note: 'Individual risk assessment entries'
+  indexes {
+    riskAssessmentId
+    mThreatId
+    mHseCategoryId
+  }
+}
+
+//// -- NOTIFICATION SYSTEM --
+
+Table m_notification_types {
+  id varchar [pk]
+  name varchar [unique, not null]
+  description varchar [null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Notification type categorization'
+  indexes {
+    name [unique]
+  }
+}
+
+Table t_notifications {
+  id varchar [pk]
+  title varchar [not null]
+  message varchar [not null]
+  context varchar [null, note: 'Module/context identifier']
+  contextId varchar [null, note: 'Specific entity ID']
+  typeId varchar [not null, ref: > m_notification_types.id]
+  isRead boolean [not null, default: false]
+  isActive boolean [not null, default: true]
+  readAt timestamp [null]
+  createdBy varchar [not null, ref: > t_users.id]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'System notifications'
+  indexes {
+    typeId
+    createdBy
+    isRead
+    (context, contextId)
+  }
+}
+
+Table t_notification_recipients {
+  id varchar [pk]
+  notificationId varchar [not null, ref: > t_notifications.id]
+  roleId varchar [not null, ref: > m_roles.id]
+  userId varchar [null, ref: > t_users.id, note: 'Optional for specific user targeting']
+  isRead boolean [not null, default: false]
+  readAt timestamp [null]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Notification recipients tracking'
+  indexes {
+    notificationId
+    roleId
+    userId
+    (notificationId, roleId, userId) [unique, name: 'unique_recipient']
+  }
+}
+
+//// -- FILE UPLOAD SYSTEM --
+
+Table m_file_storage_providers {
+  id varchar [pk]
+  name varchar [unique, not null, note: 'local, aws-s3, google-cloud, etc.']
+  config json [not null, note: 'Provider-specific configuration']
+  isActive boolean [not null, default: true]
+  isDefault boolean [not null, default: false]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Storage provider configuration'
+  indexes {
+    name [unique]
+    isDefault
+  }
+}
+
+Table m_file_categories {
+  id varchar [pk]
+  name varchar [unique, not null, note: 'profile-images, documents, etc.']
+  allowedTypes json [not null, note: 'Array of allowed MIME types']
+  maxSize int [not null, note: 'Max file size in bytes']
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'File category definitions with validation rules'
+  indexes {
+    name [unique]
+  }
+}
+
+Table t_file_uploads {
+  id varchar [pk]
+  originalName varchar [not null]
+  storedName varchar [not null, note: 'Stored filename with UUID']
+  mimeType varchar [not null]
+  size bigint [not null, note: 'File size in bytes']
+  hash varchar [not null, note: 'File hash for deduplication']
+  storageProviderId varchar [not null, ref: > m_file_storage_providers.id]
+  categoryId varchar [not null, ref: > m_file_categories.id]
+  uploadedBy varchar [not null, ref: > t_users.id]
+  isPublic boolean [not null, default: false]
+  accessToken varchar [unique, not null, note: 'Token for private access']
+  expiresAt timestamp [null]
+  metadata json [null, note: 'Additional file metadata']
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Uploaded file records'
+  indexes {
+    accessToken [unique]
+    storageProviderId
+    categoryId
+    uploadedBy
+    hash
+  }
+}
+
+Table t_file_access_logs {
+  id varchar [pk]
+  fileId varchar [not null, ref: > t_file_uploads.id]
+  accessedBy varchar [null, ref: > t_users.id, note: 'Nullable for anonymous access']
+  ipAddress varchar [not null]
+  userAgent varchar [not null]
+  accessType varchar [not null, note: 'download, view, stream']
+  accessedAt timestamp [not null, default: `now()`]
+  
+  Note: 'File access audit trail'
+  indexes {
+    fileId
+    accessedBy
+    accessedAt
+  }
+}
+
+//// -- SYSTEM CONFIGURATION --
+
+Table m_settings {
+  id varchar [pk]
+  key varchar [unique, not null]
+  value varchar [not null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Application configuration settings'
+  indexes {
+    key [unique]
+  }
+}
+
+//// -- MANY-TO-MANY RELATIONSHIPS (Junction Tables) --
+
+Table _PermissionToRole {
+  A varchar [ref: > m_permissions.id]
+  B varchar [ref: > m_roles.id]
+  
+  Note: 'Many-to-many: Roles and Permissions'
+  indexes {
+    (A, B) [pk]
+  }
+}
+
+Table _MenuToRole {
+  A varchar [ref: > m_menus.id]
+  B varchar [ref: > m_roles.id]
+  
+  Note: 'Many-to-many: Menus and Roles'
+  indexes {
+    (A, B) [pk]
+  }
+}
+
+//// -- TABLE GROUPS --
+
+TableGroup user_management {
+  t_users
+  m_roles
+  m_permissions
+  t_refresh_tokens
+  t_password_reset_tokens
+  _PermissionToRole
+}
+
+TableGroup organizational_structure {
+  m_offices
+  m_departments
+  m_job_positions
+}
+
+TableGroup navigation_access {
+  m_menus
+  _MenuToRole
+}
+
+TableGroup approval_system {
+  m_approval
+  m_approval_item
+  t_approvals
+}
+
+TableGroup hse_management {
+  m_hse_categories
+  m_threats
+  m_threat_mitigations
+}
+
+TableGroup risk_assessment {
+  m_risk_matrix
+  t_risk_assessment
+  t_risk_assessment_item
+}
+
+TableGroup notification_system {
+  m_notification_types
+  t_notifications
+  t_notification_recipients
+}
+
+TableGroup file_upload_system {
+  m_file_storage_providers
+  m_file_categories
+  t_file_uploads
+  t_file_access_logs
+}
+
+TableGroup system_configuration {
+  m_settings
+}
 ```
 
 ## Entity Descriptions
@@ -220,18 +624,18 @@ erDiagram
 #### User
 - **Primary Entity**: Central user management
 - **Key Fields**: email (unique), roleId, officeId
-- **Optional Fields**: departmentId, jobPositionId
+- **Optional Fields**: departmentId, jobPositionId, password (nullable for SSO users)
 - **Relationships**: 
   - Required: Role, Office
   - Optional: Department, JobPosition
-  - One-to-Many: RefreshTokens, CreatedApprovalItems, CreatedApprovals
+  - One-to-Many: RefreshTokens, PasswordResetTokens, RiskAssessments, CreatedApprovalItems, CreatedApprovals, CreatedNotifications, NotificationRecipients, UploadedFiles, FileAccessLogs
 
 #### Role
 - **Purpose**: Role-based access control
 - **Key Fields**: name (unique)
 - **Relationships**: 
   - Many-to-Many: Permissions, Menus
-  - One-to-Many: Users
+  - One-to-Many: Users, NotificationRecipients
 
 #### Permission
 - **Purpose**: Granular access control
@@ -251,7 +655,7 @@ erDiagram
 - **Purpose**: Organizational departments
 - **Key Fields**: code (unique)
 - **Relationships**: 
-  - One-to-Many: Users, MasterApprovalItems, Approvals
+  - One-to-Many: Users, MasterApprovalItems, Approvals, RiskAssessments
 
 #### JobPosition
 - **Purpose**: Job positions with hierarchy levels
@@ -298,6 +702,98 @@ erDiagram
 - **Key Fields**: token (unique), userId, expiresAt
 - **Relationships**: Belongs to User
 
+#### PasswordResetToken
+- **Purpose**: Password reset token management
+- **Key Fields**: token (unique), userId, email, expiresAt, isUsed
+- **Relationships**: Belongs to User
+
+### 6. HSE Management
+
+#### HseCategory
+- **Purpose**: Health, Safety, and Environment categories
+- **Key Fields**: code (unique), name
+- **Relationships**: 
+  - One-to-Many: Threats, RiskAssessmentItems
+
+#### Threat
+- **Purpose**: HSE threats/hazards
+- **Key Fields**: code (unique), name, hseCategoryId
+- **Relationships**: 
+  - Belongs to: HseCategory
+  - One-to-Many: ThreatMitigations, RiskAssessmentItems
+
+#### ThreatMitigation
+- **Purpose**: Mitigation strategies for threats
+- **Key Fields**: level (integer), mitigationDescription, threatId
+- **Relationships**: Belongs to Threat
+
+### 7. Risk Assessment
+
+#### RiskMatrix
+- **Purpose**: Risk rating calculation matrix
+- **Key Fields**: likelihoodLevel, consequenceLevel, risk_rating (enum)
+- **No Foreign Keys**: Lookup table only
+
+#### RiskAssessment
+- **Purpose**: Risk assessment records
+- **Key Fields**: code (unique), departmentId, status, assigneeId, createdBy
+- **Relationships**: 
+  - Belongs to: Department, User (assignee)
+  - One-to-Many: RiskAssessmentItems
+
+#### RiskAssessmentItem
+- **Purpose**: Individual risk assessment entries
+- **Key Fields**: riskAssessmentId, mThreatId, mHseCategoryId, likelihoodLevel, consequenceLevel, riskMatrixRating
+- **Relationships**: 
+  - Belongs to: RiskAssessment, Threat, HseCategory
+
+### 8. Notification System
+
+#### NotificationType
+- **Purpose**: Notification type categorization
+- **Key Fields**: name (unique)
+- **Relationships**: One-to-Many with Notifications
+
+#### Notification
+- **Purpose**: System notifications
+- **Key Fields**: title, message, typeId, context, contextId, createdBy
+- **Relationships**: 
+  - Belongs to: NotificationType, User (creator)
+  - One-to-Many: NotificationRecipients
+
+#### NotificationRecipient
+- **Purpose**: Notification recipients tracking
+- **Key Fields**: notificationId, roleId, userId (optional), isRead
+- **Relationships**: 
+  - Belongs to: Notification, Role
+  - Optional: User (for specific user targeting)
+
+### 9. File Upload System
+
+#### FileStorageProvider
+- **Purpose**: Storage provider configuration (local, AWS S3, Google Cloud, etc.)
+- **Key Fields**: name (unique), config (JSON), isDefault
+- **Relationships**: One-to-Many with FileUploads
+
+#### FileCategory
+- **Purpose**: File category definitions with validation rules
+- **Key Fields**: name (unique), allowedTypes (JSON), maxSize
+- **Relationships**: One-to-Many with FileUploads
+
+#### FileUpload
+- **Purpose**: Uploaded file records
+- **Key Fields**: originalName, storedName, hash, accessToken (unique), storageProviderId, categoryId, uploadedBy
+- **Relationships**: 
+  - Belongs to: FileStorageProvider, FileCategory, User (uploader)
+  - One-to-Many: FileAccessLogs
+
+#### FileAccessLog
+- **Purpose**: File access audit trail
+- **Key Fields**: fileId, accessedBy (optional), ipAddress, userAgent, accessType
+- **Relationships**: 
+  - Belongs to: FileUpload
+  - Optional: User (for authenticated access)
+
 ## Relationship Patterns
 
 ### 1. Hierarchical Relationships
@@ -323,8 +819,8 @@ erDiagram
 - All entities use UUID primary keys (`@id @default(uuid())`)
 
 ### Table Naming Convention
-- **Master Data Tables**: Prefixed with `m_` (m_roles, m_permissions, m_offices, m_departments, m_job_positions, m_menus, m_settings, m_approval, m_approval_item)
-- **Transactional Data Tables**: Prefixed with `t_` (t_users, t_refresh_tokens, t_approvals)
+- **Master Data Tables**: Prefixed with `m_` (m_roles, m_permissions, m_offices, m_departments, m_job_positions, m_menus, m_settings, m_approval, m_approval_item, m_hse_categories, m_threats, m_threat_mitigations, m_risk_matrix, m_notification_types, m_file_storage_providers, m_file_categories)
+- **Transactional Data Tables**: Prefixed with `t_` (t_users, t_refresh_tokens, t_password_reset_tokens, t_approvals, t_risk_assessment, t_risk_assessment_item, t_notifications, t_notification_recipients, t_file_uploads, t_file_access_logs)
 - **Junction Tables**: Prisma default naming (_PermissionToRole, _MenuToRole)
 
 ### Unique Constraints
@@ -334,8 +830,17 @@ erDiagram
 - `m_offices.code` - Unique office codes
 - `m_departments.code` - Unique department codes
 - `m_job_positions.code` - Unique job position codes
+- `m_hse_categories.code` - Unique HSE category codes
+- `m_threats.code` - Unique threat codes
+- `t_risk_assessment.code` - Unique risk assessment codes
+- `m_notification_types.name` - Unique notification type names
+- `m_file_storage_providers.name` - Unique storage provider names
+- `m_file_categories.name` - Unique file category names
+- `t_file_uploads.accessToken` - Unique file access tokens
 - `t_refresh_tokens.token` - Unique refresh tokens
+- `t_password_reset_tokens.token` - Unique password reset tokens
 - `m_settings.key` - Unique setting keys
+- `t_notification_recipients.[notificationId, roleId, userId]` - Composite unique constraint
 
 ### Foreign Key Constraints
 - **Cascade Updates**: All foreign keys use `ON UPDATE CASCADE`
@@ -361,6 +866,42 @@ JobPosition → Users
 MasterApproval → MasterApprovalItem → Approval
                 ↓
             JobPosition + Department + User
+```
+
+### 4. Risk Assessment Flow
+```
+Department → RiskAssessment → RiskAssessmentItem
+                ↓                      ↓
+              User (Assignee)    Threat + HseCategory
+                                        ↓
+                                  RiskMatrix (Lookup)
+```
+
+### 5. HSE Management Flow
+```
+HseCategory → Threat → ThreatMitigation
+                ↓
+        RiskAssessmentItem
+```
+
+### 6. Notification Flow
+```
+User (Creator) → Notification → NotificationRecipient
+                      ↓                ↓
+              NotificationType    Role + User (optional)
+```
+
+### 7. File Upload Flow
+```
+User → FileUpload → FileAccessLog
+         ↓              ↓
+    Category +      User (Accessor)
+    StorageProvider
+```
+
+### 8. Password Reset Flow
+```
+User → PasswordResetToken → Reset Password → Invalidate Token
 ```
 
 ## AI Assistant Guidelines
@@ -425,6 +966,73 @@ const menus = await prisma.menu.findMany({
     }
   },
   orderBy: { order: 'asc' }
+});
+
+// Get risk assessment with all relationships
+const riskAssessment = await prisma.riskAssessment.findUnique({
+  where: { id: assessmentId },
+  include: {
+    department: true,
+    assignee: true,
+    items: {
+      include: {
+        mThreat: {
+          include: {
+            hseCategory: true,
+            mitigations: true
+          }
+        },
+        mHseCategory: true
+      }
+    }
+  }
+});
+
+// Get notifications for a user
+const notifications = await prisma.notification.findMany({
+  where: {
+    isActive: true,
+    recipients: {
+      some: {
+        OR: [
+          { userId: userId },
+          { roleId: userRoleId, userId: null }
+        ]
+      }
+    }
+  },
+  include: {
+    type: true,
+    creator: true,
+    recipients: {
+      where: {
+        OR: [
+          { userId: userId },
+          { roleId: userRoleId, userId: null }
+        ]
+      }
+    }
+  },
+  orderBy: { createdAt: 'desc' }
+});
+
+// Get file uploads with access logs
+const fileUploads = await prisma.fileUpload.findMany({
+  where: {
+    isActive: true,
+    uploadedBy: userId
+  },
+  include: {
+    category: true,
+    storageProvider: true,
+    accessLogs: {
+      include: {
+        user: true
+      },
+      orderBy: { accessedAt: 'desc' },
+      take: 10
+    }
+  }
 });
 ```
 

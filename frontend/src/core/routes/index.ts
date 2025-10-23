@@ -1,5 +1,6 @@
 import { RouteConfig } from './types';
 import coreRoutes from './modules/coreRoutes';
+import moduleRoutes from './modules/moduleRoutes';
 import { settingsRoutes } from '@/modules/settings';
 import { userRoutes } from '@/modules/users';
 import { roleRoutes } from '@/modules/roles';
@@ -19,6 +20,7 @@ const routes: RouteConfig[] = [
   ...masterDataRoutes,
   ...settingsRoutes,
   ...notificationRoutes,
+  ...moduleRoutes,
 ];
 
 // Public routes that don't require authentication

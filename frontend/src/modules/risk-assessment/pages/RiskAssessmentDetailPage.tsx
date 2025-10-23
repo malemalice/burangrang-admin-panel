@@ -23,7 +23,8 @@ import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
 import { Textarea } from '@/core/components/ui/textarea';
 
 import { RiskAssessment, ApprovalStatus } from '@/core/lib/types';
-import { riskAssessmentService, approvalService, type ApprovalStatusHistory } from '@/modules/master-data';
+import riskAssessmentService from '../services/riskAssessmentService';
+import { approvalService, type ApprovalStatusHistory } from '@/modules/master-data';
 
 const RiskAssessmentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -420,4 +421,5 @@ const RiskAssessmentDetailPage = () => {
   );
 };
 
-export default RiskAssessmentDetailPage; 
+export default RiskAssessmentDetailPage;
+

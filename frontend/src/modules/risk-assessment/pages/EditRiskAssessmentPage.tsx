@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import RiskAssessmentForm from '@/components/risk-assessment/RiskAssessmentForm';
-import { riskAssessmentService } from '@/modules/master-data';
+import RiskAssessmentForm from '../components/RiskAssessmentForm';
+import riskAssessmentService from '../services/riskAssessmentService';
 import { RiskAssessment } from '@/core/lib/types';
 
 const EditRiskAssessmentPage = () => {
@@ -39,4 +39,5 @@ const EditRiskAssessmentPage = () => {
   return <RiskAssessmentForm assessment={assessment} mode="edit" />;
 };
 
-export default EditRiskAssessmentPage; 
+export default EditRiskAssessmentPage;
+

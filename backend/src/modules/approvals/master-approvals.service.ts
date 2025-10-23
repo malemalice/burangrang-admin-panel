@@ -65,8 +65,8 @@ export class MasterApprovalsService {
         data: {
           mApprovalId: masterApproval.id,
           order: item.order || 0,
-          job_position_id: item.job_position_id,
-          department_id: item.department_id,
+          jobPositionId: item.jobPositionId,
+          departmentId: item.departmentId,
           createdBy: userId,
         },
       });
@@ -178,8 +178,8 @@ export class MasterApprovalsService {
           data: {
             mApprovalId: id,
             order: item.order || 0,
-            job_position_id: item.job_position_id,
-            department_id: item.department_id,
+            jobPositionId: item.jobPositionId,
+            departmentId: item.departmentId,
             createdBy: userId,
           },
         });
@@ -227,8 +227,8 @@ export class MasterApprovalsService {
           id: string;
           mApprovalId: string;
           order: number;
-          job_position_id: string;
-          department_id: string;
+          jobPositionId: string;
+          departmentId: string;
           createdBy: string;
           createdAt: Date;
           jobPosition: { id: string; name: string };
@@ -240,8 +240,8 @@ export class MasterApprovalsService {
           id: itm.id,
           mApprovalId: itm.mApprovalId,
           order: itm.order,
-          job_position_id: itm.job_position_id,
-          department_id: itm.department_id,
+          jobPositionId: itm.jobPositionId,
+          departmentId: itm.departmentId,
           createdBy: itm.createdBy,
           createdAt: itm.createdAt,
           jobPosition: {
@@ -443,8 +443,8 @@ export class MasterApprovalsService {
         data: {
           mApprovalId: masterApproval.id,
           entityId: submitApprovalDto.dataId,
-          department_id: user.departmentId!,
-          job_position_id: user.jobPositionId!,
+          departmentId: user.departmentId!,
+          jobPositionId: user.jobPositionId!,
           status: submitApprovalDto.status,
           notes: submitApprovalDto.notes,
           createdBy: user.id,

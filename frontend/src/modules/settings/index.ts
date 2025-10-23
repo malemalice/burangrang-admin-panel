@@ -5,6 +5,7 @@
 
 // Pages
 export { default as SettingsPage } from './pages/SettingsPage';
+export { default as SettingsManagementPage } from './pages/SettingsManagementPage';
 
 // Routes
 export { default as settingsRoutes } from './routes/settingsRoutes';
