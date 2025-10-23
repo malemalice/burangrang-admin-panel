@@ -45,8 +45,8 @@ export class ApprovalsService {
         mApprovalId: masterApproval.id,
         entityId,
         status: ApprovalStatus.REQUESTED,
-        department_id: user?.departmentId || '',
-        job_position_id: user?.jobPositionId || '',
+        departmentId: user?.departmentId || '',
+        jobPositionId: user?.jobPositionId || '',
         createdBy: userId,
         notes: '', // Required field in schema
       },

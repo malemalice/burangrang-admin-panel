@@ -9,10 +9,10 @@ import { Type } from 'class-transformer';
 
 export class CreateMasterApprovalItemDto {
   @IsString()
-  job_position_id: string;
+  jobPositionId: string;
 
   @IsString()
-  department_id: string;
+  departmentId: string;
 
   @IsOptional()
   order?: number;
