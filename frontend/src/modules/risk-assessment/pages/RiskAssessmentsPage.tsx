@@ -30,7 +30,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/core/components/ui/badge';
 
 import { RiskAssessment } from '@/core/lib/types';
-import { riskAssessmentService } from '@/modules/master-data';
+import riskAssessmentService from '../services/riskAssessmentService';
 
 const RiskAssessmentsPage = () => {
   const navigate = useNavigate();
@@ -326,4 +326,5 @@ const RiskAssessmentsPage = () => {
   );
 };
 
-export default RiskAssessmentsPage; 
+export default RiskAssessmentsPage;
+

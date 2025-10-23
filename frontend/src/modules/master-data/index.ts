@@ -60,7 +60,6 @@ export { default as masterApprovalService } from './services/masterApprovalServi
 export { default as hseCategoryService } from './services/hseCategoryService';
 export { default as threatService } from './services/threatService';
 export { default as threatMitigationService } from './services/threatMitigationService';
-export { default as riskAssessmentService } from './services/riskAssessmentService';
 export { default as approvalService } from './services/approvalService';
 export { default as DashboardService } from './services/dashboard.service';
 
@@ -114,7 +113,6 @@ export type {
 
 // Additional service types
 export type { ApprovalStatusHistory } from './services/approvalService';
-export type { CreateRiskAssessmentDTO } from './services/riskAssessmentService';
 
 // Hooks
 export { 
