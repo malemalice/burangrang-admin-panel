@@ -18,4 +18,4 @@ export class CreateJobPositionDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
-} 
+}

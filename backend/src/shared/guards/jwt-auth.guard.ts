@@ -2,6 +2,7 @@ import { Injectable, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { Observable } from 'rxjs';
+import { Request } from 'express';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -9,7 +10,9 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     super();
   }
 
-  canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
+  canActivate(
+    context: ExecutionContext,
+  ): boolean | Promise<boolean> | Observable<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [
       context.getHandler(),
       context.getClass(),
@@ -21,7 +24,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     }
 
     // Check if it's the login endpoint
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<Request>();
     if (request.path === '/auth/login' && request.method === 'POST') {
       return true;
     }
@@ -29,4 +32,4 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     // For all other routes, apply JWT authentication
     return super.canActivate(context);
   }
-} 
+}

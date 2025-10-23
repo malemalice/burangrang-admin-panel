@@ -21,7 +21,8 @@ export const roles = [
           (p) =>
             p.name.startsWith('user:') ||
             p.name.startsWith('office:') ||
-            p.name.startsWith('auth:')
+            p.name.startsWith('auth:') ||
+            p.name.startsWith('notification:')
         )
         .map((p) => p.id),
   },
@@ -35,7 +36,12 @@ export const roles = [
             p.name === 'auth:login' ||
             p.name === 'auth:logout' ||
             p.name === 'auth:change-password' ||
-            p.name === 'user:read'
+            p.name === 'user:read' ||
+            p.name === 'notification:read' ||
+            p.name === 'notification:mark-read' ||
+            p.name === 'notification:mark-all-read' ||
+            p.name === 'notification:unread-count' ||
+            p.name === 'notification:types'
         )
         .map((p) => p.id),
   },
@@ -53,8 +59,16 @@ export async function seedRoles(prisma: PrismaClient, permissions: Permission[])
   console.log('Creating roles...');
   const createdRoles = await Promise.all(
     roles.map((role) =>
-      prisma.role.create({
-        data: {
+      prisma.role.upsert({
+        where: { name: role.name },
+        update: {
+          description: role.description,
+          isActive: true,
+          permissions: {
+            set: role.permissions(permissions).map((id) => ({ id })),
+          },
+        },
+        create: {
           name: role.name,
           description: role.description,
           isActive: true,
@@ -65,6 +79,6 @@ export async function seedRoles(prisma: PrismaClient, permissions: Permission[])
       })
     )
   );
-  console.log('Created roles:', createdRoles.map((r) => r.name));
+  console.log('Created/Updated roles:', createdRoles.map((r) => r.name));
   return createdRoles;
 } 

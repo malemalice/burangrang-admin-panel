@@ -17,6 +17,8 @@ import { Prisma } from '@prisma/client';
 import { SubmitApprovalDto } from './dto/submit-approval.dto';
 import { ConfigService } from '@nestjs/config';
 import { User } from 'src/shared/types';
+import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 
 interface FindAllOptions {
   page?: number;
@@ -29,10 +31,22 @@ interface FindAllOptions {
 
 @Injectable()
 export class MasterApprovalsService {
+  private masterApprovalMapper: (masterApproval: any) => MasterApprovalDto;
+  private masterApprovalArrayMapper: (masterApprovals: any[]) => MasterApprovalDto[];
+  private masterApprovalPaginatedMapper: (data: { data: any[]; meta: any }) => { data: MasterApprovalDto[]; meta: any };
+
   constructor(
     private readonly prisma: PrismaService,
+    private dtoMapper: DtoMapperService,
+    private errorHandler: ErrorHandlingService,
     private readonly configService: ConfigService,
-  ) {}
+
+  ) {
+    // Initialize mappers
+    this.masterApprovalMapper = this.dtoMapper.createSimpleMapper(MasterApprovalDto);
+    this.masterApprovalArrayMapper = this.dtoMapper.createSimpleArrayMapper(MasterApprovalDto);
+    this.masterApprovalPaginatedMapper = this.dtoMapper.createPaginatedMapper(MasterApprovalDto);
+  }
 
   async create(
     createMasterApprovalDto: CreateMasterApprovalDto,
@@ -53,7 +67,7 @@ export class MasterApprovalsService {
           order: item.order || 0,
           job_position_id: item.job_position_id,
           department_id: item.department_id,
-          createdBy: userId,
+          createdBy: item.createdBy,
         },
       });
     }
@@ -107,7 +121,7 @@ export class MasterApprovalsService {
     ]);
 
     return {
-      data: masterApprovals.map((approval) => this.mapToDto(approval)),
+      data: this.masterApprovalArrayMapper(masterApprovals),
       meta: { total, page, limit },
     };
   }
@@ -126,11 +140,9 @@ export class MasterApprovalsService {
       },
     });
 
-    if (!masterApproval) {
-      throw new NotFoundException(`Master approval with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Master approval', id, masterApproval);
 
-    return this.mapToDto(masterApproval);
+    return this.masterApprovalMapper(masterApproval);
   }
 
   async update(
@@ -145,9 +157,7 @@ export class MasterApprovalsService {
       where: { id },
     });
 
-    if (!existingApproval) {
-      throw new NotFoundException(`Master approval with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Master approval', id, existingApproval);
 
     // Update the approval
     await this.prisma.masterApproval.update({
@@ -170,7 +180,7 @@ export class MasterApprovalsService {
             order: item.order || 0,
             job_position_id: item.job_position_id,
             department_id: item.department_id,
-            createdBy: userId,
+            createdBy: item.createdBy,
           },
         });
       }
@@ -185,9 +195,7 @@ export class MasterApprovalsService {
       where: { id },
     });
 
-    if (!masterApproval) {
-      throw new NotFoundException(`Master approval with ID ${id} not found`);
-    }
+    this.errorHandler.throwIfNotFoundById('Master approval', id, masterApproval);
 
     // Delete all related items first
     await this.prisma.masterApprovalItem.deleteMany({
@@ -201,33 +209,57 @@ export class MasterApprovalsService {
   }
 
   private mapToDto(data: any): MasterApprovalDto {
+    const approval = data as {
+      id: string;
+      entity: string;
+      isActive: boolean;
+      items?: any[];
+      createdAt: Date;
+      updatedAt: Date;
+    };
+
     return {
-      id: data.id,
-      entity: data.entity,
-      isActive: data.isActive,
-      items: data.items?.map((item: any) => ({
-        id: item.id,
-        mApprovalId: item.mApprovalId,
-        order: item.order,
-        job_position_id: item.job_position_id,
-        department_id: item.department_id,
-        createdBy: item.createdBy,
-        createdAt: item.createdAt,
-        jobPosition: {
-          id: item.jobPosition.id,
-          name: item.jobPosition.name,
-        },
-        department: {
-          id: item.department.id,
-          name: item.department.name,
-        },
-        creator: {
-          id: item.creator.id,
-          name: `${item.creator.firstName} ${item.creator.lastName}`,
-        },
-      })),
-      createdAt: data.createdAt,
-      updatedAt: data.updatedAt,
+      id: approval.id,
+      entity: approval.entity,
+      isActive: approval.isActive,
+      items: (approval.items?.map((item: any) => {
+        const itm = item as {
+          id: string;
+          mApprovalId: string;
+          order: number;
+          job_position_id: string;
+          department_id: string;
+          createdBy: string;
+          createdAt: Date;
+          jobPosition: { id: string; name: string };
+          department: { id: string; name: string };
+          creator: { id: string; firstName: string; lastName: string };
+        };
+
+        return {
+          id: itm.id,
+          mApprovalId: itm.mApprovalId,
+          order: itm.order,
+          job_position_id: itm.job_position_id,
+          department_id: itm.department_id,
+          createdBy: itm.createdBy,
+          createdAt: itm.createdAt,
+          jobPosition: {
+            id: itm.jobPosition.id,
+            name: itm.jobPosition.name,
+          },
+          department: {
+            id: itm.department.id,
+            name: itm.department.name,
+          },
+          creator: {
+            id: itm.creator.id,
+            name: `${itm.creator.firstName} ${itm.creator.lastName}`,
+          },
+        };
+      }) || []),
+      createdAt: approval.createdAt,
+      updatedAt: approval.updatedAt,
     };
   }
 

@@ -44,6 +44,81 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+## Database Seeding
+
+The application includes comprehensive database seeding functionality to populate the database with initial data. Seeds can be run globally (all tables) or individually for specific tables.
+
+### Global Seeding (All Tables)
+
+To seed all tables with initial data:
+
+```bash
+# Using npm script
+$ npm run prisma:seed
+
+# Or using Prisma directly
+$ npx prisma db seed
+```
+
+This will:
+- Clear all existing data from all tables
+- Seed data in the correct dependency order:
+  1. Permissions
+  2. Roles (depends on permissions)
+  3. Offices
+  4. Departments
+  5. Job Positions
+  6. Users (depends on roles and offices)
+  7. Settings
+  8. Menus (depends on permissions and roles)
+
+### Individual Table Seeding
+
+To seed specific tables individually:
+
+```bash
+# Seed specific table
+$ npm run prisma:seed [table_name]
+
+# Examples:
+$ npm run prisma:seed users
+$ npm run prisma:seed roles
+$ npm run prisma:seed permissions
+$ npm run prisma:seed offices
+$ npm run prisma:seed departments
+$ npm run prisma:seed job_positions
+$ npm run prisma:seed settings
+$ npm run prisma:seed menus
+```
+
+**Available Tables:**
+- `users` - User accounts and profiles
+- `roles` - User roles and permissions
+- `permissions` - System permissions
+- `offices` - Office locations
+- `departments` - Department information
+- `job_positions` - Job position definitions
+- `settings` - Application settings
+- `menus` - Navigation menu items
+
+**Note:** When seeding individual tables, the system automatically handles dependencies. For example, seeding `users` will also seed `permissions`, `roles`, and `offices` as they are required dependencies.
+
+### Database Management
+
+```bash
+# Generate Prisma client
+$ npx prisma generate
+
+# Run database migrations
+$ npx prisma migrate dev
+
+# Reset database (WARNING: This will delete all data)
+$ npx prisma migrate reset
+
+# View database in Prisma Studio
+$ npx prisma studio
+```
+
 ## Run tests
 
 ```bash

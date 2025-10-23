@@ -49,22 +49,63 @@ export const permissions = [
   { name: 'auth:change-password', description: 'Change user password' },
   { name: 'auth:reset-password', description: 'Reset user password' },
 
+  // Settings Management
+  { name: 'setting:create', description: 'Create new settings' },
+  { name: 'setting:read', description: 'View setting information' },
+  { name: 'setting:update', description: 'Update setting information' },
+  { name: 'setting:delete', description: 'Delete settings' },
+  { name: 'setting:list', description: 'List all settings' },
+
   // System Management
   { name: 'system:settings', description: 'Manage system settings' },
   { name: 'system:logs', description: 'View system logs' },
   { name: 'system:backup', description: 'Create system backups' },
   { name: 'system:restore', description: 'Restore system from backup' },
+
+  // Notification Management
+  { name: 'notification:create', description: 'Create new notifications' },
+  { name: 'notification:read', description: 'View notifications' },
+  { name: 'notification:update', description: 'Update notifications' },
+  { name: 'notification:delete', description: 'Delete notifications' },
+  { name: 'notification:list', description: 'List all notifications' },
+  { name: 'notification:mark-read', description: 'Mark notifications as read' },
+  { name: 'notification:mark-all-read', description: 'Mark all notifications as read' },
+  { name: 'notification:unread-count', description: 'View unread notification count' },
+  { name: 'notification:types', description: 'View notification types' },
+
+  // Approval Management
+  { name: 'approval:create', description: 'Create new approvals' },
+  { name: 'approval:read', description: 'View approvals' },
+  { name: 'approval:update', description: 'Update approvals' },
+  { name: 'approval:delete', description: 'Delete approvals' },
+  { name: 'approval:list', description: 'List all approvals' },
+
+  // Job Position Management
+  { name: 'job-position:create', description: 'Create new job positions' },
+  { name: 'job-position:read', description: 'View job positions' },
+  { name: 'job-position:update', description: 'Update job positions' },
+  { name: 'job-position:delete', description: 'Delete job positions' },
+  { name: 'job-position:list', description: 'List all job positions' },
+
+  // Department Management
+  { name: 'department:create', description: 'Create new departments' },
+  { name: 'department:read', description: 'View departments' },
+  { name: 'department:update', description: 'Update departments' },
+  { name: 'department:delete', description: 'Delete departments' },
+  { name: 'department:list', description: 'List all departments' },
 ];
 
 export async function seedPermissions(prisma: PrismaClient) {
   console.log('Creating permissions...');
   const createdPermissions = await Promise.all(
     permissions.map((permission) =>
-      prisma.permission.create({
-        data: permission,
+      prisma.permission.upsert({
+        where: { name: permission.name },
+        update: permission,
+        create: permission,
       })
     )
   );
-  console.log(`Created ${createdPermissions.length} permissions`);
+  console.log(`Created/Updated ${createdPermissions.length} permissions`);
   return createdPermissions;
 } 
