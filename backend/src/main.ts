@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import * as cookieParser from 'cookie-parser';
+import * as session from 'express-session';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { JwtAuthGuard } from './shared/guards/jwt-auth.guard';
@@ -14,18 +15,32 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const reflector = app.get(Reflector);
   const prismaService = app.get(PrismaService);
-  
-  // Enable CORS with frontend URL from environment
+
+  // Enable CORS with multiple frontend domains
+  const corsConfig = configService.get('app.cors');
   app.enableCors({
-    // origin: [configService.get('FRONTEND_URL') || 'http://localhost:5173'],
-    origin: true,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    credentials: true,
-    allowedHeaders: 'Content-Type,Accept,Authorization'
+    origin: corsConfig.origins,
+    methods: corsConfig.methods,
+    credentials: corsConfig.credentials,
+    allowedHeaders: corsConfig.allowedHeaders,
   });
 
   // Use cookie parser
   app.use(cookieParser());
+
+  // Configure session middleware for OAuth 2.0 + PKCE
+  app.use(
+    session({
+      secret: configService.get('app.sessionSecret') || 'your-session-secret-key',
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      },
+    }),
+  );
 
   // Enable validation pipes
   app.useGlobalPipes(
@@ -38,7 +53,6 @@ async function bootstrap() {
   // Enable guards
   app.useGlobalGuards(
     new JwtAuthGuard(reflector),
-    new PermissionsGuard(reflector, prismaService)
   );
 
   // Swagger setup
@@ -53,4 +67,7 @@ async function bootstrap() {
 
   await app.listen(configService.get('PORT') || 3000);
 }
-bootstrap();
+bootstrap().catch((error) => {
+  console.error('Application failed to start:', error);
+  process.exit(1);
+});

@@ -9,4 +9,4 @@ export class PermissionDto {
   constructor(partial: Partial<PermissionDto>) {
     Object.assign(this, partial);
   }
-} 
+}

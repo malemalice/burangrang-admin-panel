@@ -21,6 +21,11 @@ import { RiskMatrixModule } from './modules/risk-matrix/risk-matrix.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 import { MasterApprovalsModule } from './modules/approvals/master-approvals.module';
+import { SettingsModule } from './modules/settings/settings.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
+import { SharedModule } from './shared/shared.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -28,6 +33,7 @@ import { MasterApprovalsModule } from './modules/approvals/master-approvals.modu
       load: [appConfig],
     }),
     PrismaModule,
+    SharedModule,
     AuthModule,
     UsersModule,
     RolesModule,
@@ -43,6 +49,9 @@ import { MasterApprovalsModule } from './modules/approvals/master-approvals.modu
     RiskMatrixModule,
     DashboardModule,
     MasterApprovalsModule,
+    SettingsModule,
+    NotificationsModule,
+    UploadsModule,
   ],
   providers: [
     Reflector,

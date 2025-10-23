@@ -13,17 +13,21 @@ export class UserDto {
   createdAt: Date;
   updatedAt: Date;
   lastLoginAt?: Date | null;
-  
+
   // Include the role object
   role?: any;
   office?: any;
   department?: any;
   jobPosition?: any;
-  
+
   // Add a getter to extract role name as a string
   @Expose()
   get roleName(): string {
-    return this.role?.name || 'User';
+    if (this.role && typeof this.role === 'object' && 'name' in this.role) {
+      const roleName = (this.role as { name: unknown }).name;
+      return typeof roleName === 'string' ? roleName : String(roleName);
+    }
+    return 'User';
   }
 
   @Exclude()
@@ -32,4 +36,4 @@ export class UserDto {
   constructor(partial: Partial<UserDto>) {
     Object.assign(this, partial);
   }
-} 
+}

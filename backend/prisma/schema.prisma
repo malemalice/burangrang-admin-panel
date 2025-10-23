@@ -11,7 +11,7 @@ datasource db {
 model User {
   id            String         @id @default(uuid())
   email         String         @unique
-  password      String
+  password      String?
   firstName     String
   lastName      String
   isActive      Boolean        @default(true)
@@ -23,6 +23,7 @@ model User {
   updatedAt     DateTime       @updatedAt
   lastLoginAt   DateTime?
   refreshTokens RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
   office        Office         @relation(fields: [officeId], references: [id])
   role          Role           @relation(fields: [roleId], references: [id])
   department    Department?    @relation(fields: [departmentId], references: [id])
@@ -30,8 +31,12 @@ model User {
   riskAssessments RiskAssessment[]
   createdApprovalItems MasterApprovalItem[] @relation("CreatedApprovalItems")
   createdApprovals Approval[] @relation("CreatedApprovals")
+  createdNotifications Notification[] @relation("NotificationCreator")
+  notificationRecipients NotificationRecipient[] @relation("NotificationRecipient")
+  uploadedFiles FileUpload[]
+  fileAccessLogs FileAccessLog[]
 
-  @@map("users")
+  @@map("t_users")
 }
 
 model RefreshToken {
@@ -42,7 +47,20 @@ model RefreshToken {
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
 
-  @@map("refresh_tokens")
+  @@map("t_refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  email     String
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("t_password_reset_tokens")
 }
 
 model Role {
@@ -55,8 +73,9 @@ model Role {
   users       User[]
   menus       Menu[]       @relation("MenuToRole")
   permissions Permission[] @relation("PermissionToRole")
+  notificationRecipients NotificationRecipient[]
 
-  @@map("roles")
+  @@map("m_roles")
 }
 
 model Permission {
@@ -68,7 +87,7 @@ model Permission {
   updatedAt   DateTime @updatedAt
   roles       Role[]   @relation("PermissionToRole")
 
-  @@map("permissions")
+  @@map("m_permissions")
 }
 
 model Menu {
@@ -85,7 +104,7 @@ model Menu {
   children  Menu[]   @relation("MenuHierarchy")
   roles     Role[]   @relation("MenuToRole")
 
-  @@map("menus")
+  @@map("m_menus")
 }
 
 model Office {
@@ -104,7 +123,7 @@ model Office {
   children    Office[] @relation("OfficeHierarchy")
   users       User[]
 
-  @@map("offices")
+  @@map("m_offices")
 }
 
 model Department {
@@ -119,7 +138,7 @@ model Department {
   riskAssessments RiskAssessment[]
   approvalItems MasterApprovalItem[]
   approvals Approval[]
-  @@map("departments")
+  @@map("m_departments")
 }
 
 model JobPosition {
@@ -134,7 +153,7 @@ model JobPosition {
   users       User[]
   approvalItems MasterApprovalItem[]
   approvals   Approval[]
-  @@map("job_positions")
+  @@map("m_job_positions")
 }
 
 model HseCategory {
@@ -244,12 +263,12 @@ model MasterApprovalItem {
   mApprovalId String
   mApproval MasterApproval @relation(fields:[mApprovalId], references:[id])
   order Int
-  job_position_id String
-  department_id String
+  jobPositionId String
+  departmentId String
   createdBy String
   createdAt DateTime @default(now())
-  jobPosition JobPosition @relation(fields: [job_position_id], references: [id])
-  department Department @relation(fields: [department_id], references: [id])
+  jobPosition JobPosition @relation(fields: [jobPositionId], references: [id])
+  department Department @relation(fields: [departmentId], references: [id])
   creator User @relation("CreatedApprovalItems", fields: [createdBy], references: [id])
 
   @@map("m_approval_item")
@@ -259,15 +278,156 @@ model Approval {
   id String @id @default(uuid())
   mApprovalId String
   entityId String
-  department_id String
-  job_position_id String
+  departmentId String
+  jobPositionId String
   status String
   notes String
   createdAt DateTime @default(now())
   createdBy String
-  department Department @relation(fields: [department_id], references: [id])
-  jobPosition JobPosition @relation(fields: [job_position_id], references: [id])
+  department Department @relation(fields: [departmentId], references: [id])
+  jobPosition JobPosition @relation(fields: [jobPositionId], references: [id])
   creator User @relation("CreatedApprovals", fields: [createdBy], references: [id])
 
   @@map("t_approvals")
+}
+
+model Setting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("m_settings")
+}
+
+// Notification System Models
+model NotificationType {
+  id          String         @id @default(uuid())
+  name        String         @unique
+  description String?
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  notifications Notification[]
+
+  @@map("m_notification_types")
+}
+
+model Notification {
+  id                String           @id @default(uuid())
+  title             String
+  message           String
+  context           String?          // Module/context where notification was triggered
+  contextId         String?          // Specific ID of the context (e.g., user ID, document ID)
+  typeId            String
+  isRead            Boolean          @default(false)
+  isActive          Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  readAt            DateTime?
+  
+  // Relations
+  type              NotificationType @relation(fields: [typeId], references: [id])
+  recipients        NotificationRecipient[]
+  createdBy         String
+  creator           User             @relation("NotificationCreator", fields: [createdBy], references: [id])
+
+  @@map("t_notifications")
+}
+
+model NotificationRecipient {
+  id             String       @id @default(uuid())
+  notificationId String
+  roleId         String
+  userId         String?      // Optional: specific user if targeting individual
+  isRead         Boolean      @default(false)
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+  
+  // Relations
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  role           Role         @relation(fields: [roleId], references: [id])
+  user           User?        @relation("NotificationRecipient", fields: [userId], references: [id])
+
+  @@unique([notificationId, roleId, userId])
+  @@map("t_notification_recipients")
+}
+
+// File Storage Provider - Master Data
+model FileStorageProvider {
+  id        String   @id @default(uuid())
+  name      String   @unique // "local", "aws-s3", "google-cloud"
+  config    Json     // Provider-specific configuration
+  isActive  Boolean  @default(true)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  fileUploads FileUpload[]
+
+  @@map("m_file_storage_providers")
+}
+
+// File Category - Master Data
+model FileCategory {
+  id           String   @id @default(uuid())
+  name         String   @unique // "profile-images", "documents", "course-materials"
+  allowedTypes Json     // ["image/jpeg", "image/png", "application/pdf"]
+  maxSize      Int      // Max file size in bytes
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  fileUploads FileUpload[]
+
+  @@map("m_file_categories")
+}
+
+// File Upload - Transactional Data
+model FileUpload {
+  id                String   @id @default(uuid())
+  originalName      String   // Original filename
+  storedName        String   // Stored filename (with UUID)
+  mimeType          String   // File MIME type
+  size              BigInt   // File size in bytes
+  hash              String   // File hash for deduplication
+  storageProviderId String
+  categoryId        String
+  uploadedBy        String
+  isPublic          Boolean  @default(false)
+  accessToken       String   @unique // Token for private access
+  expiresAt         DateTime? // Optional expiration
+  metadata          Json?    // Additional file metadata
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  storageProvider FileStorageProvider @relation(fields: [storageProviderId], references: [id])
+  category        FileCategory        @relation(fields: [categoryId], references: [id])
+  uploader        User                @relation(fields: [uploadedBy], references: [id])
+  accessLogs      FileAccessLog[]
+
+  @@map("t_file_uploads")
+}
+
+// File Access Log - Transactional Data
+model FileAccessLog {
+  id          String   @id @default(uuid())
+  fileId      String
+  accessedBy  String?  // Nullable for anonymous access
+  ipAddress   String
+  userAgent   String
+  accessType  String   // "download", "view", "stream"
+  accessedAt  DateTime @default(now())
+
+  // Relations
+  file    FileUpload @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  user    User?      @relation(fields: [accessedBy], references: [id])
+
+  @@map("t_file_access_logs")
 }
