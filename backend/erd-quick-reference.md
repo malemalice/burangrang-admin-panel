@@ -26,6 +26,11 @@
 - **Threat** (id, name, code, description, hseCategoryId, isActive)
 - **ThreatMitigation** (id, level, mitigationDescription, threatId, isActive)
 
+### Inspection System
+- **Area** (id, name, code, description, officeId?, isActive)
+- **Inspection** (id, code, inspectorId, areaId, inspectionDate, hseCategoryId, findingIssue, description, assignedDepartmentId, assigneeId?, controlMeasure, followUpNotes, status, isActive, createdBy)
+- **InspectionPhoto** (id, inspectionId, photoUrl, caption, order)
+
 ### Risk Assessment
 - **RiskMatrix** (id, likelihoodLevel, consequenceLevel, risk_rating)
 - **RiskAssessment** (id, code, description, departmentId, assessmentDate, createdBy, status, assigneeId?, actionPlan?)
@@ -92,13 +97,13 @@ prisma.menu.findMany({
 ```
 
 ## Table Naming Convention
-- **Master Data Tables**: Prefixed with `m_` (m_roles, m_permissions, m_offices, m_departments, m_job_positions, m_menus, m_settings, m_approval, m_approval_item, m_hse_categories, m_threats, m_threat_mitigations, m_risk_matrix, m_notification_types, m_file_storage_providers, m_file_categories)
-- **Transactional Data Tables**: Prefixed with `t_` (t_users, t_refresh_tokens, t_password_reset_tokens, t_approvals, t_risk_assessment, t_risk_assessment_item, t_notifications, t_notification_recipients, t_file_uploads, t_file_access_logs)
+- **Master Data Tables**: Prefixed with `m_` (m_roles, m_permissions, m_offices, m_departments, m_job_positions, m_menus, m_settings, m_approval, m_approval_item, m_hse_categories, m_threats, m_threat_mitigations, m_risk_matrix, m_notification_types, m_file_storage_providers, m_file_categories, m_areas)
+- **Transactional Data Tables**: Prefixed with `t_` (t_users, t_refresh_tokens, t_password_reset_tokens, t_approvals, t_risk_assessment, t_risk_assessment_item, t_notifications, t_notification_recipients, t_file_uploads, t_file_access_logs, t_inspections, t_inspection_photos)
 - **Junction Tables**: Prisma default naming (_PermissionToRole, _MenuToRole)
 
 ## Constraints
 - All PKs: UUID
-- Unique: email, role.name, permission.name, office.code, dept.code, job.code, hse_category.code, threat.code, risk_assessment.code, notification_type.name, file_storage_provider.name, file_category.name, file_upload.accessToken, setting.key, tokens (refresh & reset)
+- Unique: email, role.name, permission.name, office.code, dept.code, job.code, hse_category.code, threat.code, risk_assessment.code, notification_type.name, file_storage_provider.name, file_category.name, file_upload.accessToken, setting.key, tokens (refresh & reset), area.code, inspection.code
 - FK Actions: UPDATE CASCADE, DELETE RESTRICT (or SET NULL for optional)
 - Composite Unique: notification_recipients[notificationId, roleId, userId]
 
@@ -113,3 +118,5 @@ prisma.menu.findMany({
 8. For file uploads: check category allowedTypes and maxSize before upload
 9. For password reset: verify token expiration and isUsed flag
 10. Consider cascading deletes for notification recipients and file access logs
+11. For inspections: always include inspector, area, hseCategory, assignedDepartment, assignee, and photos
+12. Inspection status flow: SCHEDULED → DRAFT → OPEN → WAITING_APPROVAL → DONE/REJECTED

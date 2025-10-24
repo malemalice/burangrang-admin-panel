@@ -11,6 +11,15 @@ enum RiskRatingEnum {
   EXTREME
 }
 
+enum GeneralStatusEnum {
+  SCHEDULED
+  DRAFT
+  OPEN
+  WAITING_APPROVAL
+  DONE
+  REJECTED
+}
+
 // Tables
 Table users {
   id string [pk, default: `uuid()`]
@@ -140,6 +149,19 @@ Table m_threats {
   Note: 'Threat definitions for risk assessment'
 }
 
+Table m_areas {
+  id string [pk, default: `uuid()`]
+  name string [not null]
+  code string [unique, not null]
+  description text
+  office_id string [ref: > offices.id]
+  is_active boolean [default: true, not null]
+  created_at timestamp [default: `now()`, not null]
+  updated_at timestamp [default: `now()`, not null]
+
+  Note: 'Physical areas/locations for inspections'
+}
+
 Table t_risk_control {
   id string [pk, default: `uuid()`]
   eliminate text [null]
@@ -173,10 +195,10 @@ Table t_risk_assessment {
   created_at timestamp [default: `now()`, not null]
   updated_at timestamp [default: `now()`, not null]
   created_by string [not null, ref: > users.id]
-  status string [not null]
   is_active boolean [default: true, not null]
   assignee_id string [ref: > users.id]
   action_plan text
+  status GeneralStatusEnum [not null]
 
   Note: 'Risk assessment records'
 }
@@ -234,6 +256,39 @@ Table t_approvals {
   Note: 'Approval transaction records'
 }
 
+Table t_inspections {
+  id string [pk, default: `uuid()`]
+  code string [unique, not null]
+  inspector_id string [not null, ref: > users.id]
+  area_id string [not null, ref: > m_areas.id]
+  inspection_date timestamp [not null]
+  hse_category_id string [not null, ref: > m_hse_categories.id]
+  finding_issue text [not null]
+  description text
+  assigned_department_id string [not null, ref: > departments.id]
+  assignee_id string [ref: > users.id]
+  control_measure text
+  follow_up_notes text
+  status GeneralStatusEnum [not null]
+  is_active boolean [default: true, not null]
+  created_at timestamp [default: `now()`, not null]
+  updated_at timestamp [default: `now()`, not null]
+  created_by string [not null, ref: > users.id]
+
+  Note: 'HSE inspection records'
+}
+
+Table t_inspection_images_ {
+  id string [pk, default: `uuid()`]
+  inspection_id string [not null, ref: > t_inspections.id]
+  image_url string [not null]
+  caption text
+  order integer [not null]
+  created_at timestamp [default: `now()`, not null]
+
+  Note: 'Photos/images attached to inspections'
+}
+
 // Many-to-many relationships (Junction tables)
 Table role_permissions {
   role_id string [not null]
@@ -277,6 +332,12 @@ TableGroup risk_management [color: #F39C12, note: 'Risk assessment and HSE manag
   m_risk_matrix
   t_risk_assessment
   t_risk_assessment_item
+}
+
+TableGroup inspection_system [color: #1ABC9C, note: 'HSE inspection management'] {
+  m_areas
+  t_inspections
+  t_inspection_images_
 }
 
 TableGroup approval_system [color: #9B59B6, note: 'Approval workflow management'] {
