@@ -20,6 +20,12 @@ Enum GeneralStatusEnum {
   REJECTED
 }
 
+Enum CompliantStatusEnum {
+  COMPLY
+  NOT_COMPLY_MAJOR
+  NOT_COMPLY_MINOR
+}
+
 //// -- CORE USER MANAGEMENT --
 
 Table t_users {
@@ -301,6 +307,92 @@ Table t_inspection_images {
   Note: 'Photos/images attached to inspections'
 }
 
+//// -- AUDIT SYSTEM --
+
+Table m_audit_criteria {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Top-level audit criteria categories (e.g., Safety Standards, Quality Control)'
+}
+
+Table m_audit_criteria_group {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  criteriaId varchar [not null, ref: > m_audit_criteria.id]
+  order int [not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Groups within criteria (e.g., PPE, Emergency Equipment, Work Procedures)'
+}
+
+Table m_audit_criteria_item {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  criteriaGroupId varchar [not null, ref: > m_audit_criteria_group.id]
+  order int [not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Specific audit checklist items within groups (e.g., Hard hat condition, Fire extinguisher location)'
+}
+
+Table t_audits {
+  id varchar [pk, default: `uuid()`]
+  code varchar [unique, not null]
+  areaId varchar [not null, ref: > m_areas.id]
+  auditDate timestamp [not null]
+  criteriaId varchar [not null, ref: > m_audit_criteria.id]
+  assignedDepartmentId varchar [not null, ref: > m_departments.id]
+  assigneeId varchar [ref: > t_users.id]
+  controlMeasure text
+  followUpNotes text
+  status GeneralStatusEnum [not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'Audit records - supports multiple auditors via junction table'
+}
+
+Table t_audit_items {
+  id varchar [pk, default: `uuid()`]
+  auditId varchar [not null, ref: > t_audits.id]
+  criteriaItemId varchar [not null, ref: > m_audit_criteria_item.id]
+  compliantStatus CompliantStatusEnum [not null]
+  evidence text
+  recommendation text
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Individual audit item findings - tracks compliance status for each criteria item'
+}
+
+Table t_audit_images {
+  id varchar [pk, default: `uuid()`]
+  auditItemId varchar [not null, ref: > t_audits_item.id]
+  imageUrl varchar [not null]
+  caption text
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Photos/images attached to audits'
+}
+
 //// -- MANY-TO-MANY RELATIONSHIPS (Junction Tables) --
 
 Table _PermissionToRole {
@@ -328,6 +420,16 @@ Table _InspectionToUser {
   B varchar [ref: > t_users.id]
 
   Note: 'Many-to-many: Inspections and Inspectors (Users)'
+  indexes {
+    (A, B) [pk]
+  }
+}
+
+Table _AuditToUser {
+  A varchar [ref: > t_audits.id]
+  B varchar [ref: > t_users.id]
+
+  Note: 'Many-to-many: Audits and Auditors (Users)'
   indexes {
     (A, B) [pk]
   }
@@ -371,4 +473,14 @@ TableGroup approval_system {
   m_approval
   m_approval_item
   t_approvals
+}
+
+TableGroup audit_system {
+  m_audit_criteria
+  m_audit_criteria_group
+  m_audit_criteria_item
+  t_audits
+  t_audit_items
+  t_audit_images
+  _AuditToUser
 }

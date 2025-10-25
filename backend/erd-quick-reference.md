@@ -30,6 +30,16 @@
 - **Area** (id, name, code, description, officeId?, isActive)
 - **Inspection** (id, code, inspectorId, areaId, inspectionDate, hseCategoryId, findingIssue, description, assignedDepartmentId, assigneeId?, controlMeasure, followUpNotes, status, isActive, createdBy)
 - **InspectionPhoto** (id, inspectionId, photoUrl, caption, order)
+- **Inspection** ↔ **User** (many-to-many for multiple inspectors)
+
+### Audit System
+- **AuditCriteria** (id, name, code, description, isActive)
+- **AuditCriteriaGroup** (id, name, code, description, criteriaId, order, isActive)
+- **AuditCriteriaItem** (id, name, code, description, criteriaGroupId, order, isActive)
+- **Audit** (id, code, areaId, auditDate, criteriaId, assignedDepartmentId, assigneeId?, controlMeasure, followUpNotes, status, isActive, createdBy)
+- **AuditItem** (id, auditId, criteriaItemId, isCompliant, finding, recommendation, order)
+- **AuditImage** (id, auditId, imageUrl, caption, order)
+- **Audit** ↔ **User** (many-to-many for multiple auditors)
 
 ### Risk Assessment
 - **RiskMatrix** (id, likelihoodLevel, consequenceLevel, risk_rating)
@@ -94,16 +104,46 @@ prisma.menu.findMany({
   },
   orderBy: { order: 'asc' }
 })
+
+// Audit with all relationships
+prisma.audit.findUnique({
+  where: { id },
+  include: {
+    area: true,
+    criteria: true,
+    auditors: { include: { user: true } },
+    assignedDepartment: true,
+    assignee: true,
+    items: {
+      include: { criteriaItem: { include: { criteriaGroup: true } } }
+    },
+    images: { orderBy: { order: 'asc' } }
+  }
+})
+
+// Active criteria with groups and items hierarchy
+prisma.auditCriteria.findMany({
+  where: { isActive: true },
+  include: {
+    groups: {
+      where: { isActive: true },
+      include: {
+        items: { where: { isActive: true }, orderBy: { order: 'asc' } }
+      },
+      orderBy: { order: 'asc' }
+    }
+  }
+})
 ```
 
 ## Table Naming Convention
-- **Master Data Tables**: Prefixed with `m_` (m_roles, m_permissions, m_offices, m_departments, m_job_positions, m_menus, m_settings, m_approval, m_approval_item, m_hse_categories, m_threats, m_threat_mitigations, m_risk_matrix, m_notification_types, m_file_storage_providers, m_file_categories, m_areas)
-- **Transactional Data Tables**: Prefixed with `t_` (t_users, t_refresh_tokens, t_password_reset_tokens, t_approvals, t_risk_assessment, t_risk_assessment_item, t_notifications, t_notification_recipients, t_file_uploads, t_file_access_logs, t_inspections, t_inspection_photos)
-- **Junction Tables**: Prisma default naming (_PermissionToRole, _MenuToRole)
+- **Master Data Tables**: Prefixed with `m_` (m_roles, m_permissions, m_offices, m_departments, m_job_positions, m_menus, m_settings, m_approval, m_approval_item, m_hse_categories, m_threats, m_threat_mitigations, m_risk_matrix, m_notification_types, m_file_storage_providers, m_file_categories, m_areas, m_audit_criteria, m_audit_criteria_group, m_audit_criteria_item)
+- **Transactional Data Tables**: Prefixed with `t_` (t_users, t_refresh_tokens, t_password_reset_tokens, t_approvals, t_risk_assessment, t_risk_assessment_item, t_notifications, t_notification_recipients, t_file_uploads, t_file_access_logs, t_inspections, t_inspection_photos, t_audits, t_audit_items, t_audit_images)
+- **Junction Tables**: Prisma default naming (_PermissionToRole, _MenuToRole, _InspectionToUser, _AuditToUser)
 
 ## Constraints
 - All PKs: UUID
-- Unique: email, role.name, permission.name, office.code, dept.code, job.code, hse_category.code, threat.code, risk_assessment.code, notification_type.name, file_storage_provider.name, file_category.name, file_upload.accessToken, setting.key, tokens (refresh & reset), area.code, inspection.code
+- Unique: email, role.name, permission.name, office.code, dept.code, job.code, hse_category.code, threat.code, risk_assessment.code, notification_type.name, file_storage_provider.name, file_category.name, file_upload.accessToken, setting.key, tokens (refresh & reset), area.code, inspection.code, audit.code, audit_criteria.code, audit_criteria_group.code, audit_criteria_item.code
 - FK Actions: UPDATE CASCADE, DELETE RESTRICT (or SET NULL for optional)
 - Composite Unique: notification_recipients[notificationId, roleId, userId]
 
@@ -111,7 +151,7 @@ prisma.menu.findMany({
 1. Always include related entities in queries (especially for User: role, office, department?, jobPosition?)
 2. Check for null optional fields (departmentId, jobPositionId, assigneeId, userId in notifications, password)
 3. Filter by isActive for active records (applies to most entities)
-4. Respect hierarchical relationships (Office, Menu have parent-child structure)
+4. Respect hierarchical relationships (Office, Menu have parent-child structure; Audit: criteria → group → item)
 5. Use proper Prisma include/select patterns
 6. For risk assessments: always include department, items with threats and categories
 7. For notifications: filter by roleId or userId in recipients
@@ -120,3 +160,7 @@ prisma.menu.findMany({
 10. Consider cascading deletes for notification recipients and file access logs
 11. For inspections: always include inspector, area, hseCategory, assignedDepartment, assignee, and photos
 12. Inspection status flow: SCHEDULED → DRAFT → OPEN → WAITING_APPROVAL → DONE/REJECTED
+13. For audits: always include auditors (via junction), area, criteria, items with criteriaItem, assignedDepartment, assignee, and images
+14. Audit status flow: SCHEDULED → DRAFT → OPEN → WAITING_APPROVAL → DONE/REJECTED
+15. Audit hierarchy: Criteria (top) → Criteria Group (middle) → Criteria Item (bottom/checklist)
+16. Audit items track compliance (isCompliant boolean) with findings and recommendations
