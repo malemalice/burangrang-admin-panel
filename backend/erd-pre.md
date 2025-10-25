@@ -455,6 +455,108 @@ Table t_incident_report_images {
   Note: 'Photos/images attached to incident reports as evidence'
 }
 
+//// -- WORK PERMIT SYSTEM --
+
+Table m_project_types {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Types of work projects (hot work, electricity, plumbing, etc.)'
+}
+
+Table m_equipment {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Equipment and materials master data'
+}
+
+Table m_companies {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  address text
+  contactPerson varchar
+  phone varchar
+  email varchar
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Company/contractor details for work permits'
+}
+
+Table t_guests {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  email varchar
+  phone varchar
+  photoUrl varchar
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'External personnel (supervisors, workers, contractors)'
+}
+
+Table t_work_permits {
+  id varchar [pk, default: `uuid()`]
+  code varchar [unique, not null]
+  projectName varchar [not null]
+  projectTypeId varchar [not null, ref: > m_project_types.id]
+  areaId varchar [not null, ref: > m_areas.id]
+  employeeId varchar [ref: > t_users.id]
+  employeeName varchar
+  companyId varchar [not null, ref: > m_companies.id]
+  proposedStartDate timestamp [not null]
+  proposedEndDate timestamp [not null]
+  workStagesDescription text [not null]
+  jobSafetyAnalysis text [not null]
+  workRequirements text
+  safetyGuideline text
+  status GeneralStatusEnum [not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'Work permit applications with project details and safety requirements'
+}
+
+Table t_work_permit_equipment {
+  id varchar [pk, default: `uuid()`]
+  workPermitId varchar [not null, ref: > t_work_permits.id]
+  equipmentId varchar [not null, ref: > m_equipment.id]
+  quantity int [not null]
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Equipment and materials used in work permit with quantities'
+}
+
+Table t_work_permit_workers {
+  id varchar [pk, default: `uuid()`]
+  workPermitId varchar [not null, ref: > t_work_permits.id]
+  guestId varchar [not null, ref: > t_guests.id]
+  idNumber varchar
+  certificateUrl varchar
+  healthDeclarationUrl varchar [not null]
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Workers assigned to work permit with ID, certificates, and health declaration'
+}
+
 //// -- MANY-TO-MANY RELATIONSHIPS (Junction Tables) --
 
 Table _PermissionToRole {
@@ -492,6 +594,26 @@ Table _AuditToUser {
   B varchar [ref: > t_users.id]
 
   Note: 'Many-to-many: Audits and Auditors (Users)'
+  indexes {
+    (A, B) [pk]
+  }
+}
+
+Table _WorkPermitSupervisorToGuest {
+  A varchar [ref: > t_work_permits.id]
+  B varchar [ref: > t_guests.id]
+
+  Note: 'Many-to-many: Work Permits and Supervisors (Guests)'
+  indexes {
+    (A, B) [pk]
+  }
+}
+
+Table _WorkPermitToUser {
+  A varchar [ref: > t_work_permits.id]
+  B varchar [ref: > t_users.id]
+
+  Note: 'Many-to-many: Work Permits and HSE Officers (Users)'
   indexes {
     (A, B) [pk]
   }
@@ -554,4 +676,16 @@ TableGroup audit_system {
 TableGroup incident_report_system {
   t_incident_reports
   t_incident_report_images
+}
+
+TableGroup work_permit_system {
+  m_project_types
+  m_equipment
+  m_companies
+  t_guests
+  t_work_permits
+  t_work_permit_equipment
+  t_work_permit_workers
+  _WorkPermitSupervisorToGuest
+  _WorkPermitToUser
 }
