@@ -457,7 +457,7 @@ Table t_incident_report_images {
 
 //// -- WORK PERMIT SYSTEM --
 
-Table m_project_types {
+Table m_work_classification {
   id varchar [pk, default: `uuid()`]
   name varchar [not null]
   code varchar [unique, not null]
@@ -549,10 +549,7 @@ Table t_work_permits {
   id varchar [pk, default: `uuid()`]
   code varchar [unique, not null]
   projectName varchar [not null]
-  projectTypeId varchar [not null, ref: > m_project_types.id]
   areaId varchar [not null, ref: > m_areas.id]
-  employeeId varchar [ref: > t_users.id]
-  employeeName varchar
   companyId varchar [not null, ref: > m_companies.id]
   proposedStartDate timestamp [not null]
   proposedEndDate timestamp [not null]
@@ -567,6 +564,27 @@ Table t_work_permits {
   createdBy varchar [not null, ref: > t_users.id]
 
   Note: 'Work permit applications with project details and safety requirements'
+}
+
+Table t_work_permit_classifications {
+  id varchar [pk, default: `uuid()`]
+  workPermitId varchar [not null, ref: > t_work_permits.id]
+  workClassificationId varchar [not null, ref: > m_work_classification.id]
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Work classifications assigned to work permit'
+}
+
+Table t_work_permit_employees {
+  id varchar [pk, default: `uuid()`]
+  workPermitId varchar [not null, ref: > t_work_permits.id]
+  userId varchar [ref: > t_users.id]
+  employeeName varchar
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'BSJ employees/PICs assigned to work permit - can be from user list or free text'
 }
 
 Table t_work_permit_equipment {
@@ -748,7 +766,7 @@ TableGroup incident_report_system {
 }
 
 TableGroup work_permit_system {
-  m_project_types
+  m_work_classification
   m_equipment
   m_tools
   m_materials
@@ -756,6 +774,8 @@ TableGroup work_permit_system {
   m_companies
   t_guests
   t_work_permits
+  t_work_permit_classifications
+  t_work_permit_employees
   t_work_permit_equipment
   t_work_permit_tools
   t_work_permit_materials
