@@ -26,6 +26,17 @@ Enum CompliantStatusEnum {
   NOT_COMPLY_MINOR
 }
 
+Enum IncidentClassificationEnum {
+  MAJOR
+  MINOR
+  FATALITY
+}
+
+Enum SourceEnum {
+  SYSTEM
+  ZOHO
+}
+
 //// -- CORE USER MANAGEMENT --
 
 Table t_users {
@@ -133,6 +144,22 @@ Table m_job_positions {
   updatedAt timestamp [default: `now()`, not null]
 
   Note: 'Job positions and hierarchy levels'
+}
+
+//// -- REFERENCE DATA --
+
+Table m_achievement_rates {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  rangeMin decimal(5,2) [not null]
+  rangeMax decimal(5,2) [not null]
+  description text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Achievement rate categories with percentage ranges (e.g., Excellent: 90-100%, Good: 75-89%)'
 }
 
 //// -- HSE MANAGEMENT --
@@ -384,13 +411,48 @@ Table t_audit_items {
 
 Table t_audit_images {
   id varchar [pk, default: `uuid()`]
-  auditItemId varchar [not null, ref: > t_audits_item.id]
+  auditItemId varchar [not null, ref: > t_audit_items.id]
   imageUrl varchar [not null]
   caption text
   order int [not null]
   createdAt timestamp [default: `now()`, not null]
 
-  Note: 'Photos/images attached to audits'
+  Note: 'Photos/images attached to individual audit items as evidence'
+}
+
+//// -- INCIDENT REPORT SYSTEM --
+
+Table t_incident_reports {
+  id varchar [pk, default: `uuid()`]
+  code varchar [unique, not null]
+  incidentDate timestamp [not null]
+  areaId varchar [not null, ref: > m_areas.id]
+  incidentClassification IncidentClassificationEnum [not null]
+  reportedBy varchar [not null, ref: > t_users.id]
+  controlMeasure text
+  dueDate timestamp
+  expectedOutcome text
+  assignedDepartmentId varchar [not null, ref: > m_departments.id]
+  assigneeId varchar [ref: > t_users.id]
+  status GeneralStatusEnum [not null]
+  source SourceEnum [default: 'SYSTEM', not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'incident report records with classification and assignment tracking'
+}
+
+Table t_incident_report_images {
+  id varchar [pk, default: `uuid()`]
+  incidentReportId varchar [not null, ref: > t_incident_reports.id]
+  imageUrl varchar [not null]
+  caption text
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Photos/images attached to incident reports as evidence'
 }
 
 //// -- MANY-TO-MANY RELATIONSHIPS (Junction Tables) --
@@ -453,6 +515,10 @@ TableGroup organizational_structure {
   m_job_positions
 }
 
+TableGroup reference_data {
+  m_achievement_rates
+}
+
 TableGroup risk_management {
   m_hse_categories
   m_threats
@@ -483,4 +549,9 @@ TableGroup audit_system {
   t_audit_items
   t_audit_images
   _AuditToUser
+}
+
+TableGroup incident_report_system {
+  t_incident_reports
+  t_incident_report_images
 }

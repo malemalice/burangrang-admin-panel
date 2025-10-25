@@ -13,6 +13,9 @@
 - **Department** (id, name, code, description)
 - **JobPosition** (id, name, code, level, description)
 
+### Reference Data
+- **AchievementRate** (id, name, code, rangeMin, rangeMax, description, isActive)
+
 ### Navigation & Access
 - **Menu** (id, name, path, icon, parentId?, order) - Self-referencing hierarchy
 - **Role** ↔ **Menu** (many-to-many)
@@ -40,6 +43,12 @@
 - **AuditItem** (id, auditId, criteriaItemId, isCompliant, finding, recommendation, order)
 - **AuditImage** (id, auditId, imageUrl, caption, order)
 - **Audit** ↔ **User** (many-to-many for multiple auditors)
+
+### Accident Report System
+- **AccidentReport** (id, code, accidentDate, areaId, accidentClassification, reportedBy, controlMeasure, dueDate, expectedOutcome, assignedDepartmentId, assigneeId?, status, source, isActive, createdBy)
+- **AccidentReportImage** (id, accidentReportId, imageUrl, caption, order)
+- **AccidentClassificationEnum**: MAJOR, MINOR, FATALITY
+- **SourceEnum**: SYSTEM, ZOHO
 
 ### Risk Assessment
 - **RiskMatrix** (id, likelihoodLevel, consequenceLevel, risk_rating)
@@ -134,16 +143,55 @@ prisma.auditCriteria.findMany({
     }
   }
 })
+
+// Find achievement rate by score
+const score = 85.5; // percentage score
+prisma.achievementRate.findFirst({
+  where: {
+    isActive: true,
+    rangeMin: { lte: score },
+    rangeMax: { gte: score }
+  }
+})
+
+// Get all active achievement rate ranges
+prisma.achievementRate.findMany({
+  where: { isActive: true },
+  orderBy: { rangeMin: 'desc' } // Order from highest to lowest
+})
+
+// Accident report with all relationships
+prisma.accidentReport.findUnique({
+  where: { id },
+  include: {
+    area: true,
+    reportedByUser: true,
+    assignedDepartment: true,
+    assignee: true,
+    createdByUser: true,
+    images: { orderBy: { order: 'asc' } }
+  }
+})
+
+// Active accident reports by classification
+prisma.accidentReport.findMany({
+  where: {
+    isActive: true,
+    accidentClassification: 'MAJOR',
+    status: { in: ['OPEN', 'WAITING_APPROVAL'] }
+  },
+  include: { area: true, assignedDepartment: true }
+})
 ```
 
 ## Table Naming Convention
-- **Master Data Tables**: Prefixed with `m_` (m_roles, m_permissions, m_offices, m_departments, m_job_positions, m_menus, m_settings, m_approval, m_approval_item, m_hse_categories, m_threats, m_threat_mitigations, m_risk_matrix, m_notification_types, m_file_storage_providers, m_file_categories, m_areas, m_audit_criteria, m_audit_criteria_group, m_audit_criteria_item)
-- **Transactional Data Tables**: Prefixed with `t_` (t_users, t_refresh_tokens, t_password_reset_tokens, t_approvals, t_risk_assessment, t_risk_assessment_item, t_notifications, t_notification_recipients, t_file_uploads, t_file_access_logs, t_inspections, t_inspection_photos, t_audits, t_audit_items, t_audit_images)
+- **Master Data Tables**: Prefixed with `m_` (m_roles, m_permissions, m_offices, m_departments, m_job_positions, m_menus, m_settings, m_approval, m_approval_item, m_hse_categories, m_threats, m_threat_mitigations, m_risk_matrix, m_notification_types, m_file_storage_providers, m_file_categories, m_areas, m_audit_criteria, m_audit_criteria_group, m_audit_criteria_item, m_achievement_rates)
+- **Transactional Data Tables**: Prefixed with `t_` (t_users, t_refresh_tokens, t_password_reset_tokens, t_approvals, t_risk_assessment, t_risk_assessment_item, t_notifications, t_notification_recipients, t_file_uploads, t_file_access_logs, t_inspections, t_inspection_photos, t_audits, t_audit_items, t_audit_images, t_accident_reports, t_accident_report_images)
 - **Junction Tables**: Prisma default naming (_PermissionToRole, _MenuToRole, _InspectionToUser, _AuditToUser)
 
 ## Constraints
 - All PKs: UUID
-- Unique: email, role.name, permission.name, office.code, dept.code, job.code, hse_category.code, threat.code, risk_assessment.code, notification_type.name, file_storage_provider.name, file_category.name, file_upload.accessToken, setting.key, tokens (refresh & reset), area.code, inspection.code, audit.code, audit_criteria.code, audit_criteria_group.code, audit_criteria_item.code
+- Unique: email, role.name, permission.name, office.code, dept.code, job.code, hse_category.code, threat.code, risk_assessment.code, notification_type.name, file_storage_provider.name, file_category.name, file_upload.accessToken, setting.key, tokens (refresh & reset), area.code, inspection.code, audit.code, audit_criteria.code, audit_criteria_group.code, audit_criteria_item.code, achievement_rate.code, accident_report.code
 - FK Actions: UPDATE CASCADE, DELETE RESTRICT (or SET NULL for optional)
 - Composite Unique: notification_recipients[notificationId, roleId, userId]
 
@@ -163,4 +211,10 @@ prisma.auditCriteria.findMany({
 13. For audits: always include auditors (via junction), area, criteria, items with criteriaItem, assignedDepartment, assignee, and images
 14. Audit status flow: SCHEDULED → DRAFT → OPEN → WAITING_APPROVAL → DONE/REJECTED
 15. Audit hierarchy: Criteria (top) → Criteria Group (middle) → Criteria Item (bottom/checklist)
-16. Audit items track compliance (isCompliant boolean) with findings and recommendations
+16. Audit items track compliance (CompliantStatusEnum: COMPLY, NOT_COMPLY_MAJOR, NOT_COMPLY_MINOR) with evidence and recommendations
+17. Achievement rates define percentage ranges (rangeMin to rangeMax) for categorizing performance levels
+18. Use achievement rates to classify audit/inspection/assessment scores into categories (Excellent, Good, Fair, etc.)
+19. For accident reports: always include reportedBy, area, assignedDepartment, assignee, createdBy, and images
+20. Accident classification (AccidentClassificationEnum: MAJOR, MINOR, FATALITY) determines severity level
+21. Accident report status flow: DRAFT → OPEN → WAITING_APPROVAL → DONE/REJECTED
+22. Source field tracks origin: SYSTEM (created in app) or ZOHO (imported from external system)
