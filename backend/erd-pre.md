@@ -747,6 +747,16 @@ Table _WorkPermitToUser {
   }
 }
 
+Table _WorkPermitToSafetyEquipment {
+  A varchar [ref: > t_work_permits.id]
+  B varchar [ref: > m_safety_equipment.id]
+
+  Note: 'Many-to-many: Work Permits and Safety Equipment'
+  indexes {
+    (A, B) [pk]
+  }
+}
+
 //// -- TABLE GROUPS --
 
 TableGroup user_management {
@@ -827,4 +837,5 @@ TableGroup work_permit_system {
   t_work_permit_professions
   _WorkPermitSupervisorToGuest
   _WorkPermitToUser
+  _WorkPermitToSafetyEquipment
 }
