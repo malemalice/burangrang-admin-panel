@@ -532,6 +532,18 @@ Table m_companies {
   Note: 'Company/contractor details for work permits'
 }
 
+Table m_professions {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Professions master data for work permits (e.g., Surveyor, Engineer, Electrician)'
+}
+
 Table t_guests {
   id varchar [pk, default: `uuid()`]
   name varchar [not null]
@@ -642,6 +654,17 @@ Table t_work_permit_workers {
   createdAt timestamp [default: `now()`, not null]
 
   Note: 'Workers assigned to work permit with ID, certificates, and health declaration'
+}
+
+Table t_work_permit_professions {
+  id varchar [pk, default: `uuid()`]
+  workPermitId varchar [not null, ref: > t_work_permits.id]
+  professionId varchar [not null, ref: > m_professions.id]
+  quantity int [not null]
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Professions required for work permit with quantities (e.g., 2 Surveyors, 10 Engineers)'
 }
 
 //// -- MANY-TO-MANY RELATIONSHIPS (Junction Tables) --
@@ -772,6 +795,7 @@ TableGroup work_permit_system {
   m_materials
   m_machines
   m_companies
+  m_professions
   t_guests
   t_work_permits
   t_work_permit_classifications
@@ -781,6 +805,7 @@ TableGroup work_permit_system {
   t_work_permit_materials
   t_work_permit_machines
   t_work_permit_workers
+  t_work_permit_professions
   _WorkPermitSupervisorToGuest
   _WorkPermitToUser
 }

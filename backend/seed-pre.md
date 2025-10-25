@@ -12,24 +12,24 @@ INSERT INTO m_work_classification (code, name, description) VALUES
 ('GENERAL', 'General Works', 'Daily maintenance, light construction, painting, etc.'),
 ('OTHERS', 'Others', 'Miscellaneous work types not listed.')
 
--- profession seed
-INSERT INTO profession (name, description) VALUES
-('Engineer','Site/Project engineer'),
-('Surveyor','Area surveyor'),
-('PIC_BSJ','PIC BSJ (on-site contact)'),
-('HEAVY_EQUIPMENT_OPERATOR','Heavy equipment operator'),
-('Rigger','Rigger'),
-('ELECTRIC_TECH','Electric Technician'),
-('Mechanic','Mechanic'),
-('VENDOR_SUPERVISOR','Vendor Supervisor'),
-('VENDOR_HSE','Vendor HSE Personnel'),
-('BSJ_HSE_OFFICER','BSJ HSE Officer'),
-('Civil_Worker','Civil worker'),
-('Carpenter','Carpenter'),
-('Welder','Welder'),
-('Fitter','Fitter'),
-('Helper','Helper'),
-('Other','Other')
+-- Professions master seeds
+INSERT INTO m_professions (code, name, description) VALUES
+('ENGINEER', 'Engineer', 'Site/Project engineer'),
+('SURVEYOR', 'Surveyor', 'Area surveyor'),
+('PIC_BSJ', 'PIC BSJ', 'PIC BSJ (on-site contact)'),
+('HEAVY_EQUIPMENT_OPERATOR', 'Heavy Equipment Operator', 'Heavy equipment operator'),
+('RIGGER', 'Rigger', 'Rigger'),
+('ELECTRIC_TECH', 'Electric Technician', 'Electric Technician'),
+('MECHANIC', 'Mechanic', 'Mechanic'),
+('VENDOR_SUPERVISOR', 'Vendor Supervisor', 'Vendor Supervisor'),
+('VENDOR_HSE', 'Vendor HSE Personnel', 'Vendor HSE Personnel'),
+('BSJ_HSE_OFFICER', 'BSJ HSE Officer', 'BSJ HSE Officer'),
+('CIVIL_WORKER', 'Civil Worker', 'Civil worker'),
+('CARPENTER', 'Carpenter', 'Carpenter'),
+('WELDER', 'Welder', 'Welder'),
+('FITTER', 'Fitter', 'Fitter'),
+('HELPER', 'Helper', 'Helper'),
+('OTHER', 'Other', 'Other')
 
 -- Safety Items (PPE) seed
 INSERT INTO safety_items_master (code, name, category, description) VALUES

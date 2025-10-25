@@ -57,12 +57,14 @@
 - **Material** (id, name, code, description, isActive)
 - **Machine** (id, name, code, description, isActive)
 - **Company** (id, name, code, address, contactPerson, phone, email, isActive)
+- **Profession** (id, name, code, description, isActive)
 - **Guest** (id, name, email?, phone?, photoUrl?, isActive)
 - **WorkPermit** (id, code, projectName, projectTypeId, areaId, bsjPicId?, bsjPicName?, companyId, proposedStartDate, proposedEndDate, workStagesDescription, jobSafetyAnalysis, workRequirements?, safetyGuideline?, status, isActive, createdBy)
 - **WorkPermitEquipment** (id, workPermitId, equipmentId, quantity, order)
 - **WorkPermitTool** (id, workPermitId, toolId, quantity, order)
 - **WorkPermitMaterial** (id, workPermitId, materialId, quantity, order)
 - **WorkPermitMachine** (id, workPermitId, machineId, quantity, order)
+- **WorkPermitProfession** (id, workPermitId, professionId, quantity, order)
 - **WorkPermitWorker** (id, workPermitId, guestId, idNumber?, certificateUrl?, healthDeclarationUrl, order)
 - **WorkPermit** ↔ **Guest** (many-to-many for supervisors)
 - **WorkPermit** ↔ **User** (many-to-many for HSE Officers)
@@ -246,13 +248,13 @@ prisma.workPermit.findMany({
 ```
 
 ## Table Naming Convention
-- **Master Data Tables**: Prefixed with `m_` (m_roles, m_permissions, m_offices, m_departments, m_job_positions, m_menus, m_settings, m_approval, m_approval_item, m_hse_categories, m_threats, m_threat_mitigations, m_risk_matrix, m_notification_types, m_file_storage_providers, m_file_categories, m_areas, m_audit_criteria, m_audit_criteria_group, m_audit_criteria_item, m_achievement_rates, m_project_types, m_equipment, m_tools, m_materials, m_machines, m_companies, m_guests)
-- **Transactional Data Tables**: Prefixed with `t_` (t_users, t_refresh_tokens, t_password_reset_tokens, t_approvals, t_risk_assessment, t_risk_assessment_item, t_notifications, t_notification_recipients, t_file_uploads, t_file_access_logs, t_inspections, t_inspection_photos, t_audits, t_audit_items, t_audit_images, t_accident_reports, t_accident_report_images, t_work_permits, t_work_permit_equipment, t_work_permit_tools, t_work_permit_materials, t_work_permit_machines, t_work_permit_workers)
+- **Master Data Tables**: Prefixed with `m_` (m_roles, m_permissions, m_offices, m_departments, m_job_positions, m_menus, m_settings, m_approval, m_approval_item, m_hse_categories, m_threats, m_threat_mitigations, m_risk_matrix, m_notification_types, m_file_storage_providers, m_file_categories, m_areas, m_audit_criteria, m_audit_criteria_group, m_audit_criteria_item, m_achievement_rates, m_project_types, m_equipment, m_tools, m_materials, m_machines, m_companies, m_professions, m_guests)
+- **Transactional Data Tables**: Prefixed with `t_` (t_users, t_refresh_tokens, t_password_reset_tokens, t_approvals, t_risk_assessment, t_risk_assessment_item, t_notifications, t_notification_recipients, t_file_uploads, t_file_access_logs, t_inspections, t_inspection_photos, t_audits, t_audit_items, t_audit_images, t_accident_reports, t_accident_report_images, t_work_permits, t_work_permit_equipment, t_work_permit_tools, t_work_permit_materials, t_work_permit_machines, t_work_permit_workers, t_work_permit_professions)
 - **Junction Tables**: Prisma default naming (_PermissionToRole, _MenuToRole, _InspectionToUser, _AuditToUser, _WorkPermitSupervisorToGuest, _WorkPermitToUser)
 
 ## Constraints
 - All PKs: UUID
-- Unique: email, role.name, permission.name, office.code, dept.code, job.code, hse_category.code, threat.code, risk_assessment.code, notification_type.name, file_storage_provider.name, file_category.name, file_upload.accessToken, setting.key, tokens (refresh & reset), area.code, inspection.code, audit.code, audit_criteria.code, audit_criteria_group.code, audit_criteria_item.code, achievement_rate.code, accident_report.code, project_type.code, equipment.code, tool.code, material.code, machine.code, company.code, work_permit.code
+- Unique: email, role.name, permission.name, office.code, dept.code, job.code, hse_category.code, threat.code, risk_assessment.code, notification_type.name, file_storage_provider.name, file_category.name, file_upload.accessToken, setting.key, tokens (refresh & reset), area.code, inspection.code, audit.code, audit_criteria.code, audit_criteria_group.code, audit_criteria_item.code, achievement_rate.code, accident_report.code, project_type.code, equipment.code, tool.code, material.code, machine.code, company.code, profession.code, work_permit.code
 - FK Actions: UPDATE CASCADE, DELETE RESTRICT (or SET NULL for optional)
 - Composite Unique: notification_recipients[notificationId, roleId, userId]
 
@@ -289,3 +291,5 @@ prisma.workPermit.findMany({
 30. Guests have optional email and phone - check for null before use
 31. Companies can be inserted dynamically if not in master list
 32. Project types, equipment, tools, materials, and machines can be inserted dynamically if not in master list
+33. Professions track required workforce composition for work permits (e.g., 2 Surveyors, 10 Engineers) with quantity per profession
+34. For work permits: always include professions list with quantities when displaying or creating permits
