@@ -478,7 +478,43 @@ Table m_equipment {
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
 
-  Note: 'Equipment and materials master data'
+  Note: 'Equipment master data'
+}
+
+Table m_tools {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Tools master data'
+}
+
+Table m_materials {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Materials master data'
+}
+
+Table m_machines {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Machines master data'
 }
 
 Table m_companies {
@@ -541,7 +577,40 @@ Table t_work_permit_equipment {
   order int [not null]
   createdAt timestamp [default: `now()`, not null]
 
-  Note: 'Equipment and materials used in work permit with quantities'
+  Note: 'Equipment used in work permit with quantities'
+}
+
+Table t_work_permit_tools {
+  id varchar [pk, default: `uuid()`]
+  workPermitId varchar [not null, ref: > t_work_permits.id]
+  toolId varchar [not null, ref: > m_tools.id]
+  quantity int [not null]
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Tools used in work permit with quantities'
+}
+
+Table t_work_permit_materials {
+  id varchar [pk, default: `uuid()`]
+  workPermitId varchar [not null, ref: > t_work_permits.id]
+  materialId varchar [not null, ref: > m_materials.id]
+  quantity int [not null]
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Materials used in work permit with quantities'
+}
+
+Table t_work_permit_machines {
+  id varchar [pk, default: `uuid()`]
+  workPermitId varchar [not null, ref: > t_work_permits.id]
+  machineId varchar [not null, ref: > m_machines.id]
+  quantity int [not null]
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Machines used in work permit with quantities'
 }
 
 Table t_work_permit_workers {
@@ -681,10 +750,16 @@ TableGroup incident_report_system {
 TableGroup work_permit_system {
   m_project_types
   m_equipment
+  m_tools
+  m_materials
+  m_machines
   m_companies
   t_guests
   t_work_permits
   t_work_permit_equipment
+  t_work_permit_tools
+  t_work_permit_materials
+  t_work_permit_machines
   t_work_permit_workers
   _WorkPermitSupervisorToGuest
   _WorkPermitToUser
