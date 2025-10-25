@@ -228,6 +228,10 @@ prisma.workPermit.findUnique({
       include: { machine: true },
       orderBy: { order: 'asc' }
     },
+    professions: {
+      include: { profession: true },
+      orderBy: { order: 'asc' }
+    },
     workers: {
       include: { guest: true },
       orderBy: { order: 'asc' }
@@ -281,7 +285,7 @@ prisma.workPermit.findMany({
 20. Accident classification (AccidentClassificationEnum: MAJOR, MINOR, FATALITY) determines severity level
 21. Accident report status flow: DRAFT → OPEN → WAITING_APPROVAL → DONE/REJECTED
 22. Source field tracks origin: SYSTEM (created in app) or ZOHO (imported from external system)
-23. For work permits: always include projectType, area, company, bsjPic (optional), hseOfficers, supervisors, equipment, tools, materials, machines, workers, and createdBy
+23. For work permits: always include projectType, area, company, bsjPic (optional), hseOfficers, supervisors, equipment, tools, materials, machines, professions, workers, and createdBy
 24. Work permit status flow: DRAFT → OPEN → WAITING_APPROVAL → DONE/REJECTED
 25. BSJ PIC can be from user list (bsjPicId) or free text (bsjPicName) - check both fields
 26. Supervisors are multiple guests via junction table (_WorkPermitSupervisorToGuest)

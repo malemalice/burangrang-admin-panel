@@ -37,6 +37,11 @@ Enum SourceEnum {
   ZOHO
 }
 
+Enum SafetyEquipmentCategoryEnum {
+  PERSONAL_PROTECTIVE_EQUIPMENT
+  SAFETY_AND_EMERGENCY_EQUIPMENT
+}
+
 //// -- CORE USER MANAGEMENT --
 
 Table t_users {
@@ -200,6 +205,19 @@ Table m_areas {
   updatedAt timestamp [default: `now()`, not null]
 
   Note: 'Physical areas/locations for inspections'
+}
+
+Table m_safety_equipment {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  category SafetyEquipmentCategoryEnum [not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Safety equipment master data (PPE and safety/emergency equipment)'
 }
 
 //// -- RISK ASSESSMENT --
@@ -469,7 +487,7 @@ Table m_work_classification {
   Note: 'Types of work projects (hot work, electricity, plumbing, etc.)'
 }
 
-Table m_equipment {
+Table m_heavy_equipment {
   id varchar [pk, default: `uuid()`]
   name varchar [not null]
   code varchar [unique, not null]
@@ -599,10 +617,10 @@ Table t_work_permit_employees {
   Note: 'BSJ employees/PICs assigned to work permit - can be from user list or free text'
 }
 
-Table t_work_permit_equipment {
+Table t_work_permit_heavy_equipment {
   id varchar [pk, default: `uuid()`]
   workPermitId varchar [not null, ref: > t_work_permits.id]
-  equipmentId varchar [not null, ref: > m_equipment.id]
+  heavyEquipmentId varchar [not null, ref: > m_heavy_equipment.id]
   quantity int [not null]
   order int [not null]
   createdAt timestamp [default: `now()`, not null]
@@ -754,6 +772,7 @@ TableGroup reference_data {
 TableGroup risk_management {
   m_hse_categories
   m_threats
+  m_safety_equipment
   t_risk_control
   m_risk_matrix
   t_risk_assessment
@@ -790,7 +809,7 @@ TableGroup incident_report_system {
 
 TableGroup work_permit_system {
   m_work_classification
-  m_equipment
+  m_heavy_equipment
   m_tools
   m_materials
   m_machines
@@ -800,7 +819,7 @@ TableGroup work_permit_system {
   t_work_permits
   t_work_permit_classifications
   t_work_permit_employees
-  t_work_permit_equipment
+  t_work_permit_heavy_equipment
   t_work_permit_tools
   t_work_permit_materials
   t_work_permit_machines
