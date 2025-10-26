@@ -34,6 +34,17 @@
 - **QuizAttempt** → **Quiz**, **Enrollment** (required)
 - **QuizAnswer** → **QuizAttempt**, **QuizQuestion**, **QuizQuestionOption** (optional), **User** (grader, optional)
 
+### Certificate Management System
+- **CertificateCategory** (id, name, code, certificateType, description, isActive)
+- **CertificateTypeEnum**: PERSONNEL_LICENSE, PERSONNEL_CERTIFICATE, EQUIPMENT_CALIBRATION, EQUIPMENT_INSTALLATION, EQUIPMENT_OPERATIONAL_PERMIT
+- **Certificate** (id, certificateNumber, certificateName, categoryId, certificateType, issuedDate, validityDate, issuerName, documentUrl, personnelId?, personnelName?, equipmentId?, equipmentName?, departmentId, reminderDays, notes, isActive, createdBy)
+- **CertificateRenewal** (id, certificateId, requestDate, requestedBy, status, processedBy?, processedDate?, newValidityDate?, newDocumentUrl?, notes)
+- **CertificateRenewalStatusEnum**: PENDING, REQUESTED, IN_PROGRESS, COMPLETED, REJECTED, EXPIRED
+- **CertificateReminder** (id, certificateId, reminderDate, isSent, sentAt?, recipientId)
+- **Certificate** → **CertificateCategory** (required), **User** (personnel, optional), **Equipment** (optional), **Department** (required), **User** (creator, required)
+- **CertificateRenewal** → **Certificate** (required), **User** (requester, required), **User** (processor, optional)
+- **CertificateReminder** → **Certificate** (required), **User** (recipient, required)
+
 ### Navigation & Access
 - **Menu** (id, name, path, icon, parentId?, order) - Self-referencing hierarchy
 - **Role** ↔ **Menu** (many-to-many)
@@ -457,16 +468,127 @@ prisma.quizAnswer.findMany({
     question: true
   }
 })
+
+// Certificate with all relationships
+prisma.certificate.findUnique({
+  where: { id },
+  include: {
+    category: true,
+    personnel: true, // User if personnelId is set
+    equipment: true, // Equipment if equipmentId is set
+    department: true,
+    createdByUser: true,
+    renewals: {
+      include: {
+        requestedByUser: true,
+        processedByUser: true
+      },
+      orderBy: { requestDate: 'desc' }
+    },
+    reminders: {
+      include: { recipient: true },
+      orderBy: { reminderDate: 'desc' }
+    }
+  }
+})
+
+// Get expiring certificates (within 30 days)
+const thirtyDaysFromNow = new Date();
+thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+prisma.certificate.findMany({
+  where: {
+    isActive: true,
+    validityDate: {
+      lte: thirtyDaysFromNow,
+      gte: new Date()
+    }
+  },
+  include: {
+    category: true,
+    department: true,
+    personnel: true,
+    equipment: true
+  },
+  orderBy: { validityDate: 'asc' }
+})
+
+// Get certificates by type
+prisma.certificate.findMany({
+  where: {
+    isActive: true,
+    certificateType: 'PERSONNEL_LICENSE', // or other types
+    departmentId: departmentId
+  },
+  include: {
+    category: true,
+    personnel: true
+  }
+})
+
+// Create certificate renewal request
+await prisma.certificateRenewal.create({
+  data: {
+    certificateId: certificateId,
+    requestedBy: userId,
+    status: 'REQUESTED',
+    notes: 'Renewal requested by department head'
+  }
+})
+
+// Complete certificate renewal
+await prisma.$transaction([
+  // Update renewal record
+  prisma.certificateRenewal.update({
+    where: { id: renewalId },
+    data: {
+      status: 'COMPLETED',
+      processedBy: processedByUserId,
+      processedDate: new Date(),
+      newValidityDate: newValidityDate,
+      newDocumentUrl: documentUrl
+    }
+  }),
+  // Update certificate with new validity date
+  prisma.certificate.update({
+    where: { id: certificateId },
+    data: {
+      validityDate: newValidityDate,
+      documentUrl: documentUrl
+    }
+  })
+])
+
+// Get certificates needing renewal reminders
+prisma.certificate.findMany({
+  where: {
+    isActive: true,
+    validityDate: {
+      lte: new Date(Date.now() + reminderDays * 24 * 60 * 60 * 1000)
+    },
+    reminders: {
+      none: {
+        reminderDate: {
+          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // No reminder in last 7 days
+        }
+      }
+    }
+  },
+  include: {
+    department: { include: { users: true } },
+    category: true
+  }
+})
 ```
 
 ## Table Naming Convention
-- **Master Data Tables**: Prefixed with `m_` (m_roles, m_permissions, m_offices, m_departments, m_job_positions, m_menus, m_settings, m_approval, m_approval_item, m_hse_categories, m_threats, m_threat_mitigations, m_risk_matrix, m_notification_types, m_file_storage_providers, m_file_categories, m_areas, m_audit_criteria, m_audit_criteria_group, m_audit_criteria_item, m_achievement_rates, m_project_types, m_equipment, m_tools, m_materials, m_machines, m_companies, m_professions, m_guests, m_safety_equipment)
-- **Transactional Data Tables**: Prefixed with `t_` (t_users, t_refresh_tokens, t_password_reset_tokens, t_approvals, t_risk_assessment, t_risk_assessment_item, t_notifications, t_notification_recipients, t_file_uploads, t_file_access_logs, t_inspections, t_inspection_photos, t_audits, t_audit_items, t_audit_images, t_accident_reports, t_accident_report_images, t_work_permits, t_work_permit_equipment, t_work_permit_tools, t_work_permit_materials, t_work_permit_machines, t_work_permit_workers, t_work_permit_professions, t_courses, t_chapters, t_enrollments, t_progress, t_quizzes, t_quiz_questions, t_quiz_question_options, t_quiz_attempts, t_quiz_answers)
+- **Master Data Tables**: Prefixed with `m_` (m_roles, m_permissions, m_offices, m_departments, m_job_positions, m_menus, m_settings, m_approval, m_approval_item, m_hse_categories, m_threats, m_threat_mitigations, m_risk_matrix, m_notification_types, m_file_storage_providers, m_file_categories, m_areas, m_audit_criteria, m_audit_criteria_group, m_audit_criteria_item, m_achievement_rates, m_project_types, m_equipment, m_tools, m_materials, m_machines, m_companies, m_professions, m_guests, m_safety_equipment, m_certificate_categories)
+- **Transactional Data Tables**: Prefixed with `t_` (t_users, t_refresh_tokens, t_password_reset_tokens, t_approvals, t_risk_assessment, t_risk_assessment_item, t_notifications, t_notification_recipients, t_file_uploads, t_file_access_logs, t_inspections, t_inspection_photos, t_audits, t_audit_items, t_audit_images, t_accident_reports, t_accident_report_images, t_work_permits, t_work_permit_equipment, t_work_permit_tools, t_work_permit_materials, t_work_permit_machines, t_work_permit_workers, t_work_permit_professions, t_courses, t_chapters, t_enrollments, t_progress, t_quizzes, t_quiz_questions, t_quiz_question_options, t_quiz_attempts, t_quiz_answers, t_certificates, t_certificate_renewals, t_certificate_reminders)
 - **Junction Tables**: Prisma default naming (_PermissionToRole, _MenuToRole, _InspectionToUser, _AuditToUser, _WorkPermitSupervisorToGuest, _WorkPermitToUser, _WorkPermitToSafetyEquipment)
 
 ## Constraints
 - All PKs: UUID
-- Unique: email, role.name, permission.name, office.code, dept.code, job.code, hse_category.code, threat.code, risk_assessment.code, notification_type.name, file_storage_provider.name, file_category.name, file_upload.accessToken, setting.key, tokens (refresh & reset), area.code, inspection.code, audit.code, audit_criteria.code, audit_criteria_group.code, audit_criteria_item.code, achievement_rate.code, accident_report.code, project_type.code, equipment.code, tool.code, material.code, machine.code, company.code, profession.code, work_permit.code, safety_equipment.code, course.slug
+- Unique: email, role.name, permission.name, office.code, dept.code, job.code, hse_category.code, threat.code, risk_assessment.code, notification_type.name, file_storage_provider.name, file_category.name, file_upload.accessToken, setting.key, tokens (refresh & reset), area.code, inspection.code, audit.code, audit_criteria.code, audit_criteria_group.code, audit_criteria_item.code, achievement_rate.code, accident_report.code, project_type.code, equipment.code, tool.code, material.code, machine.code, company.code, profession.code, work_permit.code, safety_equipment.code, course.slug, certificate_category.code
 - FK Actions: UPDATE CASCADE, DELETE RESTRICT (or SET NULL for optional)
 - Composite Unique: notification_recipients[notificationId, roleId, userId], progress[enrollmentId, chapterId], quiz_answers[attemptId, questionId]
 
@@ -525,3 +647,15 @@ prisma.quizAnswer.findMany({
 51. For quiz attempts: always include quiz, enrollment, and answers with questions and options
 52. Quiz features: shuffleQuestions, shuffleOptions, showCorrectAnswer (configurable per quiz)
 53. QuizAttempt tracks attemptNumber, score, totalPoints, earnedPoints, timeSpent (in seconds), and isPassed flag
+54. For certificates: always include category, department, personnel/equipment info, createdBy, and renewals when displaying
+55. Certificate types: PERSONNEL_LICENSE, PERSONNEL_CERTIFICATE (for staff), EQUIPMENT_CALIBRATION, EQUIPMENT_INSTALLATION, EQUIPMENT_OPERATIONAL_PERMIT (for equipment)
+56. Certificates can reference personnel via userId (personnelId) OR free-text name (personnelName) - check both fields
+57. Certificates can reference equipment via equipmentId OR free-text name (equipmentName) - check both fields
+58. Certificate renewal workflow: Head of Dept → Human Capital (personnel) or Procurement (equipment) → Update certificate
+59. Certificate renewal status: PENDING (awaiting action), REQUESTED (sent to HC/Procurement), IN_PROGRESS, COMPLETED, REJECTED, EXPIRED
+60. Reminders should be sent based on reminderDays field (default 30 days before expiry)
+61. Certificate reminders track: reminderDate, isSent flag, sentAt timestamp, and recipient (department head/line manager)
+62. When completing renewal: update both CertificateRenewal record AND Certificate.validityDate in a transaction
+63. Filter expired certificates: validityDate < current date
+64. Filter expiring soon: validityDate between now and (now + reminderDays)
+65. Certificate categories define the type of certificate and help with classification and reporting

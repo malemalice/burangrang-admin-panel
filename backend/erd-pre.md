@@ -50,6 +50,23 @@ Enum QuizAttemptStatusEnum {
   ABANDONED
 }
 
+Enum CertificateTypeEnum {
+  PERSONNEL_LICENSE
+  PERSONNEL_CERTIFICATE
+  EQUIPMENT_CALIBRATION
+  EQUIPMENT_INSTALLATION
+  EQUIPMENT_OPERATIONAL_PERMIT
+}
+
+Enum CertificateRenewalStatusEnum {
+  PENDING
+  REQUESTED
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  EXPIRED
+}
+
 //// -- CORE USER MANAGEMENT --
 
 Table t_users {
@@ -873,6 +890,75 @@ Table t_quiz_answers {
   }
 }
 
+//// -- CERTIFICATE MANAGEMENT SYSTEM --
+
+Table m_certificate_categories {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  certificateType CertificateTypeEnum [not null]
+  description text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Certificate/License/Permit categories (e.g., Safety Officer License, Forklift Operator Certificate, Pressure Vessel Calibration)'
+}
+
+Table t_certificates {
+  id varchar [pk, default: `uuid()`]
+  certificateNumber varchar [not null]
+  certificateName varchar [not null]
+  categoryId varchar [not null, ref: > m_certificate_categories.id]
+  certificateType CertificateTypeEnum [not null]
+  issuedDate timestamp [not null]
+  validityDate timestamp [not null]
+  issuerName varchar [not null]
+  documentUrl varchar
+  personnelId varchar [ref: > t_users.id]
+  personnelName varchar
+  equipmentId varchar [ref: > m_heavy_equipment.id]
+  equipmentName varchar
+  departmentId varchar [not null, ref: > m_departments.id]
+  reminderDays int [default: 30, not null]
+  notes text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'Certificate, license, and permit records for both personnel and equipment. Personnel can use userId or free-text name, equipment can use equipmentId or free-text name.'
+}
+
+Table t_certificate_renewals {
+  id varchar [pk, default: `uuid()`]
+  certificateId varchar [not null, ref: > t_certificates.id]
+  requestDate timestamp [default: `now()`, not null]
+  requestedBy varchar [not null, ref: > t_users.id]
+  status CertificateRenewalStatusEnum [default: 'PENDING', not null]
+  processedBy varchar [ref: > t_users.id]
+  processedDate timestamp
+  newValidityDate timestamp
+  newDocumentUrl varchar
+  notes text
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Certificate renewal requests - tracks renewal workflow involving Human Capital (for personnel) or Procurement (for equipment)'
+}
+
+Table t_certificate_reminders {
+  id varchar [pk, default: `uuid()`]
+  certificateId varchar [not null, ref: > t_certificates.id]
+  reminderDate timestamp [not null]
+  isSent boolean [default: false, not null]
+  sentAt timestamp
+  recipientId varchar [not null, ref: > t_users.id]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Certificate validity reminders sent to department heads/line managers'
+}
+
 //// -- MANY-TO-MANY RELATIONSHIPS (Junction Tables) --
 
 Table _PermissionToRole {
@@ -1038,4 +1124,11 @@ TableGroup learning_management_system {
   t_quiz_question_options
   t_quiz_attempts
   t_quiz_answers
+}
+
+TableGroup certificate_management_system {
+  m_certificate_categories
+  t_certificates
+  t_certificate_renewals
+  t_certificate_reminders
 }
