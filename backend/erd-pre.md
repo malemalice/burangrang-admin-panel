@@ -42,6 +42,14 @@ Enum SafetyEquipmentCategoryEnum {
   SAFETY_AND_EMERGENCY_EQUIPMENT
 }
 
+Enum QuizAttemptStatusEnum {
+  INVITING
+  INVITED
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
 //// -- CORE USER MANAGEMENT --
 
 Table t_users {
@@ -685,6 +693,186 @@ Table t_work_permit_professions {
   Note: 'Professions required for work permit with quantities (e.g., 2 Surveyors, 10 Engineers)'
 }
 
+//// -- LEARNING MANAGEMENT SYSTEM (LMS) --
+
+Table t_courses {
+  id varchar [pk, default: `uuid()`]
+  title varchar [not null]
+  slug varchar [unique, not null]
+  description text
+  shortDescription varchar
+  thumbnailUrl varchar
+  totalChapters int [default: 0, not null]
+  totalDuration int [default: 0, not null]
+  difficulty varchar [default: 'beginner', not null]
+  language varchar [default: 'en', not null]
+  rating decimal(3,2) [default: 0, not null]
+  reviewCount int [default: 0, not null]
+  studentCount int [default: 0, not null]
+  instructorId varchar [not null, ref: > t_users.id]
+  status varchar [default: 'draft', not null]
+  isPublished boolean [default: false, not null]
+  publishedAt timestamp
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'LMS courses with instructor assignment and metadata'
+}
+
+Table t_chapters {
+  id varchar [pk, default: `uuid()`]
+  courseId varchar [not null, ref: > t_courses.id]
+  title varchar [not null]
+  description text
+  order int [not null]
+  duration int [default: 0, not null]
+  contentType varchar [not null]
+  contentUrl varchar
+  youtubeVideoId varchar
+  content text
+  isFree boolean [default: false, not null]
+  isPublished boolean [default: false, not null]
+  publishedAt timestamp
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Course chapters/lessons with content (video, pdf, text, youtube)'
+}
+
+Table t_enrollments {
+  id varchar [pk, default: `uuid()`]
+  userId varchar [not null, ref: > t_users.id]
+  courseId varchar [not null, ref: > t_courses.id]
+  status varchar [default: 'ACTIVE', not null]
+  enrolledAt timestamp [default: `now()`, not null]
+  completedAt timestamp
+  progress decimal(5,2) [default: 0, not null]
+  lastAccessedAt timestamp
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Student course enrollments with progress tracking - allows re-enrollment after completion'
+  indexes {
+    (userId, courseId, status)
+  }
+}
+
+Table t_course_progress {
+  id varchar [pk, default: `uuid()`]
+  enrollmentId varchar [not null, ref: > t_enrollments.id]
+  chapterId varchar [not null, ref: > t_chapters.id]
+  status varchar [default: 'NOT_STARTED', not null]
+  timeSpent int [default: 0, not null]
+  progress decimal(5,2) [default: 0, not null]
+  startedAt timestamp
+  completedAt timestamp
+  lastAccessedAt timestamp
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Chapter-level progress tracking per enrollment'
+  indexes {
+    (enrollmentId, chapterId) [unique]
+  }
+}
+
+Table t_quizzes {
+  id varchar [pk, default: `uuid()`]
+  courseId varchar [ref: > t_courses.id]
+  chapterId varchar [ref: > t_chapters.id]
+  title varchar [not null]
+  description text
+  instructions text
+  duration int
+  passingScore decimal(5,2) [default: 75, not null]
+  maxAttempts int
+  shuffleQuestions boolean [default: false, not null]
+  shuffleOptions boolean [default: false, not null]
+  showCorrectAnswer boolean [default: true, not null]
+  isPublished boolean [default: false, not null]
+  publishedAt timestamp
+  isActive boolean [default: true, not null]
+  createdBy varchar [not null, ref: > t_users.id]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Quizzes/assessments - can be bound to course or chapter'
+}
+
+Table t_quiz_questions {
+  id varchar [pk, default: `uuid()`]
+  quizId varchar [not null, ref: > t_quizzes.id]
+  questionType varchar [not null]
+  questionText text [not null]
+  explanation text
+  mediaUrl varchar
+  mediaType varchar
+  points decimal(5,2) [default: 1, not null]
+  order int [not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Quiz questions with support for multimedia (MULTIPLE_CHOICE, ESSAY, TRUE_FALSE)'
+}
+
+Table t_quiz_question_options {
+  id varchar [pk, default: `uuid()`]
+  questionId varchar [not null, ref: > t_quiz_questions.id]
+  optionText text [not null]
+  isCorrect boolean [default: false, not null]
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Answer options for multiple choice and true/false questions'
+}
+
+Table t_quiz_attempts {
+  id varchar [pk, default: `uuid()`]
+  quizId varchar [not null, ref: > t_quizzes.id]
+  enrollmentId varchar [not null, ref: > t_enrollments.id]
+  attemptNumber int [not null]
+  status QuizAttemptStatusEnum [default: 'IN_PROGRESS', not null]
+  score decimal(5,2)
+  totalPoints decimal(10,2)
+  earnedPoints decimal(10,2)
+  isPassed boolean [default: false, not null]
+  dueDate timestamp
+  startedAt timestamp [default: `now()`, not null]
+  completedAt timestamp
+  timeSpent int [default: 0, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Student quiz attempts with scoring and deadline tracking'
+  indexes {
+    (enrollmentId, quizId)
+  }
+}
+
+Table t_quiz_answers {
+  id varchar [pk, default: `uuid()`]
+  attemptId varchar [not null, ref: > t_quiz_attempts.id]
+  questionId varchar [not null, ref: > t_quiz_questions.id]
+  selectedOptionId varchar [ref: > t_quiz_question_options.id]
+  essayAnswer text
+  isCorrect boolean
+  pointsEarned decimal(5,2) [default: 0, not null]
+  feedback text
+  gradedBy varchar [ref: > t_users.id]
+  gradedAt timestamp
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Individual quiz answers - supports auto-grading (multiple choice) and manual grading (essays)'
+  indexes {
+    (attemptId, questionId) [unique]
+  }
+}
+
 //// -- MANY-TO-MANY RELATIONSHIPS (Junction Tables) --
 
 Table _PermissionToRole {
@@ -838,4 +1026,16 @@ TableGroup work_permit_system {
   _WorkPermitSupervisorToGuest
   _WorkPermitToUser
   _WorkPermitToSafetyEquipment
+}
+
+TableGroup learning_management_system {
+  t_courses
+  t_chapters
+  t_enrollments
+  t_course_progress
+  t_quizzes
+  t_quiz_questions
+  t_quiz_question_options
+  t_quiz_attempts
+  t_quiz_answers
 }
