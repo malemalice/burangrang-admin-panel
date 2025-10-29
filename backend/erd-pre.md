@@ -67,6 +67,21 @@ Enum CertificateRenewalStatusEnum {
   EXPIRED
 }
 
+Enum PPEWithdrawalStatusEnum {
+  PENDING
+  APPROVED
+  COLLECTED
+  CANCELLED
+}
+
+Enum PPEStockStatusEnum {
+  AVAILABLE
+  RESERVED
+  ISSUED
+  EXPIRED
+  DISPOSED
+}
+
 //// -- CORE USER MANAGEMENT --
 
 Table t_users {
@@ -232,10 +247,24 @@ Table m_areas {
   Note: 'Physical areas/locations for inspections'
 }
 
+Table m_safety_equipment_type {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Safety equipment type master data (PPE and safety/emergency equipment). eg: safety shoes: Boots, Regular safety Shoes; Glove: Anti-cutting Glove or Welding Glove'
+}
+
 Table m_safety_equipment {
   id varchar [pk, default: `uuid()`]
   name varchar [not null]
   code varchar [unique, not null]
+  safety_equipment_type_id varchar [not null, ref: > m_safety_equipment_type.id]
+  size varchar
   description text
   category SafetyEquipmentCategoryEnum [not null]
   isActive boolean [default: true, not null]
@@ -1057,6 +1086,7 @@ TableGroup risk_management {
   m_hse_categories
   m_threats
   m_safety_equipment
+  m_safety_equipment_type
   t_risk_control
   m_risk_matrix
   t_risk_assessment
@@ -1131,4 +1161,111 @@ TableGroup certificate_management_system {
   t_certificates
   t_certificate_renewals
   t_certificate_reminders
+}
+
+//// -- PPE MANAGEMENT SYSTEM --
+
+Table t_ppe_stock {
+  id varchar [pk, default: `uuid()`]
+  stockCode varchar [unique, not null]
+  receivedDate timestamp [not null]
+  notes text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'PPE stock header - one stock entry can contain multiple equipment items via t_ppe_stock_items'
+}
+
+Table t_ppe_stock_items {
+  id varchar [pk, default: `uuid()`]
+  stockId varchar [not null, ref: > t_ppe_stock.id]
+  safetyEquipmentId varchar [not null, ref: > m_safety_equipment.id]
+  expiryDate timestamp
+  initialQuantity int [not null]
+  currentQuantity int [not null]
+  reservedQuantity int [default: 0, not null]
+  status PPEStockStatusEnum [default: 'AVAILABLE', not null]
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'PPE stock items detail - multiple equipment items per stock entry. References m_safety_equipment.'
+}
+
+Table t_ppe_stock_adjustments {
+  id varchar [pk, default: `uuid()`]
+  stockItemId varchar [not null, ref: > t_ppe_stock_items.id]
+  adjustmentType varchar [not null]
+  quantityBefore int [not null]
+  quantityAfter int [not null]
+  quantityChange int [not null]
+  reason text [not null]
+  adjustedBy varchar [not null, ref: > t_users.id]
+  adjustedAt timestamp [default: `now()`, not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Track stock adjustments (DISPOSAL, DAMAGE, CORRECTION, EXPIRY_REMOVAL, RETURN) for audit trail'
+}
+
+Table t_ppe_expiry_alerts {
+  id varchar [pk, default: `uuid()`]
+  stockItemId varchar [not null, ref: > t_ppe_stock_items.id]
+  alertDate timestamp [not null]
+  daysUntilExpiry int [not null]
+  isSent boolean [default: false, not null]
+  sentAt timestamp
+  recipientId varchar [not null, ref: > t_users.id]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Expiry date alerts sent to HSE team for proactive management (90, 60, 30, 7 days before)'
+}
+
+Table t_ppe_withdrawals {
+  id varchar [pk, default: `uuid()`]
+  withdrawalCode varchar [unique, not null]
+  withdrawalDate timestamp [not null]
+  requestedBy varchar [not null, ref: > t_users.id]
+  requestedFor varchar [ref: > t_users.id]
+  requestedForName varchar
+  departmentId varchar [not null, ref: > m_departments.id]
+  jobPositionId varchar [ref: > m_job_positions.id]
+  jobPositionName varchar
+  status PPEWithdrawalStatusEnum [default: 'PENDING', not null]
+  withdrawalLetterUrl varchar
+  collectedDate timestamp
+  collectedBy varchar [ref: > t_users.id]
+  notes text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'PPE withdrawal requests. Can be for a specific user (requestedFor) or free-text name (requestedForName). Job position can be from master data or free-text.'
+}
+
+Table t_ppe_withdrawal_items {
+  id varchar [pk, default: `uuid()`]
+  withdrawalId varchar [not null, ref: > t_ppe_withdrawals.id]
+  stockItemId varchar [not null, ref: > t_ppe_stock_items.id]
+  requestedQuantity int [not null]
+  approvedQuantity int
+  issuedQuantity int
+  order int [not null]
+  notes text
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Individual PPE items in withdrawal request with quantity tracking. References t_ppe_stock_items for available stock.'
+}
+
+TableGroup ppe_management_system {
+  m_safety_equipment_type
+  t_ppe_stock
+  t_ppe_stock_items
+  t_ppe_stock_adjustments
+  t_ppe_expiry_alerts
+  t_ppe_withdrawals
+  t_ppe_withdrawal_items
 }
