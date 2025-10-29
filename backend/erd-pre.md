@@ -1261,7 +1261,7 @@ Table t_ppe_withdrawal_items {
 }
 
 TableGroup ppe_management_system {
-  m_safety_equipment_type
+  
   t_ppe_stock
   t_ppe_stock_items
   t_ppe_stock_adjustments
