@@ -280,6 +280,23 @@ Table m_rooms {
   Note: 'Rooms within areas - one-to-one relationship with area'
 }
 
+Table t_environmental_measurements {
+  id varchar [pk, default: `uuid()`]
+  roomId varchar [not null, ref: > m_rooms.id]
+  lighting decimal(10,2)
+  noise decimal(10,2)
+  humidity decimal(10,2)
+  temperature decimal(10,2)
+  remarks text
+  date timestamp [not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'Environmental measurements for rooms (lighting, noise, humidity, temperature)'
+}
+
 Table t_hse_targets {
   id varchar [pk, default: `uuid()`]
   month MonthEnum [not null]
@@ -1147,6 +1164,7 @@ TableGroup inspection_system {
   m_rooms
   t_inspections
   t_inspection_images
+  t_environmental_measurements
   _InspectionToUser
 }
 
