@@ -82,6 +82,26 @@ Enum PPEStockStatusEnum {
   DISPOSED
 }
 
+Enum ManHourGroupEnum {
+  STUDENT
+  NON_STUDENT
+}
+
+Enum MonthEnum {
+  JAN
+  FEB
+  MAR
+  APR
+  MAY
+  JUN
+  JUL
+  AUG
+  SEP
+  OCT
+  NOV
+  DEC
+}
+
 //// -- CORE USER MANAGEMENT --
 
 Table t_users {
@@ -1268,4 +1288,31 @@ TableGroup ppe_management_system {
   t_ppe_expiry_alerts
   t_ppe_withdrawals
   t_ppe_withdrawal_items
+}
+
+//// -- MAN HOUR MANAGEMENT SYSTEM --
+
+Table t_man_hours {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  group ManHourGroupEnum [not null]
+  qty int [not null]
+  manHourPerDay decimal(4,2) [not null]
+  month MonthEnum [not null]
+  year int [not null]
+  total decimal(10,2) [not null]
+  notes text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'Man hour records tracking quantity, hours per day, month, year, and calculated total'
+  indexes {
+    (projectId, group, month, year) [unique]
+  }
+}
+
+TableGroup man_hour_management_system {
+  t_man_hours
 }
