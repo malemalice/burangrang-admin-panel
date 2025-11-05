@@ -1357,7 +1357,7 @@ Table t_man_hours {
 
   Note: 'Man hour records tracking quantity, hours per day, month, year, and calculated total'
   indexes {
-    (projectId, group, month, year) [unique]
+    (name, group, month, year) [unique]
   }
 }
 
