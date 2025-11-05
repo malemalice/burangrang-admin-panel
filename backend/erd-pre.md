@@ -267,6 +267,21 @@ Table m_areas {
   Note: 'Physical areas/locations for inspections'
 }
 
+Table t_hse_targets {
+  id varchar [pk, default: `uuid()`]
+  month MonthEnum [not null]
+  year int [not null]
+  code varchar [unique, not null]
+  name varchar [not null]
+  target decimal(10,2) [not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'HSE targets tracking monthly and yearly targets with code and name'
+}
+
 Table m_safety_equipment_type {
   id varchar [pk, default: `uuid()`]
   name varchar [not null]
@@ -1111,6 +1126,7 @@ TableGroup risk_management {
   m_risk_matrix
   t_risk_assessment
   t_risk_assessment_item
+  t_hse_targets
 }
 
 TableGroup inspection_system {
