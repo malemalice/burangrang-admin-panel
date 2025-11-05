@@ -267,6 +267,19 @@ Table m_areas {
   Note: 'Physical areas/locations for inspections'
 }
 
+Table m_rooms {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  areaId varchar [unique, not null, ref: > m_areas.id]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Rooms within areas - one-to-one relationship with area'
+}
+
 Table t_hse_targets {
   id varchar [pk, default: `uuid()`]
   month MonthEnum [not null]
@@ -1131,6 +1144,7 @@ TableGroup risk_management {
 
 TableGroup inspection_system {
   m_areas
+  m_rooms
   t_inspections
   t_inspection_images
   _InspectionToUser
