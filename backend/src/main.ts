@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import * as cookieParser from 'cookie-parser';
@@ -9,7 +10,7 @@ import { JwtAuthGuard } from './shared/guards/jwt-auth.guard';
 import { Reflector } from '@nestjs/core';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
   const reflector = app.get(Reflector);
 
@@ -21,6 +22,9 @@ async function bootstrap() {
     credentials: corsConfig.credentials,
     allowedHeaders: corsConfig.allowedHeaders,
   });
+
+  // trust proxy
+  app.set('trust proxy', 1); // add this (or true) before the session middleware
 
   // Use cookie parser
   app.use(cookieParser());
