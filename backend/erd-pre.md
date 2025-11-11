@@ -241,7 +241,7 @@ Table m_hse_categories {
   Note: 'HSE (Health, Safety, Environment) categories'
 }
 
-Table m_threats {
+Table m_risks {
   id varchar [pk, default: `uuid()`]
   name varchar [not null]
   code varchar [unique, not null]
@@ -251,7 +251,7 @@ Table m_threats {
   updatedAt timestamp [default: `now()`, not null]
   hseCategoryId varchar [not null, ref: > m_hse_categories.id]
 
-  Note: 'Threat definitions for risk assessment'
+  Note: 'Risk definitions for risk assessment'
 }
 
 Table m_areas {
@@ -353,7 +353,7 @@ Table t_risk_control {
   updatedAt timestamp [default: `now()`, not null]
   riskAssessmentItemId varchar [not null, ref: > t_risk_assessment_item.id]
 
-  Note: 'Mitigation strategies for threats'
+  Note: 'Mitigation strategies for risks'
 }
 
 Table m_risk_matrix {
@@ -376,7 +376,6 @@ Table t_risk_assessment {
   createdBy varchar [not null, ref: > t_users.id]
   isActive boolean [default: true, not null]
   assigneeId varchar [ref: > t_users.id]
-  actionPlan text
   status GeneralStatusEnum [not null]
 
   Note: 'Risk assessment records'
@@ -385,8 +384,8 @@ Table t_risk_assessment {
 Table t_risk_assessment_item {
   id varchar [pk, default: `uuid()`]
   riskAssessmentId varchar [not null, ref: > t_risk_assessment.id]
-  mThreatId varchar [not null, ref: > m_threats.id]
-  threatDescription text [not null]
+  mRiskId varchar [not null, ref: > m_risks.id]
+  riskDescription text [not null]
   mHseCategoryId varchar [not null, ref: > m_hse_categories.id]
   likelihoodLevel int [not null]
   consequenceLevel int [not null]
@@ -1149,7 +1148,7 @@ TableGroup reference_data {
 
 TableGroup risk_management {
   m_hse_categories
-  m_threats
+  m_risks
   m_safety_equipment
   m_safety_equipment_type
   t_risk_control
