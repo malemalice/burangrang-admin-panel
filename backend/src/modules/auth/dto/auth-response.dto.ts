@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
 
-export class AuthUserDto {
+export class UserDto {
   @ApiProperty()
   @Expose()
   id: string;
@@ -22,7 +22,7 @@ export class AuthUserDto {
   @Expose()
   role: string;
 
-  constructor(partial: Partial<AuthUserDto>) {
+  constructor(partial: Partial<UserDto>) {
     Object.assign(this, partial);
   }
 }
@@ -36,9 +36,9 @@ export class AuthResponseDto {
   @Expose()
   refreshToken: string;
 
-  @ApiProperty({ type: AuthUserDto })
+  @ApiProperty({ type: UserDto })
   @Expose()
-  user: AuthUserDto;
+  user: UserDto;
 
   constructor(partial: Partial<AuthResponseDto>) {
     Object.assign(this, partial);
