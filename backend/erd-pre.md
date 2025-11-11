@@ -349,11 +349,12 @@ Table t_risk_control {
   isOpen boolean [default: true, not null]
   isAccept boolean [default: false, not null]
   isActive boolean [default: true, not null]
+  entity varchar [not null]
+  entityId varchar [not null]
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
-  riskAssessmentItemId varchar [not null, ref: > t_risk_assessment_item.id]
 
-  Note: 'Mitigation strategies for risks'
+  Note: 'Mitigation strategies for risks - polymorphic relation to t_inspections and t_risk_assessment_item (entity: table name, entityId: row id)'
 }
 
 Table m_risk_matrix {
@@ -394,10 +395,9 @@ Table t_risk_assessment_item {
   postLikelihoodLevel int [not null]
   postConsequenceLevel int [not null]
   postRiskMatrixRating RiskRatingEnum [not null]
-  riskControlId varchar [not null, ref: > t_risk_control.id]
   postInterpretation  RiskRatingEnum [not null]
 
-  Note: 'Individual items within risk assessments'
+  Note: 'Individual items within risk assessments - risk controls accessed via polymorphic relation in t_risk_control'
 }
 
 //// -- APPROVAL SYSTEM --
@@ -444,11 +444,9 @@ Table t_inspections {
   areaId varchar [not null, ref: > m_areas.id]
   inspectionDate timestamp [not null]
   hseCategoryId varchar [not null, ref: > m_hse_categories.id]
-  findingIssue text [not null]
-  description text
+  riskId varchar [unique, not null, ref: > m_risks.id]
   assignedDepartmentId varchar [not null, ref: > m_departments.id]
   assigneeId varchar [ref: > t_users.id]
-  controlMeasure text
   followUpNotes text
   status GeneralStatusEnum [not null]
   isActive boolean [default: true, not null]
@@ -456,7 +454,7 @@ Table t_inspections {
   updatedAt timestamp [default: `now()`, not null]
   createdBy varchar [not null, ref: > t_users.id]
 
-  Note: 'HSE inspection records - now supports multiple inspectors via junction table'
+  Note: 'HSE inspection records - supports multiple inspectors via one-to-many relationship, one-to-one relation to m_risks'
 }
 
 Table t_inspection_images {
@@ -469,6 +467,17 @@ Table t_inspection_images {
 
   Note: 'Photos/images attached to inspections'
 }
+
+Table t_inspection_inspectors {
+  id varchar [pk, default: `uuid()`]
+  inspectionId varchar [not null, ref: > t_inspections.id]
+  inspectorId varchar [not null, ref: > t_users.id]
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Inspectors assigned to inspections - one-to-many relationship (one inspection can have many inspectors)'
+}
+
 
 //// -- AUDIT SYSTEM --
 
@@ -1074,15 +1083,6 @@ Table _MenuToRole {
   }
 }
 
-Table _InspectionToUser {
-  A varchar [ref: > t_inspections.id]
-  B varchar [ref: > t_users.id]
-
-  Note: 'Many-to-many: Inspections and Inspectors (Users)'
-  indexes {
-    (A, B) [pk]
-  }
-}
 
 Table _AuditToUser {
   A varchar [ref: > t_audits.id]
@@ -1163,8 +1163,8 @@ TableGroup inspection_system {
   m_rooms
   t_inspections
   t_inspection_images
+  t_inspection_inspectors
   t_environmental_measurements
-  _InspectionToUser
 }
 
 TableGroup approval_system {
