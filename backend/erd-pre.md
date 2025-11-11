@@ -102,6 +102,12 @@ Enum MonthEnum {
   DEC
 }
 
+Enum TransitionTypeEnum {
+  INITIAL
+  TRANSITION_LEVEL
+  ADVANCE_LEVEL
+}
+
 //// -- CORE USER MANAGEMENT --
 
 Table t_users {
@@ -481,44 +487,45 @@ Table t_inspection_inspectors {
 
 //// -- AUDIT SYSTEM --
 
+Table m_audit_element {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Top-level audit elements (e.g., Safety Standards, Quality Control)'
+}
+
+Table m_audit_clause {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  auditElementId varchar [not null, ref: > m_audit_element.id]
+  order int [not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Audit clauses within elements (e.g., PPE, Emergency Equipment, Work Procedures)'
+}
+
 Table m_audit_criteria {
   id varchar [pk, default: `uuid()`]
   name varchar [not null]
   code varchar [unique, not null]
   description text
-  isActive boolean [default: true, not null]
-  createdAt timestamp [default: `now()`, not null]
-  updatedAt timestamp [default: `now()`, not null]
-
-  Note: 'Top-level audit criteria categories (e.g., Safety Standards, Quality Control)'
-}
-
-Table m_audit_criteria_group {
-  id varchar [pk, default: `uuid()`]
-  name varchar [not null]
-  code varchar [unique, not null]
-  description text
-  criteriaId varchar [not null, ref: > m_audit_criteria.id]
+  auditClauseId varchar [not null, ref: > m_audit_clause.id]
+  transitionType TransitionTypeEnum [not null]
   order int [not null]
   isActive boolean [default: true, not null]
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
 
-  Note: 'Groups within criteria (e.g., PPE, Emergency Equipment, Work Procedures)'
-}
-
-Table m_audit_criteria_item {
-  id varchar [pk, default: `uuid()`]
-  name varchar [not null]
-  code varchar [unique, not null]
-  description text
-  criteriaGroupId varchar [not null, ref: > m_audit_criteria_group.id]
-  order int [not null]
-  isActive boolean [default: true, not null]
-  createdAt timestamp [default: `now()`, not null]
-  updatedAt timestamp [default: `now()`, not null]
-
-  Note: 'Specific audit checklist items within groups (e.g., Hard hat condition, Fire extinguisher location)'
+  Note: 'Specific audit criteria within clauses (e.g., Hard hat condition, Fire extinguisher location)'
 }
 
 Table t_audits {
@@ -526,11 +533,7 @@ Table t_audits {
   code varchar [unique, not null]
   areaId varchar [not null, ref: > m_areas.id]
   auditDate timestamp [not null]
-  criteriaId varchar [not null, ref: > m_audit_criteria.id]
-  assignedDepartmentId varchar [not null, ref: > m_departments.id]
-  assigneeId varchar [ref: > t_users.id]
-  controlMeasure text
-  followUpNotes text
+  auditElementId varchar [not null, ref: > m_audit_element.id]
   status GeneralStatusEnum [not null]
   isActive boolean [default: true, not null]
   createdAt timestamp [default: `now()`, not null]
@@ -543,15 +546,18 @@ Table t_audits {
 Table t_audit_items {
   id varchar [pk, default: `uuid()`]
   auditId varchar [not null, ref: > t_audits.id]
-  criteriaItemId varchar [not null, ref: > m_audit_criteria_item.id]
+  auditCriteriaId varchar [not null, ref: > m_audit_criteria.id]
+  assignedDepartmentId varchar [not null, ref: > m_departments.id]
+  assigneeId varchar [ref: > t_users.id]
   compliantStatus CompliantStatusEnum [not null]
   evidence text
   recommendation text
   order int [not null]
+  dueDate timestamp [not null]
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
 
-  Note: 'Individual audit item findings - tracks compliance status for each criteria item'
+  Note: 'Individual audit item findings - tracks compliance status for each audit criteria'
 }
 
 Table t_audit_images {
@@ -567,7 +573,7 @@ Table t_audit_images {
 
 //// -- INCIDENT REPORT SYSTEM --
 
-Table t_incident_reports {
+Table t_incidents {
   id varchar [pk, default: `uuid()`]
   code varchar [unique, not null]
   incidentDate timestamp [not null]
@@ -589,9 +595,9 @@ Table t_incident_reports {
   Note: 'incident report records with classification and assignment tracking'
 }
 
-Table t_incident_report_images {
+Table t_incidents_images {
   id varchar [pk, default: `uuid()`]
-  incidentReportId varchar [not null, ref: > t_incident_reports.id]
+  incidentReportId varchar [not null, ref: > t_incidents.id]
   imageUrl varchar [not null]
   caption text
   order int [not null]
@@ -1174,9 +1180,9 @@ TableGroup approval_system {
 }
 
 TableGroup audit_system {
+  m_audit_element
+  m_audit_clause
   m_audit_criteria
-  m_audit_criteria_group
-  m_audit_criteria_item
   t_audits
   t_audit_items
   t_audit_images
@@ -1184,8 +1190,8 @@ TableGroup audit_system {
 }
 
 TableGroup incident_report_system {
-  t_incident_reports
-  t_incident_report_images
+  t_incidents
+  t_incidents_images
 }
 
 TableGroup work_permit_system {
