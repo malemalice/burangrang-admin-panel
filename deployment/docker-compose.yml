@@ -2,7 +2,7 @@
 services:
   # Traefik Reverse Proxy with Automatic SSL
   traefik:
-    image: traefik:v3.0
+    image: traefik:v3.1
     container_name: burangrang-traefik
     restart: unless-stopped
     command:
