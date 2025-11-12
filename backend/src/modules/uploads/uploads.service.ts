@@ -18,7 +18,10 @@ import { UserDto } from '../users/dto/user.dto';
 export class UploadsService {
   private fileUploadMapper: (fileUpload: any) => FileUploadDto;
   private fileUploadArrayMapper: (fileUploads: any[]) => FileUploadDto[];
-  private fileUploadPaginatedMapper: (data: { data: any[]; meta: any }) => { data: FileUploadDto[]; meta: any };
+  private fileUploadPaginatedMapper: (data: { data: any[]; meta: any }) => {
+    data: FileUploadDto[];
+    meta: any;
+  };
 
   constructor(
     private readonly prisma: PrismaService,
@@ -42,38 +45,44 @@ export class UploadsService {
         size: (value: any) => Number(value), // Convert BigInt to number
       },
     });
-    this.fileUploadArrayMapper = this.dtoMapper.createArrayMapper(FileUploadDto, {
-      relations: {
-        storageProvider: {
-          mapper: this.dtoMapper.createSimpleMapper(FileStorageProviderDto),
+    this.fileUploadArrayMapper = this.dtoMapper.createArrayMapper(
+      FileUploadDto,
+      {
+        relations: {
+          storageProvider: {
+            mapper: this.dtoMapper.createSimpleMapper(FileStorageProviderDto),
+          },
+          category: {
+            mapper: this.dtoMapper.createSimpleMapper(FileCategoryDto),
+          },
+          uploader: {
+            mapper: this.dtoMapper.createSimpleMapper(UserDto),
+          },
         },
-        category: {
-          mapper: this.dtoMapper.createSimpleMapper(FileCategoryDto),
-        },
-        uploader: {
-          mapper: this.dtoMapper.createSimpleMapper(UserDto),
-        },
-      },
-      transform: {
-        size: (value: any) => Number(value), // Convert BigInt to number
-      },
-    });
-    this.fileUploadPaginatedMapper = this.dtoMapper.createPaginatedMapper(FileUploadDto, {
-      relations: {
-        storageProvider: {
-          mapper: this.dtoMapper.createSimpleMapper(FileStorageProviderDto),
-        },
-        category: {
-          mapper: this.dtoMapper.createSimpleMapper(FileCategoryDto),
-        },
-        uploader: {
-          mapper: this.dtoMapper.createSimpleMapper(UserDto),
+        transform: {
+          size: (value: any) => Number(value), // Convert BigInt to number
         },
       },
-      transform: {
-        size: (value: any) => Number(value), // Convert BigInt to number
+    );
+    this.fileUploadPaginatedMapper = this.dtoMapper.createPaginatedMapper(
+      FileUploadDto,
+      {
+        relations: {
+          storageProvider: {
+            mapper: this.dtoMapper.createSimpleMapper(FileStorageProviderDto),
+          },
+          category: {
+            mapper: this.dtoMapper.createSimpleMapper(FileCategoryDto),
+          },
+          uploader: {
+            mapper: this.dtoMapper.createSimpleMapper(UserDto),
+          },
+        },
+        transform: {
+          size: (value: any) => Number(value), // Convert BigInt to number
+        },
       },
-    });
+    );
   }
 
   async uploadFile(
@@ -142,7 +151,10 @@ export class UploadsService {
     return this.create(createDto, uploadedBy);
   }
 
-  async create(createFileUploadDto: CreateFileUploadDto, uploadedBy: string): Promise<FileUploadDto> {
+  async create(
+    createFileUploadDto: CreateFileUploadDto,
+    uploadedBy: string,
+  ): Promise<FileUploadDto> {
     const fileUpload = await this.prisma.fileUpload.create({
       data: {
         ...createFileUploadDto,
@@ -289,12 +301,20 @@ export class UploadsService {
       },
     });
 
-    this.errorHandler.throwIfNotFoundByField('FileUpload', 'accessToken', accessToken, fileUpload);
+    this.errorHandler.throwIfNotFoundByField(
+      'FileUpload',
+      'accessToken',
+      accessToken,
+      fileUpload,
+    );
 
     return this.fileUploadMapper(fileUpload);
   }
 
-  async update(id: string, updateFileUploadDto: UpdateFileUploadDto): Promise<FileUploadDto> {
+  async update(
+    id: string,
+    updateFileUploadDto: UpdateFileUploadDto,
+  ): Promise<FileUploadDto> {
     const existingFileUpload = await this.prisma.fileUpload.findUnique({
       where: { id },
     });
@@ -329,7 +349,9 @@ export class UploadsService {
     this.errorHandler.throwIfNotFoundById('FileUpload', id, existingFileUpload);
 
     // Delete file from storage
-    const storageService = await this.storageFactory.getStorageService(existingFileUpload.storageProviderId);
+    const storageService = await this.storageFactory.getStorageService(
+      existingFileUpload.storageProviderId,
+    );
     await storageService.delete(existingFileUpload.storedName);
 
     // Delete database record
@@ -344,7 +366,7 @@ export class UploadsService {
       orderBy: { name: 'asc' },
     });
 
-    return categories.map(category => ({
+    return categories.map((category) => ({
       id: category.id,
       name: category.name,
       allowedTypes: category.allowedTypes,
@@ -355,14 +377,27 @@ export class UploadsService {
     }));
   }
 
-  async downloadFile(id: string, accessedBy?: string, ipAddress?: string, userAgent?: string): Promise<Buffer> {
+  async downloadFile(
+    id: string,
+    accessedBy?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<Buffer> {
     const fileUpload = await this.findOne(id);
 
     // Log access
-    await this.logFileAccess(fileUpload.id, accessedBy, ipAddress, userAgent, 'download');
+    await this.logFileAccess(
+      fileUpload.id,
+      accessedBy,
+      ipAddress,
+      userAgent,
+      'download',
+    );
 
     // Get storage service and download file
-    const storageService = await this.storageFactory.getStorageService(fileUpload.storageProviderId);
+    const storageService = await this.storageFactory.getStorageService(
+      fileUpload.storageProviderId,
+    );
     return storageService.download(fileUpload.storedName);
   }
 
@@ -375,10 +410,18 @@ export class UploadsService {
     const fileUpload = await this.findByAccessToken(accessToken);
 
     // Log access
-    await this.logFileAccess(fileUpload.id, accessedBy, ipAddress, userAgent, 'download');
+    await this.logFileAccess(
+      fileUpload.id,
+      accessedBy,
+      ipAddress,
+      userAgent,
+      'download',
+    );
 
     // Get storage service and download file
-    const storageService = await this.storageFactory.getStorageService(fileUpload.storageProviderId);
+    const storageService = await this.storageFactory.getStorageService(
+      fileUpload.storageProviderId,
+    );
     return storageService.download(fileUpload.storedName);
   }
 
@@ -403,13 +446,17 @@ export class UploadsService {
   private validateFile(file: any, category: any): void {
     // Check file size
     if (file.size > category.maxSize) {
-      throw new Error(`File size exceeds maximum allowed size of ${category.maxSize} bytes`);
+      throw new Error(
+        `File size exceeds maximum allowed size of ${category.maxSize} bytes`,
+      );
     }
 
     // Check file type
     const allowedTypes = category.allowedTypes as string[];
     if (!allowedTypes.includes(file.mimetype)) {
-      throw new Error(`File type ${file.mimetype} is not allowed for this category`);
+      throw new Error(
+        `File type ${file.mimetype} is not allowed for this category`,
+      );
     }
   }
 
