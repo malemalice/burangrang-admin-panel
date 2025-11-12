@@ -1,5 +1,5 @@
 # Multi-stage build for NestJS Backend
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -34,7 +34,7 @@ RUN npm run build && \
     test -f dist/src/main.js || (echo "ERROR: dist/src/main.js not found after build" && exit 1)
 
 # Production stage
-FROM node:18-alpine AS production
+FROM node:20-alpine AS production
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
