@@ -1,0 +1,23 @@
+# Traefik data
+traefik/letsencrypt/
+traefik/logs/
+
+# Certbot data (if using nginx + let's encrypt)
+certbot/
+
+# SSL certificates
+certs/*.pem
+certs/*.key
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Backups
+backups/*.sql
+backups/*.dump
+
+SETUP.md
+QUICKSTART.md
+PRODUCTION_CHECKLIST.md
