@@ -108,6 +108,113 @@ Enum TransitionTypeEnum {
   ADVANCE_LEVEL
 }
 
+Enum IncidentTypeEnum {
+  NEAR_MISS
+  ACCIDENT
+  DANGEROUS_OR_HAZARDOUS_OCCURRENCE
+}
+
+Enum GenderEnum {
+  MALE
+  FEMALE
+}
+
+Enum LevelOfInjuryEnum {
+  NOT_SPECIFIED
+  MINOR
+  MODERATE
+  SEVERE
+  FATAL
+}
+
+Enum InjuredBodyPartEnum {
+  NOT_SPECIFIED
+  HEAD
+  NECK
+  ABDOMENT
+  ARM
+  FEET
+  SHOULDER
+  HAND
+  LEG
+  BACK
+  SKIN
+  CHEST
+  EYE
+  INTERNAL_ORGAN
+  OTHER
+}
+
+Enum TypeOfInjuryEnum {
+  NOT_SPECIFIED
+  CUT
+  BRUISE
+  FRACTURE
+  BURN
+  SPRAIN
+  STRAIN
+  LACERATION
+  CONCUSSION
+  OTHER
+}
+
+Enum MechanismOfInjuryEnum {
+  NOT_SPECIFIED
+  STRUCK_BY
+  FAILING_OBJECT
+  TRIP
+  SLIP
+  FALL
+  CHEMICAL
+  VEHICLES
+  MECHINARY
+  ELECTRICITY
+  HAND_TOOLS
+  FALL_FROM_HEIGHT
+  FLYING_OBJECT
+  OTHER
+}
+
+Enum StopActivityEnum {
+  NOT_SPECIFIED
+  YES
+  NO
+}
+
+Enum TreatmentEnum {
+  NOT_SPECIFIED
+  FIRST_AID
+  MEDICAL_TREATMENT
+  HOSPITALIZATION
+  NO_TREATMENT
+  OTHER
+}
+
+Enum AbsenceEnum {
+  NOT_YET_KNOWN
+  RETURNED_AFTER_TREATMENT
+  MORE_THAN_THREE_DAYS
+  NOT_SPECIFIED
+}
+
+Enum PriorityEnum {
+  NOT_SPECIFIED
+  NORMAL
+  HIGH
+  VENDOR
+  LONGER_TERM
+}
+
+Enum HasInjuredPersonEnum {
+  YES
+  NO
+}
+
+Enum HasWitnessEnum {
+  YES
+  NO
+}
+
 //// -- CORE USER MANAGEMENT --
 
 Table t_users {
@@ -576,13 +683,27 @@ Table t_audit_images {
 Table t_incidents {
   id varchar [pk, default: `uuid()`]
   code varchar [unique, not null]
+  subject varchar [not null]
   incidentDate timestamp [not null]
+  incidentLocation varchar [not null]
   areaId varchar [not null, ref: > m_areas.id]
+  incidentType IncidentTypeEnum [not null]
   incidentClassification IncidentClassificationEnum [not null]
+  requesterId varchar [not null, ref: > t_users.id]
   reportedBy varchar [not null, ref: > t_users.id]
+  technicianId varchar [ref: > t_users.id]
+  priority PriorityEnum [default: 'NORMAL', not null]
+  hseCategoryId varchar [not null, ref: > m_hse_categories.id]
+  description text
   controlMeasure text
   dueDate timestamp
   expectedOutcome text
+  needToStopActivity StopActivityEnum [default: 'NOT_SPECIFIED', not null]
+  stopActivityDescription text
+  treatment TreatmentEnum [default: 'NOT_SPECIFIED', not null]
+  treatmentDescription text
+  absence AbsenceEnum [default: 'NOT_SPECIFIED', not null]
+  resolution text
   assignedDepartmentId varchar [not null, ref: > m_departments.id]
   assigneeId varchar [ref: > t_users.id]
   status GeneralStatusEnum [not null]
@@ -592,18 +713,71 @@ Table t_incidents {
   updatedAt timestamp [default: `now()`, not null]
   createdBy varchar [not null, ref: > t_users.id]
 
-  Note: 'incident report records with classification and assignment tracking'
+  Note: 'Incident report records with comprehensive incident details, action taken, and assignment tracking'
 }
 
-Table t_incidents_images {
+Table t_incident_injured_persons {
   id varchar [pk, default: `uuid()`]
-  incidentReportId varchar [not null, ref: > t_incidents.id]
+  incidentId varchar [not null, ref: > t_incidents.id]
+  hasInjuredPerson HasInjuredPersonEnum [not null]
+  injuredPersonName varchar
+  gender GenderEnum
+  levelOfInjury LevelOfInjuryEnum [default: 'NOT_SPECIFIED', not null]
+  injuredBodyPart InjuredBodyPartEnum [default: 'NOT_SPECIFIED', not null]
+  typeOfInjury TypeOfInjuryEnum [default: 'NOT_SPECIFIED', not null]
+  mechanismOfInjury MechanismOfInjuryEnum [default: 'NOT_SPECIFIED', not null]
+  departmentId varchar [ref: > m_departments.id]
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Injured persons associated with incident - supports multiple injured persons per incident. If hasInjuredPerson is NO, other fields may be null.'
+}
+
+Table t_incident_witnesses {
+  id varchar [pk, default: `uuid()`]
+  incidentId varchar [not null, ref: > t_incidents.id]
+  hasWitness HasWitnessEnum [not null]
+  witnessName varchar
+  gender GenderEnum
+  departmentId varchar [ref: > m_departments.id]
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Witnesses associated with incident - supports multiple witnesses per incident. If hasWitness is NO, other fields may be null.'
+}
+
+Table t_incident_assets {
+  id varchar [pk, default: `uuid()`]
+  incidentId varchar [not null, ref: > t_incidents.id]
+  assetName varchar [not null]
+  assetCode varchar
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Assets associated with incident - supports multiple assets per incident. Can reference existing assets or be free-text.'
+}
+
+Table t_incident_images {
+  id varchar [pk, default: `uuid()`]
+  incidentId varchar [not null, ref: > t_incidents.id]
   imageUrl varchar [not null]
   caption text
   order int [not null]
   createdAt timestamp [default: `now()`, not null]
 
   Note: 'Photos/images attached to incident reports as evidence'
+}
+
+Table t_incident_attachments {
+  id varchar [pk, default: `uuid()`]
+  incidentId varchar [not null, ref: > t_incidents.id]
+  attachmentUrl varchar [not null]
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'File attachments for incident reports - references file upload system'
 }
 
 //// -- WORK PERMIT SYSTEM --
@@ -1191,7 +1365,11 @@ TableGroup audit_system {
 
 TableGroup incident_report_system {
   t_incidents
-  t_incidents_images
+  t_incident_injured_persons
+  t_incident_witnesses
+  t_incident_assets
+  t_incident_images
+  t_incident_attachments
 }
 
 TableGroup work_permit_system {
