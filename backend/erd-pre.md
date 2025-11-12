@@ -894,13 +894,14 @@ Table t_work_permits {
   jobSafetyAnalysis text [not null]
   workRequirements text
   safetyGuideline text
+  requireCourseVerification boolean [default: false, not null]
   status GeneralStatusEnum [not null]
   isActive boolean [default: true, not null]
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
   createdBy varchar [not null, ref: > t_users.id]
 
-  Note: 'Work permit applications with project details and safety requirements'
+  Note: 'Work permit applications with project details and safety requirements. requireCourseVerification indicates if workers/employees need to complete required courses.'
 }
 
 Table t_work_permit_classifications {
@@ -990,6 +991,21 @@ Table t_work_permit_professions {
   createdAt timestamp [default: `now()`, not null]
 
   Note: 'Professions required for work permit with quantities (e.g., 2 Surveyors, 10 Engineers)'
+}
+
+Table t_work_permit_required_courses {
+  id varchar [pk, default: `uuid()`]
+  workPermitId varchar [not null, ref: > t_work_permits.id]
+  courseId varchar [not null, ref: > t_courses.id]
+  isRequired boolean [default: true, not null]
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Required courses for work permit - links work permits to courses that workers/employees need to complete. Course completion progress is tracked via t_enrollments (for system users/employees) and t_course_progress (chapter-level). For employees, check t_enrollments where userId matches t_work_permit_employees.userId and courseId matches required course. For external workers (guests), course completion can be verified manually or through certificates.'
+  indexes {
+    (workPermitId, courseId) [unique]
+  }
 }
 
 //// -- LEARNING MANAGEMENT SYSTEM (LMS) --
@@ -1390,6 +1406,7 @@ TableGroup work_permit_system {
   t_work_permit_machines
   t_work_permit_workers
   t_work_permit_professions
+  t_work_permit_required_courses
   _WorkPermitSupervisorToGuest
   _WorkPermitToUser
   _WorkPermitToSafetyEquipment
