@@ -1,0 +1,179 @@
+
+services:
+  # Traefik Reverse Proxy with Automatic SSL
+  traefik:
+    image: traefik:v3.0
+    container_name: burangrang-traefik
+    restart: unless-stopped
+    command:
+      # Enable Docker provider
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      
+      # Entry points
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      
+      # Automatic HTTP to HTTPS redirect
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      
+      # Let's Encrypt configuration
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@benwara.com}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      
+      # Optional: Traefik dashboard (comment out in production or secure it)
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      
+      # Logs
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    ports:
+      - "80:80"
+      - "443:443"
+#      - "8080:8080"  # Traefik dashboard (remove in production or secure it)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/letsencrypt:/letsencrypt
+      - ./traefik/logs:/var/log/traefik
+    networks:
+      - burangrang-network
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: burangrang-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-burangrang}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - burangrang-network
+
+  # Backend API (NestJS with PM2)
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: burangrang-backend
+    restart: unless-stopped
+    env_file:
+      - ../backend/.env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-burangrang}?schema=public
+    volumes:
+      - uploads_data:/app/uploads
+    expose:
+      - "3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "pm2", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - burangrang-network
+    labels:
+      # Enable Traefik for this service
+      - "traefik.enable=true"
+      
+      # HTTP Router
+      - "traefik.http.routers.backend.rule=Host(`api.benwara.com`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls=true"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      
+      # Service
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+      
+      # Rate limiting (optional)
+      - "traefik.http.middlewares.backend-ratelimit.ratelimit.average=100"
+      - "traefik.http.middlewares.backend-ratelimit.ratelimit.burst=50"
+      - "traefik.http.routers.backend.middlewares=backend-ratelimit"
+      
+      # Security headers
+      - "traefik.http.middlewares.backend-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.backend-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.backend-headers.headers.frameDeny=true"
+      - "traefik.http.middlewares.backend-headers.headers.contentTypeNosniff=true"
+
+  # Frontend Admin Panel
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: burangrang-frontend
+    restart: unless-stopped
+    expose:
+      - "8080"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - burangrang-network
+    labels:
+      # Enable Traefik for this service
+      - "traefik.enable=true"
+      
+      # HTTP Router
+      - "traefik.http.routers.frontend.rule=Host(`panel.benwara.com`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      
+      # Service
+      - "traefik.http.services.frontend.loadbalancer.server.port=8080"
+      
+      # Security headers
+      - "traefik.http.middlewares.frontend-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.frontend-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.frontend-headers.headers.frameDeny=true"
+      - "traefik.http.middlewares.frontend-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.routers.frontend.middlewares=frontend-headers"
+
+volumes:
+  postgres_data:
+    driver: local
+  uploads_data:
+    driver: local
+
+networks:
+  burangrang-network:
+    driver: bridge
+
