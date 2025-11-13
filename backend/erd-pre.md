@@ -110,6 +110,13 @@ Enum MonthEnum {
   DEC
 }
 
+Enum WasteTypeEnum {
+  DOMESTIC
+  HAZARDOUS
+  FOOD
+  GREEN
+}
+
 Enum TransitionTypeEnum {
   INITIAL
   TRANSITION_LEVEL
@@ -1695,4 +1702,122 @@ TableGroup wastewater_management_system {
   m_water_quality_parameters
   t_monthly_flow_reports
   t_water_quality_lab_reports
+}
+
+//// -- SOLID WASTE MANAGEMENT SYSTEM (HSE DOMAIN) --
+
+Table m_waste_types {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  wasteType WasteTypeEnum [not null]
+  description text
+  requiresSpecialHandling boolean [default: false, not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Waste type master data (DOMESTIC, HAZARDOUS, FOOD, GREEN) - used for categorization and reporting
+
+  Seed Data Examples:
+  - { name: "Domestic Waste", code: "DOMESTIC", wasteType: "DOMESTIC", requiresSpecialHandling: false, description: "General household and office waste" }
+  - { name: "Hazardous Waste", code: "HAZARDOUS", wasteType: "HAZARDOUS", requiresSpecialHandling: true, description: "Chemicals, batteries, medical waste requiring special handling" }
+  - { name: "Food Waste", code: "FOOD", wasteType: "FOOD", requiresSpecialHandling: false, description: "Organic food waste from catering" }
+  - { name: "Green Waste", code: "GREEN", wasteType: "GREEN", requiresSpecialHandling: false, description: "Garden and landscaping waste" }'
+}
+
+Table m_waste_sources {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  sourceType varchar [not null]
+  description text
+  contactPerson varchar
+  phone varchar
+  email varchar
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Waste source master data - organizations/teams that generate waste (Cleaners, Catering Vendor, Grounds and Landscaping Team)
+
+  Seed Data Examples:
+  - { name: "Cleaning Team", code: "CLEANERS", sourceType: "INTERNAL_TEAM", description: "Internal cleaning staff responsible for domestic and hazardous waste" }
+  - { name: "Catering Vendor", code: "CATERING", sourceType: "VENDOR", description: "External catering vendor generating food waste" }
+  - { name: "Grounds and Landscaping Team", code: "GROUNDS", sourceType: "INTERNAL_TEAM", description: "Internal team responsible for green waste from landscaping" }'
+}
+
+Table m_storage_locations {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  location varchar [not null]
+  areaId varchar [ref: > m_areas.id]
+  description text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'Temporary storage locations for waste - reference for waste collection points where weight measurements are taken
+
+  Seed Data Examples:
+  - { name: "Building A Temporary Storage", code: "TS-A", location: "Building A Basement", description: "Temporary waste storage for Building A" }
+  - { name: "Central Storage Area", code: "TS-CENTRAL", location: "Central Campus", description: "Main temporary storage facility" }'
+}
+
+Table t_weight_reports {
+  id varchar [pk, default: `uuid()`]
+  reportCode varchar [unique, not null]
+  sourceId varchar [not null, ref: > m_waste_sources.id]
+  storageLocationId varchar [not null, ref: > m_storage_locations.id]
+  reportDate timestamp [not null]
+  reportMonth MonthEnum [not null]
+  reportYear int [not null]
+  reportDocumentUrl varchar
+  submittedBy varchar [not null, ref: > t_users.id]
+  submittedAt timestamp [not null]
+  receivedBy varchar [ref: > t_users.id]
+  receivedAt timestamp
+  status ReportStatusEnum [default: 'SUBMITTED', not null]
+  reviewedBy varchar [ref: > t_users.id]
+  reviewedAt timestamp
+  reviewNotes text
+  archivedAt timestamp
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Weight reports submitted by waste sources (Cleaners, Catering Vendor, Grounds Team) to HSE - HSE receives, reviews, and archives these reports. Each report can contain multiple waste type entries via t_weight_report_items'
+  indexes {
+    (sourceId, reportMonth, reportYear) [unique]
+    (reportMonth, reportYear)
+    status
+    receivedAt
+  }
+}
+
+Table t_weight_report_items {
+  id varchar [pk, default: `uuid()`]
+  weightReportId varchar [not null, ref: > t_weight_reports.id]
+  wasteTypeId varchar [not null, ref: > m_waste_types.id]
+  weight decimal(10,2) [not null]
+  unit varchar [default: 'kg', not null]
+  order int [not null]
+  notes text
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Individual waste type entries within weight reports - tracks weight measurements per waste type'
+  indexes {
+    (weightReportId, wasteTypeId) [unique]
+  }
+}
+
+TableGroup solid_waste_management_system {
+  m_waste_types
+  m_waste_sources
+  m_storage_locations
+  t_weight_reports
+  t_weight_report_items
 }
