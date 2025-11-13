@@ -1596,12 +1596,7 @@ Table m_treatment_plants {
   updatedAt timestamp [default: `now()`, not null]
   createdBy varchar [not null, ref: > t_users.id]
 
-  Note: 'Sewage Treatment Plant (STP) / Wastewater Treatment Plant (WWTP) master data - reference for HSE report management
-
-  Seed Data Examples:
-  - { name: "Main STP Building A", code: "STP-A", plantType: "STP", location: "Building A Basement", capacity: 500.00, description: "Primary sewage treatment plant for Building A" }
-  - { name: "WWTP Campus Central", code: "WWTP-CC", plantType: "WWTP", location: "Central Campus", capacity: 1000.00, description: "Central wastewater treatment plant serving main campus" }
-  - { name: "STP Building B", code: "STP-B", plantType: "STP", location: "Building B Ground Floor", capacity: 300.00, description: "Secondary treatment plant for Building B" }'
+  Note: 'Sewage Treatment Plant (STP) / Wastewater Treatment Plant (WWTP) master data - reference for HSE report management. Seed Data Examples: Main STP Building A (STP-A, STP, Building A Basement, 500.00), WWTP Campus Central (WWTP-CC, WWTP, Central Campus, 1000.00), STP Building B (STP-B, STP, Building B Ground Floor, 300.00)'
 }
 
 Table m_water_quality_parameters {
@@ -1617,19 +1612,7 @@ Table m_water_quality_parameters {
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
 
-  Note: 'Water quality test parameters master data (pH, BOD, COD, TSS, Oil/Grease, Heavy Metals, Coliform, etc.) - used by HSE to review lab reports
-
-  Seed Data Examples:
-  - { name: "pH Level", code: "PH", unit: "pH units", standardLimit: 6.5, regulatoryLimit: 9.0, testMethod: "pH Meter", description: "Acidity/alkalinity measurement" }
-  - { name: "Biochemical Oxygen Demand", code: "BOD", unit: "mg/L", standardLimit: 20.0, regulatoryLimit: 30.0, testMethod: "BOD5 Test", description: "Amount of dissolved oxygen needed by aerobic biological organisms" }
-  - { name: "Chemical Oxygen Demand", code: "COD", unit: "mg/L", standardLimit: 100.0, regulatoryLimit: 150.0, testMethod: "Dichromate Method", description: "Measure of organic compounds in water" }
-  - { name: "Total Suspended Solids", code: "TSS", unit: "mg/L", standardLimit: 30.0, regulatoryLimit: 50.0, testMethod: "Gravimetric", description: "Particles suspended in water" }
-  - { name: "Oil and Grease", code: "OIL_GREASE", unit: "mg/L", standardLimit: 10.0, regulatoryLimit: 15.0, testMethod: "Gravimetric Extraction", description: "Petroleum hydrocarbons and fats" }
-  - { name: "Total Coliform", code: "COLIFORM", unit: "MPN/100mL", standardLimit: 100.0, regulatoryLimit: 200.0, testMethod: "MPN Method", description: "Indicator of fecal contamination" }
-  - { name: "Ammonia Nitrogen", code: "NH3-N", unit: "mg/L", standardLimit: 5.0, regulatoryLimit: 10.0, testMethod: "Nessler Method", description: "Ammonia concentration" }
-  - { name: "Total Phosphorus", code: "TP", unit: "mg/L", standardLimit: 1.0, regulatoryLimit: 2.0, testMethod: "Ascorbic Acid Method", description: "Phosphorus content" }
-  - { name: "Heavy Metals (Lead)", code: "PB", unit: "mg/L", standardLimit: 0.1, regulatoryLimit: 0.2, testMethod: "AAS/ICP", description: "Lead concentration" }
-  - { name: "Heavy Metals (Mercury)", code: "HG", unit: "mg/L", standardLimit: 0.001, regulatoryLimit: 0.002, testMethod: "Cold Vapor AAS", description: "Mercury concentration" }'
+  Note: 'Water quality test parameters master data (pH, BOD, COD, TSS, Oil/Grease, Heavy Metals, Coliform, etc.) - used by HSE to review lab reports. Seed Data Examples: pH Level (PH, pH units, 6.5-9.0), BOD (BOD, mg/L, 20.0-30.0), COD (COD, mg/L, 100.0-150.0), TSS (TSS, mg/L, 30.0-50.0), Oil/Grease (OIL_GREASE, mg/L, 10.0-15.0), Coliform (COLIFORM, MPN/100mL, 100.0-200.0), NH3-N (NH3-N, mg/L, 5.0-10.0), TP (TP, mg/L, 1.0-2.0), Lead (PB, mg/L, 0.1-0.2), Mercury (HG, mg/L, 0.001-0.002)'
 }
 
 Table t_monthly_flow_reports {
@@ -1717,13 +1700,7 @@ Table m_waste_types {
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
 
-  Note: 'Waste type master data (DOMESTIC, HAZARDOUS, FOOD, GREEN) - used for categorization and reporting
-
-  Seed Data Examples:
-  - { name: "Domestic Waste", code: "DOMESTIC", wasteType: "DOMESTIC", requiresSpecialHandling: false, description: "General household and office waste" }
-  - { name: "Hazardous Waste", code: "HAZARDOUS", wasteType: "HAZARDOUS", requiresSpecialHandling: true, description: "Chemicals, batteries, medical waste requiring special handling" }
-  - { name: "Food Waste", code: "FOOD", wasteType: "FOOD", requiresSpecialHandling: false, description: "Organic food waste from catering" }
-  - { name: "Green Waste", code: "GREEN", wasteType: "GREEN", requiresSpecialHandling: false, description: "Garden and landscaping waste" }'
+  Note: 'Waste type master data (DOMESTIC, HAZARDOUS, FOOD, GREEN) - used for categorization and reporting. Seed Data Examples: Domestic Waste (DOMESTIC, no special handling), Hazardous Waste (HAZARDOUS, requires special handling), Food Waste (FOOD, no special handling), Green Waste (GREEN, no special handling)'
 }
 
 Table m_waste_sources {
@@ -1739,12 +1716,7 @@ Table m_waste_sources {
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
 
-  Note: 'Waste source master data - organizations/teams that generate waste (Cleaners, Catering Vendor, Grounds and Landscaping Team)
-
-  Seed Data Examples:
-  - { name: "Cleaning Team", code: "CLEANERS", sourceType: "INTERNAL_TEAM", description: "Internal cleaning staff responsible for domestic and hazardous waste" }
-  - { name: "Catering Vendor", code: "CATERING", sourceType: "VENDOR", description: "External catering vendor generating food waste" }
-  - { name: "Grounds and Landscaping Team", code: "GROUNDS", sourceType: "INTERNAL_TEAM", description: "Internal team responsible for green waste from landscaping" }'
+  Note: 'Waste source master data - organizations/teams that generate waste (Cleaners, Catering Vendor, Grounds and Landscaping Team). Seed Data Examples: Cleaning Team (CLEANERS, INTERNAL_TEAM), Catering Vendor (CATERING, VENDOR), Grounds and Landscaping Team (GROUNDS, INTERNAL_TEAM)'
 }
 
 Table m_storage_locations {
@@ -1759,11 +1731,7 @@ Table m_storage_locations {
   updatedAt timestamp [default: `now()`, not null]
   createdBy varchar [not null, ref: > t_users.id]
 
-  Note: 'Temporary storage locations for waste - reference for waste collection points where weight measurements are taken
-
-  Seed Data Examples:
-  - { name: "Building A Temporary Storage", code: "TS-A", location: "Building A Basement", description: "Temporary waste storage for Building A" }
-  - { name: "Central Storage Area", code: "TS-CENTRAL", location: "Central Campus", description: "Main temporary storage facility" }'
+  Note: 'Temporary storage locations for waste - reference for waste collection points where weight measurements are taken. Seed Data Examples: Building A Temporary Storage (TS-A, Building A Basement), Central Storage Area (TS-CENTRAL, Central Campus)'
 }
 
 Table t_weight_reports {
