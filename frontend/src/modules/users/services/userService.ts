@@ -135,6 +135,18 @@ const userService = {
       const errorMessage = error.response?.data?.message || 'Failed to delete user';
       throw new Error(errorMessage);
     }
+  },
+
+  // Send password reset email to a user by email
+  sendResetPasswordEmail: async (email: string): Promise<{ message: string }> => {
+    try {
+      const response = await api.post('/auth/forgot-password', { email });
+      return response.data;
+    } catch (error: any) {
+      console.error(`Error sending reset password email to ${email}:`, error);
+      const errorMessage = error.response?.data?.message || 'Failed to send reset password email';
+      throw new Error(errorMessage);
+    }
   }
 };
 
