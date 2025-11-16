@@ -11,7 +11,7 @@ datasource db {
 // Email Templates - Master Data
 model EmailTemplate {
   id               String   @id @default(uuid())
-  key              String   @unique         // unique key, e.g. "verification"
+  code             String   @unique         // unique code, e.g. "verification"
   name             String                      // Human readable name
   subjectTemplate  String                      // Handlebars template for subject
   bodyTemplate     String   @db.Text           // Handlebars template for HTML body

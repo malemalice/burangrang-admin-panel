@@ -62,17 +62,17 @@ export class MailService {
   }
 
   private async sendByKey(
-    key: 'verification' | 'password-reset' | 'team-invitation' | 'password-change' | string,
+    code: 'verification' | 'password-reset' | 'team-invitation' | 'password-change' | string,
     to: string,
     context: Record<string, unknown> = {},
     subjectOverride?: string,
   ): Promise<void> {
     try {
       const tpl = await this.prisma.emailTemplate.findUnique({
-        where: { key },
+        where: { code },
       });
       if (!tpl || !tpl.isActive) {
-        this.logger.warn(`Email template not found or inactive for key "${key}"`);
+        this.logger.warn(`Email template not found or inactive for code "${code}"`);
         return;
       }
 
@@ -89,7 +89,7 @@ export class MailService {
       });
     } catch (error) {
       // Do not throw to avoid blocking critical flows
-      this.logger.error(`Failed sending email with key "${key}" to ${to}: ${String(error)}`);
+      this.logger.error(`Failed sending email with code "${code}" to ${to}: ${String(error)}`);
     }
   }
 }
