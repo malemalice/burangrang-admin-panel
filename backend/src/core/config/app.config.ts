@@ -10,6 +10,15 @@ export default registerAs('app', () => ({
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
   googleCallbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/auth/google/callback',
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  mail: {
+    provider: (process.env.MAIL_PROVIDER || 'smtp').toLowerCase(),
+    host: process.env.MAIL_HOST || 'localhost',
+    port: parseInt(process.env.MAIL_PORT || '1025', 10),
+    user: process.env.MAIL_USER || '',
+    password: process.env.MAIL_PASSWORD || '',
+    from: process.env.MAIL_FROM || 'no-reply@example.com',
+    secure: String(process.env.MAIL_SECURE || 'false').toLowerCase() === 'true',
+  },
   cors: {
     // Support multiple frontend domains
     origins: process.env.CORS_ORIGINS
