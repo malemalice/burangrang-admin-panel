@@ -105,6 +105,65 @@ await this.mailService.sendTemplatedMail({
 
 On failures, the service will throw; callers in user-critical flows should catch/log and continue.
 
+### 6) Public Test Endpoint (cURL)
+
+Send a templated email via the public testing endpoint:
+
+```bash
+curl -X POST http://localhost:3000/mail/test \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "you@example.com",
+    "template": "verification",
+    "context": {
+      "name": "John Doe",
+      "verificationLink": "https://example.com/verify?token=abc123"
+    }
+  }'
+```
+
+Other templates:
+
+```bash
+# password reset
+curl -X POST http://localhost:3000/mail/test \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "you@example.com",
+    "template": "password-reset",
+    "context": {
+      "name": "John Doe",
+      "resetLink": "https://example.com/reset?token=abc123"
+    }
+  }'
+
+# team invitation
+curl -X POST http://localhost:3000/mail/test \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "you@example.com",
+    "template": "team-invitation",
+    "context": {
+      "name": "John Doe",
+      "inviterName": "Alice",
+      "teamName": "Platform Team",
+      "invitationLink": "https://example.com/invite?token=abc123"
+    }
+  }'
+
+# password change notification
+curl -X POST http://localhost:3000/mail/test \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "you@example.com",
+    "template": "password-change",
+    "context": {
+      "name": "John Doe",
+      "changedAt": "2025-11-16T12:34:56.000Z"
+    }
+  }'
+```
+
 ## Compile and run the project
 
 ```bash

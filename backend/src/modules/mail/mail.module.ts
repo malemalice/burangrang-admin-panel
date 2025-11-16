@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { MailerModule } from '@nestjs-modules/mailer';
+import { MailerModule, MailerOptions } from '@nestjs-modules/mailer';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
@@ -7,12 +7,13 @@ import { SharedModule } from '../../shared/shared.module';
 import { MailService } from './mail.service';
 import { handlebarsHelpers } from './templates/helpers';
 import { MailController } from './mail.controller';
+import { PrismaModule } from '../../core/prisma/prisma.module';
 
 @Module({
   imports: [
     MailerModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (config: ConfigService) => {
+      useFactory: (config: ConfigService): MailerOptions => {
         const provider = (
           config.get<string>('app.mail.provider') || 'smtp'
         ).toLowerCase();
@@ -49,7 +50,7 @@ import { MailController } from './mail.controller';
               auth: { user, pass },
             };
 
-        return {
+        const options: MailerOptions = {
           transport,
           defaults: { from },
           template: {
@@ -58,10 +59,12 @@ import { MailController } from './mail.controller';
             options: { strict: true },
           },
         };
+        return options;
       },
       inject: [ConfigService],
     }),
     SharedModule,
+    PrismaModule,
   ],
   controllers: [MailController],
   providers: [MailService],
