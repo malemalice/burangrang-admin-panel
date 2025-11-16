@@ -6,6 +6,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
 import { SharedModule } from '../../shared/shared.module';
 import { MailService } from './mail.service';
 import { handlebarsHelpers } from './templates/helpers';
+import { MailController } from './mail.controller';
 
 @Module({
   imports: [
@@ -32,12 +33,21 @@ import { handlebarsHelpers } from './templates/helpers';
         const user = config.get<string>('app.mail.user') ?? '';
         const pass = config.get<string>('app.mail.password') ?? '';
 
-        const transport: Record<string, unknown> = {
-          host,
-          port,
-          secure,
-          auth: { user, pass },
-        };
+        // If no SMTP creds and using dev default (localhost:1025), use stream transport to avoid connection errors
+        const useStreamTransport =
+          (!user || !pass) && host === 'localhost' && port === 1025;
+
+        const transport: Record<string, unknown> = useStreamTransport
+          ? {
+              streamTransport: true,
+              buffer: true,
+            }
+          : {
+              host,
+              port,
+              secure,
+              auth: { user, pass },
+            };
 
         return {
           transport,
@@ -53,6 +63,7 @@ import { handlebarsHelpers } from './templates/helpers';
     }),
     SharedModule,
   ],
+  controllers: [MailController],
   providers: [MailService],
   exports: [MailerModule, MailService],
 })
