@@ -71,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             navigate('/login');
           }
         }
-      } else if (location.pathname !== '/login') {
+      } else if (!['/login', '/reset-password'].includes(location.pathname)) {
         console.log('[Auth] No tokens found, redirecting to login');
         // Redirect to login if not authenticated and not already on login page
         navigate('/login');
@@ -135,7 +135,7 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
   const location = useLocation();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && location.pathname !== '/login') {
+    if (!isLoading && !isAuthenticated && !['/login', '/reset-password'].includes(location.pathname)) {
       console.log('[ProtectedRoute] Not authenticated, redirecting to login');
       navigate('/login');
     }
