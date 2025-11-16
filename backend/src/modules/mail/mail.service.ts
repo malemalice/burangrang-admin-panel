@@ -34,15 +34,16 @@ export class MailService {
     });
   }
 
-  private async buildTransporter(): Promise<{ transporter: nodemailer.Transporter; from: string }> {
+  private async buildTransporter(): Promise<{
+    transporter: nodemailer.Transporter;
+    from: string;
+  }> {
     // Resolve provider and defaults
     const provider =
-      (
-        await this.settings.getWithDefault(
-          'mail.provider',
-          (this.config.get<string>('app.mail.provider') || 'smtp').toLowerCase(),
-        )
-      ) || 'smtp';
+      (await this.settings.getWithDefault(
+        'mail.provider',
+        (this.config.get<string>('app.mail.provider') || 'smtp').toLowerCase(),
+      )) || 'smtp';
     const from =
       (await this.settings.getWithDefault(
         'mail.from',
@@ -84,10 +85,14 @@ export class MailService {
         this.config.get<string>('app.mail.password') ?? '',
       )) ?? '';
 
-    const useStreamTransport = (!user || !pass) && host === 'localhost' && port === 1025;
+    const useStreamTransport =
+      (!user || !pass) && host === 'localhost' && port === 1025;
 
     const transporter = useStreamTransport
-      ? nodemailer.createTransport({ streamTransport: true, buffer: true } as any)
+      ? nodemailer.createTransport({
+          streamTransport: true,
+          buffer: true,
+        } as any)
       : nodemailer.createTransport({
           host,
           port,
@@ -98,21 +103,27 @@ export class MailService {
     return { transporter, from };
   }
 
-  async sendVerificationEmail(payload: SendVerificationEmailDto): Promise<void> {
+  async sendVerificationEmail(
+    payload: SendVerificationEmailDto,
+  ): Promise<void> {
     await this.sendByKey('verification', payload.email, {
       name: payload.name,
       verificationLink: payload.verificationLink,
     });
   }
 
-  async sendPasswordResetEmail(payload: SendPasswordResetEmailDto): Promise<void> {
+  async sendPasswordResetEmail(
+    payload: SendPasswordResetEmailDto,
+  ): Promise<void> {
     await this.sendByKey('password-reset', payload.email, {
       name: payload.name,
       resetLink: payload.resetLink,
     });
   }
 
-  async sendTeamInvitationEmail(payload: SendTeamInvitationEmailDto): Promise<void> {
+  async sendTeamInvitationEmail(
+    payload: SendTeamInvitationEmailDto,
+  ): Promise<void> {
     await this.sendByKey('team-invitation', payload.email, {
       name: payload.name,
       inviterName: payload.inviterName,
@@ -121,7 +132,9 @@ export class MailService {
     });
   }
 
-  async sendPasswordChangeNotification(payload: SendPasswordChangeEmailDto): Promise<void> {
+  async sendPasswordChangeNotification(
+    payload: SendPasswordChangeEmailDto,
+  ): Promise<void> {
     await this.sendByKey('password-change', payload.email, {
       name: payload.name,
       changedAt: payload.changedAt?.toISOString() ?? new Date().toISOString(),
@@ -129,7 +142,12 @@ export class MailService {
   }
 
   async sendTemplatedMail(payload: SendTemplatedEmailDto): Promise<void> {
-    await this.sendByKey(payload.template as any, payload.email, payload.context, payload.subject);
+    await this.sendByKey(
+      payload.template as any,
+      payload.email,
+      payload.context,
+      payload.subject,
+    );
   }
 
   /**
@@ -146,11 +164,17 @@ export class MailService {
       where: { code },
     });
     if (!tpl || !tpl.isActive) {
-      throw new Error(`Email template not found or inactive for code "${code}"`);
+      throw new Error(
+        `Email template not found or inactive for code "${code}"`,
+      );
     }
 
-    const compiledSubject = Handlebars.compile(tpl.subjectTemplate, { noEscape: true });
-    const compiledBody = Handlebars.compile(tpl.bodyTemplate, { noEscape: true });
+    const compiledSubject = Handlebars.compile(tpl.subjectTemplate, {
+      noEscape: true,
+    });
+    const compiledBody = Handlebars.compile(tpl.bodyTemplate, {
+      noEscape: true,
+    });
 
     const subject = subjectOverride ?? compiledSubject(context);
     const html = compiledBody(context);
@@ -160,7 +184,12 @@ export class MailService {
   }
 
   private async sendByKey(
-    code: 'verification' | 'password-reset' | 'team-invitation' | 'password-change' | string,
+    code:
+      | 'verification'
+      | 'password-reset'
+      | 'team-invitation'
+      | 'password-change'
+      | string,
     to: string,
     context: Record<string, unknown> = {},
     subjectOverride?: string,
@@ -170,12 +199,18 @@ export class MailService {
         where: { code },
       });
       if (!tpl || !tpl.isActive) {
-        this.logger.warn(`Email template not found or inactive for code "${code}"`);
+        this.logger.warn(
+          `Email template not found or inactive for code "${code}"`,
+        );
         return;
       }
 
-      const compiledSubject = Handlebars.compile(tpl.subjectTemplate, { noEscape: true });
-      const compiledBody = Handlebars.compile(tpl.bodyTemplate, { noEscape: true });
+      const compiledSubject = Handlebars.compile(tpl.subjectTemplate, {
+        noEscape: true,
+      });
+      const compiledBody = Handlebars.compile(tpl.bodyTemplate, {
+        noEscape: true,
+      });
 
       const subject = subjectOverride ?? compiledSubject(context);
       const html = compiledBody(context);
@@ -184,7 +219,9 @@ export class MailService {
       await transporter.sendMail({ from, to, subject, html });
     } catch (error) {
       // Do not throw to avoid blocking critical flows
-      this.logger.error(`Failed sending email with code "${code}" to ${to}: ${String(error)}`);
+      this.logger.error(
+        `Failed sending email with code "${code}" to ${to}: ${String(error)}`,
+      );
     }
   }
 
@@ -196,7 +233,10 @@ export class MailService {
     sortOrder?: 'asc' | 'desc';
     isActive?: boolean;
     search?: string;
-  }): Promise<{ data: EmailTemplateDto[]; meta: { total: number; page: number; limit: number } }> {
+  }): Promise<{
+    data: EmailTemplateDto[];
+    meta: { total: number; page: number; limit: number };
+  }> {
     const page = params.page && params.page > 0 ? params.page : 1;
     const limit = params.limit && params.limit > 0 ? params.limit : 10;
     const skip = (page - 1) * limit;
@@ -209,7 +249,12 @@ export class MailService {
               OR: [
                 { code: { contains: params.search, mode: 'insensitive' } },
                 { name: { contains: params.search, mode: 'insensitive' } },
-                { subjectTemplate: { contains: params.search, mode: 'insensitive' } },
+                {
+                  subjectTemplate: {
+                    contains: params.search,
+                    mode: 'insensitive',
+                  },
+                },
               ],
             }
           : {},
@@ -218,7 +263,7 @@ export class MailService {
 
     const orderBy: Prisma.EmailTemplateOrderByWithRelationInput | undefined =
       params.sortBy
-        ? { [params.sortBy]: params.sortOrder ?? 'asc' } as any
+        ? ({ [params.sortBy]: params.sortOrder ?? 'asc' } as any)
         : { createdAt: 'desc' };
 
     const [total, rows] = await this.prisma.$transaction([
@@ -257,11 +302,13 @@ export class MailService {
       throw new Error('Email template not found');
     }
     return new EmailTemplateDto(tpl);
-    }
+  }
 
   async createTemplate(dto: CreateEmailTemplateDto): Promise<EmailTemplateDto> {
     // Ensure code is unique
-    const existing = await this.prisma.emailTemplate.findUnique({ where: { code: dto.code } });
+    const existing = await this.prisma.emailTemplate.findUnique({
+      where: { code: dto.code },
+    });
     if (existing) {
       throw new Error('Email template code already exists');
     }
@@ -277,8 +324,13 @@ export class MailService {
     return new EmailTemplateDto(created);
   }
 
-  async updateTemplate(id: string, dto: UpdateEmailTemplateDto): Promise<EmailTemplateDto> {
-    const existing = await this.prisma.emailTemplate.findUnique({ where: { id } });
+  async updateTemplate(
+    id: string,
+    dto: UpdateEmailTemplateDto,
+  ): Promise<EmailTemplateDto> {
+    const existing = await this.prisma.emailTemplate.findUnique({
+      where: { id },
+    });
     if (!existing) {
       throw new Error('Email template not found');
     }
@@ -295,7 +347,9 @@ export class MailService {
   }
 
   async toggleTemplate(id: string): Promise<EmailTemplateDto> {
-    const existing = await this.prisma.emailTemplate.findUnique({ where: { id } });
+    const existing = await this.prisma.emailTemplate.findUnique({
+      where: { id },
+    });
     if (!existing) {
       throw new Error('Email template not found');
     }
@@ -307,11 +361,12 @@ export class MailService {
   }
 
   async removeTemplate(id: string): Promise<void> {
-    const existing = await this.prisma.emailTemplate.findUnique({ where: { id } });
+    const existing = await this.prisma.emailTemplate.findUnique({
+      where: { id },
+    });
     if (!existing) {
       return;
     }
     await this.prisma.emailTemplate.delete({ where: { id } });
   }
 }
-

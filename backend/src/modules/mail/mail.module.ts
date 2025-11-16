@@ -6,9 +6,7 @@ import { MailController } from './mail.controller';
 import { PrismaModule } from '../../core/prisma/prisma.module';
 
 @Module({
-  imports: [
-    SharedModule, SettingsModule, PrismaModule,
-  ],
+  imports: [SharedModule, SettingsModule, PrismaModule],
   controllers: [MailController],
   providers: [MailService],
   exports: [MailService],

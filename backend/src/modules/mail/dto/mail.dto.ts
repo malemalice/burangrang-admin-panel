@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsOptional, IsString, IsUrl, IsEnum } from 'class-validator';
-import { MailTemplateKey } from '../templates/registry';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, IsUrl } from 'class-validator';
 
 export class SendVerificationEmailDto {
   @ApiProperty()
@@ -93,9 +92,9 @@ export class SendTemplatedEmailDto {
   @IsEmail()
   email: string;
 
-  @ApiProperty({ enum: ['verification', 'password-reset', 'team-invitation', 'password-change'] })
-  @IsEnum(['verification', 'password-reset', 'team-invitation', 'password-change'])
-  template: MailTemplateKey;
+  @ApiProperty({ description: 'Template code, e.g. verification, password-reset', type: String })
+  @IsString()
+  template: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
