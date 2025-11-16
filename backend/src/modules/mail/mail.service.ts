@@ -152,6 +152,25 @@ export class MailService {
     );
   }
 
+  async sendWelcomeEmail(payload: { email: string; name: string }): Promise<void> {
+    await this.sendByKey('welcome-user', payload.email, {
+      name: payload.name,
+    });
+  }
+
+  async sendOrderSuccessEmail(payload: {
+    email: string;
+    name: string;
+    orderNumber: string;
+    totalAmount?: string;
+  }): Promise<void> {
+    await this.sendByKey('order-success', payload.email, {
+      name: payload.name,
+      orderNumber: payload.orderNumber,
+      totalAmount: payload.totalAmount,
+    });
+  }
+
   /**
    * Strict test sender used by /mail/test to surface delivery errors synchronously.
    * Mirrors sendByKey but rethrows errors instead of swallowing them.

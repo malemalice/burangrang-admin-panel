@@ -159,26 +159,9 @@ const Login = () => {
             <p className={cn(
               "text-sm mt-1",
               isDark ? "text-gray-400" : "text-slate-600"
-            )}>made by your company</p>
+            )}>made by SoulYouSee</p>
           </div>
 
-          {/* Demo credentials alert */}
-          <Alert className={cn(
-            "mb-6 border",
-            isDark ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"
-          )}>
-            <Info
-              className="h-4 w-4"
-              style={{ color: currentThemeColor }}
-            />
-            <AlertDescription className={cn(
-              "text-sm",
-              isDark ? "text-gray-300" : "text-gray-700"
-            )}>
-              <strong>Email:</strong> admin@example.com<br />
-              <strong>Password:</strong> admin123
-            </AlertDescription>
-          </Alert>
 
           {infoMessage && (
             <Alert className={cn(

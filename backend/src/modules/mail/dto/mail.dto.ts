@@ -109,4 +109,44 @@ export class SendTemplatedEmailDto {
   }
 }
 
+export class SendWelcomeEmailDto {
+  @ApiProperty()
+  @IsEmail()
+  email: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  constructor(partial: Partial<SendWelcomeEmailDto>) {
+    Object.assign(this, partial);
+  }
+}
+
+export class SendOrderSuccessEmailDto {
+  @ApiProperty()
+  @IsEmail()
+  email: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  orderNumber: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  totalAmount?: string;
+
+  constructor(partial: Partial<SendOrderSuccessEmailDto>) {
+    Object.assign(this, partial);
+  }
+}
+
 
