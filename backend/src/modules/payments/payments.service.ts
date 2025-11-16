@@ -7,6 +7,7 @@ import { PaymentDto } from './dto/payment.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { XenditQRCodeWebhookPayload } from '../../shared/types/xendit.types';
+import { MailService } from '../mail/mail.service';
 
 interface FindAllOptions {
   page?: number;
@@ -40,6 +41,7 @@ export class PaymentsService {
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
     private readonly xenditService: XenditService,
+    private readonly mailService: MailService,
   ) {
     this.paymentMapper = this.dtoMapper.createSimpleMapper(PaymentDto);
   }
@@ -339,6 +341,28 @@ export class PaymentsService {
       });
 
       this.logger.log(`Order ${order.id} status updated to FULFILLED`);
+
+      // Best-effort order success email (non-blocking)
+      try {
+        const customerUser = order.customer?.user;
+        if (customerUser?.email) {
+          const fullName =
+            [customerUser.firstName, customerUser.lastName].filter(Boolean).join(' ') ||
+            customerUser.firstName ||
+            customerUser.email;
+          await this.mailService.sendOrderSuccessEmail({
+            email: customerUser.email,
+            name: fullName,
+            orderNumber: order.orderNumber,
+            totalAmount: String(order.totalAmount ?? amount),
+          });
+        }
+      } catch (e) {
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        this.logger.warn(
+          `Order success email failed for order ${order.orderNumber}: ${errorMessage}`,
+        );
+      }
 
       // Note: Enrollments are NOT auto-created during payment
       // Users must manually enroll via POST /enrollments endpoint from frontend

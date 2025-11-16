@@ -274,6 +274,21 @@ export class AuthService {
       include: { role: true },
     });
 
+    // Best-effort welcome email (non-blocking)
+    try {
+      const fullName =
+        [user.firstName, user.lastName].filter(Boolean).join(' ') ||
+        user.firstName ||
+        user.email;
+      await this.mailService.sendWelcomeEmail({
+        email: user.email,
+        name: fullName,
+      });
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`Welcome email failed for ${user.email}: ${errorMessage}`);
+    }
+
     // Create customer profile if phone is provided
     if (signupDto.phone) {
       await this.prisma.customer.create({

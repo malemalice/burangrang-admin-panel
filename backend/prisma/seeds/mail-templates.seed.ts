@@ -50,6 +50,19 @@ export async function seedMailTemplates(prisma: PrismaClient): Promise<void> {
       subjectTemplate: 'Your password was changed',
       bodyTemplate: readTemplate('password-change'),
     },
+    {
+      code: 'welcome-user',
+      name: 'Welcome User',
+      subjectTemplate: 'Selamat datang, {{default name "Teman"}}!',
+      bodyTemplate: readTemplate('welcome-user'),
+    },
+    {
+      code: 'order-success',
+      name: 'Order Success',
+      subjectTemplate:
+        'Pembayaran diterima — Pesanan {{default orderNumber ""}}',
+      bodyTemplate: readTemplate('order-success'),
+    },
   ];
 
   for (const tpl of templates) {
