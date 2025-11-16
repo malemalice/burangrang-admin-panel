@@ -26,6 +26,7 @@ const routes: RouteConfig[] = [
 // Public routes that don't require authentication
 export const publicRoutes: RouteConfig[] = [
   coreRoutes.find(route => route.path === '/login')!,
+  coreRoutes.find(route => route.path === '/reset-password')!,
 ];
 
 // Not Found route
