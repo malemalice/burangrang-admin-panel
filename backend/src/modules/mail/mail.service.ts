@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { MailerService } from '@nestjs-modules/mailer';
 import {
   SendVerificationEmailDto,
   SendPasswordResetEmailDto,
@@ -14,6 +13,7 @@ import { CreateEmailTemplateDto } from './dto/create-email-template.dto';
 import { UpdateEmailTemplateDto } from './dto/update-email-template.dto';
 import { EmailTemplateDto } from './dto/email-template.dto';
 import { Prisma } from '@prisma/client';
+import { MailerService } from '@nestjs-modules/mailer';
 
 @Injectable()
 export class MailService {
@@ -65,6 +65,32 @@ export class MailService {
     await this.sendByKey(payload.template as any, payload.email, payload.context, payload.subject);
   }
 
+  /**
+   * Strict test sender used by /mail/test to surface delivery errors synchronously.
+   * Mirrors sendByKey but rethrows errors instead of swallowing them.
+   */
+  async sendTemplatedMailStrict(payload: SendTemplatedEmailDto): Promise<void> {
+    const code = payload.template as any;
+    const to = payload.email;
+    const context = payload.context ?? {};
+    const subjectOverride = payload.subject;
+
+    const tpl = await this.prisma.emailTemplate.findUnique({
+      where: { code },
+    });
+    if (!tpl || !tpl.isActive) {
+      throw new Error(`Email template not found or inactive for code "${code}"`);
+    }
+
+    const compiledSubject = Handlebars.compile(tpl.subjectTemplate, { noEscape: true });
+    const compiledBody = Handlebars.compile(tpl.bodyTemplate, { noEscape: true });
+
+    const subject = subjectOverride ?? compiledSubject(context);
+    const html = compiledBody(context);
+
+    await this.mailer.sendMail({ to, subject, html });
+  }
+
   private async sendByKey(
     code: 'verification' | 'password-reset' | 'team-invitation' | 'password-change' | string,
     to: string,
@@ -86,11 +112,7 @@ export class MailService {
       const subject = subjectOverride ?? compiledSubject(context);
       const html = compiledBody(context);
 
-      await this.mailer.sendMail({
-        to,
-        subject,
-        html,
-      });
+      await this.mailer.sendMail({ to, subject, html });
     } catch (error) {
       // Do not throw to avoid blocking critical flows
       this.logger.error(`Failed sending email with code "${code}" to ${to}: ${String(error)}`);

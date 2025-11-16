@@ -13,6 +13,8 @@ import { useTheme, ThemeColor } from '@/core/lib/theme';
 import { themeColors } from '@/core/lib/theme/colors';
 import { useAppName } from '../hooks/useSettings';
 import settingsService from '../services/settingsService';
+import api from '@/core/lib/api';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/core/components/ui/dialog';
 
 // Define theme options
 const themeOptions = Object.entries(themeColors).map(([id, colors]) => ({
@@ -37,6 +39,9 @@ const SettingsPage = () => {
   const [mailFrom, setMailFrom] = useState<string>('');
   const [isSavingEmail, setIsSavingEmail] = useState<boolean>(false);
   const [isLoadingEmail, setIsLoadingEmail] = useState<boolean>(false);
+  const [testEmail, setTestEmail] = useState<string>('');
+  const [isSendingTest, setIsSendingTest] = useState<boolean>(false);
+  const [isTestDialogOpen, setIsTestDialogOpen] = useState<boolean>(false);
   
   // Update temp app name when app name loads
   useEffect(() => {
@@ -135,6 +140,37 @@ const SettingsPage = () => {
       toast.error(e?.message || 'Failed to save email settings');
     } finally {
       setIsSavingEmail(false);
+    }
+  };
+  
+  const handleSendTestEmail = async () => {
+    try {
+      if (!testEmail.trim()) {
+        toast.error('Enter a test recipient email');
+        return;
+      }
+      setIsSendingTest(true);
+      const response = await api.post('/mail/test', {
+        email: testEmail.trim(),
+        template: 'verification',
+        subject: 'Test Email - Verification',
+        context: {
+          name: 'Test User',
+          verificationLink: 'https://example.com/verify?token=test'
+        }
+      });
+      if (response?.data?.ok) {
+        toast.success('Test email sent successfully');
+        setIsTestDialogOpen(false);
+      } else {
+        const errMsg = response?.data?.error || 'Test email failed';
+        toast.error(errMsg);
+      }
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || 'Failed to send test email';
+      toast.error(msg);
+    } finally {
+      setIsSendingTest(false);
     }
   };
   
@@ -380,13 +416,51 @@ const SettingsPage = () => {
                 />
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  className="bg-white text-gray-900"
+                  onClick={() => setIsTestDialogOpen(true)}
+                  disabled={isLoadingEmail}
+                >
+                  Send Test Email
+                </Button>
                 <ThemeButton onClick={handleSaveEmail} disabled={isSavingEmail || isLoadingEmail}>
                   {isSavingEmail ? 'Saving...' : 'Save Email Settings'}
                 </ThemeButton>
               </div>
             </CardContent>
           </Card>
+
+          <Dialog open={isTestDialogOpen} onOpenChange={setIsTestDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Send Test Email</DialogTitle>
+                <DialogDescription>
+                  Enter a recipient address to send a test email using the current configuration.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="test-email">Recipient Email</Label>
+                  <Input
+                    id="test-email"
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                    placeholder="recipient@example.com"
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setIsTestDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <ThemeButton onClick={handleSendTestEmail} disabled={isSendingTest}>
+                    {isSendingTest ? 'Sending...' : 'Send'}
+                  </ThemeButton>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
     </div>

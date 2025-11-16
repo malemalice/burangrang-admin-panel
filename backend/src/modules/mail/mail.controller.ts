@@ -30,23 +30,110 @@ import { Role } from '../../shared/types/role.enum';
 import { CreateEmailTemplateDto } from './dto/create-email-template.dto';
 import { UpdateEmailTemplateDto } from './dto/update-email-template.dto';
 import { EmailTemplateDto } from './dto/email-template.dto';
+import { PrismaService } from '../../core/prisma/prisma.service';
+import { SettingsHelperService } from '../../shared/services/settings.service';
+import * as Handlebars from 'handlebars';
+import * as nodemailer from 'nodemailer';
 
 @ApiTags('mail')
 @ApiBearerAuth()
 @Controller('mail')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class MailController {
-  constructor(private readonly mailService: MailService) {}
+  constructor(
+    private readonly mailService: MailService,
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsHelperService,
+  ) {}
 
   @Public()
   @Post('test')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Test sending a templated email (public endpoint)' })
   @ApiBody({ type: SendTemplatedEmailDto })
-  @ApiResponse({ status: 200, description: 'Email queued/sent' })
-  async testSend(@Body() dto: SendTemplatedEmailDto): Promise<{ ok: boolean }> {
-    await this.mailService.sendTemplatedMail(dto);
-    return { ok: true };
+  @ApiResponse({
+    status: 200,
+    description: 'Synchronous test send result with success or error details',
+  })
+  async testSend(
+    @Body() dto: SendTemplatedEmailDto,
+  ): Promise<{ ok: boolean; error?: string }> {
+    try {
+      // Load template fresh from DB
+      const tpl = await this.prisma.emailTemplate.findUnique({
+        where: { code: dto.template as any },
+      });
+      if (!tpl || !tpl.isActive) {
+        return { ok: false, error: `Email template not found or inactive for code "${dto.template}"` };
+      }
+
+      // Compile templates
+      const compiledSubject = Handlebars.compile(tpl.subjectTemplate, { noEscape: true });
+      const compiledBody = Handlebars.compile(tpl.bodyTemplate, { noEscape: true });
+      const subject = dto.subject ?? compiledSubject(dto.context || {});
+      const html = compiledBody(dto.context || {});
+
+      // Build transporter from current settings
+      const provider = (await this.settings.getWithDefault('mail.provider', 'smtp'))?.toLowerCase() || 'smtp';
+      const from = (await this.settings.getWithDefault('mail.from', 'no-reply@example.com')) || 'no-reply@example.com';
+      let defaults: { host: string; port: number; secure: boolean };
+      if (provider === 'gmail') {
+        defaults = { host: 'smtp.gmail.com', port: 465, secure: true };
+      } else if (provider === 'mailgun') {
+        defaults = { host: 'smtp.mailgun.org', port: 587, secure: false };
+      } else {
+        defaults = { host: 'localhost', port: 1025, secure: false };
+      }
+      const host = (await this.settings.getWithDefault('mail.host', defaults.host)) || defaults.host;
+      const portStr = await this.settings.get('mail.port');
+      const port = Number.isFinite(Number(portStr)) ? Number(portStr) : defaults.port;
+      const secureStr = (await this.settings.getWithDefault('mail.secure', String(defaults.secure))) || String(defaults.secure);
+      const secure = secureStr === 'true' || secureStr === '1';
+      const user = (await this.settings.getWithDefault('mail.user', '')) || '';
+      const pass = (await this.settings.getWithDefault('mail.password', '')) || '';
+      const useStreamTransport = (!user || !pass) && host === 'localhost' && port === 1025;
+      const transporter = useStreamTransport
+        ? nodemailer.createTransport({ streamTransport: true, buffer: true } as any)
+        : nodemailer.createTransport({
+            host,
+            port,
+            secure,
+            auth: user && pass ? { user, pass } : undefined,
+          } as any);
+
+      await transporter.sendMail({
+        from,
+        to: dto.email,
+        subject,
+        html,
+      });
+      return { ok: true };
+    } catch (error: unknown) {
+      let message = 'Unknown error';
+      if (typeof error === 'object' && error !== null) {
+        // try common Nest/HTTP error shape
+        const errObj = error as Record<string, unknown>;
+        const response = errObj['response'];
+
+        let responseMessage: string | undefined;
+        if (response && typeof response === 'object') {
+          const msg = (response as { message?: unknown }).message;
+          if (typeof msg === 'string') {
+            responseMessage = msg;
+          }
+        }
+
+        let directMessage: string | undefined;
+        const maybeMsg = errObj['message'];
+        if (typeof maybeMsg === 'string') {
+          directMessage = maybeMsg;
+        }
+        message = responseMessage || directMessage || message;
+      } else if (error instanceof Error) {
+        message = error.message;
+      }
+      return { ok: false, error: message };
+    }
   }
 
   @Get('templates')
