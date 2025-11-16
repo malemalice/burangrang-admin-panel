@@ -1258,11 +1258,29 @@ The Mail module centralizes email delivery using `@nestjs-modules/mailer` with H
 
 ### Configuration
 
-`src/core/config/app.config.ts` reads:
+Mail settings are resolved from the database `m_settings` table via `SettingsHelperService` with environment fallbacks. Precedence:
+
+1) DB settings (preferred)
+- `mail.provider` — smtp | gmail | mailgun
+- `mail.host`
+- `mail.port`
+- `mail.secure` — "true" | "false"
+- `mail.user`
+- `mail.password`
+- `mail.from`
+
+2) Environment fallbacks (via `src/core/config/app.config.ts` → `config.get('app.mail.*')`):
 
 - `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_SECURE`
 
-Available under `config.get('app.mail.*')`.
+The `MailModule` config uses an async factory that injects `SettingsHelperService`:
+
+```ts
+imports: [ConfigModule, SettingsModule]
+useFactory: async (config: ConfigService, settings: SettingsHelperService) => ({
+  /* resolves values from DB keys above with env fallbacks */
+})
+```
 
 ### Module Structure
 

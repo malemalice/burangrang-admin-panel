@@ -19,6 +19,12 @@ export const defaultSettings = [
   { key: 'pagination.max_limit', value: '100' },
 
   // Mail Settings (moved from env to DB)
+// Mailer Configuration
+// MAIL_PROVIDER=gmail # smtp | gmail | mailgun
+// Generic settings used for all providers; provider sets smart defaults
+// For gmail defaults: host=smtp.gmail.com, port=465, secure=true
+// For mailgun defaults: host=smtp.mailgun.org, port=587, secure=false
+
   { key: 'mail.provider', value: 'smtp' }, // smtp | gmail | mailgun
   { key: 'mail.host', value: 'localhost' },
   { key: 'mail.port', value: '1025' },

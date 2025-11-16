@@ -10,6 +10,10 @@ import {
 import { PrismaService } from '../../core/prisma/prisma.service';
 import * as Handlebars from 'handlebars';
 import { handlebarsHelpers } from './templates/helpers';
+import { CreateEmailTemplateDto } from './dto/create-email-template.dto';
+import { UpdateEmailTemplateDto } from './dto/update-email-template.dto';
+import { EmailTemplateDto } from './dto/email-template.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class MailService {
@@ -91,6 +95,132 @@ export class MailService {
       // Do not throw to avoid blocking critical flows
       this.logger.error(`Failed sending email with code "${code}" to ${to}: ${String(error)}`);
     }
+  }
+
+  // Email Template Management
+  async findAllTemplates(params: {
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    isActive?: boolean;
+    search?: string;
+  }): Promise<{ data: EmailTemplateDto[]; meta: { total: number; page: number; limit: number } }> {
+    const page = params.page && params.page > 0 ? params.page : 1;
+    const limit = params.limit && params.limit > 0 ? params.limit : 10;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.EmailTemplateWhereInput = {
+      AND: [
+        params.isActive === undefined ? {} : { isActive: params.isActive },
+        params.search
+          ? {
+              OR: [
+                { code: { contains: params.search, mode: 'insensitive' } },
+                { name: { contains: params.search, mode: 'insensitive' } },
+                { subjectTemplate: { contains: params.search, mode: 'insensitive' } },
+              ],
+            }
+          : {},
+      ],
+    };
+
+    const orderBy: Prisma.EmailTemplateOrderByWithRelationInput | undefined =
+      params.sortBy
+        ? { [params.sortBy]: params.sortOrder ?? 'asc' } as any
+        : { createdAt: 'desc' };
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.emailTemplate.count({ where }),
+      this.prisma.emailTemplate.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    const data: EmailTemplateDto[] = rows.map(
+      (r) =>
+        new EmailTemplateDto({
+          id: r.id,
+          code: r.code,
+          name: r.name,
+          subjectTemplate: r.subjectTemplate,
+          bodyTemplate: r.bodyTemplate,
+          isActive: r.isActive,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+        }),
+    );
+
+    return {
+      data,
+      meta: { total, page, limit },
+    };
+  }
+
+  async findOneTemplate(id: string): Promise<EmailTemplateDto> {
+    const tpl = await this.prisma.emailTemplate.findUnique({ where: { id } });
+    if (!tpl) {
+      throw new Error('Email template not found');
+    }
+    return new EmailTemplateDto(tpl);
+    }
+
+  async createTemplate(dto: CreateEmailTemplateDto): Promise<EmailTemplateDto> {
+    // Ensure code is unique
+    const existing = await this.prisma.emailTemplate.findUnique({ where: { code: dto.code } });
+    if (existing) {
+      throw new Error('Email template code already exists');
+    }
+    const created = await this.prisma.emailTemplate.create({
+      data: {
+        code: dto.code,
+        name: dto.name,
+        subjectTemplate: dto.subjectTemplate,
+        bodyTemplate: dto.bodyTemplate,
+        isActive: dto.isActive ?? true,
+      },
+    });
+    return new EmailTemplateDto(created);
+  }
+
+  async updateTemplate(id: string, dto: UpdateEmailTemplateDto): Promise<EmailTemplateDto> {
+    const existing = await this.prisma.emailTemplate.findUnique({ where: { id } });
+    if (!existing) {
+      throw new Error('Email template not found');
+    }
+    const updated = await this.prisma.emailTemplate.update({
+      where: { id },
+      data: {
+        name: dto.name ?? undefined,
+        subjectTemplate: dto.subjectTemplate ?? undefined,
+        bodyTemplate: dto.bodyTemplate ?? undefined,
+        isActive: dto.isActive ?? undefined,
+      },
+    });
+    return new EmailTemplateDto(updated);
+  }
+
+  async toggleTemplate(id: string): Promise<EmailTemplateDto> {
+    const existing = await this.prisma.emailTemplate.findUnique({ where: { id } });
+    if (!existing) {
+      throw new Error('Email template not found');
+    }
+    const updated = await this.prisma.emailTemplate.update({
+      where: { id },
+      data: { isActive: !existing.isActive },
+    });
+    return new EmailTemplateDto(updated);
+  }
+
+  async removeTemplate(id: string): Promise<void> {
+    const existing = await this.prisma.emailTemplate.findUnique({ where: { id } });
+    if (!existing) {
+      return;
+    }
+    await this.prisma.emailTemplate.delete({ where: { id } });
   }
 }
 

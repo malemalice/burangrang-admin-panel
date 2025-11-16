@@ -42,9 +42,28 @@ The backend ships with a Mail module using `@nestjs-modules/mailer`, Handlebars 
 npm i @nestjs-modules/mailer nodemailer handlebars dayjs
 ```
 
-### 2) Configure Environment
+### 2) Configure Mail Settings
 
-Add the following variables (already present in `env.example`):
+Preferred: configure via the Settings table (DB), with these keys:
+
+```
+mail.provider=smtp            # smtp | gmail | mailgun
+mail.host=localhost
+mail.port=1025
+mail.secure=false             # "true" | "false"
+mail.user=
+mail.password=
+mail.from=Burangrang Admin <no-reply@burangrang.local>
+```
+
+Defaults for these keys are included in the settings seeder:
+
+```bash
+# Seed only settings (optional)
+npm run prisma:seed settings
+```
+
+Fallback: you can still use environment variables (the app reads DB first, then env):
 
 ```env
 MAIL_HOST=localhost
@@ -55,7 +74,17 @@ MAIL_FROM="Burangrang Admin <no-reply@burangrang.local>"
 MAIL_SECURE=false
 ```
 
-These are read via `src/core/config/app.config.ts` and available as `app.mail.*`.
+The Mail module resolves values from DB via `SettingsHelperService`, falling back to `src/core/config/app.config.ts` (`app.mail.*`).
+
+Implementation detail: `MailModule` uses an async factory and imports `SettingsModule`:
+
+```ts
+MailerModule.forRootAsync({
+  imports: [ConfigModule, SettingsModule],
+  useFactory: async (config, settings) => ({ /* resolves from DB with env fallback */ }),
+  inject: [ConfigService, SettingsHelperService],
+})
+```
 
 ### 3) Development with MailHog/Mailpit
 
