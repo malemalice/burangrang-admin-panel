@@ -13,15 +13,18 @@ import { CreateEmailTemplateDto } from './dto/create-email-template.dto';
 import { UpdateEmailTemplateDto } from './dto/update-email-template.dto';
 import { EmailTemplateDto } from './dto/email-template.dto';
 import { Prisma } from '@prisma/client';
-import { MailerService } from '@nestjs-modules/mailer';
+import * as nodemailer from 'nodemailer';
+import { SettingsHelperService } from '../../shared/services/settings.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
 
   constructor(
-    private readonly mailer: MailerService,
     private readonly prisma: PrismaService,
+    private readonly settings: SettingsHelperService,
+    private readonly config: ConfigService,
   ) {
     // Register handlebars helpers once
     Object.entries(handlebarsHelpers).forEach(([name, fn]) => {
@@ -29,6 +32,70 @@ export class MailService {
         Handlebars.registerHelper(name, fn as Handlebars.HelperDelegate);
       }
     });
+  }
+
+  private async buildTransporter(): Promise<{ transporter: nodemailer.Transporter; from: string }> {
+    // Resolve provider and defaults
+    const provider =
+      (
+        await this.settings.getWithDefault(
+          'mail.provider',
+          (this.config.get<string>('app.mail.provider') || 'smtp').toLowerCase(),
+        )
+      ) || 'smtp';
+    const from =
+      (await this.settings.getWithDefault(
+        'mail.from',
+        this.config.get<string>('app.mail.from') ?? 'no-reply@example.com',
+      )) ?? 'no-reply@example.com';
+
+    let defaults: { host: string; port: number; secure: boolean };
+    if (provider === 'gmail') {
+      defaults = { host: 'smtp.gmail.com', port: 465, secure: true };
+    } else if (provider === 'mailgun') {
+      defaults = { host: 'smtp.mailgun.org', port: 587, secure: false };
+    } else {
+      defaults = { host: 'localhost', port: 1025, secure: false };
+    }
+
+    const host =
+      (await this.settings.getWithDefault(
+        'mail.host',
+        this.config.get<string>('app.mail.host') ?? defaults.host,
+      )) ?? defaults.host;
+    const port =
+      (await this.settings.getNumber(
+        'mail.port',
+        this.config.get<number>('app.mail.port') ?? defaults.port,
+      )) ?? defaults.port;
+    const secure =
+      (await this.settings.getBoolean(
+        'mail.secure',
+        this.config.get<boolean>('app.mail.secure') ?? defaults.secure,
+      )) ?? defaults.secure;
+    const user =
+      (await this.settings.getWithDefault(
+        'mail.user',
+        this.config.get<string>('app.mail.user') ?? '',
+      )) ?? '';
+    const pass =
+      (await this.settings.getWithDefault(
+        'mail.password',
+        this.config.get<string>('app.mail.password') ?? '',
+      )) ?? '';
+
+    const useStreamTransport = (!user || !pass) && host === 'localhost' && port === 1025;
+
+    const transporter = useStreamTransport
+      ? nodemailer.createTransport({ streamTransport: true, buffer: true } as any)
+      : nodemailer.createTransport({
+          host,
+          port,
+          secure,
+          auth: user && pass ? { user, pass } : undefined,
+        } as any);
+
+    return { transporter, from };
   }
 
   async sendVerificationEmail(payload: SendVerificationEmailDto): Promise<void> {
@@ -88,7 +155,8 @@ export class MailService {
     const subject = subjectOverride ?? compiledSubject(context);
     const html = compiledBody(context);
 
-    await this.mailer.sendMail({ to, subject, html });
+    const { transporter, from } = await this.buildTransporter();
+    await transporter.sendMail({ from, to, subject, html });
   }
 
   private async sendByKey(
@@ -112,7 +180,8 @@ export class MailService {
       const subject = subjectOverride ?? compiledSubject(context);
       const html = compiledBody(context);
 
-      await this.mailer.sendMail({ to, subject, html });
+      const { transporter, from } = await this.buildTransporter();
+      await transporter.sendMail({ from, to, subject, html });
     } catch (error) {
       // Do not throw to avoid blocking critical flows
       this.logger.error(`Failed sending email with code "${code}" to ${to}: ${String(error)}`);

@@ -64,18 +64,32 @@ export class MailController {
         where: { code: dto.template as any },
       });
       if (!tpl || !tpl.isActive) {
-        return { ok: false, error: `Email template not found or inactive for code "${dto.template}"` };
+        return {
+          ok: false,
+          error: `Email template not found or inactive for code "${dto.template}"`,
+        };
       }
 
       // Compile templates
-      const compiledSubject = Handlebars.compile(tpl.subjectTemplate, { noEscape: true });
-      const compiledBody = Handlebars.compile(tpl.bodyTemplate, { noEscape: true });
+      const compiledSubject = Handlebars.compile(tpl.subjectTemplate, {
+        noEscape: true,
+      });
+      const compiledBody = Handlebars.compile(tpl.bodyTemplate, {
+        noEscape: true,
+      });
       const subject = dto.subject ?? compiledSubject(dto.context || {});
       const html = compiledBody(dto.context || {});
 
       // Build transporter from current settings
-      const provider = (await this.settings.getWithDefault('mail.provider', 'smtp'))?.toLowerCase() || 'smtp';
-      const from = (await this.settings.getWithDefault('mail.from', 'no-reply@example.com')) || 'no-reply@example.com';
+      const provider =
+        (
+          await this.settings.getWithDefault('mail.provider', 'smtp')
+        )?.toLowerCase() || 'smtp';
+      const from =
+        (await this.settings.getWithDefault(
+          'mail.from',
+          'no-reply@example.com',
+        )) || 'no-reply@example.com';
       let defaults: { host: string; port: number; secure: boolean };
       if (provider === 'gmail') {
         defaults = { host: 'smtp.gmail.com', port: 465, secure: true };
@@ -84,16 +98,29 @@ export class MailController {
       } else {
         defaults = { host: 'localhost', port: 1025, secure: false };
       }
-      const host = (await this.settings.getWithDefault('mail.host', defaults.host)) || defaults.host;
+      const host =
+        (await this.settings.getWithDefault('mail.host', defaults.host)) ||
+        defaults.host;
       const portStr = await this.settings.get('mail.port');
-      const port = Number.isFinite(Number(portStr)) ? Number(portStr) : defaults.port;
-      const secureStr = (await this.settings.getWithDefault('mail.secure', String(defaults.secure))) || String(defaults.secure);
+      const port = Number.isFinite(Number(portStr))
+        ? Number(portStr)
+        : defaults.port;
+      const secureStr =
+        (await this.settings.getWithDefault(
+          'mail.secure',
+          String(defaults.secure),
+        )) || String(defaults.secure);
       const secure = secureStr === 'true' || secureStr === '1';
       const user = (await this.settings.getWithDefault('mail.user', '')) || '';
-      const pass = (await this.settings.getWithDefault('mail.password', '')) || '';
-      const useStreamTransport = (!user || !pass) && host === 'localhost' && port === 1025;
+      const pass =
+        (await this.settings.getWithDefault('mail.password', '')) || '';
+      const useStreamTransport =
+        (!user || !pass) && host === 'localhost' && port === 1025;
       const transporter = useStreamTransport
-        ? nodemailer.createTransport({ streamTransport: true, buffer: true } as any)
+        ? nodemailer.createTransport({
+            streamTransport: true,
+            buffer: true,
+          } as any)
         : nodemailer.createTransport({
             host,
             port,
@@ -194,7 +221,7 @@ export class MailController {
     const limitNumber = limit ? parseInt(limit, 10) : undefined;
     const isActiveBoolean =
       isActive === undefined ? undefined : isActive === 'true';
-    /* eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
+
     return this.mailService.findAllTemplates({
       page: pageNumber,
       limit: limitNumber,
@@ -211,7 +238,6 @@ export class MailController {
   @ApiResponse({ status: 200, type: EmailTemplateDto })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   findOneTemplate(@Param('id') id: string): Promise<EmailTemplateDto> {
-    /* eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
     return this.mailService.findOneTemplate(id);
   }
 
@@ -223,7 +249,6 @@ export class MailController {
   createTemplate(
     @Body() dto: CreateEmailTemplateDto,
   ): Promise<EmailTemplateDto> {
-    /* eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
     return this.mailService.createTemplate(dto);
   }
 
@@ -237,7 +262,6 @@ export class MailController {
     @Param('id') id: string,
     @Body() dto: UpdateEmailTemplateDto,
   ): Promise<EmailTemplateDto> {
-    /* eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
     return this.mailService.updateTemplate(id, dto);
   }
 
@@ -247,7 +271,6 @@ export class MailController {
   @ApiResponse({ status: 200, type: EmailTemplateDto })
   @Roles(Role.SUPER_ADMIN)
   toggleTemplate(@Param('id') id: string): Promise<EmailTemplateDto> {
-    /* eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
     return this.mailService.toggleTemplate(id);
   }
 
@@ -257,7 +280,6 @@ export class MailController {
   @ApiResponse({ status: 200, description: 'Template deleted successfully' })
   @Roles(Role.SUPER_ADMIN)
   async removeTemplate(@Param('id') id: string): Promise<{ ok: boolean }> {
-    /* eslint-disable-next-line @typescript-eslint/no-unsafe-call */
     await this.mailService.removeTemplate(id);
     return { ok: true };
   }
