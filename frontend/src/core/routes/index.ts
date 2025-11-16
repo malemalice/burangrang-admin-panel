@@ -12,6 +12,7 @@ import { courseRoutes } from '@/modules/courses';
 import { productRoutes } from '@/modules/products';
 import { ordersRoutes } from '@/modules/orders';
 import { customerRoutes } from '@/modules/customers';
+import { emailTemplateRoutes } from '@/modules/mail-templates';
 
 /**
  * Application routes registry
@@ -31,11 +32,13 @@ const routes: RouteConfig[] = [
   ...productRoutes,
   ...ordersRoutes,
   ...customerRoutes,
+  ...emailTemplateRoutes,
 ];
 
 // Public routes that don't require authentication
 export const publicRoutes: RouteConfig[] = [
   coreRoutes.find(route => route.path === '/login')!,
+  coreRoutes.find(route => route.path === '/reset-password')!,
 ];
 
 // Not Found route

@@ -10,6 +10,8 @@ import { useTheme } from '@/core/lib/theme';
 import { themeColors, getContrastTextColor } from '@/core/lib/theme/colors';
 import { cn } from '@/core/lib/utils';
 import { useAppName } from '@/modules/settings/hooks/useSettings';
+import api from '@/core/lib/api';
+import { toast } from 'sonner';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -20,6 +22,9 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isForgot, setIsForgot] = useState(false);
+  const [isForgotLoading, setIsForgotLoading] = useState(false);
+  const [infoMessage, setInfoMessage] = useState('');
 
   // Get theme colors for dynamic styling
   const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
@@ -55,6 +60,36 @@ const Login = () => {
       console.error(err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (!email) {
+      setError('Please enter your email');
+      return;
+    }
+    setIsForgotLoading(true);
+    try {
+      const resp = await api.post('/auth/forgot-password', { email });
+      const message = resp?.data?.message || 'If that email exists, a reset link has been sent.';
+      setInfoMessage(message);
+      setError('');
+      toast.success(message);
+    } catch (err: unknown) {
+      let message = 'Failed to request password reset';
+      if (typeof err === 'object' && err !== null) {
+        const maybeError = err as { response?: { data?: { message?: string } } };
+        if (maybeError.response?.data?.message) {
+          message = maybeError.response.data.message;
+        }
+      }
+      setError(message);
+      setInfoMessage('');
+      toast.error(message);
+    } finally {
+      setIsForgotLoading(false);
     }
   };
 
@@ -145,6 +180,18 @@ const Login = () => {
             </AlertDescription>
           </Alert>
 
+          {infoMessage && (
+            <Alert className={cn(
+              "mb-6 border",
+              isDark ? "bg-emerald-900/20 border-emerald-800" : "bg-emerald-50 border-emerald-200"
+            )}>
+              <AlertDescription className={cn(
+                "text-sm",
+                isDark ? "text-emerald-300" : "text-emerald-700"
+              )}>{infoMessage}</AlertDescription>
+            </Alert>
+          )}
+
           {error && (
             <Alert className={cn(
               "mb-6 border",
@@ -157,87 +204,176 @@ const Login = () => {
             </Alert>
           )}
 
-          <form onSubmit={handleSubmit}>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="email"
-                  className={isDark ? "text-gray-300" : ""}
-                  style={{ color: isDark ? undefined : currentThemeColor }}
-                >
-                  * Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="admin@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading}
-                  className={isDark ? "bg-gray-800 border-gray-700 text-white placeholder:text-gray-500" : ""}
-                  style={{
-                    borderColor: currentThemeColor + '40',
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = currentThemeColor;
-                    e.currentTarget.style.boxShadow = `0 0 0 2px ${currentThemeColor}20`;
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = currentThemeColor + '40';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label
-                  htmlFor="password"
-                  className={isDark ? "text-gray-300" : ""}
-                  style={{ color: isDark ? undefined : currentThemeColor }}
-                >
-                  * Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
-                  className={isDark ? "bg-gray-800 border-gray-700 text-white placeholder:text-gray-500" : ""}
-                  style={{
-                    borderColor: currentThemeColor + '40',
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = currentThemeColor;
-                    e.currentTarget.style.boxShadow = `0 0 0 2px ${currentThemeColor}20`;
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = currentThemeColor + '40';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                />
-              </div>
+          {isForgot ? (
+            <form onSubmit={handleForgotSubmit}>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="forgot-email"
+                    className={isDark ? "text-gray-300" : ""}
+                    style={{ color: isDark ? undefined : currentThemeColor }}
+                  >
+                    * Email
+                  </Label>
+                  <Input
+                    id="forgot-email"
+                    type="email"
+                    placeholder="example@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isForgotLoading}
+                    className={isDark ? "bg-gray-800 border-gray-700 text-white placeholder:text-gray-500" : ""}
+                    style={{
+                      borderColor: currentThemeColor + '40',
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = currentThemeColor;
+                      e.currentTarget.style.boxShadow = `0 0 0 2px ${currentThemeColor}20`;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = currentThemeColor + '40';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  />
+                </div>
 
-              <Button
-                type="submit"
-                className="w-full"
-                style={{
-                  backgroundColor: currentThemeColor,
-                  color: textColor,
-                }}
-                disabled={isLoading}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = currentThemeColor + 'E0'; // Add opacity
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = currentThemeColor;
-                }}
-              >
-                {isLoading ? 'Logging in...' : 'Login'}
-              </Button>
-            </div>
-          </form>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  style={{
+                    backgroundColor: currentThemeColor,
+                    color: textColor,
+                  }}
+                  disabled={isForgotLoading}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = currentThemeColor + 'E0';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = currentThemeColor;
+                  }}
+                >
+                  {isForgotLoading ? 'Sending...' : 'Send reset link'}
+                </Button>
+
+                <div className="text-center">
+                  <button
+                    type="button"
+                    className={cn(
+                      "text-sm underline",
+                      isDark ? "text-gray-300" : "text-slate-700"
+                    )}
+                    onClick={() => {
+                      setError('');
+                      setInfoMessage('');
+                      setIsForgot(false);
+                    }}
+                  >
+                    Back to login
+                  </button>
+                </div>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="email"
+                    className={isDark ? "text-gray-300" : ""}
+                    style={{ color: isDark ? undefined : currentThemeColor }}
+                  >
+                    * Email
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="example@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading}
+                    className={isDark ? "bg-gray-800 border-gray-700 text-white placeholder:text-gray-500" : ""}
+                    style={{
+                      borderColor: currentThemeColor + '40',
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = currentThemeColor;
+                      e.currentTarget.style.boxShadow = `0 0 0 2px ${currentThemeColor}20`;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = currentThemeColor + '40';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="password"
+                    className={isDark ? "text-gray-300" : ""}
+                    style={{ color: isDark ? undefined : currentThemeColor }}
+                  >
+                    * Password
+                  </Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
+                    className={isDark ? "bg-gray-800 border-gray-700 text-white placeholder:text-gray-500" : ""}
+                    style={{
+                      borderColor: currentThemeColor + '40',
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = currentThemeColor;
+                      e.currentTarget.style.boxShadow = `0 0 0 2px ${currentThemeColor}20`;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = currentThemeColor + '40';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div />
+                  <button
+                    type="button"
+                    className={cn(
+                      "text-sm underline",
+                      isDark ? "text-gray-300" : "text-slate-700"
+                    )}
+                    onClick={() => {
+                      setError('');
+                      setInfoMessage('');
+                      setIsForgot(true);
+                    }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  style={{
+                    backgroundColor: currentThemeColor,
+                    color: textColor,
+                  }}
+                  disabled={isLoading}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = currentThemeColor + 'E0'; // Add opacity
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = currentThemeColor;
+                  }}
+                >
+                  {isLoading ? 'Logging in...' : 'Login'}
+                </Button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div>
