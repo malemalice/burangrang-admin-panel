@@ -1245,15 +1245,15 @@ This TRD serves as the authoritative guide for backend development in the Burang
 
 ### Overview
 
-The Mail module centralizes email delivery using `@nestjs-modules/mailer` with Handlebars templates. It provides typed service methods for common flows (verification, password reset, invitations, password change notification) and a generic templated send method.
+The Mail module centralizes email delivery using `@nestjs-modules/mailer` with Handlebars templates. Email templates are stored in the database and manageable via CRUD endpoints, enabling runtime updates without code deployments. The service provides typed methods for common flows (verification, password reset, invitations, password change notification) and a generic templated send method.
 
 ### Principles
 
 - Use configuration-driven transports (from `app.mail.*` in config).
-- Keep templates in `backend/src/modules/mail/templates` with Handlebars.
+- Store templates in DB (`m_email_templates`) with subject/body Handlebars; compile at send-time.
 - Use typed DTOs for payload validation and clear contracts.
 - Prefer dedicated service methods for common flows; fall back to generic templated send for custom cases.
-- Keep subject lines in a template registry for consistency and reusability.
+- Keep consistent template keys (`code`) to address templates from services.
 - Never block critical flows on email failures; log and continue where appropriate.
 
 ### Configuration
@@ -1273,7 +1273,7 @@ Mail settings are resolved from the database `m_settings` table via `SettingsHel
 
 - `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_SECURE`
 
-The `MailModule` config uses an async factory that injects `SettingsHelperService`:
+The `MailModule` config uses an async factory that injects `SettingsHelperService` and constructs the transporter in the service (controller never builds transporters):
 
 ```ts
 imports: [ConfigModule, SettingsModule]
@@ -1291,12 +1291,7 @@ src/modules/mail/
 ├── dto/
 │   └── mail.dto.ts
 └── templates/
-    ├── verification.hbs
-    ├── password-reset.hbs
-    ├── password-change.hbs
-    ├── team-invitation.hbs
-    ├── helpers.ts            # handlebars helpers
-    └── registry.ts           # subject + file registry
+    └── helpers.ts            # handlebars helpers (available to DB templates)
 ```
 
 ### Service API
@@ -1309,11 +1304,30 @@ src/modules/mail/
 
 DTOs are defined in `dto/mail.dto.ts`.
 
-### Template Registry
+### Templates Storage (Database)
 
-`templates/registry.ts` maps a `MailTemplateKey` to:
-- `file`: template file (without extension)
-- `subject`: string or function `(context) => string`
+- Table: `m_email_templates`
+  - `id` (uuid)
+  - `code` (string, unique) — e.g. `verification`, `password-reset`
+  - `name` (string)
+  - `subjectTemplate` (text) — Handlebars template for subject
+  - `bodyTemplate` (text) — Handlebars template for HTML body
+  - `isActive` (boolean)
+  - `createdAt`, `updatedAt`
+
+- CRUD Endpoints:
+  - `GET /mail/templates` — list with pagination/filtering
+  - `GET /mail/templates/:id` — get template by id
+  - `POST /mail/templates` — create template
+  - `PATCH /mail/templates/:id` — update template
+  - `PATCH /mail/templates/:id/toggle` — toggle active state
+  - `DELETE /mail/templates/:id` — delete template
+
+- The service compiles templates at send-time using Handlebars:
+  - Finds template by `code`
+  - Validates `isActive`
+  - Compiles `subjectTemplate` and `bodyTemplate`
+  - Sends via transporter configured from settings
 
 ### Error Handling
 
