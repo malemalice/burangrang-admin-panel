@@ -117,7 +117,9 @@ export class MailService {
   ): Promise<void> {
     await this.sendByKey('password-reset', payload.email, {
       name: payload.name,
+      // Provide both keys for template compatibility
       resetLink: payload.resetLink,
+      resetUrl: payload.resetLink,
     });
   }
 
