@@ -1240,3 +1240,69 @@ GOOGLE_CLOUD_KEY_FILE=path/to/keyfile.json
 - **Security**: Implements role-based access control and public/private file access with token system
 
 This TRD serves as the authoritative guide for backend development in the BurangrangAdmin Panel project. All new implementations must follow these established patterns and conventions. Any deviations must be documented and approved. 🚀
+
+## Mail Services
+
+### Overview
+
+The Mail module centralizes email delivery using `@nestjs-modules/mailer` with Handlebars templates. It provides typed service methods for common flows (verification, password reset, invitations, password change notification) and a generic templated send method.
+
+### Principles
+
+- Use configuration-driven transports (from `app.mail.*` in config).
+- Keep templates in `backend/src/modules/mail/templates` with Handlebars.
+- Use typed DTOs for payload validation and clear contracts.
+- Prefer dedicated service methods for common flows; fall back to generic templated send for custom cases.
+- Keep subject lines in a template registry for consistency and reusability.
+- Never block critical flows on email failures; log and continue where appropriate.
+
+### Configuration
+
+`src/core/config/app.config.ts` reads:
+
+- `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_SECURE`
+
+Available under `config.get('app.mail.*')`.
+
+### Module Structure
+
+```
+src/modules/mail/
+├── mail.module.ts
+├── mail.service.ts
+├── dto/
+│   └── mail.dto.ts
+└── templates/
+    ├── verification.hbs
+    ├── password-reset.hbs
+    ├── password-change.hbs
+    ├── team-invitation.hbs
+    ├── helpers.ts            # handlebars helpers
+    └── registry.ts           # subject + file registry
+```
+
+### Service API
+
+- `sendVerificationEmail({ email, name, verificationLink })`
+- `sendPasswordResetEmail({ email, name, resetLink })`
+- `sendTeamInvitationEmail({ email, name, inviterName, teamName, invitationLink })`
+- `sendPasswordChangeNotification({ email, name, changedAt? })`
+- `sendTemplatedMail({ email, template, subject?, context })`
+
+DTOs are defined in `dto/mail.dto.ts`.
+
+### Template Registry
+
+`templates/registry.ts` maps a `MailTemplateKey` to:
+- `file`: template file (without extension)
+- `subject`: string or function `(context) => string`
+
+### Error Handling
+
+- Email send failures should be caught and logged; do not throw from user-critical flows (e.g. password reset initiation).
+- Prefer structured logs including email and context identifiers.
+
+### Example Integration (Auth)
+
+The `AuthService.forgotPassword` generates a reset token and calls:
+- `mailService.sendPasswordResetEmail({ email, name, resetLink })`

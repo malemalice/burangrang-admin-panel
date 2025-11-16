@@ -31,6 +31,80 @@
 $ npm install
 ```
 
+## Mail Services Setup
+
+The backend ships with a Mail module using `@nestjs-modules/mailer`, Handlebars templates, and a small template registry for subjects.
+
+### 1) Install Dependencies
+
+```bash
+# inside backend/
+npm i @nestjs-modules/mailer nodemailer handlebars dayjs
+```
+
+### 2) Configure Environment
+
+Add the following variables (already present in `env.example`):
+
+```env
+MAIL_HOST=localhost
+MAIL_PORT=1025
+MAIL_USER=""
+MAIL_PASSWORD=""
+MAIL_FROM="Burangrang Admin <no-reply@burangrang.local>"
+MAIL_SECURE=false
+```
+
+These are read via `src/core/config/app.config.ts` and available as `app.mail.*`.
+
+### 3) Development with MailHog/Mailpit
+
+Use a local SMTP catcher:
+
+```bash
+# MailHog (Docker)
+docker run -d -p 1025:1025 -p 8025:8025 mailhog/mailhog
+# UI at http://localhost:8025
+```
+
+Set:
+```
+MAIL_HOST=localhost
+MAIL_PORT=1025
+MAIL_SECURE=false
+```
+
+### 4) Templates and Helpers
+
+- Templates live in `src/modules/mail/templates/*.hbs`
+- Handlebars helpers are defined in `src/modules/mail/templates/helpers.ts`
+- Subjects and file mapping are managed in `src/modules/mail/templates/registry.ts`
+
+### 5) Using the MailService
+
+Inject and call one of the typed methods:
+
+```ts
+// example usage
+await this.mailService.sendPasswordResetEmail({
+  email: user.email,
+  name: `${user.firstName} ${user.lastName}`,
+  resetLink: `${frontendUrl}/reset-password?token=${token}`,
+});
+```
+
+Or use the generic templated method:
+
+```ts
+await this.mailService.sendTemplatedMail({
+  email: 'user@example.com',
+  template: 'verification', // one of: verification | password-reset | team-invitation | password-change
+  context: { name: 'Jane', verificationLink: 'https://...' },
+});
+```
+
+On failures, the service will throw; callers in user-critical flows should catch/log and continue.
+
 ## Compile and run the project
 
 ```bash
