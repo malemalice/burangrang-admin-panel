@@ -17,6 +17,15 @@ export const defaultSettings = [
   // Pagination defaults
   { key: 'pagination.default_limit', value: '10' },
   { key: 'pagination.max_limit', value: '100' },
+
+  // Mail Settings (moved from env to DB)
+  { key: 'mail.provider', value: 'smtp' }, // smtp | gmail | mailgun
+  { key: 'mail.host', value: 'localhost' },
+  { key: 'mail.port', value: '1025' },
+  { key: 'mail.secure', value: 'false' },
+  { key: 'mail.user', value: '' },
+  { key: 'mail.password', value: '' },
+  { key: 'mail.from', value: 'Burangrang Admin <no-reply@burangrang.local>' },
 ];
 
 export async function seedSettings(prisma: PrismaClient): Promise<Setting[]> {
