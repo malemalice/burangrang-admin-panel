@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ConflictException } from '@nestjs/common';
 import {
   SendVerificationEmailDto,
   SendPasswordResetEmailDto,
@@ -16,6 +16,7 @@ import { Prisma } from '@prisma/client';
 import * as nodemailer from 'nodemailer';
 import { SettingsHelperService } from '../../shared/services/settings.service';
 import { ConfigService } from '@nestjs/config';
+import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 
 @Injectable()
 export class MailService {
@@ -25,6 +26,7 @@ export class MailService {
     private readonly prisma: PrismaService,
     private readonly settings: SettingsHelperService,
     private readonly config: ConfigService,
+    private readonly errorHandler: ErrorHandlingService,
   ) {
     // Register handlebars helpers once
     Object.entries(handlebarsHelpers).forEach(([name, fn]) => {
@@ -319,9 +321,7 @@ export class MailService {
 
   async findOneTemplate(id: string): Promise<EmailTemplateDto> {
     const tpl = await this.prisma.emailTemplate.findUnique({ where: { id } });
-    if (!tpl) {
-      throw new Error('Email template not found');
-    }
+    this.errorHandler.throwIfNotFoundById('Email template', id, tpl);
     return new EmailTemplateDto(tpl);
   }
 
@@ -331,7 +331,7 @@ export class MailService {
       where: { code: dto.code },
     });
     if (existing) {
-      throw new Error('Email template code already exists');
+      throw new ConflictException('Email template code already exists');
     }
     const created = await this.prisma.emailTemplate.create({
       data: {
@@ -352,9 +352,7 @@ export class MailService {
     const existing = await this.prisma.emailTemplate.findUnique({
       where: { id },
     });
-    if (!existing) {
-      throw new Error('Email template not found');
-    }
+    this.errorHandler.throwIfNotFoundById('Email template', id, existing);
     const updated = await this.prisma.emailTemplate.update({
       where: { id },
       data: {
@@ -371,9 +369,7 @@ export class MailService {
     const existing = await this.prisma.emailTemplate.findUnique({
       where: { id },
     });
-    if (!existing) {
-      throw new Error('Email template not found');
-    }
+    this.errorHandler.throwIfNotFoundById('Email template', id, existing);
     const updated = await this.prisma.emailTemplate.update({
       where: { id },
       data: { isActive: !existing.isActive },
