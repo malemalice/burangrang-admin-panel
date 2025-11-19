@@ -26,14 +26,14 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import ppeService from '../../services/ppeService';
-import safetyEquipmentService from '@/modules/ppe-master-data/services/safetyEquipmentService';
+import safetyEquipmentService from '../../services/safetyEquipmentService';
 import {
     CreatePPEStockDTO,
     UpdatePPEStockDTO,
     CreatePPEStockItemDTO,
     PPEStock,
 } from '../../types/ppe.types';
-import { SafetyEquipment, SafetyEquipmentCategory } from '@/modules/ppe-master-data/types/ppe-master-data.types';
+import { SafetyEquipment, SafetyEquipmentCategory } from '../../types/ppe-master-data.types';
 
 const stockItemSchema = z.object({
     safetyEquipmentId: z.string().optional(),
@@ -110,24 +110,6 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
                     },
                 });
                 setSafetyEquipments(equipmentsResponse.data);
-
-                // Set form data for edit mode
-                if (stock && mode === 'edit') {
-                    form.reset({
-                        receivedDate: stock.receivedDate.split('T')[0],
-                        notes: stock.notes || '',
-                        items: stock.items?.map((item, index) => ({
-                            safetyEquipmentId: item.safetyEquipmentId || '',
-                            equipmentName: item.equipmentName || '',
-                            equipmentType: item.equipmentType || '',
-                            equipmentSize: item.equipmentSize || '',
-                            expiryDate: item.expiryDate ? item.expiryDate.split('T')[0] : '',
-                            initialQuantity: item.initialQuantity,
-                            order: index + 1,
-                        })) || [],
-                    });
-                }
-
                 setDataReady(true);
             } catch (error) {
                 console.error('Error fetching form data:', error);
@@ -138,7 +120,27 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
         };
 
         fetchData();
-    }, [stock, mode, form]);
+    }, []);
+
+    // Set form data for edit mode after safetyEquipments are loaded
+    useEffect(() => {
+        if (stock && mode === 'edit' && dataReady && safetyEquipments.length > 0) {
+            const formData = {
+                receivedDate: stock.receivedDate.split('T')[0],
+                notes: stock.notes || '',
+                items: stock.items?.map((item, index) => ({
+                    safetyEquipmentId: item.safetyEquipmentId ? String(item.safetyEquipmentId) : '',
+                    equipmentName: item.equipmentName || '',
+                    equipmentType: item.equipmentType || '',
+                    equipmentSize: item.equipmentSize || '',
+                    expiryDate: item.expiryDate ? item.expiryDate.split('T')[0] : '',
+                    initialQuantity: item.initialQuantity,
+                    order: index + 1,
+                })) || [],
+            };
+            form.reset(formData);
+        }
+    }, [stock, mode, dataReady, safetyEquipments.length, form]);
 
     const handleEquipmentSelect = (itemIndex: number, equipmentId: string) => {
         const equipment = safetyEquipments.find((eq) => eq.id === equipmentId);
@@ -292,32 +294,42 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
                                         <FormField
                                             control={form.control}
                                             name={`items.${index}.safetyEquipmentId`}
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Equipment (from Master Data)</FormLabel>
-                                                    <FormControl>
-                                                        <SearchableSelect
-                                                            options={safetyEquipments.map((eq) => ({
-                                                                value: eq.id,
-                                                                label: `${eq.name} (${eq.code})`,
-                                                            }))}
-                                                            value={field.value || ''}
-                                                            onValueChange={(value) => {
-                                                                field.onChange(value);
-                                                                if (value) {
-                                                                    handleEquipmentSelect(index, value);
-                                                                } else {
-                                                                    handleRemoveEquipment(index);
-                                                                }
-                                                            }}
-                                                            placeholder="Select equipment from master data (optional)"
-                                                            searchPlaceholder="Search equipment..."
-                                                            includeNone={true}
-                                                        />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
+                                            render={({ field }) => {
+                                                const currentValue = field.value ? String(field.value) : '';
+                                                const equipmentOptions = safetyEquipments.map((eq) => ({
+                                                    value: eq.id,
+                                                    label: `${eq.name} (${eq.code})`,
+                                                }));
+                                                return (
+                                                    <FormItem>
+                                                        <FormLabel>Equipment (from Master Data)</FormLabel>
+                                                        <FormControl>
+                                                            <SearchableSelect
+                                                                key={`equipment-select-${index}-${dataReady ? 'ready' : 'loading'}`}
+                                                                options={equipmentOptions}
+                                                                value={currentValue}
+                                                                onValueChange={(value) => {
+                                                                    if (value === 'none') {
+                                                                        field.onChange('');
+                                                                        handleRemoveEquipment(index);
+                                                                    } else {
+                                                                        field.onChange(value);
+                                                                        if (value) {
+                                                                            handleEquipmentSelect(index, value);
+                                                                        } else {
+                                                                            handleRemoveEquipment(index);
+                                                                        }
+                                                                    }
+                                                                }}
+                                                                placeholder="Select equipment from master data (optional)"
+                                                                searchPlaceholder="Search equipment..."
+                                                                includeNone={true}
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                );
+                                            }}
                                         />
 
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

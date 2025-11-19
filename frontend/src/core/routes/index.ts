@@ -8,7 +8,6 @@ import { masterDataRoutes } from '@/modules/master-data';
 import { menuRoutes } from '@/modules/menus';
 import { notificationRoutes } from '@/modules/notifications';
 import { ppeRoutes } from '@/modules/ppe';
-import ppeMasterDataRoutes from '@/modules/ppe-master-data/routes/ppe-master-data-routes';
 
 /**
  * Application routes registry
@@ -23,7 +22,6 @@ const routes: RouteConfig[] = [
   ...settingsRoutes,
   ...notificationRoutes,
   ...ppeRoutes,
-  ...ppeMasterDataRoutes,
   ...moduleRoutes,
 ];
 
