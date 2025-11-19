@@ -108,6 +108,17 @@ export interface CreatePPEStockItemDTO {
     order: number;
 }
 
+export interface UpdatePPEStockItemDTO {
+    id?: string;
+    safetyEquipmentId?: string;
+    equipmentName?: string;
+    equipmentType?: string;
+    equipmentSize?: string;
+    expiryDate?: string;
+    initialQuantity?: number;
+    order?: number;
+}
+
 export interface CreatePPEStockDTO {
     receivedDate: string;
     notes?: string;
@@ -119,6 +130,7 @@ export interface UpdatePPEStockDTO {
     receivedDate?: string;
     notes?: string;
     isActive?: boolean;
+    items?: UpdatePPEStockItemDTO[];
 }
 
 // =============================================================================

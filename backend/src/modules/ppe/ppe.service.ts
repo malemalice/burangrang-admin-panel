@@ -259,26 +259,95 @@ export class PPEService {
                 id,
                 deletedAt: null, // Only update non-deleted records
             },
+            include: {
+                items: true,
+            },
         });
 
         this.errorHandler.throwIfNotFoundById('PPEStock', id, existingStock);
 
-        const stock = await (this.prisma as any).pPEStock.update({
-            where: { id },
-            data: {
-                receivedDate: updateStockDto.receivedDate ? new Date(updateStockDto.receivedDate) : undefined,
-                notes: updateStockDto.notes,
-                isActive: updateStockDto.isActive,
-            },
-            include: {
-                items: {
-                    orderBy: { order: 'asc' },
+        return await this.prisma.$transaction(async (tx) => {
+            // Update stock header
+            const stock = await (tx as any).pPEStock.update({
+                where: { id },
+                data: {
+                    receivedDate: updateStockDto.receivedDate ? new Date(updateStockDto.receivedDate) : undefined,
+                    notes: updateStockDto.notes,
+                    isActive: updateStockDto.isActive,
                 },
-                creator: true,
-            },
-        });
+            });
 
-        return this.ppeStockMapper(stock);
+            // Handle items update if provided
+            if (updateStockDto.items !== undefined) {
+                const existingItemIds = existingStock.items.map((item: any) => item.id);
+                const requestItemIds = updateStockDto.items
+                    .filter((item) => item.id)
+                    .map((item) => item.id);
+
+                // Delete items that are not in the request
+                const itemsToDelete = existingItemIds.filter(
+                    (itemId: string) => !requestItemIds.includes(itemId),
+                );
+                if (itemsToDelete.length > 0) {
+                    await (tx as any).pPEStockItem.deleteMany({
+                        where: {
+                            id: { in: itemsToDelete },
+                            stockId: id,
+                        },
+                    });
+                }
+
+                // Update or create items
+                for (const itemDto of updateStockDto.items) {
+                    if (itemDto.id && existingItemIds.includes(itemDto.id)) {
+                        // Update existing item
+                        await (tx as any).pPEStockItem.update({
+                            where: { id: itemDto.id },
+                            data: {
+                                safetyEquipmentId: itemDto.safetyEquipmentId || null,
+                                equipmentName: itemDto.equipmentName || null,
+                                equipmentType: itemDto.equipmentType || null,
+                                equipmentSize: itemDto.equipmentSize || null,
+                                expiryDate: itemDto.expiryDate ? new Date(itemDto.expiryDate) : null,
+                                initialQuantity: itemDto.initialQuantity,
+                                currentQuantity: itemDto.initialQuantity, // Reset current quantity to initial
+                                order: itemDto.order || 0,
+                            },
+                        });
+                    } else {
+                        // Create new item
+                        await (tx as any).pPEStockItem.create({
+                            data: {
+                                stockId: id,
+                                safetyEquipmentId: itemDto.safetyEquipmentId || null,
+                                equipmentName: itemDto.equipmentName || null,
+                                equipmentType: itemDto.equipmentType || null,
+                                equipmentSize: itemDto.equipmentSize || null,
+                                expiryDate: itemDto.expiryDate ? new Date(itemDto.expiryDate) : null,
+                                initialQuantity: itemDto.initialQuantity || 0,
+                                currentQuantity: itemDto.initialQuantity || 0,
+                                reservedQuantity: 0,
+                                status: 'AVAILABLE' as any,
+                                order: itemDto.order || 0,
+                            },
+                        });
+                    }
+                }
+            }
+
+            // Fetch updated stock with items
+            const stockWithItems = await (tx as any).pPEStock.findUnique({
+                where: { id },
+                include: {
+                    items: {
+                        orderBy: { order: 'asc' },
+                    },
+                    creator: true,
+                },
+            });
+
+            return this.ppeStockMapper(stockWithItems);
+        });
     }
 
     /**

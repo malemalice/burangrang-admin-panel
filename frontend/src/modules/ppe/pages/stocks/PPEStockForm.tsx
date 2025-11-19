@@ -37,6 +37,7 @@ import {
 import { SafetyEquipment, SafetyEquipmentCategory } from '../../types/ppe-master-data.types';
 
 const stockItemSchema = z.object({
+    id: z.string().optional(),
     safetyEquipmentId: z.string().optional(),
     equipmentName: z.string().optional(),
     equipmentType: z.string().optional(),
@@ -133,6 +134,7 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
                 notes: stock.notes || '',
                 isActive: stock.isActive ?? true,
                 items: stock.items?.map((item, index) => ({
+                    id: item.id, // Include id for existing items
                     safetyEquipmentId: item.safetyEquipmentId ? String(item.safetyEquipmentId) : '',
                     equipmentName: item.equipmentName || '',
                     equipmentType: item.equipmentType || '',
@@ -192,6 +194,16 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
                     receivedDate: data.receivedDate,
                     notes: data.notes || undefined,
                     isActive: data.isActive,
+                    items: data.items.map((item, index) => ({
+                        id: item.id, // Include id for existing items, omit for new items
+                        safetyEquipmentId: item.safetyEquipmentId || undefined,
+                        equipmentName: item.equipmentName || undefined,
+                        equipmentType: item.equipmentType || undefined,
+                        equipmentSize: item.equipmentSize || undefined,
+                        expiryDate: item.expiryDate || undefined,
+                        initialQuantity: item.initialQuantity,
+                        order: index + 1,
+                    })),
                 };
                 await ppeService.updateStock(stock!.id, updateData);
                 toast.success('Stock updated successfully');
