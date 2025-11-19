@@ -1,0 +1,61 @@
+---
+alwaysApply: false
+---
+# Burangrang Frontend Rules
+
+## Komunikasi
+- Inline code comments wajib menggunakan Bahasa Inggris yang jelas.
+- Semua penjelasan, diskusi, dan commit message ditulis dalam Bahasa Indonesia tanpa mencampur bahasa pada satu kalimat.
+
+## Arsitektur Modular (React + Vite)
+- Ikuti struktur TRD: setiap module berada di `src/modules/[feature]/` dengan folder `components`, `pages`, `services`, `types`, `hooks`, `routes`, optional `validators`, `constants`.
+- Selalu buat barrel export `modules/[feature]/index.ts` yang mengekspor pages, services, hooks, routes, dan types.
+- Shared logic (theme, auth context, api client, ui primitives) hidup di `src/core/` atau `src/shared/`; hindari duplikasi di module.
+- Gunakan alias TypeScript (`@/core`, `@/modules`, `@/shared`) untuk semua import lintas module.
+
+## Service & API Pattern
+- Semua panggilan HTTP berada di `services/*.ts` menggunakan `api` Axios instance (`src/core/lib/api.ts`).
+- Setiap service menyediakan metode CRUD standar dengan mapping DTO→model (`mapDtoToModel`) dan model→DTO untuk update.
+- Query list wajib menerima `PaginationParams` (`page`, `limit`, `search`, `sortBy`, `sortOrder`, `filters`) dan mengembalikan `PaginatedResponse`.
+- Lakukan error handling konsisten: tangkap error, gunakan pesan dari backend jika tersedia, dan lempar `Error` baru dengan message ramah pengguna.
+
+## Hooks & State Management
+- Sediakan custom hooks per module (`use[Entities]`, `use[Entity]`, dsb.) yang mengelola loading/error state, memicu toast, dan mengekspos fungsi CRUD.
+- Hooks memanfaatkan service; komponen tidak boleh memanggil service langsung kecuali kasus sangat sederhana (tetap utamakan hooks).
+- Gunakan `useEffect` untuk memuat data awal sesuai TRD; hindari state global tak perlu dan jaga isolasi antar module.
+
+## Tables & UI Patterns
+- Semua tabel daftar memakai `core/components/ui/data-table/DataTable` dengan konfigurasi kolom standar (header, cell, `isSortable`).
+- Filter & search mengikuti pola `filterFields` (text, select, searchableSelect) sebagaimana contoh TRD.
+- Action menu memakai komponen shadcn (`DropdownMenu`, `Button`, ikon lucide) dengan opsi View/Edit/Delete sesuai module.
+- Gunakan komponen `Badge`, `Avatar`, `PageHeader`, `SearchableSelect`, dsb. dari `core/components/ui` agar konsisten.
+
+## Forms & Validasi
+- Semua form menggunakan React Hook Form + Zod (`zodResolver`), memanfaatkan komponen shadcn form (`Form`, `FormField`, `Input`, `Button`, dsb.).
+- Zod schema harus mencerminkan DTO backend (required/optional, enum, email, dsb.) dan menyediakan pesan error user-friendly.
+- Form memanfaatkan service untuk `create`/`update`, menampilkan toast sukses/gagal melalui `sonner`, lalu navigasi sesuai alur module.
+
+## Navigasi & Routes
+- Register routes module melalui `src/core/routes` dan gabungkan dengan `allRoutes`; bedakan rute publik vs protected.
+- Gunakan layout/guard yang sudah ada di core (mis. ProtectedRoute) alih-alih membuat ulang logika auth.
+- Pastikan halaman module mengikuti pola TRD: list page, create page, edit page, detail page bila dibutuhkan.
+
+## Konsistensi Data & Transformasi
+- Definisikan tipe DTO, model frontend, dan request payload di `types/*.ts`; gunakan `export type` untuk konsumen luar.
+- Map boolean status dari backend ke label frontend (`isActive` → `'active' | 'inactive'`) sekali di service.
+- Sertakan helper untuk menyusun payload filter sebelum request (mis. drop undefined/empty strings).
+
+## Komunikasi Antar Module
+- Jika modul membutuhkan data modul lain (contoh: dropdown roles di Users), import melalui barrel `@/modules/roles`.
+- Jangan membuat dependensi siklik; simpan tipe bersama di `src/shared/types` bila digunakan lintas modul besar.
+- Utamakan `Promise.all` untuk fetch paralel opsi form agar pengalaman pengguna lebih cepat, sesuai contoh TRD.
+
+## Testing & Quality
+- Jalankan ESLint (`eslint.config.js`) dan formatter sebelum commit; jangan memperkenalkan aturan baru yang merusak CI.
+- Untuk flow kritis, tambahkan test Playwright mengikuti pola page-object di `playwright/tests`.
+- Evaluasi efek performa: hindari rerender berat, gunakan memoization jika DataTable menerima data besar.
+
+## Deployment & Lingkungan
+- Jangan hardcode URL API; gunakan konfigurasi dari `core/lib/api`.
+- Saat menambah variabel lingkungan frontend, dokumentasikan di README dan sesuaikan dengan file deployment (nginx, Docker).
+- Pastikan build Vite tetap bersih dari warning; jika menambah asset publik, letakkan di `public/` atau `core/lib/theme` sesuai struktur TRD.

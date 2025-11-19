@@ -35,6 +35,13 @@ model User {
   notificationRecipients NotificationRecipient[] @relation("NotificationRecipient")
   uploadedFiles FileUpload[]
   fileAccessLogs FileAccessLog[]
+  ppeStocksCreated PPEStock[] @relation("PPEStockCreator")
+  ppeStockAdjustments PPEStockAdjustment[] @relation("PPEStockAdjuster")
+  ppeExpiryAlerts PPEExpiryAlert[] @relation("PPEExpiryAlertRecipient")
+  ppeWithdrawalsRequested PPEWithdrawal[] @relation("PPEWithdrawalRequester")
+  ppeWithdrawalsRequestedFor PPEWithdrawal[] @relation("PPEWithdrawalRequestedFor")
+  ppeWithdrawalsCollected PPEWithdrawal[] @relation("PPEWithdrawalCollector")
+  ppeWithdrawalsCreated PPEWithdrawal[] @relation("PPEWithdrawalCreator")
 
   @@map("t_users")
 }
@@ -138,6 +145,7 @@ model Department {
   riskAssessments RiskAssessment[]
   approvalItems MasterApprovalItem[]
   approvals Approval[]
+  ppeWithdrawals PPEWithdrawal[]
   @@map("m_departments")
 }
 
@@ -153,6 +161,7 @@ model JobPosition {
   users       User[]
   approvalItems MasterApprovalItem[]
   approvals   Approval[]
+  ppeWithdrawals PPEWithdrawal[]
   @@map("m_job_positions")
 }
 
@@ -430,4 +439,184 @@ model FileAccessLog {
   user    User?      @relation(fields: [accessedBy], references: [id])
 
   @@map("t_file_access_logs")
+}
+
+// PPE Management System Models
+
+enum PPEWithdrawalStatusEnum {
+  PENDING
+  APPROVED
+  COLLECTED
+  CANCELLED
+}
+
+enum PPEStockStatusEnum {
+  AVAILABLE
+  RESERVED
+  ISSUED
+  EXPIRED
+  DISPOSED
+}
+
+enum SafetyEquipmentCategoryEnum {
+  PERSONAL_PROTECTIVE_EQUIPMENT
+  SAFETY_EQUIPMENT
+  EMERGENCY_EQUIPMENT
+}
+
+// PPE Stock Header
+model PPEStock {
+  id           String          @id @default(uuid())
+  stockCode    String          @unique
+  receivedDate DateTime
+  notes        String?         @db.Text
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  createdBy    String
+  creator      User            @relation("PPEStockCreator", fields: [createdBy], references: [id])
+  items        PPEStockItem[]
+
+  @@map("t_ppe_stock")
+}
+
+// PPE Stock Items
+model PPEStockItem {
+  id                String                @id @default(uuid())
+  stockId            String
+  stock              PPEStock              @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  safetyEquipmentId  String?
+  safetyEquipment    SafetyEquipment?      @relation(fields: [safetyEquipmentId], references: [id])
+  // Free-text fields for flexibility (when not using master data)
+  equipmentName      String?
+  equipmentType      String?
+  equipmentSize      String?
+  expiryDate         DateTime?
+  initialQuantity    Int
+  currentQuantity    Int
+  reservedQuantity   Int                   @default(0)
+  status             PPEStockStatusEnum    @default(AVAILABLE)
+  order              Int
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  adjustments        PPEStockAdjustment[]
+  expiryAlerts       PPEExpiryAlert[]
+  withdrawalItems    PPEWithdrawalItem[]
+
+  @@map("t_ppe_stock_items")
+}
+
+// PPE Stock Adjustments (Audit Trail)
+model PPEStockAdjustment {
+  id              String        @id @default(uuid())
+  stockItemId     String
+  stockItem       PPEStockItem  @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  adjustmentType  String        // DISPOSAL, DAMAGE, CORRECTION, EXPIRY_REMOVAL, RETURN
+  quantityBefore  Int
+  quantityAfter   Int
+  quantityChange  Int
+  reason          String        @db.Text
+  adjustedBy      String
+  adjuster        User          @relation("PPEStockAdjuster", fields: [adjustedBy], references: [id])
+  adjustedAt      DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+
+  @@map("t_ppe_stock_adjustments")
+}
+
+// PPE Expiry Alerts
+model PPEExpiryAlert {
+  id              String        @id @default(uuid())
+  stockItemId     String
+  stockItem       PPEStockItem  @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  alertDate       DateTime
+  daysUntilExpiry Int
+  isSent          Boolean       @default(false)
+  sentAt          DateTime?
+  recipientId     String
+  recipient       User          @relation("PPEExpiryAlertRecipient", fields: [recipientId], references: [id])
+  createdAt       DateTime      @default(now())
+
+  @@map("t_ppe_expiry_alerts")
+}
+
+// PPE Withdrawals
+model PPEWithdrawal {
+  id                String                @id @default(uuid())
+  withdrawalCode    String                @unique
+  withdrawalDate    DateTime
+  requestedBy       String
+  requester         User                  @relation("PPEWithdrawalRequester", fields: [requestedBy], references: [id])
+  requestedFor      String?
+  requestedForUser  User?                 @relation("PPEWithdrawalRequestedFor", fields: [requestedFor], references: [id])
+  requestedForName  String?
+  departmentId      String
+  department        Department            @relation(fields: [departmentId], references: [id])
+  jobPositionId     String?
+  jobPosition       JobPosition?          @relation(fields: [jobPositionId], references: [id])
+  jobPositionName   String?
+  status            PPEWithdrawalStatusEnum @default(PENDING)
+  withdrawalLetterUrl String?
+  collectedDate     DateTime?
+  collectedBy       String?
+  collector         User?                 @relation("PPEWithdrawalCollector", fields: [collectedBy], references: [id])
+  notes             String?               @db.Text
+  isActive          Boolean               @default(true)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  createdBy         String
+  creator           User                  @relation("PPEWithdrawalCreator", fields: [createdBy], references: [id])
+  items             PPEWithdrawalItem[]
+
+  @@map("t_ppe_withdrawals")
+}
+
+// PPE Withdrawal Items
+model PPEWithdrawalItem {
+  id                String        @id @default(uuid())
+  withdrawalId      String
+  withdrawal        PPEWithdrawal @relation(fields: [withdrawalId], references: [id], onDelete: Cascade)
+  stockItemId       String
+  stockItem         PPEStockItem  @relation(fields: [stockItemId], references: [id])
+  requestedQuantity Int
+  approvedQuantity  Int?
+  issuedQuantity    Int?
+  order             Int
+  notes             String?       @db.Text
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@map("t_ppe_withdrawal_items")
+}
+
+// Safety Equipment Master Data
+
+model SafetyEquipmentType {
+  id                String            @id @default(uuid())
+  name              String
+  code              String            @unique
+  description       String?           @db.Text
+  isActive          Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  safetyEquipments  SafetyEquipment[]
+
+  @@map("m_safety_equipment_type")
+}
+
+model SafetyEquipment {
+  id                    String                      @id @default(uuid())
+  name                  String
+  code                  String                      @unique
+  safetyEquipmentTypeId String
+  safetyEquipmentType   SafetyEquipmentType         @relation(fields: [safetyEquipmentTypeId], references: [id])
+  size                  String?
+  description           String?                     @db.Text
+  category              SafetyEquipmentCategoryEnum
+  isActive              Boolean                     @default(true)
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  ppeStockItems         PPEStockItem[]
+
+  @@map("m_safety_equipment")
 }

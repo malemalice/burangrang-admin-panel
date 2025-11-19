@@ -1,0 +1,51 @@
+---
+alwaysApply: false
+---
+# Burangrang Backend Rules
+
+## Communication
+- Inline code comments must always be in clear English.
+- Semua penjelasan, diskusi, dan commit message wajib dalam Bahasa Indonesia tanpa mencampur bahasa pada satu kalimat.
+
+## Arsitektur & Modul (NestJS + Prisma)
+- Ikuti struktur modul TRD: `module.ts`, `controller.ts`, `service.ts`, `dto/`, `entities/` bila perlu.
+- Setiap modul mengimpor `SharedModule` dan `PrismaModule`, bukan langsung menambahkan `PrismaService` pada providers.
+- Gunakan utilitas bersama (mapper, error handler, storage) sebelum membuat abstraction baru.
+- Pertahankan konvensi penamaan Prisma (`m_` untuk master, `t_` untuk transaksi, `_Relation` untuk junction).
+
+## Controller Patterns
+- Terapkan `@ApiTags`, `@ApiBearerAuth`, serta `@UseGuards(JwtAuthGuard, RolesGuard)` pada level kelas.
+- Setiap handler CRUD wajib memiliki `@Roles(...)`, `@ApiOperation`, `@ApiResponse`, dan dekorator Swagger lain (`@ApiQuery`, `@ApiParam`, `@ApiBody`).
+- `@Public()` hanya boleh digunakan untuk endpoint yang eksplisit didefinisikan publik dalam TRD (contoh: login, download publik).
+- Endpoint listing wajib mendukung query `page`, `limit`, `sortBy`, `sortOrder`, `search`, `isActive`, dan filter domain tambahan.
+
+## Service Patterns
+- Constructor menyuntik `PrismaService`, `ErrorHandlingService`, dan `DtoMapperService`; mapper diinisialisasi satu kali di constructor.
+- Gunakan `ErrorHandlingService` untuk seluruh pengecekan not-found serta penanganan error Prisma (`safeExecute`, `throwIfNotFoundById`).
+- Standarisasi respon CRUD dengan `{ data, meta }` dan meta berisi `total`, `page`, `limit`, `totalPages`.
+- Seluruh konversi entity→DTO memakai `DtoMapperService` (`createSimpleMapper`, `createRelationMapper`, `createPaginatedMapper`).
+- Fitur khusus (Upload, Menus, Offices hierarchy, Approvals workflow) mengikuti pola TRD masing-masing, termasuk logging dan konfigurasi akses.
+
+## DTO & Validasi
+- Response DTO wajib memakai `@ApiProperty`, `@Expose`, dan konstruktor `constructor(partial: Partial<Dto>)`.
+- Create/Update DTO menggunakan `class-validator` (`@IsString`, `@IsUUID`, `@IsOptional`, dsb.) dengan pesan yang jelas.
+- Field sensitif (password, token) harus di-exclude via `@Exclude()` atau konfigurasi mapper `exclude`.
+
+## Keamanan & Akses
+- Guard berlapis: `JwtAuthGuard` → `RolesGuard` → `PermissionsGuard` sesuai diagram TRD.
+- Gunakan `@Permissions()` untuk endpoint yang memerlukan granular permission; pastikan hierarki peran (SUPER_ADMIN > ADMIN > MANAGER > USER) dijaga.
+- Upload module: hormati flag `isPublic`, token akses privat, deduplikasi hash SHA256, serta audit log `t_file_access_logs`.
+
+## Database & Storage
+- Setelah mengubah schema Prisma, jalankan `npx prisma migrate dev` / `deploy` dan `npx prisma generate`; update seeds terkait.
+- Storage mengikuti `StorageService` + `StorageFactoryService`; implementasi baru harus kompatibel dengan local dan roadmap cloud (S3, GCS, Azure).
+- Validasi ukuran dan MIME file berdasarkan kategori TRD (profile-images, documents, course-materials, system-assets, videos, audio).
+
+## Testing & Tooling
+- Tambahkan unit test (`*.service.spec.ts`, `*.controller.spec.ts`) untuk modul anyar atau fitur kritis (auth, uploads, notifications, approvals).
+- Jalankan ESLint, format, dan Prisma checks sebelum commit; pastikan rule baru tidak mematahkan skrip CI.
+- Gunakan Playwright / E2E sesuai kebutuhan apabila flow backend mempengaruhi akses frontend.
+
+## Deployment & Env
+- Catat variabel `.env` baru di README; jangan pernah hardcode secrets, path storage, atau URL publik.
+- Perubahan bootstrap (`main.ts`) harus menjaga konfigurasi TRD: helmet, CORS multi-origin, compression, rate limiting, logging.
