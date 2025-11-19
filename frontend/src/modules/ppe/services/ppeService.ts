@@ -42,6 +42,7 @@ const mapPPEStockDtoToPPEStock = (stockDto: PPEStockDTO): PPEStock => ({
     receivedDate: stockDto.receivedDate,
     notes: stockDto.notes,
     isActive: stockDto.isActive,
+    deletedAt: stockDto.deletedAt,
     createdAt: stockDto.createdAt,
     updatedAt: stockDto.updatedAt,
     createdBy: stockDto.createdBy,
@@ -77,6 +78,7 @@ const mapPPEWithdrawalDtoToPPEWithdrawal = (withdrawalDto: PPEWithdrawalDTO): PP
     collectedBy: withdrawalDto.collectedBy,
     notes: withdrawalDto.notes,
     isActive: withdrawalDto.isActive,
+    deletedAt: withdrawalDto.deletedAt,
     createdAt: withdrawalDto.createdAt,
     updatedAt: withdrawalDto.updatedAt,
     createdBy: withdrawalDto.createdBy,
@@ -385,6 +387,24 @@ const ppeService = {
         } catch (error: any) {
             console.error(`Error cancelling withdrawal ${id}:`, error);
             const errorMessage = error.response?.data?.message || 'Failed to cancel withdrawal';
+            throw new Error(errorMessage);
+        }
+    },
+
+    deleteStock: async (id: string): Promise<void> => {
+        try {
+            await api.delete(`/ppe/stocks/${id}`);
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.message || 'Failed to delete stock';
+            throw new Error(errorMessage);
+        }
+    },
+
+    deleteWithdrawal: async (id: string): Promise<void> => {
+        try {
+            await api.delete(`/ppe/withdrawals/${id}`);
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.message || 'Failed to delete withdrawal';
             throw new Error(errorMessage);
         }
     },

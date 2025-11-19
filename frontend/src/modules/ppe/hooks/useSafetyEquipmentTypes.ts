@@ -75,7 +75,8 @@ export const useSafetyEquipmentTypes = () => {
             setTotalTypes((prev) => prev - 1);
             toast.success('Safety equipment type deleted successfully');
         } catch (err) {
-            toast.error('Failed to delete safety equipment type');
+            const errorMessage = err instanceof Error ? err.message : 'Failed to delete safety equipment type';
+            toast.error(errorMessage);
             throw err;
         }
     };

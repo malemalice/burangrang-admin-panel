@@ -117,6 +117,7 @@ export class PPEService {
                     stockCode,
                     receivedDate: new Date(createStockDto.receivedDate),
                     notes: createStockDto.notes,
+                    isActive: createStockDto.isActive !== undefined ? createStockDto.isActive : true,
                     createdBy,
                 },
             });
@@ -175,7 +176,9 @@ export class PPEService {
             receivedDateTo,
         } = options || {};
 
-        const where: any = {};
+        const where: any = {
+            deletedAt: null, // Only get non-deleted records
+        };
 
         if (search) {
             where.stockCode = {
@@ -229,8 +232,11 @@ export class PPEService {
      * Find stock by ID
      */
     async findStockById(id: string): Promise<PPEStockDto> {
-        const stock = await (this.prisma as any).pPEStock.findUnique({
-            where: { id },
+        const stock = await (this.prisma as any).pPEStock.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only get non-deleted records
+            },
             include: {
                 items: {
                     orderBy: { order: 'asc' },
@@ -248,8 +254,11 @@ export class PPEService {
      * Update stock
      */
     async updateStock(id: string, updateStockDto: UpdatePPEStockDto): Promise<PPEStockDto> {
-        const existingStock = await (this.prisma as any).pPEStock.findUnique({
-            where: { id },
+        const existingStock = await (this.prisma as any).pPEStock.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only update non-deleted records
+            },
         });
 
         this.errorHandler.throwIfNotFoundById('PPEStock', id, existingStock);
@@ -273,6 +282,51 @@ export class PPEService {
     }
 
     /**
+     * Delete stock (soft delete)
+     */
+    async deleteStock(id: string): Promise<void> {
+        const stock = await (this.prisma as any).pPEStock.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only delete non-deleted records
+            },
+            include: {
+                items: {
+                    include: {
+                        withdrawalItems: {
+                            include: {
+                                withdrawal: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('PPEStock', id, stock);
+
+        // Check if stock has active withdrawals
+        const activeWithdrawals = stock.items.some((item: any) =>
+            item.withdrawalItems.some((wi: any) =>
+                wi.withdrawal.status !== 'CANCELLED' && wi.withdrawal.deletedAt === null
+            )
+        );
+
+        if (activeWithdrawals) {
+            throw new BadRequestException('Cannot delete stock. It has active withdrawals.');
+        }
+
+        // Soft delete by setting deletedAt and isActive to false
+        await (this.prisma as any).pPEStock.update({
+            where: { id },
+            data: {
+                deletedAt: new Date(),
+                isActive: false,
+            },
+        });
+    }
+
+    /**
      * Update stock item
      */
     async updateStockItem(
@@ -285,6 +339,16 @@ export class PPEService {
             expiryDate: Date;
         }>,
     ): Promise<PPEStockItemDto> {
+        // Validate stock is not deleted
+        const stock = await (this.prisma as any).pPEStock.findFirst({
+            where: {
+                id: stockId,
+                deletedAt: null,
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('PPEStock', stockId, stock);
+
         const stockItem = await (this.prisma as any).pPEStockItem.findFirst({
             where: {
                 id: itemId,
@@ -373,6 +437,7 @@ export class PPEService {
         const where: any = {
             stock: {
                 isActive: true,
+                deletedAt: null, // Only get items from non-deleted stocks
             },
         };
 
@@ -545,7 +610,9 @@ export class PPEService {
             withdrawalDateTo,
         } = options || {};
 
-        const where: any = {};
+        const where: any = {
+            deletedAt: null, // Only get non-deleted records
+        };
 
         if (search) {
             where.withdrawalCode = {
@@ -618,8 +685,11 @@ export class PPEService {
      * Find withdrawal by ID
      */
     async findWithdrawalById(id: string): Promise<PPEWithdrawalDto> {
-        const withdrawal = await (this.prisma as any).pPEWithdrawal.findUnique({
-            where: { id },
+        const withdrawal = await (this.prisma as any).pPEWithdrawal.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only get non-deleted records
+            },
             include: {
                 items: {
                     include: {
@@ -649,8 +719,11 @@ export class PPEService {
      * Approve withdrawal
      */
     async approveWithdrawal(id: string, updateDto: UpdatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
-        const withdrawal = await (this.prisma as any).pPEWithdrawal.findUnique({
-            where: { id },
+        const withdrawal = await (this.prisma as any).pPEWithdrawal.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only approve non-deleted records
+            },
             include: {
                 items: true,
             },
@@ -734,8 +807,11 @@ export class PPEService {
      * Collect withdrawal (deduct stock)
      */
     async collectWithdrawal(id: string, updateDto: UpdatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
-        const withdrawal = await (this.prisma as any).pPEWithdrawal.findUnique({
-            where: { id },
+        const withdrawal = await (this.prisma as any).pPEWithdrawal.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only collect non-deleted records
+            },
             include: {
                 items: true,
             },
@@ -841,8 +917,11 @@ export class PPEService {
      * Update withdrawal (only if status is PENDING)
      */
     async updateWithdrawal(id: string, updateDto: CreatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
-        const withdrawal = await (this.prisma as any).pPEWithdrawal.findUnique({
-            where: { id },
+        const withdrawal = await (this.prisma as any).pPEWithdrawal.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only update non-deleted records
+            },
             include: {
                 items: true,
             },
@@ -970,8 +1049,11 @@ export class PPEService {
      * Cancel withdrawal
      */
     async cancelWithdrawal(id: string, updateDto?: UpdatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
-        const withdrawal = await (this.prisma as any).pPEWithdrawal.findUnique({
-            where: { id },
+        const withdrawal = await (this.prisma as any).pPEWithdrawal.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only cancel non-deleted records
+            },
             include: {
                 items: true,
             },
@@ -1026,6 +1108,56 @@ export class PPEService {
             });
 
             return this.ppeWithdrawalMapper(updatedWithdrawal);
+        });
+    }
+
+    /**
+     * Delete withdrawal (soft delete)
+     */
+    async deleteWithdrawal(id: string): Promise<void> {
+        const withdrawal = await (this.prisma as any).pPEWithdrawal.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only delete non-deleted records
+            },
+            include: {
+                items: true,
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
+
+        // Only allow delete if status is PENDING or CANCELLED
+        if (withdrawal.status !== 'PENDING' && withdrawal.status !== 'CANCELLED') {
+            throw new BadRequestException(`Cannot delete withdrawal. Current status: ${withdrawal.status}. Only PENDING or CANCELLED withdrawals can be deleted.`);
+        }
+
+        return await this.prisma.$transaction(async (tx) => {
+            // Release reserved stock if status is APPROVED
+            if (withdrawal.status === 'APPROVED') {
+                await Promise.all(
+                    withdrawal.items.map(async (item: any) => {
+                        const reservedQty = item.approvedQuantity || item.requestedQuantity;
+                        await (tx as any).pPEStockItem.update({
+                            where: { id: item.stockItemId },
+                            data: {
+                                reservedQuantity: {
+                                    decrement: reservedQty,
+                                },
+                            },
+                        });
+                    }),
+                );
+            }
+
+            // Soft delete by setting deletedAt and isActive to false
+            await (tx as any).pPEWithdrawal.update({
+                where: { id },
+                data: {
+                    deletedAt: new Date(),
+                    isActive: false,
+                },
+            });
         });
     }
 }

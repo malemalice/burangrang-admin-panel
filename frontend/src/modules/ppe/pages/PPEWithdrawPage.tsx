@@ -1,27 +1,32 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Eye, CheckCircle, XCircle, Package } from 'lucide-react';
+import { Plus, Eye, CheckCircle, XCircle, Package, Trash2, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/core/components/ui/dropdown-menu';
 import { Badge } from '@/core/components/ui/badge';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { usePPEWithdrawals } from '../hooks/usePPE';
 import { PPEWithdrawal, PPEWithdrawalSearchParams, PPEWithdrawalStatus } from '../types/ppe.types';
 import { FilterField } from '@/core/components/ui/filter-drawer';
 
 const PPEWithdrawPage = () => {
     const navigate = useNavigate();
-    const { withdrawals, totalWithdrawals, isLoading, fetchWithdrawals } = usePPEWithdrawals();
+    const { withdrawals, totalWithdrawals, isLoading, fetchWithdrawals, deleteWithdrawal } = usePPEWithdrawals();
     const [pageIndex, setPageIndex] = useState(0);
     const [limit, setLimit] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [withdrawalToDelete, setWithdrawalToDelete] = useState<PPEWithdrawal | null>(null);
+    const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
 
     const filterFields: FilterField[] = [
         {
@@ -90,6 +95,35 @@ const PPEWithdrawPage = () => {
         setPageIndex(0);
     };
 
+    const handleDeleteClick = (withdrawal: PPEWithdrawal) => {
+        // Only allow delete for PENDING or CANCELLED status
+        if (withdrawal.status !== PPEWithdrawalStatus.PENDING && withdrawal.status !== PPEWithdrawalStatus.CANCELLED) {
+            return;
+        }
+        // Close all dropdowns before opening delete dialog
+        setDropdownOpenStates({});
+        setWithdrawalToDelete(withdrawal);
+        // Use setTimeout to ensure dropdown is fully closed before opening dialog
+        setTimeout(() => {
+            setDeleteDialogOpen(true);
+        }, 0);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!withdrawalToDelete) return;
+        try {
+            await deleteWithdrawal(withdrawalToDelete.id);
+            // Close all dropdowns and clear state after successful delete
+            setDropdownOpenStates({});
+            loadWithdrawals();
+        } catch (error) {
+            // Error already handled in hook with toast notification
+        } finally {
+            setDeleteDialogOpen(false);
+            setWithdrawalToDelete(null);
+        }
+    };
+
     const getStatusBadge = (status: PPEWithdrawalStatus) => {
         const variants: Record<PPEWithdrawalStatus, { className: string; label: string }> = {
             PENDING: { className: 'bg-yellow-100 text-yellow-800 border-0', label: 'Pending' },
@@ -146,20 +180,38 @@ const PPEWithdrawPage = () => {
         {
             id: 'actions',
             header: 'Actions',
-            cell: (withdrawal: PPEWithdrawal) => (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                            <Eye className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate(`/ppe/withdrawals/${withdrawal.id}`)}>
-                            <Eye className="mr-2 h-4 w-4" /> View Details
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            ),
+            cell: (withdrawal: PPEWithdrawal) => {
+                const canDelete = withdrawal.status === PPEWithdrawalStatus.PENDING || withdrawal.status === PPEWithdrawalStatus.CANCELLED;
+                return (
+                    <DropdownMenu
+                        open={dropdownOpenStates[withdrawal.id]}
+                        onOpenChange={(open) => setDropdownOpenStates(prev => ({ ...prev, [withdrawal.id]: open }))}
+                    >
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/ppe/withdrawals/${withdrawal.id}`)}>
+                                <Eye className="mr-2 h-4 w-4" /> View Details
+                            </DropdownMenuItem>
+                            {canDelete && (
+                                <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        onClick={() => handleDeleteClick(withdrawal)}
+                                        className="text-red-600 focus:text-red-600"
+                                    >
+                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                );
+            },
             isSortable: false,
         },
     ];
@@ -191,6 +243,14 @@ const PPEWithdrawPage = () => {
                 filterFields={filterFields}
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}
+            />
+
+            <ConfirmDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                title="Delete PPE Withdrawal"
+                description={`Are you sure you want to delete withdrawal "${withdrawalToDelete?.withdrawalCode}"? This action cannot be undone.`}
+                onConfirm={handleDeleteConfirm}
             />
         </>
     );

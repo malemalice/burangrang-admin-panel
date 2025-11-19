@@ -78,6 +78,7 @@ export interface PPEStockDTO {
     receivedDate: string;
     notes?: string | null;
     isActive: boolean;
+    deletedAt?: string | null;
     createdAt: string;
     updatedAt: string;
     createdBy: string;
@@ -90,6 +91,7 @@ export interface PPEStock {
     receivedDate: string;
     notes?: string | null;
     isActive: boolean;
+    deletedAt?: string | null;
     createdAt: string;
     updatedAt: string;
     createdBy: string;
@@ -109,6 +111,7 @@ export interface CreatePPEStockItemDTO {
 export interface CreatePPEStockDTO {
     receivedDate: string;
     notes?: string;
+    isActive?: boolean;
     items: CreatePPEStockItemDTO[];
 }
 
@@ -164,6 +167,7 @@ export interface PPEWithdrawalDTO {
     collectedBy?: string | null;
     notes?: string | null;
     isActive: boolean;
+    deletedAt?: string | null;
     createdAt: string;
     updatedAt: string;
     createdBy: string;
@@ -186,6 +190,7 @@ export interface PPEWithdrawal {
     collectedBy?: string | null;
     notes?: string | null;
     isActive: boolean;
+    deletedAt?: string | null;
     createdAt: string;
     updatedAt: string;
     createdBy: string;

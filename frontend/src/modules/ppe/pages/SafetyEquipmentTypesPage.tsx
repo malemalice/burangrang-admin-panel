@@ -84,18 +84,24 @@ export default function SafetyEquipmentTypesPage() {
     }, [fetchData]);
 
     const handleDeleteClick = (type: SafetyEquipmentType) => {
-        setDropdownOpenStates(prev => ({ ...prev, [type.id]: false }));
+        // Close all dropdowns before opening delete dialog
+        setDropdownOpenStates({});
         setTypeToDelete(type);
-        setDeleteDialogOpen(true);
+        // Use setTimeout to ensure dropdown is fully closed before opening dialog
+        setTimeout(() => {
+            setDeleteDialogOpen(true);
+        }, 0);
     };
 
     const handleDeleteConfirm = async () => {
         if (!typeToDelete) return;
         try {
             await deleteType(typeToDelete.id);
+            // Close all dropdowns and clear state after successful delete
+            setDropdownOpenStates({});
             fetchData();
         } catch (error) {
-            console.error('Failed to delete:', error);
+            // Error already handled in hook with toast notification
         } finally {
             setDeleteDialogOpen(false);
             setTypeToDelete(null);

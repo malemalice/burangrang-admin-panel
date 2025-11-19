@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsString, IsOptional, IsArray, ValidateNested, IsNotEmpty } from 'class-validator';
+import { IsDateString, IsString, IsOptional, IsArray, ValidateNested, IsNotEmpty, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CreatePPEStockItemDto } from './create-ppe-stock-item.dto';
 
@@ -13,6 +13,11 @@ export class CreatePPEStockDto {
     @IsString()
     @IsOptional()
     notes?: string;
+
+    @ApiProperty({ required: false, description: 'Whether the stock entry is active', default: true })
+    @IsBoolean()
+    @IsOptional()
+    isActive?: boolean;
 
     @ApiProperty({ type: [CreatePPEStockItemDto], description: 'List of PPE items in this stock entry' })
     @IsArray()

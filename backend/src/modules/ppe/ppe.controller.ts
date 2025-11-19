@@ -4,6 +4,7 @@ import {
     Post,
     Body,
     Patch,
+    Delete,
     Param,
     Query,
     UseGuards,
@@ -295,6 +296,34 @@ export class PPEController {
     @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
     cancelWithdrawal(@Param('id') id: string, @Body() updateDto?: UpdatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
         return this.ppeService.cancelWithdrawal(id, updateDto);
+    }
+
+    @Delete('stocks/:id')
+    @ApiOperation({ summary: 'Soft delete stock' })
+    @ApiParam({ name: 'id', type: String })
+    @ApiResponse({
+        status: 200,
+        description: 'The stock has been successfully deleted.',
+    })
+    @ApiResponse({ status: 400, description: 'Bad request - stock cannot be deleted.' })
+    @ApiResponse({ status: 404, description: 'Stock not found.' })
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    deleteStock(@Param('id') id: string): Promise<void> {
+        return this.ppeService.deleteStock(id);
+    }
+
+    @Delete('withdrawals/:id')
+    @ApiOperation({ summary: 'Soft delete withdrawal' })
+    @ApiParam({ name: 'id', type: String })
+    @ApiResponse({
+        status: 200,
+        description: 'The withdrawal has been successfully deleted.',
+    })
+    @ApiResponse({ status: 400, description: 'Bad request - withdrawal cannot be deleted.' })
+    @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    deleteWithdrawal(@Param('id') id: string): Promise<void> {
+        return this.ppeService.deleteWithdrawal(id);
     }
 }
 

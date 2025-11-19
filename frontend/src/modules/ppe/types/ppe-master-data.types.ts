@@ -15,6 +15,7 @@ export interface SafetyEquipmentType {
     code: string;
     description?: string | null;
     isActive: boolean;
+    deletedAt?: string | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -25,6 +26,7 @@ export interface SafetyEquipmentTypeDTO {
     code: string;
     description?: string | null;
     isActive: boolean;
+    deletedAt?: string | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -63,6 +65,7 @@ export interface SafetyEquipment {
     description?: string | null;
     category: SafetyEquipmentCategory;
     isActive: boolean;
+    deletedAt?: string | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -77,6 +80,7 @@ export interface SafetyEquipmentDTO {
     description?: string | null;
     category: SafetyEquipmentCategory;
     isActive: boolean;
+    deletedAt?: string | null;
     createdAt: string;
     updatedAt: string;
 }

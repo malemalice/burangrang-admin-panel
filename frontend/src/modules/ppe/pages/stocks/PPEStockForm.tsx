@@ -25,6 +25,7 @@ import {
 } from '@/core/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
+import { Switch } from '@/core/components/ui/switch';
 import ppeService from '../../services/ppeService';
 import safetyEquipmentService from '../../services/safetyEquipmentService';
 import {
@@ -54,6 +55,7 @@ const stockItemSchema = z.object({
 const formSchema = z.object({
     receivedDate: z.string().min(1, 'Received date is required'),
     notes: z.string().optional(),
+    isActive: z.boolean().optional().default(true),
     items: z.array(stockItemSchema).min(1, 'At least one item is required'),
 });
 
@@ -76,6 +78,7 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
         defaultValues: {
             receivedDate: new Date().toISOString().split('T')[0],
             notes: '',
+            isActive: true,
             items: [
                 {
                     safetyEquipmentId: '',
@@ -128,6 +131,7 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
             const formData = {
                 receivedDate: stock.receivedDate.split('T')[0],
                 notes: stock.notes || '',
+                isActive: stock.isActive ?? true,
                 items: stock.items?.map((item, index) => ({
                     safetyEquipmentId: item.safetyEquipmentId ? String(item.safetyEquipmentId) : '',
                     equipmentName: item.equipmentName || '',
@@ -166,6 +170,7 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
                 const createData: CreatePPEStockDTO = {
                     receivedDate: data.receivedDate,
                     notes: data.notes || undefined,
+                    isActive: data.isActive,
                     items: data.items.map((item, index) => {
                         const itemData: CreatePPEStockItemDTO = {
                             safetyEquipmentId: item.safetyEquipmentId || undefined,
@@ -186,6 +191,7 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
                 const updateData: UpdatePPEStockDTO = {
                     receivedDate: data.receivedDate,
                     notes: data.notes || undefined,
+                    isActive: data.isActive,
                 };
                 await ppeService.updateStock(stock!.id, updateData);
                 toast.success('Stock updated successfully');
@@ -247,6 +253,27 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
                                         />
                                     </FormControl>
                                     <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="isActive"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                    <div className="space-y-0.5">
+                                        <FormLabel className="text-base">Active</FormLabel>
+                                        <div className="text-sm text-muted-foreground">
+                                            Stock entry will be available for withdrawals when active
+                                        </div>
+                                    </div>
+                                    <FormControl>
+                                        <Switch
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                        />
+                                    </FormControl>
                                 </FormItem>
                             )}
                         />

@@ -18,6 +18,7 @@ const mapSafetyEquipmentTypeDtoToSafetyEquipmentType = (
         code: dto.code,
         description: dto.description || null,
         isActive: dto.isActive,
+        deletedAt: dto.deletedAt || null,
         createdAt: dto.createdAt,
         updatedAt: dto.updatedAt,
     };
@@ -92,7 +93,12 @@ const safetyEquipmentTypeService = {
 
     // Delete a safety equipment type (soft delete)
     async deleteSafetyEquipmentType(id: string): Promise<void> {
-        await api.delete(`/safety-equipment-types/${id}`);
+        try {
+            await api.delete(`/safety-equipment-types/${id}`);
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.message || 'Failed to delete safety equipment type';
+            throw new Error(errorMessage);
+        }
     },
 };
 

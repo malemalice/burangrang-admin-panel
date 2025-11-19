@@ -75,7 +75,8 @@ export const useSafetyEquipments = () => {
             setTotalEquipments((prev) => prev - 1);
             toast.success('Safety equipment deleted successfully');
         } catch (err) {
-            toast.error('Failed to delete safety equipment');
+            const errorMessage = err instanceof Error ? err.message : 'Failed to delete safety equipment';
+            toast.error(errorMessage);
             throw err;
         }
     };

@@ -74,6 +74,19 @@ export const usePPEStocks = () => {
         }
     };
 
+    const deleteStock = async (id: string) => {
+        try {
+            await ppeService.deleteStock(id);
+            setStocks((prev) => prev.filter((item) => item.id !== id));
+            setTotalStocks((prev) => Math.max(0, prev - 1));
+            toast.success('Stock deleted successfully');
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to delete stock';
+            toast.error(errorMessage);
+            throw err;
+        }
+    };
+
     return {
         stocks,
         totalStocks,
@@ -83,6 +96,7 @@ export const usePPEStocks = () => {
         fetchStocks,
         createStock,
         updateStock,
+        deleteStock,
     };
 };
 
@@ -277,6 +291,19 @@ export const usePPEWithdrawals = () => {
         }
     };
 
+    const deleteWithdrawal = async (id: string) => {
+        try {
+            await ppeService.deleteWithdrawal(id);
+            setWithdrawals((prev) => prev.filter((item) => item.id !== id));
+            setTotalWithdrawals((prev) => Math.max(0, prev - 1));
+            toast.success('Withdrawal deleted successfully');
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to delete withdrawal';
+            toast.error(errorMessage);
+            throw err;
+        }
+    };
+
     return {
         withdrawals,
         totalWithdrawals,
@@ -288,6 +315,7 @@ export const usePPEWithdrawals = () => {
         approveWithdrawal,
         collectWithdrawal,
         cancelWithdrawal,
+        deleteWithdrawal,
     };
 };
 

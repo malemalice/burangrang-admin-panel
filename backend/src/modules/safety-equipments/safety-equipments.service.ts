@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateSafetyEquipmentDto } from './dto/create-safety-equipment.dto';
 import { UpdateSafetyEquipmentDto } from './dto/update-safety-equipment.dto';
@@ -37,9 +37,12 @@ export class SafetyEquipmentsService {
     async create(
         createSafetyEquipmentDto: CreateSafetyEquipmentDto,
     ): Promise<SafetyEquipmentDto> {
-        // Validate safetyEquipmentTypeId exists
-        const type = await (this.prisma as any).safetyEquipmentType.findUnique({
-            where: { id: createSafetyEquipmentDto.safetyEquipmentTypeId },
+        // Validate safetyEquipmentTypeId exists and not deleted
+        const type = await (this.prisma as any).safetyEquipmentType.findFirst({
+            where: {
+                id: createSafetyEquipmentDto.safetyEquipmentTypeId,
+                deletedAt: null,
+            },
         });
 
         this.errorHandler.throwIfNotFoundById(
@@ -74,7 +77,9 @@ export class SafetyEquipmentsService {
         } = options || {};
 
         // Build where clause
-        const where: any = {};
+        const where: any = {
+            deletedAt: null, // Only get non-deleted records
+        };
 
         if (search) {
             where.OR = [
@@ -125,8 +130,11 @@ export class SafetyEquipmentsService {
     }
 
     async findOne(id: string): Promise<SafetyEquipmentDto> {
-        const safetyEquipment = await (this.prisma as any).safetyEquipment.findUnique({
-            where: { id },
+        const safetyEquipment = await (this.prisma as any).safetyEquipment.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only get non-deleted records
+            },
             include: {
                 safetyEquipmentType: true,
             },
@@ -141,16 +149,22 @@ export class SafetyEquipmentsService {
         id: string,
         updateSafetyEquipmentDto: UpdateSafetyEquipmentDto,
     ): Promise<SafetyEquipmentDto> {
-        const existingEquipment = await (this.prisma as any).safetyEquipment.findUnique({
-            where: { id },
+        const existingEquipment = await (this.prisma as any).safetyEquipment.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only update non-deleted records
+            },
         });
 
         this.errorHandler.throwIfNotFoundById('Safety Equipment', id, existingEquipment);
 
         // Validate safetyEquipmentTypeId if provided
         if (updateSafetyEquipmentDto.safetyEquipmentTypeId) {
-            const type = await (this.prisma as any).safetyEquipmentType.findUnique({
-                where: { id: updateSafetyEquipmentDto.safetyEquipmentTypeId },
+            const type = await (this.prisma as any).safetyEquipmentType.findFirst({
+                where: {
+                    id: updateSafetyEquipmentDto.safetyEquipmentTypeId,
+                    deletedAt: null,
+                },
             });
 
             this.errorHandler.throwIfNotFoundById(
@@ -172,22 +186,42 @@ export class SafetyEquipmentsService {
     }
 
     async remove(id: string): Promise<void> {
-        const existingEquipment = await (this.prisma as any).safetyEquipment.findUnique({
-            where: { id },
+        const existingEquipment = await (this.prisma as any).safetyEquipment.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only delete non-deleted records
+            },
         });
 
         this.errorHandler.throwIfNotFoundById('Safety Equipment', id, existingEquipment);
 
-        // Soft delete by setting isActive to false
+        // Check if equipment is used in stock items
+        const stockItemsCount = await (this.prisma as any).pPEStockItem.count({
+            where: {
+                safetyEquipmentId: id,
+            },
+        });
+
+        if (stockItemsCount > 0) {
+            throw new BadRequestException(`Cannot delete Safety Equipment. It is used in ${stockItemsCount} stock item(s).`);
+        }
+
+        // Soft delete by setting deletedAt and isActive to false
         await (this.prisma as any).safetyEquipment.update({
             where: { id },
-            data: { isActive: false },
+            data: {
+                deletedAt: new Date(),
+                isActive: false,
+            },
         });
     }
 
     async findByCode(code: string): Promise<SafetyEquipmentDto> {
-        const safetyEquipment = await (this.prisma as any).safetyEquipment.findUnique({
-            where: { code },
+        const safetyEquipment = await (this.prisma as any).safetyEquipment.findFirst({
+            where: {
+                code,
+                deletedAt: null, // Only get non-deleted records
+            },
             include: {
                 safetyEquipmentType: true,
             },

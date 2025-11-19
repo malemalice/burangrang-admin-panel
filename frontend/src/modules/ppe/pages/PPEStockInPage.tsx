@@ -1,27 +1,32 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Eye, Edit, Package, Calendar } from 'lucide-react';
+import { Plus, Eye, Edit, Package, Calendar, Trash2, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/core/components/ui/dropdown-menu';
 import { Badge } from '@/core/components/ui/badge';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { usePPEStocks } from '../hooks/usePPE';
 import { PPEStock, PPEStockSearchParams } from '../types/ppe.types';
 import { FilterField } from '@/core/components/ui/filter-drawer';
 
 const PPEStockInPage = () => {
     const navigate = useNavigate();
-    const { stocks, totalStocks, isLoading, fetchStocks } = usePPEStocks();
+    const { stocks, totalStocks, isLoading, fetchStocks, deleteStock } = usePPEStocks();
     const [pageIndex, setPageIndex] = useState(0);
     const [limit, setLimit] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [stockToDelete, setStockToDelete] = useState<PPEStock | null>(null);
+    const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
 
     const filterFields: FilterField[] = [
         {
@@ -82,6 +87,31 @@ const PPEStockInPage = () => {
         setPageIndex(0);
     };
 
+    const handleDeleteClick = (stock: PPEStock) => {
+        // Close all dropdowns before opening delete dialog
+        setDropdownOpenStates({});
+        setStockToDelete(stock);
+        // Use setTimeout to ensure dropdown is fully closed before opening dialog
+        setTimeout(() => {
+            setDeleteDialogOpen(true);
+        }, 0);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!stockToDelete) return;
+        try {
+            await deleteStock(stockToDelete.id);
+            // Close all dropdowns and clear state after successful delete
+            setDropdownOpenStates({});
+            loadStocks();
+        } catch (error) {
+            // Error already handled in hook with toast notification
+        } finally {
+            setDeleteDialogOpen(false);
+            setStockToDelete(null);
+        }
+    };
+
     const columns = [
         {
             id: 'stockCode',
@@ -127,10 +157,14 @@ const PPEStockInPage = () => {
             id: 'actions',
             header: 'Actions',
             cell: (stock: PPEStock) => (
-                <DropdownMenu>
+                <DropdownMenu
+                    open={dropdownOpenStates[stock.id]}
+                    onOpenChange={(open) => setDropdownOpenStates(prev => ({ ...prev, [stock.id]: open }))}
+                >
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
-                            <Eye className="h-4 w-4" />
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -139,6 +173,13 @@ const PPEStockInPage = () => {
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => navigate(`/ppe/stocks/${stock.id}/edit`)}>
                             <Edit className="mr-2 h-4 w-4" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                            onClick={() => handleDeleteClick(stock)}
+                            className="text-red-600 focus:text-red-600"
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -174,6 +215,14 @@ const PPEStockInPage = () => {
                 filterFields={filterFields}
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}
+            />
+
+            <ConfirmDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                title="Delete PPE Stock"
+                description={`Are you sure you want to delete stock "${stockToDelete?.stockCode}"? This action cannot be undone.`}
+                onConfirm={handleDeleteConfirm}
             />
         </>
     );

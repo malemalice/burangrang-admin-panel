@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateSafetyEquipmentTypeDto } from './dto/create-safety-equipment-type.dto';
 import { UpdateSafetyEquipmentTypeDto } from './dto/update-safety-equipment-type.dto';
@@ -57,7 +57,9 @@ export class SafetyEquipmentTypesService {
         } = options || {};
 
         // Build where clause
-        const where: any = {};
+        const where: any = {
+            deletedAt: null, // Only get non-deleted records
+        };
 
         if (search) {
             where.OR = [
@@ -97,8 +99,11 @@ export class SafetyEquipmentTypesService {
     }
 
     async findOne(id: string): Promise<SafetyEquipmentTypeDto> {
-        const safetyEquipmentType = await (this.prisma as any).safetyEquipmentType.findUnique({
-            where: { id },
+        const safetyEquipmentType = await (this.prisma as any).safetyEquipmentType.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only get non-deleted records
+            },
         });
 
         this.errorHandler.throwIfNotFoundById('Safety Equipment Type', id, safetyEquipmentType);
@@ -110,8 +115,11 @@ export class SafetyEquipmentTypesService {
         id: string,
         updateSafetyEquipmentTypeDto: UpdateSafetyEquipmentTypeDto,
     ): Promise<SafetyEquipmentTypeDto> {
-        const existingType = await (this.prisma as any).safetyEquipmentType.findUnique({
-            where: { id },
+        const existingType = await (this.prisma as any).safetyEquipmentType.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only update non-deleted records
+            },
         });
 
         this.errorHandler.throwIfNotFoundById('Safety Equipment Type', id, existingType);
@@ -125,22 +133,44 @@ export class SafetyEquipmentTypesService {
     }
 
     async remove(id: string): Promise<void> {
-        const existingType = await (this.prisma as any).safetyEquipmentType.findUnique({
-            where: { id },
+        const existingType = await (this.prisma as any).safetyEquipmentType.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only delete non-deleted records
+            },
         });
 
         this.errorHandler.throwIfNotFoundById('Safety Equipment Type', id, existingType);
 
-        // Soft delete by setting isActive to false
+        // Check if type has active equipment
+        const activeEquipmentCount = await (this.prisma as any).safetyEquipment.count({
+            where: {
+                safetyEquipmentTypeId: id,
+                deletedAt: null,
+                isActive: true,
+            },
+        });
+
+        if (activeEquipmentCount > 0) {
+            throw new BadRequestException(`Cannot delete Safety Equipment Type. It has ${activeEquipmentCount} active equipment(s).`);
+        }
+
+        // Soft delete by setting deletedAt and isActive to false
         await (this.prisma as any).safetyEquipmentType.update({
             where: { id },
-            data: { isActive: false },
+            data: {
+                deletedAt: new Date(),
+                isActive: false,
+            },
         });
     }
 
     async findByCode(code: string): Promise<SafetyEquipmentTypeDto> {
-        const safetyEquipmentType = await (this.prisma as any).safetyEquipmentType.findUnique({
-            where: { code },
+        const safetyEquipmentType = await (this.prisma as any).safetyEquipmentType.findFirst({
+            where: {
+                code,
+                deletedAt: null, // Only get non-deleted records
+            },
         });
 
         this.errorHandler.throwIfNotFoundByField('Safety Equipment Type', 'code', code, safetyEquipmentType);

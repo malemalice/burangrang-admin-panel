@@ -23,6 +23,10 @@ export class PPEStockDto {
     @Expose()
     isActive: boolean;
 
+    @ApiProperty({ required: false, nullable: true })
+    @Expose()
+    deletedAt: Date | null;
+
     @ApiProperty()
     @Expose()
     createdAt: Date;
