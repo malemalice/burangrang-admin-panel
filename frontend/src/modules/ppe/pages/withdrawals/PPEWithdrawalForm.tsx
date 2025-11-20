@@ -4,8 +4,9 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Upload, X, FileText } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
+import api from '@/core/lib/api';
 import {
     Form,
     FormControl,
@@ -78,6 +79,8 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingData, setIsLoadingData] = useState(false);
     const [dataReady, setDataReady] = useState(false);
+    const [uploadingFile, setUploadingFile] = useState(false);
+    const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -145,6 +148,9 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                             order: index + 1,
                         })) || [],
                     });
+                    if (withdrawal.withdrawalLetterUrl) {
+                        setUploadedFileName('Withdrawal Letter');
+                    }
                 }
 
                 setDataReady(true);
@@ -170,6 +176,69 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
     const getMaxQuantity = (stockItemId: string) => {
         const stockItem = availableStockItems.find((item) => item.id === stockItemId);
         return stockItem?.currentQuantity || 0;
+    };
+
+    const handleFileUpload = async (file: File) => {
+        if (!file) return;
+
+        // Validate file type (PDF, DOC, DOCX, images)
+        const allowedTypes = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'image/jpeg',
+            'image/png',
+            'image/jpg',
+        ];
+        if (!allowedTypes.includes(file.type)) {
+            toast.error('Invalid file type. Please upload PDF, DOC, DOCX, or image files.');
+            return;
+        }
+
+        // Validate file size (max 10MB)
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxSize) {
+            toast.error('File size exceeds 10MB limit.');
+            return;
+        }
+
+        setUploadingFile(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('categoryId', 'ppe-withdrawal-letter'); // Default category, adjust if needed
+            formData.append('isPublic', 'false');
+
+            const response = await api.post('/uploads/upload', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            // Get the file URL from response
+            const fileUrl = response.data.publicUrl || response.data.privateUrl || response.data.id;
+            form.setValue('withdrawalLetterUrl', fileUrl);
+            setUploadedFileName(file.name);
+            toast.success('File uploaded successfully');
+        } catch (error: any) {
+            console.error('Error uploading file:', error);
+            const errorMessage = error.response?.data?.message || 'Failed to upload file';
+            toast.error(errorMessage);
+        } finally {
+            setUploadingFile(false);
+        }
+    };
+
+    const handleFileRemove = () => {
+        form.setValue('withdrawalLetterUrl', '');
+        setUploadedFileName(null);
+    };
+
+    const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            handleFileUpload(file);
+        }
     };
 
     const onSubmit = async (data: FormValues) => {
@@ -397,13 +466,45 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                             name="withdrawalLetterUrl"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Withdrawal Letter URL</FormLabel>
+                                    <FormLabel>Withdrawal Letter</FormLabel>
                                     <FormControl>
-                                        <Input
-                                            placeholder="Enter withdrawal letter URL (optional)"
-                                            {...field}
-                                        />
+                                        <div className="space-y-2">
+                                            {uploadedFileName ? (
+                                                <div className="flex items-center justify-between p-3 border rounded-md bg-gray-50">
+                                                    <div className="flex items-center gap-2">
+                                                        <FileText className="h-4 w-4 text-gray-600" />
+                                                        <span className="text-sm font-medium">{uploadedFileName}</span>
+                                                    </div>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={handleFileRemove}
+                                                        className="h-8 w-8 p-0"
+                                                    >
+                                                        <X className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2">
+                                                    <Input
+                                                        type="file"
+                                                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                                        onChange={handleFileInputChange}
+                                                        disabled={uploadingFile}
+                                                        className="cursor-pointer"
+                                                    />
+                                                    {uploadingFile && (
+                                                        <span className="text-sm text-muted-foreground">Uploading...</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                            <input type="hidden" {...field} />
+                                        </div>
                                     </FormControl>
+                                    <p className="text-sm text-muted-foreground">
+                                        Upload PDF, DOC, DOCX, or image files (max 10MB)
+                                    </p>
                                     <FormMessage />
                                 </FormItem>
                             )}

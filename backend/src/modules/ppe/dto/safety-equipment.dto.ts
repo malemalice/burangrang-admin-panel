@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
-import { SafetyEquipmentTypeDto } from '../../safety-equipment-types/dto/safety-equipment-type.dto';
+import { SafetyEquipmentTypeDto } from './safety-equipment-type.dto';
 
 export class SafetyEquipmentDto {
     @ApiProperty()
@@ -50,6 +50,10 @@ export class SafetyEquipmentDto {
     @ApiProperty()
     @Expose()
     updatedAt: Date;
+
+    @ApiProperty({ required: false, description: 'Current stock quantity (calculated from stock items)' })
+    @Expose()
+    currentStock?: number;
 
     constructor(partial: Partial<SafetyEquipmentDto>) {
         Object.assign(this, partial);

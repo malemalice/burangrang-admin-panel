@@ -189,6 +189,13 @@ export default function SafetyEquipmentsPage() {
             cell: (equipment: SafetyEquipment) => equipment.size || '-',
         },
         {
+            id: 'currentStock',
+            header: 'Current Stock',
+            cell: (equipment: SafetyEquipment) => (
+                <div className="font-medium">{equipment.currentStock ?? 0}</div>
+            ),
+        },
+        {
             id: 'status',
             header: 'Status',
             cell: (equipment: SafetyEquipment) => (

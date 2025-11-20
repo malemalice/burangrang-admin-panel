@@ -143,6 +143,53 @@ export class PPEService {
     // ============================================================================
 
     /**
+     * Check and update expired stock items
+     * This method should be called periodically or before fetching stocks
+     */
+    /**
+     * Helper: Populate requestedForName from requestedForUser if not already set
+     */
+    private populateRequestedForName(withdrawal: any): any {
+        let requestedForName = withdrawal.requestedForName;
+
+        // If requestedForName is not set, get it from requestedForUser
+        if (!requestedForName && withdrawal.requestedForUser) {
+            const firstName = withdrawal.requestedForUser.firstName || '';
+            const lastName = withdrawal.requestedForUser.lastName || '';
+            requestedForName = `${firstName} ${lastName}`.trim() || null;
+        }
+
+        return {
+            ...withdrawal,
+            requestedForName: requestedForName || null,
+        };
+    }
+
+    async checkAndUpdateExpiredItems(): Promise<void> {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Only update items from active and non-deleted stocks
+        await (this.prisma as any).pPEStockItem.updateMany({
+            where: {
+                expiryDate: {
+                    lte: today,
+                },
+                status: {
+                    not: 'EXPIRED',
+                },
+                stock: {
+                    deletedAt: null,
+                    isActive: true,
+                },
+            },
+            data: {
+                status: 'EXPIRED' as any,
+            },
+        });
+    }
+
+    /**
      * Create new stock entry with items
      */
     async createStock(createStockDto: CreatePPEStockDto, createdBy: string): Promise<PPEStockDto> {
@@ -244,6 +291,9 @@ export class PPEService {
             orderBy[sortBy] = sortOrder || 'desc';
         }
 
+        // Check and update expired items before fetching
+        await this.checkAndUpdateExpiredItems();
+
         const [stocks, total] = await Promise.all([
             (this.prisma as any).pPEStock.findMany({
                 where,
@@ -270,6 +320,9 @@ export class PPEService {
      * Find stock by ID
      */
     async findStockById(id: string): Promise<PPEStockDto> {
+        // Check and update expired items before fetching
+        await this.checkAndUpdateExpiredItems();
+
         const stock = await (this.prisma as any).pPEStock.findFirst({
             where: {
                 id,
@@ -338,7 +391,17 @@ export class PPEService {
                 // Update or create items
                 for (const itemDto of updateStockDto.items) {
                     if (itemDto.id && existingItemIds.includes(itemDto.id)) {
+                        // Get existing item to preserve reservedQuantity
+                        const existingItem = existingStock.items.find((item: any) => item.id === itemDto.id);
+                        const currentReservedQty = existingItem?.reservedQuantity || 0;
+                        const initialQty = itemDto.initialQuantity || existingItem?.initialQuantity || 0;
+
                         // Update existing item
+                        // Note: We preserve reservedQuantity and adjust currentQuantity accordingly
+                        // If initialQuantity is reduced, we need to ensure currentQuantity + reservedQuantity doesn't exceed new initialQuantity
+                        const maxCurrentQty = Math.max(0, initialQty - currentReservedQty);
+                        const newCurrentQty = Math.min(initialQty, existingItem?.currentQuantity || initialQty);
+
                         await (tx as any).pPEStockItem.update({
                             where: { id: itemDto.id },
                             data: {
@@ -347,8 +410,9 @@ export class PPEService {
                                 equipmentType: itemDto.equipmentType || null,
                                 equipmentSize: itemDto.equipmentSize || null,
                                 expiryDate: itemDto.expiryDate ? new Date(itemDto.expiryDate) : null,
-                                initialQuantity: itemDto.initialQuantity,
-                                currentQuantity: itemDto.initialQuantity, // Reset current quantity to initial
+                                initialQuantity: initialQty,
+                                currentQuantity: newCurrentQty,
+                                // reservedQuantity is preserved (not updated)
                                 order: itemDto.order || 0,
                             },
                         });
@@ -649,6 +713,29 @@ export class PPEService {
             // Create withdrawal items and reserve stock
             const items = await Promise.all(
                 createWithdrawalDto.items.map(async (item, index) => {
+                    // Get current stock item to check status
+                    const stockItem = await (tx as any).pPEStockItem.findUnique({
+                        where: { id: item.stockItemId },
+                    });
+
+                    if (!stockItem) {
+                        throw new BadRequestException(`Stock item ${item.stockItemId} not found`);
+                    }
+
+                    // Calculate new reserved quantity
+                    const newReservedQuantity = stockItem.reservedQuantity + item.requestedQuantity;
+                    const availableQuantity = stockItem.currentQuantity - newReservedQuantity;
+
+                    // Determine new status
+                    let newStatus = stockItem.status;
+                    if (availableQuantity <= 0) {
+                        // All stock is reserved
+                        newStatus = 'RESERVED' as any;
+                    } else if (newReservedQuantity > 0 && stockItem.status === 'AVAILABLE') {
+                        // Some stock is reserved, but not all
+                        newStatus = 'AVAILABLE' as any; // Keep as AVAILABLE if still has available stock
+                    }
+
                     // Reserve stock
                     await (tx as any).pPEStockItem.update({
                         where: { id: item.stockItemId },
@@ -656,6 +743,7 @@ export class PPEService {
                             reservedQuantity: {
                                 increment: item.requestedQuantity,
                             },
+                            status: newStatus,
                         },
                     });
 
@@ -693,7 +781,7 @@ export class PPEService {
                 },
             });
 
-            return this.ppeWithdrawalMapper(withdrawalWithItems);
+            return this.ppeWithdrawalMapper(this.populateRequestedForName(withdrawalWithItems));
         });
     }
 
@@ -782,8 +870,13 @@ export class PPEService {
             (this.prisma as any).pPEWithdrawal.count({ where }),
         ]);
 
+        // Populate requestedForName from requestedForUser if not already set
+        const withdrawalsWithNames = withdrawals.map((withdrawal: any) =>
+            this.populateRequestedForName(withdrawal),
+        );
+
         return this.ppeWithdrawalPaginatedMapper({
-            data: withdrawals,
+            data: withdrawalsWithNames,
             meta: { total, page, limit },
         });
     }
@@ -819,7 +912,8 @@ export class PPEService {
 
         this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
 
-        return this.ppeWithdrawalMapper(withdrawal);
+        // Populate requestedForName from requestedForUser if not already set
+        return this.ppeWithdrawalMapper(this.populateRequestedForName(withdrawal));
     }
 
     /**
@@ -844,41 +938,66 @@ export class PPEService {
 
         return await this.prisma.$transaction(async (tx) => {
             // Update withdrawal items with approved quantities
-            if (updateDto.approvedQuantities) {
-                await Promise.all(
-                    withdrawal.items.map(async (item) => {
-                        const approvedQty = updateDto.approvedQuantities![item.id];
-                        if (approvedQty !== undefined) {
-                            // Validate approved quantity
-                            if (approvedQty > item.requestedQuantity) {
-                                throw new BadRequestException(
-                                    `Approved quantity (${approvedQty}) cannot exceed requested quantity (${item.requestedQuantity}) for item ${item.id}`,
-                                );
+            // If approvedQuantities not provided, default to requestedQuantity
+            await Promise.all(
+                withdrawal.items.map(async (item) => {
+                    let approvedQty = item.requestedQuantity;
+
+                    if (updateDto.approvedQuantities && updateDto.approvedQuantities[item.id] !== undefined) {
+                        approvedQty = updateDto.approvedQuantities[item.id];
+
+                        // Validate approved quantity
+                        if (approvedQty > item.requestedQuantity) {
+                            throw new BadRequestException(
+                                `Approved quantity (${approvedQty}) cannot exceed requested quantity (${item.requestedQuantity}) for item ${item.id}`,
+                            );
+                        }
+
+                        // Update reserved quantity if approved is less than requested
+                        if (approvedQty < item.requestedQuantity) {
+                            const difference = item.requestedQuantity - approvedQty;
+
+                            // Get current stock item to check status
+                            const stockItem = await (tx as any).pPEStockItem.findUnique({
+                                where: { id: item.stockItemId },
+                            });
+
+                            if (!stockItem) {
+                                throw new BadRequestException(`Stock item ${item.stockItemId} not found`);
                             }
 
-                            // Update reserved quantity if approved is less than requested
-                            if (approvedQty < item.requestedQuantity) {
-                                const difference = item.requestedQuantity - approvedQty;
-                                await (tx as any).pPEStockItem.update({
-                                    where: { id: item.stockItemId },
-                                    data: {
-                                        reservedQuantity: {
-                                            decrement: difference,
-                                        },
-                                    },
-                                });
+                            const newReservedQuantity = Math.max(0, stockItem.reservedQuantity - difference);
+                            const availableQuantity = stockItem.currentQuantity - newReservedQuantity;
+
+                            // Determine new status after reducing reservation
+                            let newStatus: any;
+                            if (newReservedQuantity === 0) {
+                                newStatus = 'AVAILABLE';
+                            } else if (newReservedQuantity >= stockItem.currentQuantity) {
+                                newStatus = 'RESERVED';
+                            } else {
+                                newStatus = 'AVAILABLE';
                             }
 
-                            await (tx as any).pPEWithdrawalItem.update({
-                                where: { id: item.id },
+                            await (tx as any).pPEStockItem.update({
+                                where: { id: item.stockItemId },
                                 data: {
-                                    approvedQuantity: approvedQty,
+                                    reservedQuantity: newReservedQuantity,
+                                    status: newStatus,
                                 },
                             });
                         }
-                    }),
-                );
-            }
+                    }
+
+                    // Always update approvedQuantity (even if same as requestedQuantity for consistency)
+                    await (tx as any).pPEWithdrawalItem.update({
+                        where: { id: item.id },
+                        data: {
+                            approvedQuantity: approvedQty,
+                        },
+                    });
+                }),
+            );
 
             // Update withdrawal status
             const updatedWithdrawal = await (tx as any).pPEWithdrawal.update({
@@ -906,7 +1025,7 @@ export class PPEService {
                 },
             });
 
-            return this.ppeWithdrawalMapper(updatedWithdrawal);
+            return this.ppeWithdrawalMapper(this.populateRequestedForName(updatedWithdrawal));
         });
     }
 
@@ -953,14 +1072,26 @@ export class PPEService {
 
                     // Deduct from stock
                     const newCurrentQuantity = stockItem.currentQuantity - issuedQty;
-                    const newReservedQuantity = stockItem.reservedQuantity - issuedQty;
+                    const newReservedQuantity = Math.max(0, stockItem.reservedQuantity - issuedQty);
+
+                    // Determine new status based on quantities
+                    let newStatus: any;
+                    if (newCurrentQuantity === 0) {
+                        newStatus = 'ISSUED';
+                    } else if (newReservedQuantity > 0 && newReservedQuantity >= newCurrentQuantity) {
+                        newStatus = 'RESERVED';
+                    } else if (newReservedQuantity > 0) {
+                        newStatus = 'AVAILABLE'; // Has both available and reserved stock
+                    } else {
+                        newStatus = 'AVAILABLE';
+                    }
 
                     await (tx as any).pPEStockItem.update({
                         where: { id: item.stockItemId },
                         data: {
                             currentQuantity: newCurrentQuantity,
-                            reservedQuantity: Math.max(0, newReservedQuantity),
-                            status: newCurrentQuantity === 0 ? 'ISSUED' as any : stockItem.status,
+                            reservedQuantity: newReservedQuantity,
+                            status: newStatus,
                         },
                     });
 
@@ -1016,7 +1147,7 @@ export class PPEService {
                 },
             });
 
-            return this.ppeWithdrawalMapper(updatedWithdrawal);
+            return this.ppeWithdrawalMapper(this.populateRequestedForName(updatedWithdrawal));
         });
     }
 
@@ -1071,12 +1202,32 @@ export class PPEService {
         return await this.prisma.$transaction(async (tx) => {
             // Release reserved stock from old items
             for (const oldItem of withdrawal.items) {
+                const stockItem = await (tx as any).pPEStockItem.findUnique({
+                    where: { id: oldItem.stockItemId },
+                });
+
+                if (!stockItem) {
+                    throw new BadRequestException(`Stock item ${oldItem.stockItemId} not found`);
+                }
+
+                const newReservedQuantity = Math.max(0, stockItem.reservedQuantity - oldItem.requestedQuantity);
+                const availableQuantity = stockItem.currentQuantity - newReservedQuantity;
+
+                // Determine new status after releasing reservation
+                let newStatus: any;
+                if (newReservedQuantity === 0) {
+                    newStatus = 'AVAILABLE';
+                } else if (newReservedQuantity >= stockItem.currentQuantity) {
+                    newStatus = 'RESERVED';
+                } else {
+                    newStatus = 'AVAILABLE';
+                }
+
                 await (tx as any).pPEStockItem.update({
                     where: { id: oldItem.stockItemId },
                     data: {
-                        reservedQuantity: {
-                            decrement: oldItem.requestedQuantity,
-                        },
+                        reservedQuantity: newReservedQuantity,
+                        status: newStatus,
                     },
                 });
             }
@@ -1104,6 +1255,31 @@ export class PPEService {
             // Create new items and reserve stock
             const items = await Promise.all(
                 updateDto.items.map(async (item, index) => {
+                    // Get current stock item to check status
+                    const stockItem = await (tx as any).pPEStockItem.findUnique({
+                        where: { id: item.stockItemId },
+                    });
+
+                    if (!stockItem) {
+                        throw new BadRequestException(`Stock item ${item.stockItemId} not found`);
+                    }
+
+                    // Calculate new reserved quantity
+                    const newReservedQuantity = stockItem.reservedQuantity + item.requestedQuantity;
+                    const availableQuantity = stockItem.currentQuantity - newReservedQuantity;
+
+                    // Determine new status
+                    let newStatus: any;
+                    if (availableQuantity <= 0) {
+                        // All stock is reserved
+                        newStatus = 'RESERVED';
+                    } else if (newReservedQuantity > 0 && stockItem.status === 'AVAILABLE') {
+                        // Some stock is reserved, but not all
+                        newStatus = 'AVAILABLE'; // Keep as AVAILABLE if still has available stock
+                    } else {
+                        newStatus = stockItem.status; // Preserve current status if already RESERVED or other
+                    }
+
                     // Reserve stock
                     await (tx as any).pPEStockItem.update({
                         where: { id: item.stockItemId },
@@ -1111,6 +1287,7 @@ export class PPEService {
                             reservedQuantity: {
                                 increment: item.requestedQuantity,
                             },
+                            status: newStatus,
                         },
                     });
 
@@ -1148,7 +1325,7 @@ export class PPEService {
                 },
             });
 
-            return this.ppeWithdrawalMapper(updatedWithdrawal);
+            return this.ppeWithdrawalMapper(this.populateRequestedForName(updatedWithdrawal));
         });
     }
 
@@ -1177,12 +1354,34 @@ export class PPEService {
             await Promise.all(
                 withdrawal.items.map(async (item) => {
                     const reservedQty = item.approvedQuantity || item.requestedQuantity;
+
+                    // Get current stock item to check status
+                    const stockItem = await (tx as any).pPEStockItem.findUnique({
+                        where: { id: item.stockItemId },
+                    });
+
+                    if (!stockItem) {
+                        throw new BadRequestException(`Stock item ${item.stockItemId} not found`);
+                    }
+
+                    const newReservedQuantity = Math.max(0, stockItem.reservedQuantity - reservedQty);
+                    const availableQuantity = stockItem.currentQuantity - newReservedQuantity;
+
+                    // Determine new status after releasing reservation
+                    let newStatus: any;
+                    if (newReservedQuantity === 0) {
+                        newStatus = 'AVAILABLE';
+                    } else if (newReservedQuantity >= stockItem.currentQuantity) {
+                        newStatus = 'RESERVED';
+                    } else {
+                        newStatus = 'AVAILABLE';
+                    }
+
                     await (tx as any).pPEStockItem.update({
                         where: { id: item.stockItemId },
                         data: {
-                            reservedQuantity: {
-                                decrement: reservedQty,
-                            },
+                            reservedQuantity: newReservedQuantity,
+                            status: newStatus,
                         },
                     });
                 }),
@@ -1214,7 +1413,7 @@ export class PPEService {
                 },
             });
 
-            return this.ppeWithdrawalMapper(updatedWithdrawal);
+            return this.ppeWithdrawalMapper(this.populateRequestedForName(updatedWithdrawal));
         });
     }
 
@@ -1245,12 +1444,34 @@ export class PPEService {
                 await Promise.all(
                     withdrawal.items.map(async (item: any) => {
                         const reservedQty = item.approvedQuantity || item.requestedQuantity;
+
+                        // Get current stock item to check status
+                        const stockItem = await (tx as any).pPEStockItem.findUnique({
+                            where: { id: item.stockItemId },
+                        });
+
+                        if (!stockItem) {
+                            throw new BadRequestException(`Stock item ${item.stockItemId} not found`);
+                        }
+
+                        const newReservedQuantity = Math.max(0, stockItem.reservedQuantity - reservedQty);
+                        const availableQuantity = stockItem.currentQuantity - newReservedQuantity;
+
+                        // Determine new status after releasing reservation
+                        let newStatus: any;
+                        if (newReservedQuantity === 0) {
+                            newStatus = 'AVAILABLE';
+                        } else if (newReservedQuantity >= stockItem.currentQuantity) {
+                            newStatus = 'RESERVED';
+                        } else {
+                            newStatus = 'AVAILABLE';
+                        }
+
                         await (tx as any).pPEStockItem.update({
                             where: { id: item.stockItemId },
                             data: {
-                                reservedQuantity: {
-                                    decrement: reservedQty,
-                                },
+                                reservedQuantity: newReservedQuantity,
+                                status: newStatus,
                             },
                         });
                     }),
@@ -1510,8 +1731,38 @@ export class PPEService {
             },
         });
 
+        // Calculate current stock for each equipment
+        const equipmentsWithStock = await Promise.all(
+            safetyEquipments.map(async (equipment: any) => {
+                // Get total currentQuantity from stock items that use this equipment
+                // Only count items from active and non-deleted stocks
+                const stockItems = await (this.prisma as any).pPEStockItem.findMany({
+                    where: {
+                        safetyEquipmentId: equipment.id,
+                        stock: {
+                            deletedAt: null,
+                            isActive: true,
+                        },
+                    },
+                    select: {
+                        currentQuantity: true,
+                    },
+                });
+
+                const currentStock = stockItems.reduce(
+                    (sum: number, item: any) => sum + (item.currentQuantity || 0),
+                    0,
+                );
+
+                return {
+                    ...equipment,
+                    currentStock,
+                };
+            }),
+        );
+
         return this.safetyEquipmentPaginatedMapper({
-            data: safetyEquipments,
+            data: equipmentsWithStock,
             meta: { total, page, limit },
         });
     }
@@ -1529,7 +1780,30 @@ export class PPEService {
 
         this.errorHandler.throwIfNotFoundById('Safety Equipment', id, safetyEquipment);
 
-        return this.safetyEquipmentMapper(safetyEquipment);
+        // Calculate current stock
+        // Only count items from active and non-deleted stocks
+        const stockItems = await (this.prisma as any).pPEStockItem.findMany({
+            where: {
+                safetyEquipmentId: id,
+                stock: {
+                    deletedAt: null,
+                    isActive: true,
+                },
+            },
+            select: {
+                currentQuantity: true,
+            },
+        });
+
+        const currentStock = stockItems.reduce(
+            (sum: number, item: any) => sum + (item.currentQuantity || 0),
+            0,
+        );
+
+        return this.safetyEquipmentMapper({
+            ...safetyEquipment,
+            currentStock,
+        });
     }
 
     async updateSafetyEquipment(

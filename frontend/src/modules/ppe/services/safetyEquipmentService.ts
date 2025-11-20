@@ -37,6 +37,7 @@ const mapSafetyEquipmentDtoToSafetyEquipment = (
         deletedAt: dto.deletedAt || null,
         createdAt: dto.createdAt,
         updatedAt: dto.updatedAt,
+        currentStock: dto.currentStock || 0,
     };
 };
 

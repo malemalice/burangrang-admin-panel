@@ -14,7 +14,7 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { usePPEStocks } from '../hooks/usePPE';
-import { PPEStock, PPEStockSearchParams } from '../types/ppe.types';
+import { PPEStock, PPEStockSearchParams, PPEStockStatus } from '../types/ppe.types';
 import { FilterField } from '@/core/components/ui/filter-drawer';
 
 const PPEStockInPage = () => {
@@ -112,6 +112,45 @@ const PPEStockInPage = () => {
         }
     };
 
+    const getAggregateStatus = (stock: PPEStock): { label: string; className: string } => {
+        if (!stock.items || stock.items.length === 0) {
+            return { label: 'No Items', className: 'bg-gray-100 text-gray-800 border-0' };
+        }
+
+        const statusCounts: Record<string, number> = {};
+        stock.items.forEach((item) => {
+            const status = item.status || PPEStockStatus.AVAILABLE;
+            statusCounts[status] = (statusCounts[status] || 0) + 1;
+        });
+
+        const totalItems = stock.items.length;
+        const availableCount = statusCounts[PPEStockStatus.AVAILABLE] || 0;
+        const reservedCount = statusCounts[PPEStockStatus.RESERVED] || 0;
+        const issuedCount = statusCounts[PPEStockStatus.ISSUED] || 0;
+        const expiredCount = statusCounts[PPEStockStatus.EXPIRED] || 0;
+        const disposedCount = statusCounts[PPEStockStatus.DISPOSED] || 0;
+
+        // Priority: EXPIRED > DISPOSED > ISSUED > RESERVED > AVAILABLE
+        if (expiredCount > 0) {
+            return { label: 'Has Expired Items', className: 'bg-red-100 text-red-800 border-0' };
+        }
+        if (disposedCount === totalItems) {
+            return { label: 'Disposed', className: 'bg-gray-100 text-gray-800 border-0' };
+        }
+        if (issuedCount === totalItems) {
+            return { label: 'Issued', className: 'bg-blue-100 text-blue-800 border-0' };
+        }
+        if (reservedCount > 0) {
+            return { label: 'Partially Reserved', className: 'bg-yellow-100 text-yellow-800 border-0' };
+        }
+        if (availableCount === totalItems) {
+            return { label: 'Available', className: 'bg-green-100 text-green-800 border-0' };
+        }
+
+        // Mixed status
+        return { label: 'Mixed Status', className: 'bg-orange-100 text-orange-800 border-0' };
+    };
+
     const columns = [
         {
             id: 'stockCode',
@@ -146,11 +185,14 @@ const PPEStockInPage = () => {
         {
             id: 'status',
             header: 'Status',
-            cell: (stock: PPEStock) => (
-                <Badge variant="outline" className={stock.isActive ? 'bg-green-100 text-green-800 border-0' : 'bg-gray-100 text-gray-800 border-0'}>
-                    {stock.isActive ? 'Active' : 'Inactive'}
-                </Badge>
-            ),
+            cell: (stock: PPEStock) => {
+                const statusInfo = getAggregateStatus(stock);
+                return (
+                    <Badge variant="outline" className={statusInfo.className}>
+                        {statusInfo.label}
+                    </Badge>
+                );
+            },
             isSortable: true,
         },
         {

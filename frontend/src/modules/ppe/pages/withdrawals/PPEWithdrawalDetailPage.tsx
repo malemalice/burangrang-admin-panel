@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, CheckCircle, XCircle, Package } from 'lucide-react';
+import { ArrowLeft, Edit, CheckCircle, XCircle, Package, FileText, Download } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
@@ -131,9 +131,6 @@ const PPEWithdrawalDetailPage = () => {
     }
 
     const canEdit = withdrawal.status === PPEWithdrawalStatus.PENDING;
-    const canApprove = withdrawal.status === PPEWithdrawalStatus.PENDING;
-    const canCollect = withdrawal.status === PPEWithdrawalStatus.APPROVED;
-    const canCancel = withdrawal.status === PPEWithdrawalStatus.PENDING || withdrawal.status === PPEWithdrawalStatus.APPROVED;
 
     return (
         <>
@@ -159,36 +156,30 @@ const PPEWithdrawalDetailPage = () => {
                                 Edit Withdrawal
                             </Button>
                         )}
-                        {canApprove && (
-                            <Button
-                                onClick={() => handleActionClick('approve')}
-                                disabled={isLoading || isProcessing}
-                                className="bg-blue-600 hover:bg-blue-700"
-                            >
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Approve
-                            </Button>
-                        )}
-                        {canCollect && (
-                            <Button
-                                onClick={() => handleActionClick('collect')}
-                                disabled={isLoading || isProcessing}
-                                className="bg-green-600 hover:bg-green-700"
-                            >
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Collect
-                            </Button>
-                        )}
-                        {canCancel && (
-                            <Button
-                                variant="destructive"
-                                onClick={() => handleActionClick('cancel')}
-                                disabled={isLoading || isProcessing}
-                            >
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Cancel
-                            </Button>
-                        )}
+                        <Button
+                            onClick={() => handleActionClick('approve')}
+                            disabled={isLoading || isProcessing}
+                            className="bg-blue-600 hover:bg-blue-700"
+                        >
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Approve
+                        </Button>
+                        <Button
+                            onClick={() => handleActionClick('collect')}
+                            disabled={isLoading || isProcessing}
+                            className="bg-green-600 hover:bg-green-700"
+                        >
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Collect
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => handleActionClick('cancel')}
+                            disabled={isLoading || isProcessing}
+                        >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Cancel
+                        </Button>
                     </div>
                 }
             />
@@ -233,6 +224,25 @@ const PPEWithdrawalDetailPage = () => {
                                 <div>
                                     <h3 className="text-sm font-medium text-gray-500">Notes</h3>
                                     <p className="mt-1">{withdrawal.notes}</p>
+                                </div>
+                            )}
+                            {withdrawal.withdrawalLetterUrl && (
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-500">Withdrawal Letter</h3>
+                                    <div className="mt-1">
+                                        <a
+                                            href={withdrawal.withdrawalLetterUrl.startsWith('http')
+                                                ? withdrawal.withdrawalLetterUrl
+                                                : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${withdrawal.withdrawalLetterUrl.startsWith('/') ? withdrawal.withdrawalLetterUrl : `/${withdrawal.withdrawalLetterUrl}`}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 underline"
+                                        >
+                                            <FileText className="h-4 w-4" />
+                                            <span>View Withdrawal Letter</span>
+                                            <Download className="h-4 w-4" />
+                                        </a>
+                                    </div>
                                 </div>
                             )}
                         </CardContent>

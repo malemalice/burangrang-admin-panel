@@ -68,6 +68,7 @@ export interface SafetyEquipment {
     deletedAt?: string | null;
     createdAt: string;
     updatedAt: string;
+    currentStock?: number;
 }
 
 export interface SafetyEquipmentDTO {
@@ -83,6 +84,7 @@ export interface SafetyEquipmentDTO {
     deletedAt?: string | null;
     createdAt: string;
     updatedAt: string;
+    currentStock?: number;
 }
 
 export interface CreateSafetyEquipmentDTO {
