@@ -2,8 +2,8 @@
  * PPE Master Data module types
  */
 
-// Re-export core types
-export type { PaginatedResponse, PaginationParams } from '@/core/lib/types';
+// Import core types for use in this file
+import type { PaginatedResponse, PaginationParams } from '@/core/lib/types';
 
 // =============================================================================
 // SAFETY EQUIPMENT TYPE TYPES

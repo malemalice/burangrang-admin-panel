@@ -4,11 +4,10 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
+import type { PaginatedResponse, PaginationParams } from '@/core/lib/types';
 import safetyEquipmentService from '../services/safetyEquipmentService';
 import {
     SafetyEquipment,
-    PaginatedResponse,
-    PaginationParams,
     CreateSafetyEquipmentDTO,
     UpdateSafetyEquipmentDTO,
 } from '../types/ppe-master-data.types';
@@ -99,7 +98,7 @@ export const useSafetyEquipment = (id: string | null = null) => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchEquipment = async (equipmentId: string) => {
+    const fetchEquipment = useCallback(async (equipmentId: string) => {
         setIsLoading(true);
         setError(null);
         try {
@@ -113,19 +112,36 @@ export const useSafetyEquipment = (id: string | null = null) => {
         } finally {
             setIsLoading(false);
         }
+    }, []);
+
+    const updateEquipment = async (equipmentId: string, equipmentData: UpdateSafetyEquipmentDTO) => {
+        try {
+            const updatedEquipment = await safetyEquipmentService.updateSafetyEquipment(
+                equipmentId,
+                equipmentData,
+            );
+            setEquipment(updatedEquipment);
+            toast.success('Safety equipment updated successfully');
+            return updatedEquipment;
+        } catch (err) {
+            toast.error('Failed to update safety equipment');
+            throw err;
+        }
     };
 
     useEffect(() => {
         if (id) {
             fetchEquipment(id);
         }
-    }, [id]);
+    }, [id, fetchEquipment]);
 
     return {
         equipment,
         isLoading,
         error,
         fetchEquipment,
+        setEquipment,
+        updateEquipment,
     };
 };
 

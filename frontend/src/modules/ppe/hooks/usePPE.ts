@@ -4,12 +4,12 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
+import type { PaginatedResponse } from '@/core/lib/types';
 import ppeService from '../services/ppeService';
 import {
     PPEStock,
     PPEStockItem,
     PPEWithdrawal,
-    PaginatedResponse,
     PPEStockSearchParams,
     PPEStockItemSearchParams,
     PPEWithdrawalSearchParams,

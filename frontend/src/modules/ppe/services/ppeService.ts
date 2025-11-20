@@ -1,4 +1,5 @@
 import api from '@/core/lib/api';
+import type { PaginatedResponse, PaginationParams } from '@/core/lib/types';
 import {
     PPEStock,
     PPEStockDTO,
@@ -11,8 +12,6 @@ import {
     CreatePPEWithdrawalDTO,
     UpdatePPEWithdrawalDTO,
     CreateStockAdjustmentDTO,
-    PaginatedResponse,
-    PaginationParams,
     PPEStockSearchParams,
     PPEStockItemSearchParams,
     PPEWithdrawalSearchParams,

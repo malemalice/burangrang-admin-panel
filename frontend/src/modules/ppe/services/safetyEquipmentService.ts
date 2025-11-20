@@ -1,12 +1,11 @@
 import api from '@/core/lib/api';
+import type { PaginatedResponse, PaginationParams } from '@/core/lib/types';
 import {
     SafetyEquipment,
     SafetyEquipmentDTO,
     SafetyEquipmentTypeDTO,
     CreateSafetyEquipmentDTO,
     UpdateSafetyEquipmentDTO,
-    PaginatedResponse,
-    PaginationParams,
 } from '../types/ppe-master-data.types';
 
 // Convert SafetyEquipmentDTO from backend to SafetyEquipment model for frontend
@@ -87,16 +86,28 @@ const safetyEquipmentService = {
 
     // Get a single safety equipment by ID
     async getSafetyEquipment(id: string): Promise<SafetyEquipment> {
-        const response = await api.get(`/ppe/safety-equipments/${id}`);
-        return mapSafetyEquipmentDtoToSafetyEquipment(response.data);
+        try {
+            const response = await api.get(`/ppe/safety-equipments/${id}`);
+            return mapSafetyEquipmentDtoToSafetyEquipment(response.data);
+        } catch (error: any) {
+            console.error(`Error fetching safety equipment ${id}:`, error);
+            const errorMessage = error.response?.data?.message || 'Failed to fetch safety equipment';
+            throw new Error(errorMessage);
+        }
     },
 
     // Create a new safety equipment
     async createSafetyEquipment(
         data: CreateSafetyEquipmentDTO,
     ): Promise<SafetyEquipment> {
-        const response = await api.post('/ppe/safety-equipments', data);
-        return mapSafetyEquipmentDtoToSafetyEquipment(response.data);
+        try {
+            const response = await api.post('/ppe/safety-equipments', data);
+            return mapSafetyEquipmentDtoToSafetyEquipment(response.data);
+        } catch (error: any) {
+            console.error('Error creating safety equipment:', error);
+            const errorMessage = error.response?.data?.message || 'Failed to create safety equipment';
+            throw new Error(errorMessage);
+        }
     },
 
     // Update an existing safety equipment
@@ -104,8 +115,14 @@ const safetyEquipmentService = {
         id: string,
         data: UpdateSafetyEquipmentDTO,
     ): Promise<SafetyEquipment> {
-        const response = await api.patch(`/ppe/safety-equipments/${id}`, data);
-        return mapSafetyEquipmentDtoToSafetyEquipment(response.data);
+        try {
+            const response = await api.patch(`/ppe/safety-equipments/${id}`, data);
+            return mapSafetyEquipmentDtoToSafetyEquipment(response.data);
+        } catch (error: any) {
+            console.error(`Error updating safety equipment ${id}:`, error);
+            const errorMessage = error.response?.data?.message || 'Failed to update safety equipment';
+            throw new Error(errorMessage);
+        }
     },
 
     // Delete a safety equipment (soft delete)

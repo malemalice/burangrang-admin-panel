@@ -2,10 +2,8 @@
  * PPE module types
  */
 
-// Import and re-export core types
+// Import core types for use in this file
 import type { PaginatedResponse, PaginationParams } from '@/core/lib/types';
-
-export type { PaginatedResponse, PaginationParams };
 
 // =============================================================================
 // ENUMS

@@ -4,11 +4,10 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
+import type { PaginatedResponse, PaginationParams } from '@/core/lib/types';
 import safetyEquipmentTypeService from '../services/safetyEquipmentTypeService';
 import {
     SafetyEquipmentType,
-    PaginatedResponse,
-    PaginationParams,
     CreateSafetyEquipmentTypeDTO,
     UpdateSafetyEquipmentTypeDTO,
 } from '../types/ppe-master-data.types';
@@ -99,7 +98,7 @@ export const useSafetyEquipmentType = (id: string | null = null) => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchType = async (typeId: string) => {
+    const fetchType = useCallback(async (typeId: string) => {
         setIsLoading(true);
         setError(null);
         try {
@@ -113,19 +112,36 @@ export const useSafetyEquipmentType = (id: string | null = null) => {
         } finally {
             setIsLoading(false);
         }
+    }, []);
+
+    const updateType = async (typeId: string, typeData: UpdateSafetyEquipmentTypeDTO) => {
+        try {
+            const updatedType = await safetyEquipmentTypeService.updateSafetyEquipmentType(
+                typeId,
+                typeData,
+            );
+            setType(updatedType);
+            toast.success('Safety equipment type updated successfully');
+            return updatedType;
+        } catch (err) {
+            toast.error('Failed to update safety equipment type');
+            throw err;
+        }
     };
 
     useEffect(() => {
         if (id) {
             fetchType(id);
         }
-    }, [id]);
+    }, [id, fetchType]);
 
     return {
         type,
         isLoading,
         error,
         fetchType,
+        setType,
+        updateType,
     };
 };
 
