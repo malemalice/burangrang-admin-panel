@@ -81,6 +81,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
     const [dataReady, setDataReady] = useState(false);
     const [uploadingFile, setUploadingFile] = useState(false);
     const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+    const [withdrawalLetterCategoryId, setWithdrawalLetterCategoryId] = useState<string | null>(null);
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -113,6 +114,20 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
             try {
                 setIsLoadingData(true);
 
+                // Fetch file category ID for withdrawal letter
+                let categoryId: string | null = null;
+                try {
+                    const categoriesRes = await api.get('/uploads/categories');
+                    const category = categoriesRes.data.find(
+                        (cat: any) => cat.name === 'ppe-withdrawal-letter'
+                    );
+                    if (category) {
+                        categoryId = category.id;
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch file categories:', error);
+                }
+
                 // Fetch departments, job positions, users, and available stock items
                 const [deptsRes, positionsRes, usersRes, stockItemsRes] = await Promise.all([
                     departmentService.getDepartments({ page: 1, limit: 100 }),
@@ -126,6 +141,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                     }),
                 ]);
 
+                setWithdrawalLetterCategoryId(categoryId);
                 setDepartments(deptsRes.data);
                 setJobPositions(positionsRes.data);
                 setUsers(usersRes.data);
@@ -202,11 +218,16 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
             return;
         }
 
+        if (!withdrawalLetterCategoryId) {
+            toast.error('File category not found. Please refresh the page.');
+            return;
+        }
+
         setUploadingFile(true);
         try {
             const formData = new FormData();
             formData.append('file', file);
-            formData.append('categoryId', 'ppe-withdrawal-letter'); // Default category, adjust if needed
+            formData.append('categoryId', withdrawalLetterCategoryId);
             formData.append('isPublic', 'false');
 
             const response = await api.post('/uploads/upload', formData, {
