@@ -25,8 +25,6 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { PPEModule } from './modules/ppe/ppe.module';
-import { SafetyEquipmentTypesModule } from './modules/safety-equipment-types/safety-equipment-types.module';
-import { SafetyEquipmentsModule } from './modules/safety-equipments/safety-equipments.module';
 import { SharedModule } from './shared/shared.module';
 
 @Module({
@@ -56,8 +54,6 @@ import { SharedModule } from './shared/shared.module';
     NotificationsModule,
     UploadsModule,
     PPEModule,
-    SafetyEquipmentTypesModule,
-    SafetyEquipmentsModule,
   ],
   providers: [
     Reflector,

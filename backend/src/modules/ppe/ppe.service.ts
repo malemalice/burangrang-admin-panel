@@ -13,7 +13,33 @@ import { FindPPEStockDto } from './dto/find-ppe-stock.dto';
 import { FindPPEWithdrawalDto } from './dto/find-ppe-withdrawal.dto';
 import { FindPPEStockItemDto } from './dto/find-ppe-stock-item.dto';
 import { CreateStockAdjustmentDto } from './dto/create-stock-adjustment.dto';
+import { CreateSafetyEquipmentTypeDto } from './dto/create-safety-equipment-type.dto';
+import { UpdateSafetyEquipmentTypeDto } from './dto/update-safety-equipment-type.dto';
+import { SafetyEquipmentTypeDto } from './dto/safety-equipment-type.dto';
+import { CreateSafetyEquipmentDto } from './dto/create-safety-equipment.dto';
+import { UpdateSafetyEquipmentDto } from './dto/update-safety-equipment.dto';
+import { SafetyEquipmentDto } from './dto/safety-equipment.dto';
 import { Prisma } from '@prisma/client';
+
+interface FindAllSafetyEquipmentTypesOptions {
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    isActive?: boolean;
+    search?: string;
+}
+
+interface FindAllSafetyEquipmentsOptions {
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    isActive?: boolean;
+    search?: string;
+    category?: string;
+    safetyEquipmentTypeId?: string;
+}
 
 @Injectable()
 export class PPEService {
@@ -25,6 +51,12 @@ export class PPEService {
     private ppeWithdrawalMapper: (withdrawal: any) => PPEWithdrawalDto;
     private ppeWithdrawalArrayMapper: (withdrawals: any[]) => PPEWithdrawalDto[];
     private ppeWithdrawalPaginatedMapper: (data: { data: any[]; meta: any }) => { data: PPEWithdrawalDto[]; meta: any };
+    private safetyEquipmentTypeMapper: (type: any) => SafetyEquipmentTypeDto;
+    private safetyEquipmentTypeArrayMapper: (types: any[]) => SafetyEquipmentTypeDto[];
+    private safetyEquipmentTypePaginatedMapper: (data: { data: any[]; meta: any }) => { data: SafetyEquipmentTypeDto[]; meta: any };
+    private safetyEquipmentMapper: (equipment: any) => SafetyEquipmentDto;
+    private safetyEquipmentArrayMapper: (equipments: any[]) => SafetyEquipmentDto[];
+    private safetyEquipmentPaginatedMapper: (data: { data: any[]; meta: any }) => { data: SafetyEquipmentDto[]; meta: any };
 
     constructor(
         private readonly prisma: PrismaService,
@@ -40,6 +72,12 @@ export class PPEService {
         this.ppeWithdrawalMapper = this.dtoMapper.createSimpleMapper(PPEWithdrawalDto);
         this.ppeWithdrawalArrayMapper = this.dtoMapper.createSimpleArrayMapper(PPEWithdrawalDto);
         this.ppeWithdrawalPaginatedMapper = this.dtoMapper.createPaginatedMapper(PPEWithdrawalDto);
+        this.safetyEquipmentTypeMapper = this.dtoMapper.createSimpleMapper(SafetyEquipmentTypeDto);
+        this.safetyEquipmentTypeArrayMapper = this.dtoMapper.createSimpleArrayMapper(SafetyEquipmentTypeDto);
+        this.safetyEquipmentTypePaginatedMapper = this.dtoMapper.createPaginatedMapper(SafetyEquipmentTypeDto);
+        this.safetyEquipmentMapper = this.dtoMapper.createSimpleMapper(SafetyEquipmentDto);
+        this.safetyEquipmentArrayMapper = this.dtoMapper.createSimpleArrayMapper(SafetyEquipmentDto);
+        this.safetyEquipmentPaginatedMapper = this.dtoMapper.createPaginatedMapper(SafetyEquipmentDto);
     }
 
     /**
@@ -1228,6 +1266,357 @@ export class PPEService {
                 },
             });
         });
+    }
+
+    // ============================================================================
+    // SAFETY EQUIPMENT TYPES METHODS
+    // ============================================================================
+
+    async createSafetyEquipmentType(
+        createSafetyEquipmentTypeDto: CreateSafetyEquipmentTypeDto,
+    ): Promise<SafetyEquipmentTypeDto> {
+        const safetyEquipmentType = await (this.prisma as any).safetyEquipmentType.create({
+            data: createSafetyEquipmentTypeDto,
+        });
+
+        return this.safetyEquipmentTypeMapper(safetyEquipmentType);
+    }
+
+    async findAllSafetyEquipmentTypes(options?: FindAllSafetyEquipmentTypesOptions): Promise<{
+        data: SafetyEquipmentTypeDto[];
+        meta: { total: number; page: number; limit: number };
+    }> {
+        const {
+            page = 1,
+            limit = 10,
+            sortBy = 'name',
+            sortOrder = 'asc',
+            isActive,
+            search,
+        } = options || {};
+
+        // Build where clause
+        const where: any = {
+            deletedAt: null, // Only get non-deleted records
+        };
+
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { code: { contains: search, mode: 'insensitive' } },
+                { description: { contains: search, mode: 'insensitive' } },
+            ];
+        }
+
+        if (isActive !== undefined) {
+            where.isActive = isActive;
+        }
+
+        // Build order by clause
+        const orderBy: any = {};
+        if (sortBy) {
+            orderBy[sortBy] = sortOrder || 'asc';
+        } else {
+            orderBy.name = 'asc';
+        }
+
+        // Get total count
+        const total = await (this.prisma as any).safetyEquipmentType.count({ where });
+
+        // Get paginated data
+        const safetyEquipmentTypes = await (this.prisma as any).safetyEquipmentType.findMany({
+            where,
+            orderBy,
+            skip: (page - 1) * limit,
+            take: limit,
+        });
+
+        return this.safetyEquipmentTypePaginatedMapper({
+            data: safetyEquipmentTypes,
+            meta: { total, page, limit },
+        });
+    }
+
+    async findOneSafetyEquipmentType(id: string): Promise<SafetyEquipmentTypeDto> {
+        const safetyEquipmentType = await (this.prisma as any).safetyEquipmentType.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only get non-deleted records
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('Safety Equipment Type', id, safetyEquipmentType);
+
+        return this.safetyEquipmentTypeMapper(safetyEquipmentType);
+    }
+
+    async updateSafetyEquipmentType(
+        id: string,
+        updateSafetyEquipmentTypeDto: UpdateSafetyEquipmentTypeDto,
+    ): Promise<SafetyEquipmentTypeDto> {
+        const existingType = await (this.prisma as any).safetyEquipmentType.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only update non-deleted records
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('Safety Equipment Type', id, existingType);
+
+        const safetyEquipmentType = await (this.prisma as any).safetyEquipmentType.update({
+            where: { id },
+            data: updateSafetyEquipmentTypeDto,
+        });
+
+        return this.safetyEquipmentTypeMapper(safetyEquipmentType);
+    }
+
+    async removeSafetyEquipmentType(id: string): Promise<void> {
+        const existingType = await (this.prisma as any).safetyEquipmentType.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only delete non-deleted records
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('Safety Equipment Type', id, existingType);
+
+        // Check if type has active equipment
+        const activeEquipmentCount = await (this.prisma as any).safetyEquipment.count({
+            where: {
+                safetyEquipmentTypeId: id,
+                deletedAt: null,
+                isActive: true,
+            },
+        });
+
+        if (activeEquipmentCount > 0) {
+            throw new BadRequestException(`Cannot delete Safety Equipment Type. It has ${activeEquipmentCount} active equipment(s).`);
+        }
+
+        // Soft delete by setting deletedAt and isActive to false
+        await (this.prisma as any).safetyEquipmentType.update({
+            where: { id },
+            data: {
+                deletedAt: new Date(),
+                isActive: false,
+            },
+        });
+    }
+
+    async findSafetyEquipmentTypeByCode(code: string): Promise<SafetyEquipmentTypeDto> {
+        const safetyEquipmentType = await (this.prisma as any).safetyEquipmentType.findFirst({
+            where: {
+                code,
+                deletedAt: null, // Only get non-deleted records
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundByField('Safety Equipment Type', 'code', code, safetyEquipmentType);
+
+        return this.safetyEquipmentTypeMapper(safetyEquipmentType);
+    }
+
+    // ============================================================================
+    // SAFETY EQUIPMENTS METHODS
+    // ============================================================================
+
+    async createSafetyEquipment(
+        createSafetyEquipmentDto: CreateSafetyEquipmentDto,
+    ): Promise<SafetyEquipmentDto> {
+        // Validate safetyEquipmentTypeId exists and not deleted
+        const type = await (this.prisma as any).safetyEquipmentType.findFirst({
+            where: {
+                id: createSafetyEquipmentDto.safetyEquipmentTypeId,
+                deletedAt: null,
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById(
+            'Safety Equipment Type',
+            createSafetyEquipmentDto.safetyEquipmentTypeId,
+            type,
+        );
+
+        const safetyEquipment = await (this.prisma as any).safetyEquipment.create({
+            data: createSafetyEquipmentDto,
+            include: {
+                safetyEquipmentType: true,
+            },
+        });
+
+        return this.safetyEquipmentMapper(safetyEquipment);
+    }
+
+    async findAllSafetyEquipments(options?: FindAllSafetyEquipmentsOptions): Promise<{
+        data: SafetyEquipmentDto[];
+        meta: { total: number; page: number; limit: number };
+    }> {
+        const {
+            page = 1,
+            limit = 10,
+            sortBy = 'name',
+            sortOrder = 'asc',
+            isActive,
+            search,
+            category,
+            safetyEquipmentTypeId,
+        } = options || {};
+
+        // Build where clause
+        const where: any = {
+            deletedAt: null, // Only get non-deleted records
+        };
+
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { code: { contains: search, mode: 'insensitive' } },
+                { description: { contains: search, mode: 'insensitive' } },
+            ];
+        }
+
+        if (isActive !== undefined) {
+            where.isActive = isActive;
+        }
+
+        if (category) {
+            where.category = category;
+        }
+
+        if (safetyEquipmentTypeId) {
+            where.safetyEquipmentTypeId = safetyEquipmentTypeId;
+        }
+
+        // Build order by clause
+        const orderBy: any = {};
+        if (sortBy) {
+            orderBy[sortBy] = sortOrder || 'asc';
+        } else {
+            orderBy.name = 'asc';
+        }
+
+        // Get total count
+        const total = await (this.prisma as any).safetyEquipment.count({ where });
+
+        // Get paginated data
+        const safetyEquipments = await (this.prisma as any).safetyEquipment.findMany({
+            where,
+            orderBy,
+            skip: (page - 1) * limit,
+            take: limit,
+            include: {
+                safetyEquipmentType: true,
+            },
+        });
+
+        return this.safetyEquipmentPaginatedMapper({
+            data: safetyEquipments,
+            meta: { total, page, limit },
+        });
+    }
+
+    async findOneSafetyEquipment(id: string): Promise<SafetyEquipmentDto> {
+        const safetyEquipment = await (this.prisma as any).safetyEquipment.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only get non-deleted records
+            },
+            include: {
+                safetyEquipmentType: true,
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('Safety Equipment', id, safetyEquipment);
+
+        return this.safetyEquipmentMapper(safetyEquipment);
+    }
+
+    async updateSafetyEquipment(
+        id: string,
+        updateSafetyEquipmentDto: UpdateSafetyEquipmentDto,
+    ): Promise<SafetyEquipmentDto> {
+        const existingEquipment = await (this.prisma as any).safetyEquipment.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only update non-deleted records
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('Safety Equipment', id, existingEquipment);
+
+        // Validate safetyEquipmentTypeId if provided
+        if (updateSafetyEquipmentDto.safetyEquipmentTypeId) {
+            const type = await (this.prisma as any).safetyEquipmentType.findFirst({
+                where: {
+                    id: updateSafetyEquipmentDto.safetyEquipmentTypeId,
+                    deletedAt: null,
+                },
+            });
+
+            this.errorHandler.throwIfNotFoundById(
+                'Safety Equipment Type',
+                updateSafetyEquipmentDto.safetyEquipmentTypeId,
+                type,
+            );
+        }
+
+        const safetyEquipment = await (this.prisma as any).safetyEquipment.update({
+            where: { id },
+            data: updateSafetyEquipmentDto,
+            include: {
+                safetyEquipmentType: true,
+            },
+        });
+
+        return this.safetyEquipmentMapper(safetyEquipment);
+    }
+
+    async removeSafetyEquipment(id: string): Promise<void> {
+        const existingEquipment = await (this.prisma as any).safetyEquipment.findFirst({
+            where: {
+                id,
+                deletedAt: null, // Only delete non-deleted records
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('Safety Equipment', id, existingEquipment);
+
+        // Check if equipment is used in stock items
+        const stockItemsCount = await (this.prisma as any).pPEStockItem.count({
+            where: {
+                safetyEquipmentId: id,
+            },
+        });
+
+        if (stockItemsCount > 0) {
+            throw new BadRequestException(`Cannot delete Safety Equipment. It is used in ${stockItemsCount} stock item(s).`);
+        }
+
+        // Soft delete by setting deletedAt and isActive to false
+        await (this.prisma as any).safetyEquipment.update({
+            where: { id },
+            data: {
+                deletedAt: new Date(),
+                isActive: false,
+            },
+        });
+    }
+
+    async findSafetyEquipmentByCode(code: string): Promise<SafetyEquipmentDto> {
+        const safetyEquipment = await (this.prisma as any).safetyEquipment.findFirst({
+            where: {
+                code,
+                deletedAt: null, // Only get non-deleted records
+            },
+            include: {
+                safetyEquipmentType: true,
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundByField('Safety Equipment', 'code', code, safetyEquipment);
+
+        return this.safetyEquipmentMapper(safetyEquipment);
     }
 }
 

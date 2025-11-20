@@ -31,6 +31,12 @@ import { FindPPEStockDto } from './dto/find-ppe-stock.dto';
 import { FindPPEWithdrawalDto } from './dto/find-ppe-withdrawal.dto';
 import { FindPPEStockItemDto } from './dto/find-ppe-stock-item.dto';
 import { CreateStockAdjustmentDto } from './dto/create-stock-adjustment.dto';
+import { CreateSafetyEquipmentTypeDto } from './dto/create-safety-equipment-type.dto';
+import { UpdateSafetyEquipmentTypeDto } from './dto/update-safety-equipment-type.dto';
+import { SafetyEquipmentTypeDto } from './dto/safety-equipment-type.dto';
+import { CreateSafetyEquipmentDto } from './dto/create-safety-equipment.dto';
+import { UpdateSafetyEquipmentDto } from './dto/update-safety-equipment.dto';
+import { SafetyEquipmentDto } from './dto/safety-equipment.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
@@ -324,6 +330,218 @@ export class PPEController {
     @Roles(Role.SUPER_ADMIN, Role.ADMIN)
     deleteWithdrawal(@Param('id') id: string): Promise<void> {
         return this.ppeService.deleteWithdrawal(id);
+    }
+
+    // ============================================================================
+    // SAFETY EQUIPMENT TYPES ENDPOINTS
+    // ============================================================================
+
+    @Post('safety-equipment-types')
+    @ApiOperation({ summary: 'Create a new safety equipment type' })
+    @ApiResponse({
+        status: 201,
+        description: 'The safety equipment type has been successfully created.',
+        type: SafetyEquipmentTypeDto,
+    })
+    @ApiResponse({ status: 400, description: 'Bad request.' })
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    createSafetyEquipmentType(
+        @Body() createSafetyEquipmentTypeDto: CreateSafetyEquipmentTypeDto,
+    ): Promise<SafetyEquipmentTypeDto> {
+        return this.ppeService.createSafetyEquipmentType(createSafetyEquipmentTypeDto);
+    }
+
+    @Get('safety-equipment-types')
+    @ApiOperation({ summary: 'Get all safety equipment types' })
+    @ApiResponse({
+        status: 200,
+        description: 'Return all safety equipment types.',
+        type: [SafetyEquipmentTypeDto],
+    })
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    findAllSafetyEquipmentTypes(
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+        @Query('sortBy') sortBy?: string,
+        @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+        @Query('isActive') isActive?: string,
+        @Query('search') search?: string,
+    ): Promise<{ data: SafetyEquipmentTypeDto[]; meta: { total: number } }> {
+        const pageNumber = page ? parseInt(page, 10) : undefined;
+        const limitNumber = limit ? parseInt(limit, 10) : undefined;
+        const isActiveBoolean =
+            isActive === undefined ? undefined : isActive === 'true';
+
+        return this.ppeService.findAllSafetyEquipmentTypes({
+            page: pageNumber,
+            limit: limitNumber,
+            sortBy,
+            sortOrder,
+            isActive: isActiveBoolean,
+            search,
+        });
+    }
+
+    @Get('safety-equipment-types/:id')
+    @ApiOperation({ summary: 'Get a safety equipment type by id' })
+    @ApiResponse({
+        status: 200,
+        description: 'Return the safety equipment type.',
+        type: SafetyEquipmentTypeDto,
+    })
+    @ApiResponse({ status: 404, description: 'Safety equipment type not found.' })
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    findOneSafetyEquipmentType(@Param('id') id: string): Promise<SafetyEquipmentTypeDto> {
+        return this.ppeService.findOneSafetyEquipmentType(id);
+    }
+
+    @Patch('safety-equipment-types/:id')
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    @ApiOperation({ summary: 'Update a safety equipment type' })
+    @ApiResponse({
+        status: 200,
+        description: 'The safety equipment type has been successfully updated.',
+        type: SafetyEquipmentTypeDto,
+    })
+    @ApiResponse({ status: 404, description: 'Safety equipment type not found.' })
+    updateSafetyEquipmentType(
+        @Param('id') id: string,
+        @Body() updateSafetyEquipmentTypeDto: UpdateSafetyEquipmentTypeDto,
+    ): Promise<SafetyEquipmentTypeDto> {
+        return this.ppeService.updateSafetyEquipmentType(id, updateSafetyEquipmentTypeDto);
+    }
+
+    @Delete('safety-equipment-types/:id')
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    @ApiOperation({ summary: 'Delete a safety equipment type' })
+    @ApiResponse({
+        status: 200,
+        description: 'The safety equipment type has been successfully deleted.',
+    })
+    @ApiResponse({ status: 404, description: 'Safety equipment type not found.' })
+    removeSafetyEquipmentType(@Param('id') id: string): Promise<void> {
+        return this.ppeService.removeSafetyEquipmentType(id);
+    }
+
+    @Get('safety-equipment-types/code/:code')
+    @ApiOperation({ summary: 'Get a safety equipment type by code' })
+    @ApiResponse({
+        status: 200,
+        description: 'Return the safety equipment type.',
+        type: SafetyEquipmentTypeDto,
+    })
+    @ApiResponse({ status: 404, description: 'Safety equipment type not found.' })
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    findSafetyEquipmentTypeByCode(@Param('code') code: string): Promise<SafetyEquipmentTypeDto> {
+        return this.ppeService.findSafetyEquipmentTypeByCode(code);
+    }
+
+    // ============================================================================
+    // SAFETY EQUIPMENTS ENDPOINTS
+    // ============================================================================
+
+    @Post('safety-equipments')
+    @ApiOperation({ summary: 'Create a new safety equipment' })
+    @ApiResponse({
+        status: 201,
+        description: 'The safety equipment has been successfully created.',
+        type: SafetyEquipmentDto,
+    })
+    @ApiResponse({ status: 400, description: 'Bad request.' })
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    createSafetyEquipment(
+        @Body() createSafetyEquipmentDto: CreateSafetyEquipmentDto,
+    ): Promise<SafetyEquipmentDto> {
+        return this.ppeService.createSafetyEquipment(createSafetyEquipmentDto);
+    }
+
+    @Get('safety-equipments')
+    @ApiOperation({ summary: 'Get all safety equipments' })
+    @ApiResponse({
+        status: 200,
+        description: 'Return all safety equipments.',
+        type: [SafetyEquipmentDto],
+    })
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    findAllSafetyEquipments(
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+        @Query('sortBy') sortBy?: string,
+        @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+        @Query('isActive') isActive?: string,
+        @Query('search') search?: string,
+        @Query('category') category?: string,
+        @Query('safetyEquipmentTypeId') safetyEquipmentTypeId?: string,
+    ): Promise<{ data: SafetyEquipmentDto[]; meta: { total: number } }> {
+        const pageNumber = page ? parseInt(page, 10) : undefined;
+        const limitNumber = limit ? parseInt(limit, 10) : undefined;
+        const isActiveBoolean =
+            isActive === undefined ? undefined : isActive === 'true';
+
+        return this.ppeService.findAllSafetyEquipments({
+            page: pageNumber,
+            limit: limitNumber,
+            sortBy,
+            sortOrder,
+            isActive: isActiveBoolean,
+            search,
+            category,
+            safetyEquipmentTypeId,
+        });
+    }
+
+    @Get('safety-equipments/:id')
+    @ApiOperation({ summary: 'Get a safety equipment by id' })
+    @ApiResponse({
+        status: 200,
+        description: 'Return the safety equipment.',
+        type: SafetyEquipmentDto,
+    })
+    @ApiResponse({ status: 404, description: 'Safety equipment not found.' })
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    findOneSafetyEquipment(@Param('id') id: string): Promise<SafetyEquipmentDto> {
+        return this.ppeService.findOneSafetyEquipment(id);
+    }
+
+    @Patch('safety-equipments/:id')
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    @ApiOperation({ summary: 'Update a safety equipment' })
+    @ApiResponse({
+        status: 200,
+        description: 'The safety equipment has been successfully updated.',
+        type: SafetyEquipmentDto,
+    })
+    @ApiResponse({ status: 404, description: 'Safety equipment not found.' })
+    updateSafetyEquipment(
+        @Param('id') id: string,
+        @Body() updateSafetyEquipmentDto: UpdateSafetyEquipmentDto,
+    ): Promise<SafetyEquipmentDto> {
+        return this.ppeService.updateSafetyEquipment(id, updateSafetyEquipmentDto);
+    }
+
+    @Delete('safety-equipments/:id')
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    @ApiOperation({ summary: 'Delete a safety equipment' })
+    @ApiResponse({
+        status: 200,
+        description: 'The safety equipment has been successfully deleted.',
+    })
+    @ApiResponse({ status: 404, description: 'Safety equipment not found.' })
+    removeSafetyEquipment(@Param('id') id: string): Promise<void> {
+        return this.ppeService.removeSafetyEquipment(id);
+    }
+
+    @Get('safety-equipments/code/:code')
+    @ApiOperation({ summary: 'Get a safety equipment by code' })
+    @ApiResponse({
+        status: 200,
+        description: 'Return the safety equipment.',
+        type: SafetyEquipmentDto,
+    })
+    @ApiResponse({ status: 404, description: 'Safety equipment not found.' })
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    findSafetyEquipmentByCode(@Param('code') code: string): Promise<SafetyEquipmentDto> {
+        return this.ppeService.findSafetyEquipmentByCode(code);
     }
 }
 

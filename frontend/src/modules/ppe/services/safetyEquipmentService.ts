@@ -72,7 +72,7 @@ const safetyEquipmentService = {
             }
 
             const response = await api.get(
-                `/safety-equipments?${queryParams.toString()}`,
+                `/ppe/safety-equipments?${queryParams.toString()}`,
             );
             return {
                 data: response.data.data.map(mapSafetyEquipmentDtoToSafetyEquipment),
@@ -86,7 +86,7 @@ const safetyEquipmentService = {
 
     // Get a single safety equipment by ID
     async getSafetyEquipment(id: string): Promise<SafetyEquipment> {
-        const response = await api.get(`/safety-equipments/${id}`);
+        const response = await api.get(`/ppe/safety-equipments/${id}`);
         return mapSafetyEquipmentDtoToSafetyEquipment(response.data);
     },
 
@@ -94,7 +94,7 @@ const safetyEquipmentService = {
     async createSafetyEquipment(
         data: CreateSafetyEquipmentDTO,
     ): Promise<SafetyEquipment> {
-        const response = await api.post('/safety-equipments', data);
+        const response = await api.post('/ppe/safety-equipments', data);
         return mapSafetyEquipmentDtoToSafetyEquipment(response.data);
     },
 
@@ -103,14 +103,14 @@ const safetyEquipmentService = {
         id: string,
         data: UpdateSafetyEquipmentDTO,
     ): Promise<SafetyEquipment> {
-        const response = await api.patch(`/safety-equipments/${id}`, data);
+        const response = await api.patch(`/ppe/safety-equipments/${id}`, data);
         return mapSafetyEquipmentDtoToSafetyEquipment(response.data);
     },
 
     // Delete a safety equipment (soft delete)
     async deleteSafetyEquipment(id: string): Promise<void> {
         try {
-            await api.delete(`/safety-equipments/${id}`);
+            await api.delete(`/ppe/safety-equipments/${id}`);
         } catch (error: any) {
             const errorMessage = error.response?.data?.message || 'Failed to delete safety equipment';
             throw new Error(errorMessage);

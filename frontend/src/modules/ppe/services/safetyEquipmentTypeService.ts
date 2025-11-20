@@ -56,7 +56,7 @@ const safetyEquipmentTypeService = {
             }
 
             const response = await api.get(
-                `/safety-equipment-types?${queryParams.toString()}`,
+                `/ppe/safety-equipment-types?${queryParams.toString()}`,
             );
             return {
                 data: response.data.data.map(mapSafetyEquipmentTypeDtoToSafetyEquipmentType),
@@ -70,7 +70,7 @@ const safetyEquipmentTypeService = {
 
     // Get a single safety equipment type by ID
     async getSafetyEquipmentType(id: string): Promise<SafetyEquipmentType> {
-        const response = await api.get(`/safety-equipment-types/${id}`);
+        const response = await api.get(`/ppe/safety-equipment-types/${id}`);
         return mapSafetyEquipmentTypeDtoToSafetyEquipmentType(response.data);
     },
 
@@ -78,7 +78,7 @@ const safetyEquipmentTypeService = {
     async createSafetyEquipmentType(
         data: CreateSafetyEquipmentTypeDTO,
     ): Promise<SafetyEquipmentType> {
-        const response = await api.post('/safety-equipment-types', data);
+        const response = await api.post('/ppe/safety-equipment-types', data);
         return mapSafetyEquipmentTypeDtoToSafetyEquipmentType(response.data);
     },
 
@@ -87,14 +87,14 @@ const safetyEquipmentTypeService = {
         id: string,
         data: UpdateSafetyEquipmentTypeDTO,
     ): Promise<SafetyEquipmentType> {
-        const response = await api.patch(`/safety-equipment-types/${id}`, data);
+        const response = await api.patch(`/ppe/safety-equipment-types/${id}`, data);
         return mapSafetyEquipmentTypeDtoToSafetyEquipmentType(response.data);
     },
 
     // Delete a safety equipment type (soft delete)
     async deleteSafetyEquipmentType(id: string): Promise<void> {
         try {
-            await api.delete(`/safety-equipment-types/${id}`);
+            await api.delete(`/ppe/safety-equipment-types/${id}`);
         } catch (error: any) {
             const errorMessage = error.response?.data?.message || 'Failed to delete safety equipment type';
             throw new Error(errorMessage);
