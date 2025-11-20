@@ -248,7 +248,7 @@ export class PPEService {
      */
     async findAllStocks(options?: FindPPEStockDto): Promise<{
         data: PPEStockDto[];
-        meta: { total: number; page: number; limit: number };
+        meta: { total: number; page: number; limit: number; totalPages: number };
     }> {
         const {
             page = 1,
@@ -312,7 +312,7 @@ export class PPEService {
 
         return this.ppeStockPaginatedMapper({
             data: stocks,
-            meta: { total, page, limit },
+            meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
         });
     }
 
@@ -592,7 +592,7 @@ export class PPEService {
      */
     async getAvailableStockItems(options?: FindPPEStockItemDto): Promise<{
         data: PPEStockItemDto[];
-        meta: { total: number; page: number; limit: number };
+        meta: { total: number; page: number; limit: number; totalPages: number };
     }> {
         const {
             page = 1,
@@ -655,7 +655,7 @@ export class PPEService {
 
         return {
             data: this.ppeStockItemArrayMapper(items),
-            meta: { total, page, limit },
+            meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
         };
     }
 
@@ -790,7 +790,7 @@ export class PPEService {
      */
     async findAllWithdrawals(options?: FindPPEWithdrawalDto): Promise<{
         data: PPEWithdrawalDto[];
-        meta: { total: number; page: number; limit: number };
+        meta: { total: number; page: number; limit: number; totalPages: number };
     }> {
         const {
             page = 1,
@@ -877,7 +877,7 @@ export class PPEService {
 
         return this.ppeWithdrawalPaginatedMapper({
             data: withdrawalsWithNames,
-            meta: { total, page, limit },
+            meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
         });
     }
 
@@ -1505,7 +1505,7 @@ export class PPEService {
 
     async findAllSafetyEquipmentTypes(options?: FindAllSafetyEquipmentTypesOptions): Promise<{
         data: SafetyEquipmentTypeDto[];
-        meta: { total: number; page: number; limit: number };
+        meta: { total: number; page: number; limit: number; totalPages: number };
     }> {
         const {
             page = 1,
@@ -1554,7 +1554,7 @@ export class PPEService {
 
         return this.safetyEquipmentTypePaginatedMapper({
             data: safetyEquipmentTypes,
-            meta: { total, page, limit },
+            meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
         });
     }
 
@@ -1671,7 +1671,7 @@ export class PPEService {
 
     async findAllSafetyEquipments(options?: FindAllSafetyEquipmentsOptions): Promise<{
         data: SafetyEquipmentDto[];
-        meta: { total: number; page: number; limit: number };
+        meta: { total: number; page: number; limit: number; totalPages: number };
     }> {
         const {
             page = 1,
@@ -1763,7 +1763,7 @@ export class PPEService {
 
         return this.safetyEquipmentPaginatedMapper({
             data: equipmentsWithStock,
-            meta: { total, page, limit },
+            meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
         });
     }
 

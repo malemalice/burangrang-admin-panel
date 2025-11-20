@@ -34,9 +34,11 @@ import { CreateStockAdjustmentDto } from './dto/create-stock-adjustment.dto';
 import { CreateSafetyEquipmentTypeDto } from './dto/create-safety-equipment-type.dto';
 import { UpdateSafetyEquipmentTypeDto } from './dto/update-safety-equipment-type.dto';
 import { SafetyEquipmentTypeDto } from './dto/safety-equipment-type.dto';
+import { FindSafetyEquipmentTypeDto } from './dto/find-safety-equipment-type.dto';
 import { CreateSafetyEquipmentDto } from './dto/create-safety-equipment.dto';
 import { UpdateSafetyEquipmentDto } from './dto/update-safety-equipment.dto';
 import { SafetyEquipmentDto } from './dto/safety-equipment.dto';
+import { FindSafetyEquipmentDto } from './dto/find-safety-equipment.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
@@ -55,6 +57,14 @@ export class PPEController {
 
     @Get('stock-items/available')
     @ApiOperation({ summary: 'Get available stock items for withdrawal' })
+    @ApiQuery({ name: 'page', required: false, type: Number })
+    @ApiQuery({ name: 'limit', required: false, type: Number })
+    @ApiQuery({ name: 'sortBy', required: false, type: String })
+    @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
+    @ApiQuery({ name: 'search', required: false, type: String })
+    @ApiQuery({ name: 'status', required: false, enum: ['AVAILABLE', 'RESERVED', 'ISSUED', 'EXPIRED', 'DISPOSED'] })
+    @ApiQuery({ name: 'stockId', required: false, type: String })
+    @ApiQuery({ name: 'availableOnly', required: false, type: Boolean })
     @ApiResponse({
         status: 200,
         description: 'Return available stock items.',
@@ -67,6 +77,14 @@ export class PPEController {
 
     @Get('stock-items')
     @ApiOperation({ summary: 'Get stock items with filtering' })
+    @ApiQuery({ name: 'page', required: false, type: Number })
+    @ApiQuery({ name: 'limit', required: false, type: Number })
+    @ApiQuery({ name: 'sortBy', required: false, type: String })
+    @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
+    @ApiQuery({ name: 'search', required: false, type: String })
+    @ApiQuery({ name: 'status', required: false, enum: ['AVAILABLE', 'RESERVED', 'ISSUED', 'EXPIRED', 'DISPOSED'] })
+    @ApiQuery({ name: 'stockId', required: false, type: String })
+    @ApiQuery({ name: 'availableOnly', required: false, type: Boolean })
     @ApiResponse({
         status: 200,
         description: 'Return stock items.',
@@ -148,6 +166,18 @@ export class PPEController {
     @ApiOperation({ summary: 'Update stock item' })
     @ApiParam({ name: 'id', type: String })
     @ApiParam({ name: 'itemId', type: String })
+    @ApiBody({
+        schema: {
+            type: 'object',
+            properties: {
+                currentQuantity: { type: 'number' },
+                reservedQuantity: { type: 'number' },
+                status: { type: 'string' },
+                expiryDate: { type: 'string', format: 'date-time' },
+            },
+        },
+        required: false,
+    })
     @ApiResponse({
         status: 200,
         description: 'The stock item has been successfully updated.',
@@ -352,7 +382,13 @@ export class PPEController {
     }
 
     @Get('safety-equipment-types')
-    @ApiOperation({ summary: 'Get all safety equipment types' })
+    @ApiOperation({ summary: 'Get all safety equipment types with pagination and filtering' })
+    @ApiQuery({ name: 'page', required: false, type: Number })
+    @ApiQuery({ name: 'limit', required: false, type: Number })
+    @ApiQuery({ name: 'sortBy', required: false, type: String })
+    @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
+    @ApiQuery({ name: 'isActive', required: false, type: Boolean })
+    @ApiQuery({ name: 'search', required: false, type: String })
     @ApiResponse({
         status: 200,
         description: 'Return all safety equipment types.',
@@ -360,26 +396,9 @@ export class PPEController {
     })
     @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
     findAllSafetyEquipmentTypes(
-        @Query('page') page?: string,
-        @Query('limit') limit?: string,
-        @Query('sortBy') sortBy?: string,
-        @Query('sortOrder') sortOrder?: 'asc' | 'desc',
-        @Query('isActive') isActive?: string,
-        @Query('search') search?: string,
-    ): Promise<{ data: SafetyEquipmentTypeDto[]; meta: { total: number } }> {
-        const pageNumber = page ? parseInt(page, 10) : undefined;
-        const limitNumber = limit ? parseInt(limit, 10) : undefined;
-        const isActiveBoolean =
-            isActive === undefined ? undefined : isActive === 'true';
-
-        return this.ppeService.findAllSafetyEquipmentTypes({
-            page: pageNumber,
-            limit: limitNumber,
-            sortBy,
-            sortOrder,
-            isActive: isActiveBoolean,
-            search,
-        });
+        @Query() query: FindSafetyEquipmentTypeDto,
+    ): Promise<{ data: SafetyEquipmentTypeDto[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+        return this.ppeService.findAllSafetyEquipmentTypes(query);
     }
 
     @Get('safety-equipment-types/:id')
@@ -456,7 +475,15 @@ export class PPEController {
     }
 
     @Get('safety-equipments')
-    @ApiOperation({ summary: 'Get all safety equipments' })
+    @ApiOperation({ summary: 'Get all safety equipments with pagination and filtering' })
+    @ApiQuery({ name: 'page', required: false, type: Number })
+    @ApiQuery({ name: 'limit', required: false, type: Number })
+    @ApiQuery({ name: 'sortBy', required: false, type: String })
+    @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
+    @ApiQuery({ name: 'isActive', required: false, type: Boolean })
+    @ApiQuery({ name: 'search', required: false, type: String })
+    @ApiQuery({ name: 'category', required: false, enum: ['PERSONAL_PROTECTIVE_EQUIPMENT', 'SAFETY_EQUIPMENT', 'EMERGENCY_EQUIPMENT'] })
+    @ApiQuery({ name: 'safetyEquipmentTypeId', required: false, type: String })
     @ApiResponse({
         status: 200,
         description: 'Return all safety equipments.',
@@ -464,30 +491,9 @@ export class PPEController {
     })
     @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
     findAllSafetyEquipments(
-        @Query('page') page?: string,
-        @Query('limit') limit?: string,
-        @Query('sortBy') sortBy?: string,
-        @Query('sortOrder') sortOrder?: 'asc' | 'desc',
-        @Query('isActive') isActive?: string,
-        @Query('search') search?: string,
-        @Query('category') category?: string,
-        @Query('safetyEquipmentTypeId') safetyEquipmentTypeId?: string,
-    ): Promise<{ data: SafetyEquipmentDto[]; meta: { total: number } }> {
-        const pageNumber = page ? parseInt(page, 10) : undefined;
-        const limitNumber = limit ? parseInt(limit, 10) : undefined;
-        const isActiveBoolean =
-            isActive === undefined ? undefined : isActive === 'true';
-
-        return this.ppeService.findAllSafetyEquipments({
-            page: pageNumber,
-            limit: limitNumber,
-            sortBy,
-            sortOrder,
-            isActive: isActiveBoolean,
-            search,
-            category,
-            safetyEquipmentTypeId,
-        });
+        @Query() query: FindSafetyEquipmentDto,
+    ): Promise<{ data: SafetyEquipmentDto[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+        return this.ppeService.findAllSafetyEquipments(query);
     }
 
     @Get('safety-equipments/:id')
