@@ -17,6 +17,8 @@ import { seedFileStorageProviders } from './seeds/file-storage-providers.seed';
 import { seedPPE } from './seeds/ppe.seed';
 import { seedSafetyEquipmentTypes } from './seeds/safety-equipment-types.seed';
 import { seedSafetyEquipments } from './seeds/safety-equipments.seed';
+import { seedCertificateCategories } from './seeds/certificate-categories.seed';
+import { seedCertificates } from './seeds/certificates.seed';
 
 const prisma = new PrismaClient();
 
@@ -67,6 +69,11 @@ async function main() {
       await prisma.fileUpload.deleteMany();
       await prisma.fileCategory.deleteMany();
       await prisma.fileStorageProvider.deleteMany();
+      // Clear Certificate data
+      await prisma.certificateReminder.deleteMany();
+      await prisma.certificateRenewal.deleteMany();
+      await prisma.certificate.deleteMany();
+      await prisma.certificateCategory.deleteMany();
       console.log('All existing data cleared successfully');
     } else {
       // Clear only the specified table
@@ -140,6 +147,17 @@ async function main() {
           await (prisma as any).pPEStockItem.deleteMany();
           await (prisma as any).pPEStock.deleteMany();
           break;
+        case 'certificate_categories':
+          await prisma.certificateReminder.deleteMany();
+          await prisma.certificateRenewal.deleteMany();
+          await prisma.certificate.deleteMany();
+          await prisma.certificateCategory.deleteMany();
+          break;
+        case 'certificates':
+          await prisma.certificateReminder.deleteMany();
+          await prisma.certificateRenewal.deleteMany();
+          await prisma.certificate.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
           console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe');
@@ -174,6 +192,8 @@ async function main() {
       await seedSafetyEquipmentTypes();
       await seedSafetyEquipments();
       await seedPPE();
+      await seedCertificateCategories(prisma);
+      await seedCertificates(prisma);
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -274,6 +294,12 @@ async function main() {
           break;
         case 'ppe':
           await seedPPE();
+          break;
+        case 'certificate_categories':
+          await seedCertificateCategories(prisma);
+          break;
+        case 'certificates':
+          await seedCertificates(prisma);
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

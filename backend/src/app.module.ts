@@ -25,6 +25,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { PPEModule } from './modules/ppe/ppe.module';
+import { CertificatesModule } from './modules/certificates/certificates.module';
 import { SharedModule } from './shared/shared.module';
 
 @Module({
@@ -54,6 +55,7 @@ import { SharedModule } from './shared/shared.module';
     NotificationsModule,
     UploadsModule,
     PPEModule,
+    CertificatesModule,
   ],
   providers: [
     Reflector,
