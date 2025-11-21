@@ -20,9 +20,8 @@ import { Textarea } from '@/core/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import ppeService from '../../services/ppeService';
-import departmentService from '@/modules/master-data/services/departmentService';
-import jobPositionService from '@/modules/master-data/services/jobPositionService';
-import { userService } from '@/modules/users';
+import { departmentService, jobPositionService, type Department, type JobPosition } from '@/modules/master-data';
+import { userService, type User } from '@/modules/users';
 import {
     CreatePPEWithdrawalDTO,
     UpdatePPEWithdrawalDTO,
@@ -31,8 +30,6 @@ import {
     PPEStockItem,
     PPEStockStatus,
 } from '../../types/ppe.types';
-import { Department, JobPosition } from '@/core/lib/types';
-import { User } from '@/modules/users/types/user.types';
 
 const withdrawalItemSchema = z.object({
     stockItemId: z.string().min(1, 'Stock item is required'),
@@ -117,9 +114,9 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                 // Fetch file category ID for withdrawal letter
                 let categoryId: string | null = null;
                 try {
-                    const categoriesRes = await api.get('/uploads/categories');
+                    const categoriesRes = await api.get<Array<{ id: string; name: string }>>('/uploads/categories');
                     const category = categoriesRes.data.find(
-                        (cat: any) => cat.name === 'ppe-withdrawal-letter'
+                        (cat) => cat.name === 'ppe-withdrawal-letter'
                     );
                     if (category) {
                         categoryId = category.id;

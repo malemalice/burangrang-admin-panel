@@ -39,7 +39,7 @@ export const useSafetyEquipmentTypes = () => {
         }
     }, []);
 
-    const createType = async (typeData: CreateSafetyEquipmentTypeDTO) => {
+    const createType = useCallback(async (typeData: CreateSafetyEquipmentTypeDTO) => {
         try {
             const newType = await safetyEquipmentTypeService.createSafetyEquipmentType(typeData);
             setTypes((prev) => [newType, ...prev]);
@@ -50,9 +50,9 @@ export const useSafetyEquipmentTypes = () => {
             toast.error('Failed to create safety equipment type');
             throw err;
         }
-    };
+    }, []);
 
-    const updateType = async (id: string, typeData: UpdateSafetyEquipmentTypeDTO) => {
+    const updateType = useCallback(async (id: string, typeData: UpdateSafetyEquipmentTypeDTO) => {
         try {
             const updatedType = await safetyEquipmentTypeService.updateSafetyEquipmentType(
                 id,
@@ -65,9 +65,9 @@ export const useSafetyEquipmentTypes = () => {
             toast.error('Failed to update safety equipment type');
             throw err;
         }
-    };
+    }, []);
 
-    const deleteType = async (id: string) => {
+    const deleteType = useCallback(async (id: string) => {
         try {
             await safetyEquipmentTypeService.deleteSafetyEquipmentType(id);
             setTypes((prev) => prev.filter((item) => item.id !== id));
@@ -78,7 +78,7 @@ export const useSafetyEquipmentTypes = () => {
             toast.error(errorMessage);
             throw err;
         }
-    };
+    }, []);
 
     return {
         types,
@@ -114,7 +114,7 @@ export const useSafetyEquipmentType = (id: string | null = null) => {
         }
     }, []);
 
-    const updateType = async (typeId: string, typeData: UpdateSafetyEquipmentTypeDTO) => {
+    const updateType = useCallback(async (typeId: string, typeData: UpdateSafetyEquipmentTypeDTO) => {
         try {
             const updatedType = await safetyEquipmentTypeService.updateSafetyEquipmentType(
                 typeId,
@@ -127,7 +127,7 @@ export const useSafetyEquipmentType = (id: string | null = null) => {
             toast.error('Failed to update safety equipment type');
             throw err;
         }
-    };
+    }, []);
 
     useEffect(() => {
         if (id) {

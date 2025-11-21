@@ -7,6 +7,8 @@ import {
     PPEStockItemDTO,
     PPEWithdrawal,
     PPEWithdrawalDTO,
+    PPEWithdrawalItem,
+    PPEWithdrawalItemDTO,
     CreatePPEStockDTO,
     UpdatePPEStockDTO,
     CreatePPEWithdrawalDTO,
@@ -15,6 +17,8 @@ import {
     PPEStockSearchParams,
     PPEStockItemSearchParams,
     PPEWithdrawalSearchParams,
+    PPEStockStatus,
+    PPEWithdrawalStatus,
 } from '../types/ppe.types';
 
 // Convert DTOs to frontend models
@@ -29,7 +33,7 @@ const mapPPEStockItemDtoToPPEStockItem = (itemDto: PPEStockItemDTO): PPEStockIte
     initialQuantity: itemDto.initialQuantity,
     currentQuantity: itemDto.currentQuantity,
     reservedQuantity: itemDto.reservedQuantity,
-    status: itemDto.status as any,
+    status: itemDto.status as PPEStockStatus,
     order: itemDto.order,
     createdAt: itemDto.createdAt,
     updatedAt: itemDto.updatedAt,
@@ -48,7 +52,7 @@ const mapPPEStockDtoToPPEStock = (stockDto: PPEStockDTO): PPEStock => ({
     items: stockDto.items?.map(mapPPEStockItemDtoToPPEStockItem),
 });
 
-const mapPPEWithdrawalItemDtoToPPEWithdrawalItem = (itemDto: any): any => ({
+const mapPPEWithdrawalItemDtoToPPEWithdrawalItem = (itemDto: PPEWithdrawalItemDTO): PPEWithdrawalItem => ({
     id: itemDto.id,
     withdrawalId: itemDto.withdrawalId,
     stockItemId: itemDto.stockItemId,
@@ -71,7 +75,7 @@ const mapPPEWithdrawalDtoToPPEWithdrawal = (withdrawalDto: PPEWithdrawalDTO): PP
     departmentId: withdrawalDto.departmentId,
     jobPositionId: withdrawalDto.jobPositionId,
     jobPositionName: withdrawalDto.jobPositionName,
-    status: withdrawalDto.status as any,
+    status: withdrawalDto.status as PPEWithdrawalStatus,
     withdrawalLetterUrl: withdrawalDto.withdrawalLetterUrl,
     collectedDate: withdrawalDto.collectedDate,
     collectedBy: withdrawalDto.collectedBy,
@@ -122,9 +126,10 @@ const ppeService = {
                 data: response.data.data.map(mapPPEStockItemDtoToPPEStockItem),
                 meta: response.data.meta,
             };
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching available stock items:', error);
-            throw error;
+            const errorMessage = error.response?.data?.message || 'Failed to fetch available stock items';
+            throw new Error(errorMessage);
         }
     },
 
@@ -157,9 +162,10 @@ const ppeService = {
                 data: response.data.data.map(mapPPEStockItemDtoToPPEStockItem),
                 meta: response.data.meta,
             };
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching stock items:', error);
-            throw error;
+            const errorMessage = error.response?.data?.message || 'Failed to fetch stock items';
+            throw new Error(errorMessage);
         }
     },
 
@@ -200,9 +206,10 @@ const ppeService = {
                 data: response.data.data.map(mapPPEStockDtoToPPEStock),
                 meta: response.data.meta,
             };
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching stocks:', error);
-            throw error;
+            const errorMessage = error.response?.data?.message || 'Failed to fetch stocks';
+            throw new Error(errorMessage);
         }
     },
 
@@ -318,9 +325,10 @@ const ppeService = {
                 data: response.data.data.map(mapPPEWithdrawalDtoToPPEWithdrawal),
                 meta: response.data.meta,
             };
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching withdrawals:', error);
-            throw error;
+            const errorMessage = error.response?.data?.message || 'Failed to fetch withdrawals';
+            throw new Error(errorMessage);
         }
     },
 

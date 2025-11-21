@@ -49,7 +49,7 @@ export const usePPEStocks = () => {
         }
     }, []);
 
-    const createStock = async (stockData: CreatePPEStockDTO) => {
+    const createStock = useCallback(async (stockData: CreatePPEStockDTO) => {
         try {
             const newStock = await ppeService.createStock(stockData);
             setStocks((prev) => [newStock, ...prev]);
@@ -60,9 +60,9 @@ export const usePPEStocks = () => {
             toast.error('Failed to create stock');
             throw err;
         }
-    };
+    }, []);
 
-    const updateStock = async (id: string, stockData: UpdatePPEStockDTO) => {
+    const updateStock = useCallback(async (id: string, stockData: UpdatePPEStockDTO) => {
         try {
             const updatedStock = await ppeService.updateStock(id, stockData);
             setStocks((prev) => prev.map((item) => (item.id === id ? updatedStock : item)));
@@ -72,9 +72,9 @@ export const usePPEStocks = () => {
             toast.error('Failed to update stock');
             throw err;
         }
-    };
+    }, []);
 
-    const deleteStock = async (id: string) => {
+    const deleteStock = useCallback(async (id: string) => {
         try {
             await ppeService.deleteStock(id);
             setStocks((prev) => prev.filter((item) => item.id !== id));
@@ -85,7 +85,7 @@ export const usePPEStocks = () => {
             toast.error(errorMessage);
             throw err;
         }
-    };
+    }, []);
 
     return {
         stocks,
@@ -126,7 +126,7 @@ export const usePPEStock = (id: string | null = null) => {
         }
     }, [id, fetchStock]);
 
-    const updateStockItem = async (
+    const updateStockItem = useCallback(async (
         stockId: string,
         itemId: string,
         updateData: Partial<{
@@ -150,9 +150,9 @@ export const usePPEStock = (id: string | null = null) => {
             toast.error('Failed to update stock item');
             throw err;
         }
-    };
+    }, [stock]);
 
-    const adjustStockItem = async (
+    const adjustStockItem = useCallback(async (
         stockId: string,
         itemId: string,
         adjustmentData: CreateStockAdjustmentDTO,
@@ -168,7 +168,7 @@ export const usePPEStock = (id: string | null = null) => {
             toast.error('Failed to create stock adjustment');
             throw err;
         }
-    };
+    }, [id, fetchStock]);
 
     return {
         stock,
@@ -242,7 +242,7 @@ export const usePPEWithdrawals = () => {
         }
     }, []);
 
-    const createWithdrawal = async (withdrawalData: CreatePPEWithdrawalDTO) => {
+    const createWithdrawal = useCallback(async (withdrawalData: CreatePPEWithdrawalDTO) => {
         try {
             const newWithdrawal = await ppeService.createWithdrawal(withdrawalData);
             setWithdrawals((prev) => [newWithdrawal, ...prev]);
@@ -253,9 +253,9 @@ export const usePPEWithdrawals = () => {
             toast.error('Failed to create withdrawal');
             throw err;
         }
-    };
+    }, []);
 
-    const approveWithdrawal = async (id: string, updateData: UpdatePPEWithdrawalDTO) => {
+    const approveWithdrawal = useCallback(async (id: string, updateData: UpdatePPEWithdrawalDTO) => {
         try {
             const updatedWithdrawal = await ppeService.approveWithdrawal(id, updateData);
             setWithdrawals((prev) => prev.map((item) => (item.id === id ? updatedWithdrawal : item)));
@@ -265,9 +265,9 @@ export const usePPEWithdrawals = () => {
             toast.error('Failed to approve withdrawal');
             throw err;
         }
-    };
+    }, []);
 
-    const collectWithdrawal = async (id: string, updateData: UpdatePPEWithdrawalDTO) => {
+    const collectWithdrawal = useCallback(async (id: string, updateData: UpdatePPEWithdrawalDTO) => {
         try {
             const updatedWithdrawal = await ppeService.collectWithdrawal(id, updateData);
             setWithdrawals((prev) => prev.map((item) => (item.id === id ? updatedWithdrawal : item)));
@@ -277,9 +277,9 @@ export const usePPEWithdrawals = () => {
             toast.error('Failed to collect withdrawal');
             throw err;
         }
-    };
+    }, []);
 
-    const cancelWithdrawal = async (id: string, updateData?: UpdatePPEWithdrawalDTO) => {
+    const cancelWithdrawal = useCallback(async (id: string, updateData?: UpdatePPEWithdrawalDTO) => {
         try {
             const updatedWithdrawal = await ppeService.cancelWithdrawal(id, updateData);
             setWithdrawals((prev) => prev.map((item) => (item.id === id ? updatedWithdrawal : item)));
@@ -289,9 +289,9 @@ export const usePPEWithdrawals = () => {
             toast.error('Failed to cancel withdrawal');
             throw err;
         }
-    };
+    }, []);
 
-    const deleteWithdrawal = async (id: string) => {
+    const deleteWithdrawal = useCallback(async (id: string) => {
         try {
             await ppeService.deleteWithdrawal(id);
             setWithdrawals((prev) => prev.filter((item) => item.id !== id));
@@ -302,7 +302,7 @@ export const usePPEWithdrawals = () => {
             toast.error(errorMessage);
             throw err;
         }
-    };
+    }, []);
 
     return {
         withdrawals,

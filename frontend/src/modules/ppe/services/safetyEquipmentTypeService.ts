@@ -61,9 +61,10 @@ const safetyEquipmentTypeService = {
                 data: response.data.data.map(mapSafetyEquipmentTypeDtoToSafetyEquipmentType),
                 meta: response.data.meta,
             };
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching safety equipment types:', error);
-            throw error;
+            const errorMessage = error.response?.data?.message || 'Failed to fetch safety equipment types';
+            throw new Error(errorMessage);
         }
     },
 
