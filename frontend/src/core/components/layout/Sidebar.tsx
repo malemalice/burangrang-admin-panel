@@ -107,7 +107,7 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
   return (
     <aside
       className={cn(
-        "fixed h-full border-r shadow-sm z-30 transition-all duration-300 ease-in-out",
+        "fixed h-full border-r shadow-sm z-30 transition-all duration-300 ease-in-out flex flex-col",
         isOpen ? "w-64" : "w-20"
       )}
       style={{
@@ -116,7 +116,7 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
       }}
     >
       <div className={cn(
-        "flex items-center justify-center h-16 border-b px-4",
+        "flex items-center justify-center h-16 border-b px-4 flex-shrink-0",
         isDark ? "border-gray-800" : "border-white/10"
       )}>
         <h1
@@ -127,7 +127,7 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
         </h1>
       </div>
 
-      <div className="py-4 px-2 space-y-1">
+      <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden">
         <NavItem to="/" icon="LayoutDashboard" isOpen={isOpen}>Dashboard</NavItem>
 
         <SubMenu title="Master Data" icon="Building2" isOpen={isOpen}>
