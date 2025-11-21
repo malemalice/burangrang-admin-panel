@@ -39,7 +39,7 @@ export const useSafetyEquipments = () => {
         }
     }, []);
 
-    const createEquipment = async (equipmentData: CreateSafetyEquipmentDTO) => {
+    const createEquipment = useCallback(async (equipmentData: CreateSafetyEquipmentDTO) => {
         try {
             const newEquipment = await safetyEquipmentService.createSafetyEquipment(equipmentData);
             setEquipments((prev) => [newEquipment, ...prev]);
@@ -50,9 +50,9 @@ export const useSafetyEquipments = () => {
             toast.error('Failed to create safety equipment');
             throw err;
         }
-    };
+    }, []);
 
-    const updateEquipment = async (id: string, equipmentData: UpdateSafetyEquipmentDTO) => {
+    const updateEquipment = useCallback(async (id: string, equipmentData: UpdateSafetyEquipmentDTO) => {
         try {
             const updatedEquipment = await safetyEquipmentService.updateSafetyEquipment(
                 id,
@@ -65,9 +65,9 @@ export const useSafetyEquipments = () => {
             toast.error('Failed to update safety equipment');
             throw err;
         }
-    };
+    }, []);
 
-    const deleteEquipment = async (id: string) => {
+    const deleteEquipment = useCallback(async (id: string) => {
         try {
             await safetyEquipmentService.deleteSafetyEquipment(id);
             setEquipments((prev) => prev.filter((item) => item.id !== id));
@@ -78,7 +78,7 @@ export const useSafetyEquipments = () => {
             toast.error(errorMessage);
             throw err;
         }
-    };
+    }, []);
 
     return {
         equipments,
@@ -114,7 +114,7 @@ export const useSafetyEquipment = (id: string | null = null) => {
         }
     }, []);
 
-    const updateEquipment = async (equipmentId: string, equipmentData: UpdateSafetyEquipmentDTO) => {
+    const updateEquipment = useCallback(async (equipmentId: string, equipmentData: UpdateSafetyEquipmentDTO) => {
         try {
             const updatedEquipment = await safetyEquipmentService.updateSafetyEquipment(
                 equipmentId,
@@ -127,7 +127,7 @@ export const useSafetyEquipment = (id: string | null = null) => {
             toast.error('Failed to update safety equipment');
             throw err;
         }
-    };
+    }, []);
 
     useEffect(() => {
         if (id) {
