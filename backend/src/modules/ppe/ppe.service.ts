@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
@@ -19,27 +19,9 @@ import { SafetyEquipmentTypeDto } from './dto/safety-equipment-type.dto';
 import { CreateSafetyEquipmentDto } from './dto/create-safety-equipment.dto';
 import { UpdateSafetyEquipmentDto } from './dto/update-safety-equipment.dto';
 import { SafetyEquipmentDto } from './dto/safety-equipment.dto';
+import { FindSafetyEquipmentTypeDto } from './dto/find-safety-equipment-type.dto';
+import { FindSafetyEquipmentDto } from './dto/find-safety-equipment.dto';
 import { Prisma } from '@prisma/client';
-
-interface FindAllSafetyEquipmentTypesOptions {
-    page?: number;
-    limit?: number;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-    isActive?: boolean;
-    search?: string;
-}
-
-interface FindAllSafetyEquipmentsOptions {
-    page?: number;
-    limit?: number;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-    isActive?: boolean;
-    search?: string;
-    category?: string;
-    safetyEquipmentTypeId?: string;
-}
 
 @Injectable()
 export class PPEService {
@@ -89,7 +71,7 @@ export class PPEService {
         const prefix = `PPE-STK-${dateStr}-`;
 
         // Find the last stock code for today
-        const lastStock = await (this.prisma as any).pPEStock.findFirst({
+        const lastStock = await this.prisma['pPEStock'].findFirst({
             where: {
                 stockCode: {
                     startsWith: prefix,
@@ -118,7 +100,7 @@ export class PPEService {
         const prefix = `PPE-WD-${dateStr}-`;
 
         // Find the last withdrawal code for today
-        const lastWithdrawal = await (this.prisma as any).pPEWithdrawal.findFirst({
+        const lastWithdrawal = await this.prisma['pPEWithdrawal'].findFirst({
             where: {
                 withdrawalCode: {
                     startsWith: prefix,
@@ -170,7 +152,7 @@ export class PPEService {
         today.setHours(0, 0, 0, 0);
 
         // Only update items from active and non-deleted stocks
-        await (this.prisma as any).pPEStockItem.updateMany({
+        await this.prisma['pPEStockItem'].updateMany({
             where: {
                 expiryDate: {
                     lte: today,
@@ -197,7 +179,7 @@ export class PPEService {
 
         return await this.prisma.$transaction(async (tx) => {
             // Create stock header
-            const stock = await (tx as any).pPEStock.create({
+            const stock = await tx["pPEStock"].create({
                 data: {
                     stockCode,
                     receivedDate: new Date(createStockDto.receivedDate),
@@ -210,7 +192,7 @@ export class PPEService {
             // Create stock items
             const items = await Promise.all(
                 createStockDto.items.map((item, index) =>
-                    (tx as any).pPEStockItem.create({
+                    tx["pPEStockItem"].create({
                         data: {
                             stockId: stock.id,
                             safetyEquipmentId: item.safetyEquipmentId || null,
@@ -229,7 +211,7 @@ export class PPEService {
             );
 
             // Fetch with relations
-            const stockWithItems = await (tx as any).pPEStock.findUnique({
+            const stockWithItems = await tx["pPEStock"].findUnique({
                 where: { id: stock.id },
                 include: {
                     items: {
@@ -261,7 +243,7 @@ export class PPEService {
             receivedDateTo,
         } = options || {};
 
-        const where: any = {
+        const where: Prisma.PPEStockWhereInput = {
             deletedAt: null, // Only get non-deleted records
         };
 
@@ -286,7 +268,7 @@ export class PPEService {
             }
         }
 
-        const orderBy: any = {};
+        const orderBy: Prisma.PPEStockOrderByWithRelationInput = {};
         if (sortBy) {
             orderBy[sortBy] = sortOrder || 'desc';
         }
@@ -295,7 +277,7 @@ export class PPEService {
         await this.checkAndUpdateExpiredItems();
 
         const [stocks, total] = await Promise.all([
-            (this.prisma as any).pPEStock.findMany({
+            this.prisma["pPEStock"].findMany({
                 where,
                 include: {
                     items: {
@@ -307,7 +289,7 @@ export class PPEService {
                 skip: (page - 1) * limit,
                 take: limit,
             }),
-            (this.prisma as any).pPEStock.count({ where }),
+            this.prisma["pPEStock"].count({ where }),
         ]);
 
         return this.ppeStockPaginatedMapper({
@@ -323,7 +305,7 @@ export class PPEService {
         // Check and update expired items before fetching
         await this.checkAndUpdateExpiredItems();
 
-        const stock = await (this.prisma as any).pPEStock.findFirst({
+        const stock = await this.prisma["pPEStock"].findFirst({
             where: {
                 id,
                 deletedAt: null, // Only get non-deleted records
@@ -345,7 +327,7 @@ export class PPEService {
      * Update stock
      */
     async updateStock(id: string, updateStockDto: UpdatePPEStockDto): Promise<PPEStockDto> {
-        const existingStock = await (this.prisma as any).pPEStock.findFirst({
+        const existingStock = await this.prisma["pPEStock"].findFirst({
             where: {
                 id,
                 deletedAt: null, // Only update non-deleted records
@@ -359,7 +341,7 @@ export class PPEService {
 
         return await this.prisma.$transaction(async (tx) => {
             // Update stock header
-            const stock = await (tx as any).pPEStock.update({
+            const stock = await tx["pPEStock"].update({
                 where: { id },
                 data: {
                     receivedDate: updateStockDto.receivedDate ? new Date(updateStockDto.receivedDate) : undefined,
@@ -380,7 +362,7 @@ export class PPEService {
                     (itemId: string) => !requestItemIds.includes(itemId),
                 );
                 if (itemsToDelete.length > 0) {
-                    await (tx as any).pPEStockItem.deleteMany({
+                    await tx["pPEStockItem"].deleteMany({
                         where: {
                             id: { in: itemsToDelete },
                             stockId: id,
@@ -402,7 +384,7 @@ export class PPEService {
                         const maxCurrentQty = Math.max(0, initialQty - currentReservedQty);
                         const newCurrentQty = Math.min(initialQty, existingItem?.currentQuantity || initialQty);
 
-                        await (tx as any).pPEStockItem.update({
+                        await tx["pPEStockItem"].update({
                             where: { id: itemDto.id },
                             data: {
                                 safetyEquipmentId: itemDto.safetyEquipmentId || null,
@@ -418,7 +400,7 @@ export class PPEService {
                         });
                     } else {
                         // Create new item
-                        await (tx as any).pPEStockItem.create({
+                        await tx["pPEStockItem"].create({
                             data: {
                                 stockId: id,
                                 safetyEquipmentId: itemDto.safetyEquipmentId || null,
@@ -438,7 +420,7 @@ export class PPEService {
             }
 
             // Fetch updated stock with items
-            const stockWithItems = await (tx as any).pPEStock.findUnique({
+            const stockWithItems = await tx["pPEStock"].findUnique({
                 where: { id },
                 include: {
                     items: {
@@ -456,7 +438,7 @@ export class PPEService {
      * Delete stock (soft delete)
      */
     async deleteStock(id: string): Promise<void> {
-        const stock = await (this.prisma as any).pPEStock.findFirst({
+        const stock = await this.prisma["pPEStock"].findFirst({
             where: {
                 id,
                 deletedAt: null, // Only delete non-deleted records
@@ -484,11 +466,11 @@ export class PPEService {
         );
 
         if (activeWithdrawals) {
-            throw new BadRequestException('Cannot delete stock. It has active withdrawals.');
+            this.errorHandler.throwBadRequest('Cannot delete stock. It has active withdrawals.');
         }
 
         // Soft delete by setting deletedAt and isActive to false
-        await (this.prisma as any).pPEStock.update({
+        await this.prisma["pPEStock"].update({
             where: { id },
             data: {
                 deletedAt: new Date(),
@@ -511,7 +493,7 @@ export class PPEService {
         }>,
     ): Promise<PPEStockItemDto> {
         // Validate stock is not deleted
-        const stock = await (this.prisma as any).pPEStock.findFirst({
+        const stock = await this.prisma["pPEStock"].findFirst({
             where: {
                 id: stockId,
                 deletedAt: null,
@@ -520,7 +502,7 @@ export class PPEService {
 
         this.errorHandler.throwIfNotFoundById('PPEStock', stockId, stock);
 
-        const stockItem = await (this.prisma as any).pPEStockItem.findFirst({
+        const stockItem = await this.prisma["pPEStockItem"].findFirst({
             where: {
                 id: itemId,
                 stockId,
@@ -529,9 +511,9 @@ export class PPEService {
 
         this.errorHandler.throwIfNotFoundById('PPEStockItem', itemId, stockItem);
 
-        const updatedItem = await (this.prisma as any).pPEStockItem.update({
+        const updatedItem = await this.prisma["pPEStockItem"].update({
             where: { id: itemId },
-            data: updateData,
+            data: updateData as any,
         });
 
         return this.ppeStockItemMapper(updatedItem);
@@ -546,7 +528,7 @@ export class PPEService {
         adjustmentDto: CreateStockAdjustmentDto,
         adjustedBy: string,
     ): Promise<void> {
-        const stockItem = await (this.prisma as any).pPEStockItem.findFirst({
+        const stockItem = await this.prisma["pPEStockItem"].findFirst({
             where: {
                 id: itemId,
                 stockId,
@@ -561,7 +543,7 @@ export class PPEService {
 
         await this.prisma.$transaction(async (tx) => {
             // Update stock item
-            await (tx as any).pPEStockItem.update({
+            await tx["pPEStockItem"].update({
                 where: { id: itemId },
                 data: {
                     currentQuantity: quantityAfter,
@@ -569,7 +551,7 @@ export class PPEService {
             });
 
             // Create adjustment record
-            await (tx as any).pPEStockAdjustment.create({
+            await tx["pPEStockAdjustment"].create({
                 data: {
                     stockItemId: itemId,
                     adjustmentType: adjustmentDto.adjustmentType,
@@ -605,7 +587,7 @@ export class PPEService {
             availableOnly = true,
         } = options || {};
 
-        const where: any = {
+        const where: Prisma.PPEStockItemWhereInput = {
             stock: {
                 isActive: true,
                 deletedAt: null, // Only get items from non-deleted stocks
@@ -635,13 +617,13 @@ export class PPEService {
             ];
         }
 
-        const orderBy: any = {};
+        const orderBy: Prisma.PPEStockItemOrderByWithRelationInput = {};
         if (sortBy) {
             orderBy[sortBy] = sortOrder || 'desc';
         }
 
         const [items, total] = await Promise.all([
-            (this.prisma as any).pPEStockItem.findMany({
+            this.prisma["pPEStockItem"].findMany({
                 where,
                 include: {
                     stock: true,
@@ -650,7 +632,7 @@ export class PPEService {
                 skip: (page - 1) * limit,
                 take: limit,
             }),
-            (this.prisma as any).pPEStockItem.count({ where }),
+            this.prisma["pPEStockItem"].count({ where }),
         ]);
 
         return {
@@ -671,21 +653,21 @@ export class PPEService {
 
         // Validate stock items availability
         for (const item of createWithdrawalDto.items) {
-            const stockItem = await (this.prisma as any).pPEStockItem.findUnique({
+            const stockItem = await this.prisma["pPEStockItem"].findUnique({
                 where: { id: item.stockItemId },
             });
 
             this.errorHandler.throwIfNotFoundById('PPEStockItem', item.stockItemId, stockItem);
 
             if (stockItem.status !== 'AVAILABLE') {
-                throw new BadRequestException(
+                this.errorHandler.throwBadRequest(
                     `Stock item ${item.stockItemId} is not available for withdrawal. Current status: ${stockItem.status}`,
                 );
             }
 
             const availableQuantity = stockItem.currentQuantity - stockItem.reservedQuantity;
             if (item.requestedQuantity > availableQuantity) {
-                throw new BadRequestException(
+                this.errorHandler.throwBadRequest(
                     `Insufficient stock for item ${item.stockItemId}. Available: ${availableQuantity}, Requested: ${item.requestedQuantity}`,
                 );
             }
@@ -693,7 +675,7 @@ export class PPEService {
 
         return await this.prisma.$transaction(async (tx) => {
             // Create withdrawal header
-            const withdrawal = await (tx as any).pPEWithdrawal.create({
+            const withdrawal = await tx["pPEWithdrawal"].create({
                 data: {
                     withdrawalCode,
                     withdrawalDate: new Date(createWithdrawalDto.withdrawalDate),
@@ -714,12 +696,12 @@ export class PPEService {
             const items = await Promise.all(
                 createWithdrawalDto.items.map(async (item, index) => {
                     // Get current stock item to check status
-                    const stockItem = await (tx as any).pPEStockItem.findUnique({
+                    const stockItem = await tx["pPEStockItem"].findUnique({
                         where: { id: item.stockItemId },
                     });
 
                     if (!stockItem) {
-                        throw new BadRequestException(`Stock item ${item.stockItemId} not found`);
+                        this.errorHandler.throwBadRequest(`Stock item ${item.stockItemId} not found`);
                     }
 
                     // Calculate new reserved quantity
@@ -737,7 +719,7 @@ export class PPEService {
                     }
 
                     // Reserve stock
-                    await (tx as any).pPEStockItem.update({
+                    await tx["pPEStockItem"].update({
                         where: { id: item.stockItemId },
                         data: {
                             reservedQuantity: {
@@ -747,7 +729,7 @@ export class PPEService {
                         },
                     });
 
-                    return (tx as any).pPEWithdrawalItem.create({
+                    return tx["pPEWithdrawalItem"].create({
                         data: {
                             withdrawalId: withdrawal.id,
                             stockItemId: item.stockItemId,
@@ -760,7 +742,7 @@ export class PPEService {
             );
 
             // Fetch with relations
-            const withdrawalWithItems = await (tx as any).pPEWithdrawal.findUnique({
+            const withdrawalWithItems = await tx["pPEWithdrawal"].findUnique({
                 where: { id: withdrawal.id },
                 include: {
                     items: {
@@ -805,7 +787,7 @@ export class PPEService {
             withdrawalDateTo,
         } = options || {};
 
-        const where: any = {
+        const where: Prisma.PPEWithdrawalWhereInput = {
             deletedAt: null, // Only get non-deleted records
         };
 
@@ -838,13 +820,13 @@ export class PPEService {
             }
         }
 
-        const orderBy: any = {};
+        const orderBy: Prisma.PPEWithdrawalOrderByWithRelationInput = {};
         if (sortBy) {
             orderBy[sortBy] = sortOrder || 'desc';
         }
 
         const [withdrawals, total] = await Promise.all([
-            (this.prisma as any).pPEWithdrawal.findMany({
+            this.prisma["pPEWithdrawal"].findMany({
                 where,
                 include: {
                     items: {
@@ -867,7 +849,7 @@ export class PPEService {
                 skip: (page - 1) * limit,
                 take: limit,
             }),
-            (this.prisma as any).pPEWithdrawal.count({ where }),
+            this.prisma["pPEWithdrawal"].count({ where }),
         ]);
 
         // Populate requestedForName from requestedForUser if not already set
@@ -885,7 +867,7 @@ export class PPEService {
      * Find withdrawal by ID
      */
     async findWithdrawalById(id: string): Promise<PPEWithdrawalDto> {
-        const withdrawal = await (this.prisma as any).pPEWithdrawal.findFirst({
+        const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
             where: {
                 id,
                 deletedAt: null, // Only get non-deleted records
@@ -920,7 +902,7 @@ export class PPEService {
      * Approve withdrawal
      */
     async approveWithdrawal(id: string, updateDto: UpdatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
-        const withdrawal = await (this.prisma as any).pPEWithdrawal.findFirst({
+        const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
             where: {
                 id,
                 deletedAt: null, // Only approve non-deleted records
@@ -933,7 +915,7 @@ export class PPEService {
         this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
 
         if (withdrawal.status !== 'PENDING') {
-            throw new BadRequestException(`Withdrawal ${id} cannot be approved. Current status: ${withdrawal.status}`);
+            this.errorHandler.throwBadRequest(`Withdrawal ${id} cannot be approved. Current status: ${withdrawal.status}`);
         }
 
         return await this.prisma.$transaction(async (tx) => {
@@ -948,7 +930,7 @@ export class PPEService {
 
                         // Validate approved quantity
                         if (approvedQty > item.requestedQuantity) {
-                            throw new BadRequestException(
+                            this.errorHandler.throwBadRequest(
                                 `Approved quantity (${approvedQty}) cannot exceed requested quantity (${item.requestedQuantity}) for item ${item.id}`,
                             );
                         }
@@ -958,12 +940,12 @@ export class PPEService {
                             const difference = item.requestedQuantity - approvedQty;
 
                             // Get current stock item to check status
-                            const stockItem = await (tx as any).pPEStockItem.findUnique({
+                            const stockItem = await tx["pPEStockItem"].findUnique({
                                 where: { id: item.stockItemId },
                             });
 
                             if (!stockItem) {
-                                throw new BadRequestException(`Stock item ${item.stockItemId} not found`);
+                                this.errorHandler.throwBadRequest(`Stock item ${item.stockItemId} not found`);
                             }
 
                             const newReservedQuantity = Math.max(0, stockItem.reservedQuantity - difference);
@@ -979,7 +961,7 @@ export class PPEService {
                                 newStatus = 'AVAILABLE';
                             }
 
-                            await (tx as any).pPEStockItem.update({
+                            await tx["pPEStockItem"].update({
                                 where: { id: item.stockItemId },
                                 data: {
                                     reservedQuantity: newReservedQuantity,
@@ -990,7 +972,7 @@ export class PPEService {
                     }
 
                     // Always update approvedQuantity (even if same as requestedQuantity for consistency)
-                    await (tx as any).pPEWithdrawalItem.update({
+                    await tx["pPEWithdrawalItem"].update({
                         where: { id: item.id },
                         data: {
                             approvedQuantity: approvedQty,
@@ -1000,7 +982,7 @@ export class PPEService {
             );
 
             // Update withdrawal status
-            const updatedWithdrawal = await (tx as any).pPEWithdrawal.update({
+            const updatedWithdrawal = await tx["pPEWithdrawal"].update({
                 where: { id },
                 data: {
                     status: 'APPROVED' as any,
@@ -1033,7 +1015,7 @@ export class PPEService {
      * Collect withdrawal (deduct stock)
      */
     async collectWithdrawal(id: string, updateDto: UpdatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
-        const withdrawal = await (this.prisma as any).pPEWithdrawal.findFirst({
+        const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
             where: {
                 id,
                 deletedAt: null, // Only collect non-deleted records
@@ -1046,7 +1028,7 @@ export class PPEService {
         this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
 
         if (withdrawal.status !== 'APPROVED') {
-            throw new BadRequestException(`Withdrawal ${id} cannot be collected. Current status: ${withdrawal.status}`);
+            this.errorHandler.throwBadRequest(`Withdrawal ${id} cannot be collected. Current status: ${withdrawal.status}`);
         }
 
         return await this.prisma.$transaction(async (tx) => {
@@ -1057,17 +1039,17 @@ export class PPEService {
 
                     // Validate issued quantity
                     if (issuedQty > (item.approvedQuantity || item.requestedQuantity)) {
-                        throw new BadRequestException(
+                        this.errorHandler.throwBadRequest(
                             `Issued quantity (${issuedQty}) cannot exceed approved quantity (${item.approvedQuantity || item.requestedQuantity}) for item ${item.id}`,
                         );
                     }
 
-                    const stockItem = await (tx as any).pPEStockItem.findUnique({
+                    const stockItem = await tx["pPEStockItem"].findUnique({
                         where: { id: item.stockItemId },
                     });
 
                     if (!stockItem) {
-                        throw new BadRequestException(`Stock item ${item.stockItemId} not found`);
+                        this.errorHandler.throwBadRequest(`Stock item ${item.stockItemId} not found`);
                     }
 
                     // Deduct from stock
@@ -1086,7 +1068,7 @@ export class PPEService {
                         newStatus = 'AVAILABLE';
                     }
 
-                    await (tx as any).pPEStockItem.update({
+                    await tx["pPEStockItem"].update({
                         where: { id: item.stockItemId },
                         data: {
                             currentQuantity: newCurrentQuantity,
@@ -1096,7 +1078,7 @@ export class PPEService {
                     });
 
                     // Create stock adjustment for audit trail
-                    await (tx as any).pPEStockAdjustment.create({
+                    await tx["pPEStockAdjustment"].create({
                         data: {
                             stockItemId: item.stockItemId,
                             adjustmentType: 'RETURN', // Actually it's withdrawal, but using RETURN type
@@ -1109,7 +1091,7 @@ export class PPEService {
                     });
 
                     // Update withdrawal item
-                    await (tx as any).pPEWithdrawalItem.update({
+                    await tx["pPEWithdrawalItem"].update({
                         where: { id: item.id },
                         data: {
                             issuedQuantity: issuedQty,
@@ -1119,7 +1101,7 @@ export class PPEService {
             );
 
             // Update withdrawal status
-            const updatedWithdrawal = await (tx as any).pPEWithdrawal.update({
+            const updatedWithdrawal = await tx["pPEWithdrawal"].update({
                 where: { id },
                 data: {
                     status: 'COLLECTED' as any,
@@ -1155,7 +1137,7 @@ export class PPEService {
      * Update withdrawal (only if status is PENDING)
      */
     async updateWithdrawal(id: string, updateDto: CreatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
-        const withdrawal = await (this.prisma as any).pPEWithdrawal.findFirst({
+        const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
             where: {
                 id,
                 deletedAt: null, // Only update non-deleted records
@@ -1168,19 +1150,19 @@ export class PPEService {
         this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
 
         if (withdrawal.status !== 'PENDING') {
-            throw new BadRequestException(`Withdrawal ${id} cannot be updated. Current status: ${withdrawal.status}. Only PENDING withdrawals can be updated.`);
+            this.errorHandler.throwBadRequest(`Withdrawal ${id} cannot be updated. Current status: ${withdrawal.status}. Only PENDING withdrawals can be updated.`);
         }
 
         // Validate stock items availability
         for (const item of updateDto.items) {
-            const stockItem = await (this.prisma as any).pPEStockItem.findUnique({
+            const stockItem = await this.prisma["pPEStockItem"].findUnique({
                 where: { id: item.stockItemId },
             });
 
             this.errorHandler.throwIfNotFoundById('PPEStockItem', item.stockItemId, stockItem);
 
             if (stockItem.status !== 'AVAILABLE') {
-                throw new BadRequestException(
+                this.errorHandler.throwBadRequest(
                     `Stock item ${item.stockItemId} is not available for withdrawal. Current status: ${stockItem.status}`,
                 );
             }
@@ -1193,7 +1175,7 @@ export class PPEService {
             const availableQuantity = stockItem.currentQuantity - (stockItem.reservedQuantity - currentReservedFromThis);
 
             if (item.requestedQuantity > availableQuantity) {
-                throw new BadRequestException(
+                this.errorHandler.throwBadRequest(
                     `Insufficient stock for item ${item.stockItemId}. Available: ${availableQuantity}, Requested: ${item.requestedQuantity}`,
                 );
             }
@@ -1202,12 +1184,12 @@ export class PPEService {
         return await this.prisma.$transaction(async (tx) => {
             // Release reserved stock from old items
             for (const oldItem of withdrawal.items) {
-                const stockItem = await (tx as any).pPEStockItem.findUnique({
+                const stockItem = await tx["pPEStockItem"].findUnique({
                     where: { id: oldItem.stockItemId },
                 });
 
                 if (!stockItem) {
-                    throw new BadRequestException(`Stock item ${oldItem.stockItemId} not found`);
+                    this.errorHandler.throwBadRequest(`Stock item ${oldItem.stockItemId} not found`);
                 }
 
                 const newReservedQuantity = Math.max(0, stockItem.reservedQuantity - oldItem.requestedQuantity);
@@ -1223,7 +1205,7 @@ export class PPEService {
                     newStatus = 'AVAILABLE';
                 }
 
-                await (tx as any).pPEStockItem.update({
+                await tx["pPEStockItem"].update({
                     where: { id: oldItem.stockItemId },
                     data: {
                         reservedQuantity: newReservedQuantity,
@@ -1233,12 +1215,12 @@ export class PPEService {
             }
 
             // Delete old items
-            await (tx as any).pPEWithdrawalItem.deleteMany({
+            await tx["pPEWithdrawalItem"].deleteMany({
                 where: { withdrawalId: id },
             });
 
             // Update withdrawal header
-            await (tx as any).pPEWithdrawal.update({
+            await tx["pPEWithdrawal"].update({
                 where: { id },
                 data: {
                     withdrawalDate: new Date(updateDto.withdrawalDate),
@@ -1256,12 +1238,12 @@ export class PPEService {
             const items = await Promise.all(
                 updateDto.items.map(async (item, index) => {
                     // Get current stock item to check status
-                    const stockItem = await (tx as any).pPEStockItem.findUnique({
+                    const stockItem = await tx["pPEStockItem"].findUnique({
                         where: { id: item.stockItemId },
                     });
 
                     if (!stockItem) {
-                        throw new BadRequestException(`Stock item ${item.stockItemId} not found`);
+                        this.errorHandler.throwBadRequest(`Stock item ${item.stockItemId} not found`);
                     }
 
                     // Calculate new reserved quantity
@@ -1281,7 +1263,7 @@ export class PPEService {
                     }
 
                     // Reserve stock
-                    await (tx as any).pPEStockItem.update({
+                    await tx["pPEStockItem"].update({
                         where: { id: item.stockItemId },
                         data: {
                             reservedQuantity: {
@@ -1291,7 +1273,7 @@ export class PPEService {
                         },
                     });
 
-                    return (tx as any).pPEWithdrawalItem.create({
+                    return tx["pPEWithdrawalItem"].create({
                         data: {
                             withdrawalId: id,
                             stockItemId: item.stockItemId,
@@ -1304,7 +1286,7 @@ export class PPEService {
             );
 
             // Fetch updated withdrawal with relations
-            const updatedWithdrawal = await (tx as any).pPEWithdrawal.findUnique({
+            const updatedWithdrawal = await tx["pPEWithdrawal"].findUnique({
                 where: { id },
                 include: {
                     items: {
@@ -1333,7 +1315,7 @@ export class PPEService {
      * Cancel withdrawal
      */
     async cancelWithdrawal(id: string, updateDto?: UpdatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
-        const withdrawal = await (this.prisma as any).pPEWithdrawal.findFirst({
+        const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
             where: {
                 id,
                 deletedAt: null, // Only cancel non-deleted records
@@ -1346,7 +1328,7 @@ export class PPEService {
         this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
 
         if (withdrawal.status === 'COLLECTED') {
-            throw new BadRequestException(`Withdrawal ${id} cannot be cancelled. It has already been collected.`);
+            this.errorHandler.throwBadRequest(`Withdrawal ${id} cannot be cancelled. It has already been collected.`);
         }
 
         return await this.prisma.$transaction(async (tx) => {
@@ -1356,12 +1338,12 @@ export class PPEService {
                     const reservedQty = item.approvedQuantity || item.requestedQuantity;
 
                     // Get current stock item to check status
-                    const stockItem = await (tx as any).pPEStockItem.findUnique({
+                    const stockItem = await tx["pPEStockItem"].findUnique({
                         where: { id: item.stockItemId },
                     });
 
                     if (!stockItem) {
-                        throw new BadRequestException(`Stock item ${item.stockItemId} not found`);
+                        this.errorHandler.throwBadRequest(`Stock item ${item.stockItemId} not found`);
                     }
 
                     const newReservedQuantity = Math.max(0, stockItem.reservedQuantity - reservedQty);
@@ -1377,7 +1359,7 @@ export class PPEService {
                         newStatus = 'AVAILABLE';
                     }
 
-                    await (tx as any).pPEStockItem.update({
+                    await tx["pPEStockItem"].update({
                         where: { id: item.stockItemId },
                         data: {
                             reservedQuantity: newReservedQuantity,
@@ -1388,7 +1370,7 @@ export class PPEService {
             );
 
             // Update withdrawal status
-            const updatedWithdrawal = await (tx as any).pPEWithdrawal.update({
+            const updatedWithdrawal = await tx["pPEWithdrawal"].update({
                 where: { id },
                 data: {
                     status: 'CANCELLED' as any,
@@ -1421,7 +1403,7 @@ export class PPEService {
      * Delete withdrawal (soft delete)
      */
     async deleteWithdrawal(id: string): Promise<void> {
-        const withdrawal = await (this.prisma as any).pPEWithdrawal.findFirst({
+        const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
             where: {
                 id,
                 deletedAt: null, // Only delete non-deleted records
@@ -1435,7 +1417,7 @@ export class PPEService {
 
         // Only allow delete if status is PENDING or CANCELLED
         if (withdrawal.status !== 'PENDING' && withdrawal.status !== 'CANCELLED') {
-            throw new BadRequestException(`Cannot delete withdrawal. Current status: ${withdrawal.status}. Only PENDING or CANCELLED withdrawals can be deleted.`);
+            this.errorHandler.throwBadRequest(`Cannot delete withdrawal. Current status: ${withdrawal.status}. Only PENDING or CANCELLED withdrawals can be deleted.`);
         }
 
         return await this.prisma.$transaction(async (tx) => {
@@ -1446,12 +1428,12 @@ export class PPEService {
                         const reservedQty = item.approvedQuantity || item.requestedQuantity;
 
                         // Get current stock item to check status
-                        const stockItem = await (tx as any).pPEStockItem.findUnique({
+                        const stockItem = await tx["pPEStockItem"].findUnique({
                             where: { id: item.stockItemId },
                         });
 
                         if (!stockItem) {
-                            throw new BadRequestException(`Stock item ${item.stockItemId} not found`);
+                            this.errorHandler.throwBadRequest(`Stock item ${item.stockItemId} not found`);
                         }
 
                         const newReservedQuantity = Math.max(0, stockItem.reservedQuantity - reservedQty);
@@ -1467,7 +1449,7 @@ export class PPEService {
                             newStatus = 'AVAILABLE';
                         }
 
-                        await (tx as any).pPEStockItem.update({
+                        await tx["pPEStockItem"].update({
                             where: { id: item.stockItemId },
                             data: {
                                 reservedQuantity: newReservedQuantity,
@@ -1479,7 +1461,7 @@ export class PPEService {
             }
 
             // Soft delete by setting deletedAt and isActive to false
-            await (tx as any).pPEWithdrawal.update({
+            await tx["pPEWithdrawal"].update({
                 where: { id },
                 data: {
                     deletedAt: new Date(),
@@ -1496,14 +1478,14 @@ export class PPEService {
     async createSafetyEquipmentType(
         createSafetyEquipmentTypeDto: CreateSafetyEquipmentTypeDto,
     ): Promise<SafetyEquipmentTypeDto> {
-        const safetyEquipmentType = await (this.prisma as any).safetyEquipmentType.create({
+        const safetyEquipmentType = await this.prisma["safetyEquipmentType"].create({
             data: createSafetyEquipmentTypeDto,
         });
 
         return this.safetyEquipmentTypeMapper(safetyEquipmentType);
     }
 
-    async findAllSafetyEquipmentTypes(options?: FindAllSafetyEquipmentTypesOptions): Promise<{
+    async findAllSafetyEquipmentTypes(options?: FindSafetyEquipmentTypeDto): Promise<{
         data: SafetyEquipmentTypeDto[];
         meta: { total: number; page: number; limit: number; totalPages: number };
     }> {
@@ -1517,7 +1499,7 @@ export class PPEService {
         } = options || {};
 
         // Build where clause
-        const where: any = {
+        const where: Prisma.SafetyEquipmentTypeWhereInput = {
             deletedAt: null, // Only get non-deleted records
         };
 
@@ -1534,7 +1516,7 @@ export class PPEService {
         }
 
         // Build order by clause
-        const orderBy: any = {};
+        const orderBy: Prisma.SafetyEquipmentTypeOrderByWithRelationInput = {};
         if (sortBy) {
             orderBy[sortBy] = sortOrder || 'asc';
         } else {
@@ -1542,10 +1524,10 @@ export class PPEService {
         }
 
         // Get total count
-        const total = await (this.prisma as any).safetyEquipmentType.count({ where });
+        const total = await this.prisma["safetyEquipmentType"].count({ where });
 
         // Get paginated data
-        const safetyEquipmentTypes = await (this.prisma as any).safetyEquipmentType.findMany({
+        const safetyEquipmentTypes = await this.prisma["safetyEquipmentType"].findMany({
             where,
             orderBy,
             skip: (page - 1) * limit,
@@ -1559,7 +1541,7 @@ export class PPEService {
     }
 
     async findOneSafetyEquipmentType(id: string): Promise<SafetyEquipmentTypeDto> {
-        const safetyEquipmentType = await (this.prisma as any).safetyEquipmentType.findFirst({
+        const safetyEquipmentType = await this.prisma["safetyEquipmentType"].findFirst({
             where: {
                 id,
                 deletedAt: null, // Only get non-deleted records
@@ -1575,7 +1557,7 @@ export class PPEService {
         id: string,
         updateSafetyEquipmentTypeDto: UpdateSafetyEquipmentTypeDto,
     ): Promise<SafetyEquipmentTypeDto> {
-        const existingType = await (this.prisma as any).safetyEquipmentType.findFirst({
+        const existingType = await this.prisma["safetyEquipmentType"].findFirst({
             where: {
                 id,
                 deletedAt: null, // Only update non-deleted records
@@ -1584,7 +1566,7 @@ export class PPEService {
 
         this.errorHandler.throwIfNotFoundById('Safety Equipment Type', id, existingType);
 
-        const safetyEquipmentType = await (this.prisma as any).safetyEquipmentType.update({
+        const safetyEquipmentType = await this.prisma["safetyEquipmentType"].update({
             where: { id },
             data: updateSafetyEquipmentTypeDto,
         });
@@ -1593,7 +1575,7 @@ export class PPEService {
     }
 
     async removeSafetyEquipmentType(id: string): Promise<void> {
-        const existingType = await (this.prisma as any).safetyEquipmentType.findFirst({
+        const existingType = await this.prisma["safetyEquipmentType"].findFirst({
             where: {
                 id,
                 deletedAt: null, // Only delete non-deleted records
@@ -1603,7 +1585,7 @@ export class PPEService {
         this.errorHandler.throwIfNotFoundById('Safety Equipment Type', id, existingType);
 
         // Check if type has active equipment
-        const activeEquipmentCount = await (this.prisma as any).safetyEquipment.count({
+        const activeEquipmentCount = await this.prisma["safetyEquipment"].count({
             where: {
                 safetyEquipmentTypeId: id,
                 deletedAt: null,
@@ -1612,11 +1594,11 @@ export class PPEService {
         });
 
         if (activeEquipmentCount > 0) {
-            throw new BadRequestException(`Cannot delete Safety Equipment Type. It has ${activeEquipmentCount} active equipment(s).`);
+            this.errorHandler.throwBadRequest(`Cannot delete Safety Equipment Type. It has ${activeEquipmentCount} active equipment(s).`);
         }
 
         // Soft delete by setting deletedAt and isActive to false
-        await (this.prisma as any).safetyEquipmentType.update({
+        await this.prisma["safetyEquipmentType"].update({
             where: { id },
             data: {
                 deletedAt: new Date(),
@@ -1626,7 +1608,7 @@ export class PPEService {
     }
 
     async findSafetyEquipmentTypeByCode(code: string): Promise<SafetyEquipmentTypeDto> {
-        const safetyEquipmentType = await (this.prisma as any).safetyEquipmentType.findFirst({
+        const safetyEquipmentType = await this.prisma["safetyEquipmentType"].findFirst({
             where: {
                 code,
                 deletedAt: null, // Only get non-deleted records
@@ -1646,7 +1628,7 @@ export class PPEService {
         createSafetyEquipmentDto: CreateSafetyEquipmentDto,
     ): Promise<SafetyEquipmentDto> {
         // Validate safetyEquipmentTypeId exists and not deleted
-        const type = await (this.prisma as any).safetyEquipmentType.findFirst({
+        const type = await this.prisma["safetyEquipmentType"].findFirst({
             where: {
                 id: createSafetyEquipmentDto.safetyEquipmentTypeId,
                 deletedAt: null,
@@ -1659,7 +1641,7 @@ export class PPEService {
             type,
         );
 
-        const safetyEquipment = await (this.prisma as any).safetyEquipment.create({
+        const safetyEquipment = await this.prisma["safetyEquipment"].create({
             data: createSafetyEquipmentDto,
             include: {
                 safetyEquipmentType: true,
@@ -1669,7 +1651,7 @@ export class PPEService {
         return this.safetyEquipmentMapper(safetyEquipment);
     }
 
-    async findAllSafetyEquipments(options?: FindAllSafetyEquipmentsOptions): Promise<{
+    async findAllSafetyEquipments(options?: FindSafetyEquipmentDto): Promise<{
         data: SafetyEquipmentDto[];
         meta: { total: number; page: number; limit: number; totalPages: number };
     }> {
@@ -1685,7 +1667,7 @@ export class PPEService {
         } = options || {};
 
         // Build where clause
-        const where: any = {
+        const where: Prisma.SafetyEquipmentWhereInput = {
             deletedAt: null, // Only get non-deleted records
         };
 
@@ -1710,7 +1692,7 @@ export class PPEService {
         }
 
         // Build order by clause
-        const orderBy: any = {};
+        const orderBy: Prisma.SafetyEquipmentOrderByWithRelationInput = {};
         if (sortBy) {
             orderBy[sortBy] = sortOrder || 'asc';
         } else {
@@ -1718,10 +1700,10 @@ export class PPEService {
         }
 
         // Get total count
-        const total = await (this.prisma as any).safetyEquipment.count({ where });
+        const total = await this.prisma["safetyEquipment"].count({ where });
 
         // Get paginated data
-        const safetyEquipments = await (this.prisma as any).safetyEquipment.findMany({
+        const safetyEquipments = await this.prisma["safetyEquipment"].findMany({
             where,
             orderBy,
             skip: (page - 1) * limit,
@@ -1736,7 +1718,7 @@ export class PPEService {
             safetyEquipments.map(async (equipment: any) => {
                 // Get total currentQuantity from stock items that use this equipment
                 // Only count items from active and non-deleted stocks
-                const stockItems = await (this.prisma as any).pPEStockItem.findMany({
+                const stockItems = await this.prisma["pPEStockItem"].findMany({
                     where: {
                         safetyEquipmentId: equipment.id,
                         stock: {
@@ -1768,7 +1750,7 @@ export class PPEService {
     }
 
     async findOneSafetyEquipment(id: string): Promise<SafetyEquipmentDto> {
-        const safetyEquipment = await (this.prisma as any).safetyEquipment.findFirst({
+        const safetyEquipment = await this.prisma["safetyEquipment"].findFirst({
             where: {
                 id,
                 deletedAt: null, // Only get non-deleted records
@@ -1782,7 +1764,7 @@ export class PPEService {
 
         // Calculate current stock
         // Only count items from active and non-deleted stocks
-        const stockItems = await (this.prisma as any).pPEStockItem.findMany({
+        const stockItems = await this.prisma["pPEStockItem"].findMany({
             where: {
                 safetyEquipmentId: id,
                 stock: {
@@ -1810,7 +1792,7 @@ export class PPEService {
         id: string,
         updateSafetyEquipmentDto: UpdateSafetyEquipmentDto,
     ): Promise<SafetyEquipmentDto> {
-        const existingEquipment = await (this.prisma as any).safetyEquipment.findFirst({
+        const existingEquipment = await this.prisma["safetyEquipment"].findFirst({
             where: {
                 id,
                 deletedAt: null, // Only update non-deleted records
@@ -1821,7 +1803,7 @@ export class PPEService {
 
         // Validate safetyEquipmentTypeId if provided
         if (updateSafetyEquipmentDto.safetyEquipmentTypeId) {
-            const type = await (this.prisma as any).safetyEquipmentType.findFirst({
+            const type = await this.prisma["safetyEquipmentType"].findFirst({
                 where: {
                     id: updateSafetyEquipmentDto.safetyEquipmentTypeId,
                     deletedAt: null,
@@ -1835,7 +1817,7 @@ export class PPEService {
             );
         }
 
-        const safetyEquipment = await (this.prisma as any).safetyEquipment.update({
+        const safetyEquipment = await this.prisma["safetyEquipment"].update({
             where: { id },
             data: updateSafetyEquipmentDto,
             include: {
@@ -1847,7 +1829,7 @@ export class PPEService {
     }
 
     async removeSafetyEquipment(id: string): Promise<void> {
-        const existingEquipment = await (this.prisma as any).safetyEquipment.findFirst({
+        const existingEquipment = await this.prisma["safetyEquipment"].findFirst({
             where: {
                 id,
                 deletedAt: null, // Only delete non-deleted records
@@ -1857,18 +1839,18 @@ export class PPEService {
         this.errorHandler.throwIfNotFoundById('Safety Equipment', id, existingEquipment);
 
         // Check if equipment is used in stock items
-        const stockItemsCount = await (this.prisma as any).pPEStockItem.count({
+        const stockItemsCount = await this.prisma["pPEStockItem"].count({
             where: {
                 safetyEquipmentId: id,
             },
         });
 
         if (stockItemsCount > 0) {
-            throw new BadRequestException(`Cannot delete Safety Equipment. It is used in ${stockItemsCount} stock item(s).`);
+            this.errorHandler.throwBadRequest(`Cannot delete Safety Equipment. It is used in ${stockItemsCount} stock item(s).`);
         }
 
         // Soft delete by setting deletedAt and isActive to false
-        await (this.prisma as any).safetyEquipment.update({
+        await this.prisma["safetyEquipment"].update({
             where: { id },
             data: {
                 deletedAt: new Date(),
@@ -1878,7 +1860,7 @@ export class PPEService {
     }
 
     async findSafetyEquipmentByCode(code: string): Promise<SafetyEquipmentDto> {
-        const safetyEquipment = await (this.prisma as any).safetyEquipment.findFirst({
+        const safetyEquipment = await this.prisma["safetyEquipment"].findFirst({
             where: {
                 code,
                 deletedAt: null, // Only get non-deleted records
