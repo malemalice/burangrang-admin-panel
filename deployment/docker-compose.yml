@@ -2,7 +2,7 @@
 services:
   # Traefik Reverse Proxy with Automatic SSL
   traefik:
-    image: traefik:v3.0
+    image: traefik:latest
     container_name: burangrang-traefik
     restart: unless-stopped
     command:
@@ -109,7 +109,7 @@ services:
       - "traefik.enable=true"
       
       # HTTP Router
-      - "traefik.http.routers.backend.rule=Host(`api.benwara.com`)"
+      - "traefik.http.routers.backend.rule=Host(`bsj-api.benwara.com`)"
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls=true"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
@@ -152,7 +152,7 @@ services:
       - "traefik.enable=true"
       
       # HTTP Router
-      - "traefik.http.routers.frontend.rule=Host(`panel.benwara.com`)"
+      - "traefik.http.routers.frontend.rule=Host(`bsj.benwara.com`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls=true"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"

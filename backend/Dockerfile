@@ -4,8 +4,8 @@ FROM node:20-alpine AS builder
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files (exclude package-lock.json if corrupted)
+COPY package.json ./
 
 # Copy TypeScript and NestJS config files
 COPY tsconfig*.json ./
@@ -15,7 +15,8 @@ COPY nest-cli.json ./
 COPY prisma ./prisma/
 
 # Install dependencies (including dev dependencies for build)
-RUN npm ci && \
+# Use npm install to regenerate package-lock.json with valid versions
+RUN npm install && \
     npm cache clean --force
 
 # Copy application source
@@ -44,10 +45,10 @@ RUN addgroup -g 1001 -S nodejs && \
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json ./
 
 # Install production dependencies and PM2
-RUN npm ci --only=production && \
+RUN npm install --production && \
     npm install -g pm2 && \
     npm cache clean --force
 

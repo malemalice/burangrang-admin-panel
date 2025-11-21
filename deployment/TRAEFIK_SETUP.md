@@ -14,9 +14,9 @@ This guide shows how to use Traefik instead of Nginx for automatic SSL certifica
 ## Prerequisites
 
 1. **DNS records** must point to your server:
-   - `api.soulyousee.com` → your server IP
-   - `panel.soulyousee.com` → your server IP
-   - `v2.soulyousee.com` → your server IP
+   - `bsj-api.benwara.com` → your server IP
+   - `bsj.benwara.com` → your server IP
+   - `v2.benwara.com` → your server IP
 2. **Ports 80 and 443** must be open and accessible from the internet
 3. **Valid email address** for Let's Encrypt notifications
 
@@ -72,20 +72,20 @@ docker compose -f docker-compose.traefik.yml logs -f traefik
 
 # You should see:
 # "Obtaining certificate from Let's Encrypt"
-# "Certificate obtained for domain api.soulyousee.com"
+# "Certificate obtained for domain bsj-api.benwara.com"
 ```
 
 ### 5. Verify SSL
 
 ```bash
 # Test your endpoints
-curl -I https://api.soulyousee.com/health
-curl -I https://panel.soulyousee.com/health
-curl -I https://v2.soulyousee.com/health
+curl -I https://bsj-api.benwara.com/health
+curl -I https://bsj.benwara.com/health
+curl -I https://v2.benwara.com/health
 
 # Check certificate details
-openssl s_client -connect api.soulyousee.com:443 -servername api.soulyousee.com < /dev/null 2>/dev/null | openssl x509 -noout -dates
-openssl s_client -connect v2.soulyousee.com:443 -servername v2.soulyousee.com < /dev/null 2>/dev/null | openssl x509 -noout -dates
+openssl s_client -connect bsj-api.benwara.com:443 -servername bsj-api.benwara.com < /dev/null 2>/dev/null | openssl x509 -noout -dates
+openssl s_client -connect v2.benwara.com:443 -servername v2.benwara.com < /dev/null 2>/dev/null | openssl x509 -noout -dates
 ```
 
 ## Traefik Dashboard
@@ -131,7 +131,7 @@ Access the Traefik dashboard at: `http://your-server-ip:8080`
 - "traefik.enable=true"
 
 # Define routing rule (by hostname)
-- "traefik.http.routers.backend.rule=Host(`api.soulyousee.com`)"
+- "traefik.http.routers.backend.rule=Host(`bsj-api.benwara.com`)"
 
 # Use HTTPS entry point
 - "traefik.http.routers.backend.entrypoints=websecure"
@@ -154,7 +154,7 @@ services:
     # ... your service config ...
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.webv2.rule=Host(`app.soulyousee.com`)"
+      - "traefik.http.routers.webv2.rule=Host(`app.benwara.com`)"
       - "traefik.http.routers.webv2.entrypoints=websecure"
       - "traefik.http.routers.webv2.tls=true"
       - "traefik.http.routers.webv2.tls.certresolver=letsencrypt"
@@ -232,13 +232,13 @@ docker compose start traefik
 
 **Check DNS:**
 ```bash
-dig api.soulyousee.com
+dig bsj-api.benwara.com
 # Should return your server IP
 ```
 
 **Check port 80 is accessible:**
 ```bash
-curl -I http://api.soulyousee.com
+curl -I http://bsj-api.benwara.com
 # Should reach Traefik (may redirect to HTTPS)
 ```
 
@@ -264,7 +264,7 @@ If you hit limits, wait or use staging environment for testing:
 
 ```yaml
 # Add to Traefik command for testing
-- "--certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+- "--certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.bsj-api.letsencrypt.org/directory"
 ```
 
 ### Service Not Accessible
@@ -327,8 +327,8 @@ docker compose logs -f traefik
 
 Remove from Traefik command:
 ```yaml
-# - "--api.dashboard=true"
-# - "--api.insecure=true"
+# - "--bsj-api.dashboard=true"
+# - "--bsj-api.insecure=true"
 ```
 
 And remove port:

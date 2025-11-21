@@ -87,6 +87,14 @@ Enum ManHourGroupEnum {
   NON_STUDENT
 }
 
+Enum ReportStatusEnum {
+  SUBMITTED
+  RECEIVED
+  UNDER_REVIEW
+  REVIEWED
+  ARCHIVED
+}
+
 Enum MonthEnum {
   JAN
   FEB
@@ -100,6 +108,13 @@ Enum MonthEnum {
   OCT
   NOV
   DEC
+}
+
+Enum WasteTypeEnum {
+  DOMESTIC
+  HAZARDOUS
+  FOOD
+  GREEN
 }
 
 Enum TransitionTypeEnum {
@@ -1563,4 +1578,214 @@ Table t_man_hours {
 
 TableGroup man_hour_management_system {
   t_man_hours
+}
+
+//// -- WASTEWATER MANAGEMENT SYSTEM (HSE DOMAIN) --
+
+Table m_treatment_plants {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  plantType varchar [not null]
+  location varchar
+  capacity decimal(10,2)
+  areaId varchar [ref: > m_areas.id]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'Sewage Treatment Plant (STP) / Wastewater Treatment Plant (WWTP) master data - reference for HSE report management. Seed Data Examples: Main STP Building A (STP-A, STP, Building A Basement, 500.00), WWTP Campus Central (WWTP-CC, WWTP, Central Campus, 1000.00), STP Building B (STP-B, STP, Building B Ground Floor, 300.00)'
+}
+
+Table m_water_quality_parameters {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  unit varchar [not null]
+  standardLimit decimal(10,4)
+  regulatoryLimit decimal(10,4)
+  testMethod varchar
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Water quality test parameters master data (pH, BOD, COD, TSS, Oil/Grease, Heavy Metals, Coliform, etc.) - used by HSE to review lab reports. Seed Data Examples: pH Level (PH, pH units, 6.5-9.0), BOD (BOD, mg/L, 20.0-30.0), COD (COD, mg/L, 100.0-150.0), TSS (TSS, mg/L, 30.0-50.0), Oil/Grease (OIL_GREASE, mg/L, 10.0-15.0), Coliform (COLIFORM, MPN/100mL, 100.0-200.0), NH3-N (NH3-N, mg/L, 5.0-10.0), TP (TP, mg/L, 1.0-2.0), Lead (PB, mg/L, 0.1-0.2), Mercury (HG, mg/L, 0.001-0.002)'
+}
+
+Table t_monthly_flow_reports {
+  id varchar [pk, default: `uuid()`]
+  reportCode varchar [unique, not null]
+  treatmentPlantId varchar [not null, ref: > m_treatment_plants.id]
+  reportMonth MonthEnum [not null]
+  reportYear int [not null]
+  totalVolume decimal(12,4) [not null]
+  averageDailyFlow decimal(10,4) [not null]
+  peakFlow decimal(10,4)
+  minimumFlow decimal(10,4)
+  reportDocumentUrl varchar
+  submittedBy varchar [not null, ref: > t_users.id]
+  submittedAt timestamp [not null]
+  receivedBy varchar [ref: > t_users.id]
+  receivedAt timestamp
+  status ReportStatusEnum [default: 'SUBMITTED', not null]
+  reviewedBy varchar [ref: > t_users.id]
+  reviewedAt timestamp
+  reviewNotes text
+  archivedAt timestamp
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Monthly wastewater volume reports submitted by STP Operator to HSE - HSE receives, reviews, and archives these reports'
+  indexes {
+    (treatmentPlantId, reportMonth, reportYear) [unique]
+    (reportMonth, reportYear)
+    status
+    receivedAt
+  }
+}
+
+Table t_water_quality_lab_reports {
+  id varchar [pk, default: `uuid()`]
+  reportCode varchar [unique, not null]
+  treatmentPlantId varchar [not null, ref: > m_treatment_plants.id]
+  reportDate timestamp [not null]
+  preparedBy varchar [not null, ref: > t_users.id]
+  reportDocumentUrl varchar
+  summary text
+  recommendations text
+  analystSignature varchar
+  submittedBy varchar [not null, ref: > t_users.id]
+  submittedAt timestamp [not null]
+  receivedBy varchar [ref: > t_users.id]
+  receivedAt timestamp
+  status ReportStatusEnum [default: 'SUBMITTED', not null]
+  reviewedBy varchar [ref: > t_users.id]
+  reviewedAt timestamp
+  reviewNotes text
+  archivedAt timestamp
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Comprehensive laboratory test reports prepared by Laboratory Officer and sent to HSE - HSE receives, reviews, verifies compliance, and archives'
+  indexes {
+    (treatmentPlantId, reportDate)
+    reportDate
+    status
+    receivedAt
+  }
+}
+
+TableGroup wastewater_management_system {
+  m_treatment_plants
+  m_water_quality_parameters
+  t_monthly_flow_reports
+  t_water_quality_lab_reports
+}
+
+//// -- SOLID WASTE MANAGEMENT SYSTEM (HSE DOMAIN) --
+
+Table m_waste_types {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  wasteType WasteTypeEnum [not null]
+  description text
+  requiresSpecialHandling boolean [default: false, not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Waste type master data (DOMESTIC, HAZARDOUS, FOOD, GREEN) - used for categorization and reporting. Seed Data Examples: Domestic Waste (DOMESTIC, no special handling), Hazardous Waste (HAZARDOUS, requires special handling), Food Waste (FOOD, no special handling), Green Waste (GREEN, no special handling)'
+}
+
+Table m_waste_sources {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  sourceType varchar [not null]
+  description text
+  contactPerson varchar
+  phone varchar
+  email varchar
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Waste source master data - organizations/teams that generate waste (Cleaners, Catering Vendor, Grounds and Landscaping Team). Seed Data Examples: Cleaning Team (CLEANERS, INTERNAL_TEAM), Catering Vendor (CATERING, VENDOR), Grounds and Landscaping Team (GROUNDS, INTERNAL_TEAM)'
+}
+
+Table m_storage_locations {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  location varchar [not null]
+  areaId varchar [ref: > m_areas.id]
+  description text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'Temporary storage locations for waste - reference for waste collection points where weight measurements are taken. Seed Data Examples: Building A Temporary Storage (TS-A, Building A Basement), Central Storage Area (TS-CENTRAL, Central Campus)'
+}
+
+Table t_weight_reports {
+  id varchar [pk, default: `uuid()`]
+  reportCode varchar [unique, not null]
+  sourceId varchar [not null, ref: > m_waste_sources.id]
+  storageLocationId varchar [not null, ref: > m_storage_locations.id]
+  reportDate timestamp [not null]
+  reportMonth MonthEnum [not null]
+  reportYear int [not null]
+  reportDocumentUrl varchar
+  submittedBy varchar [not null, ref: > t_users.id]
+  submittedAt timestamp [not null]
+  receivedBy varchar [ref: > t_users.id]
+  receivedAt timestamp
+  status ReportStatusEnum [default: 'SUBMITTED', not null]
+  reviewedBy varchar [ref: > t_users.id]
+  reviewedAt timestamp
+  reviewNotes text
+  archivedAt timestamp
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Weight reports submitted by waste sources (Cleaners, Catering Vendor, Grounds Team) to HSE - HSE receives, reviews, and archives these reports. Each report can contain multiple waste type entries via t_weight_report_items'
+  indexes {
+    (sourceId, reportMonth, reportYear) [unique]
+    (reportMonth, reportYear)
+    status
+    receivedAt
+  }
+}
+
+Table t_weight_report_items {
+  id varchar [pk, default: `uuid()`]
+  weightReportId varchar [not null, ref: > t_weight_reports.id]
+  wasteTypeId varchar [not null, ref: > m_waste_types.id]
+  weight decimal(10,2) [not null]
+  unit varchar [default: 'kg', not null]
+  order int [not null]
+  notes text
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Individual waste type entries within weight reports - tracks weight measurements per waste type'
+  indexes {
+    (weightReportId, wasteTypeId) [unique]
+  }
+}
+
+TableGroup solid_waste_management_system {
+  m_waste_types
+  m_waste_sources
+  m_storage_locations
+  t_weight_reports
+  t_weight_report_items
 }
