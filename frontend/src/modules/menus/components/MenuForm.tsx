@@ -92,6 +92,63 @@ const MenuForm: React.FC<MenuFormProps> = ({
     fetchRoles();
   }, []);
 
+  // Helper function to build hierarchy path for menu display
+  // This helps distinguish menus with the same name by showing their full hierarchy path
+  const buildMenuHierarchyPath = (menuItem: Menu, allMenus: Menu[]): string => {
+    const pathParts: string[] = [menuItem.name];
+    let currentMenu: Menu | undefined = menuItem;
+    const visited = new Set<string>(); // Prevent infinite loops
+    const maxDepth = 10; // Safety limit for hierarchy depth
+    let depth = 0;
+    
+    // Traverse up the parent chain to build full hierarchy
+    while (currentMenu?.parentId && !visited.has(currentMenu.parentId) && depth < maxDepth) {
+      visited.add(currentMenu.parentId);
+      depth++;
+      
+      // First try to get parent from the menu's parent property (if populated by backend)
+      if (currentMenu.parent) {
+        const parent = currentMenu.parent as Menu;
+        pathParts.unshift(parent.name);
+        currentMenu = parent;
+        continue;
+      }
+      
+      // Fallback: look up parent in allMenus array
+      const parent = allMenus.find(m => m.id === currentMenu!.parentId);
+      if (parent) {
+        pathParts.unshift(parent.name);
+        currentMenu = parent;
+      } else {
+        // Parent not found, stop traversal
+        break;
+      }
+    }
+    
+    const hierarchyPath = pathParts.join(' > ');
+    
+    // Check if there are other menus with the same final name and similar hierarchy
+    // If so, add additional context (path or order) to make them distinguishable
+    const menusWithSameName = allMenus.filter(
+      m => m.name === menuItem.name && 
+      m.id !== menuItem.id &&
+      // Check if they might have similar hierarchy by comparing parentId
+      (m.parentId === menuItem.parentId || (!m.parentId && !menuItem.parentId))
+    );
+    
+    // Only add extra context if there are truly ambiguous menus
+    if (menusWithSameName.length > 0) {
+      // Prefer showing path if available, as it's more meaningful
+      if (menuItem.path) {
+        return `${hierarchyPath} (${menuItem.path})`;
+      }
+      // Fallback to order number
+      return `${hierarchyPath} [${menuItem.order}]`;
+    }
+    
+    return hierarchyPath;
+  };
+
   // Fetch available parent menus from API
   useEffect(() => {
     const fetchParentMenus = async () => {
@@ -258,7 +315,7 @@ const MenuForm: React.FC<MenuFormProps> = ({
                         <SearchableSelect
                           options={availableParentMenus.map(menu => ({
                             value: menu.id,
-                            label: menu.name
+                            label: buildMenuHierarchyPath(menu, availableParentMenus)
                           }))}
                           value={field.value}
                           onValueChange={field.onChange}
@@ -270,7 +327,7 @@ const MenuForm: React.FC<MenuFormProps> = ({
                       )}
                     </FormControl>
                     <FormDescription>
-                      Select a parent menu to create a submenu. Only active root-level menus are shown.
+                      Select a parent menu to create a submenu.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
