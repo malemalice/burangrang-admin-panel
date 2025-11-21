@@ -166,7 +166,7 @@ const DynamicSidebar = ({ isOpen }: DynamicSidebarProps) => {
     return (
       <aside
         className={cn(
-          "fixed h-full border-r shadow-sm z-30 transition-all duration-300 ease-in-out",
+          "fixed h-full border-r shadow-sm z-30 transition-all duration-300 ease-in-out flex flex-col",
           isOpen ? "w-64" : "w-20"
         )}
         style={{
@@ -175,7 +175,7 @@ const DynamicSidebar = ({ isOpen }: DynamicSidebarProps) => {
         }}
       >
         <div className={cn(
-          "flex items-center justify-center h-16 border-b px-4",
+          "flex items-center justify-center h-16 border-b px-4 flex-shrink-0",
           isDark ? "border-gray-800" : "border-white/10"
         )}>
           <h1
@@ -185,7 +185,7 @@ const DynamicSidebar = ({ isOpen }: DynamicSidebarProps) => {
             {isOpen ? appName : (appName.substring(0, Math.min(2, appName.length)).toUpperCase() || "ON")}
           </h1>
         </div>
-        <div className="py-4 px-2 space-y-1">
+        <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden">
           <div className="flex items-center justify-center h-8">
             <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
           </div>
@@ -199,7 +199,7 @@ const DynamicSidebar = ({ isOpen }: DynamicSidebarProps) => {
     return (
       <aside
         className={cn(
-          "fixed h-full border-r shadow-sm z-30 transition-all duration-300 ease-in-out",
+          "fixed h-full border-r shadow-sm z-30 transition-all duration-300 ease-in-out flex flex-col",
           isOpen ? "w-64" : "w-20"
         )}
         style={{
@@ -208,7 +208,7 @@ const DynamicSidebar = ({ isOpen }: DynamicSidebarProps) => {
         }}
       >
         <div className={cn(
-          "flex items-center justify-center h-16 border-b px-4",
+          "flex items-center justify-center h-16 border-b px-4 flex-shrink-0",
           isDark ? "border-gray-800" : "border-white/10"
         )}>
           <h1
@@ -218,7 +218,7 @@ const DynamicSidebar = ({ isOpen }: DynamicSidebarProps) => {
             {isOpen ? appName : (appName.substring(0, Math.min(2, appName.length)).toUpperCase() || "ON")}
           </h1>
         </div>
-        <div className="py-4 px-2 space-y-1">
+        <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden">
           <div className="text-center text-sm" style={{ color: textColor }}>
             {isOpen ? "Failed to load menus" : "!"}
           </div>
@@ -230,7 +230,7 @@ const DynamicSidebar = ({ isOpen }: DynamicSidebarProps) => {
   return (
     <aside
       className={cn(
-        "fixed h-full border-r shadow-sm z-30 transition-all duration-300 ease-in-out",
+        "fixed h-full border-r shadow-sm z-30 transition-all duration-300 ease-in-out flex flex-col",
         isOpen ? "w-64" : "w-20"
       )}
       style={{
@@ -239,7 +239,7 @@ const DynamicSidebar = ({ isOpen }: DynamicSidebarProps) => {
       }}
     >
       <div className={cn(
-        "flex items-center justify-center h-16 border-b px-4",
+        "flex items-center justify-center h-16 border-b px-4 flex-shrink-0",
         isDark ? "border-gray-800" : "border-white/10"
       )}>
         <h1
@@ -250,7 +250,7 @@ const DynamicSidebar = ({ isOpen }: DynamicSidebarProps) => {
         </h1>
       </div>
 
-      <div className="py-4 px-2 space-y-1">
+      <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden">
         {sidebarMenus.map((menu) => (
           <DynamicMenuItem 
             key={menu.id} 
