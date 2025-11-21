@@ -7,6 +7,7 @@ import { roleRoutes } from '@/modules/roles';
 import { masterDataRoutes } from '@/modules/master-data';
 import { menuRoutes } from '@/modules/menus';
 import { notificationRoutes } from '@/modules/notifications';
+import { ppeRoutes } from '@/modules/ppe';
 
 /**
  * Application routes registry
@@ -20,6 +21,7 @@ const routes: RouteConfig[] = [
   ...masterDataRoutes,
   ...settingsRoutes,
   ...notificationRoutes,
+  ...ppeRoutes,
   ...moduleRoutes,
 ];
 

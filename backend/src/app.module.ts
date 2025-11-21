@@ -24,6 +24,7 @@ import { MasterApprovalsModule } from './modules/approvals/master-approvals.modu
 import { SettingsModule } from './modules/settings/settings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
+import { PPEModule } from './modules/ppe/ppe.module';
 import { SharedModule } from './shared/shared.module';
 
 @Module({
@@ -52,6 +53,7 @@ import { SharedModule } from './shared/shared.module';
     SettingsModule,
     NotificationsModule,
     UploadsModule,
+    PPEModule,
   ],
   providers: [
     Reflector,
@@ -61,4 +63,4 @@ import { SharedModule } from './shared/shared.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }

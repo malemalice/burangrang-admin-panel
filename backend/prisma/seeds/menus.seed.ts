@@ -131,6 +131,97 @@ export const seedMenus = async () => {
       },
     });
 
+    const ppeMenu = await prisma.menu.create({
+      data: {
+        name: 'PPE Management',
+        icon: 'Shield',
+        order: 7,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Safety Equipment Types',
+        path: '/master/safety-equipment-types',
+        icon: 'Tag',
+        parentId: ppeMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Safety Equipment',
+        path: '/master/safety-equipments',
+        icon: 'Shield',
+        parentId: ppeMenu.id,
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    // Create PPE submenus
+    await prisma.menu.create({
+      data: {
+        name: 'Stock In',
+        path: '/ppe/stocks',
+        icon: 'Package',
+        parentId: ppeMenu.id,
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Withdraw',
+        path: '/ppe/withdrawals',
+        icon: 'LogOut',
+        parentId: ppeMenu.id,
+        order: 4,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     // Create Master Data submenus
     await prisma.menu.create({
       data: {
@@ -299,9 +390,10 @@ export const seedMenus = async () => {
 
     console.log('✅ Menus seeded successfully');
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
-    console.log(`   - Top-level menus: 6`);
-    console.log(`   - Master Data submenus: 7`);
+    console.log(`   - Top-level menus: 7`);
+    console.log(`   - Master Data submenus: 9`);
     console.log(`   - User Management submenus: 3`);
+    console.log(`   - PPE Management submenus: 2`);
   } catch (error) {
     console.error('❌ Error seeding menus:', error);
     throw error;

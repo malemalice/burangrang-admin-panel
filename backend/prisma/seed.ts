@@ -14,6 +14,9 @@ import { seedMenus } from './seeds/menus.seed';
 import { seedNotifications } from './seeds/notification-types.seed';
 import { seedFileCategories } from './seeds/file-categories.seed';
 import { seedFileStorageProviders } from './seeds/file-storage-providers.seed';
+import { seedPPE } from './seeds/ppe.seed';
+import { seedSafetyEquipmentTypes } from './seeds/safety-equipment-types.seed';
+import { seedSafetyEquipments } from './seeds/safety-equipments.seed';
 
 const prisma = new PrismaClient();
 
@@ -26,7 +29,7 @@ async function main() {
 
     // Clear existing data
     console.log('Clearing existing data...');
-    
+
     // If no specific table is provided, clear all tables
     if (!tableToSeed) {
       // Delete in order to respect foreign key constraints
@@ -34,6 +37,17 @@ async function main() {
       await prisma.notification.deleteMany();
       await prisma.notificationType.deleteMany();
       await prisma.refreshToken.deleteMany();
+      // Clear PPE data first (before User deletion due to foreign keys)
+      await (prisma as any).pPEWithdrawalItem.deleteMany();
+      await (prisma as any).pPEWithdrawal.deleteMany();
+      await (prisma as any).pPEStockAdjustment.deleteMany();
+      await (prisma as any).pPEExpiryAlert.deleteMany();
+      await (prisma as any).pPEStockItem.deleteMany();
+      await (prisma as any).pPEStock.deleteMany();
+      // Clear Safety Equipment data
+      await (prisma as any).safetyEquipment.deleteMany();
+      await (prisma as any).safetyEquipmentType.deleteMany();
+      // Clear other data
       await prisma.masterApprovalItem.deleteMany();
       await prisma.approval.deleteMany();
       await prisma.masterApproval.deleteMany();
@@ -101,7 +115,7 @@ async function main() {
           await prisma.notification.deleteMany();
           await prisma.notificationType.deleteMany();
           break;
-        
+
         case 'file_categories':
           await prisma.fileCategory.deleteMany();
           break;
@@ -112,9 +126,23 @@ async function main() {
           await prisma.fileAccessLog.deleteMany();
           await prisma.fileUpload.deleteMany();
           break;
+        case 'safety_equipment_types':
+          await (prisma as any).safetyEquipmentType.deleteMany();
+          break;
+        case 'safety_equipments':
+          await (prisma as any).safetyEquipment.deleteMany();
+          break;
+        case 'ppe':
+          await (prisma as any).pPEWithdrawalItem.deleteMany();
+          await (prisma as any).pPEWithdrawal.deleteMany();
+          await (prisma as any).pPEStockAdjustment.deleteMany();
+          await (prisma as any).pPEExpiryAlert.deleteMany();
+          await (prisma as any).pPEStockItem.deleteMany();
+          await (prisma as any).pPEStock.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
-          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, file_categories, file_storage_providers, file_uploads');
+          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe');
           process.exit(1);
       }
       console.log(`Cleared existing data for table: ${tableToSeed}`);
@@ -129,20 +157,23 @@ async function main() {
       const departments = await seedDepartments(prisma);
       const jobPositions = await seedJobPositions(prisma);
       await seedUsers(prisma, roles, offices);
-      
+
       // Seed HSE-related data
       const hseCategories = await seedHseCategories(prisma);
       const threats = await seedThreats(prisma, hseCategories.map(c => c.id));
       await seedThreatMitigations(prisma, threats.map(t => t.id));
-      
+
       // Seed Risk Matrix
       await seedRiskMatrix(prisma);
-      
+
       await seedSettings(prisma);
       await seedMenus();
       await seedNotifications();
       await seedFileStorageProviders();
       await seedFileCategories();
+      await seedSafetyEquipmentTypes();
+      await seedSafetyEquipments();
+      await seedPPE();
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -198,7 +229,7 @@ async function main() {
             } else {
               console.log('Using existing HSE categories...');
             }
-            
+
             thrs = await prisma.threat.findMany();
             if (thrs.length === 0) {
               thrs = await seedThreats(prisma, cats.map(c => c.id));
@@ -234,6 +265,15 @@ async function main() {
         case 'file_uploads':
           // Note: file uploads are created through the API, not seeded
           console.log('File uploads are created through the API, not seeded');
+          break;
+        case 'safety_equipment_types':
+          await seedSafetyEquipmentTypes();
+          break;
+        case 'safety_equipments':
+          await seedSafetyEquipments();
+          break;
+        case 'ppe':
+          await seedPPE();
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

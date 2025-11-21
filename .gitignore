@@ -54,6 +54,6 @@ playwright/test-results
 
 .cursorindexingignore
 .specstory
-.cursor/*
+.cursor
 
 backend/uploads
