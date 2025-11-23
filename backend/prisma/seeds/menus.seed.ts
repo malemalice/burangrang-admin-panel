@@ -388,12 +388,31 @@ export const seedMenus = async () => {
       },
     });
 
+    // Create Courses menu - accessible to all users for course management and enrollment
+    await prisma.menu.create({
+      data: {
+        name: 'Courses',
+        path: '/courses',
+        icon: 'BookOpen',
+        order: 8,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     console.log('✅ Menus seeded successfully');
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
-    console.log(`   - Top-level menus: 7`);
-    console.log(`   - Master Data submenus: 9`);
+    console.log(`   - Top-level menus: 8`);
+    console.log(`   - Master Data submenus: 7`);
     console.log(`   - User Management submenus: 3`);
-    console.log(`   - PPE Management submenus: 2`);
+    console.log(`   - PPE Management submenus: 4`);
   } catch (error) {
     console.error('❌ Error seeding menus:', error);
     throw error;
