@@ -326,22 +326,28 @@ export class RemindersService {
 
       if (!success) {
         updateData.status = 'FAILED';
-      } else if (reminder.repeatType === 'NONE') {
+      } else if (reminder.repeatType === 'NONE' || !reminder.repeatType) {
         // One-time reminder, mark as sent
         updateData.status = 'SENT';
       } else {
         // Recurring reminder, calculate next execution
-        const nextRemindAt = this.calculateNextRemindAt(
-          reminder.remindAt,
-          reminder.repeatType,
-        );
+        // TypeScript guard: repeatType is now guaranteed to be 'WEEKLY' or 'MONTHLY'
+        if (reminder.repeatType === 'WEEKLY' || reminder.repeatType === 'MONTHLY') {
+          const nextRemindAt = this.calculateNextRemindAt(
+            reminder.remindAt,
+            reminder.repeatType,
+          );
 
-        // Check if next execution exceeds repeatUntil
-        if (reminder.repeatUntil && nextRemindAt > reminder.repeatUntil) {
-          updateData.status = 'EXPIRED';
+          // Check if next execution exceeds repeatUntil
+          if (reminder.repeatUntil && nextRemindAt > reminder.repeatUntil) {
+            updateData.status = 'EXPIRED';
+          } else {
+            updateData.remindAt = nextRemindAt;
+            updateData.status = 'PENDING';
+          }
         } else {
-          updateData.remindAt = nextRemindAt;
-          updateData.status = 'PENDING';
+          // Invalid repeatType, mark as failed
+          updateData.status = 'FAILED';
         }
       }
 
