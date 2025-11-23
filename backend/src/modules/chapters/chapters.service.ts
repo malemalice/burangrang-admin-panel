@@ -239,18 +239,15 @@ export class ChaptersService {
         id: courseId,
         isActive: true,
       },
-      include: {
-        product: true
-      }
     });
 
     this.errorHandler.throwIfNotFoundById('Course', courseId, course);
 
-    // Verify user has purchased the course (check for FULFILLED order)
-    const hasPurchased = await this.verifyUserCourseAccess(userId, courseId);
+    // Verify user has access to the course (check enrollment)
+    const hasAccess = await this.verifyUserCourseAccess(userId, courseId);
     
-    if (!hasPurchased) {
-      this.errorHandler.throwForbidden('You must purchase this course to access its content');
+    if (!hasAccess) {
+      this.errorHandler.throwForbidden('You must be enrolled in this course to access its content');
     }
 
     // Get all published chapters with full content for purchased users
@@ -275,41 +272,13 @@ export class ChaptersService {
         where: {
           userId,
           courseId,
-          status: 'ACTIVE',
+          status: {
+            in: ['ACTIVE', 'COMPLETED'], // Both active and completed enrollments grant access
+          },
         },
       });
 
-      if (enrollment) {
-        return true;
-      }
-
-      // Get the course with its associated product
-      const course = await this.prisma.course.findUnique({
-        where: { id: courseId },
-        include: { product: true }
-      });
-
-      if (!course || !course.product) {
-        return false;
-      }
-
-      // Check if user has a completed order for this course's product
-      const order = await this.prisma.order.findFirst({
-        where: {
-          user: { id: userId },
-          items: {
-            some: {
-              OR: [
-                { productId: course.product.id },
-                { courseId: course.id }
-              ]
-            }
-          },
-          status: 'completed' // Only completed orders grant access
-        }
-      });
-
-      return !!order;
+      return !!enrollment;
     } catch (error) {
       this.logger.error(`Error verifying user course access: ${error.message}`, error.stack);
       return false;

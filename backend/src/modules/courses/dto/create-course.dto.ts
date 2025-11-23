@@ -56,11 +56,6 @@ export class CreateCourseDto {
   @IsOptional()
   status?: string = 'draft';
 
-  @ApiProperty({ description: 'Product ID for pricing (required for paid courses)', required: false })
-  @IsOptional()
-  @IsString()
-  productId?: string;
-
   @ApiProperty({ description: 'Category IDs to assign to the course', type: [String], required: false })
   @IsOptional()
   @IsArray()

@@ -98,16 +98,6 @@ export class CourseDto {
   @IsDateString()
   publishedAt?: Date;
 
-  @ApiProperty({ description: 'Associated product for pricing', required: false })
-  @Expose()
-  @IsOptional()
-  product?: {
-    id: string;
-    name: string;
-    price: number;
-    salePrice?: number;
-  };
-
   @ApiProperty({ description: 'Whether course is active' })
   @Expose()
   @IsBoolean()

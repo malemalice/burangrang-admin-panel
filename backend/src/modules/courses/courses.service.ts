@@ -50,15 +50,6 @@ export class CoursesService {
         }),
         isArray: true,
       },
-      product: {
-        mapper: (product: any) => ({
-          id: product.id,
-          name: product.name,
-          price: product.price ? Number(product.price) : 0,
-          salePrice: product.salePrice ? Number(product.salePrice) : undefined,
-        }),
-        isArray: false,
-      },
     });
 
     this.courseArrayMapper = this.dtoMapper.createArrayMapper(CourseDto);
@@ -91,7 +82,6 @@ export class CoursesService {
         language: createCourseDto.language || 'en',
         instructorId: createCourseDto.instructorId,
         status: createCourseDto.status || 'draft',
-        productId: createCourseDto.productId,
         categories: createCourseDto.categoryIds ? {
           connect: createCourseDto.categoryIds.map(id => ({ id }))
         } : undefined,
@@ -99,7 +89,6 @@ export class CoursesService {
       include: {
         instructor: true,
         categories: true,
-        product: true,
         chapters: {
           orderBy: { order: 'asc' }
         },
@@ -194,7 +183,6 @@ export class CoursesService {
         include: {
           instructor: true,
           categories: true,
-          product: true,
           chapters: {
             orderBy: { order: 'asc' }
           },
@@ -222,7 +210,6 @@ export class CoursesService {
       include: {
         instructor: true,
         categories: true,
-        product: true,
         chapters: {
           orderBy: { order: 'asc' }
         },
@@ -240,7 +227,6 @@ export class CoursesService {
       include: {
         instructor: true,
         categories: true,
-        product: true,
         chapters: {
           orderBy: { order: 'asc' }
         },
@@ -296,7 +282,6 @@ export class CoursesService {
         status: updateCourseDto.status,
         isPublished: updateCourseDto.isPublished,
         publishedAt: updateCourseDto.publishedAt,
-        productId: updateCourseDto.productId,
         isActive: updateCourseDto.isActive,
         categories: updateCourseDto.categoryIds ? {
           set: updateCourseDto.categoryIds.map(id => ({ id }))
@@ -305,7 +290,6 @@ export class CoursesService {
       include: {
         instructor: true,
         categories: true,
-        product: true,
         chapters: {
           orderBy: { order: 'asc' }
         },
