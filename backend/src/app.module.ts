@@ -30,6 +30,7 @@ import { ChaptersModule } from './modules/chapters/chapters.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { ProgressModule } from './modules/progress/progress.module';
+import { RemindersModule } from './modules/reminders/reminders.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { ProgressModule } from './modules/progress/progress.module';
     CoursesModule,
     EnrollmentsModule,
     ProgressModule,
+    RemindersModule,
   ],
   providers: [
     Reflector,
