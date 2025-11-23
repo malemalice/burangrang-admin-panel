@@ -26,6 +26,10 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { PPEModule } from './modules/ppe/ppe.module';
 import { SharedModule } from './shared/shared.module';
+import { ChaptersModule } from './modules/chapters/chapters.module';
+import { CoursesModule } from './modules/courses/courses.module';
+import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
+import { ProgressModule } from './modules/progress/progress.module';
 
 @Module({
   imports: [
@@ -54,6 +58,10 @@ import { SharedModule } from './shared/shared.module';
     NotificationsModule,
     UploadsModule,
     PPEModule,
+    ChaptersModule,
+    CoursesModule,
+    EnrollmentsModule,
+    ProgressModule,
   ],
   providers: [
     Reflector,
