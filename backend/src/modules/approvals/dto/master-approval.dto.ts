@@ -24,14 +24,14 @@ export class DepartmentDto {
   }
 }
 
-export class UserDto {
+export class ApprovalUserDto {
   @ApiProperty()
   id: string;
 
   @ApiProperty()
   name: string;
 
-  constructor(partial: Partial<UserDto>) {
+  constructor(partial: Partial<ApprovalUserDto>) {
     Object.assign(this, partial);
   }
 }
@@ -64,8 +64,8 @@ export class MasterApprovalItemDto {
   @ApiProperty({ type: () => DepartmentDto })
   department: DepartmentDto;
 
-  @ApiProperty({ type: () => UserDto })
-  creator: UserDto;
+  @ApiProperty({ type: () => ApprovalUserDto })
+  creator: ApprovalUserDto;
 
   constructor(partial: Partial<MasterApprovalItemDto>) {
     Object.assign(this, partial);
