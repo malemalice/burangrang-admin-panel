@@ -45,6 +45,7 @@ model User {
   instructorCourses Course[] @relation("CourseInstructor")
   enrollments Enrollment[]
   enrollmentsAssigned Enrollment[] @relation("EnrollmentAssigner")
+  reminders Reminder[] @relation("UserReminders")
 
   @@map("t_users")
 }
@@ -345,6 +346,7 @@ model Notification {
   recipients        NotificationRecipient[]
   createdBy         String
   creator           User             @relation("NotificationCreator", fields: [createdBy], references: [id])
+  reminderLogs      ReminderLog[]
 
   @@map("t_notifications")
 }
@@ -442,6 +444,69 @@ model FileAccessLog {
   user    User?      @relation(fields: [accessedBy], references: [id])
 
   @@map("t_file_access_logs")
+}
+
+// Reminder System Enums
+enum ReminderStatusEnum {
+  PENDING
+  SENT
+  EXPIRED
+  CANCELLED
+  FAILED
+}
+
+enum ReminderRepeatTypeEnum {
+  NONE
+  WEEKLY
+  MONTHLY
+}
+
+// Reminder - Scheduled task that triggers at specific time
+model Reminder {
+  id          String                @id @default(uuid())
+  userId      String
+  entity      String?               // Context/module name (e.g., "t_incidents", "t_audits")
+  entityId    String?               // Entity primary key
+  message     String
+  remindAt    DateTime
+  repeatType  ReminderRepeatTypeEnum? // NONE, WEEKLY, MONTHLY
+  repeatUntil DateTime?
+  status      ReminderStatusEnum    @default(PENDING)
+  lastSentAt  DateTime?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  // Relations
+  user        User                  @relation("UserReminders", fields: [userId], references: [id])
+  logs        ReminderLog[]
+
+  @@index([status, remindAt])
+  @@index([userId])
+  @@index([entity, entityId])
+  @@map("t_reminders")
+}
+
+// Reminder Log - Audit trail for reminder executions
+model ReminderLog {
+  id                String    @id @default(uuid())
+  reminderId        String
+  executionStatus   String    // SUCCESS, FAILED
+  executionDuration Int?      // in milliseconds
+  failureReason     String?   @db.Text
+  notificationId    String?   // Link to created notification
+  emailSent         Boolean   @default(false)
+  emailError        String?   @db.Text
+  executedAt        DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+
+  // Relations
+  reminder      Reminder     @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+  notification  Notification? @relation(fields: [notificationId], references: [id])
+
+  @@index([reminderId])
+  @@index([executedAt])
+  @@index([executionStatus])
+  @@map("t_reminder_logs")
 }
 
 // PPE Management System Models

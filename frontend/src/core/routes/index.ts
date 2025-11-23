@@ -9,6 +9,7 @@ import { menuRoutes } from '@/modules/menus';
 import { notificationRoutes } from '@/modules/notifications';
 import { ppeRoutes } from '@/modules/ppe';
 import { courseRoutes } from '@/modules/courses';
+import { reminderRoutes } from '@/modules/reminders';
 
 /**
  * Application routes registry
@@ -24,6 +25,7 @@ const routes: RouteConfig[] = [
   ...notificationRoutes,
   ...ppeRoutes,
   ...courseRoutes,
+  ...reminderRoutes,
   ...moduleRoutes,
 ];
 

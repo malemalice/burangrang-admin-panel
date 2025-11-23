@@ -18,7 +18,9 @@ The system uses **PostgreSQL** with **Prisma ORM** and follows a hierarchical, r
 6. **Risk Assessment**: Risk Matrix, Risk Assessments, Risk Assessment Items
 7. **Notification System**: Notification Types, Notifications, Notification Recipients
 8. **File Upload System**: File Storage Providers, File Categories, File Uploads, File Access Logs
-9. **System Configuration**: Settings, Refresh Tokens
+9. **PPE Management**: PPE Stock, PPE Stock Items, PPE Stock Adjustments, PPE Expiry Alerts, PPE Withdrawals, Safety Equipment Types, Safety Equipment
+10. **Learning Management System (LMS)**: Course Categories, Courses, Chapters, Enrollments, Progress
+11. **System Configuration**: Settings, Refresh Tokens
 
 ## Database Table Structure Overview
 
@@ -33,6 +35,8 @@ The system uses **PostgreSQL** with **Prisma ORM** and follows a hierarchical, r
 │  │ m_approval_item│ m_hse_categories│ m_threats│            │   │
 │  │ m_threat_mitigations│ m_risk_matrix│ m_notification_types│  │
 │  │ m_file_storage_providers│ m_file_categories│            │   │
+│  │ m_safety_equipment_type│ m_safety_equipment│            │   │
+│  │ m_course_categories│                                        │   │
 │  └─────────────┴─────────────┴─────────────┴─────────────┘     │
 ├─────────────────────────────────────────────────────────────────┤
 │  TRANSACTIONAL DATA TABLES (t_ prefix)                         │
@@ -40,13 +44,16 @@ The system uses **PostgreSQL** with **Prisma ORM** and follows a hierarchical, r
 │  │ t_users     │ t_refresh_tokens│ t_password_reset_tokens│   │
 │  │ t_approvals │ t_risk_assessment│ t_risk_assessment_item│    │
 │  │ t_notifications│ t_notification_recipients│ t_file_uploads│ │
-│  │ t_file_access_logs│                │                   │    │
+│  │ t_file_access_logs│ t_ppe_stock│ t_ppe_stock_items│        │
+│  │ t_ppe_stock_adjustments│ t_ppe_expiry_alerts│              │
+│  │ t_ppe_withdrawals│ t_ppe_withdrawal_items│                │
+│  │ t_courses│ t_chapters│ t_enrollments│ t_progress│         │
 │  └─────────────┴─────────────┴─────────────┴─────────────┘     │
 ├─────────────────────────────────────────────────────────────────┤
 │  JUNCTION TABLES (Prisma default)                               │
-│  ┌─────────────┬─────────────┐                                 │
-│  │ _PermissionToRole │ _MenuToRole │                         │
-│  └─────────────┴─────────────┘                                 │
+│  ┌─────────────┬─────────────┬─────────────┐                 │
+│  │ _PermissionToRole │ _MenuToRole │ _CourseToCategory │     │
+│  └─────────────┴─────────────┴─────────────┘                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -67,6 +74,8 @@ Project BurangrangAdminPanel {
   - Approval Workflows
   - Notification System
   - File Upload Management
+  - PPE (Personal Protective Equipment) Management
+  - Learning Management System (LMS)
   '''
 }
 
@@ -77,6 +86,35 @@ Enum RiskRatingEnum {
   MEDIUM [note: 'Medium risk level']
   HIGH [note: 'High risk level']
   EXTREME [note: 'Extreme risk level']
+}
+
+Enum PPEWithdrawalStatusEnum {
+  PENDING [note: 'Withdrawal request pending approval']
+  APPROVED [note: 'Withdrawal approved']
+  COLLECTED [note: 'Items collected']
+  CANCELLED [note: 'Withdrawal cancelled']
+}
+
+Enum PPEStockStatusEnum {
+  AVAILABLE [note: 'Item available for withdrawal']
+  RESERVED [note: 'Item reserved for pending withdrawal']
+  ISSUED [note: 'Item issued/withdrawn']
+  EXPIRED [note: 'Item expired']
+  DISPOSED [note: 'Item disposed']
+}
+
+Enum SafetyEquipmentCategoryEnum {
+  PERSONAL_PROTECTIVE_EQUIPMENT [note: 'PPE like helmets, gloves']
+  SAFETY_EQUIPMENT [note: 'Safety equipment']
+  EMERGENCY_EQUIPMENT [note: 'Emergency equipment']
+}
+
+Enum EnrollmentStatusEnum {
+  INVITED [note: 'User invited but not started']
+  ACTIVE [note: 'User actively taking course']
+  COMPLETED [note: 'Course completed']
+  CANCELLED [note: 'Enrollment cancelled']
+  EXPIRED [note: 'Enrollment expired']
 }
 
 //// -- CORE USER MANAGEMENT --
@@ -559,6 +597,16 @@ Table _MenuToRole {
   }
 }
 
+Table _CourseToCategory {
+  A varchar [ref: > t_courses.id]
+  B varchar [ref: > m_course_categories.id]
+  
+  Note: 'Many-to-many: Courses and Course Categories'
+  indexes {
+    (A, B) [pk]
+  }
+}
+
 //// -- TABLE GROUPS --
 
 TableGroup user_management {
@@ -615,6 +663,312 @@ TableGroup file_upload_system {
 TableGroup system_configuration {
   m_settings
 }
+
+TableGroup ppe_management {
+  m_safety_equipment_type
+  m_safety_equipment
+  t_ppe_stock
+  t_ppe_stock_items
+  t_ppe_stock_adjustments
+  t_ppe_expiry_alerts
+  t_ppe_withdrawals
+  t_ppe_withdrawal_items
+}
+
+TableGroup learning_management {
+  m_course_categories
+  t_courses
+  t_chapters
+  t_enrollments
+  t_progress
+}
+
+//// -- PPE MANAGEMENT SYSTEM --
+
+Table m_safety_equipment_type {
+  id varchar [pk]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text [null]
+  isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Safety equipment type master data'
+  indexes {
+    code [unique]
+  }
+}
+
+Table m_safety_equipment {
+  id varchar [pk]
+  name varchar [not null]
+  code varchar [unique, not null]
+  safetyEquipmentTypeId varchar [not null, ref: > m_safety_equipment_type.id]
+  size varchar [null]
+  description text [null]
+  category SafetyEquipmentCategoryEnum [not null]
+  isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Safety equipment master data'
+  indexes {
+    code [unique]
+    safetyEquipmentTypeId
+  }
+}
+
+Table t_ppe_stock {
+  id varchar [pk]
+  stockCode varchar [unique, not null]
+  receivedDate timestamp [not null]
+  notes text [null]
+  isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  createdBy varchar [not null, ref: > t_users.id]
+  
+  Note: 'PPE stock header/transaction'
+  indexes {
+    stockCode [unique]
+    createdBy
+  }
+}
+
+Table t_ppe_stock_items {
+  id varchar [pk]
+  stockId varchar [not null, ref: > t_ppe_stock.id, note: 'onDelete: Cascade']
+  safetyEquipmentId varchar [null, ref: > m_safety_equipment.id]
+  equipmentName varchar [null, note: 'Free-text when not using master data']
+  equipmentType varchar [null]
+  equipmentSize varchar [null]
+  expiryDate timestamp [null]
+  initialQuantity int [not null]
+  currentQuantity int [not null]
+  reservedQuantity int [not null, default: 0]
+  status PPEStockStatusEnum [not null, default: 'AVAILABLE']
+  order int [not null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'PPE stock items with quantity tracking'
+  indexes {
+    stockId
+    safetyEquipmentId
+  }
+}
+
+Table t_ppe_stock_adjustments {
+  id varchar [pk]
+  stockItemId varchar [not null, ref: > t_ppe_stock_items.id, note: 'onDelete: Cascade']
+  adjustmentType varchar [not null, note: 'DISPOSAL, DAMAGE, CORRECTION, EXPIRY_REMOVAL, RETURN']
+  quantityBefore int [not null]
+  quantityAfter int [not null]
+  quantityChange int [not null]
+  reason text [not null]
+  adjustedBy varchar [not null, ref: > t_users.id]
+  adjustedAt timestamp [not null, default: `now()`]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'PPE stock adjustment audit trail'
+  indexes {
+    stockItemId
+    adjustedBy
+  }
+}
+
+Table t_ppe_expiry_alerts {
+  id varchar [pk]
+  stockItemId varchar [not null, ref: > t_ppe_stock_items.id, note: 'onDelete: Cascade']
+  alertDate timestamp [not null]
+  daysUntilExpiry int [not null]
+  isSent boolean [not null, default: false]
+  sentAt timestamp [null]
+  recipientId varchar [not null, ref: > t_users.id]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'PPE expiry alert notifications'
+  indexes {
+    stockItemId
+    recipientId
+  }
+}
+
+Table t_ppe_withdrawals {
+  id varchar [pk]
+  withdrawalCode varchar [unique, not null]
+  withdrawalDate timestamp [not null]
+  requestedBy varchar [not null, ref: > t_users.id]
+  requestedFor varchar [null, ref: > t_users.id]
+  requestedForName varchar [null]
+  departmentId varchar [not null, ref: > m_departments.id]
+  jobPositionId varchar [null, ref: > m_job_positions.id]
+  jobPositionName varchar [null]
+  status PPEWithdrawalStatusEnum [not null, default: 'PENDING']
+  withdrawalLetterUrl varchar [null]
+  collectedDate timestamp [null]
+  collectedBy varchar [null, ref: > t_users.id]
+  notes text [null]
+  isActive boolean [not null, default: true]
+  deletedAt timestamp [null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  createdBy varchar [not null, ref: > t_users.id]
+  
+  Note: 'PPE withdrawal requests'
+  indexes {
+    withdrawalCode [unique]
+    requestedBy
+    departmentId
+    status
+  }
+}
+
+Table t_ppe_withdrawal_items {
+  id varchar [pk]
+  withdrawalId varchar [not null, ref: > t_ppe_withdrawals.id, note: 'onDelete: Cascade']
+  stockItemId varchar [not null, ref: > t_ppe_stock_items.id]
+  requestedQuantity int [not null]
+  approvedQuantity int [null]
+  issuedQuantity int [null]
+  order int [not null]
+  notes text [null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'PPE withdrawal items'
+  indexes {
+    withdrawalId
+    stockItemId
+  }
+}
+
+//// -- LEARNING MANAGEMENT SYSTEM (LMS) --
+
+Table m_course_categories {
+  id varchar [pk]
+  name varchar [unique, not null]
+  slug varchar [unique, not null]
+  description text [null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Course category master data'
+  indexes {
+    name [unique]
+    slug [unique]
+  }
+}
+
+Table t_courses {
+  id varchar [pk]
+  title varchar [not null]
+  slug varchar [unique, not null]
+  description text [null]
+  shortDescription varchar [null]
+  thumbnailUrl varchar [null]
+  totalChapters int [not null, default: 0]
+  totalDuration int [not null, default: 0, note: 'in minutes']
+  difficulty varchar [not null, default: 'beginner', note: 'beginner, intermediate, advanced']
+  language varchar [not null, default: 'en']
+  rating decimal(3,2) [not null, default: 0]
+  reviewCount int [not null, default: 0]
+  studentCount int [not null, default: 0]
+  instructorId varchar [not null, ref: > t_users.id]
+  status varchar [not null, default: 'draft', note: 'draft, review, published, archived']
+  isPublished boolean [not null, default: false]
+  publishedAt timestamp [null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Course master data'
+  indexes {
+    slug [unique]
+    instructorId
+    status
+  }
+}
+
+Table t_chapters {
+  id varchar [pk]
+  courseId varchar [not null, ref: > t_courses.id, note: 'onDelete: Cascade']
+  title varchar [not null]
+  description text [null]
+  order int [not null]
+  duration int [not null, default: 0, note: 'in minutes']
+  contentType varchar [not null, note: 'video, pdf, text, youtube']
+  contentUrl varchar [null]
+  youtubeVideoId varchar [null]
+  content text [null, note: 'For text content']
+  isFree boolean [not null, default: false]
+  isPublished boolean [not null, default: false]
+  publishedAt timestamp [null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Course chapter content'
+  indexes {
+    courseId
+    order
+  }
+}
+
+Table t_enrollments {
+  id varchar [pk]
+  userId varchar [not null, ref: > t_users.id]
+  courseId varchar [not null, ref: > t_courses.id]
+  status EnrollmentStatusEnum [not null, default: 'INVITED']
+  enrolledAt timestamp [null, note: 'When user actually enrolled (null if INVITED)']
+  completedAt timestamp [null]
+  progress decimal(5,2) [not null, default: 0, note: '0.00 to 100.00']
+  score decimal(5,2) [null, note: 'Final score 0.00 to 100.00']
+  summaries json [null, note: 'Course summaries, notes, or additional data']
+  lastAccessedAt timestamp [null]
+  assignedBy varchar [null, ref: > t_users.id, note: 'Who assigned/invited the user']
+  assignedAt timestamp [null, note: 'When the course was assigned/invited']
+  dueDate timestamp [null, note: 'Optional deadline for completion']
+  isRequired boolean [not null, default: false, note: 'Required vs optional enrollment']
+  notes text [null, note: 'Assignment-specific notes or instructions']
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Course enrollment records'
+  indexes {
+    userId
+    courseId
+    (userId, courseId, status)
+    assignedBy
+    dueDate
+  }
+}
+
+Table t_progress {
+  id varchar [pk]
+  enrollmentId varchar [not null, ref: > t_enrollments.id, note: 'onDelete: Cascade']
+  chapterId varchar [not null, ref: > t_chapters.id]
+  status varchar [not null, default: 'NOT_STARTED', note: 'NOT_STARTED, IN_PROGRESS, COMPLETED']
+  timeSpent int [not null, default: 0, note: 'in seconds']
+  progress decimal(5,2) [not null, default: 0, note: '0.00 to 100.00']
+  startedAt timestamp [null]
+  completedAt timestamp [null]
+  lastAccessedAt timestamp [null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Chapter progress tracking'
+  indexes {
+    enrollmentId
+    chapterId
+    (enrollmentId, chapterId) [unique]
+  }
+}
 ```
 
 ## Entity Descriptions
@@ -628,7 +982,7 @@ TableGroup system_configuration {
 - **Relationships**: 
   - Required: Role, Office
   - Optional: Department, JobPosition
-  - One-to-Many: RefreshTokens, PasswordResetTokens, RiskAssessments, CreatedApprovalItems, CreatedApprovals, CreatedNotifications, NotificationRecipients, UploadedFiles, FileAccessLogs
+  - One-to-Many: RefreshTokens, PasswordResetTokens, RiskAssessments, CreatedApprovalItems, CreatedApprovals, CreatedNotifications, NotificationRecipients, UploadedFiles, FileAccessLogs, PPEStocksCreated, PPEStockAdjustments, PPEExpiryAlerts, PPEWithdrawalsRequested, PPEWithdrawalsRequestedFor, PPEWithdrawalsCollected, PPEWithdrawalsCreated, InstructorCourses, Enrollments, EnrollmentsAssigned
 
 #### Role
 - **Purpose**: Role-based access control
@@ -655,13 +1009,13 @@ TableGroup system_configuration {
 - **Purpose**: Organizational departments
 - **Key Fields**: code (unique)
 - **Relationships**: 
-  - One-to-Many: Users, MasterApprovalItems, Approvals, RiskAssessments
+  - One-to-Many: Users, MasterApprovalItems, Approvals, RiskAssessments, PPEWithdrawals
 
 #### JobPosition
 - **Purpose**: Job positions with hierarchy levels
 - **Key Fields**: code (unique), level (integer)
 - **Relationships**: 
-  - One-to-Many: Users, MasterApprovalItems, Approvals
+  - One-to-Many: Users, MasterApprovalItems, Approvals, PPEWithdrawals
 
 ### 3. Navigation & Access
 
@@ -794,6 +1148,97 @@ TableGroup system_configuration {
   - Belongs to: FileUpload
   - Optional: User (for authenticated access)
 
+### 10. PPE Management System
+
+#### SafetyEquipmentType
+- **Purpose**: Safety equipment type master data
+- **Key Fields**: code (unique), name
+- **Relationships**: 
+  - One-to-Many: SafetyEquipment
+
+#### SafetyEquipment
+- **Purpose**: Safety equipment master data
+- **Key Fields**: code (unique), name, safetyEquipmentTypeId, category (enum)
+- **Relationships**: 
+  - Belongs to: SafetyEquipmentType
+  - One-to-Many: PPEStockItems
+
+#### PPEStock
+- **Purpose**: PPE stock header/transaction
+- **Key Fields**: stockCode (unique), receivedDate, createdBy
+- **Relationships**: 
+  - Belongs to: User (creator)
+  - One-to-Many: PPEStockItems
+
+#### PPEStockItem
+- **Purpose**: PPE stock items with quantity tracking
+- **Key Fields**: stockId, safetyEquipmentId (optional), equipmentName (free-text), initialQuantity, currentQuantity, reservedQuantity, status (enum), expiryDate
+- **Relationships**: 
+  - Belongs to: PPEStock, SafetyEquipment (optional)
+  - One-to-Many: PPEStockAdjustments, PPEExpiryAlerts, PPEWithdrawalItems
+
+#### PPEStockAdjustment
+- **Purpose**: PPE stock adjustment audit trail
+- **Key Fields**: stockItemId, adjustmentType, quantityBefore, quantityAfter, quantityChange, reason, adjustedBy
+- **Relationships**: 
+  - Belongs to: PPEStockItem, User (adjuster)
+
+#### PPEExpiryAlert
+- **Purpose**: PPE expiry alert notifications
+- **Key Fields**: stockItemId, alertDate, daysUntilExpiry, isSent, recipientId
+- **Relationships**: 
+  - Belongs to: PPEStockItem, User (recipient)
+
+#### PPEWithdrawal
+- **Purpose**: PPE withdrawal requests
+- **Key Fields**: withdrawalCode (unique), withdrawalDate, requestedBy, requestedFor (optional), departmentId, jobPositionId (optional), status (enum), collectedBy (optional)
+- **Relationships**: 
+  - Belongs to: User (requester, requestedFor, collector, creator), Department, JobPosition (optional)
+  - One-to-Many: PPEWithdrawalItems
+
+#### PPEWithdrawalItem
+- **Purpose**: PPE withdrawal items
+- **Key Fields**: withdrawalId, stockItemId, requestedQuantity, approvedQuantity (optional), issuedQuantity (optional)
+- **Relationships**: 
+  - Belongs to: PPEWithdrawal, PPEStockItem
+
+### 11. Learning Management System (LMS)
+
+#### CourseCategory
+- **Purpose**: Course category master data
+- **Key Fields**: name (unique), slug (unique)
+- **Relationships**: 
+  - Many-to-Many: Courses
+
+#### Course
+- **Purpose**: Course master data
+- **Key Fields**: slug (unique), title, instructorId, status, difficulty, rating, totalChapters, totalDuration
+- **Relationships**: 
+  - Belongs to: User (instructor)
+  - Many-to-Many: CourseCategories
+  - One-to-Many: Chapters, Enrollments
+
+#### Chapter
+- **Purpose**: Course chapter content
+- **Key Fields**: courseId, title, order, contentType, duration, isFree, isPublished
+- **Relationships**: 
+  - Belongs to: Course
+  - One-to-Many: Progress
+
+#### Enrollment
+- **Purpose**: Course enrollment records
+- **Key Fields**: userId, courseId, status (enum), progress, score (optional), assignedBy (optional), dueDate (optional), isRequired
+- **Relationships**: 
+  - Belongs to: User (student, assigner), Course
+  - One-to-Many: Progress
+
+#### Progress
+- **Purpose**: Chapter progress tracking
+- **Key Fields**: enrollmentId, chapterId, status, timeSpent, progress
+- **Relationships**: 
+  - Belongs to: Enrollment, Chapter
+  - Unique: (enrollmentId, chapterId)
+
 ## Relationship Patterns
 
 ### 1. Hierarchical Relationships
@@ -804,6 +1249,7 @@ TableGroup system_configuration {
 - **Role ↔ Permission**: Roles can have multiple permissions
 - **Role ↔ Menu**: Roles can access multiple menus
 - **Menu ↔ Role**: Menus can be accessed by multiple roles
+- **Course ↔ CourseCategory**: Courses can belong to multiple categories
 
 ### 3. Optional Relationships
 - **User → Department**: Optional (nullable)
@@ -819,9 +1265,9 @@ TableGroup system_configuration {
 - All entities use UUID primary keys (`@id @default(uuid())`)
 
 ### Table Naming Convention
-- **Master Data Tables**: Prefixed with `m_` (m_roles, m_permissions, m_offices, m_departments, m_job_positions, m_menus, m_settings, m_approval, m_approval_item, m_hse_categories, m_threats, m_threat_mitigations, m_risk_matrix, m_notification_types, m_file_storage_providers, m_file_categories)
-- **Transactional Data Tables**: Prefixed with `t_` (t_users, t_refresh_tokens, t_password_reset_tokens, t_approvals, t_risk_assessment, t_risk_assessment_item, t_notifications, t_notification_recipients, t_file_uploads, t_file_access_logs)
-- **Junction Tables**: Prisma default naming (_PermissionToRole, _MenuToRole)
+- **Master Data Tables**: Prefixed with `m_` (m_roles, m_permissions, m_offices, m_departments, m_job_positions, m_menus, m_settings, m_approval, m_approval_item, m_hse_categories, m_threats, m_threat_mitigations, m_risk_matrix, m_notification_types, m_file_storage_providers, m_file_categories, m_safety_equipment_type, m_safety_equipment, m_course_categories)
+- **Transactional Data Tables**: Prefixed with `t_` (t_users, t_refresh_tokens, t_password_reset_tokens, t_approvals, t_risk_assessment, t_risk_assessment_item, t_notifications, t_notification_recipients, t_file_uploads, t_file_access_logs, t_ppe_stock, t_ppe_stock_items, t_ppe_stock_adjustments, t_ppe_expiry_alerts, t_ppe_withdrawals, t_ppe_withdrawal_items, t_courses, t_chapters, t_enrollments, t_progress)
+- **Junction Tables**: Prisma default naming (_PermissionToRole, _MenuToRole, _CourseToCategory)
 
 ### Unique Constraints
 - `t_users.email` - Unique email addresses
@@ -841,6 +1287,14 @@ TableGroup system_configuration {
 - `t_password_reset_tokens.token` - Unique password reset tokens
 - `m_settings.key` - Unique setting keys
 - `t_notification_recipients.[notificationId, roleId, userId]` - Composite unique constraint
+- `m_safety_equipment_type.code` - Unique safety equipment type codes
+- `m_safety_equipment.code` - Unique safety equipment codes
+- `t_ppe_stock.stockCode` - Unique PPE stock codes
+- `t_ppe_withdrawals.withdrawalCode` - Unique withdrawal codes
+- `m_course_categories.name` - Unique course category names
+- `m_course_categories.slug` - Unique course category slugs
+- `t_courses.slug` - Unique course slugs
+- `t_progress.[enrollmentId, chapterId]` - Composite unique constraint
 
 ### Foreign Key Constraints
 - **Cascade Updates**: All foreign keys use `ON UPDATE CASCADE`
@@ -904,6 +1358,34 @@ User → FileUpload → FileAccessLog
 User → PasswordResetToken → Reset Password → Invalidate Token
 ```
 
+### 9. PPE Management Flow
+```
+User (Creator) → PPEStock → PPEStockItem
+                      ↓              ↓
+                SafetyEquipment  Adjustments
+                      ↓              ↓
+                ExpiryAlerts    User (Adjuster)
+                      ↓
+                User (Recipient)
+
+User (Requester) → PPEWithdrawal → PPEWithdrawalItem
+         ↓                ↓                ↓
+    Department      JobPosition      PPEStockItem
+         ↓                ↓
+    User (RequestedFor)  Status Tracking
+```
+
+### 10. Learning Management System Flow
+```
+User (Instructor) → Course → Chapter
+         ↓            ↓         ↓
+    Categories    Enrollments Progress
+         ↓            ↓         ↓
+    CourseCategory  User    Enrollment
+                      ↓
+                  Assigner
+```
+
 ## AI Assistant Guidelines
 
 ### When Working with This Schema:
@@ -929,6 +1411,20 @@ User → PasswordResetToken → Reset Password → Invalidate Token
 6. **Audit Trail**: 
    - Track who created/modified records
    - Use `createdBy` fields in approval system
+   - PPE adjustments track quantity changes with reason
+   - Progress tracks time spent and completion status
+
+7. **PPE Management**: 
+   - Stock items can use master data (SafetyEquipment) or free-text fields
+   - Track reserved quantities for pending withdrawals
+   - Expiry alerts notify recipients before items expire
+   - Withdrawal workflow: PENDING → APPROVED → COLLECTED
+
+8. **Learning Management**: 
+   - Courses can have multiple categories
+   - Enrollments support assignment workflow (assignedBy, dueDate, isRequired)
+   - Progress tracks chapter-level completion
+   - Users can re-enroll after completion (no unique constraint on userId+courseId)
 
 ### Common Query Patterns:
 
@@ -1031,6 +1527,100 @@ const fileUploads = await prisma.fileUpload.findMany({
       },
       orderBy: { accessedAt: 'desc' },
       take: 10
+    }
+  }
+});
+
+// Get PPE stock with items
+const ppeStock = await prisma.pPEStock.findUnique({
+  where: { id },
+  include: {
+    creator: true,
+    items: {
+      include: {
+        safetyEquipment: {
+          include: { safetyEquipmentType: true }
+        },
+        adjustments: {
+          include: { adjuster: true },
+          orderBy: { adjustedAt: 'desc' }
+        },
+        expiryAlerts: {
+          include: { recipient: true }
+        }
+      },
+      orderBy: { order: 'asc' }
+    }
+  }
+});
+
+// Get PPE withdrawal with items
+const withdrawal = await prisma.pPEWithdrawal.findUnique({
+  where: { id },
+  include: {
+    requester: true,
+    requestedForUser: true,
+    department: true,
+    jobPosition: true,
+    collector: true,
+    creator: true,
+    items: {
+      include: {
+        stockItem: {
+          include: {
+            safetyEquipment: true,
+            stock: true
+          }
+        }
+      },
+      orderBy: { order: 'asc' }
+    }
+  }
+});
+
+// Get course with all relationships
+const course = await prisma.course.findUnique({
+  where: { id },
+  include: {
+    instructor: true,
+    categories: true,
+    chapters: {
+      where: { isPublished: true, isActive: true },
+      orderBy: { order: 'asc' }
+    },
+    enrollments: {
+      include: {
+        user: true,
+        progressRecords: {
+          include: { chapter: true }
+        }
+      }
+    }
+  }
+});
+
+// Get user enrollment with progress
+const enrollment = await prisma.enrollment.findFirst({
+  where: {
+    userId,
+    courseId,
+    status: 'ACTIVE'
+  },
+  include: {
+    course: {
+      include: {
+        instructor: true,
+        chapters: {
+          where: { isPublished: true, isActive: true },
+          orderBy: { order: 'asc' }
+        }
+      }
+    },
+    user: true,
+    assigner: true,
+    progressRecords: {
+      include: { chapter: true },
+      orderBy: { chapter: { order: 'asc' } }
     }
   }
 });
