@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/core/components/ui/button';
 import { Input } from '@/core/components/ui/input';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
-import api from '@/core/lib/api';
 import { toast } from 'sonner';
+import uploadService, { FileCategory } from '../services/uploadService';
 
 interface ImageUploadProps {
   value?: string;
@@ -14,6 +14,10 @@ interface ImageUploadProps {
   allowedTypes?: string[];
   placeholder?: string;
   disabled?: boolean;
+  // If entityId is provided, upload immediately; otherwise, use base64 preview
+  entityId?: string | null;
+  // Callback when file is selected (for preview mode)
+  onFileSelect?: (file: File | null) => void;
 }
 
 const ImageUpload = ({
@@ -25,9 +29,40 @@ const ImageUpload = ({
   allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
   placeholder = 'Upload image',
   disabled = false,
+  entityId,
+  onFileSelect,
 }: ImageUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(value || null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [category, setCategory] = useState<FileCategory | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load category on mount
+  useEffect(() => {
+    const loadCategory = async () => {
+      try {
+        const cat = await uploadService.getCategoryByName(categoryName);
+        setCategory(cat);
+      } catch (error) {
+        console.error('Failed to load file category:', error);
+      }
+    };
+    loadCategory();
+  }, [categoryName]);
+
+  // Update preview when value changes (from external source)
+  useEffect(() => {
+    if (value && !value.startsWith('data:')) {
+      // It's a URL, not base64
+      setPreview(value);
+    } else if (value && value.startsWith('data:')) {
+      // It's base64
+      setPreview(value);
+    } else {
+      setPreview(null);
+    }
+  }, [value]);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -45,40 +80,58 @@ const ImageUpload = ({
       return;
     }
 
-    setIsUploading(true);
-    try {
-      // TODO: Implement actual file upload when uploads module is fully implemented
-      // For now, create a preview URL
+    setSelectedFile(file);
+
+    // If entityId exists, upload immediately
+    if (entityId && category) {
+      setIsUploading(true);
+      try {
+        const response = await uploadService.uploadFile(
+          file,
+          category.id,
+          isPublic,
+        );
+        
+        // Get the public URL
+        const fileUrl = uploadService.getPublicFileUrl(response.id);
+        setPreview(fileUrl);
+        onChange(fileUrl);
+        setSelectedFile(null); // Clear selected file after successful upload
+        toast.success('Image uploaded successfully');
+      } catch (error: any) {
+        console.error('Upload error:', error);
+        const errorMessage = error.response?.data?.message || 'Failed to upload image';
+        toast.error(errorMessage);
+        setSelectedFile(null); // Clear on error too
+      } finally {
+        setIsUploading(false);
+      }
+    } else {
+      // For new data (no entityId), create base64 preview
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
         setPreview(result);
-        onChange(result); // Using data URL as placeholder
+        // Store base64 for preview, but don't call onChange yet
+        // onChange will be called when form is submitted
+        if (onFileSelect) {
+          onFileSelect(file);
+        }
       };
       reader.readAsDataURL(file);
-
-      // TODO: Replace with actual API call
-      // const formData = new FormData();
-      // formData.append('file', file);
-      // formData.append('categoryId', categoryId);
-      // formData.append('isPublic', isPublic.toString());
-      // const response = await api.post('/uploads/upload', formData, {
-      //   headers: { 'Content-Type': 'multipart/form-data' },
-      // });
-      // onChange(response.data.url);
-
-      toast.success('Image uploaded successfully (stub implementation)');
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast.error('Failed to upload image');
-    } finally {
-      setIsUploading(false);
     }
   };
 
   const handleRemove = () => {
     setPreview(null);
+    setSelectedFile(null);
     onChange('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    if (onFileSelect) {
+      onFileSelect(null);
+    }
   };
 
   return (
@@ -96,15 +149,21 @@ const ImageUpload = ({
             size="icon"
             className="absolute top-2 right-2"
             onClick={handleRemove}
-            disabled={disabled}
+            disabled={disabled || isUploading}
           >
             <X className="h-4 w-4" />
           </Button>
+          {!entityId && selectedFile && (
+            <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+              Preview (will upload on save)
+            </div>
+          )}
         </div>
       ) : (
         <div className="border-2 border-dashed rounded-lg p-6 text-center">
           <ImageIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
           <Input
+            ref={fileInputRef}
             type="file"
             accept={allowedTypes.join(',')}
             onChange={handleFileSelect}

@@ -51,7 +51,11 @@ export class CoursesController {
   @Post()
   @ApiOperation({ summary: 'Create a new course' })
   @ApiBody({ type: CreateCourseDto })
-  @ApiResponse({ status: 201, description: 'Course created successfully', type: CourseDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Course created successfully',
+    type: CourseDto,
+  })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
@@ -66,28 +70,89 @@ export class CoursesController {
 
   @Get()
   @ApiOperation({ summary: 'Get all courses with pagination and filtering' })
-  @Permissions('course:list')
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term' })
-  @ApiQuery({ name: 'sortBy', required: false, type: String, description: 'Sort field' })
-  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Sort order' })
-  @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
-  @ApiQuery({ name: 'isPublished', required: false, type: Boolean, description: 'Filter by published status' })
-  @ApiQuery({ name: 'status', required: false, enum: ['draft', 'review', 'published', 'archived'], description: 'Filter by course status' })
-  @ApiQuery({ name: 'difficulty', required: false, enum: ['beginner', 'intermediate', 'advanced'], description: 'Filter by difficulty' })
-  @ApiQuery({ name: 'instructorId', required: false, type: String, description: 'Filter by instructor ID' })
-  @ApiQuery({ name: 'categoryId', required: false, type: String, description: 'Filter by category ID' })
-  @ApiQuery({ name: 'language', required: false, type: String, description: 'Filter by language' })
-  @ApiResponse({ 
-    status: 200, 
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  // @Permissions('course:list')
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search term',
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    description: 'Sort field',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    description: 'Sort order',
+  })
+  @ApiQuery({
+    name: 'isActive',
+    required: false,
+    type: Boolean,
+    description: 'Filter by active status',
+  })
+  @ApiQuery({
+    name: 'isPublished',
+    required: false,
+    type: Boolean,
+    description: 'Filter by published status',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['draft', 'review', 'published', 'archived'],
+    description: 'Filter by course status',
+  })
+  @ApiQuery({
+    name: 'difficulty',
+    required: false,
+    enum: ['beginner', 'intermediate', 'advanced'],
+    description: 'Filter by difficulty',
+  })
+  @ApiQuery({
+    name: 'instructorId',
+    required: false,
+    type: String,
+    description: 'Filter by instructor ID',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    type: String,
+    description: 'Filter by category ID',
+  })
+  @ApiQuery({
+    name: 'language',
+    required: false,
+    type: String,
+    description: 'Filter by language',
+  })
+  @ApiResponse({
+    status: 200,
     description: 'Courses retrieved successfully',
     schema: {
       type: 'object',
       properties: {
         data: {
           type: 'array',
-          items: { $ref: '#/components/schemas/CourseDto' }
+          items: { $ref: '#/components/schemas/CourseDto' },
         },
         meta: {
           type: 'object',
@@ -95,11 +160,11 @@ export class CoursesController {
             total: { type: 'number' },
             page: { type: 'number' },
             limit: { type: 'number' },
-            pageCount: { type: 'number' }
-          }
-        }
-      }
-    }
+            pageCount: { type: 'number' },
+          },
+        },
+      },
+    },
   })
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
   @Permissions('course:list')
@@ -109,8 +174,8 @@ export class CoursesController {
 
   @Get('stats')
   @ApiOperation({ summary: 'Get course statistics' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Course statistics retrieved successfully',
     schema: {
       type: 'object',
@@ -123,8 +188,8 @@ export class CoursesController {
           properties: {
             beginner: { type: 'number' },
             intermediate: { type: 'number' },
-            advanced: { type: 'number' }
-          }
+            advanced: { type: 'number' },
+          },
         },
         byStatus: {
           type: 'object',
@@ -132,11 +197,11 @@ export class CoursesController {
             draft: { type: 'number' },
             review: { type: 'number' },
             published: { type: 'number' },
-            archived: { type: 'number' }
-          }
-        }
-      }
-    }
+            archived: { type: 'number' },
+          },
+        },
+      },
+    },
   })
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
   @Permissions('course:view-analytics')
@@ -147,7 +212,11 @@ export class CoursesController {
   @Get('slug/:slug')
   @ApiOperation({ summary: 'Get course by slug' })
   @ApiParam({ name: 'slug', type: String, description: 'Course slug' })
-  @ApiResponse({ status: 200, description: 'Course retrieved successfully', type: CourseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Course retrieved successfully',
+    type: CourseDto,
+  })
   @ApiResponse({ status: 404, description: 'Course not found' })
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
   @Permissions('course:read')
@@ -158,7 +227,11 @@ export class CoursesController {
   @Get(':id')
   @ApiOperation({ summary: 'Get course by ID' })
   @ApiParam({ name: 'id', type: String, description: 'Course ID' })
-  @ApiResponse({ status: 200, description: 'Course retrieved successfully', type: CourseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Course retrieved successfully',
+    type: CourseDto,
+  })
   @ApiResponse({ status: 404, description: 'Course not found' })
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
   @Permissions('course:read')
@@ -170,7 +243,11 @@ export class CoursesController {
   @ApiOperation({ summary: 'Update course' })
   @ApiParam({ name: 'id', type: String, description: 'Course ID' })
   @ApiBody({ type: UpdateCourseDto })
-  @ApiResponse({ status: 200, description: 'Course updated successfully', type: CourseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Course updated successfully',
+    type: CourseDto,
+  })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 404, description: 'Course not found' })
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
@@ -190,7 +267,10 @@ export class CoursesController {
   @ApiResponse({ status: 404, description: 'Course not found' })
   @Roles(Role.SUPER_ADMIN)
   @Permissions('course:delete')
-  async remove(@Param('id') id: string, @Req() req: RequestWithUser): Promise<void> {
+  async remove(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser,
+  ): Promise<void> {
     return this.coursesService.remove(id, req.user.id);
   }
 }

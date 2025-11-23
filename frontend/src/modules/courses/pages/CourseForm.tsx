@@ -23,7 +23,7 @@ import { useCourse } from '../hooks/useCourses';
 import courseService from '../services/courseService';
 import { CourseFormData } from '../types/course.types';
 import { userService } from '@/modules/users';
-import { ImageUpload } from '@/modules/uploads';
+import { ImageUpload, uploadService } from '@/modules/uploads';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -51,6 +51,8 @@ const CourseForm = ({ mode }: CourseFormProps) => {
   const { course, isLoading: courseLoading, fetchCourse } = useCourse(courseId || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [instructors, setInstructors] = useState<{ id: string; name: string }[]>([]);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [originalThumbnailUrl, setOriginalThumbnailUrl] = useState<string>('');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -100,13 +102,14 @@ const CourseForm = ({ mode }: CourseFormProps) => {
   useEffect(() => {
     if (course && mode === 'edit') {
       const selectedCats = course.categories || [];
+      const thumbnailUrl = course.thumbnailUrl || '';
       
       form.reset({
         title: course.title,
         slug: course.slug,
         description: course.description || '',
         shortDescription: course.shortDescription || '',
-        thumbnailUrl: course.thumbnailUrl || '',
+        thumbnailUrl: thumbnailUrl,
         difficulty: course.difficulty,
         language: course.language,
         instructorId: course.instructorId,
@@ -114,6 +117,8 @@ const CourseForm = ({ mode }: CourseFormProps) => {
         categoryIds: selectedCats.map(cat => cat.id),
         isPublished: course.isPublished,
       });
+      
+      setOriginalThumbnailUrl(thumbnailUrl);
     }
   }, [course, mode, form]);
 
@@ -134,12 +139,43 @@ const CourseForm = ({ mode }: CourseFormProps) => {
     try {
       setIsSubmitting(true);
 
+      let thumbnailUrl = data.thumbnailUrl;
+
+      // If there's a new file to upload (for new course or changed thumbnail)
+      if (thumbnailFile) {
+        try {
+          // Get category for course materials
+          const category = await uploadService.getCategoryByName('course-materials');
+          if (!category) {
+            throw new Error('File category "course-materials" not found');
+          }
+
+          // Upload the file
+          const uploadResponse = await uploadService.uploadFile(
+            thumbnailFile,
+            category.id,
+            true, // isPublic
+          );
+
+          // Get the public URL
+          thumbnailUrl = uploadService.getPublicFileUrl(uploadResponse.id);
+        } catch (error: any) {
+          console.error('Error uploading thumbnail:', error);
+          const errorMessage = error.response?.data?.message || 'Failed to upload thumbnail';
+          toast.error(errorMessage);
+          return;
+        }
+      } else if (mode === 'edit' && !thumbnailUrl && originalThumbnailUrl) {
+        // If thumbnail was removed, keep it empty
+        thumbnailUrl = '';
+      }
+
       const courseData = {
         title: data.title,
         slug: data.slug,
         description: data.description,
         shortDescription: data.shortDescription,
-        thumbnailUrl: data.thumbnailUrl,
+        thumbnailUrl: thumbnailUrl,
         difficulty: data.difficulty,
         language: data.language,
         instructorId: data.instructorId,
@@ -157,9 +193,10 @@ const CourseForm = ({ mode }: CourseFormProps) => {
       }
 
       navigate('/courses');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving course:', error);
-      toast.error(`Failed to ${mode} course`);
+      const errorMessage = error.response?.data?.message || `Failed to ${mode} course`;
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -280,16 +317,36 @@ const CourseForm = ({ mode }: CourseFormProps) => {
                     name="thumbnailUrl"
                     render={({ field }) => (
                       <FormItem>
+                        <FormLabel>Thumbnail Image</FormLabel>
                         <FormControl>
                           <ImageUpload
                             value={field.value || ''}
-                            onChange={(value) => field.onChange(value || '')}
+                            onChange={(value) => {
+                              field.onChange(value || '');
+                              // If value is cleared, clear the file too
+                              if (!value) {
+                                setThumbnailFile(null);
+                              }
+                            }}
                             categoryName="course-materials"
                             isPublic={true}
                             maxSize={5 * 1024 * 1024} // 5MB for course thumbnails
                             allowedTypes={['image/jpeg', 'image/png', 'image/gif', 'image/webp']}
                             placeholder="Upload course thumbnail image"
                             disabled={isSubmitting}
+                            entityId={courseId || null}
+                            onFileSelect={(file) => {
+                              setThumbnailFile(file);
+                              // For preview mode, set base64 as value
+                              if (file && !courseId) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  const result = reader.result as string;
+                                  field.onChange(result);
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
                           />
                         </FormControl>
                         <FormMessage />
