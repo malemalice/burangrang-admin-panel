@@ -11,7 +11,7 @@ const settingsRoutes: RouteConfig[] = [
     component: SettingsPage,
   },
   {
-    path: '/settings/management',
+    path: '/settings/application',
     component: SettingsManagementPage,
     roles: ['SUPER_ADMIN', 'ADMIN'], // Only admins can access
   },
