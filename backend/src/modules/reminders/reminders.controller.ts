@@ -53,17 +53,69 @@ export class RemindersController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all reminders for current user with pagination and filtering' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  @ApiQuery({ name: 'sortBy', required: false, type: String, description: 'Sort field' })
-  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Sort order' })
-  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search in message or entity' })
-  @ApiQuery({ name: 'status', required: false, enum: ['PENDING', 'SENT', 'EXPIRED', 'CANCELLED', 'FAILED'], description: 'Filter by status' })
-  @ApiQuery({ name: 'entity', required: false, type: String, description: 'Filter by entity/context' })
-  @ApiQuery({ name: 'entityId', required: false, type: String, description: 'Filter by entity ID' })
-  @ApiQuery({ name: 'fromDate', required: false, type: String, description: 'Filter from date (ISO 8601)' })
-  @ApiQuery({ name: 'toDate', required: false, type: String, description: 'Filter to date (ISO 8601)' })
+  @ApiOperation({
+    summary: 'Get all reminders for current user with pagination and filtering',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    description: 'Sort field',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    description: 'Sort order',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search in message or entity',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['PENDING', 'SENT', 'EXPIRED', 'CANCELLED', 'FAILED'],
+    description: 'Filter by status',
+  })
+  @ApiQuery({
+    name: 'entity',
+    required: false,
+    type: String,
+    description: 'Filter by entity/context',
+  })
+  @ApiQuery({
+    name: 'entityId',
+    required: false,
+    type: String,
+    description: 'Filter by entity ID',
+  })
+  @ApiQuery({
+    name: 'fromDate',
+    required: false,
+    type: String,
+    description: 'Filter from date (ISO 8601)',
+  })
+  @ApiQuery({
+    name: 'toDate',
+    required: false,
+    type: String,
+    description: 'Filter to date (ISO 8601)',
+  })
   @ApiResponse({
     status: 200,
     description: 'List of reminders retrieved successfully',
@@ -101,7 +153,10 @@ export class RemindersController {
   @ApiResponse({ status: 404, description: 'Reminder not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
-  async getLogs(@Param('id') id: string, @Request() req): Promise<ReminderLogDto[]> {
+  async getLogs(
+    @Param('id') id: string,
+    @Request() req,
+  ): Promise<ReminderLogDto[]> {
     return this.remindersService.getLogs(id, req.user.id);
   }
 
@@ -139,4 +194,3 @@ export class RemindersController {
     return this.remindersService.remove(id, req.user.id);
   }
 }
-
