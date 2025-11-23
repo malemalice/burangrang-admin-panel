@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Toaster } from "sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes } from "react-router-dom";
@@ -7,7 +8,6 @@ import { ThemeProvider } from "@/core/lib/theme";
 import routes, { publicRoutes, notFoundRoute } from "@/core/routes";
 import { renderRoutes, renderRoute } from "@/core/routes/renderRoutes";
 import { useDocumentTitle } from "@/modules/settings/hooks/useSettings";
-import { useEffect } from "react";
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -42,24 +42,36 @@ const AppWrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 /**
+ * Loading fallback component
+ */
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+  </div>
+);
+
+/**
  * Main application component
  */
 const App = () => (
   <AppWrapper>
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          {/* Public routes (login) */}
-          {renderRoutes(publicRoutes, false)}
-          
-          {/* Protected routes with layout */}
-          {renderRoutes(routes)}
-          
-          {/* Not found route */}
-          {renderRoute(notFoundRoute, false)}
-        </Routes>
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            {/* Public routes (login) */}
+            {renderRoutes(publicRoutes, false)}
+            
+            {/* Protected routes with layout */}
+            {renderRoutes(routes)}
+            
+            {/* Not found route */}
+            {renderRoute(notFoundRoute, false)}
+          </Routes>
+        </Suspense>
       </AuthProvider>
     </BrowserRouter>
+    <Toaster position="bottom-right" />
   </AppWrapper>
 );
 

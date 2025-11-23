@@ -42,6 +42,9 @@ model User {
   ppeWithdrawalsRequestedFor PPEWithdrawal[] @relation("PPEWithdrawalRequestedFor")
   ppeWithdrawalsCollected PPEWithdrawal[] @relation("PPEWithdrawalCollector")
   ppeWithdrawalsCreated PPEWithdrawal[] @relation("PPEWithdrawalCreator")
+  instructorCourses Course[] @relation("CourseInstructor")
+  enrollments Enrollment[]
+  enrollmentsAssigned Enrollment[] @relation("EnrollmentAssigner")
 
   @@map("t_users")
 }
@@ -624,3 +627,147 @@ model SafetyEquipment {
 
   @@map("m_safety_equipment")
 }
+
+// Course Category - Master Data (LMS)
+model CourseCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  courses     Course[] @relation("CourseToCategory")
+
+  @@map("m_course_categories")
+}
+
+model Chapter {
+  id            String    @id @default(uuid())
+  courseId      String
+  title         String
+  description   String?   @db.Text
+  order         Int
+  duration      Int       @default(0) // in minutes
+  contentType   String    // video, pdf, text, youtube
+  contentUrl    String?
+  youtubeVideoId String?
+  content       String?   @db.Text // For text content
+  isFree        Boolean   @default(false)
+  isPublished   Boolean   @default(false)
+  publishedAt   DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  course        Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  progress      Progress[]
+
+  @@map("t_chapters")
+}
+
+
+// Course Management (LMS) Models
+model Course {
+  id              String     @id @default(uuid())
+  title           String
+  slug            String     @unique
+  description     String?    @db.Text
+  shortDescription String?
+  thumbnailUrl    String?
+  totalChapters   Int        @default(0)
+  totalDuration   Int        @default(0) // in minutes
+  difficulty      String     @default("beginner") // beginner, intermediate, advanced
+  language        String     @default("en")
+  rating          Decimal    @default(0) @db.Decimal(3,2)
+  reviewCount     Int        @default(0)
+  studentCount    Int        @default(0)
+  instructorId    String
+  status          String     @default("draft") // draft, review, published, archived
+  isPublished     Boolean    @default(false)
+  publishedAt     DateTime?
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  instructor      User       @relation("CourseInstructor", fields: [instructorId], references: [id])
+  chapters        Chapter[]
+  categories      CourseCategory[] @relation("CourseToCategory")
+  enrollments     Enrollment[]
+
+  @@map("t_courses")
+}
+
+
+// Enrollment Status Enum
+enum EnrollmentStatusEnum {
+  INVITED    // User has been invited/assigned but hasn't started
+  ACTIVE     // User is currently working on the course
+  COMPLETED  // User has completed the course
+  CANCELLED  // Enrollment was cancelled
+  EXPIRED    // Enrollment has expired
+}
+
+// Course Enrollment - Transactional Data (LMS)
+model Enrollment {
+  id             String                @id @default(uuid())
+  userId         String
+  courseId       String
+  status         EnrollmentStatusEnum  @default(INVITED) // INVITED, ACTIVE, COMPLETED, CANCELLED, EXPIRED
+  enrolledAt     DateTime?             // When user actually enrolled (null if INVITED)
+  completedAt    DateTime?
+  progress       Decimal               @default(0) @db.Decimal(5, 2) // 0.00 to 100.00
+  score          Decimal?              @db.Decimal(5, 2) // Final score (0.00 to 100.00)
+  summaries      Json?                 // Course summaries, notes, or additional data
+  lastAccessedAt DateTime?
+  
+  // Assignment fields (for admin-assigned courses)
+  assignedBy     String?               // Who assigned/invited the user to this course
+  assignedAt     DateTime?             // When the course was assigned/invited
+  dueDate        DateTime?             // Optional deadline for completion
+  isRequired     Boolean               @default(false) // Required vs optional enrollment
+  notes          String?               @db.Text // Assignment-specific notes or instructions
+  
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  // Relations
+  user           User                  @relation(fields: [userId], references: [id])
+  course         Course                @relation(fields: [courseId], references: [id])
+  assigner       User?                 @relation("EnrollmentAssigner", fields: [assignedBy], references: [id])
+  progressRecords Progress[]
+
+  // Removed @@unique([userId, courseId]) to allow re-enrollment after course completion
+  // Users can enroll multiple times (for retakes) but only one ACTIVE enrollment at a time
+  @@index([userId, courseId, status])
+  @@index([assignedBy])
+  @@index([dueDate])
+  @@map("t_enrollments")
+}
+
+// Progress - Transactional Data (LMS)
+model Progress {
+  id             String   @id @default(uuid())
+  enrollmentId   String
+  chapterId      String
+  status         String   @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, COMPLETED
+  timeSpent      Int      @default(0) // in seconds
+  progress       Decimal  @default(0) @db.Decimal(5, 2) // 0.00 to 100.00
+  startedAt      DateTime?
+  completedAt    DateTime?
+  lastAccessedAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  chapter    Chapter    @relation(fields: [chapterId], references: [id])
+
+  @@unique([enrollmentId, chapterId])
+  @@map("t_progress")
+}
+
