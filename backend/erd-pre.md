@@ -130,6 +130,20 @@ Enum WasteTypeEnum {
   GREEN
 }
 
+Enum ReminderStatusEnum {
+  PENDING
+  SENT
+  EXPIRED
+  CANCELLED
+  FAILED
+}
+
+Enum ReminderRepeatTypeEnum {
+  NONE
+  WEEKLY
+  MONTHLY
+}
+
 Enum TransitionTypeEnum {
   INITIAL
   TRANSITION_LEVEL
@@ -1872,4 +1886,110 @@ TableGroup solid_waste_management_system {
   m_storage_locations
   t_weight_reports
   t_weight_report_items
+}
+
+//// -- NOTIFICATION SYSTEM --
+
+Table m_notification_types {
+  id varchar [pk, default: `uuid()`]
+  name varchar [unique, not null]
+  description varchar
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Notification type categorization'
+}
+
+Table t_notifications {
+  id varchar [pk, default: `uuid()`]
+  title varchar [not null]
+  message varchar [not null]
+  context varchar
+  contextId varchar
+  typeId varchar [not null, ref: > m_notification_types.id]
+  isRead boolean [default: false, not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  readAt timestamp
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'System notifications - delivery records for user-facing communication'
+  indexes {
+    typeId
+    createdBy
+    isRead
+    (context, contextId)
+  }
+}
+
+Table t_notification_recipients {
+  id varchar [pk, default: `uuid()`]
+  notificationId varchar [not null, ref: > t_notifications.id]
+  roleId varchar [not null, ref: > m_roles.id]
+  userId varchar [ref: > t_users.id]
+  isRead boolean [default: false, not null]
+  readAt timestamp
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Notification recipients tracking - supports role-based and user-specific targeting'
+  indexes {
+    notificationId
+    roleId
+    userId
+    (notificationId, roleId, userId) [unique]
+  }
+}
+
+//// -- REMINDER SYSTEM --
+
+Table t_reminders {
+  id varchar [pk, default: `uuid()`]
+  userId varchar [not null, ref: > t_users.id]
+  entity varchar
+  entityId varchar
+  message varchar [not null]
+  remindAt timestamp [not null]
+  repeatType ReminderRepeatTypeEnum
+  repeatUntil timestamp
+  status ReminderStatusEnum [default: 'PENDING', not null]
+  lastSentAt timestamp
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Scheduled reminders that trigger notifications at specific times. Supports one-time and recurring reminders (weekly, monthly) with expiration dates. Dynamically references domain entities via context (table/module name) and contextId (entity primary key).'
+  indexes {
+    (status, remindAt)
+    userId
+    (entity, entityId)
+  }
+}
+
+Table t_reminder_logs {
+  id varchar [pk, default: `uuid()`]
+  reminderId varchar [not null, ref: > t_reminders.id]
+  executionStatus varchar [not null]
+  executionDuration int
+  failureReason text
+  notificationId varchar [ref: > t_notifications.id]
+  emailSent boolean [default: false, not null]
+  emailError text
+  executedAt timestamp [default: `now()`, not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Audit trail for reminder executions - tracks execution status, duration, failures, and email delivery. Links to notification record when successfully created.'
+  indexes {
+    reminderId
+    executedAt
+    executionStatus
+  }
+}
+
+TableGroup reminder_notification_system {
+  t_reminders
+  t_reminder_logs
+  t_notifications
+  t_notification_recipients
+  m_notification_types
 }
