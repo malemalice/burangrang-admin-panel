@@ -223,8 +223,22 @@ export class EnrollmentsService {
             assignedBy,
           );
 
-          // TODO: Send email notification
-          // Placeholder for email sending logic
+          // Send email notification
+          // TODO: Integrate with email service when available
+          // Email service should be injected and used here
+          // Example implementation:
+          // await this.emailService.sendCourseAssignmentEmail({
+          //   to: user.email,
+          //   userName: `${user.firstName} ${user.lastName}`,
+          //   courseTitle: course.title,
+          //   courseSlug: course.slug,
+          //   dueDate: dueDate ? new Date(dueDate).toLocaleDateString() : null,
+          //   notes: notes || null,
+          //   enrollmentId: enrollment.id,
+          // });
+
+          // Placeholder: Log email sending intent for development/debugging
+          console.log(`[Email] Would send course assignment email to ${user.email} for course "${course.title}"`);
         } catch (error) {
           // Log error but don't fail enrollment creation
           console.error('Failed to send notification:', error);
