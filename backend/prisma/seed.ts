@@ -17,6 +17,7 @@ import { seedFileStorageProviders } from './seeds/file-storage-providers.seed';
 import { seedPPE } from './seeds/ppe.seed';
 import { seedSafetyEquipmentTypes } from './seeds/safety-equipment-types.seed';
 import { seedSafetyEquipments } from './seeds/safety-equipments.seed';
+import { seedCourses } from './seeds/courses.seed';
 
 const prisma = new PrismaClient();
 
@@ -67,6 +68,12 @@ async function main() {
       await prisma.fileUpload.deleteMany();
       await prisma.fileCategory.deleteMany();
       await prisma.fileStorageProvider.deleteMany();
+      // Clear Course data
+      await prisma.progress.deleteMany();
+      await prisma.enrollment.deleteMany();
+      await prisma.chapter.deleteMany();
+      await prisma.course.deleteMany();
+      await prisma.courseCategory.deleteMany();
       console.log('All existing data cleared successfully');
     } else {
       // Clear only the specified table
@@ -140,6 +147,13 @@ async function main() {
           await (prisma as any).pPEStockItem.deleteMany();
           await (prisma as any).pPEStock.deleteMany();
           break;
+        case 'courses':
+          await prisma.progress.deleteMany();
+          await prisma.enrollment.deleteMany();
+          await prisma.chapter.deleteMany();
+          await prisma.course.deleteMany();
+          await prisma.courseCategory.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
           console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe');
@@ -174,6 +188,7 @@ async function main() {
       await seedSafetyEquipmentTypes();
       await seedSafetyEquipments();
       await seedPPE();
+      await seedCourses();
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -274,6 +289,9 @@ async function main() {
           break;
         case 'ppe':
           await seedPPE();
+          break;
+        case 'courses':
+          await seedCourses();
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);
