@@ -1,10 +1,10 @@
 # GitHub Actions CI/CD Setup Guide
 
-This guide explains how to set up automated backend deployment to your VPS server using GitHub Actions.
+This guide explains how to set up automated deployment to your VPS server using GitHub Actions.
 
 ## 📋 Overview
 
-This repository includes two GitHub Actions workflows for managing your backend:
+This repository includes three GitHub Actions workflows for managing your application:
 
 ### 1. Deploy Backend to Production
 Automatically deploys the backend service to your VPS when you push a version tag. The workflow:
@@ -15,7 +15,16 @@ Automatically deploys the backend service to your VPS when you push a version ta
 4. Rebuilds and restarts the backend Docker container
 5. Verifies the deployment
 
-### 2. Run Database Migrations
+### 2. Deploy Frontend to Production
+Automatically deploys the frontend service to your VPS when you push a version tag. The workflow:
+
+1. Triggers on version tags (e.g., `frontend-v1.0.0`)
+2. Connects to your VPS via SSH
+3. Checks out the tagged code
+4. Rebuilds and restarts the frontend Docker container
+5. Verifies the deployment
+
+### 3. Run Database Migrations
 A separate workflow for running database migrations independently. This allows you to:
 
 1. Run migrations before or after deployments
@@ -139,18 +148,24 @@ docker compose version
 #### Option A: Create a Test Tag
 
 ```bash
-# On your local machine, create and push a test tag
+# For backend deployment
 git tag backend-v0.0.1
 git push origin backend-v0.0.1
+
+# For frontend deployment
+git tag frontend-v0.0.1
+git push origin frontend-v0.0.1
 ```
 
 #### Option B: Manual Trigger
 
 1. Go to your GitHub repository
 2. Click **Actions** tab
-3. Select **Deploy Backend to Production** workflow
+3. Select the workflow you want to run:
+   - **Deploy Backend to Production** for backend
+   - **Deploy Frontend to Production** for frontend
 4. Click **Run workflow**
-5. Enter a tag name (e.g., `backend-v0.0.1` or use an existing tag)
+5. Enter a tag name (e.g., `backend-v0.0.1` or `frontend-v0.0.1` or use an existing tag)
 6. Click **Run workflow**
 
 ### Step 7: Monitor Deployment
@@ -162,13 +177,15 @@ git push origin backend-v0.0.1
 
 ## 📝 Workflow Details
 
-### Trigger Conditions
+### Backend Deployment Workflow
 
-The workflow triggers on:
+#### Trigger Conditions
+
+The backend workflow triggers on:
 - **Tag push**: When you push a tag matching `backend-v*.*.*` or `api-v*.*.*`
 - **Manual trigger**: From GitHub Actions UI with a custom tag
 
-### Deployment Process
+#### Deployment Process
 
 1. **Checkout**: Verifies the tag exists
 2. **SSH Setup**: Configures SSH connection using the private key
@@ -184,12 +201,45 @@ The workflow triggers on:
    - Tests health endpoint
 5. **Notify**: Creates a deployment summary
 
-### Container Details
+#### Container Details
 
-The workflow expects:
+The backend workflow expects:
 - **Container name**: `burangrang-backend`
 - **Health endpoint**: `http://localhost:3000/health`
 - **Process manager**: PM2
+- **Live URL**: https://bsj-api.benwara.com
+
+### Frontend Deployment Workflow
+
+#### Trigger Conditions
+
+The frontend workflow triggers on:
+- **Tag push**: When you push a tag matching `frontend-v*.*.*` or `web-v*.*.*`
+- **Manual trigger**: From GitHub Actions UI with a custom tag
+
+#### Deployment Process
+
+1. **Checkout**: Verifies the tag exists
+2. **SSH Setup**: Configures SSH connection using the private key
+3. **Deploy**: 
+   - Fetches latest code
+   - Checks out the specified tag
+   - Stops and removes old frontend container
+   - Builds new frontend image
+   - Starts new frontend container
+4. **Verify**: 
+   - Checks container is running
+   - Verifies health endpoint is responding
+   - Tests main application endpoint
+5. **Notify**: Creates a deployment summary
+
+#### Container Details
+
+The frontend workflow expects:
+- **Container name**: `burangrang-frontend`
+- **Health endpoint**: `http://localhost:8080/health`
+- **Application port**: `8080`
+- **Live URL**: https://bsj.benwara.com
 
 ## 🗄️ Database Migrations Workflow
 
@@ -296,33 +346,46 @@ git push origin backend-v1.2.0
 
 ### Container Not Found
 
-**Error**: `Container burangrang-backend not found`
+**Error**: `Container burangrang-backend not found` or `Container burangrang-frontend not found`
 
 **Solutions**:
 1. Verify `DEPLOYMENT_PATH` points to the correct directory
 2. Ensure `docker-compose.yml` exists in deployment directory
-3. Check that the service name in `docker-compose.yml` is `backend`
+3. Check that the service name in `docker-compose.yml` matches:
+   - `backend` for backend deployments
+   - `frontend` for frontend deployments
 
 ### Build Fails
 
 **Error**: Docker build fails
 
 **Solutions**:
-1. Check backend Dockerfile exists at `backend/Dockerfile`
+1. Check Dockerfile exists:
+   - Backend: `backend/Dockerfile`
+   - Frontend: `frontend/Dockerfile`
 2. Verify all required files are in the repository
-3. Check Docker logs: `docker compose logs backend`
+3. Check Docker logs:
+   - Backend: `docker compose logs backend`
+   - Frontend: `docker compose logs frontend`
 4. Ensure sufficient disk space on VPS
 
 ### Health Check Fails
 
 **Error**: Health endpoint not responding
 
-**Solutions**:
+**Backend Solutions**:
 1. Check container logs: `docker compose logs backend`
 2. Verify PM2 is running: `docker exec burangrang-backend pm2 list`
 3. Check application logs: `docker exec burangrang-backend pm2 logs`
 4. Ensure database connection is working
 5. Verify environment variables are set correctly
+
+**Frontend Solutions**:
+1. Check container logs: `docker compose logs frontend`
+2. Verify the application is built correctly
+3. Check if the health endpoint exists: `docker exec burangrang-frontend curl http://localhost:8080/health`
+4. Verify environment variables are set correctly (especially `VITE_API_URL`)
+5. Check if the frontend can reach the backend API
 
 ### Permission Denied
 
@@ -430,30 +493,37 @@ git push origin backend-v1.2.0
 Use semantic versioning with prefix:
 
 ```bash
-# Major version
+# Backend tags
 git tag backend-v1.0.0
 git push origin backend-v1.0.0
 
-# Minor version
-git tag backend-v1.1.0
-git push origin backend-v1.1.0
+# Frontend tags
+git tag frontend-v1.0.0
+git push origin frontend-v1.0.0
 
-# Patch version
+# Minor version examples
+git tag backend-v1.1.0
+git tag frontend-v1.1.0
+
+# Patch version examples
 git tag backend-v1.1.1
-git push origin backend-v1.1.1
+git tag frontend-v1.1.1
 ```
 
 ### Creating Tags
 
 ```bash
-# Create annotated tag (recommended)
-git tag -a backend-v1.0.0 -m "Release version 1.0.0"
-
-# Push tag to remote
+# Create annotated tag for backend (recommended)
+git tag -a backend-v1.0.0 -m "Backend release version 1.0.0"
 git push origin backend-v1.0.0
+
+# Create annotated tag for frontend (recommended)
+git tag -a frontend-v1.0.0 -m "Frontend release version 1.0.0"
+git push origin frontend-v1.0.0
 
 # List all tags
 git tag -l "backend-v*"
+git tag -l "frontend-v*"
 
 # Delete tag (if needed)
 git tag -d backend-v1.0.0
@@ -469,9 +539,11 @@ If a deployment fails or causes issues:
 ```bash
 # Find previous working tag
 git tag -l "backend-v*" | sort -V
+git tag -l "frontend-v*" | sort -V
 
 # Deploy via GitHub Actions UI
 # Use "Run workflow" with the previous tag name
+# Select the appropriate workflow (Backend or Frontend)
 ```
 
 ### Option 2: Manual Rollback on VPS
@@ -483,17 +555,21 @@ ssh user@your-vps-ip
 # Navigate to project
 cd /path/to/hse-dashboard
 
-# Checkout previous tag
+# For backend rollback
 git checkout backend-v1.0.0
-
-# Navigate to deployment
 cd deployment
-
-# Rebuild and restart
 docker compose stop backend
 docker compose rm -f backend
 docker compose build --no-cache backend
 docker compose up -d backend
+
+# For frontend rollback
+git checkout frontend-v1.0.0
+cd deployment
+docker compose stop frontend
+docker compose rm -f frontend
+docker compose build --no-cache frontend
+docker compose up -d frontend
 ```
 
 ## 📚 Additional Resources
@@ -515,10 +591,13 @@ If you encounter issues:
 ## 📝 Notes
 
 - **Database Migrations**: Use the "Run Database Migrations" workflow to run migrations via GitHub Actions. Migrations are not run automatically during deployment for safety.
-- **Deployment Workflow**: Uses `--no-cache` for builds to ensure fresh images
+- **Deployment Workflows**: Uses `--no-cache` for builds to ensure fresh images
 - **Health Checks**: Container health checks are performed after a 30-second wait period
-- **Process Manager**: The workflow expects PM2 to be running inside the container
-- **Two Workflows**: 
-  - `Deploy Backend to Production`: Handles code deployment
+- **Process Manager**: The backend workflow expects PM2 to be running inside the container
+- **Three Workflows**: 
+  - `Deploy Backend to Production`: Handles backend code deployment
+  - `Deploy Frontend to Production`: Handles frontend code deployment
   - `Run Database Migrations`: Handles database schema updates (can be run independently)
+- **SSH Authentication**: All workflows use SSH private key authentication stored in GitHub Secrets
+- **Independent Deployments**: Backend and frontend can be deployed independently using their respective version tags
 
