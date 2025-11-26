@@ -1,0 +1,148 @@
+name: Run Database Migrations
+
+on:
+  # Allow manual trigger from GitHub UI
+  workflow_dispatch:
+    inputs:
+      migration_type:
+        description: 'Migration type'
+        required: true
+        type: choice
+        options:
+          - deploy
+          - dev
+        default: 'deploy'
+      confirm:
+        description: 'Type "yes" to confirm running migrations'
+        required: true
+        default: 'no'
+
+jobs:
+  run-migrations:
+    name: Run Database Migrations
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Validate confirmation
+        id: validate
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "yes" ]; then
+            echo "❌ Migration cancelled. You must type 'yes' in the confirmation field."
+            exit 1
+          fi
+          echo "✅ Confirmation received. Proceeding with migrations..."
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Add VPS to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Check container status
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          echo "Checking if backend container is running..."
+          ssh $VPS_USER@$VPS_HOST << ENDSSH
+            if docker ps | grep -q burangrang-backend; then
+              echo "✅ Backend container is running"
+              docker ps | grep burangrang-backend
+            else
+              echo "❌ Backend container is not running!"
+              echo "Please ensure the backend is deployed before running migrations."
+              exit 1
+            fi
+          ENDSSH
+
+      - name: Run database migrations
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          MIGRATION_TYPE: ${{ github.event.inputs.migration_type }}
+        run: |
+          ssh $VPS_USER@$VPS_HOST << ENDSSH
+            set -e
+            
+            echo "==================================="
+            echo "🗄️  Starting Database Migrations"
+            echo "Migration Type: $MIGRATION_TYPE"
+            echo "==================================="
+            
+            # Check if container is running
+            if ! docker ps | grep -q burangrang-backend; then
+              echo "❌ Backend container is not running!"
+              exit 1
+            fi
+            
+            echo "📋 Current migration status:"
+            docker exec burangrang-backend npx prisma migrate status || echo "⚠️  Could not check migration status"
+            
+            echo ""
+            echo "🚀 Running migrations..."
+            
+            if [ "$MIGRATION_TYPE" == "deploy" ]; then
+              echo "Using: npx prisma migrate deploy (production mode)"
+              docker exec burangrang-backend npx prisma migrate deploy
+            else
+              echo "Using: npx prisma migrate dev (development mode)"
+              echo "⚠️  WARNING: This will create a new migration if schema has changed!"
+              docker exec burangrang-backend npx prisma migrate dev --name github_actions_migration
+            fi
+            
+            echo ""
+            echo "✅ Migrations completed successfully!"
+            echo "==================================="
+          ENDSSH
+
+      - name: Verify migrations
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          echo "Verifying migration status..."
+          ssh $VPS_USER@$VPS_HOST << ENDSSH
+            echo "📋 Final migration status:"
+            docker exec burangrang-backend npx prisma migrate status
+            
+            echo ""
+            echo "🔍 Checking Prisma Client:"
+            docker exec burangrang-backend npx prisma generate --schema=./prisma/schema.prisma || echo "⚠️  Prisma client generation skipped"
+          ENDSSH
+
+      - name: Create migration summary
+        if: always()
+        run: |
+          echo "## 🗄️  Database Migration Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Migration Type:** \`${{ github.event.inputs.migration_type }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Migrations completed successfully!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Note:** Database schema has been updated. The application should continue running normally." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Migration failed. Please check the logs above for details." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Troubleshooting:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Verify backend container is running" >> $GITHUB_STEP_SUMMARY
+            echo "- Check database connection" >> $GITHUB_STEP_SUMMARY
+            echo "- Review migration files for errors" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Notify migration status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Database migrations completed successfully!"
+          else
+            echo "❌ Database migration failed!"
+            echo "Please check the logs above for details."
+          fi
+

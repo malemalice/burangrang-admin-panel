@@ -4,13 +4,24 @@ This guide explains how to set up automated backend deployment to your VPS serve
 
 ## 📋 Overview
 
-The GitHub Actions workflow automatically deploys the backend service to your VPS when you push a version tag. The workflow:
+This repository includes two GitHub Actions workflows for managing your backend:
+
+### 1. Deploy Backend to Production
+Automatically deploys the backend service to your VPS when you push a version tag. The workflow:
 
 1. Triggers on version tags (e.g., `backend-v1.0.0`)
 2. Connects to your VPS via SSH
 3. Checks out the tagged code
 4. Rebuilds and restarts the backend Docker container
 5. Verifies the deployment
+
+### 2. Run Database Migrations
+A separate workflow for running database migrations independently. This allows you to:
+
+1. Run migrations before or after deployments
+2. Apply migrations without deploying new code
+3. Choose between production (`migrate deploy`) or development (`migrate dev`) mode
+4. Requires explicit confirmation for safety
 
 ## 🔧 Prerequisites
 
@@ -180,6 +191,93 @@ The workflow expects:
 - **Health endpoint**: `http://localhost:3000/health`
 - **Process manager**: PM2
 
+## 🗄️ Database Migrations Workflow
+
+A separate workflow is available for running database migrations independently of deployments. This allows you to run migrations before or after deployments, or whenever needed.
+
+### Accessing the Migration Workflow
+
+1. Go to your GitHub repository
+2. Click **Actions** tab
+3. Select **Run Database Migrations** workflow
+4. Click **Run workflow**
+
+### Migration Options
+
+When triggering the workflow, you'll be prompted for:
+
+1. **Migration Type**:
+   - `deploy` (recommended for production): Runs `npx prisma migrate deploy`
+     - Applies pending migrations without creating new ones
+     - Safe for production use
+   - `dev`: Runs `npx prisma migrate dev`
+     - Creates a new migration if schema has changed
+     - Use with caution in production
+
+2. **Confirmation**: Type `yes` to confirm running migrations
+   - Safety feature to prevent accidental migrations
+   - Must type exactly `yes` (case-sensitive)
+
+### Migration Process
+
+The workflow will:
+
+1. **Validate**: Checks that you confirmed the action
+2. **Verify Container**: Ensures backend container is running
+3. **Check Status**: Shows current migration status
+4. **Run Migrations**: Executes the selected migration command
+5. **Verify**: Confirms migrations completed successfully
+6. **Summary**: Provides a detailed summary of the operation
+
+### When to Run Migrations
+
+**Before Deployment** (if new migrations exist):
+```bash
+1. Run "Run Database Migrations" workflow
+2. Wait for completion
+3. Deploy backend with "Deploy Backend to Production" workflow
+```
+
+**After Deployment** (if migrations are in the new code):
+```bash
+1. Deploy backend with "Deploy Backend to Production" workflow
+2. Run "Run Database Migrations" workflow
+3. Verify application is working correctly
+```
+
+**Standalone** (whenever needed):
+```bash
+- Run "Run Database Migrations" workflow anytime
+- No deployment required
+- Useful for applying migrations from previous deployments
+```
+
+### Migration Workflow Details
+
+The migration workflow:
+- **Container name**: `burangrang-backend`
+- **Migration command**: `npx prisma migrate deploy` or `npx prisma migrate dev`
+- **Safety**: Requires explicit confirmation before running
+- **Verification**: Checks migration status before and after
+
+### Example Workflow
+
+```bash
+# Scenario: New deployment with database changes
+
+# Step 1: Deploy new backend code
+git tag backend-v1.2.0
+git push origin backend-v1.2.0
+# This triggers automatic deployment
+
+# Step 2: Run migrations (if needed)
+# Go to GitHub Actions → Run Database Migrations → Run workflow
+# Select: deploy, confirm: yes
+
+# Step 3: Verify
+# Check application health and functionality
+```
+
 ## 🔍 Troubleshooting
 
 ### SSH Connection Fails
@@ -240,6 +338,67 @@ The workflow expects:
    sudo usermod -aG docker $USER
    # Log out and back in for changes to take effect
    ```
+
+### Migration Fails
+
+**Error**: Migration command fails or times out
+
+**Solutions**:
+1. **Check container is running**:
+   ```bash
+   docker ps | grep burangrang-backend
+   ```
+   If not running, deploy backend first
+
+2. **Verify database connection**:
+   ```bash
+   docker exec burangrang-backend npx prisma db pull
+   ```
+   This tests the database connection
+
+3. **Check migration files exist**:
+   ```bash
+   docker exec burangrang-backend ls -la prisma/migrations/
+   ```
+
+4. **View detailed error logs**:
+   ```bash
+   docker exec burangrang-backend npx prisma migrate deploy --verbose
+   ```
+
+5. **Check database permissions**:
+   - Ensure database user has CREATE, ALTER, DROP permissions
+   - Verify DATABASE_URL in backend container is correct
+
+6. **Manual migration check**:
+   ```bash
+   # SSH into VPS
+   ssh user@your-vps-ip
+   
+   # Check migration status
+   docker exec burangrang-backend npx prisma migrate status
+   
+   # Try running migration manually
+   docker exec burangrang-backend npx prisma migrate deploy
+   ```
+
+### Migration Status Unknown
+
+**Error**: Cannot check migration status
+
+**Solutions**:
+1. Ensure Prisma is installed in the container
+2. Verify Prisma schema file exists: `docker exec burangrang-backend ls prisma/schema.prisma`
+3. Check Prisma client is generated: `docker exec burangrang-backend npx prisma generate`
+
+### Confirmation Not Working
+
+**Error**: Workflow fails with "Migration cancelled"
+
+**Solutions**:
+1. Make sure you type exactly `yes` (lowercase, no quotes)
+2. The confirmation field is case-sensitive
+3. Check the workflow logs to see what was entered
 
 ## 🔐 Security Best Practices
 
@@ -355,11 +514,11 @@ If you encounter issues:
 
 ## 📝 Notes
 
-- Database migrations are **not** run automatically. You must run them manually if needed:
-  ```bash
-  docker compose exec backend npx prisma migrate deploy
-  ```
-- The workflow uses `--no-cache` for builds to ensure fresh images
-- Container health checks are performed after a 30-second wait period
-- The workflow expects PM2 to be running inside the container
+- **Database Migrations**: Use the "Run Database Migrations" workflow to run migrations via GitHub Actions. Migrations are not run automatically during deployment for safety.
+- **Deployment Workflow**: Uses `--no-cache` for builds to ensure fresh images
+- **Health Checks**: Container health checks are performed after a 30-second wait period
+- **Process Manager**: The workflow expects PM2 to be running inside the container
+- **Two Workflows**: 
+  - `Deploy Backend to Production`: Handles code deployment
+  - `Run Database Migrations`: Handles database schema updates (can be run independently)
 
