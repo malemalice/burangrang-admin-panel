@@ -268,7 +268,21 @@ const ProductsPage = () => {
       header: 'Price',
       cell: (product: Product) => (
         <div className="text-right">
-          {product.isOnSale ? (
+          {product.isFreePrice ? (
+            <div>
+              <div className="font-medium text-blue-600">Self Price</div>
+              {product.minFreePrice && (
+                <div className="text-xs text-gray-500">
+                  Min: {formatPriceDisplay(product.minFreePrice)}
+                </div>
+              )}
+              {product.maxFreePrice && (
+                <div className="text-xs text-gray-500">
+                  Max: {formatPriceDisplay(product.maxFreePrice)}
+                </div>
+              )}
+            </div>
+          ) : product.isOnSale ? (
             <div>
               <div className="text-sm text-gray-500 line-through">
                 {formatPriceDisplay(product.price)}
