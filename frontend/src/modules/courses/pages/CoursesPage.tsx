@@ -1,16 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { 
-  Edit, 
-  Trash2, 
-  Plus, 
-  Eye, 
-  BookOpen, 
-  Clock, 
-  Users, 
-  Star, 
-  MoreHorizontal, 
+import {
+  Edit,
+  Trash2,
+  Plus,
+  Eye,
+  BookOpen,
+  Clock,
+  Users,
+  Star,
+  MoreHorizontal,
   Play,
   FileText,
   Youtube,
@@ -39,17 +39,17 @@ import { userService } from '@/modules/users';
 
 const CoursesPage = () => {
   const navigate = useNavigate();
-  const { 
-    courses, 
-    totalCourses, 
-    currentPage, 
-    isLoading, 
-    error, 
-    fetchCourses, 
-    deleteCourse 
+  const {
+    courses,
+    totalCourses,
+    currentPage,
+    isLoading,
+    error,
+    fetchCourses,
+    deleteCourse
   } = useCourses();
   const { stats, fetchStats } = useCourseStats();
-  
+
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -197,7 +197,7 @@ const CoursesPage = () => {
         } else {
           simpleValue = filter.value.toString();
         }
-        
+
         filterMap[filter.id] = {
           value: simpleValue,
           label: simpleValue.toString()
@@ -327,10 +327,10 @@ const CoursesPage = () => {
             <Users className="h-3 w-3 text-gray-400" />
             <span>{course.studentCount} students</span>
           </div>
-          {course.rating > 0 && (
+          {Number(course.rating) > 0 && (
             <div className="flex items-center gap-1">
               <Star className="h-3 w-3 text-yellow-400 fill-current" />
-              <span>{course.rating.toFixed(1)} ({course.reviewCount})</span>
+              <span>{Number(course.rating).toFixed(1)} ({course.reviewCount})</span>
             </div>
           )}
         </div>
@@ -341,8 +341,8 @@ const CoursesPage = () => {
       id: 'actions',
       header: 'Actions',
       cell: (course: Course) => (
-        <DropdownMenu 
-          open={dropdownOpenStates[course.id]} 
+        <DropdownMenu
+          open={dropdownOpenStates[course.id]}
           onOpenChange={() => toggleDropdown(course.id)}
         >
           <DropdownMenuTrigger asChild>
@@ -361,7 +361,7 @@ const CoursesPage = () => {
               <BookOpen className="mr-2 h-4 w-4" /> Manage chapters
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <DropdownMenuItem
               onClick={() => handleDeleteClick(course)}
               className="text-red-600"
             >

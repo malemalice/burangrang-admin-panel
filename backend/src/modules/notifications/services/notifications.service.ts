@@ -24,12 +24,38 @@ export class NotificationsService {
     this.notificationRecipientMapper = this.dtoMapper.createSimpleMapper(NotificationRecipientDto);
   }
 
-  // Create notification for specific roles
+  // Create notification for specific roles and/or users
   async createNotificationForRoles(
     createDto: CreateNotificationDto,
     createdBy: string,
   ): Promise<NotificationDto> {
     return this.errorHandler.safeExecute(async () => {
+      // Build recipients array
+      const recipients: any[] = [];
+
+      // Add role-based recipients
+      if (createDto.roleIds && createDto.roleIds.length > 0) {
+        createDto.roleIds.forEach(roleId => {
+          recipients.push({ roleId });
+        });
+      }
+
+      // Add user-specific recipients
+      if (createDto.userIds && createDto.userIds.length > 0) {
+        // Get user roles for user-specific notifications
+        const users = await this.prisma.user.findMany({
+          where: { id: { in: createDto.userIds } },
+          select: { id: true, roleId: true },
+        });
+
+        users.forEach(user => {
+          recipients.push({
+            roleId: user.roleId,
+            userId: user.id,
+          });
+        });
+      }
+
       const notification = await this.prisma.notification.create({
         data: {
           title: createDto.title,
@@ -39,9 +65,7 @@ export class NotificationsService {
           typeId: createDto.typeId,
           createdBy,
           recipients: {
-            create: createDto.roleIds.map(roleId => ({
-              roleId,
-            }))
+            create: recipients,
           }
         },
         include: {
@@ -66,7 +90,7 @@ export class NotificationsService {
   ): Promise<PaginatedResponse<NotificationDto>> {
     return this.errorHandler.safeExecute(async () => {
       const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc', isRead, context, typeId } = params;
-      
+
       // Ensure limit and page are numbers with proper validation
       const pageNum = Math.max(1, typeof page === 'string' ? parseInt(page, 10) || 1 : page || 1);
       const limitNum = Math.max(1, Math.min(100, typeof limit === 'string' ? parseInt(limit, 10) || 10 : limit || 10));

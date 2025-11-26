@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { 
-  Edit, 
-  Trash2, 
-  Plus, 
-  BookOpen, 
-  Clock, 
-  Users, 
-  Star, 
+import {
+  Edit,
+  Trash2,
+  Plus,
+  BookOpen,
+  Clock,
+  Users,
+  Star,
   Play,
   FileText,
   Youtube,
@@ -43,14 +43,14 @@ const CourseDetailPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { course, isLoading: courseLoading, fetchCourse } = useCourse(courseId || null);
-  const { 
-    chapters, 
-    totalChapters, 
-    isLoading: chaptersLoading, 
+  const {
+    chapters,
+    totalChapters,
+    isLoading: chaptersLoading,
     fetchChapters,
-    deleteChapter 
+    deleteChapter
   } = useChapters();
-  
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [chapterToDelete, setChapterToDelete] = useState<Chapter | null>(null);
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
@@ -148,8 +148,8 @@ const CourseDetailPage = () => {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             onClick={() => navigate('/courses')}
           >
@@ -183,12 +183,12 @@ const CourseDetailPage = () => {
                 <span>{course.totalChapters} chapters</span>
                 <span>•</span>
                 <span>{course.studentCount} students</span>
-                {course.rating > 0 && (
+                {Number(course.rating) > 0 && (
                   <>
                     <span>•</span>
                     <div className="flex items-center gap-1">
                       <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                      <span>{course.rating.toFixed(1)} ({course.reviewCount})</span>
+                      <span>{Number(course.rating).toFixed(1)} ({course.reviewCount})</span>
                     </div>
                   </>
                 )}
@@ -320,14 +320,14 @@ const CourseDetailPage = () => {
                     </div>
                     <span className="font-medium">{course.studentCount}</span>
                   </div>
-                  {course.rating > 0 && (
+                  {Number(course.rating) > 0 && (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Star className="h-4 w-4 text-yellow-400" />
                         <span className="text-sm">Rating</span>
                       </div>
                       <span className="font-medium">
-                        {course.rating.toFixed(1)} ({course.reviewCount})
+                        {Number(course.rating).toFixed(1)} ({course.reviewCount})
                       </span>
                     </div>
                   )}
@@ -340,15 +340,15 @@ const CourseDetailPage = () => {
                   <CardTitle>Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <Button 
-                    className="w-full" 
+                  <Button
+                    className="w-full"
                     onClick={() => navigate(`/courses/${course.id}/edit`)}
                   >
                     <Edit className="mr-2 h-4 w-4" />
                     Edit Course
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full"
                     onClick={() => navigate(`/courses/${course.id}/chapters`)}
                   >
@@ -435,7 +435,7 @@ const CourseDetailPage = () => {
                           <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}/chapters/${chapter.id}/edit`)}>
                             <Edit className="mr-2 h-4 w-4" /> Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={() => handleDeleteChapter(chapter)}
                             className="text-red-600"
                           >
