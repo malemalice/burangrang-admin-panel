@@ -210,9 +210,44 @@ export class CheckoutService {
         throw new BadRequestException(`Product is not available: ${product.name}`);
       }
 
-      // Get actual price from database (use salePrice if available, otherwise regular price)
-      const actualPrice = product.salePrice || product.price;
-      const unitPrice = Number(actualPrice);
+      // Determine unit price
+      let unitPrice: number;
+
+      // Check if product allows free pricing and custom price is provided
+      if (product.isFreePrice && item.price !== undefined && item.price !== null) {
+        // Validate custom price against constraints
+        const minPrice = Number(product.minFreePrice || 1000);
+        const customPrice = Number(item.price);
+
+        if (customPrice < minPrice) {
+          throw new BadRequestException(
+            `Custom price must be at least ${minPrice} for product ${product.name}`,
+          );
+        }
+
+        if (product.maxFreePrice !== null) {
+          const maxPrice = Number(product.maxFreePrice);
+          if (customPrice > maxPrice) {
+            throw new BadRequestException(
+              `Custom price cannot exceed ${maxPrice} for product ${product.name}`,
+            );
+          }
+        }
+
+        // Use custom price
+        unitPrice = customPrice;
+        this.logger.log(
+          `Using custom price ${unitPrice} for product ${product.name} (isFreePrice: true)`,
+        );
+      } else {
+        // Use regular product price (salePrice if available, otherwise regular price)
+        const actualPrice = product.salePrice || product.price;
+        unitPrice = Number(actualPrice);
+        this.logger.log(
+          `Using regular price ${unitPrice} for product ${product.name}`,
+        );
+      }
+
       const totalPrice = unitPrice * item.quantity;
 
       validatedItems.push({
