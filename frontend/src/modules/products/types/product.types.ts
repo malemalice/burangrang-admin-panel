@@ -16,6 +16,9 @@ export interface ProductDTO {
   shortDescription?: string;
   price: number;
   salePrice?: number;
+  isFreePrice?: boolean; // Allow users to set their own price
+  minFreePrice?: number; // Minimum price user can set
+  maxFreePrice?: number; // Maximum price user can set (null = no limit)
   sku: string;
   productType: ProductTypeName; // ✅ Use global constant type
   status: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
@@ -78,6 +81,9 @@ export interface Product {
   shortDescription?: string;
   price: number;
   salePrice?: number;
+  isFreePrice?: boolean; // Allow users to set their own price
+  minFreePrice?: number; // Minimum price user can set
+  maxFreePrice?: number; // Maximum price user can set (null = no limit)
   sku: string;
   productType: ProductTypeName; // ✅ Use global constant type
   status: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
@@ -132,6 +138,9 @@ export interface CreateProductDTO {
   shortDescription?: string;
   price: number;
   salePrice?: number;
+  isFreePrice?: boolean; // Allow users to set their own price
+  minFreePrice?: number; // Minimum price user can set
+  maxFreePrice?: number; // Maximum price user can set (null = no limit)
   sku: string;
   productType: ProductTypeName; // ✅ Use global constant type
   status?: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
@@ -152,6 +161,9 @@ export interface UpdateProductDTO {
   shortDescription?: string;
   price?: number;
   salePrice?: number;
+  isFreePrice?: boolean; // Allow users to set their own price
+  minFreePrice?: number; // Minimum price user can set
+  maxFreePrice?: number; // Maximum price user can set (null = no limit)
   sku?: string;
   productType?: ProductTypeName; // ✅ Use global constant type
   status?: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';
@@ -172,6 +184,9 @@ export interface ProductFormData {
   shortDescription?: string;
   price: number;
   salePrice?: number;
+  isFreePrice?: boolean; // Allow users to set their own price
+  minFreePrice?: number; // Minimum price user can set
+  maxFreePrice?: number; // Maximum price user can set (null = no limit)
   sku: string;
   productType: ProductTypeName; // ✅ Use global constant type
   status: 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'ARCHIVED';

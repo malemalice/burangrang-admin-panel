@@ -55,6 +55,35 @@ export class CreateProductDto {
   salePrice?: number;
 
   @ApiProperty({
+    description: 'Whether users can set their own price during checkout',
+    example: false,
+    required: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  isFreePrice?: boolean;
+
+  @ApiProperty({
+    description: 'Minimum price user can set when isFreePrice is true',
+    example: 1000,
+    required: false,
+  })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  minFreePrice?: number;
+
+  @ApiProperty({
+    description: 'Maximum price user can set when isFreePrice is true (null = no limit)',
+    example: 50000,
+    required: false,
+  })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  maxFreePrice?: number;
+
+  @ApiProperty({
     description: 'The SKU (Stock Keeping Unit) of the product',
     example: 'REACT-ADV-001',
   })

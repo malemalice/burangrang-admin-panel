@@ -68,6 +68,42 @@ export class ProductDto {
   salePrice?: number;
 
   @ApiProperty({
+    description: 'Whether users can set their own price during checkout',
+    example: false,
+    required: false,
+  })
+  @Expose()
+  isFreePrice?: boolean;
+
+  @ApiProperty({
+    description: 'Minimum price user can set when isFreePrice is true',
+    example: 1000,
+    required: false,
+  })
+  @Expose()
+  @Transform(({ value }) => {
+    if (value === null || value === undefined) return 1000;
+    if (typeof value === 'number') return value;
+    if (value instanceof Decimal) return Number(value.toString());
+    return Number(value);
+  })
+  minFreePrice?: number;
+
+  @ApiProperty({
+    description: 'Maximum price user can set when isFreePrice is true (null = no limit)',
+    example: 50000,
+    required: false,
+  })
+  @Expose()
+  @Transform(({ value }) => {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number') return value;
+    if (value instanceof Decimal) return Number(value.toString());
+    return Number(value);
+  })
+  maxFreePrice?: number;
+
+  @ApiProperty({
     description: 'The SKU (Stock Keeping Unit) of the product',
     example: 'REACT-ADV-001',
   })

@@ -28,6 +28,15 @@ export class CreateOrderItemDto {
   @IsNumber()
   @Min(0)
   totalPrice: number;
+
+  @ApiProperty({
+    description: 'Custom price set by user (only valid if product allows free pricing)',
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  customPrice?: number;
 }
 
 export class CreateOrderDto {

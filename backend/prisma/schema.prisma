@@ -469,6 +469,9 @@ model Product {
   reviewCount      Int      @default(0)
   thumbnailUrl     String?
   fileUrl          String?  // URL to uploaded file (PDF, etc.)
+  isFreePrice      Boolean  @default(false) // Allow users to set their own price
+  minFreePrice     Decimal  @default(1000) @db.Decimal(10, 2) // Minimum price user can set
+  maxFreePrice     Decimal? @db.Decimal(10, 2) // Maximum price user can set (null = no limit)
   createdBy        String
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())
