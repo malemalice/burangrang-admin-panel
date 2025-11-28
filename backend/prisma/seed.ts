@@ -18,6 +18,7 @@ import { seedPPE } from './seeds/ppe.seed';
 import { seedSafetyEquipmentTypes } from './seeds/safety-equipment-types.seed';
 import { seedSafetyEquipments } from './seeds/safety-equipments.seed';
 import { seedCourses } from './seeds/courses.seed';
+import { seedQuizzes } from './seeds/quizzes.seed';
 
 const prisma = new PrismaClient();
 
@@ -74,6 +75,13 @@ async function main() {
       await prisma.chapter.deleteMany();
       await prisma.course.deleteMany();
       await prisma.courseCategory.deleteMany();
+      // Clear Quiz data
+      await prisma.quizAnswer.deleteMany();
+      await prisma.quizAttempt.deleteMany();
+      await prisma.quizAssignment.deleteMany();
+      await prisma.quizQuestionOption.deleteMany();
+      await prisma.quizQuestion.deleteMany();
+      await prisma.quiz.deleteMany();
       console.log('All existing data cleared successfully');
     } else {
       // Clear only the specified table
@@ -154,9 +162,17 @@ async function main() {
           await prisma.course.deleteMany();
           await prisma.courseCategory.deleteMany();
           break;
+        case 'quizzes':
+          await prisma.quizAnswer.deleteMany();
+          await prisma.quizAttempt.deleteMany();
+          await prisma.quizAssignment.deleteMany();
+          await prisma.quizQuestionOption.deleteMany();
+          await prisma.quizQuestion.deleteMany();
+          await prisma.quiz.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
-          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe');
+          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe');
           process.exit(1);
       }
       console.log(`Cleared existing data for table: ${tableToSeed}`);
@@ -189,6 +205,7 @@ async function main() {
       await seedSafetyEquipments();
       await seedPPE();
       await seedCourses();
+      await seedQuizzes();
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -292,6 +309,15 @@ async function main() {
           break;
         case 'courses':
           await seedCourses();
+          break;
+        case 'quizzes':
+          // Quizzes depend on courses, so ensure courses exist first
+          const existingCourses = await prisma.course.findMany();
+          if (existingCourses.length === 0) {
+            console.log('⚠️  No courses found. Seeding courses first...');
+            await seedCourses();
+          }
+          await seedQuizzes();
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

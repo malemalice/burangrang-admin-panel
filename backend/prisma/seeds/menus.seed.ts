@@ -426,6 +426,24 @@ export const seedMenus = async () => {
       },
     });
 
+    // Create Quizzes menu - accessible to admins and managers for quiz management
+    await prisma.menu.create({
+      data: {
+        name: 'Quizzes',
+        path: '/quizzes',
+        icon: 'FileQuestion',
+        order: 10,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
     // Create Reminders menu - accessible to all users for reminder management
     await prisma.menu.create({
       data: {
@@ -476,7 +494,7 @@ export const seedMenus = async () => {
 
     console.log('✅ Menus seeded successfully');
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
-    console.log(`   - Top-level menus: 10`);
+    console.log(`   - Top-level menus: 11`);
     console.log(`   - Master Data submenus: 7`);
     console.log(`   - User Management submenus: 3`);
     console.log(`   - PPE Management submenus: 4`);

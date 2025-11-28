@@ -31,6 +31,7 @@ import { CoursesModule } from './modules/courses/courses.module';
 import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { ProgressModule } from './modules/progress/progress.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
+import { QuizzesModule } from './modules/quizzes/quizzes.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { RemindersModule } from './modules/reminders/reminders.module';
     EnrollmentsModule,
     ProgressModule,
     RemindersModule,
+    QuizzesModule,
   ],
   providers: [
     Reflector,
