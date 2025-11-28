@@ -16,7 +16,8 @@ import {
   Eye,
   EyeOff,
   MoreHorizontal,
-  ArrowLeft
+  ArrowLeft,
+  FileQuestion
 } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button } from '@/core/components/ui/button';
@@ -37,6 +38,8 @@ import { useChapters } from '../hooks/useChapters';
 import courseService from '../services/courseService';
 import chapterService from '../services/chapterService';
 import { Course, Chapter } from '../types/course.types';
+import quizService from '@/modules/quizzes/services/quizService';
+import { Quiz } from '@/modules/quizzes/types/quiz.types';
 
 const CourseDetailPage = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -54,6 +57,8 @@ const CourseDetailPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [chapterToDelete, setChapterToDelete] = useState<Chapter | null>(null);
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [quizzesLoading, setQuizzesLoading] = useState(false);
 
   // Load course data
   useEffect(() => {
@@ -67,6 +72,30 @@ const CourseDetailPage = () => {
     if (course) {
       fetchChapters({ courseId: course.id, page: 1, limit: 100 });
     }
+  }, [course]);
+
+  // Load quizzes when course is loaded
+  useEffect(() => {
+    const loadQuizzes = async () => {
+      if (course) {
+        setQuizzesLoading(true);
+        try {
+          const response = await quizService.getQuizzes({
+            page: 1,
+            limit: 100,
+            entity: 'COURSE',
+            entityId: course.id,
+          });
+          setQuizzes(response.data);
+        } catch (error) {
+          console.error('Failed to load quizzes:', error);
+        } finally {
+          setQuizzesLoading(false);
+        }
+      }
+    };
+
+    loadQuizzes();
   }, [course]);
 
   const handleDeleteChapter = (chapter: Chapter) => {
@@ -218,6 +247,7 @@ const CourseDetailPage = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="chapters">Chapters ({totalChapters})</TabsTrigger>
+          <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -436,6 +466,14 @@ const CourseDetailPage = () => {
                             <Edit className="mr-2 h-4 w-4" /> Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
+                            onClick={() =>
+                              navigate(`/quizzes/new?entity=CHAPTER&entityId=${chapter.id}`)
+                            }
+                          >
+                            <FileQuestion className="mr-2 h-4 w-4" /> Add Quiz
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
                             onClick={() => handleDeleteChapter(chapter)}
                             className="text-red-600"
                           >
@@ -443,6 +481,97 @@ const CourseDetailPage = () => {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="quizzes" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">Course Quizzes</h3>
+            <Button
+              onClick={() =>
+                navigate(`/quizzes/new?entity=COURSE&entityId=${course.id}`)
+              }
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Quiz
+            </Button>
+          </div>
+
+          {quizzesLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="h-6 w-6 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+            </div>
+          ) : quizzes.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-8">
+                <FileQuestion className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No quizzes yet</h3>
+                <p className="text-gray-600 mb-4">Add quizzes to assess student understanding.</p>
+                <Button
+                  onClick={() =>
+                    navigate(`/quizzes/new?entity=COURSE&entityId=${course.id}`)
+                  }
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add First Quiz
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {quizzes.map((quiz) => (
+                <Card key={quiz.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4 flex-1">
+                        <FileQuestion className="h-5 w-5 text-gray-400" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-medium">{quiz.title}</h4>
+                            {quiz.isPublished && (
+                              <Badge variant="outline" className="bg-green-100 text-green-800 border-0 text-xs">
+                                Published
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600 mb-2">
+                            {quiz.description || 'No description'}
+                          </p>
+                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                            <span>{quiz.questions?.length || 0} questions</span>
+                            <span>Passing: {quiz.passingScore}%</span>
+                            {quiz.duration && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {quiz.duration} min
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/quizzes/${quiz.id}`)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/quizzes/${quiz.id}/edit`)}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
