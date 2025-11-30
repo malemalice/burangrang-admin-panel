@@ -269,7 +269,6 @@ const FileUpload = ({
     const displayFileSize = uploadedFile?.size || undefined;
     const displayUrl = uploadedFile?.url || value || '';
     
-    console.log('RENDERING PREVIEW with:', { uploadedFile, value, displayFileName, displayFileSize, displayUrl });
     
     return (
       <div className={cn('space-y-2', className)}>
