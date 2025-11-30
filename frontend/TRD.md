@@ -525,6 +525,152 @@ const filterFields: FilterField[] = [
 ];
 ```
 
+#### 3. Dropdown Menu State Management
+**CRITICAL**: When using DropdownMenu components in table action columns with delete operations, proper state management is essential to prevent UI bugs.
+
+##### Problem: Dropdown State Issues After Delete Operations
+
+Common issues that occur with improper dropdown state management:
+- Dropdown remains open after deletion
+- Cannot open next dropdown after deleting an item
+- Stale state references after data reload
+- Event propagation conflicts
+
+##### Solution: Controlled Dropdown with Single State Variable
+
+**✅ CORRECT Pattern - Single State Variable:**
+
+```typescript
+const [ModuleName]sPage = () => {
+  // ✅ Single state variable - tracks which dropdown is open
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [entityToDelete, setEntityToDelete] = useState<[Entity] | null>(null);
+
+  // ✅ Explicit state cleanup when delete is clicked
+  const handleDeleteClick = (entity: [Entity], event?: React.MouseEvent) => {
+    event?.stopPropagation(); // Prevent event bubbling
+    setOpenDropdownId(null); // Explicitly close the dropdown
+    setEntityToDelete(entity);
+    setDeleteDialogOpen(true);
+  };
+
+  // ✅ Reset state after deletion
+  const handleDeleteConfirm = async () => {
+    if (entityToDelete) {
+      try {
+        await deleteEntity(entityToDelete.id);
+        setDeleteDialogOpen(false);
+        setEntityToDelete(null);
+        setOpenDropdownId(null); // Ensure dropdown is closed
+        await loadEntities(); // Reload to update the list
+      } catch (error) {
+        console.error('Failed to delete entity:', error);
+      }
+    }
+  };
+
+  // ✅ Reset state on cancel
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setEntityToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
+  };
+
+  const columns = [
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: (entity: [Entity]) => (
+        <DropdownMenu 
+          open={openDropdownId === entity.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? entity.id : null);
+          }}
+        >
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => navigate(`/${entities}/${entity.id}`)}>
+              <Eye className="mr-2 h-4 w-4" /> View details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/${entities}/${entity.id}/edit`)}>
+              <Edit className="mr-2 h-4 w-4" /> Edit
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={(e) => handleDeleteClick(entity, e)}
+              className="text-red-600"
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+      isSortable: false
+    }
+  ];
+};
+```
+
+**Key Principles:**
+
+1. **Single Source of Truth**: Use one state variable (`openDropdownId`) to track which dropdown is open
+2. **Explicit State Cleanup**: Always reset dropdown state when:
+   - Delete button is clicked
+   - Delete operation completes
+   - Dialog is cancelled
+3. **Event Propagation**: Use `event?.stopPropagation()` to prevent event bubbling issues
+4. **Controlled Component**: Use `open` and `onOpenChange` props for predictable behavior
+5. **State Synchronization**: Ensure state is reset after async operations (delete, reload)
+
+**❌ ANTI-PATTERNS to Avoid:**
+
+```typescript
+// ❌ WRONG - Multiple state variables per dropdown
+const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+
+// ❌ WRONG - Uncontrolled dropdown without state cleanup
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button>...</Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent>
+    <DropdownMenuItem onClick={() => handleDelete(entity)}>
+      Delete
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
+
+// ❌ WRONG - Missing state reset after operations
+const handleDeleteConfirm = async () => {
+  await deleteEntity(id);
+  // Missing: setOpenDropdownId(null);
+  await loadEntities();
+};
+
+// ❌ WRONG - Toggle function instead of direct state set
+const toggleDropdown = (id: string) => {
+  setOpenDropdownId(prev => prev === id ? null : id);
+};
+// Should use: onOpenChange={(open) => setOpenDropdownId(open ? id : null)}
+```
+
+**Benefits of This Pattern:**
+
+- ✅ Predictable state management
+- ✅ No stale state after deletion
+- ✅ Works correctly after canceling delete dialog
+- ✅ Only one dropdown can be open at a time
+- ✅ Proper cleanup after async operations
+- ✅ No event propagation conflicts
+
+**Reference Implementation:**
+- **✅ Courses Module**: `frontend/src/modules/courses/pages/CoursesPage.tsx`
+
 ### CRUD Operation Patterns
 
 #### 1. Hook-Based CRUD Operations
@@ -1035,6 +1181,17 @@ useEffect(() => {
   // Loading stats
   fetchStats();
 }, [params]); // Too many responsibilities
+
+// ❌ ANTI-PATTERN: Poor dropdown state management with delete operations
+const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+// Multiple state variables cause conflicts after deletion
+
+const handleDeleteClick = (entity: Entity) => {
+  // Missing: setOpenDropdownId(null);
+  setEntityToDelete(entity);
+  setDeleteDialogOpen(true);
+};
+// Missing state cleanup causes dropdown to remain open or become unresponsive
 ```
 
 #### 6. Reference Implementations
@@ -1134,6 +1291,13 @@ if (isLoading) {
 - ❌ DON'T mix data loading with initialization in single useEffect
 - ❌ DON'T forget to import useCallback from React
 
+### 9. Poor Dropdown State Management
+- ❌ DON'T use multiple state variables (`Record<string, boolean>`) for dropdown states
+- ❌ DON'T forget to reset dropdown state after delete operations
+- ❌ DON'T skip `event.stopPropagation()` when opening dialogs from dropdown items
+- ❌ DON'T use uncontrolled dropdowns without proper cleanup after async operations
+- ❌ DON'T use toggle functions instead of direct state setters in `onOpenChange` handlers
+
 ---
 
 ## ✅ Implementation Checklist
@@ -1154,6 +1318,9 @@ if (isLoading) {
 - [ ] **DataTable usage**: All tables use the shared `DataTable` component
 - [ ] **Column definitions**: Consistent column structure across modules
 - [ ] **Action menus**: Standardized action dropdowns with icons
+- [ ] **Dropdown state management**: Single state variable (`openDropdownId`) for controlled dropdowns
+- [ ] **State cleanup**: Dropdown state reset after delete operations and dialog cancellation
+- [ ] **Event handling**: `stopPropagation()` used when opening dialogs from dropdown items
 - [ ] **Pagination**: Consistent pagination implementation
 - [ ] **Filtering**: Proper filter field configuration
 
