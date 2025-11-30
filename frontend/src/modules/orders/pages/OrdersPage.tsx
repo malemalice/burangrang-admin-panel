@@ -7,6 +7,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/core/components/ui/dropdown-menu';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { useOrders, useOrderStats } from '../hooks/useOrders';
 import { Order, OrderSearchParams, ORDER_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS, getOrderStatusColor, getPaymentStatusColor } from '../types/order.types';
 import { formatCurrencyDisplay } from '@/shared/utils/currency';
@@ -32,6 +33,9 @@ const OrdersPage = () => {
   const [limit, setLimit] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<FilterValue[]>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // ✅ CRITICAL: Memoize data loading function
   const loadOrders = useCallback(async () => {
@@ -69,14 +73,31 @@ const OrdersPage = () => {
     setPageIndex(0); // Reset to first page when filtering
   };
 
-  const handleDelete = async (order: Order) => {
-    if (window.confirm(`Are you sure you want to delete order ${order.orderNumber}?`)) {
-      try {
-        await deleteOrder(order.id);
-      } catch (error) {
-        console.error('Error deleting order:', error);
-      }
+  const handleDeleteClick = (order: Order, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
+    setOrderToDelete(order);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!orderToDelete) return;
+
+    try {
+      await deleteOrder(orderToDelete.id);
+      setDeleteDialogOpen(false);
+      setOrderToDelete(null);
+      setOpenDropdownId(null); // Ensure dropdown is closed
+      await loadOrders(); // Reload to update the list
+    } catch (error) {
+      console.error('Error deleting order:', error);
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setOrderToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   const handleStatusChange = async (order: Order, newStatus: string) => {
@@ -179,7 +200,12 @@ const OrdersPage = () => {
       id: 'actions',
       header: 'Actions',
       cell: (order: Order) => (
-        <DropdownMenu>
+        <DropdownMenu 
+          open={openDropdownId === order.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? order.id : null);
+          }}
+        >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <MoreHorizontal className="h-4 w-4" />
@@ -204,7 +230,7 @@ const OrdersPage = () => {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
-              onClick={() => handleDelete(order)}
+              onClick={(e) => handleDeleteClick(order, e)}
               className="text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -331,6 +357,21 @@ const OrdersPage = () => {
         filterFields={filterFields}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+      />
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
+        title="Delete Order"
+        description={`Are you sure you want to delete order "${orderToDelete?.orderNumber}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleDeleteConfirm}
+        variant="destructive"
       />
     </div>
   );

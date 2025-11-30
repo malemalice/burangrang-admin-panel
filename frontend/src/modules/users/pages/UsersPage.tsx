@@ -38,7 +38,7 @@ const UsersPage = () => {
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [jobPositions, setJobPositions] = useState<{ id: string; name: string }[]>([]);
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: string | string[] | { from?: Date; to?: Date } | boolean; label: string }>>({});
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields for users
   const filterFields: FilterField[] = [
@@ -173,21 +173,9 @@ const UsersPage = () => {
     fetchUsers();
   }, [fetchUsers]);
 
-  const handleDropdownOpenChange = (id: string, open: boolean) => {
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [id]: open
-    }));
-  };
-
-  const handleDeleteClick = (user: User) => {
-    // Close the dropdown menu for this user
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [user.id]: false
-    }));
-    
-    // Set user to delete and open the dialog
+  const handleDeleteClick = (user: User, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setUserToDelete(user);
     setDeleteDialogOpen(true);
   };
@@ -199,6 +187,7 @@ const UsersPage = () => {
     try {
       await userService.deleteUser(userToDelete.id);
       toast.success('User deleted successfully');
+      setOpenDropdownId(null); // Ensure dropdown is closed
       fetchUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -208,6 +197,12 @@ const UsersPage = () => {
       setDeleteDialogOpen(false);
       setUserToDelete(null);
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setUserToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   const handleSendResetPassword = async (user: User) => {
@@ -380,8 +375,10 @@ const UsersPage = () => {
       header: 'Actions',
       cell: (user: User) => (
         <DropdownMenu 
-          open={dropdownOpenStates[user.id]} 
-          onOpenChange={(open) => handleDropdownOpenChange(user.id, open)}
+          open={openDropdownId === user.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? user.id : null);
+          }}
         >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -401,7 +398,7 @@ const UsersPage = () => {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => handleDeleteClick(user)}
+              onClick={(e) => handleDeleteClick(user, e)}
               className="text-red-600 focus:text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -452,10 +449,15 @@ const UsersPage = () => {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         title="Delete User"
         description={`Are you sure you want to delete "${userToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
       />
     </>
   );

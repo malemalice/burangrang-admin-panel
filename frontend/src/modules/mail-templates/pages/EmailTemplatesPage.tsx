@@ -29,7 +29,7 @@ const EmailTemplatesPage = () => {
   const [templateToDelete, setTemplateToDelete] = useState<EmailTemplate | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   const filterFields: FilterField[] = [
     { id: 'code', label: 'Code', type: 'text' },
@@ -83,12 +83,9 @@ const EmailTemplatesPage = () => {
     fetchTemplates();
   }, [fetchTemplates]);
 
-  const handleDropdownOpenChange = (id: string, open: boolean) => {
-    setDropdownOpenStates(prev => ({ ...prev, [id]: open }));
-  };
-
-  const handleDeleteClick = (template: EmailTemplate) => {
-    setDropdownOpenStates(prev => ({ ...prev, [template.id]: false }));
+  const handleDeleteClick = (template: EmailTemplate, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setTemplateToDelete(template);
     setDeleteDialogOpen(true);
   };
@@ -99,6 +96,7 @@ const EmailTemplatesPage = () => {
     try {
       await emailTemplateService.deleteEmailTemplate(templateToDelete.id);
       toast.success('Template deleted successfully');
+      setOpenDropdownId(null); // Ensure dropdown is closed
       fetchTemplates();
     } catch (error) {
       console.error('Error deleting template:', error);
@@ -108,6 +106,12 @@ const EmailTemplatesPage = () => {
       setDeleteDialogOpen(false);
       setTemplateToDelete(null);
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setTemplateToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   const handleToggle = async (template: EmailTemplate) => {
@@ -181,8 +185,10 @@ const EmailTemplatesPage = () => {
       header: 'Actions',
       cell: (t: EmailTemplate) => (
         <DropdownMenu
-          open={dropdownOpenStates[t.id]}
-          onOpenChange={(open) => handleDropdownOpenChange(t.id, open)}
+          open={openDropdownId === t.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? t.id : null);
+          }}
         >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -210,7 +216,7 @@ const EmailTemplatesPage = () => {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => handleDeleteClick(t)}
+              onClick={(e) => handleDeleteClick(t, e)}
               className="text-red-600 focus:text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -253,10 +259,15 @@ const EmailTemplatesPage = () => {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         title="Delete Template"
         description={`Are you sure you want to delete "${templateToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
       />
     </>
   );
