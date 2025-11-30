@@ -243,15 +243,15 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
         slug: data.slug,
         description: data.description || undefined,
         shortDescription: data.shortDescription || undefined,
-        price: data.price,
-        salePrice: data.salePrice && data.salePrice > 0 ? data.salePrice : undefined, // ✅ Fixed: Convert 0 back to undefined
+        price: data.price, // Allow 0 for free products
+        salePrice: data.salePrice !== undefined && data.salePrice !== null ? data.salePrice : undefined, // Allow 0 for free sale price
         isFreePrice: data.isFreePrice,
         minFreePrice: data.isFreePrice && data.minFreePrice ? data.minFreePrice : undefined,
         maxFreePrice: data.isFreePrice && data.maxFreePrice ? data.maxFreePrice : undefined,
         sku: data.sku,
         productType: data.productType,
         status: data.status,
-        downloadLimit: data.downloadLimit && data.downloadLimit > 0 ? data.downloadLimit : undefined, // ✅ Fixed: Convert 0 back to undefined
+        downloadLimit: data.downloadLimit !== undefined && data.downloadLimit !== null && data.downloadLimit > 0 ? data.downloadLimit : undefined, // Only exclude 0, allow positive values
         thumbnailUrl: data.thumbnailUrl || undefined,
         fileUrl: data.fileUrl && data.fileUrl.trim() !== '' ? data.fileUrl : undefined, // Include file URL for EBOOK products
         isActive: data.isActive,
@@ -577,7 +577,7 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                               placeholder="0"
                               className="pl-8"
                               disabled={isFreePriceEnabled}
-                              value={field.value ? formatPriceInput(field.value) : ''}
+                              value={field.value !== undefined && field.value !== null ? formatPriceInput(field.value) : ''}
                               onChange={(e) => {
                                 const parsed = parsePrice(e.target.value);
                                 field.onChange(parsed);
@@ -614,10 +614,10 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                               placeholder="0"
                               className="pl-8"
                               disabled={isFreePriceEnabled}
-                              value={field.value && field.value > 0 ? formatPriceInput(field.value) : ''}
+                              value={field.value !== undefined && field.value !== null ? formatPriceInput(field.value) : ''}
                               onChange={(e) => {
                                 const parsed = parsePrice(e.target.value);
-                                field.onChange(parsed > 0 ? parsed : 0);
+                                field.onChange(parsed >= 0 ? parsed : 0);
                               }}
                             />
                           </div>
