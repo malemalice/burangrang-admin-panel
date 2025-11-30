@@ -36,7 +36,7 @@ const ProductTypesPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: string | boolean; label: string }>>({});
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields for product types
   const filterFields: FilterField[] = [
@@ -109,16 +109,14 @@ const ProductTypesPage = () => {
       id: 'actions',
       header: 'Actions',
       cell: (productType: ProductType) => (
-        <DropdownMenu>
+        <DropdownMenu 
+          open={openDropdownId === productType.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? productType.id : null);
+          }}
+        >
           <DropdownMenuTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => setDropdownOpenStates(prev => ({
-                ...prev,
-                [productType.id]: !prev[productType.id]
-              }))}
-            >
+            <Button variant="ghost" size="icon">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -131,7 +129,7 @@ const ProductTypesPage = () => {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
-              onClick={() => handleDeleteClick(productType)}
+              onClick={(e) => handleDeleteClick(productType, e)}
               className="text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -144,7 +142,9 @@ const ProductTypesPage = () => {
   ];
 
   // Handle delete click
-  const handleDeleteClick = (productType: ProductType) => {
+  const handleDeleteClick = (productType: ProductType, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setProductTypeToDelete(productType);
     setDeleteDialogOpen(true);
   };
@@ -156,10 +156,17 @@ const ProductTypesPage = () => {
         await deleteProductType(productTypeToDelete.id);
         setDeleteDialogOpen(false);
         setProductTypeToDelete(null);
+        setOpenDropdownId(null); // Ensure dropdown is closed
       } catch (error) {
         console.error('Failed to delete product type:', error);
       }
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setProductTypeToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   // Handle search
@@ -268,10 +275,15 @@ const ProductTypesPage = () => {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         title="Delete Product Type"
         description={`Are you sure you want to delete "${productTypeToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
       />
     </div>
   );

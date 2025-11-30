@@ -31,7 +31,7 @@ const OfficesPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -103,21 +103,9 @@ const OfficesPage = () => {
     fetchOffices();
   }, [fetchOffices]);
 
-  const handleDropdownOpenChange = (id: string, open: boolean) => {
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [id]: open
-    }));
-  };
-
-  const handleDeleteClick = (office: Office) => {
-    // Close the dropdown menu for this office
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [office.id]: false
-    }));
-    
-    // Set office to delete and open the dialog
+  const handleDeleteClick = (office: Office, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setOfficeToDelete(office);
     setDeleteDialogOpen(true);
   };
@@ -129,6 +117,7 @@ const OfficesPage = () => {
     try {
       await officeService.deleteOffice(officeToDelete.id);
       toast.success(`Office "${officeToDelete.name}" has been deleted`);
+      setOpenDropdownId(null); // Ensure dropdown is closed
       fetchOffices();
     } catch (error) {
       console.error('Failed to delete office:', error);
@@ -138,6 +127,12 @@ const OfficesPage = () => {
       setDeleteDialogOpen(false);
       setOfficeToDelete(null);
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setOfficeToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   const handleSearch = (term: string) => {
@@ -257,8 +252,10 @@ const OfficesPage = () => {
       header: 'Actions',
       cell: (office: Office) => (
         <DropdownMenu 
-          open={dropdownOpenStates[office.id]} 
-          onOpenChange={(open) => handleDropdownOpenChange(office.id, open)}
+          open={openDropdownId === office.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? office.id : null);
+          }}
         >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -275,7 +272,7 @@ const OfficesPage = () => {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => handleDeleteClick(office)}
+              onClick={(e) => handleDeleteClick(office, e)}
               className="text-red-600 focus:text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -325,10 +322,15 @@ const OfficesPage = () => {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         title="Delete Office"
         description={`Are you sure you want to delete "${officeToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
       />
     </>
   );

@@ -60,7 +60,7 @@ const CoursesPage = () => {
   const [instructors, setInstructors] = useState<{ id: string; name: string }[]>([]);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: string | number | boolean; label: string }>>({});
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields for courses
   const filterFields: FilterField[] = [
@@ -190,7 +190,7 @@ const CoursesPage = () => {
     // Apply active filters
     Object.entries(activeFilters).forEach(([key, filter]) => {
       if (filter.value !== undefined && filter.value !== '') {
-        (params as Record<string, string | number | boolean>)[key] = filter.value;
+        (params as any)[key] = filter.value;
       }
     });
 
@@ -228,7 +228,9 @@ const CoursesPage = () => {
     setPageIndex(0);
   };
 
-  const handleDeleteClick = (course: Course) => {
+  const handleDeleteClick = (course: Course, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Close the dropdown
     setCourseToDelete(course);
     setDeleteDialogOpen(true);
   };
@@ -239,6 +241,7 @@ const CoursesPage = () => {
         await deleteCourse(courseToDelete.id);
         setDeleteDialogOpen(false);
         setCourseToDelete(null);
+        setOpenDropdownId(null); // Ensure dropdown is closed
         await loadCourses(); // Reload to update the list
       } catch (error) {
         console.error('Failed to delete course:', error);
@@ -246,12 +249,10 @@ const CoursesPage = () => {
     }
   };
 
-
-  const toggleDropdown = (courseId: string) => {
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [courseId]: !prev[courseId]
-    }));
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setCourseToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -311,11 +312,6 @@ const CoursesPage = () => {
           <Badge variant="outline" className={`${getStatusColor(course.status)} border-0 text-xs`}>
             {course.status}
           </Badge>
-          {course.isPublished && (
-            <Badge variant="outline" className="bg-green-100 text-green-800 border-0 text-xs">
-              Published
-            </Badge>
-          )}
         </div>
       ),
       isSortable: true
@@ -362,8 +358,10 @@ const CoursesPage = () => {
       header: 'Actions',
       cell: (course: Course) => (
         <DropdownMenu 
-          open={dropdownOpenStates[course.id]} 
-          onOpenChange={() => toggleDropdown(course.id)}
+          open={openDropdownId === course.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? course.id : null);
+          }}
         >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -382,7 +380,7 @@ const CoursesPage = () => {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
-              onClick={() => handleDeleteClick(course)}
+              onClick={(e) => handleDeleteClick(course, e)}
               className="text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -482,7 +480,11 @@ const CoursesPage = () => {
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         title="Delete Course"
         description={`Are you sure you want to delete "${courseToDelete?.title}"? This action cannot be undone.`}
         confirmText="Delete"

@@ -31,7 +31,7 @@ const RolesPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields for roles
   const filterFields: FilterField[] = [
@@ -91,21 +91,9 @@ const RolesPage = () => {
     fetchRoles();
   }, [fetchRoles]);
 
-  const handleDropdownOpenChange = (id: string, open: boolean) => {
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [id]: open
-    }));
-  };
-
-  const handleDeleteClick = (role: Role) => {
-    // Close the dropdown menu for this role
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [role.id]: false
-    }));
-    
-    // Set role to delete and open the dialog
+  const handleDeleteClick = (role: Role, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setRoleToDelete(role);
     setDeleteDialogOpen(true);
   };
@@ -117,6 +105,7 @@ const RolesPage = () => {
     try {
       await roleService.deleteRole(roleToDelete.id);
       toast.success(`Role "${roleToDelete.name}" has been deleted`);
+      setOpenDropdownId(null); // Ensure dropdown is closed
       fetchRoles();
     } catch (error) {
       console.error('Failed to delete role:', error);
@@ -126,6 +115,12 @@ const RolesPage = () => {
       setDeleteDialogOpen(false);
       setRoleToDelete(null);
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setRoleToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   const handleTabChange = (value: string) => {
@@ -221,8 +216,10 @@ const RolesPage = () => {
       header: 'Actions',
       cell: (role: Role) => (
         <DropdownMenu 
-          open={dropdownOpenStates[role.id]} 
-          onOpenChange={(open) => handleDropdownOpenChange(role.id, open)}
+          open={openDropdownId === role.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? role.id : null);
+          }}
         >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -239,7 +236,7 @@ const RolesPage = () => {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => handleDeleteClick(role)}
+              onClick={(e) => handleDeleteClick(role, e)}
               className="text-red-600 focus:text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -289,10 +286,15 @@ const RolesPage = () => {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         title="Delete Role"
         description={`Are you sure you want to delete the role "${roleToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
       />
     </>
   );
