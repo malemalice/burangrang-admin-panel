@@ -91,7 +91,7 @@ const ReminderForm = ({ reminder, mode }: ReminderFormProps) => {
   const onSubmit = async (data: FormValues) => {
     try {
       setIsLoading(true);
-      
+
       // Convert datetime-local to ISO 8601 format
       const remindAtISO = new Date(data.remindAt).toISOString();
       const repeatUntilISO = data.repeatUntil ? new Date(data.repeatUntil).toISOString() : undefined;
@@ -220,6 +220,7 @@ const ReminderForm = ({ reminder, mode }: ReminderFormProps) => {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value={ReminderRepeatType.NONE}>None</SelectItem>
+                        <SelectItem value={ReminderRepeatType.DAILY}>Daily</SelectItem>
                         <SelectItem value={ReminderRepeatType.WEEKLY}>Weekly</SelectItem>
                         <SelectItem value={ReminderRepeatType.MONTHLY}>Monthly</SelectItem>
                       </SelectContent>

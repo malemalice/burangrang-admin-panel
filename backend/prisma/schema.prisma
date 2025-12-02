@@ -51,6 +51,10 @@ model User {
   quizAssignmentsAssigned QuizAssignment[] @relation("QuizAssignmentAssigner")
   quizAttempts QuizAttempt[] @relation("QuizAttemptUser")
   quizAnswersGraded QuizAnswer[] @relation("QuizAnswerGrader")
+  certificatesAsPersonnel Certificate[] @relation("CertificatePersonnel")
+  certificatesCreated Certificate[] @relation("CertificateCreator")
+  certificateRenewalsRequested CertificateRenewal[] @relation("CertificateRenewalRequester")
+  certificateRenewalsProcessed CertificateRenewal[] @relation("CertificateRenewalProcessor")
 
   @@map("t_users")
 }
@@ -155,6 +159,7 @@ model Department {
   approvalItems MasterApprovalItem[]
   approvals Approval[]
   ppeWithdrawals PPEWithdrawal[]
+  certificates Certificate[]
   @@map("m_departments")
 }
 
@@ -462,6 +467,7 @@ enum ReminderStatusEnum {
 
 enum ReminderRepeatTypeEnum {
   NONE
+  DAILY
   WEEKLY
   MONTHLY
 }
@@ -1009,5 +1015,95 @@ model QuizAnswer {
 
   @@unique([attemptId, questionId])
   @@map("t_quiz_answers")
+}
+
+// Certificate Management System
+
+enum CertificateTypeEnum {
+  PERSONNEL_LICENSE
+  PERSONNEL_CERTIFICATE
+  EQUIPMENT_CALIBRATION
+  EQUIPMENT_INSTALLATION
+  EQUIPMENT_OPERATIONAL_PERMIT
+}
+
+enum CertificateRenewalStatusEnum {
+  PENDING
+  REQUESTED
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  EXPIRED
+}
+
+// Certificate Category - Master Data
+model CertificateCategory {
+  id              String                @id @default(uuid())
+  name            String
+  code            String                @unique
+  certificateType CertificateTypeEnum
+  description     String?               @db.Text
+  isActive        Boolean               @default(true)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  certificates    Certificate[]
+
+  @@map("m_certificate_categories")
+}
+
+// Certificate - Transactional Data
+model Certificate {
+  id              String                    @id @default(uuid())
+  certificateNumber String
+  certificateName String
+  categoryId      String
+  certificateType CertificateTypeEnum
+  issuedDate      DateTime
+  validityDate    DateTime
+  issuerName      String
+  documentUrl     String?
+  personnelId     String?
+  personnelName   String?
+  equipmentId     String?
+  equipmentName   String?
+  departmentId    String
+  reminderDays     Int                     @default(30)
+  notes           String?                  @db.Text
+  isActive        Boolean                  @default(true)
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  createdBy       String
+
+  // Relations
+  category        CertificateCategory       @relation(fields: [categoryId], references: [id])
+  department      Department               @relation(fields: [departmentId], references: [id])
+  personnel       User?                    @relation("CertificatePersonnel", fields: [personnelId], references: [id])
+  creator         User                     @relation("CertificateCreator", fields: [createdBy], references: [id])
+  renewals        CertificateRenewal[]
+
+  @@map("t_certificates")
+}
+
+// Certificate Renewal - Transactional Data
+model CertificateRenewal {
+  id              String                      @id @default(uuid())
+  certificateId   String
+  requestDate     DateTime                    @default(now())
+  requestedBy     String
+  status          CertificateRenewalStatusEnum @default(PENDING)
+  processedBy     String?
+  processedDate   DateTime?
+  newValidityDate DateTime?
+  newDocumentUrl  String?
+  notes           String?                     @db.Text
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+
+  // Relations
+  certificate     Certificate                  @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  requester       User                         @relation("CertificateRenewalRequester", fields: [requestedBy], references: [id])
+  processor       User?                        @relation("CertificateRenewalProcessor", fields: [processedBy], references: [id])
+
+  @@map("t_certificate_renewals")
 }
 

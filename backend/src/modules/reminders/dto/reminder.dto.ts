@@ -12,6 +12,7 @@ export enum ReminderStatusEnum {
 
 export enum ReminderRepeatTypeEnum {
   NONE = 'NONE',
+  DAILY = 'DAILY',
   WEEKLY = 'WEEKLY',
   MONTHLY = 'MONTHLY',
 }
@@ -49,10 +50,10 @@ export class ReminderDto {
   @IsDate()
   remindAt: Date;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Repeat type for recurring reminders',
     enum: ReminderRepeatTypeEnum,
-    required: false 
+    required: false
   })
   @Expose()
   @IsOptional()
@@ -65,9 +66,9 @@ export class ReminderDto {
   @IsDate()
   repeatUntil?: Date;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Current status of the reminder',
-    enum: ReminderStatusEnum 
+    enum: ReminderStatusEnum
   })
   @Expose()
   @IsEnum(ReminderStatusEnum)

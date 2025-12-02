@@ -17,6 +17,7 @@ export enum ReminderStatus {
 // Reminder repeat type enum
 export enum ReminderRepeatType {
   NONE = 'NONE',
+  DAILY = 'DAILY',
   WEEKLY = 'WEEKLY',
   MONTHLY = 'MONTHLY',
 }
