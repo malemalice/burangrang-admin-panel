@@ -56,7 +56,8 @@ export class RemindersService {
           entityId: createDto.entityId,
           message: createDto.message,
           remindAt,
-          repeatType: createDto.repeatType || 'NONE',
+          // @ts-ignore - Prisma types will be updated after running npx prisma generate
+          repeatType: createDto.repeatType ?? null,
           repeatUntil,
           status: 'PENDING',
         },
@@ -194,7 +195,7 @@ export class RemindersService {
       if (updateDto.message !== undefined) updateData.message = updateDto.message;
       if (updateDto.remindAt !== undefined) {
         updateData.remindAt = new Date(updateDto.remindAt);
-        
+
         // Validate future date
         if (updateData.remindAt <= new Date()) {
           throw new Error('Remind at date must be in the future');
@@ -331,8 +332,9 @@ export class RemindersService {
         updateData.status = 'SENT';
       } else {
         // Recurring reminder, calculate next execution
-        // TypeScript guard: repeatType is now guaranteed to be 'WEEKLY' or 'MONTHLY'
-        if (reminder.repeatType === 'WEEKLY' || reminder.repeatType === 'MONTHLY') {
+        // Check if repeatType is a valid recurring type
+        const validRepeatTypes = ['DAILY', 'WEEKLY', 'MONTHLY'];
+        if (reminder.repeatType && validRepeatTypes.includes(reminder.repeatType)) {
           const nextRemindAt = this.calculateNextRemindAt(
             reminder.remindAt,
             reminder.repeatType,
@@ -364,7 +366,9 @@ export class RemindersService {
   private calculateNextRemindAt(currentRemindAt: Date, repeatType: string): Date {
     const next = new Date(currentRemindAt);
 
-    if (repeatType === 'WEEKLY') {
+    if (repeatType === 'DAILY') {
+      next.setDate(next.getDate() + 1);
+    } else if (repeatType === 'WEEKLY') {
       next.setDate(next.getDate() + 7);
     } else if (repeatType === 'MONTHLY') {
       next.setMonth(next.getMonth() + 1);
