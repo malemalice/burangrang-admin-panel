@@ -444,12 +444,12 @@ export const seedMenus = async () => {
       },
     });
 
-    // Create Work Permit Menu
-    await prisma.menu.create({
+    // Create Work Permit menu - accessible to all users
+    const workPermitMenu = await prisma.menu.create({
       data: {
         name: 'Work Permit',
+        icon: 'FileText',
         path: '/work-permits',
-        icon: 'List',
         order: 8,
         isActive: true,
         roles: {
@@ -517,7 +517,7 @@ export const seedMenus = async () => {
     console.log(`   - Master Data submenus: 7`);
     console.log(`   - User Management submenus: 3`);
     console.log(`   - PPE Management submenus: 4`);
-    console.log(`   - Work Permit Menu: 1`);
+    console.log(`   - Work Permit submenus: 2`);
   } catch (error) {
     console.error('❌ Error seeding menus:', error);
     throw error;

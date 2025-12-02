@@ -26,7 +26,6 @@ import {
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
 import { Separator } from '@/core/components/ui/separator';
 import { CreateWorkPermitDTO, UpdateWorkPermitDTO, WorkPermit } from '../types/work-permit.types';
-import { FileUpload } from '@/modules/uploads';
 import { toast } from 'sonner';
 
 // Form schema for validation
@@ -665,17 +664,9 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     name={`workers.${index}.certificateUrl`}
                     render={({ field }) => (
                       <FormItem>
+                        <FormLabel>Certificate URL</FormLabel>
                         <FormControl>
-                          <FileUpload
-                            value={field.value}
-                            onChange={field.onChange}
-                            categoryName="documents"
-                            isPublic={false}
-                            placeholder="Upload Certificate"
-                            label="Certificate"
-                            disabled={isSubmitting}
-                            entityId={workPermit?.id || null}
-                          />
+                          <Input placeholder="Certificate URL" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -686,18 +677,9 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     name={`workers.${index}.healthDeclarationUrl`}
                     render={({ field }) => (
                       <FormItem>
+                        <FormLabel>Health Declaration URL *</FormLabel>
                         <FormControl>
-                          <FileUpload
-                            value={field.value}
-                            onChange={field.onChange}
-                            categoryName="documents"
-                            isPublic={false}
-                            placeholder="Upload Health Declaration"
-                            label="Health Declaration"
-                            required
-                            disabled={isSubmitting}
-                            entityId={workPermit?.id || null}
-                          />
+                          <Input placeholder="Health declaration URL" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
