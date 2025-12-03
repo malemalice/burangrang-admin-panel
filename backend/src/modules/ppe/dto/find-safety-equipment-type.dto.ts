@@ -57,5 +57,15 @@ export class FindSafetyEquipmentTypeDto {
     @IsOptional()
     @IsString()
     search?: string;
+
+    @ApiProperty({ required: false })
+    @IsOptional()
+    @IsString()
+    name?: string;
+
+    @ApiProperty({ required: false })
+    @IsOptional()
+    @IsString()
+    code?: string;
 }
 
