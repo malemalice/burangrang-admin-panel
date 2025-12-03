@@ -175,6 +175,32 @@ export class WorkPermitsController {
     return this.workPermitsService.findAll(query);
   }
 
+  @Get('master-data')
+  @ApiOperation({ summary: 'Get master data for work permit form' })
+  @ApiResponse({
+    status: 200,
+    description: 'Master data retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        areas: { type: 'array' },
+        companies: { type: 'array' },
+        workClassifications: { type: 'array' },
+        guests: { type: 'array' },
+        heavyEquipment: { type: 'array' },
+        tools: { type: 'array' },
+        materials: { type: 'array' },
+        machines: { type: 'array' },
+        professions: { type: 'array' },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  async getMasterData() {
+    return this.workPermitsService.getMasterData();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a work permit by ID' })
   @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
@@ -375,31 +401,5 @@ export class WorkPermitsController {
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async getTimeline(@Param('id') id: string): Promise<any[]> {
     return this.workPermitsService.getTimeline(id);
-  }
-
-  @Get('master-data')
-  @ApiOperation({ summary: 'Get master data for work permit form' })
-  @ApiResponse({
-    status: 200,
-    description: 'Master data retrieved successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        areas: { type: 'array' },
-        companies: { type: 'array' },
-        workClassifications: { type: 'array' },
-        guests: { type: 'array' },
-        heavyEquipment: { type: 'array' },
-        tools: { type: 'array' },
-        materials: { type: 'array' },
-        machines: { type: 'array' },
-        professions: { type: 'array' },
-      },
-    },
-  })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
-  async getMasterData() {
-    return this.workPermitsService.getMasterData();
   }
 }
