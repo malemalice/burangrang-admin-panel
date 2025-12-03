@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Calendar, Check, Filter, Search, ChevronDown } from 'lucide-react';
 import { Button, ThemeButton } from './button';
 import { Input } from './input';
@@ -45,6 +45,11 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
   const [filterValues, setFilterValues] = useState<FilterValue[]>(initialValues);
   const { theme } = useTheme();
 
+  // Sync initialValues prop with filterValues state
+  useEffect(() => {
+    setFilterValues(initialValues || []);
+  }, [initialValues]);
+
   // Get theme-aware colors
   const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
   const secondaryColor = themeColors[theme]?.secondary || '#4f46e5';
@@ -53,7 +58,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
   const updateFilterValue = (id: string, value: string | string[] | { from?: Date; to?: Date } | boolean) => {
     // Check if filter already exists
     const existingFilterIndex = filterValues.findIndex(filter => filter.id === id);
-    
+
     if (existingFilterIndex >= 0) {
       // Update existing filter
       const updatedFilters = [...filterValues];
@@ -74,11 +79,11 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
     const validFilters = filterValues.filter(filter => {
       if (filter.value === undefined || filter.value === null || filter.value === '') return false;
       if (Array.isArray(filter.value) && filter.value.length === 0) return false;
-      if (typeof filter.value === 'object' && !Array.isArray(filter.value) && 
-          Object.keys(filter.value).length === 0) return false;
+      if (typeof filter.value === 'object' && !Array.isArray(filter.value) &&
+        Object.keys(filter.value).length === 0) return false;
       return true;
     });
-    
+
     onApplyFilters(validFilters);
     onClose();
   };
@@ -93,10 +98,10 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
 
   return (
     <>
-      <div 
+      <div
         className="fixed inset-0 bg-black/20 z-40 transition-opacity duration-500 ease-in-out"
-        style={{ 
-          opacity: isOpen ? 1 : 0, 
+        style={{
+          opacity: isOpen ? 1 : 0,
           visibility: isOpen ? 'visible' : 'hidden',
           transitionDelay: isOpen ? '0ms' : '200ms'
         }}
@@ -144,9 +149,9 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
           </Button>
         </div>
 
-        <div className="p-4 space-y-6 transition-all duration-300" 
-          style={{ 
-            opacity: isOpen ? 1 : 0, 
+        <div className="p-4 space-y-6 transition-all duration-300"
+          style={{
+            opacity: isOpen ? 1 : 0,
             transform: isOpen ? 'translateX(0)' : 'translateX(20px)',
             transitionDelay: isOpen ? '150ms' : '0ms'
           }}
@@ -179,10 +184,10 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                   {field.options.map((option) => {
                     const optionValue = typeof option.value === 'boolean' ? option.value.toString() : option.value;
                     const currentValue = getFilterValue(field.id);
-                    const isSelected = Array.isArray(currentValue) 
+                    const isSelected = Array.isArray(currentValue)
                       ? (currentValue as string[])?.includes(optionValue)
                       : currentValue === optionValue;
-                    
+
                     return (
                       <Button
                         key={optionValue}
@@ -399,8 +404,8 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
           ))}
 
           <div className="pt-4 flex items-center justify-between">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               onClick={handleResetFilters}
               className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
             >
@@ -425,8 +430,8 @@ export const FilterBadges: React.FC<{
   const activeFilters = filters.filter(filter => {
     if (filter.value === undefined || filter.value === null || filter.value === '') return false;
     if (Array.isArray(filter.value) && filter.value.length === 0) return false;
-    if (typeof filter.value === 'object' && !Array.isArray(filter.value) && 
-        Object.keys(filter.value).length === 0) return false;
+    if (typeof filter.value === 'object' && !Array.isArray(filter.value) &&
+      Object.keys(filter.value).length === 0) return false;
     return true;
   });
 
@@ -458,8 +463,8 @@ export const FilterBadges: React.FC<{
         }
 
         return (
-          <Badge 
-            key={filter.id} 
+          <Badge
+            key={filter.id}
             variant="outline"
             className="flex items-center gap-1 py-1 pl-2 pr-1"
           >
@@ -478,7 +483,7 @@ export const FilterBadges: React.FC<{
           </Badge>
         );
       })}
-      
+
       {activeFilters.length > 0 && (
         <Badge className="bg-blue-600">
           {activeFilters.length}
@@ -497,7 +502,7 @@ export const FilterButton: React.FC<{
   return (
     <Button
       variant="outline"
-      size="sm" 
+      size="sm"
       onClick={onClick}
       className={cn("relative", className)}
     >
