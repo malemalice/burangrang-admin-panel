@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
@@ -97,12 +97,12 @@ export class WorkPermitsService {
       const proposedEndDate = new Date(createDto.proposedEndDate);
 
       if (proposedEndDate <= proposedStartDate) {
-        throw new BadRequestException('Proposed end date must be after start date');
+        this.errorHandler.throwBadRequest('Proposed end date must be after start date');
       }
 
       // Validate at least one worker
       if (!createDto.workers || createDto.workers.length === 0) {
-        throw new BadRequestException('At least one worker is required');
+        this.errorHandler.throwBadRequest('At least one worker is required');
       }
 
       // Validate workers have guestId
@@ -795,7 +795,7 @@ export class WorkPermitsService {
 
       // Business rule: Only can edit if status is DRAFT or NEED_INFO
       if (existing.status !== 'DRAFT' && existing.status !== 'NEED_INFO') {
-        throw new BadRequestException(`Cannot edit work permit with status ${existing.status}. Only DRAFT or NEED_INFO permits can be edited.`);
+        this.errorHandler.throwBadRequest(`Cannot edit work permit with status ${existing.status}. Only DRAFT or NEED_INFO permits can be edited.`);
       }
 
       // Validate area if provided
@@ -820,17 +820,17 @@ export class WorkPermitsService {
 
       if (proposedStartDate && proposedEndDate) {
         if (proposedEndDate <= proposedStartDate) {
-          throw new BadRequestException('Proposed end date must be after start date');
+          this.errorHandler.throwBadRequest('Proposed end date must be after start date');
         }
       } else if (proposedEndDate) {
         const currentStartDate = new Date(existing.proposedStartDate);
         if (proposedEndDate <= currentStartDate) {
-          throw new BadRequestException('Proposed end date must be after start date');
+          this.errorHandler.throwBadRequest('Proposed end date must be after start date');
         }
       } else if (proposedStartDate) {
         const currentEndDate = new Date(existing.proposedEndDate);
         if (currentEndDate <= proposedStartDate) {
-          throw new BadRequestException('Proposed end date must be after start date');
+          this.errorHandler.throwBadRequest('Proposed end date must be after start date');
         }
       }
 
@@ -877,7 +877,7 @@ export class WorkPermitsService {
 
       if (updateDto.workers !== undefined) {
         if (updateDto.workers.length === 0) {
-          throw new BadRequestException('At least one worker is required');
+          this.errorHandler.throwBadRequest('At least one worker is required');
         }
         await this.prisma.workPermitWorker.deleteMany({
           where: { workPermitId: id },
@@ -1199,7 +1199,7 @@ export class WorkPermitsService {
 
       // Business rule: Only DRAFT status can be submitted
       if (workPermit.status !== 'DRAFT') {
-        throw new BadRequestException(`Cannot submit work permit with status ${workPermit.status}. Only DRAFT permits can be submitted.`);
+        this.errorHandler.throwBadRequest(`Cannot submit work permit with status ${workPermit.status}. Only DRAFT permits can be submitted.`);
       }
 
       // Update status to WAITING_APPROVAL
@@ -1245,7 +1245,7 @@ export class WorkPermitsService {
       });
 
       if (!userRecord) {
-        throw new BadRequestException('User not found');
+        this.errorHandler.throwBadRequest('User not found');
       }
 
       // Convert to User type expected by MasterApprovalsService
@@ -1273,7 +1273,7 @@ export class WorkPermitsService {
         // Security approval - final approval
         nextStatus = 'APPROVED';
       } else {
-        throw new BadRequestException(`Cannot approve work permit with status ${workPermit.status}`);
+        this.errorHandler.throwBadRequest(`Cannot approve work permit with status ${workPermit.status}`);
       }
 
       // Update status
@@ -1331,7 +1331,7 @@ export class WorkPermitsService {
 
       // Business rule: Can only reject if in approval process
       if (!['WAITING_APPROVAL', 'IN_REVIEW_HSE', 'IN_REVIEW_SECURITY'].includes(workPermit.status)) {
-        throw new BadRequestException(`Cannot reject work permit with status ${workPermit.status}`);
+        this.errorHandler.throwBadRequest(`Cannot reject work permit with status ${workPermit.status}`);
       }
 
       // Update status to REJECTED
@@ -1406,7 +1406,7 @@ export class WorkPermitsService {
 
       // Business rule: Only HSE can request info
       if (!['WAITING_APPROVAL', 'IN_REVIEW_HSE'].includes(workPermit.status)) {
-        throw new BadRequestException(`Cannot request info for work permit with status ${workPermit.status}`);
+        this.errorHandler.throwBadRequest(`Cannot request info for work permit with status ${workPermit.status}`);
       }
 
       // Update status to NEED_INFO
@@ -1442,7 +1442,7 @@ export class WorkPermitsService {
 
       // Business rule: Only APPROVED permits can be extended
       if (workPermit.status !== 'APPROVED') {
-        throw new BadRequestException(`Cannot extend work permit with status ${workPermit.status}. Only APPROVED permits can be extended.`);
+        this.errorHandler.throwBadRequest(`Cannot extend work permit with status ${workPermit.status}. Only APPROVED permits can be extended.`);
       }
 
       // Validate new end date
@@ -1450,7 +1450,7 @@ export class WorkPermitsService {
       const currentEndDate = new Date(workPermit.proposedEndDate);
 
       if (newEndDate <= currentEndDate) {
-        throw new BadRequestException('New end date must be after current end date');
+        this.errorHandler.throwBadRequest('New end date must be after current end date');
       }
 
       // Update end date and status
@@ -1487,7 +1487,7 @@ export class WorkPermitsService {
 
       // Business rule: Only APPROVED or EXTENDED permits can be closed
       if (!['APPROVED', 'EXTENDED'].includes(workPermit.status)) {
-        throw new BadRequestException(`Cannot close work permit with status ${workPermit.status}. Only APPROVED or EXTENDED permits can be closed.`);
+        this.errorHandler.throwBadRequest(`Cannot close work permit with status ${workPermit.status}. Only APPROVED or EXTENDED permits can be closed.`);
       }
 
       // Update status to CLOSED
