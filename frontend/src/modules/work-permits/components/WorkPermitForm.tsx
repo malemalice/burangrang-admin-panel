@@ -27,6 +27,9 @@ import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/s
 import { Separator } from '@/core/components/ui/separator';
 import { CreateWorkPermitDTO, UpdateWorkPermitDTO, WorkPermit } from '../types/work-permit.types';
 import { toast } from 'sonner';
+import uploadService from '@/modules/uploads/services/uploadService';
+import api from '@/core/lib/api';
+import { Loader2, Upload, X as XIcon } from 'lucide-react';
 
 // Form schema for validation
 const formSchema = z.object({
@@ -172,6 +175,9 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [courses, setCourses] = useState<any[]>([]);
   const [safetyEquipment, setSafetyEquipment] = useState<any[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [workPermitDocumentsCategoryId, setWorkPermitDocumentsCategoryId] = useState<string | null>(null);
+  const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
+  const [uploadedFileNames, setUploadedFileNames] = useState<Record<string, string>>({});
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -234,6 +240,14 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     const fetchData = async () => {
       setIsLoadingData(true);
       try {
+        // Fetch file category for work permit documents
+        const category = await uploadService.getCategoryByName('work-permit-documents');
+        if (category) {
+          setWorkPermitDocumentsCategoryId(category.id);
+        } else {
+          toast.error('File category for work permit documents not found');
+        }
+
         // TODO: Fetch all master data from respective services
         // For now, using empty arrays - these should be populated from API calls
         setAreas([]);
@@ -262,6 +276,35 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   // Populate form when editing
   useEffect(() => {
     if (workPermit && mode === 'edit') {
+      const workersData =
+        workPermit.workers?.map((w) => ({
+          guestId: w.guestId,
+          idNumber: w.idNumber || '',
+          certificateUrl: w.certificateUrl || '',
+          healthDeclarationUrl: w.healthDeclarationUrl,
+          order: w.order,
+        })) || [
+          {
+            guestId: '',
+            idNumber: '',
+            certificateUrl: '',
+            healthDeclarationUrl: '',
+            order: 0,
+          },
+        ];
+
+      // Set uploaded file names for display
+      const fileNames: Record<string, string> = {};
+      workPermit.workers?.forEach((w, index) => {
+        if (w.certificateUrl) {
+          fileNames[`certificateUrl-${index}`] = 'Certificate file';
+        }
+        if (w.healthDeclarationUrl) {
+          fileNames[`healthDeclarationUrl-${index}`] = 'Health declaration file';
+        }
+      });
+      setUploadedFileNames(fileNames);
+
       form.reset({
         projectName: workPermit.projectName,
         areaId: workPermit.areaId,
@@ -284,22 +327,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
             employeeName: e.employeeName,
             order: e.order,
           })) || [],
-        workers:
-          workPermit.workers?.map((w) => ({
-            guestId: w.guestId,
-            idNumber: w.idNumber || '',
-            certificateUrl: w.certificateUrl || '',
-            healthDeclarationUrl: w.healthDeclarationUrl,
-            order: w.order,
-          })) || [
-            {
-              guestId: '',
-              idNumber: '',
-              certificateUrl: '',
-              healthDeclarationUrl: '',
-              order: 0,
-            },
-          ],
+        workers: workersData,
         heavyEquipment:
           workPermit.heavyEquipment?.map((e) => ({
             heavyEquipmentId: e.heavyEquipmentId,
@@ -358,6 +386,84 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       });
     }
   }, [workPermit, mode, form]);
+
+  const handleFileUpload = async (
+    file: File,
+    fieldName: 'certificateUrl' | 'healthDeclarationUrl',
+    workerIndex: number,
+  ) => {
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/png',
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Invalid file type. Please upload PDF, DOC, DOCX, or image files.');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      toast.error('File size exceeds 10MB limit.');
+      return;
+    }
+
+    if (!workPermitDocumentsCategoryId) {
+      toast.error('File category not found. Please refresh the page.');
+      return;
+    }
+
+    const uploadKey = `${fieldName}-${workerIndex}`;
+    setUploadingFiles((prev) => ({ ...prev, [uploadKey]: true }));
+
+    try {
+      const response = await uploadService.uploadFile(file, workPermitDocumentsCategoryId, false);
+
+      // Get the file URL from response
+      // Response from backend includes downloadUrl computed property
+      const responseData = response as any;
+      const fileUrl = responseData.downloadUrl ||
+        (response.isPublic
+          ? uploadService.getPublicFileUrl(response.id)
+          : uploadService.getPrivateFileUrl(responseData.accessToken || response.id));
+      form.setValue(`workers.${workerIndex}.${fieldName}`, fileUrl);
+      setUploadedFileNames((prev) => ({ ...prev, [uploadKey]: file.name }));
+      toast.success('File uploaded successfully');
+    } catch (error: any) {
+      console.error('Error uploading file:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to upload file';
+      toast.error(errorMessage);
+    } finally {
+      setUploadingFiles((prev) => ({ ...prev, [uploadKey]: false }));
+    }
+  };
+
+  const handleFileRemove = (fieldName: 'certificateUrl' | 'healthDeclarationUrl', workerIndex: number) => {
+    const uploadKey = `${fieldName}-${workerIndex}`;
+    form.setValue(`workers.${workerIndex}.${fieldName}`, '');
+    setUploadedFileNames((prev) => {
+      const newState = { ...prev };
+      delete newState[uploadKey];
+      return newState;
+    });
+  };
+
+  const handleFileInputChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    fieldName: 'certificateUrl' | 'healthDeclarationUrl',
+    workerIndex: number,
+  ) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileUpload(file, fieldName, workerIndex);
+    }
+  };
 
   const handleSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
@@ -662,28 +768,160 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   <FormField
                     control={form.control}
                     name={`workers.${index}.certificateUrl`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Certificate URL</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Certificate URL" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const uploadKey = `certificateUrl-${index}`;
+                      const isUploading = uploadingFiles[uploadKey] || false;
+                      const uploadedFileName = uploadedFileNames[uploadKey];
+                      const hasFile = uploadedFileName || field.value;
+
+                      return (
+                        <FormItem>
+                          <FormLabel>Certificate</FormLabel>
+                          <FormControl>
+                            <div className="space-y-2">
+                              {hasFile ? (
+                                <div className="flex items-center justify-between p-3 border rounded-md bg-gray-50">
+                                  <div className="flex items-center gap-2">
+                                    <Upload className="h-4 w-4 text-gray-600" />
+                                    <span className="text-sm font-medium">
+                                      {uploadedFileName || 'Certificate file uploaded'}
+                                    </span>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleFileRemove('certificateUrl', index)}
+                                    className="h-8 w-8 p-0"
+                                    disabled={isUploading}
+                                  >
+                                    <XIcon className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const input = document.createElement('input');
+                                      input.type = 'file';
+                                      input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png';
+                                      input.onchange = (e) => {
+                                        handleFileInputChange(
+                                          e as any,
+                                          'certificateUrl',
+                                          index,
+                                        );
+                                      };
+                                      input.click();
+                                    }}
+                                    disabled={isUploading || !workPermitDocumentsCategoryId}
+                                    className="cursor-pointer"
+                                  >
+                                    {isUploading ? (
+                                      <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Uploading...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Upload className="mr-2 h-4 w-4" />
+                                        Choose File
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              )}
+                              <input type="hidden" {...field} />
+                            </div>
+                          </FormControl>
+                          <p className="text-sm text-muted-foreground">
+                            Upload PDF, DOC, DOCX, or image files (max 10MB)
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                   <FormField
                     control={form.control}
                     name={`workers.${index}.healthDeclarationUrl`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Health Declaration URL *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Health declaration URL" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const uploadKey = `healthDeclarationUrl-${index}`;
+                      const isUploading = uploadingFiles[uploadKey] || false;
+                      const uploadedFileName = uploadedFileNames[uploadKey];
+                      const hasFile = uploadedFileName || field.value;
+
+                      return (
+                        <FormItem>
+                          <FormLabel>Health Declaration *</FormLabel>
+                          <FormControl>
+                            <div className="space-y-2">
+                              {hasFile ? (
+                                <div className="flex items-center justify-between p-3 border rounded-md bg-gray-50">
+                                  <div className="flex items-center gap-2">
+                                    <Upload className="h-4 w-4 text-gray-600" />
+                                    <span className="text-sm font-medium">
+                                      {uploadedFileName || 'Health declaration file uploaded'}
+                                    </span>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleFileRemove('healthDeclarationUrl', index)}
+                                    className="h-8 w-8 p-0"
+                                    disabled={isUploading}
+                                  >
+                                    <XIcon className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const input = document.createElement('input');
+                                      input.type = 'file';
+                                      input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png';
+                                      input.onchange = (e) => {
+                                        handleFileInputChange(
+                                          e as any,
+                                          'healthDeclarationUrl',
+                                          index,
+                                        );
+                                      };
+                                      input.click();
+                                    }}
+                                    disabled={isUploading || !workPermitDocumentsCategoryId}
+                                    className="cursor-pointer"
+                                  >
+                                    {isUploading ? (
+                                      <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Uploading...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Upload className="mr-2 h-4 w-4" />
+                                        Choose File
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              )}
+                              <input type="hidden" {...field} />
+                            </div>
+                          </FormControl>
+                          <p className="text-sm text-muted-foreground">
+                            Upload PDF, DOC, DOCX, or image files (max 10MB)
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                 </CardContent>
               </Card>
