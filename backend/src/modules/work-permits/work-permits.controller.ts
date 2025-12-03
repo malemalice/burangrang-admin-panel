@@ -376,4 +376,30 @@ export class WorkPermitsController {
   async getTimeline(@Param('id') id: string): Promise<any[]> {
     return this.workPermitsService.getTimeline(id);
   }
+
+  @Get('master-data')
+  @ApiOperation({ summary: 'Get master data for work permit form' })
+  @ApiResponse({
+    status: 200,
+    description: 'Master data retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        areas: { type: 'array' },
+        companies: { type: 'array' },
+        workClassifications: { type: 'array' },
+        guests: { type: 'array' },
+        heavyEquipment: { type: 'array' },
+        tools: { type: 'array' },
+        materials: { type: 'array' },
+        machines: { type: 'array' },
+        professions: { type: 'array' },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  async getMasterData() {
+    return this.workPermitsService.getMasterData();
+  }
 }

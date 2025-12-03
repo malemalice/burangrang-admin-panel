@@ -1916,4 +1916,74 @@ export class WorkPermitsService {
       console.error('Failed to send closure notification:', error);
     }
   }
+
+  /**
+   * Get master data for work permit form
+   */
+  async getMasterData() {
+    return this.errorHandler.safeExecute(
+      async () => {
+        const [areas, companies, workClassifications, guests, heavyEquipment, tools, materials, machines, professions] = await Promise.all([
+          this.prisma.area.findMany({
+            where: { isActive: true },
+            select: { id: true, name: true, code: true },
+            orderBy: { name: 'asc' },
+          }),
+          this.prisma.company.findMany({
+            where: { isActive: true },
+            select: { id: true, name: true, code: true },
+            orderBy: { name: 'asc' },
+          }),
+          this.prisma.workClassification.findMany({
+            where: { isActive: true },
+            select: { id: true, name: true, code: true },
+            orderBy: { name: 'asc' },
+          }),
+          this.prisma.guest.findMany({
+            where: { isActive: true },
+            select: { id: true, name: true, email: true, phone: true },
+            orderBy: { name: 'asc' },
+          }),
+          this.prisma.heavyEquipment.findMany({
+            where: { isActive: true },
+            select: { id: true, name: true, code: true },
+            orderBy: { name: 'asc' },
+          }),
+          this.prisma.tool.findMany({
+            where: { isActive: true },
+            select: { id: true, name: true, code: true },
+            orderBy: { name: 'asc' },
+          }),
+          this.prisma.material.findMany({
+            where: { isActive: true },
+            select: { id: true, name: true, code: true },
+            orderBy: { name: 'asc' },
+          }),
+          this.prisma.machine.findMany({
+            where: { isActive: true },
+            select: { id: true, name: true, code: true },
+            orderBy: { name: 'asc' },
+          }),
+          this.prisma.profession.findMany({
+            where: { isActive: true },
+            select: { id: true, name: true, code: true },
+            orderBy: { name: 'asc' },
+          }),
+        ]);
+
+        return {
+          areas,
+          companies,
+          workClassifications,
+          guests,
+          heavyEquipment,
+          tools,
+          materials,
+          machines,
+          professions,
+        };
+      },
+      'Get master data for work permit form',
+    );
+  }
 }

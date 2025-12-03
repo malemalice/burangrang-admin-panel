@@ -23,13 +23,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/core/components/ui/select';
-import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
-import { Separator } from '@/core/components/ui/separator';
-import { CreateWorkPermitDTO, UpdateWorkPermitDTO, WorkPermit } from '../types/work-permit.types';
+import { CreateWorkPermitDTO, UpdateWorkPermitDTO, WorkPermit, MasterDataOption, GuestOption } from '../types/work-permit.types';
 import { toast } from 'sonner';
 import uploadService from '@/modules/uploads/services/uploadService';
-import api from '@/core/lib/api';
 import { Loader2, Upload, X as XIcon } from 'lucide-react';
+import workPermitService from '../services/workPermitService';
+import { userService, type User } from '@/modules/users';
+import { courseService, type Course } from '@/modules/courses';
+import { safetyEquipmentService, type SafetyEquipment } from '@/modules/ppe';
 
 // Form schema for validation
 const formSchema = z.object({
@@ -162,18 +163,18 @@ interface WorkPermitFormProps {
 
 const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [areas, setAreas] = useState<any[]>([]);
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [workClassifications, setWorkClassifications] = useState<any[]>([]);
-  const [guests, setGuests] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
-  const [heavyEquipment, setHeavyEquipment] = useState<any[]>([]);
-  const [tools, setTools] = useState<any[]>([]);
-  const [materials, setMaterials] = useState<any[]>([]);
-  const [machines, setMachines] = useState<any[]>([]);
-  const [professions, setProfessions] = useState<any[]>([]);
-  const [courses, setCourses] = useState<any[]>([]);
-  const [safetyEquipment, setSafetyEquipment] = useState<any[]>([]);
+  const [areas, setAreas] = useState<MasterDataOption[]>([]);
+  const [companies, setCompanies] = useState<MasterDataOption[]>([]);
+  const [workClassifications, setWorkClassifications] = useState<MasterDataOption[]>([]);
+  const [guests, setGuests] = useState<GuestOption[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [heavyEquipment, setHeavyEquipment] = useState<MasterDataOption[]>([]);
+  const [tools, setTools] = useState<MasterDataOption[]>([]);
+  const [materials, setMaterials] = useState<MasterDataOption[]>([]);
+  const [machines, setMachines] = useState<MasterDataOption[]>([]);
+  const [professions, setProfessions] = useState<MasterDataOption[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [safetyEquipment, setSafetyEquipment] = useState<SafetyEquipment[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [workPermitDocumentsCategoryId, setWorkPermitDocumentsCategoryId] = useState<string | null>(null);
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
@@ -248,20 +249,51 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           toast.error('File category for work permit documents not found');
         }
 
-        // TODO: Fetch all master data from respective services
-        // For now, using empty arrays - these should be populated from API calls
-        setAreas([]);
-        setCompanies([]);
-        setWorkClassifications([]);
-        setGuests([]);
-        setUsers([]);
-        setHeavyEquipment([]);
-        setTools([]);
-        setMaterials([]);
-        setMachines([]);
-        setProfessions([]);
-        setCourses([]);
-        setSafetyEquipment([]);
+        // Fetch master data from work permit service and other modules
+        const [masterDataResponse, usersResponse, coursesResponse, safetyEquipmentResponse] = await Promise.all([
+          workPermitService.getMasterData().catch((error) => {
+            console.error('Failed to fetch work permit master data:', error);
+            return {
+              areas: [],
+              companies: [],
+              workClassifications: [],
+              guests: [],
+              heavyEquipment: [],
+              tools: [],
+              materials: [],
+              machines: [],
+              professions: [],
+            };
+          }),
+          userService.getUsers({ page: 1, limit: 100 }).catch((error) => {
+            console.error('Failed to fetch users:', error);
+            return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
+          }),
+          courseService.getCourses({ page: 1, limit: 100, isActive: true }).catch((error) => {
+            console.error('Failed to fetch courses:', error);
+            return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
+          }),
+          safetyEquipmentService.getSafetyEquipments({ page: 1, limit: 100 }).catch((error) => {
+            console.error('Failed to fetch safety equipment:', error);
+            return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
+          }),
+        ]);
+
+        // Set master data from work permit service
+        setAreas(masterDataResponse.areas);
+        setCompanies(masterDataResponse.companies);
+        setWorkClassifications(masterDataResponse.workClassifications);
+        setGuests(masterDataResponse.guests);
+        setHeavyEquipment(masterDataResponse.heavyEquipment);
+        setTools(masterDataResponse.tools);
+        setMaterials(masterDataResponse.materials);
+        setMachines(masterDataResponse.machines);
+        setProfessions(masterDataResponse.professions);
+
+        // Set data from other modules
+        setUsers(usersResponse.data);
+        setCourses(coursesResponse.data);
+        setSafetyEquipment(safetyEquipmentResponse.data);
       } catch (error) {
         console.error('Failed to load form data:', error);
         toast.error('Failed to load form data');
@@ -427,11 +459,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
 
       // Get the file URL from response
       // Response from backend includes downloadUrl computed property
-      const responseData = response as any;
-      const fileUrl = responseData.downloadUrl ||
+      const fileUrl = response.downloadUrl ||
         (response.isPublic
           ? uploadService.getPublicFileUrl(response.id)
-          : uploadService.getPrivateFileUrl(responseData.accessToken || response.id));
+          : uploadService.getPrivateFileUrl(response.accessToken || response.id));
       form.setValue(`workers.${workerIndex}.${fieldName}`, fileUrl);
       setUploadedFileNames((prev) => ({ ...prev, [uploadKey]: file.name }));
       toast.success('File uploaded successfully');
@@ -780,9 +811,9 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                           <FormControl>
                             <div className="space-y-2">
                               {hasFile ? (
-                                <div className="flex items-center justify-between p-3 border rounded-md bg-gray-50">
+                                <div className="flex items-center justify-between p-3 border rounded-md bg-muted">
                                   <div className="flex items-center gap-2">
-                                    <Upload className="h-4 w-4 text-gray-600" />
+                                    <Upload className="h-4 w-4 text-muted-foreground" />
                                     <span className="text-sm font-medium">
                                       {uploadedFileName || 'Certificate file uploaded'}
                                     </span>
@@ -859,9 +890,9 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                           <FormControl>
                             <div className="space-y-2">
                               {hasFile ? (
-                                <div className="flex items-center justify-between p-3 border rounded-md bg-gray-50">
+                                <div className="flex items-center justify-between p-3 border rounded-md bg-muted">
                                   <div className="flex items-center gap-2">
-                                    <Upload className="h-4 w-4 text-gray-600" />
+                                    <Upload className="h-4 w-4 text-muted-foreground" />
                                     <span className="text-sm font-medium">
                                       {uploadedFileName || 'Health declaration file uploaded'}
                                     </span>

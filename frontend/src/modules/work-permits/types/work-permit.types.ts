@@ -1,5 +1,31 @@
 import { PaginatedResponse, PaginationParams } from '@/core/lib/types';
 
+// Master data types for work permit form
+export interface MasterDataOption {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface GuestOption {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface WorkPermitMasterData {
+  areas: MasterDataOption[];
+  companies: MasterDataOption[];
+  workClassifications: MasterDataOption[];
+  guests: GuestOption[];
+  heavyEquipment: MasterDataOption[];
+  tools: MasterDataOption[];
+  materials: MasterDataOption[];
+  machines: MasterDataOption[];
+  professions: MasterDataOption[];
+}
+
 export interface WorkPermit {
   id: string;
   code: string;

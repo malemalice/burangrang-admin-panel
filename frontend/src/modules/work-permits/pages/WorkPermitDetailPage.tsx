@@ -8,6 +8,7 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { useWorkPermit, useWorkPermitActions } from '../hooks/useWorkPermits';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { ApprovalTimelineItem } from '../types/work-permit.types';
 import {
   Dialog,
   DialogContent,
@@ -31,7 +32,7 @@ const WorkPermitDetailPage = () => {
   const [requestInfoDialogOpen, setRequestInfoDialogOpen] = useState(false);
   const [extendDialogOpen, setExtendDialogOpen] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
-  const [timeline, setTimeline] = useState<any[]>([]);
+  const [timeline, setTimeline] = useState<ApprovalTimelineItem[]>([]);
 
   const [approveNotes, setApproveNotes] = useState('');
   const [rejectReason, setRejectReason] = useState('');
@@ -46,7 +47,12 @@ const WorkPermitDetailPage = () => {
       fetchWorkPermit(id);
       // Fetch timeline
       import('../services/workPermitService').then((module) => {
-        module.default.getTimeline(id).then(setTimeline).catch(console.error);
+        module.default
+          .getTimeline(id)
+          .then(setTimeline)
+          .catch((error) => {
+            console.error('Failed to fetch timeline:', error);
+          });
       });
     }
   }, [id]);

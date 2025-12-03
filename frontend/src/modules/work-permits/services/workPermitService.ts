@@ -7,6 +7,7 @@ import {
   UpdateWorkPermitDTO,
   WorkPermitSearchParams,
   ApprovalTimelineItem,
+  WorkPermitMasterData,
   mapWorkPermitDtoToWorkPermit,
   mapWorkPermitToUpdateDto,
 } from '../types/work-permit.types';
@@ -132,6 +133,14 @@ const workPermitService = {
    */
   getTimeline: async (id: string): Promise<ApprovalTimelineItem[]> => {
     const response = await api.get(`/work-permits/${id}/timeline`);
+    return response.data;
+  },
+
+  /**
+   * Get master data for work permit form
+   */
+  getMasterData: async (): Promise<WorkPermitMasterData> => {
+    const response = await api.get('/work-permits/master-data');
     return response.data;
   },
 };

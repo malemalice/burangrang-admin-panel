@@ -36,7 +36,13 @@ export type {
   WorkPermitSafetyEquipment,
   WorkPermitSearchParams,
   ApprovalTimelineItem,
+  MasterDataOption,
+  GuestOption,
+  WorkPermitMasterData,
 } from './types/work-permit.types';
 
 // Hooks
 export { useWorkPermits, useWorkPermit, useWorkPermitActions } from './hooks/useWorkPermits';
+
+// Utils
+export { getWorkPermitStatusColor, getWorkPermitStatusType } from './utils/statusColors';

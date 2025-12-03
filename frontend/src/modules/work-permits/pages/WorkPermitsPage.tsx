@@ -12,13 +12,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/core/components/ui/dropdown-menu';
-import { FilterDrawer, FilterField } from '@/core/components/ui/filter-drawer';
+import { FilterDrawer, FilterField, FilterValue, FilterButton } from '@/core/components/ui/filter-drawer';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/core/components/ui/alert-dialog';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { useWorkPermits } from '../hooks/useWorkPermits';
-import { WorkPermit, WorkPermitStatus } from '../types/work-permit.types';
+import { WorkPermit, WorkPermitStatus, WorkPermitSearchParams } from '../types/work-permit.types';
 import { format } from 'date-fns';
+import workPermitService from '../services/workPermitService';
+import { getWorkPermitStatusColor } from '../utils/statusColors';
 
 const WorkPermitsPage = () => {
   const navigate = useNavigate();
@@ -36,6 +38,34 @@ const WorkPermitsPage = () => {
   const [workPermitToDelete, setWorkPermitToDelete] = useState<WorkPermit | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [companies, setCompanies] = useState<Array<{ label: string; value: string }>>([]);
+  const [areas, setAreas] = useState<Array<{ label: string; value: string }>>([]);
+
+  // Fetch master data for filter options
+  useEffect(() => {
+    const fetchMasterData = async () => {
+      try {
+        const masterData = await workPermitService.getMasterData();
+        setCompanies(
+          masterData.companies.map((c) => ({
+            label: c.name,
+            value: c.id,
+          })),
+        );
+        setAreas(
+          masterData.areas.map((a) => ({
+            label: a.name,
+            value: a.id,
+          })),
+        );
+      } catch (error) {
+        console.error('Failed to fetch master data for filters:', error);
+      }
+    };
+
+    fetchMasterData();
+  }, []);
 
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -60,32 +90,68 @@ const WorkPermitsPage = () => {
       id: 'companyId',
       label: 'Company',
       type: 'searchableSelect',
-      options: [], // Should be populated from API
+      options: companies,
     },
     {
       id: 'areaId',
       label: 'Area',
       type: 'searchableSelect',
-      options: [], // Should be populated from API
+      options: areas,
     },
   ];
 
   useEffect(() => {
-    const params: any = {
+    const params: WorkPermitSearchParams = {
       page: pageIndex + 1,
       limit,
+      ...(searchTerm && { search: searchTerm }),
+      ...Object.fromEntries(
+        Object.entries(activeFilters).map(([key, { value }]) => [key, value])
+      ),
     };
-
-    if (searchTerm) {
-      params.search = searchTerm;
-    }
-
-    Object.entries(activeFilters).forEach(([key, { value }]) => {
-      params[key] = value;
-    });
 
     fetchWorkPermits(params);
   }, [pageIndex, limit, searchTerm, activeFilters]);
+
+  const handleApplyFilters = (filters: FilterValue[]) => {
+    const filterMap: Record<string, { value: any; label: string }> = {};
+    filters.forEach(filter => {
+      if (filter.value !== undefined && filter.value !== null && filter.value !== '') {
+        const field = filterFields.find(f => f.id === filter.id);
+        let label = String(filter.value);
+
+        // Get label from field options if available
+        if (field?.options) {
+          const option = field.options.find(opt => {
+            const optValue = typeof opt.value === 'boolean' ? opt.value.toString() : String(opt.value);
+            const filterValue = Array.isArray(filter.value)
+              ? filter.value.map(v => String(v))
+              : String(filter.value);
+            return Array.isArray(filter.value)
+              ? filterValue.includes(optValue)
+              : optValue === filterValue;
+          });
+          if (option) {
+            label = Array.isArray(filter.value)
+              ? filter.value.map(v => {
+                const opt = field.options?.find(o => {
+                  const oValue = typeof o.value === 'boolean' ? o.value.toString() : String(o.value);
+                  return oValue === String(v);
+                });
+                return opt?.label || String(v);
+              }).join(', ')
+              : option.label;
+          }
+        }
+
+        filterMap[filter.id] = {
+          value: filter.value,
+          label,
+        };
+      }
+    });
+    setActiveFilters(filterMap);
+  };
 
   const handleDelete = async () => {
     if (workPermitToDelete) {
@@ -99,6 +165,10 @@ const WorkPermitsPage = () => {
     }
   };
 
+  /**
+   * Get Badge variant for work permit status
+   * Uses semantic Badge variants from design system
+   */
   const getStatusBadgeVariant = (status: WorkPermitStatus) => {
     switch (status) {
       case 'DRAFT':
@@ -120,26 +190,11 @@ const WorkPermitsPage = () => {
     }
   };
 
-  const getStatusColor = (status: WorkPermitStatus) => {
-    switch (status) {
-      case 'DRAFT':
-        return 'bg-gray-100 text-gray-800';
-      case 'APPROVED':
-        return 'bg-green-100 text-green-800';
-      case 'REJECTED':
-        return 'bg-red-100 text-red-800';
-      case 'CLOSED':
-        return 'bg-blue-100 text-blue-800';
-      case 'WAITING_APPROVAL':
-      case 'IN_REVIEW_HSE':
-      case 'IN_REVIEW_SECURITY':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'NEED_INFO':
-        return 'bg-orange-100 text-orange-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+  /**
+   * Get status color classes for work permit status badges
+   * Uses semantic color utility function from design system for TRD compliance
+   */
+  const getStatusColor = getWorkPermitStatusColor;
 
   const columns = [
     {
@@ -251,10 +306,16 @@ const WorkPermitsPage = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-64"
               />
+              <FilterButton
+                onClick={() => setIsFilterOpen(true)}
+                filterCount={Object.keys(activeFilters).length}
+              />
               <FilterDrawer
+                isOpen={isFilterOpen}
+                onClose={() => setIsFilterOpen(false)}
                 fields={filterFields}
-                activeFilters={activeFilters}
-                onApplyFilters={setActiveFilters}
+                onApplyFilters={handleApplyFilters}
+                onResetFilters={() => setActiveFilters({})}
               />
             </div>
           </div>
@@ -274,7 +335,7 @@ const WorkPermitsPage = () => {
             }}
             filterFields={filterFields}
             onSearch={setSearchTerm}
-            onApplyFilters={setActiveFilters}
+            onApplyFilters={handleApplyFilters}
           />
         </CardContent>
       </Card>
