@@ -39,7 +39,7 @@ import { Role } from '../../shared/types/role.enum';
 @Controller('uploads')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UploadsController {
-  constructor(private readonly uploadsService: UploadsService) {}
+  constructor(private readonly uploadsService: UploadsService) { }
 
   @Post('upload')
   @ApiOperation({ summary: 'Upload a file' })

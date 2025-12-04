@@ -33,6 +33,7 @@ import { ProgressModule } from './modules/progress/progress.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
 import { QuizzesModule } from './modules/quizzes/quizzes.module';
 import { CertificatesModule } from './modules/certificates/certificates.module';
+import { WorkPermitsModule } from './modules/work-permits/work-permits.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { CertificatesModule } from './modules/certificates/certificates.module';
     RemindersModule,
     QuizzesModule,
     CertificatesModule,
+    WorkPermitsModule,
   ],
   providers: [
     Reflector,
