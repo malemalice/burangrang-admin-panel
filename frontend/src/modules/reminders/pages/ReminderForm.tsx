@@ -15,6 +15,7 @@ import {
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
+import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import {
   Select,
   SelectContent,
@@ -194,7 +195,7 @@ const ReminderForm = ({ reminder, mode }: ReminderFormProps) => {
                 <FormItem>
                   <FormLabel>Remind At</FormLabel>
                   <FormControl>
-                    <Input type="datetime-local" {...field} />
+                    <DateTimePicker {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -238,7 +239,7 @@ const ReminderForm = ({ reminder, mode }: ReminderFormProps) => {
                     <FormItem>
                       <FormLabel>Repeat Until</FormLabel>
                       <FormControl>
-                        <Input type="datetime-local" {...field} />
+                        <DateTimePicker {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
