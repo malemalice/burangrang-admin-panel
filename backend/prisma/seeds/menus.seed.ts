@@ -148,6 +148,23 @@ export const seedMenus = async () => {
       },
     });
 
+    const trainingMenu = await prisma.menu.create({
+      data: {
+        name: 'Training',
+        icon: 'GraduationCap',
+        order: 8,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     await prisma.menu.create({
       data: {
         name: 'Safety Equipment Types',
@@ -388,13 +405,14 @@ export const seedMenus = async () => {
       },
     });
 
-    // Create Courses menu - accessible to all users for course management and enrollment
+    // Create Training submenus
     await prisma.menu.create({
       data: {
         name: 'Courses',
         path: '/courses',
         icon: 'BookOpen',
-        order: 8,
+        parentId: trainingMenu.id,
+        order: 1,
         isActive: true,
         roles: {
           connect: [
@@ -407,13 +425,13 @@ export const seedMenus = async () => {
       },
     });
 
-    // Create Course Enrollments menu - accessible to all users
     await prisma.menu.create({
       data: {
         name: 'Course Enrollments',
         path: '/enrollments',
         icon: 'Users',
-        order: 9,
+        parentId: trainingMenu.id,
+        order: 2,
         isActive: true,
         roles: {
           connect: [
@@ -517,6 +535,7 @@ export const seedMenus = async () => {
     console.log(`   - Master Data submenus: 7`);
     console.log(`   - User Management submenus: 3`);
     console.log(`   - PPE Management submenus: 4`);
+    console.log(`   - Training submenus: 2`);
     console.log(`   - Work Permit submenus: 2`);
   } catch (error) {
     console.error('❌ Error seeding menus:', error);

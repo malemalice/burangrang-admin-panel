@@ -16,6 +16,7 @@ import {
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
+import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import {
     Select,
     SelectContent,
@@ -243,7 +244,7 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
                                     <FormItem>
                                         <FormLabel>Received Date *</FormLabel>
                                         <FormControl>
-                                            <Input type="date" {...field} />
+                                            <DateTimePicker mode="date" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -435,8 +436,8 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
                                                     <FormItem>
                                                         <FormLabel>Expiry Date</FormLabel>
                                                         <FormControl>
-                                                            <Input
-                                                                type="date"
+                                                            <DateTimePicker
+                                                                mode="date"
                                                                 {...field}
                                                             />
                                                         </FormControl>

@@ -67,10 +67,14 @@ export default function SafetyEquipmentTypesPage() {
             limit,
             search: searchTerm,
             filters: {
-                ...Object.entries(activeFilters).reduce((acc, [key, item]) => ({
-                    ...acc,
-                    [key]: item.value
-                }), {}),
+                // Exclude status filter, only include other filters
+                ...Object.entries(activeFilters)
+                    .filter(([key]) => key !== 'status')
+                    .reduce((acc, [key, item]) => ({
+                        ...acc,
+                        [key]: item.value
+                    }), {}),
+                // Explicitly set isActive based on status filter
                 isActive: activeFilters.status?.value === 'active' ? true :
                     activeFilters.status?.value === 'inactive' ? false :
                         undefined

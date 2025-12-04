@@ -24,6 +24,7 @@ import {
 } from '@/core/components/ui/select';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
+import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import enrollmentService from '../services/enrollmentService';
@@ -136,8 +137,8 @@ const EditEnrollmentPage = () => {
     <div className="space-y-4">
       <PageHeader
         title="Edit Enrollment"
-        description="Update enrollment information"
-        action={
+        subtitle="Update enrollment information"
+        actions={
           <Button
             variant="outline"
             onClick={() => navigate(`/enrollments/${id}`)}
@@ -211,8 +212,8 @@ const EditEnrollmentPage = () => {
                   <FormItem>
                     <FormLabel>Due Date</FormLabel>
                     <FormControl>
-                      <Input
-                        type="datetime-local"
+                      <DateTimePicker
+                        mode="datetime"
                         {...field}
                         value={field.value || ''}
                       />

@@ -473,7 +473,17 @@ export class PPEController {
     @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
     findAllSafetyEquipmentTypes(
         @Query() query: FindSafetyEquipmentTypeDto,
+        @Req() req: any,
     ): Promise<{ data: SafetyEquipmentTypeDto[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+        // Fix isActive if it was incorrectly converted
+        if (req.query.isActive !== undefined && typeof req.query.isActive === 'string') {
+            if (req.query.isActive === 'false') {
+                query.isActive = false;
+            } else if (req.query.isActive === 'true') {
+                query.isActive = true;
+            }
+        }
+
         return this.ppeService.findAllSafetyEquipmentTypes(query);
     }
 
