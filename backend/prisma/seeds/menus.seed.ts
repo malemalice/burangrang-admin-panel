@@ -462,6 +462,25 @@ export const seedMenus = async () => {
       },
     });
 
+    // Create Work Permit menu - accessible to all users
+    const workPermitMenu = await prisma.menu.create({
+      data: {
+        name: 'Work Permit',
+        icon: 'FileText',
+        path: '/work-permits',
+        order: 8,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     // Create Reminders menu - accessible to all users for reminder management
     await prisma.menu.create({
       data: {
@@ -512,11 +531,12 @@ export const seedMenus = async () => {
 
     console.log('✅ Menus seeded successfully');
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
-    console.log(`   - Top-level menus: 11`);
+    console.log(`   - Top-level menus: 12`);
     console.log(`   - Master Data submenus: 7`);
     console.log(`   - User Management submenus: 3`);
     console.log(`   - PPE Management submenus: 4`);
     console.log(`   - Training submenus: 2`);
+    console.log(`   - Work Permit submenus: 2`);
   } catch (error) {
     console.error('❌ Error seeding menus:', error);
     throw error;

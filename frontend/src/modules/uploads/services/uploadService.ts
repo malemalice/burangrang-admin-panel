@@ -18,6 +18,8 @@ export interface FileUploadResponse {
   categoryId: string;
   isPublic: boolean;
   createdAt: string;
+  accessToken?: string;
+  downloadUrl?: string;
 }
 
 const uploadService = {
@@ -45,11 +47,11 @@ const uploadService = {
     formData.append('file', file);
     formData.append('categoryId', categoryId);
     formData.append('isPublic', isPublic.toString());
-    
+
     if (expiresAt) {
       formData.append('expiresAt', expiresAt);
     }
-    
+
     if (metadata) {
       formData.append('metadata', JSON.stringify(metadata));
     }
