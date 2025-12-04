@@ -29,6 +29,7 @@ import {
 } from '@/core/components/ui/select';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
+import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import { Button } from '@/core/components/ui/button';
 import { Checkbox } from '@/core/components/ui/checkbox';
 import { useEnrollments } from '../hooks/useEnrollments';
@@ -262,8 +263,8 @@ const AssignCourseDialog = ({ open, onOpenChange, onSuccess }: AssignCourseDialo
                 <FormItem>
                   <FormLabel>Due Date</FormLabel>
                   <FormControl>
-                    <Input
-                      type="datetime-local"
+                    <DateTimePicker
+                      mode="datetime"
                       {...field}
                       value={field.value || ''}
                     />

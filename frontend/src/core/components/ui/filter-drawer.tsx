@@ -10,6 +10,7 @@ import { themeColors, getContrastTextColor } from '@/core/lib/theme/colors';
 
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { SearchableSelect, SearchableSelectOption } from './searchable-select';
+import { DateTimePicker } from './datetime-picker';
 
 export type FilterField = {
   id: string;
@@ -302,16 +303,11 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-3" align="start">
-                    <Input
-                      type="date"
+                    <DateTimePicker
+                      mode="date"
                       value={getFilterValue(field.id) ? new Date(getFilterValue(field.id) as string).toISOString().split('T')[0] : ''}
-                      onChange={(e) => updateFilterValue(field.id, e.target.value ? new Date(e.target.value).toISOString() : '')}
+                      onChange={(value) => updateFilterValue(field.id, typeof value === 'string' && value ? new Date(value).toISOString() : '')}
                       className="w-full"
-                      style={{
-                        backgroundColor: '#ffffff',
-                        color: '#374151',
-                        borderColor: '#d1d5db',
-                      }}
                     />
                   </PopoverContent>
                 </Popover>
@@ -339,22 +335,17 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-3" align="start">
-                      <Input
-                        type="date"
+                      <DateTimePicker
+                        mode="date"
                         value={(getFilterValue(field.id) as any)?.from ? new Date((getFilterValue(field.id) as any).from).toISOString().split('T')[0] : ''}
-                        onChange={(e) => {
+                        onChange={(value) => {
                           const current = getFilterValue(field.id) as any || {};
                           updateFilterValue(field.id, {
                             ...current,
-                            from: e.target.value ? new Date(e.target.value).toISOString() : undefined
+                            from: typeof value === 'string' && value ? new Date(value).toISOString() : undefined
                           });
                         }}
                         className="w-full"
-                        style={{
-                          backgroundColor: '#ffffff',
-                          color: '#374151',
-                          borderColor: '#d1d5db',
-                        }}
                       />
                     </PopoverContent>
                   </Popover>
@@ -379,22 +370,17 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-3" align="start">
-                      <Input
-                        type="date"
+                      <DateTimePicker
+                        mode="date"
                         value={(getFilterValue(field.id) as any)?.to ? new Date((getFilterValue(field.id) as any).to).toISOString().split('T')[0] : ''}
-                        onChange={(e) => {
+                        onChange={(value) => {
                           const current = getFilterValue(field.id) as any || {};
                           updateFilterValue(field.id, {
                             ...current,
-                            to: e.target.value ? new Date(e.target.value).toISOString() : undefined
+                            to: typeof value === 'string' && value ? new Date(value).toISOString() : undefined
                           });
                         }}
                         className="w-full"
-                        style={{
-                          backgroundColor: '#ffffff',
-                          color: '#374151',
-                          borderColor: '#d1d5db',
-                        }}
                       />
                     </PopoverContent>
                   </Popover>

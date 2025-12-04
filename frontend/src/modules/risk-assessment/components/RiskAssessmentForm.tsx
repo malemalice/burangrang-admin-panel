@@ -17,6 +17,7 @@ import {
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
 import { Switch } from '@/core/components/ui/switch';
+import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import {
   Select,
@@ -166,7 +167,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
       form.reset({
         code: assessment.code,
         departmentId: assessment.departmentId,
-        assessmentDate: assessment.assessmentDate 
+        assessmentDate: assessment.assessmentDate
           ? new Date(assessment.assessmentDate).toISOString().split('T')[0]
           : undefined,
         status: assessment.status,
@@ -214,6 +215,8 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
       // Transform the date if provided
       const assessmentData: CreateRiskAssessmentDTO = {
         ...data,
+        departmentId: data.departmentId || '',
+        code: data.code || '',
         assessmentDate: data.assessmentDate ? new Date(data.assessmentDate) : undefined,
         createdBy: 'current-user-id', // This should be replaced with actual user ID
       };
@@ -305,7 +308,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                   <FormItem>
                     <FormLabel>Assessment Date</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DateTimePicker mode="date" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -456,8 +459,8 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                               name={`items.${index}.likelihoodLevel`}
                               render={({ field }) => (
                                 <FormItem>
-                                  <Select 
-                                    value={field.value.toString()} 
+                                  <Select
+                                    value={field.value.toString()}
                                     onValueChange={(value) => {
                                       field.onChange(parseInt(value, 10));
                                       calculateRiskRating(index);
@@ -487,8 +490,8 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                               name={`items.${index}.consequenceLevel`}
                               render={({ field }) => (
                                 <FormItem>
-                                  <Select 
-                                    value={field.value.toString()} 
+                                  <Select
+                                    value={field.value.toString()}
                                     onValueChange={(value) => {
                                       field.onChange(parseInt(value, 10));
                                       calculateRiskRating(index);
