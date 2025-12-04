@@ -213,12 +213,23 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
   const onSubmit = async (data: FormValues) => {
     try {
       // Transform the date if provided
+      // Form validation ensures required fields are present
       const assessmentData: CreateRiskAssessmentDTO = {
-        ...data,
-        departmentId: data.departmentId || '',
-        code: data.code || '',
+        code: data.code as string,
+        departmentId: data.departmentId as string,
+        status: data.status as string,
+        items: data.items.map(item => ({
+          mThreatId: item.mThreatId as string,
+          mHseCategoryId: item.mHseCategoryId as string,
+          likelihoodLevel: item.likelihoodLevel as number,
+          consequenceLevel: item.consequenceLevel as number,
+          riskMatrixRating: item.riskMatrixRating as string,
+        })),
         assessmentDate: data.assessmentDate ? new Date(data.assessmentDate) : undefined,
         createdBy: 'current-user-id', // This should be replaced with actual user ID
+        ...(data.isActive !== undefined && { isActive: data.isActive }),
+        ...(data.assigneeId && { assigneeId: data.assigneeId }),
+        ...(data.actionPlan && { actionPlan: data.actionPlan }),
       };
 
       if (mode === 'create') {
