@@ -6,7 +6,6 @@ import { Badge } from './badge';
 import { cn } from '@/core/lib/utils';
 import { format } from 'date-fns';
 import { useTheme } from '@/core/lib/theme';
-import { themeColors, getContrastTextColor } from '@/core/lib/theme/colors';
 
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { SearchableSelect, SearchableSelectOption } from './searchable-select';
@@ -44,17 +43,12 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
   className,
 }) => {
   const [filterValues, setFilterValues] = useState<FilterValue[]>(initialValues);
-  const { theme } = useTheme();
+  const { isDark } = useTheme();
 
   // Sync initialValues prop with filterValues state
   useEffect(() => {
     setFilterValues(initialValues || []);
   }, [initialValues]);
-
-  // Get theme-aware colors
-  const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
-  const secondaryColor = themeColors[theme]?.secondary || '#4f46e5';
-  const textColor = getContrastTextColor(secondaryColor);
 
   const updateFilterValue = (id: string, value: string | string[] | { from?: Date; to?: Date } | boolean) => {
     // Check if filter already exists
@@ -100,7 +94,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
   return (
     <>
       <div
-        className="fixed inset-0 bg-black/20 z-40 transition-opacity duration-500 ease-in-out"
+        className="fixed inset-0 bg-black/20 dark:bg-black/40 z-40 transition-opacity duration-500 ease-in-out"
         style={{
           opacity: isOpen ? 1 : 0,
           visibility: isOpen ? 'visible' : 'hidden',
@@ -111,7 +105,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
       />
       <div
         className={cn(
-          "fixed top-0 right-0 h-full z-50 w-full max-w-md shadow-lg overflow-auto transform transition-all duration-500 ease-out",
+          "fixed top-0 right-0 h-full z-50 w-full max-w-md shadow-lg overflow-auto transform transition-all duration-500 ease-out bg-popover text-popover-foreground",
           isOpen
             ? "translate-x-0 scale-x-100 opacity-100"
             : "translate-x-full scale-x-95 opacity-0",
@@ -119,30 +113,16 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
         )}
         style={{
           transformOrigin: 'right',
-          backgroundColor: secondaryColor,
-          color: textColor
         }}
       >
-        <div
-          className="flex justify-between items-center p-4 border-b"
-          style={{
-            borderColor: textColor + '20', // Semi-transparent border
-          }}
-        >
-          <h2
-            className="text-2xl font-bold"
-            style={{ color: textColor }}
-          >
+        <div className="flex justify-between items-center p-4 border-b border-border">
+          <h2 className="text-2xl font-bold text-popover-foreground">
             Filters
           </h2>
           <Button
             variant="ghost"
             size="icon"
             onClick={onClose}
-            style={{
-              color: textColor,
-              backgroundColor: 'transparent',
-            }}
             className="hover:opacity-70"
           >
             <X className="h-5 w-5" />
@@ -159,10 +139,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
         >
           {fields.map((field) => (
             <div key={field.id} className="space-y-2">
-              <label
-                className="block text-sm font-medium"
-                style={{ color: textColor }}
-              >
+              <label className="block text-sm font-medium text-popover-foreground">
                 {field.label}
               </label>
 
@@ -172,11 +149,6 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                   onChange={(e) => updateFilterValue(field.id, e.target.value)}
                   placeholder={`Enter ${field.label.toLowerCase()}`}
                   className="w-full"
-                  style={{
-                    backgroundColor: '#ffffff',
-                    color: '#374151',
-                    borderColor: '#d1d5db',
-                  }}
                 />
               )}
 
@@ -210,37 +182,6 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                           }
                         }}
                         className="flex items-center gap-1 transition-colors duration-200"
-                        style={isSelected ? {
-                          backgroundColor: currentThemeColor,
-                          color: '#ffffff',
-                          borderColor: currentThemeColor,
-                        } : {
-                          backgroundColor: '#f9fafb',
-                          color: '#374151',
-                          borderColor: '#d1d5db',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (isSelected) {
-                            // Darken theme color on hover for selected items
-                            e.currentTarget.style.backgroundColor = currentThemeColor + 'CC'; // Add opacity
-                            e.currentTarget.style.borderColor = currentThemeColor + 'CC';
-                          } else {
-                            // Lighten background on hover for unselected items
-                            e.currentTarget.style.backgroundColor = '#f3f4f6'; // Slightly darker gray
-                            e.currentTarget.style.borderColor = '#9ca3af'; // Darker border
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (isSelected) {
-                            // Restore original theme color
-                            e.currentTarget.style.backgroundColor = currentThemeColor;
-                            e.currentTarget.style.borderColor = currentThemeColor;
-                          } else {
-                            // Restore original colors
-                            e.currentTarget.style.backgroundColor = '#f9fafb';
-                            e.currentTarget.style.borderColor = '#d1d5db';
-                          }
-                        }}
                       >
                         {isSelected && <Check className="h-3 w-3" />}
                         {option.label}
@@ -251,10 +192,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
               )}
 
               {field.type === 'searchableSelect' && field.options && (
-                <div style={{
-                  position: 'relative',
-                  width: '100%'
-                }}>
+                <div className="relative w-full">
                   <SearchableSelect
                     options={field.options.map(option => ({
                       value: typeof option.value === 'boolean' ? option.value.toString() : String(option.value),
@@ -273,11 +211,6 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                     placeholder={`Select ${field.label}...`}
                     searchPlaceholder={`Search ${field.label}...`}
                     emptyText={`No ${field.label.toLowerCase()} found.`}
-                    style={{
-                      backgroundColor: '#ffffff',
-                      color: '#374151',
-                      borderColor: '#d1d5db',
-                    }}
                   />
                 </div>
               )}
@@ -288,13 +221,8 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                     <Button
                       variant="outline"
                       className="w-full justify-start text-left font-normal"
-                      style={{
-                        backgroundColor: '#ffffff',
-                        color: '#374151',
-                        borderColor: '#d1d5db',
-                      }}
                     >
-                      <Calendar className="mr-2 h-4 w-4" style={{ color: '#6b7280' }} />
+                      <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
                       {getFilterValue(field.id) ? (
                         format(new Date(getFilterValue(field.id) as string), 'PPP')
                       ) : (
@@ -320,13 +248,8 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                       <Button
                         variant="outline"
                         className="w-full justify-start text-left font-normal"
-                        style={{
-                          backgroundColor: '#ffffff',
-                          color: '#374151',
-                          borderColor: '#d1d5db',
-                        }}
                       >
-                        <Calendar className="mr-2 h-4 w-4" style={{ color: '#6b7280' }} />
+                        <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
                         {(getFilterValue(field.id) as any)?.from ? (
                           format(new Date((getFilterValue(field.id) as any).from), 'PPP')
                         ) : (
@@ -355,13 +278,8 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                       <Button
                         variant="outline"
                         className="w-full justify-start text-left font-normal"
-                        style={{
-                          backgroundColor: '#ffffff',
-                          color: '#374151',
-                          borderColor: '#d1d5db',
-                        }}
                       >
-                        <Calendar className="mr-2 h-4 w-4" style={{ color: '#6b7280' }} />
+                        <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
                         {(getFilterValue(field.id) as any)?.to ? (
                           format(new Date((getFilterValue(field.id) as any).to), 'PPP')
                         ) : (
@@ -471,7 +389,7 @@ export const FilterBadges: React.FC<{
       })}
 
       {activeFilters.length > 0 && (
-        <Badge className="bg-blue-600">
+        <Badge className="bg-primary text-primary-foreground">
           {activeFilters.length}
         </Badge>
       )}
@@ -495,7 +413,7 @@ export const FilterButton: React.FC<{
       <Filter className="mr-2 h-4 w-4" />
       <span>Filters</span>
       {filterCount > 0 && (
-        <Badge className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center bg-blue-600">
+        <Badge className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center bg-primary text-primary-foreground">
           {filterCount}
         </Badge>
       )}
