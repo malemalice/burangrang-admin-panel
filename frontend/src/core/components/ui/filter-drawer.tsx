@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Calendar, Check, Filter, Search, ChevronDown } from 'lucide-react';
 import { Button, ThemeButton } from './button';
 import { Input } from './input';
@@ -45,11 +45,24 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
 }) => {
   const [filterValues, setFilterValues] = useState<FilterValue[]>(initialValues);
   const { theme } = useTheme();
+  const prevIsOpenRef = useRef(false);
+  const prevInitialValuesRef = useRef<string>('');
 
-  // Sync initialValues prop with filterValues state
+  // Sync initialValues prop with filterValues state only when drawer opens
+  // or when initialValues actually change (deep comparison)
   useEffect(() => {
-    setFilterValues(initialValues || []);
-  }, [initialValues]);
+    const currentInitialValuesStr = JSON.stringify(initialValues || []);
+    const isOpening = !prevIsOpenRef.current && isOpen;
+    const valuesChanged = prevInitialValuesRef.current !== currentInitialValuesStr;
+
+    // Only update if drawer is opening or values actually changed
+    if (isOpening || (isOpen && valuesChanged)) {
+      setFilterValues(initialValues || []);
+      prevInitialValuesRef.current = currentInitialValuesStr;
+    }
+
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, initialValues]);
 
   // Get theme-aware colors
   const currentThemeColor = themeColors[theme]?.primary || '#6366f1';

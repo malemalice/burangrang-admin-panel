@@ -20,18 +20,20 @@ const CreateWorkPermitPage = () => {
   };
 
   return (
-    <div>
+    <>
       <PageHeader
         title="Create Work Permit"
         subtitle="Fill in the work permit information"
         actions={
           <Button variant="outline" onClick={() => navigate('/work-permits')}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Work Permits
           </Button>
         }
       />
-      <WorkPermitForm onSubmit={handleSubmit} mode="create" />
-    </div>
+      <div className="max-w-4xl mx-auto">
+        <WorkPermitForm onSubmit={handleSubmit} mode="create" />
+      </div>
+    </>
   );
 };
 

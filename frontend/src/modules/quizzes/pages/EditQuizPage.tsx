@@ -4,9 +4,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Form } from '@/core/components/ui/form';
 import { Card, CardContent } from '@/core/components/ui/card';
+import PageHeader from '@/core/components/ui/PageHeader';
 import QuizForm from '../components/QuizForm';
 import { useQuiz } from '../hooks/useQuizzes';
 import { UpdateQuizDTO, CreateQuizQuestionDTO } from '../types/quiz.types';
@@ -204,27 +206,43 @@ const EditQuizPage = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading quiz details...</span>
+        </div>
       </div>
     );
   }
 
   if (!quiz) {
     return (
-      <div className="container mx-auto py-6">
-        <div className="text-center py-8">
-          <p className="text-muted-foreground">Quiz not found</p>
-        </div>
+      <div className="text-center py-12">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          Quiz not found
+        </h2>
+        <p className="text-gray-600 mb-4">
+          The quiz you're looking for doesn't exist or has been deleted.
+        </p>
+        <Button onClick={() => navigate('/quizzes')}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Quizzes
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Edit Quiz</h1>
-        <p className="text-muted-foreground">Update quiz information, questions, and settings</p>
-      </div>
+    <>
+      <PageHeader
+        title="Edit Quiz"
+        subtitle={`Update quiz information, questions, and settings for "${quiz.title}"`}
+        actions={
+          <Button variant="outline" onClick={() => navigate(`/quizzes/${id}`)}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Details
+          </Button>
+        }
+      />
+      <div className="max-w-4xl mx-auto">
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit, onError)} className="space-y-6">
@@ -276,7 +294,8 @@ const EditQuizPage = () => {
           </Card>
         </form>
       </Form>
-    </div>
+      </div>
+    </>
   );
 };
 

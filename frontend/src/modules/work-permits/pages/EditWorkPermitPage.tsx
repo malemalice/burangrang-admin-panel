@@ -32,20 +32,27 @@ const EditWorkPermitPage = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+          <span>Loading work permit details...</span>
+        </div>
       </div>
     );
   }
 
   if (!workPermit) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <p className="text-muted-foreground">Work permit not found</p>
-          <Button onClick={() => navigate('/work-permits')} className="mt-4">
-            Back to Work Permits
-          </Button>
-        </div>
+      <div className="text-center py-12">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          Work Permit not found
+        </h2>
+        <p className="text-gray-600 mb-4">
+          The work permit you're looking for doesn't exist or has been deleted.
+        </p>
+        <Button onClick={() => navigate('/work-permits')}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Work Permits
+        </Button>
       </div>
     );
   }
@@ -67,18 +74,20 @@ const EditWorkPermitPage = () => {
   }
 
   return (
-    <div>
+    <>
       <PageHeader
         title="Edit Work Permit"
         subtitle={`Editing: ${workPermit.code}`}
         actions={
           <Button variant="outline" onClick={() => navigate(`/work-permits/${workPermit.id}`)}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Details
           </Button>
         }
       />
-      <WorkPermitForm onSubmit={handleSubmit} mode="edit" workPermit={workPermit} />
-    </div>
+      <div className="max-w-4xl mx-auto">
+        <WorkPermitForm onSubmit={handleSubmit} mode="edit" workPermit={workPermit} />
+      </div>
+    </>
   );
 };
 

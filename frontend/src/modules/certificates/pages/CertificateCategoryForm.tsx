@@ -24,7 +24,6 @@ import {
     SelectValue,
 } from '@/core/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import PageHeader from '@/core/components/ui/PageHeader';
 import certificateCategoryService from '../services/certificateCategoryService';
 import { CertificateCategory, CertificateType } from '../types/certificate.types';
 
@@ -102,16 +101,7 @@ const CertificateCategoryForm = ({ category, mode }: CertificateCategoryFormProp
     };
 
     return (
-        <>
-            <PageHeader
-                title={mode === 'create' ? 'Create Certificate Category' : 'Edit Certificate Category'}
-                subtitle={
-                    mode === 'create'
-                        ? 'Add a new certificate category'
-                        : 'Update certificate category information'
-                }
-            />
-            <Card>
+        <Card>
                 <CardHeader>
                     <CardTitle>
                         {mode === 'create' ? 'Create' : 'Edit'} Certificate Category
@@ -231,7 +221,6 @@ const CertificateCategoryForm = ({ category, mode }: CertificateCategoryFormProp
                     </Form>
                 </CardContent>
             </Card>
-        </>
     );
 };
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import PageHeader from '@/core/components/ui/PageHeader';
 import MasterApprovalForm from './MasterApprovalForm';
@@ -33,23 +33,46 @@ const EditMasterApprovalPage = () => {
     fetchApproval();
   }, [id, navigate]);
 
-  if (isLoading || !approval) {
-    return null; // Or a loading spinner
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading approval details...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!approval) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          Approval not found
+        </h2>
+        <p className="text-gray-600 mb-4">
+          The approval you're looking for doesn't exist or has been deleted.
+        </p>
+        <Button onClick={() => navigate('/master/approvals')}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Approvals
+        </Button>
+      </div>
+    );
   }
 
   return (
     <>
       <PageHeader
         title="Edit Master Approval"
-        subtitle="Edit approval flow settings"
+        subtitle={`Edit approval flow settings for "${approval.name || approval.id}"`}
         actions={
-          <Button variant="ghost" className="gap-2" onClick={() => window.history.back()}>
-            <ArrowLeft size={16} />
-            Back
+          <Button variant="outline" onClick={() => navigate('/master/approvals')}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Approvals
           </Button>
         }
       />
-      <div className="container py-6 max-w-4xl">
+      <div className="max-w-4xl mx-auto">
         <MasterApprovalForm mode="edit" approval={approval} />
       </div>
     </>

@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Button } from '@/core/components/ui/button';
+import PageHeader from '@/core/components/ui/PageHeader';
 import ReminderForm from './ReminderForm';
 import reminderService from '../services/reminderService';
 import { Reminder } from '../types/reminder.types';
@@ -31,16 +34,47 @@ const EditReminderPage = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading reminder details...</span>
+        </div>
       </div>
     );
   }
 
   if (!reminder) {
-    return null;
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          Reminder not found
+        </h2>
+        <p className="text-gray-600 mb-4">
+          The reminder you're looking for doesn't exist or has been deleted.
+        </p>
+        <Button onClick={() => navigate('/reminders')}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Reminders
+        </Button>
+      </div>
+    );
   }
 
-  return <ReminderForm reminder={reminder} mode="edit" />;
+  return (
+    <>
+      <PageHeader
+        title="Edit Reminder"
+        subtitle={`Modify the details of "${reminder.title || reminder.id}"`}
+        actions={
+          <Button variant="outline" onClick={() => navigate('/reminders')}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Reminders
+          </Button>
+        }
+      />
+      <div className="max-w-4xl mx-auto">
+        <ReminderForm reminder={reminder} mode="edit" />
+      </div>
+    </>
+  );
 };
 
 export default EditReminderPage;
