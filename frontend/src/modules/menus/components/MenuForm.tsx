@@ -416,7 +416,7 @@ const MenuForm: React.FC<MenuFormProps> = ({
             </CardContent>
           </Card>
 
-        <div className="flex justify-end space-x-4">
+        <div className="flex justify-end gap-4">
           <Button
             type="button"
             variant="outline"
