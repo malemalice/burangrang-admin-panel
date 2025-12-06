@@ -4,8 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/core/components/ui/button';
 import { Input } from '@/core/components/ui/input';
-import { Label } from '@/core/components/ui/label';
-import { Textarea } from '@/core/components/ui/textarea';
 import {
   Form,
   FormControl,
@@ -16,10 +14,9 @@ import {
   FormMessage,
 } from '@/core/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import { Badge } from '@/core/components/ui/badge';
 import { Switch } from '@/core/components/ui/switch';
 import { SearchableSelect, MultiSelectSearchable } from '@/core/components/ui/searchable-select';
-import { Loader2, X } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { MenuDTO, Menu, MenuFormData } from '../types/menu.types';
 import roleService from '../../roles/services/roleService';
 import menuService from '../services/menuService';
@@ -227,11 +224,16 @@ const MenuForm: React.FC<MenuFormProps> = ({
                   name="name"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel>Menu Name *</FormLabel>
+                      <FormLabel aria-required="true">Menu Name *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter menu name" {...field} />
+                        <Input 
+                          placeholder="Enter menu name" 
+                          {...field}
+                          aria-describedby="name-description"
+                          aria-required="true"
+                        />
                       </FormControl>
-                      <FormDescription>
+                      <FormDescription id="name-description">
                         The display name for this menu item
                       </FormDescription>
                       <FormMessage />
@@ -241,15 +243,35 @@ const MenuForm: React.FC<MenuFormProps> = ({
 
                 <FormField
                   control={form.control}
-                  name="path"
+                  name="parentId"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel>Path</FormLabel>
+                      <FormLabel className="text-muted-foreground">Parent Menu (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="/example-path" {...field} />
+                        {isLoadingParentMenus ? (
+                          <div className="flex items-center gap-2 p-2 border rounded-md">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-sm text-gray-500">Loading parent menus...</span>
+                          </div>
+                        ) : (
+                          <SearchableSelect
+                            options={availableParentMenus.map(menu => ({
+                              value: menu.id,
+                              label: buildMenuHierarchyPath(menu, availableParentMenus)
+                            }))}
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            placeholder="Select parent menu (optional)"
+                            searchPlaceholder="Search parent menus..."
+                            emptyText="No parent menus available"
+                            includeNone={true}
+                            id="parent-menu-select"
+                            aria-describedby="parent-menu-description"
+                          />
+                        )}
                       </FormControl>
-                      <FormDescription>
-                        The URL path for navigation (optional)
+                      <FormDescription id="parent-menu-description">
+                        Select a parent menu to create a submenu.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -261,15 +283,37 @@ const MenuForm: React.FC<MenuFormProps> = ({
                   name="icon"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel>Icon</FormLabel>
+                      <FormLabel className="text-muted-foreground">Icon (Optional)</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="Enter icon name (e.g., LayoutDashboard)"
                           {...field}
+                          aria-describedby="icon-description"
                         />
                       </FormControl>
-                      <FormDescription>
+                      <FormDescription id="icon-description">
                         Enter the icon name from Lucide React (e.g., LayoutDashboard, Users, Settings)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="path"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel className="text-muted-foreground">Path (Optional)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="/example-path" 
+                          {...field}
+                          aria-describedby="path-description"
+                        />
+                      </FormControl>
+                      <FormDescription id="path-description">
+                        The URL path for navigation
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -281,16 +325,18 @@ const MenuForm: React.FC<MenuFormProps> = ({
                   name="order"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel>Order *</FormLabel>
+                      <FormLabel aria-required="true">Order *</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
                           placeholder="0"
                           {...field}
                           onChange={e => field.onChange(parseInt(e.target.value) || 0)}
+                          aria-describedby="order-description"
+                          aria-required="true"
                         />
                       </FormControl>
-                      <FormDescription>
+                      <FormDescription id="order-description">
                         Display order (0-999)
                       </FormDescription>
                       <FormMessage />
@@ -298,41 +344,6 @@ const MenuForm: React.FC<MenuFormProps> = ({
                   )}
                 />
               </div>
-
-              <FormField
-                control={form.control}
-                name="parentId"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col md:col-span-2">
-                    <FormLabel>Parent Menu</FormLabel>
-                    <FormControl>
-                      {isLoadingParentMenus ? (
-                        <div className="flex items-center gap-2 p-2 border rounded-md">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span className="text-sm text-gray-500">Loading parent menus...</span>
-                        </div>
-                      ) : (
-                        <SearchableSelect
-                          options={availableParentMenus.map(menu => ({
-                            value: menu.id,
-                            label: buildMenuHierarchyPath(menu, availableParentMenus)
-                          }))}
-                          value={field.value}
-                          onValueChange={field.onChange}
-                          placeholder="Select parent menu (optional)"
-                          searchPlaceholder="Search parent menus..."
-                          emptyText="No parent menus available"
-                          includeNone={true}
-                        />
-                      )}
-                    </FormControl>
-                    <FormDescription>
-                      Select a parent menu to create a submenu.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </CardContent>
           </Card>
 
@@ -348,8 +359,8 @@ const MenuForm: React.FC<MenuFormProps> = ({
                   render={({ field }) => (
                     <FormItem className="flex items-center justify-between rounded-lg border p-4 md:col-span-2">
                       <div className="space-y-0.5">
-                        <FormLabel>Active Status</FormLabel>
-                        <div className="text-sm text-gray-500">
+                        <FormLabel id="isActive-label">Active Status</FormLabel>
+                        <div className="text-sm text-muted-foreground" id="isActive-description">
                           Disable to hide this menu item from navigation
                         </div>
                       </div>
@@ -357,6 +368,8 @@ const MenuForm: React.FC<MenuFormProps> = ({
                         <Switch
                           checked={field.value}
                           onCheckedChange={field.onChange}
+                          aria-labelledby="isActive-label"
+                          aria-describedby="isActive-description"
                         />
                       </FormControl>
                     </FormItem>
@@ -368,7 +381,7 @@ const MenuForm: React.FC<MenuFormProps> = ({
                   name="roleIds"
                   render={({ field }) => (
                     <FormItem className="flex flex-col md:col-span-2">
-                      <FormLabel>Assigned Roles</FormLabel>
+                      <FormLabel className="text-muted-foreground">Assigned Roles (Optional)</FormLabel>
                       <FormControl>
                         {isLoadingRoles ? (
                           <div className="flex items-center gap-2 p-2 border rounded-md">
@@ -387,10 +400,12 @@ const MenuForm: React.FC<MenuFormProps> = ({
                             searchPlaceholder="Search roles..."
                             emptyText="No roles available"
                             maxDisplay={3}
+                            id="role-ids-select"
+                            aria-describedby="role-ids-description"
                           />
                         )}
                       </FormControl>
-                      <FormDescription>
+                      <FormDescription id="role-ids-description">
                         Select the roles that will have access to this menu item. Multiple roles can be selected. Leave empty for no role restriction.
                       </FormDescription>
                       <FormMessage />
@@ -401,7 +416,7 @@ const MenuForm: React.FC<MenuFormProps> = ({
             </CardContent>
           </Card>
 
-        <div className="flex justify-end space-x-4">
+        <div className="flex justify-end gap-4">
           <Button
             type="button"
             variant="outline"
