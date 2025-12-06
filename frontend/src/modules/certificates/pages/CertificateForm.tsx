@@ -28,7 +28,6 @@ import {
 } from '@/core/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
-import PageHeader from '@/core/components/ui/PageHeader';
 import { useCertificate, useCertificates } from '../hooks/useCertificates';
 import { useCertificateCategories } from '../hooks/useCertificates';
 import { departmentService } from '@/modules/master-data';
@@ -353,34 +352,24 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
 
     if (isLoadingCertificate || !dataReady) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                    <p className="mt-2 text-gray-500">Loading...</p>
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+                    <span>Loading certificate details...</span>
                 </div>
             </div>
         );
     }
 
     return (
-        <>
-            <PageHeader
-                title={mode === 'create' ? 'Create Certificate' : 'Edit Certificate'}
-                subtitle={
-                    mode === 'create'
-                        ? 'Add a new certificate or license'
-                        : 'Update certificate information'
-                }
-            />
-
-            <Form {...form}>
+        <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     <Card>
                         <CardHeader>
                             <CardTitle>Basic Information</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <CardContent className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <FormField
                                     control={form.control}
                                     name="certificateNumber"
@@ -583,7 +572,7 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                         <CardHeader>
                             <CardTitle>Personnel / Equipment Information</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent className="space-y-6">
                             <FormField
                                 control={form.control}
                                 name="departmentId"
@@ -687,7 +676,7 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                         <CardHeader>
                             <CardTitle>Additional Information</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent className="space-y-6">
                             <FormField
                                 control={form.control}
                                 name="reminderDays"
@@ -745,7 +734,6 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                     </div>
                 </form>
             </Form>
-        </>
     );
 };
 

@@ -106,13 +106,13 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
   };
 
   return (
-    <div className="h-16 border-b flex items-center justify-between px-4 bg-white dark:bg-gray-800 dark:border-gray-700 border-slate-200">
+    <div className="h-16 border-b flex items-center justify-between px-4 bg-background border-border">
       <div className="flex items-center">
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleSidebar}
-          className="mr-4 text-slate-700 dark:text-gray-300"
+          className="mr-4 text-foreground"
           aria-label="Toggle sidebar"
         >
           <Menu size={20} />
@@ -143,7 +143,7 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
                   >
                     {isLast || !item.clickable ? (
                       <span
-                        className={isLast ? "text-slate-900 dark:text-white font-medium" : "text-slate-600 dark:text-gray-300"}
+                        className={isLast ? "text-foreground font-medium" : "text-muted-foreground"}
                         aria-current={isLast ? "page" : undefined}
                       >
                         {item.name}
@@ -151,7 +151,7 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
                     ) : (
                       <Link
                         to={item.path}
-                        className="text-slate-600 dark:text-gray-300 hover:text-admin-primary hover:dark:text-blue-400 transition-colors"
+                        className="text-muted-foreground hover:text-primary transition-colors"
                       >
                         {item.name}
                       </Link>
@@ -171,7 +171,7 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
           variant="ghost"
           size="icon"
           onClick={toggleMode}
-          className="text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+          className="text-foreground hover:bg-accent hover:text-accent-foreground"
         >
           {isDark ? <Sun size={20} /> : <Moon size={20} />}
         </Button>
@@ -182,7 +182,7 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="relative flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-gray-700"
+              className="relative flex items-center gap-2 hover:bg-accent hover:text-accent-foreground"
               aria-label="User menu"
             >
               <Avatar className="h-8 w-8">
@@ -192,24 +192,24 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
                 </AvatarFallback>
               </Avatar>
               <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-slate-900 dark:text-white">
+                <p className="text-sm font-medium text-foreground">
                   {getDisplayName()}
                 </p>
-                <p className="text-xs text-slate-500 dark:text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   {getUserRole()}
                 </p>
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="dark:bg-gray-800 dark:border-gray-700">
-            <DropdownMenuItem className="cursor-pointer dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:bg-gray-700 hover:bg-slate-100 focus:bg-slate-100">
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem className="cursor-pointer">
               <User className="mr-2 h-4 w-4" /> Profile
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:bg-gray-700 hover:bg-slate-100 focus:bg-slate-100" onClick={() => navigate('/settings')}>
+            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate('/settings')}>
               <Settings className="mr-2 h-4 w-4" /> Settings
             </DropdownMenuItem>
-            <DropdownMenuSeparator className="dark:border-gray-700 border-slate-200" />
-            <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-500 focus:text-red-500 dark:focus:text-red-400 dark:hover:bg-gray-700 hover:bg-slate-100">
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive focus:text-destructive">
               <LogOut className="mr-2 h-4 w-4" /> Logout
             </DropdownMenuItem>
           </DropdownMenuContent>

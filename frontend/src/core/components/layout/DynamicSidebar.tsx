@@ -33,20 +33,23 @@ interface DynamicSubMenuProps {
 const getNavStyles = (isDark: boolean, isActive = false, textColor?: string) => {
   if (isActive) {
     return isDark
-      ? "bg-gray-700 text-white font-medium"
+      ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
       : `bg-white/10 font-medium`;
   }
 
   return isDark
-    ? "text-gray-300 hover:bg-gray-700 hover:text-white"
+    ? "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
     : `hover:bg-white/10`;
 };
 
 const DynamicNavItem = ({ menu, isOpen, level = 0 }: DynamicNavItemProps) => {
-  const { isDark, theme } = useTheme();
-  const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
-  const textColor = getContrastTextColor(currentThemeColor);
+  const { isDark } = useTheme();
   const location = useLocation();
+  
+  // In dark mode, use light text; in light mode, use contrast text
+  const textColor = isDark 
+    ? 'hsl(240 4.8% 95.9%)' // Light text for dark sidebar
+    : '#ffffff'; // White text for light sidebar with theme colors
 
   const isActive = location.pathname === menu.path;
 
@@ -71,10 +74,13 @@ const DynamicNavItem = ({ menu, isOpen, level = 0 }: DynamicNavItemProps) => {
 
 const DynamicSubMenu = ({ menu, isOpen, level = 0 }: DynamicSubMenuProps) => {
   const [expanded, setExpanded] = useState(false);
-  const { isDark, theme } = useTheme();
-  const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
-  const textColor = getContrastTextColor(currentThemeColor);
+  const { isDark } = useTheme();
   const location = useLocation();
+  
+  // In dark mode, use light text; in light mode, use contrast text
+  const textColor = isDark 
+    ? 'hsl(240 4.8% 95.9%)' // Light text for dark sidebar
+    : '#ffffff'; // White text for light sidebar with theme colors
 
   // Check if any child is active to determine if this submenu should be expanded
   const hasActiveChild = menu.children?.some(child => 
@@ -157,9 +163,13 @@ const DynamicSidebar = ({ isOpen }: DynamicSidebarProps) => {
   const { appName } = useAppName();
   const { sidebarMenus, isLoading, error } = useSidebarMenus();
 
-  // Get the current theme color for dynamic styling
-  const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
-  const textColor = getContrastTextColor(currentThemeColor);
+  // In dark mode, use neutral dark color; in light mode, use theme color
+  const currentThemeColor = isDark 
+    ? 'hsl(240 5.9% 10%)' // Dark neutral for sidebar in dark mode
+    : (themeColors[theme]?.primary || '#6366f1');
+  const textColor = isDark 
+    ? 'hsl(240 4.8% 95.9%)' // Light text for dark sidebar
+    : getContrastTextColor(currentThemeColor);
 
   // Show loading state
   if (isLoading) {
@@ -176,7 +186,7 @@ const DynamicSidebar = ({ isOpen }: DynamicSidebarProps) => {
       >
         <div className={cn(
           "flex items-center justify-center h-16 border-b px-4 flex-shrink-0",
-          isDark ? "border-gray-800" : "border-white/10"
+          "border-sidebar-border"
         )}>
           <h1
             className="text-xl font-bold"
@@ -209,7 +219,7 @@ const DynamicSidebar = ({ isOpen }: DynamicSidebarProps) => {
       >
         <div className={cn(
           "flex items-center justify-center h-16 border-b px-4 flex-shrink-0",
-          isDark ? "border-gray-800" : "border-white/10"
+          "border-sidebar-border"
         )}>
           <h1
             className="text-xl font-bold"
