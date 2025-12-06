@@ -316,6 +316,7 @@ const WorkPermitsPage = () => {
                 fields={filterFields}
                 onApplyFilters={handleApplyFilters}
                 onResetFilters={() => setActiveFilters({})}
+                initialValues={Object.entries(activeFilters).map(([id, { value }]) => ({ id, value }))}
               />
             </div>
           </div>

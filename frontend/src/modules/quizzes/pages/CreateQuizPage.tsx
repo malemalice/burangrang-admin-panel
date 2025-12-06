@@ -4,9 +4,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Form } from '@/core/components/ui/form';
 import { Card, CardContent } from '@/core/components/ui/card';
+import PageHeader from '@/core/components/ui/PageHeader';
 import QuizForm from '../components/QuizForm';
 import { useQuizzes } from '../hooks/useQuizzes';
 import { CreateQuizDTO, CreateQuizQuestionDTO } from '../types/quiz.types';
@@ -164,11 +166,17 @@ const CreateQuizPage = () => {
   };
 
   return (
-    <div className="container mx-auto py-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Create Quiz</h1>
-        <p className="text-muted-foreground">Create a new quiz with questions and options</p>
-      </div>
+    <>
+      <PageHeader
+        title="Create Quiz"
+        subtitle="Create a new quiz with questions and options"
+        actions={
+          <Button variant="outline" onClick={() => navigate('/quizzes')}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Quizzes
+          </Button>
+        }
+      />
+      <div className="max-w-4xl mx-auto">
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit, onError)} className="space-y-6">
@@ -221,7 +229,8 @@ const CreateQuizPage = () => {
           </Card>
         </form>
       </Form>
-    </div>
+      </div>
+    </>
   );
 };
 

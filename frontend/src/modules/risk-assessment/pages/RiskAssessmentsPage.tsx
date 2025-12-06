@@ -15,7 +15,6 @@ import {
 
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import { Input } from '@/core/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import {
   DropdownMenu,
@@ -24,7 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/core/components/ui/dropdown-menu';
-import { FilterDrawer, FilterField } from '@/core/components/ui/filter-drawer';
+import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/core/components/ui/alert-dialog';
 import { Badge } from '@/core/components/ui/badge';
@@ -43,7 +42,7 @@ const RiskAssessmentsPage = () => {
   const [assessmentToDelete, setAssessmentToDelete] = useState<RiskAssessment | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [activeFilters, setActiveFilters] = useState<FilterValue[]>([]);
   const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
 
   // Define filter fields
@@ -93,8 +92,8 @@ const RiskAssessmentsPage = () => {
       }
 
       // Add filters
-      Object.entries(activeFilters).forEach(([key, { value }]) => {
-        params[key] = value;
+      activeFilters.forEach((filter) => {
+        params[filter.id] = filter.value;
       });
 
       const response = await riskAssessmentService.getAll(params);
@@ -111,8 +110,8 @@ const RiskAssessmentsPage = () => {
     fetchAssessments();
   }, [pageIndex, limit, activeTab, searchTerm, activeFilters]);
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
     setPageIndex(0);
   };
 
@@ -121,13 +120,8 @@ const RiskAssessmentsPage = () => {
     setPageIndex(0);
   };
 
-  const handleApplyFilters = (filters: Record<string, { value: any; label: string }>) => {
+  const handleApplyFilters = (filters: FilterValue[]) => {
     setActiveFilters(filters);
-    setPageIndex(0);
-  };
-
-  const handleClearFilters = () => {
-    setActiveFilters({});
     setPageIndex(0);
   };
 
@@ -255,25 +249,6 @@ const RiskAssessmentsPage = () => {
       <Card>
         <CardHeader className="px-6 py-4 flex flex-row items-center justify-between space-y-0">
           <CardTitle>Risk Assessments</CardTitle>
-          <div className="flex items-center gap-2">
-            <div className="relative w-64">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search assessments..."
-                className="pl-8"
-                value={searchTerm}
-                onChange={handleSearch}
-              />
-            </div>
-            <FilterDrawer
-              fields={filterFields}
-              activeFilters={activeFilters}
-              onApplyFilters={handleApplyFilters}
-              onClearFilters={handleClearFilters}
-            />
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
           <div className="px-6 py-3 border-y">
             <Tabs defaultValue={activeTab} onValueChange={handleTabChange}>
               <TabsList>
@@ -283,6 +258,8 @@ const RiskAssessmentsPage = () => {
               </TabsList>
             </Tabs>
           </div>
+        </CardHeader>
+        <CardContent className="p-0">
           <DataTable
             columns={columns}
             data={assessments}
@@ -295,6 +272,9 @@ const RiskAssessmentsPage = () => {
               onPageSizeChange: setLimit,
               total: totalAssessments,
             }}
+            filterFields={filterFields}
+            onSearch={handleSearch}
+            onApplyFilters={handleApplyFilters}
           />
         </CardContent>
       </Card>
