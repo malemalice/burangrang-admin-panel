@@ -234,7 +234,7 @@ export function MultiSelectSearchable({
       </Popover>
 
       {/* Display selected options as badges */}
-      {selectedOptions.length > 0 && (
+      {/* {selectedOptions.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {selectedOptions.map((option) => (
             <Badge key={option.value} variant="secondary" className="flex items-center gap-1">
@@ -249,7 +249,7 @@ export function MultiSelectSearchable({
             </Badge>
           ))}
         </div>
-      )}
+      )} */}
     </div>
   );
 } 
