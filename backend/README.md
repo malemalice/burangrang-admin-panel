@@ -103,6 +103,73 @@ $ npm run prisma:seed menus
 
 **Note:** When seeding individual tables, the system automatically handles dependencies. For example, seeding `users` will also seed `permissions`, `roles`, and `offices` as they are required dependencies.
 
+## Reminder System
+
+The application includes a comprehensive Reminder & Notification System that allows users to schedule one-time and recurring reminders associated with business entities (incidents, audits, inspections, etc.).
+
+### Features
+
+- ✅ **One-time and Recurring Reminders**: Support for weekly and monthly recurring reminders
+- ✅ **Entity Context Linking**: Dynamically reference any business entity using context and contextId
+- ✅ **Automated Execution**: Cron job runs every minute to process due reminders
+- ✅ **Notification Integration**: Creates in-app notifications when reminders trigger
+- ✅ **Email Notifications**: Email sending capability (ready for integration)
+- ✅ **Comprehensive Logging**: Complete audit trail for all reminder executions
+- ✅ **Status Management**: Tracks reminder lifecycle (PENDING, SENT, EXPIRED, CANCELLED, FAILED)
+
+### Quick Start
+
+1. **Run Database Migration**
+```bash
+npx prisma migrate dev --name add_reminder_system
+npx prisma generate
+```
+
+2. **Create a Reminder**
+```bash
+POST /reminders
+Authorization: Bearer {your-jwt-token}
+Content-Type: application/json
+
+{
+  "message": "Follow up on incident report",
+  "remindAt": "2025-11-30T10:00:00Z",
+  "entity": "t_incidents",
+  "entityId": "incident-uuid",
+  "repeatType": "WEEKLY",
+  "repeatUntil": "2025-12-31T23:59:59Z"
+}
+```
+
+3. **Monitor Execution**
+The cron job automatically processes due reminders every minute. Check application logs for execution details.
+
+### API Endpoints
+
+- `POST /reminders` - Create new reminder
+- `GET /reminders` - List reminders with pagination and filtering
+- `GET /reminders/:id` - Get single reminder
+- `GET /reminders/:id/logs` - Get execution logs
+- `PATCH /reminders/:id` - Update reminder
+- `DELETE /reminders/:id` - Cancel reminder
+
+### Documentation
+
+For detailed documentation, see:
+- **Module README**: `src/modules/reminders/README.md`
+- **Quick Start Guide**: `src/modules/reminders/QUICK_START.md`
+- **Technical Reference**: `TRD.md` (Reminder Module section)
+- **Implementation Summary**: `REMINDER_SYSTEM_IMPLEMENTATION.md`
+
+### Cron Job
+
+The reminder scheduler runs automatically every minute when the application is running. No additional configuration is required. The scheduler:
+- Processes up to 500 reminders per execution cycle
+- Creates notifications for due reminders
+- Sends email notifications (if configured)
+- Logs all execution results
+- Handles recurring reminder rescheduling
+
 ### Database Management
 
 ```bash

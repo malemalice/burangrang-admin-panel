@@ -8,7 +8,10 @@ import { masterDataRoutes } from '@/modules/master-data';
 import { menuRoutes } from '@/modules/menus';
 import { notificationRoutes } from '@/modules/notifications';
 import { ppeRoutes } from '@/modules/ppe';
-import certificateRoutes from '@/modules/certificates/routes/certificateRoutes';
+import { courseRoutes } from '@/modules/courses';
+import { reminderRoutes } from '@/modules/reminders';
+import { enrollmentRoutes } from '@/modules/enrollments';
+import { quizRoutes } from '@/modules/quizzes';
 
 /**
  * Application routes registry
@@ -23,7 +26,10 @@ const routes: RouteConfig[] = [
   ...settingsRoutes,
   ...notificationRoutes,
   ...ppeRoutes,
-  ...certificateRoutes,
+  ...courseRoutes,
+  ...reminderRoutes,
+  ...enrollmentRoutes,
+  ...quizRoutes,
   ...moduleRoutes,
 ];
 

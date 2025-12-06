@@ -50,6 +50,11 @@ Enum QuizAttemptStatusEnum {
   ABANDONED
 }
 
+Enum QuizEntityEnum {
+  COURSE
+  CHAPTER
+}
+
 Enum CertificateTypeEnum {
   PERSONNEL_LICENSE
   PERSONNEL_CERTIFICATE
@@ -64,6 +69,14 @@ Enum CertificateRenewalStatusEnum {
   IN_PROGRESS
   COMPLETED
   REJECTED
+  EXPIRED
+}
+
+Enum EnrollmentStatusEnum {
+  INVITED
+  ACTIVE
+  COMPLETED
+  CANCELLED
   EXPIRED
 }
 
@@ -87,6 +100,14 @@ Enum ManHourGroupEnum {
   NON_STUDENT
 }
 
+Enum ReportStatusEnum {
+  SUBMITTED
+  RECEIVED
+  UNDER_REVIEW
+  REVIEWED
+  ARCHIVED
+}
+
 Enum MonthEnum {
   JAN
   FEB
@@ -100,6 +121,27 @@ Enum MonthEnum {
   OCT
   NOV
   DEC
+}
+
+Enum WasteTypeEnum {
+  DOMESTIC
+  HAZARDOUS
+  FOOD
+  GREEN
+}
+
+Enum ReminderStatusEnum {
+  PENDING
+  SENT
+  EXPIRED
+  CANCELLED
+  FAILED
+}
+
+Enum ReminderRepeatTypeEnum {
+  NONE
+  WEEKLY
+  MONTHLY
 }
 
 Enum TransitionTypeEnum {
@@ -1010,6 +1052,18 @@ Table t_work_permit_required_courses {
 
 //// -- LEARNING MANAGEMENT SYSTEM (LMS) --
 
+Table m_course_categories {
+  id varchar [pk, default: `uuid()`]
+  name varchar [unique, not null]
+  slug varchar [unique, not null]
+  description text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Course category master data for organizing courses'
+}
+
 Table t_courses {
   id varchar [pk, default: `uuid()`]
   title varchar [not null]
@@ -1032,7 +1086,7 @@ Table t_courses {
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
 
-  Note: 'LMS courses with instructor assignment and metadata'
+  Note: 'LMS courses with instructor assignment and metadata. Courses can belong to multiple categories via _CourseToCategory junction table.'
 }
 
 Table t_chapters {
@@ -1060,17 +1114,29 @@ Table t_enrollments {
   id varchar [pk, default: `uuid()`]
   userId varchar [not null, ref: > t_users.id]
   courseId varchar [not null, ref: > t_courses.id]
-  status varchar [default: 'ACTIVE', not null]
-  enrolledAt timestamp [default: `now()`, not null]
+  status EnrollmentStatusEnum [default: 'INVITED', not null]
+  enrolledAt timestamp
   completedAt timestamp
   progress decimal(5,2) [default: 0, not null]
+  score decimal(5,2)
+  summaries jsonb
   lastAccessedAt timestamp
+  
+  // Assignment fields (for admin-assigned courses)
+  assignedBy varchar [ref: > t_users.id]
+  assignedAt timestamp
+  dueDate timestamp
+  isRequired boolean [default: false, not null]
+  notes text
+  
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
 
-  Note: 'Student course enrollments with progress tracking - allows re-enrollment after completion'
+  Note: 'Student course enrollments with progress tracking - allows re-enrollment after completion. Supports admin-assigned courses with assignment tracking, due dates, and required/optional enrollment types.'
   indexes {
     (userId, courseId, status)
+    assignedBy
+    dueDate
   }
 }
 
@@ -1095,8 +1161,11 @@ Table t_course_progress {
 
 Table t_quizzes {
   id varchar [pk, default: `uuid()`]
-  courseId varchar [ref: > t_courses.id]
-  chapterId varchar [ref: > t_chapters.id]
+  
+  // Polymorphic relationship: entity + entityId
+  entity QuizEntityEnum
+  entityId varchar
+  
   title varchar [not null]
   description text
   instructions text
@@ -1113,7 +1182,10 @@ Table t_quizzes {
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
 
-  Note: 'Quizzes/assessments - can be bound to course or chapter'
+  Note: 'Quizzes/assessments - polymorphic design. entity can be COURSE (entityId = courseId) or CHAPTER (entityId = chapterId). If both entity and entityId are null, quiz is standalone and requires t_quiz_assignments for user access. Application-level constraint: if entity is set, entityId must be set; if entity is null, entityId must be null.'
+  indexes {
+    (entity, entityId)
+  }
 }
 
 Table t_quiz_questions {
@@ -1145,10 +1217,37 @@ Table t_quiz_question_options {
   Note: 'Answer options for multiple choice and true/false questions'
 }
 
+Table t_quiz_assignments {
+  id varchar [pk, default: `uuid()`]
+  quizId varchar [not null, ref: > t_quizzes.id]
+  userId varchar [not null, ref: > t_users.id]
+  assignedBy varchar [not null, ref: > t_users.id]
+  assignedAt timestamp [default: `now()`, not null]
+  dueDate timestamp
+  isRequired boolean [default: false, not null]
+  status varchar [default: 'PENDING', not null]
+  notes text
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Assigns standalone quizzes to users without course enrollment. Only used when quiz.entity IS NULL (standalone quiz).'
+  indexes {
+    (quizId, userId) [unique]
+    userId
+    quizId
+    status
+    dueDate
+  }
+}
+
 Table t_quiz_attempts {
   id varchar [pk, default: `uuid()`]
   quizId varchar [not null, ref: > t_quizzes.id]
-  enrollmentId varchar [not null, ref: > t_enrollments.id]
+  
+  // User context (one must be set based on quiz type)
+  enrollmentId varchar [ref: > t_enrollments.id]
+  userId varchar [ref: > t_users.id]
+  
   attemptNumber int [not null]
   status QuizAttemptStatusEnum [default: 'IN_PROGRESS', not null]
   score decimal(5,2)
@@ -1162,9 +1261,11 @@ Table t_quiz_attempts {
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
 
-  Note: 'Student quiz attempts with scoring and deadline tracking'
+  Note: 'Quiz attempts with scoring and deadline tracking. For bound quizzes (entity = COURSE/CHAPTER): enrollmentId required. For standalone quizzes (entity IS NULL): userId required.'
   indexes {
     (enrollmentId, quizId)
+    (userId, quizId)
+    status
   }
 }
 
@@ -1279,6 +1380,15 @@ Table _MenuToRole {
   }
 }
 
+Table _CourseToCategory {
+  A varchar [ref: > t_courses.id]
+  B varchar [ref: > m_course_categories.id]
+
+  Note: 'Many-to-many: Courses and Course Categories'
+  indexes {
+    (A, B) [pk]
+  }
+}
 
 Table _AuditToUser {
   A varchar [ref: > t_audits.id]
@@ -1413,6 +1523,7 @@ TableGroup work_permit_system {
 }
 
 TableGroup learning_management_system {
+  m_course_categories
   t_courses
   t_chapters
   t_enrollments
@@ -1420,8 +1531,10 @@ TableGroup learning_management_system {
   t_quizzes
   t_quiz_questions
   t_quiz_question_options
+  t_quiz_assignments
   t_quiz_attempts
   t_quiz_answers
+  _CourseToCategory
 }
 
 TableGroup certificate_management_system {
@@ -1563,4 +1676,320 @@ Table t_man_hours {
 
 TableGroup man_hour_management_system {
   t_man_hours
+}
+
+//// -- WASTEWATER MANAGEMENT SYSTEM (HSE DOMAIN) --
+
+Table m_treatment_plants {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  plantType varchar [not null]
+  location varchar
+  capacity decimal(10,2)
+  areaId varchar [ref: > m_areas.id]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'Sewage Treatment Plant (STP) / Wastewater Treatment Plant (WWTP) master data - reference for HSE report management. Seed Data Examples: Main STP Building A (STP-A, STP, Building A Basement, 500.00), WWTP Campus Central (WWTP-CC, WWTP, Central Campus, 1000.00), STP Building B (STP-B, STP, Building B Ground Floor, 300.00)'
+}
+
+Table m_water_quality_parameters {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text
+  unit varchar [not null]
+  standardLimit decimal(10,4)
+  regulatoryLimit decimal(10,4)
+  testMethod varchar
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Water quality test parameters master data (pH, BOD, COD, TSS, Oil/Grease, Heavy Metals, Coliform, etc.) - used by HSE to review lab reports. Seed Data Examples: pH Level (PH, pH units, 6.5-9.0), BOD (BOD, mg/L, 20.0-30.0), COD (COD, mg/L, 100.0-150.0), TSS (TSS, mg/L, 30.0-50.0), Oil/Grease (OIL_GREASE, mg/L, 10.0-15.0), Coliform (COLIFORM, MPN/100mL, 100.0-200.0), NH3-N (NH3-N, mg/L, 5.0-10.0), TP (TP, mg/L, 1.0-2.0), Lead (PB, mg/L, 0.1-0.2), Mercury (HG, mg/L, 0.001-0.002)'
+}
+
+Table t_monthly_flow_reports {
+  id varchar [pk, default: `uuid()`]
+  reportCode varchar [unique, not null]
+  treatmentPlantId varchar [not null, ref: > m_treatment_plants.id]
+  reportMonth MonthEnum [not null]
+  reportYear int [not null]
+  totalVolume decimal(12,4) [not null]
+  averageDailyFlow decimal(10,4) [not null]
+  peakFlow decimal(10,4)
+  minimumFlow decimal(10,4)
+  reportDocumentUrl varchar
+  submittedBy varchar [not null, ref: > t_users.id]
+  submittedAt timestamp [not null]
+  receivedBy varchar [ref: > t_users.id]
+  receivedAt timestamp
+  status ReportStatusEnum [default: 'SUBMITTED', not null]
+  reviewedBy varchar [ref: > t_users.id]
+  reviewedAt timestamp
+  reviewNotes text
+  archivedAt timestamp
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Monthly wastewater volume reports submitted by STP Operator to HSE - HSE receives, reviews, and archives these reports'
+  indexes {
+    (treatmentPlantId, reportMonth, reportYear) [unique]
+    (reportMonth, reportYear)
+    status
+    receivedAt
+  }
+}
+
+Table t_water_quality_lab_reports {
+  id varchar [pk, default: `uuid()`]
+  reportCode varchar [unique, not null]
+  treatmentPlantId varchar [not null, ref: > m_treatment_plants.id]
+  reportDate timestamp [not null]
+  preparedBy varchar [not null, ref: > t_users.id]
+  reportDocumentUrl varchar
+  summary text
+  recommendations text
+  analystSignature varchar
+  submittedBy varchar [not null, ref: > t_users.id]
+  submittedAt timestamp [not null]
+  receivedBy varchar [ref: > t_users.id]
+  receivedAt timestamp
+  status ReportStatusEnum [default: 'SUBMITTED', not null]
+  reviewedBy varchar [ref: > t_users.id]
+  reviewedAt timestamp
+  reviewNotes text
+  archivedAt timestamp
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Comprehensive laboratory test reports prepared by Laboratory Officer and sent to HSE - HSE receives, reviews, verifies compliance, and archives'
+  indexes {
+    (treatmentPlantId, reportDate)
+    reportDate
+    status
+    receivedAt
+  }
+}
+
+TableGroup wastewater_management_system {
+  m_treatment_plants
+  m_water_quality_parameters
+  t_monthly_flow_reports
+  t_water_quality_lab_reports
+}
+
+//// -- SOLID WASTE MANAGEMENT SYSTEM (HSE DOMAIN) --
+
+Table m_waste_types {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  wasteType WasteTypeEnum [not null]
+  description text
+  requiresSpecialHandling boolean [default: false, not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Waste type master data (DOMESTIC, HAZARDOUS, FOOD, GREEN) - used for categorization and reporting. Seed Data Examples: Domestic Waste (DOMESTIC, no special handling), Hazardous Waste (HAZARDOUS, requires special handling), Food Waste (FOOD, no special handling), Green Waste (GREEN, no special handling)'
+}
+
+Table m_waste_sources {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  sourceType varchar [not null]
+  description text
+  contactPerson varchar
+  phone varchar
+  email varchar
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Waste source master data - organizations/teams that generate waste (Cleaners, Catering Vendor, Grounds and Landscaping Team). Seed Data Examples: Cleaning Team (CLEANERS, INTERNAL_TEAM), Catering Vendor (CATERING, VENDOR), Grounds and Landscaping Team (GROUNDS, INTERNAL_TEAM)'
+}
+
+Table m_storage_locations {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  location varchar [not null]
+  areaId varchar [ref: > m_areas.id]
+  description text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'Temporary storage locations for waste - reference for waste collection points where weight measurements are taken. Seed Data Examples: Building A Temporary Storage (TS-A, Building A Basement), Central Storage Area (TS-CENTRAL, Central Campus)'
+}
+
+Table t_weight_reports {
+  id varchar [pk, default: `uuid()`]
+  reportCode varchar [unique, not null]
+  sourceId varchar [not null, ref: > m_waste_sources.id]
+  storageLocationId varchar [not null, ref: > m_storage_locations.id]
+  reportDate timestamp [not null]
+  reportMonth MonthEnum [not null]
+  reportYear int [not null]
+  reportDocumentUrl varchar
+  submittedBy varchar [not null, ref: > t_users.id]
+  submittedAt timestamp [not null]
+  receivedBy varchar [ref: > t_users.id]
+  receivedAt timestamp
+  status ReportStatusEnum [default: 'SUBMITTED', not null]
+  reviewedBy varchar [ref: > t_users.id]
+  reviewedAt timestamp
+  reviewNotes text
+  archivedAt timestamp
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Weight reports submitted by waste sources (Cleaners, Catering Vendor, Grounds Team) to HSE - HSE receives, reviews, and archives these reports. Each report can contain multiple waste type entries via t_weight_report_items'
+  indexes {
+    (sourceId, reportMonth, reportYear) [unique]
+    (reportMonth, reportYear)
+    status
+    receivedAt
+  }
+}
+
+Table t_weight_report_items {
+  id varchar [pk, default: `uuid()`]
+  weightReportId varchar [not null, ref: > t_weight_reports.id]
+  wasteTypeId varchar [not null, ref: > m_waste_types.id]
+  weight decimal(10,2) [not null]
+  unit varchar [default: 'kg', not null]
+  order int [not null]
+  notes text
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Individual waste type entries within weight reports - tracks weight measurements per waste type'
+  indexes {
+    (weightReportId, wasteTypeId) [unique]
+  }
+}
+
+TableGroup solid_waste_management_system {
+  m_waste_types
+  m_waste_sources
+  m_storage_locations
+  t_weight_reports
+  t_weight_report_items
+}
+
+//// -- NOTIFICATION SYSTEM --
+
+Table m_notification_types {
+  id varchar [pk, default: `uuid()`]
+  name varchar [unique, not null]
+  description varchar
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Notification type categorization'
+}
+
+Table t_notifications {
+  id varchar [pk, default: `uuid()`]
+  title varchar [not null]
+  message varchar [not null]
+  context varchar
+  contextId varchar
+  typeId varchar [not null, ref: > m_notification_types.id]
+  isRead boolean [default: false, not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  readAt timestamp
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'System notifications - delivery records for user-facing communication'
+  indexes {
+    typeId
+    createdBy
+    isRead
+    (context, contextId)
+  }
+}
+
+Table t_notification_recipients {
+  id varchar [pk, default: `uuid()`]
+  notificationId varchar [not null, ref: > t_notifications.id]
+  roleId varchar [not null, ref: > m_roles.id]
+  userId varchar [ref: > t_users.id]
+  isRead boolean [default: false, not null]
+  readAt timestamp
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Notification recipients tracking - supports role-based and user-specific targeting'
+  indexes {
+    notificationId
+    roleId
+    userId
+    (notificationId, roleId, userId) [unique]
+  }
+}
+
+//// -- REMINDER SYSTEM --
+
+Table t_reminders {
+  id varchar [pk, default: `uuid()`]
+  userId varchar [not null, ref: > t_users.id]
+  entity varchar
+  entityId varchar
+  message varchar [not null]
+  remindAt timestamp [not null]
+  repeatType ReminderRepeatTypeEnum
+  repeatUntil timestamp
+  status ReminderStatusEnum [default: 'PENDING', not null]
+  lastSentAt timestamp
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Scheduled reminders that trigger notifications at specific times. Supports one-time and recurring reminders (weekly, monthly) with expiration dates. Dynamically references domain entities via context (table/module name) and contextId (entity primary key).'
+  indexes {
+    (status, remindAt)
+    userId
+    (entity, entityId)
+  }
+}
+
+Table t_reminder_logs {
+  id varchar [pk, default: `uuid()`]
+  reminderId varchar [not null, ref: > t_reminders.id]
+  executionStatus varchar [not null]
+  executionDuration int
+  failureReason text
+  notificationId varchar [ref: > t_notifications.id]
+  emailSent boolean [default: false, not null]
+  emailError text
+  executedAt timestamp [default: `now()`, not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Audit trail for reminder executions - tracks execution status, duration, failures, and email delivery. Links to notification record when successfully created.'
+  indexes {
+    reminderId
+    executedAt
+    executionStatus
+  }
+}
+
+TableGroup reminder_notification_system {
+  t_reminders
+  t_reminder_logs
+  t_notifications
+  t_notification_recipients
+  m_notification_types
 }

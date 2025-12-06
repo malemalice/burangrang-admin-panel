@@ -17,6 +17,7 @@ import {
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
+import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import ppeService from '../../services/ppeService';
@@ -350,7 +351,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                     <FormItem>
                                         <FormLabel>Withdrawal Date *</FormLabel>
                                         <FormControl>
-                                            <Input type="date" {...field} />
+                                            <DateTimePicker mode="date" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
