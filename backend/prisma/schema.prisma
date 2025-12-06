@@ -9,32 +9,56 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  password      String?
-  firstName     String
-  lastName      String
-  isActive      Boolean        @default(true)
-  roleId        String
-  officeId      String
-  departmentId  String?
-  jobPositionId String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  lastLoginAt   DateTime?
-  refreshTokens RefreshToken[]
-  passwordResetTokens PasswordResetToken[]
-  office        Office         @relation(fields: [officeId], references: [id])
-  role          Role           @relation(fields: [roleId], references: [id])
-  department    Department?    @relation(fields: [departmentId], references: [id])
-  jobPosition   JobPosition?   @relation(fields: [jobPositionId], references: [id])
-  riskAssessments RiskAssessment[]
-  createdApprovalItems MasterApprovalItem[] @relation("CreatedApprovalItems")
-  createdApprovals Approval[] @relation("CreatedApprovals")
-  createdNotifications Notification[] @relation("NotificationCreator")
-  notificationRecipients NotificationRecipient[] @relation("NotificationRecipient")
-  uploadedFiles FileUpload[]
-  fileAccessLogs FileAccessLog[]
+  id                           String                  @id @default(uuid())
+  email                        String                  @unique
+  password                     String?
+  firstName                    String
+  lastName                     String
+  isActive                     Boolean                 @default(true)
+  roleId                       String
+  officeId                     String
+  departmentId                 String?
+  jobPositionId                String?
+  createdAt                    DateTime                @default(now())
+  updatedAt                    DateTime                @updatedAt
+  lastLoginAt                  DateTime?
+  refreshTokens                RefreshToken[]
+  passwordResetTokens          PasswordResetToken[]
+  office                       Office                  @relation(fields: [officeId], references: [id])
+  role                         Role                    @relation(fields: [roleId], references: [id])
+  department                   Department?             @relation(fields: [departmentId], references: [id])
+  jobPosition                  JobPosition?            @relation(fields: [jobPositionId], references: [id])
+  riskAssessments              RiskAssessment[]
+  createdApprovalItems         MasterApprovalItem[]    @relation("CreatedApprovalItems")
+  createdApprovals             Approval[]              @relation("CreatedApprovals")
+  createdNotifications         Notification[]          @relation("NotificationCreator")
+  notificationRecipients       NotificationRecipient[] @relation("NotificationRecipient")
+  uploadedFiles                FileUpload[]
+  fileAccessLogs               FileAccessLog[]
+  ppeStocksCreated             PPEStock[]              @relation("PPEStockCreator")
+  ppeStockAdjustments          PPEStockAdjustment[]    @relation("PPEStockAdjuster")
+  ppeExpiryAlerts              PPEExpiryAlert[]        @relation("PPEExpiryAlertRecipient")
+  ppeWithdrawalsRequested      PPEWithdrawal[]         @relation("PPEWithdrawalRequester")
+  ppeWithdrawalsRequestedFor   PPEWithdrawal[]         @relation("PPEWithdrawalRequestedFor")
+  ppeWithdrawalsCollected      PPEWithdrawal[]         @relation("PPEWithdrawalCollector")
+  ppeWithdrawalsCreated        PPEWithdrawal[]         @relation("PPEWithdrawalCreator")
+  instructorCourses            Course[]                @relation("CourseInstructor")
+  enrollments                  Enrollment[]
+  enrollmentsAssigned          Enrollment[]            @relation("EnrollmentAssigner")
+  reminders                    Reminder[]              @relation("UserReminders")
+  quizzesCreated               Quiz[]                  @relation("QuizCreator")
+  quizAssignments              QuizAssignment[]        @relation("QuizAssignmentUser")
+  quizAssignmentsAssigned      QuizAssignment[]        @relation("QuizAssignmentAssigner")
+  quizAttempts                 QuizAttempt[]           @relation("QuizAttemptUser")
+  quizAnswersGraded            QuizAnswer[]            @relation("QuizAnswerGrader")
+  certificatesAsPersonnel      Certificate[]           @relation("CertificatePersonnel")
+  certificatesCreated          Certificate[]           @relation("CertificateCreator")
+  certificateRenewalsRequested CertificateRenewal[]    @relation("CertificateRenewalRequester")
+  certificateRenewalsProcessed CertificateRenewal[]    @relation("CertificateRenewalProcessor")
+  certificateReminders         CertificateReminder[]    @relation("CertificateReminderRecipient")
+  workPermitsCreated           WorkPermit[]            @relation("WorkPermitCreator")
+  workPermitEmployees          WorkPermitEmployee[]    @relation("WorkPermitEmployee")
+  workPermitHseOfficers        WorkPermitToUser[]      @relation("WorkPermitHseOfficer")
 
   @@map("t_users")
 }
@@ -64,15 +88,15 @@ model PasswordResetToken {
 }
 
 model Role {
-  id          String       @id @default(uuid())
-  name        String       @unique
-  description String?
-  isActive    Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  users       User[]
-  menus       Menu[]       @relation("MenuToRole")
-  permissions Permission[] @relation("PermissionToRole")
+  id                     String                  @id @default(uuid())
+  name                   String                  @unique
+  description            String?
+  isActive               Boolean                 @default(true)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  users                  User[]
+  menus                  Menu[]                  @relation("MenuToRole")
+  permissions            Permission[]            @relation("PermissionToRole")
   notificationRecipients NotificationRecipient[]
 
   @@map("m_roles")
@@ -122,66 +146,73 @@ model Office {
   parent      Office?  @relation("OfficeHierarchy", fields: [parentId], references: [id])
   children    Office[] @relation("OfficeHierarchy")
   users       User[]
+  areas       Area[]
 
   @@map("m_offices")
 }
 
 model Department {
-  id          String @id @default(uuid())
-  name        String
-  code        String @unique
-  description String? @db.Text
-  isActive    Boolean @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now())
-  users       User[]
+  id              String               @id @default(uuid())
+  name            String
+  code            String               @unique
+  description     String?              @db.Text
+  isActive        Boolean              @default(true)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @default(now())
+  users           User[]
   riskAssessments RiskAssessment[]
-  approvalItems MasterApprovalItem[]
-  approvals Approval[]
+  approvalItems   MasterApprovalItem[]
+  approvals       Approval[]
+  ppeWithdrawals  PPEWithdrawal[]
+  certificates    Certificate[]
+
   @@map("m_departments")
 }
 
 model JobPosition {
-  id          String @id @default(uuid())
-  name        String
-  code        String @unique
-  level       Int
-  description String? @db.Text
-  isActive    Boolean @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now())
-  users       User[]
-  approvalItems MasterApprovalItem[]
-  approvals   Approval[]
+  id             String               @id @default(uuid())
+  name           String
+  code           String               @unique
+  level          Int
+  description    String?              @db.Text
+  isActive       Boolean              @default(true)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @default(now())
+  users          User[]
+  approvalItems  MasterApprovalItem[]
+  approvals      Approval[]
+  ppeWithdrawals PPEWithdrawal[]
+
   @@map("m_job_positions")
 }
 
 model HseCategory {
-  id          String   @id @default(uuid())
-  name        String
-  code        String   @unique
-  description String?  @db.Text
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  threats     Threat[]
+  id                  String               @id @default(uuid())
+  name                String
+  code                String               @unique
+  description         String?              @db.Text
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  threats             Threat[]
   riskAssessmentItems RiskAssessmentItem[]
 
   @@map("m_hse_categories")
 }
 
 model Threat {
-  id              String            @id @default(uuid())
-  name            String
-  code            String            @unique
-  description     String?           @db.Text
-  isActive        Boolean           @default(true)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  hseCategoryId   String
-  hseCategory     HseCategory       @relation(fields: [hseCategoryId], references: [id])
-  mitigations     ThreatMitigation[]
+  id                  String               @id @default(uuid())
+  name                String
+  code                String               @unique
+  description         String?              @db.Text
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  hseCategoryId       String
+  hseCategory         HseCategory          @relation(fields: [hseCategoryId], references: [id])
+  mitigations         ThreatMitigation[]
   riskAssessmentItems RiskAssessmentItem[]
+  workPermitHazards   WorkPermitHazard[]
 
   @@map("m_threats")
 }
@@ -207,86 +238,87 @@ enum RiskRatingEnum {
 }
 
 model RiskMatrix {
-  id String @id @default(uuid())
-  likelihoodLevel Int
+  id               String         @id @default(uuid())
+  likelihoodLevel  Int
   consequenceLevel Int
-  risk_rating RiskRatingEnum
+  risk_rating      RiskRatingEnum
 
   @@map("m_risk_matrix")
 }
 
 model RiskAssessment {
-  id String @id @default(uuid())
-  code String @unique
-  description String? @db.Text
-  departmentId String
-  department Department @relation(fields:[departmentId], references:[id])
-  assessmentDate DateTime @default(now())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String
-  status String
-  isActive Boolean @default(true)
-  items RiskAssessmentItem[]
-  assigneeId String?
-  assignee User? @relation(fields:[assigneeId], references:[id])
-  actionPlan String? @db.Text
+  id             String               @id @default(uuid())
+  code           String               @unique
+  description    String?              @db.Text
+  departmentId   String
+  department     Department           @relation(fields: [departmentId], references: [id])
+  assessmentDate DateTime             @default(now())
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  createdBy      String
+  status         String
+  isActive       Boolean              @default(true)
+  items          RiskAssessmentItem[]
+  assigneeId     String?
+  assignee       User?                @relation(fields: [assigneeId], references: [id])
+  actionPlan     String?              @db.Text
 
   @@map("t_risk_assessment")
 }
 
 model RiskAssessmentItem {
-  id String @id @default(uuid())
+  id               String         @id @default(uuid())
   riskAssessmentId String
-  riskAssessment RiskAssessment @relation(fields:[riskAssessmentId], references:[id])
-  mThreatId String
-  mThreat Threat @relation(fields:[mThreatId], references:[id])
-  mHseCategoryId String
-  mHseCategory HseCategory @relation(fields:[mHseCategoryId], references:[id])
-  likelihoodLevel Int
+  riskAssessment   RiskAssessment @relation(fields: [riskAssessmentId], references: [id])
+  mThreatId        String
+  mThreat          Threat         @relation(fields: [mThreatId], references: [id])
+  mHseCategoryId   String
+  mHseCategory     HseCategory    @relation(fields: [mHseCategoryId], references: [id])
+  likelihoodLevel  Int
   consequenceLevel Int
   riskMatrixRating RiskRatingEnum
 
   @@map("t_risk_assessment_item")
 }
+
 model MasterApproval {
-  id String @id @default(uuid())
-  entity String
-  isActive Boolean @default(true)
-  items MasterApprovalItem[]
+  id       String               @id @default(uuid())
+  entity   String
+  isActive Boolean              @default(true)
+  items    MasterApprovalItem[]
 
   @@map("m_approval")
 }
 
 model MasterApprovalItem {
-  id String @id @default(uuid())
-  mApprovalId String
-  mApproval MasterApproval @relation(fields:[mApprovalId], references:[id])
-  order Int
+  id            String         @id @default(uuid())
+  mApprovalId   String
+  mApproval     MasterApproval @relation(fields: [mApprovalId], references: [id])
+  order         Int
   jobPositionId String
-  departmentId String
-  createdBy String
-  createdAt DateTime @default(now())
-  jobPosition JobPosition @relation(fields: [jobPositionId], references: [id])
-  department Department @relation(fields: [departmentId], references: [id])
-  creator User @relation("CreatedApprovalItems", fields: [createdBy], references: [id])
+  departmentId  String
+  createdBy     String
+  createdAt     DateTime       @default(now())
+  jobPosition   JobPosition    @relation(fields: [jobPositionId], references: [id])
+  department    Department     @relation(fields: [departmentId], references: [id])
+  creator       User           @relation("CreatedApprovalItems", fields: [createdBy], references: [id])
 
   @@map("m_approval_item")
 }
 
 model Approval {
-  id String @id @default(uuid())
-  mApprovalId String
-  entityId String
-  departmentId String
+  id            String      @id @default(uuid())
+  mApprovalId   String
+  entityId      String
+  departmentId  String
   jobPositionId String
-  status String
-  notes String
-  createdAt DateTime @default(now())
-  createdBy String
-  department Department @relation(fields: [departmentId], references: [id])
-  jobPosition JobPosition @relation(fields: [jobPositionId], references: [id])
-  creator User @relation("CreatedApprovals", fields: [createdBy], references: [id])
+  status        String
+  notes         String
+  createdAt     DateTime    @default(now())
+  createdBy     String
+  department    Department  @relation(fields: [departmentId], references: [id])
+  jobPosition   JobPosition @relation(fields: [jobPositionId], references: [id])
+  creator       User        @relation("CreatedApprovals", fields: [createdBy], references: [id])
 
   @@map("t_approvals")
 }
@@ -304,52 +336,53 @@ model Setting {
 
 // Notification System Models
 model NotificationType {
-  id          String         @id @default(uuid())
-  name        String         @unique
-  description String?
-  isActive    Boolean        @default(true)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id            String         @id @default(uuid())
+  name          String         @unique
+  description   String?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   notifications Notification[]
 
   @@map("m_notification_types")
 }
 
 model Notification {
-  id                String           @id @default(uuid())
-  title             String
-  message           String
-  context           String?          // Module/context where notification was triggered
-  contextId         String?          // Specific ID of the context (e.g., user ID, document ID)
-  typeId            String
-  isRead            Boolean          @default(false)
-  isActive          Boolean          @default(true)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  readAt            DateTime?
-  
+  id        String    @id @default(uuid())
+  title     String
+  message   String
+  context   String? // Module/context where notification was triggered
+  contextId String? // Specific ID of the context (e.g., user ID, document ID)
+  typeId    String
+  isRead    Boolean   @default(false)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  readAt    DateTime?
+
   // Relations
-  type              NotificationType @relation(fields: [typeId], references: [id])
-  recipients        NotificationRecipient[]
-  createdBy         String
-  creator           User             @relation("NotificationCreator", fields: [createdBy], references: [id])
+  type         NotificationType        @relation(fields: [typeId], references: [id])
+  recipients   NotificationRecipient[]
+  createdBy    String
+  creator      User                    @relation("NotificationCreator", fields: [createdBy], references: [id])
+  reminderLogs ReminderLog[]
 
   @@map("t_notifications")
 }
 
 model NotificationRecipient {
-  id             String       @id @default(uuid())
+  id             String    @id @default(uuid())
   notificationId String
   roleId         String
-  userId         String?      // Optional: specific user if targeting individual
-  isRead         Boolean      @default(false)
+  userId         String? // Optional: specific user if targeting individual
+  isRead         Boolean   @default(false)
   readAt         DateTime?
-  createdAt      DateTime     @default(now())
-  
+  createdAt      DateTime  @default(now())
+
   // Relations
-  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
-  role           Role         @relation(fields: [roleId], references: [id])
-  user           User?        @relation("NotificationRecipient", fields: [userId], references: [id])
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id])
+  user         User?        @relation("NotificationRecipient", fields: [userId], references: [id])
 
   @@unique([notificationId, roleId, userId])
   @@map("t_notification_recipients")
@@ -359,7 +392,7 @@ model NotificationRecipient {
 model FileStorageProvider {
   id        String   @id @default(uuid())
   name      String   @unique // "local", "aws-s3", "google-cloud"
-  config    Json     // Provider-specific configuration
+  config    Json // Provider-specific configuration
   isActive  Boolean  @default(true)
   isDefault Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -375,8 +408,8 @@ model FileStorageProvider {
 model FileCategory {
   id           String   @id @default(uuid())
   name         String   @unique // "profile-images", "documents", "course-materials"
-  allowedTypes Json     // ["image/jpeg", "image/png", "application/pdf"]
-  maxSize      Int      // Max file size in bytes
+  allowedTypes Json // ["image/jpeg", "image/png", "application/pdf"]
+  maxSize      Int // Max file size in bytes
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -389,22 +422,22 @@ model FileCategory {
 
 // File Upload - Transactional Data
 model FileUpload {
-  id                String   @id @default(uuid())
-  originalName      String   // Original filename
-  storedName        String   // Stored filename (with UUID)
-  mimeType          String   // File MIME type
-  size              BigInt   // File size in bytes
-  hash              String   // File hash for deduplication
+  id                String    @id @default(uuid())
+  originalName      String // Original filename
+  storedName        String // Stored filename (with UUID)
+  mimeType          String // File MIME type
+  size              BigInt // File size in bytes
+  hash              String // File hash for deduplication
   storageProviderId String
   categoryId        String
   uploadedBy        String
-  isPublic          Boolean  @default(false)
-  accessToken       String   @unique // Token for private access
+  isPublic          Boolean   @default(false)
+  accessToken       String    @unique // Token for private access
   expiresAt         DateTime? // Optional expiration
-  metadata          Json?    // Additional file metadata
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  metadata          Json? // Additional file metadata
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   // Relations
   storageProvider FileStorageProvider @relation(fields: [storageProviderId], references: [id])
@@ -417,17 +450,1085 @@ model FileUpload {
 
 // File Access Log - Transactional Data
 model FileAccessLog {
-  id          String   @id @default(uuid())
-  fileId      String
-  accessedBy  String?  // Nullable for anonymous access
-  ipAddress   String
-  userAgent   String
-  accessType  String   // "download", "view", "stream"
-  accessedAt  DateTime @default(now())
+  id         String   @id @default(uuid())
+  fileId     String
+  accessedBy String? // Nullable for anonymous access
+  ipAddress  String
+  userAgent  String
+  accessType String // "download", "view", "stream"
+  accessedAt DateTime @default(now())
 
   // Relations
-  file    FileUpload @relation(fields: [fileId], references: [id], onDelete: Cascade)
-  user    User?      @relation(fields: [accessedBy], references: [id])
+  file FileUpload @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  user User?      @relation(fields: [accessedBy], references: [id])
 
   @@map("t_file_access_logs")
+}
+
+// Reminder System Enums
+enum ReminderStatusEnum {
+  PENDING
+  SENT
+  EXPIRED
+  CANCELLED
+  FAILED
+}
+
+enum ReminderRepeatTypeEnum {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+// Reminder - Scheduled task that triggers at specific time
+model Reminder {
+  id          String                  @id @default(uuid())
+  userId      String
+  entity      String? // Context/module name (e.g., "t_incidents", "t_audits")
+  entityId    String? // Entity primary key
+  message     String
+  remindAt    DateTime
+  repeatType  ReminderRepeatTypeEnum? // NONE, WEEKLY, MONTHLY
+  repeatUntil DateTime?
+  status      ReminderStatusEnum      @default(PENDING)
+  lastSentAt  DateTime?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  // Relations
+  user User          @relation("UserReminders", fields: [userId], references: [id])
+  logs ReminderLog[]
+
+  @@index([status, remindAt])
+  @@index([userId])
+  @@index([entity, entityId])
+  @@map("t_reminders")
+}
+
+// Reminder Log - Audit trail for reminder executions
+model ReminderLog {
+  id                String   @id @default(uuid())
+  reminderId        String
+  executionStatus   String // SUCCESS, FAILED
+  executionDuration Int? // in milliseconds
+  failureReason     String?  @db.Text
+  notificationId    String? // Link to created notification
+  emailSent         Boolean  @default(false)
+  emailError        String?  @db.Text
+  executedAt        DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  // Relations
+  reminder     Reminder      @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+  notification Notification? @relation(fields: [notificationId], references: [id])
+
+  @@index([reminderId])
+  @@index([executedAt])
+  @@index([executionStatus])
+  @@map("t_reminder_logs")
+}
+
+// PPE Management System Models
+
+enum PPEWithdrawalStatusEnum {
+  PENDING
+  APPROVED
+  COLLECTED
+  CANCELLED
+}
+
+enum PPEStockStatusEnum {
+  AVAILABLE
+  RESERVED
+  ISSUED
+  EXPIRED
+  DISPOSED
+}
+
+enum SafetyEquipmentCategoryEnum {
+  PERSONAL_PROTECTIVE_EQUIPMENT
+  SAFETY_EQUIPMENT
+  EMERGENCY_EQUIPMENT
+}
+
+// PPE Stock Header
+model PPEStock {
+  id           String         @id @default(uuid())
+  stockCode    String         @unique
+  receivedDate DateTime
+  notes        String?        @db.Text
+  isActive     Boolean        @default(true)
+  deletedAt    DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  createdBy    String
+  creator      User           @relation("PPEStockCreator", fields: [createdBy], references: [id])
+  items        PPEStockItem[]
+
+  @@map("t_ppe_stock")
+}
+
+// PPE Stock Items
+model PPEStockItem {
+  id                String               @id @default(uuid())
+  stockId           String
+  stock             PPEStock             @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  safetyEquipmentId String?
+  safetyEquipment   SafetyEquipment?     @relation(fields: [safetyEquipmentId], references: [id])
+  // Free-text fields for flexibility (when not using master data)
+  equipmentName     String?
+  equipmentType     String?
+  equipmentSize     String?
+  expiryDate        DateTime?
+  initialQuantity   Int
+  currentQuantity   Int
+  reservedQuantity  Int                  @default(0)
+  status            PPEStockStatusEnum   @default(AVAILABLE)
+  order             Int
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  adjustments       PPEStockAdjustment[]
+  expiryAlerts      PPEExpiryAlert[]
+  withdrawalItems   PPEWithdrawalItem[]
+
+  @@map("t_ppe_stock_items")
+}
+
+// PPE Stock Adjustments (Audit Trail)
+model PPEStockAdjustment {
+  id             String       @id @default(uuid())
+  stockItemId    String
+  stockItem      PPEStockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  adjustmentType String // DISPOSAL, DAMAGE, CORRECTION, EXPIRY_REMOVAL, RETURN
+  quantityBefore Int
+  quantityAfter  Int
+  quantityChange Int
+  reason         String       @db.Text
+  adjustedBy     String
+  adjuster       User         @relation("PPEStockAdjuster", fields: [adjustedBy], references: [id])
+  adjustedAt     DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+
+  @@map("t_ppe_stock_adjustments")
+}
+
+// PPE Expiry Alerts
+model PPEExpiryAlert {
+  id              String       @id @default(uuid())
+  stockItemId     String
+  stockItem       PPEStockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  alertDate       DateTime
+  daysUntilExpiry Int
+  isSent          Boolean      @default(false)
+  sentAt          DateTime?
+  recipientId     String
+  recipient       User         @relation("PPEExpiryAlertRecipient", fields: [recipientId], references: [id])
+  createdAt       DateTime     @default(now())
+
+  @@map("t_ppe_expiry_alerts")
+}
+
+// PPE Withdrawals
+model PPEWithdrawal {
+  id                  String                  @id @default(uuid())
+  withdrawalCode      String                  @unique
+  withdrawalDate      DateTime
+  requestedBy         String
+  requester           User                    @relation("PPEWithdrawalRequester", fields: [requestedBy], references: [id])
+  requestedFor        String?
+  requestedForUser    User?                   @relation("PPEWithdrawalRequestedFor", fields: [requestedFor], references: [id])
+  requestedForName    String?
+  departmentId        String
+  department          Department              @relation(fields: [departmentId], references: [id])
+  jobPositionId       String?
+  jobPosition         JobPosition?            @relation(fields: [jobPositionId], references: [id])
+  jobPositionName     String?
+  status              PPEWithdrawalStatusEnum @default(PENDING)
+  withdrawalLetterUrl String?
+  collectedDate       DateTime?
+  collectedBy         String?
+  collector           User?                   @relation("PPEWithdrawalCollector", fields: [collectedBy], references: [id])
+  notes               String?                 @db.Text
+  isActive            Boolean                 @default(true)
+  deletedAt           DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  createdBy           String
+  creator             User                    @relation("PPEWithdrawalCreator", fields: [createdBy], references: [id])
+  items               PPEWithdrawalItem[]
+
+  @@map("t_ppe_withdrawals")
+}
+
+// PPE Withdrawal Items
+model PPEWithdrawalItem {
+  id                String        @id @default(uuid())
+  withdrawalId      String
+  withdrawal        PPEWithdrawal @relation(fields: [withdrawalId], references: [id], onDelete: Cascade)
+  stockItemId       String
+  stockItem         PPEStockItem  @relation(fields: [stockItemId], references: [id])
+  requestedQuantity Int
+  approvedQuantity  Int?
+  issuedQuantity    Int?
+  order             Int
+  notes             String?       @db.Text
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@map("t_ppe_withdrawal_items")
+}
+
+// Safety Equipment Master Data
+
+model SafetyEquipmentType {
+  id               String            @id @default(uuid())
+  name             String
+  code             String            @unique
+  description      String?           @db.Text
+  isActive         Boolean           @default(true)
+  deletedAt        DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  safetyEquipments SafetyEquipment[]
+
+  @@map("m_safety_equipment_type")
+}
+
+model SafetyEquipment {
+  id                    String                        @id @default(uuid())
+  name                  String
+  code                  String                        @unique
+  safetyEquipmentTypeId String
+  safetyEquipmentType   SafetyEquipmentType           @relation(fields: [safetyEquipmentTypeId], references: [id])
+  size                  String?
+  description           String?                       @db.Text
+  category              SafetyEquipmentCategoryEnum
+  isActive              Boolean                       @default(true)
+  deletedAt             DateTime?
+  createdAt             DateTime                      @default(now())
+  updatedAt             DateTime                      @updatedAt
+  ppeStockItems         PPEStockItem[]
+  workPermits           WorkPermitToSafetyEquipment[]
+
+  @@map("m_safety_equipment")
+}
+
+// Course Category - Master Data (LMS)
+model CourseCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  courses Course[] @relation("CourseToCategory")
+
+  @@map("m_course_categories")
+}
+
+model Chapter {
+  id             String    @id @default(uuid())
+  courseId       String
+  title          String
+  description    String?   @db.Text
+  order          Int
+  duration       Int       @default(0) // in minutes
+  contentType    String // video, pdf, text, youtube
+  contentUrl     String?
+  youtubeVideoId String?
+  content        String?   @db.Text // For text content
+  isFree         Boolean   @default(false)
+  isPublished    Boolean   @default(false)
+  publishedAt    DateTime?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relations
+  course   Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  progress Progress[]
+
+  @@map("t_chapters")
+}
+
+// Course Management (LMS) Models
+model Course {
+  id               String    @id @default(uuid())
+  title            String
+  slug             String    @unique
+  description      String?   @db.Text
+  shortDescription String?
+  thumbnailUrl     String?
+  totalChapters    Int       @default(0)
+  totalDuration    Int       @default(0) // in minutes
+  difficulty       String    @default("beginner") // beginner, intermediate, advanced
+  language         String    @default("en")
+  rating           Decimal   @default(0) @db.Decimal(3, 2)
+  reviewCount      Int       @default(0)
+  studentCount     Int       @default(0)
+  instructorId     String
+  status           String    @default("draft") // draft, review, published, archived
+  isPublished      Boolean   @default(false)
+  publishedAt      DateTime?
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  instructor                User                       @relation("CourseInstructor", fields: [instructorId], references: [id])
+  chapters                  Chapter[]
+  categories                CourseCategory[]           @relation("CourseToCategory")
+  enrollments               Enrollment[]
+  workPermitRequiredCourses WorkPermitRequiredCourse[]
+
+  @@map("t_courses")
+}
+
+// Enrollment Status Enum
+enum EnrollmentStatusEnum {
+  INVITED // User has been invited/assigned but hasn't started
+  ACTIVE // User is currently working on the course
+  COMPLETED // User has completed the course
+  CANCELLED // Enrollment was cancelled
+  EXPIRED // Enrollment has expired
+}
+
+// Course Enrollment - Transactional Data (LMS)
+model Enrollment {
+  id             String               @id @default(uuid())
+  userId         String
+  courseId       String
+  status         EnrollmentStatusEnum @default(INVITED) // INVITED, ACTIVE, COMPLETED, CANCELLED, EXPIRED
+  enrolledAt     DateTime? // When user actually enrolled (null if INVITED)
+  completedAt    DateTime?
+  progress       Decimal              @default(0) @db.Decimal(5, 2) // 0.00 to 100.00
+  score          Decimal?             @db.Decimal(5, 2) // Final score (0.00 to 100.00)
+  summaries      Json? // Course summaries, notes, or additional data
+  lastAccessedAt DateTime?
+
+  // Assignment fields (for admin-assigned courses)
+  assignedBy String? // Who assigned/invited the user to this course
+  assignedAt DateTime? // When the course was assigned/invited
+  dueDate    DateTime? // Optional deadline for completion
+  isRequired Boolean   @default(false) // Required vs optional enrollment
+  notes      String?   @db.Text // Assignment-specific notes or instructions
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user            User          @relation(fields: [userId], references: [id])
+  course          Course        @relation(fields: [courseId], references: [id])
+  assigner        User?         @relation("EnrollmentAssigner", fields: [assignedBy], references: [id])
+  progressRecords Progress[]
+  quizAttempts    QuizAttempt[]
+
+  // Removed @@unique([userId, courseId]) to allow re-enrollment after course completion
+  // Users can enroll multiple times (for retakes) but only one ACTIVE enrollment at a time
+  @@index([userId, courseId, status])
+  @@index([assignedBy])
+  @@index([dueDate])
+  @@map("t_enrollments")
+}
+
+// Progress - Transactional Data (LMS)
+model Progress {
+  id             String    @id @default(uuid())
+  enrollmentId   String
+  chapterId      String
+  status         String    @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, COMPLETED
+  timeSpent      Int       @default(0) // in seconds
+  progress       Decimal   @default(0) @db.Decimal(5, 2) // 0.00 to 100.00
+  startedAt      DateTime?
+  completedAt    DateTime?
+  lastAccessedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relations
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  chapter    Chapter    @relation(fields: [chapterId], references: [id])
+
+  @@unique([enrollmentId, chapterId])
+  @@map("t_progress")
+}
+
+// Quiz System Enums
+enum QuizEntityEnum {
+  COURSE
+  CHAPTER
+}
+
+enum QuizAttemptStatusEnum {
+  INVITING
+  INVITED
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+// Quiz - Transactional Data (LMS)
+model Quiz {
+  id                String          @id @default(uuid())
+  entity            QuizEntityEnum? // COURSE, CHAPTER, or null (standalone)
+  entityId          String? // courseId or chapterId, or null
+  title             String
+  description       String?         @db.Text
+  instructions      String?         @db.Text
+  duration          Int? // in minutes
+  passingScore      Decimal         @default(75) @db.Decimal(5, 2) // 0.00 to 100.00
+  maxAttempts       Int? // null = unlimited
+  shuffleQuestions  Boolean         @default(false)
+  shuffleOptions    Boolean         @default(false)
+  showCorrectAnswer Boolean         @default(true)
+  isPublished       Boolean         @default(false)
+  publishedAt       DateTime?
+  isActive          Boolean         @default(true)
+  createdBy         String
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  // Relations
+  creator     User             @relation("QuizCreator", fields: [createdBy], references: [id])
+  questions   QuizQuestion[]
+  assignments QuizAssignment[]
+  attempts    QuizAttempt[]
+
+  @@index([entity, entityId])
+  @@map("t_quizzes")
+}
+
+// Quiz Question - Transactional Data (LMS)
+model QuizQuestion {
+  id           String   @id @default(uuid())
+  quizId       String
+  questionType String // MULTIPLE_CHOICE, ESSAY, TRUE_FALSE
+  questionText String   @db.Text
+  explanation  String?  @db.Text
+  mediaUrl     String?
+  mediaType    String? // image, video, audio
+  points       Decimal  @default(1) @db.Decimal(5, 2)
+  order        Int
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  quiz    Quiz                 @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  options QuizQuestionOption[]
+  answers QuizAnswer[]
+
+  @@map("t_quiz_questions")
+}
+
+// Quiz Question Option - Transactional Data (LMS)
+model QuizQuestionOption {
+  id         String   @id @default(uuid())
+  questionId String
+  optionText String   @db.Text
+  isCorrect  Boolean  @default(false)
+  order      Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  question QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  QuizAnswer[]
+
+  @@map("t_quiz_question_options")
+}
+
+// Quiz Assignment - Transactional Data (LMS)
+// Only used for standalone quizzes (entity IS NULL)
+model QuizAssignment {
+  id         String    @id @default(uuid())
+  quizId     String
+  userId     String
+  assignedBy String
+  assignedAt DateTime  @default(now())
+  dueDate    DateTime?
+  isRequired Boolean   @default(false)
+  status     String    @default("PENDING") // PENDING, COMPLETED, EXPIRED
+  notes      String?   @db.Text
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Relations
+  quiz     Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user     User @relation("QuizAssignmentUser", fields: [userId], references: [id])
+  assigner User @relation("QuizAssignmentAssigner", fields: [assignedBy], references: [id])
+
+  @@unique([quizId, userId])
+  @@index([userId])
+  @@index([quizId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("t_quiz_assignments")
+}
+
+// Quiz Attempt - Transactional Data (LMS)
+model QuizAttempt {
+  id            String                @id @default(uuid())
+  quizId        String
+  enrollmentId  String? // For bound quizzes (COURSE/CHAPTER)
+  userId        String? // For standalone quizzes
+  attemptNumber Int
+  status        QuizAttemptStatusEnum @default(IN_PROGRESS)
+  score         Decimal?              @db.Decimal(5, 2) // 0.00 to 100.00
+  totalPoints   Decimal?              @db.Decimal(10, 2)
+  earnedPoints  Decimal?              @db.Decimal(10, 2)
+  isPassed      Boolean               @default(false)
+  dueDate       DateTime?
+  startedAt     DateTime              @default(now())
+  completedAt   DateTime?
+  timeSpent     Int                   @default(0) // in seconds
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  // Relations
+  quiz       Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  enrollment Enrollment?  @relation(fields: [enrollmentId], references: [id])
+  user       User?        @relation("QuizAttemptUser", fields: [userId], references: [id])
+  answers    QuizAnswer[]
+
+  @@index([enrollmentId, quizId])
+  @@index([userId, quizId])
+  @@index([status])
+  @@map("t_quiz_attempts")
+}
+
+// Quiz Answer - Transactional Data (LMS)
+model QuizAnswer {
+  id               String    @id @default(uuid())
+  attemptId        String
+  questionId       String
+  selectedOptionId String? // For multiple choice/true-false
+  essayAnswer      String?   @db.Text // For essay questions
+  isCorrect        Boolean? // null for ungraded essays
+  pointsEarned     Decimal   @default(0) @db.Decimal(5, 2)
+  feedback         String?   @db.Text
+  gradedBy         String?
+  gradedAt         DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  attempt        QuizAttempt         @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question       QuizQuestion        @relation(fields: [questionId], references: [id])
+  selectedOption QuizQuestionOption? @relation(fields: [selectedOptionId], references: [id])
+  grader         User?               @relation("QuizAnswerGrader", fields: [gradedBy], references: [id])
+
+  @@unique([attemptId, questionId])
+  @@map("t_quiz_answers")
+}
+
+// Certificate Management System
+
+enum CertificateTypeEnum {
+  PERSONNEL_LICENSE
+  PERSONNEL_CERTIFICATE
+  EQUIPMENT_CALIBRATION
+  EQUIPMENT_INSTALLATION
+  EQUIPMENT_OPERATIONAL_PERMIT
+}
+
+enum CertificateRenewalStatusEnum {
+  PENDING
+  REQUESTED
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  EXPIRED
+}
+
+// Certificate Category - Master Data
+model CertificateCategory {
+  id              String              @id @default(uuid())
+  name            String
+  code            String              @unique
+  certificateType CertificateTypeEnum
+  description     String?             @db.Text
+  isActive        Boolean             @default(true)
+  deletedAt       DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  certificates    Certificate[]
+
+  @@map("m_certificate_categories")
+}
+
+// Certificate - Transactional Data
+model Certificate {
+  id                String              @id @default(uuid())
+  certificateNumber String
+  certificateName   String
+  categoryId        String
+  certificateType   CertificateTypeEnum
+  issuedDate        DateTime
+  validityDate      DateTime
+  issuerName        String
+  documentUrl       String?
+  personnelId       String?
+  personnelName     String?
+  equipmentId       String?
+  equipmentName     String?
+  departmentId      String
+  reminderDays      Int                 @default(30)
+  notes             String?             @db.Text
+  isActive          Boolean             @default(true)
+  deletedAt         DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  createdBy         String
+
+  // Relations
+  category   CertificateCategory  @relation(fields: [categoryId], references: [id])
+  department Department           @relation(fields: [departmentId], references: [id])
+  personnel  User?                @relation("CertificatePersonnel", fields: [personnelId], references: [id])
+  creator    User                 @relation("CertificateCreator", fields: [createdBy], references: [id])
+  renewals   CertificateRenewal[]
+  reminders  CertificateReminder[]
+
+  @@map("t_certificates")
+}
+
+// Certificate Renewal - Transactional Data
+model CertificateRenewal {
+  id              String                       @id @default(uuid())
+  certificateId   String
+  requestDate     DateTime                     @default(now())
+  requestedBy     String
+  status          CertificateRenewalStatusEnum @default(PENDING)
+  processedBy     String?
+  processedDate   DateTime?
+  newValidityDate DateTime?
+  newDocumentUrl  String?
+  notes           String?                      @db.Text
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+
+  // Relations
+  certificate Certificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  requester   User        @relation("CertificateRenewalRequester", fields: [requestedBy], references: [id])
+  processor   User?       @relation("CertificateRenewalProcessor", fields: [processedBy], references: [id])
+
+  @@map("t_certificate_renewals")
+}
+
+// Certificate Reminder - Transactional Data
+model CertificateReminder {
+  id            String    @id @default(uuid())
+  certificateId String
+  reminderDate  DateTime
+  isSent        Boolean   @default(false)
+  sentAt        DateTime?
+  recipientId   String
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  certificate Certificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  recipient   User        @relation("CertificateReminderRecipient", fields: [recipientId], references: [id])
+
+  @@map("t_certificate_reminders")
+}
+
+// Work Permit System - Master Data
+model WorkClassification {
+  id          String                     @id @default(uuid())
+  name        String
+  code        String                     @unique
+  description String?                    @db.Text
+  isActive    Boolean                    @default(true)
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+  workPermits WorkPermitClassification[]
+
+  @@map("m_work_classification")
+}
+
+model HeavyEquipment {
+  id          String                     @id @default(uuid())
+  name        String
+  code        String                     @unique
+  description String?                    @db.Text
+  isActive    Boolean                    @default(true)
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+  workPermits WorkPermitHeavyEquipment[]
+
+  @@map("m_heavy_equipment")
+}
+
+model Tool {
+  id          String           @id @default(uuid())
+  name        String
+  code        String           @unique
+  description String?          @db.Text
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  workPermits WorkPermitTool[]
+
+  @@map("m_tools")
+}
+
+model Material {
+  id          String               @id @default(uuid())
+  name        String
+  code        String               @unique
+  description String?              @db.Text
+  isActive    Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  workPermits WorkPermitMaterial[]
+
+  @@map("m_materials")
+}
+
+model Machine {
+  id          String              @id @default(uuid())
+  name        String
+  code        String              @unique
+  description String?             @db.Text
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  workPermits WorkPermitMachine[]
+
+  @@map("m_machines")
+}
+
+model Company {
+  id            String       @id @default(uuid())
+  name          String
+  code          String       @unique
+  address       String?      @db.Text
+  contactPerson String?
+  phone         String?
+  email         String?
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  workPermits   WorkPermit[]
+
+  @@map("m_companies")
+}
+
+model Profession {
+  id          String                 @id @default(uuid())
+  name        String
+  code        String                 @unique
+  description String?                @db.Text
+  isActive    Boolean                @default(true)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  workPermits WorkPermitProfession[]
+
+  @@map("m_professions")
+}
+
+model Area {
+  id          String       @id @default(uuid())
+  name        String
+  code        String       @unique
+  description String?      @db.Text
+  officeId    String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  office      Office?      @relation(fields: [officeId], references: [id])
+  workPermits WorkPermit[]
+  rooms       Room[]
+
+  @@map("m_areas")
+}
+
+model Room {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  description String?  @db.Text
+  areaId      String   @unique
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  area        Area     @relation(fields: [areaId], references: [id])
+
+  @@map("m_rooms")
+}
+
+model Guest {
+  id                    String                        @id @default(uuid())
+  name                  String
+  email                 String?
+  phone                 String?
+  photoUrl              String?
+  isActive              Boolean                       @default(true)
+  createdAt             DateTime                      @default(now())
+  updatedAt             DateTime                      @updatedAt
+  workPermitWorkers     WorkPermitWorker[]
+  workPermitSupervisors WorkPermitSupervisorToGuest[]
+
+  @@map("t_guests")
+}
+
+// Work Permit System - Transactional Data
+model WorkPermit {
+  id                        String   @id @default(uuid())
+  code                      String   @unique
+  projectName               String
+  areaId                    String
+  companyId                 String
+  proposedStartDate         DateTime
+  proposedEndDate           DateTime
+  workStagesDescription     String   @db.Text
+  jobSafetyAnalysis         String   @db.Text
+  workRequirements          String?  @db.Text
+  safetyGuideline           String?  @db.Text
+  requireCourseVerification Boolean  @default(false)
+  status                    String // DRAFT, OPEN, WAITING_APPROVAL, IN_REVIEW_HSE, IN_REVIEW_SECURITY, NEED_INFO, APPROVED, REJECTED, CLOSED, EXTENDED
+  isActive                  Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  createdBy                 String
+
+  // Relations
+  area            Area                          @relation(fields: [areaId], references: [id])
+  company         Company                       @relation(fields: [companyId], references: [id])
+  creator         User                          @relation("WorkPermitCreator", fields: [createdBy], references: [id])
+  classifications WorkPermitClassification[]
+  employees       WorkPermitEmployee[]
+  heavyEquipment  WorkPermitHeavyEquipment[]
+  tools           WorkPermitTool[]
+  materials       WorkPermitMaterial[]
+  machines        WorkPermitMachine[]
+  workers         WorkPermitWorker[]
+  professions     WorkPermitProfession[]
+  requiredCourses WorkPermitRequiredCourse[]
+  hazards         WorkPermitHazard[]
+  attachments     WorkPermitAttachment[]
+  supervisors     WorkPermitSupervisorToGuest[]
+  hseOfficers     WorkPermitToUser[]
+  safetyEquipment WorkPermitToSafetyEquipment[]
+
+  @@map("t_work_permits")
+}
+
+model WorkPermitClassification {
+  id                   String   @id @default(uuid())
+  workPermitId         String
+  workClassificationId String
+  order                Int
+  createdAt            DateTime @default(now())
+
+  // Relations
+  workPermit         WorkPermit         @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+  workClassification WorkClassification @relation(fields: [workClassificationId], references: [id])
+
+  @@map("t_work_permit_classifications")
+}
+
+model WorkPermitEmployee {
+  id           String   @id @default(uuid())
+  workPermitId String
+  userId       String?
+  employeeName String?
+  order        Int
+  createdAt    DateTime @default(now())
+
+  // Relations
+  workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+  user       User?      @relation("WorkPermitEmployee", fields: [userId], references: [id])
+
+  @@map("t_work_permit_employees")
+}
+
+model WorkPermitHeavyEquipment {
+  id               String   @id @default(uuid())
+  workPermitId     String
+  heavyEquipmentId String
+  quantity         Int
+  order            Int
+  createdAt        DateTime @default(now())
+
+  // Relations
+  workPermit     WorkPermit     @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+  heavyEquipment HeavyEquipment @relation(fields: [heavyEquipmentId], references: [id])
+
+  @@map("t_work_permit_heavy_equipment")
+}
+
+model WorkPermitTool {
+  id           String   @id @default(uuid())
+  workPermitId String
+  toolId       String
+  quantity     Int
+  order        Int
+  createdAt    DateTime @default(now())
+
+  // Relations
+  workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+  tool       Tool       @relation(fields: [toolId], references: [id])
+
+  @@map("t_work_permit_tools")
+}
+
+model WorkPermitMaterial {
+  id           String   @id @default(uuid())
+  workPermitId String
+  materialId   String
+  quantity     Int
+  order        Int
+  createdAt    DateTime @default(now())
+
+  // Relations
+  workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+  material   Material   @relation(fields: [materialId], references: [id])
+
+  @@map("t_work_permit_materials")
+}
+
+model WorkPermitMachine {
+  id           String   @id @default(uuid())
+  workPermitId String
+  machineId    String
+  quantity     Int
+  order        Int
+  createdAt    DateTime @default(now())
+
+  // Relations
+  workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+  machine    Machine    @relation(fields: [machineId], references: [id])
+
+  @@map("t_work_permit_machines")
+}
+
+model WorkPermitWorker {
+  id                   String   @id @default(uuid())
+  workPermitId         String
+  guestId              String
+  idNumber             String?
+  certificateUrl       String?
+  healthDeclarationUrl String
+  order                Int
+  createdAt            DateTime @default(now())
+
+  // Relations
+  workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+  guest      Guest      @relation(fields: [guestId], references: [id])
+
+  @@map("t_work_permit_workers")
+}
+
+model WorkPermitProfession {
+  id           String   @id @default(uuid())
+  workPermitId String
+  professionId String
+  quantity     Int
+  order        Int
+  createdAt    DateTime @default(now())
+
+  // Relations
+  workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+  profession Profession @relation(fields: [professionId], references: [id])
+
+  @@map("t_work_permit_professions")
+}
+
+model WorkPermitRequiredCourse {
+  id           String   @id @default(uuid())
+  workPermitId String
+  courseId     String
+  isRequired   Boolean  @default(true)
+  order        Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+  course     Course     @relation(fields: [courseId], references: [id])
+
+  @@unique([workPermitId, courseId])
+  @@map("t_work_permit_required_courses")
+}
+
+model WorkPermitHazard {
+  id             String   @id @default(uuid())
+  workPermitId   String
+  hazardId       String? // Reference to m_risks/threats if exists
+  hazardName     String // Free text hazard name
+  description    String?  @db.Text
+  controlMeasure String?  @db.Text
+  order          Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+  threat     Threat?    @relation(fields: [hazardId], references: [id])
+
+  @@map("t_work_permit_hazards")
+}
+
+model WorkPermitAttachment {
+  id           String   @id @default(uuid())
+  workPermitId String
+  fileUrl      String
+  fileName     String
+  fileType     String?
+  description  String?  @db.Text
+  order        Int
+  createdAt    DateTime @default(now())
+
+  // Relations
+  workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+
+  @@map("t_work_permit_attachments")
+}
+
+// Work Permit Junction Tables
+model WorkPermitSupervisorToGuest {
+  id           String   @id @default(uuid())
+  workPermitId String
+  guestId      String
+  createdAt    DateTime @default(now())
+
+  // Relations
+  workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+  guest      Guest      @relation(fields: [guestId], references: [id])
+
+  @@unique([workPermitId, guestId])
+  @@map("_WorkPermitSupervisorToGuest")
+}
+
+model WorkPermitToUser {
+  id           String   @id @default(uuid())
+  workPermitId String
+  userId       String
+  createdAt    DateTime @default(now())
+
+  // Relations
+  workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+  user       User       @relation("WorkPermitHseOfficer", fields: [userId], references: [id])
+
+  @@unique([workPermitId, userId])
+  @@map("_WorkPermitToUser")
+}
+
+model WorkPermitToSafetyEquipment {
+  id                String   @id @default(uuid())
+  workPermitId      String
+  safetyEquipmentId String
+  createdAt         DateTime @default(now())
+
+  // Relations
+  workPermit      WorkPermit      @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
+  safetyEquipment SafetyEquipment @relation(fields: [safetyEquipmentId], references: [id])
+
+  @@unique([workPermitId, safetyEquipmentId])
+  @@map("_WorkPermitToSafetyEquipment")
 }

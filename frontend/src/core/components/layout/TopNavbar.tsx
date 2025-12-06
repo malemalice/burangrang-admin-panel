@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Button } from "@/core/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar";
-import { 
-  Bell, 
-  Menu, 
+import {
+  Bell,
+  Menu,
   Search,
   User,
   Settings,
@@ -24,6 +24,7 @@ import { useAuth } from '@/core/lib/auth';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '@/core/lib/theme';
 import { NotificationDropdown } from '@/modules/notifications';
+import routes from '@/core/routes';
 
 interface TopNavbarProps {
   toggleSidebar: () => void;
@@ -36,23 +37,40 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
   const location = useLocation();
   const { mode, toggleMode } = useTheme();
   const isDark = mode === 'dark';
-  
+
   // Format breadcrumb items from current path
   const breadcrumbItems = () => {
     const paths = location.pathname.split('/').filter(Boolean);
-    
-    if (paths.length === 0) return [{ name: 'Dashboard', path: '/' }];
-    
+
+    if (paths.length === 0) return [{ name: 'Dashboard', path: '/', clickable: true }];
+
+    // Custom name mapping untuk breadcrumb yang lebih user-friendly
+    const nameMapping: Record<string, string> = {
+      'master': 'Master Data',
+      'ppe': 'PPE Management',
+      'safety-equipment-types': 'Safety Equipment Types',
+      'safety-equipments': 'Safety Equipments',
+      'stocks': 'Stocks',
+      'withdrawals': 'Withdrawals',
+    };
+
+    // Helper function untuk check jika route exists
+    const routeExists = (path: string): boolean => {
+      return routes.some(route => route.path === path);
+    };
+
     return [
-      { name: 'Dashboard', path: '/' },
+      { name: 'Dashboard', path: '/', clickable: true },
       ...paths.map((path, index) => {
         const url = `/${paths.slice(0, index + 1).join('/')}`;
-        const formattedName = path.charAt(0).toUpperCase() + path.slice(1);
-        return { name: formattedName, path: url };
+        const formattedName = nameMapping[path] || path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, ' ');
+        const clickable = routeExists(url);
+
+        return { name: formattedName, path: url, clickable };
       })
     ];
   };
-  
+
   const items = breadcrumbItems();
 
   // Get user's display name
@@ -64,17 +82,17 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
   // Get user's initials for avatar
   const getUserInitials = () => {
     if (!user) return 'U';
-    
+
     const firstNameInitial = user.firstName ? user.firstName.charAt(0) : '';
     const lastNameInitial = user.lastName ? user.lastName.charAt(0) : '';
-    
+
     if (firstNameInitial && lastNameInitial) {
       return `${firstNameInitial}${lastNameInitial}`;
     }
-    
+
     return user.email ? user.email.charAt(0).toUpperCase() : 'U';
   };
-  
+
   // Get user role name to display
   const getUserRole = () => {
     if (!user) return 'User';
@@ -86,7 +104,7 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
     }
     return 'User';
   };
-  
+
   return (
     <div className="h-16 border-b flex items-center justify-between px-4 bg-white dark:bg-gray-800 dark:border-gray-700 border-slate-200">
       <div className="flex items-center">
@@ -99,39 +117,39 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
         >
           <Menu size={20} />
         </Button>
-        
+
         {/* Custom Breadcrumb Implementation */}
         <div className="hidden md:block mr-4">
           <nav aria-label="breadcrumb">
             <ol className="flex flex-wrap items-center gap-1.5 break-words text-sm text-muted-foreground sm:gap-2.5">
               {items.map((item, index) => {
                 const isLast = index === items.length - 1;
-                
+
                 // Only add separator if not the last item
                 const separator = !isLast ? (
-                  <span 
+                  <span
                     key={`sep-${item.path}`}
-                    className="mx-1 text-slate-400" 
+                    className="mx-1 text-slate-400"
                     aria-hidden="true"
                   >
                     <ChevronRight className="h-3.5 w-3.5" />
                   </span>
                 ) : null;
-                
+
                 return (
-                  <li 
-                    key={item.path} 
+                  <li
+                    key={item.path}
                     className="inline-flex items-center gap-1.5"
                   >
-                    {isLast ? (
-                      <span 
-                        className="text-slate-900 dark:text-white font-medium"
-                        aria-current="page"
+                    {isLast || !item.clickable ? (
+                      <span
+                        className={isLast ? "text-slate-900 dark:text-white font-medium" : "text-slate-600 dark:text-gray-300"}
+                        aria-current={isLast ? "page" : undefined}
                       >
                         {item.name}
                       </span>
                     ) : (
-                      <Link 
+                      <Link
                         to={item.path}
                         className="text-slate-600 dark:text-gray-300 hover:text-admin-primary hover:dark:text-blue-400 transition-colors"
                       >
@@ -145,26 +163,26 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
             </ol>
           </nav>
         </div>
-        
+
       </div>
-      
+
       <div className="flex items-center space-x-2">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={toggleMode} 
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleMode}
           className="text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
         >
           {isDark ? <Sun size={20} /> : <Moon size={20} />}
         </Button>
-        
+
         <NotificationDropdown />
-        
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button 
-              variant="ghost" 
-              className="relative flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-gray-700" 
+            <Button
+              variant="ghost"
+              className="relative flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-gray-700"
               aria-label="User menu"
             >
               <Avatar className="h-8 w-8">
