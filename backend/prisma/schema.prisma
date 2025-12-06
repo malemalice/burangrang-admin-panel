@@ -55,6 +55,7 @@ model User {
   certificatesCreated          Certificate[]           @relation("CertificateCreator")
   certificateRenewalsRequested CertificateRenewal[]    @relation("CertificateRenewalRequester")
   certificateRenewalsProcessed CertificateRenewal[]    @relation("CertificateRenewalProcessor")
+  certificateReminders         CertificateReminder[]    @relation("CertificateReminderRecipient")
   workPermitsCreated           WorkPermit[]            @relation("WorkPermitCreator")
   workPermitEmployees          WorkPermitEmployee[]    @relation("WorkPermitEmployee")
   workPermitHseOfficers        WorkPermitToUser[]      @relation("WorkPermitHseOfficer")
@@ -1052,6 +1053,7 @@ model CertificateCategory {
   certificateType CertificateTypeEnum
   description     String?             @db.Text
   isActive        Boolean             @default(true)
+  deletedAt       DateTime?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
   certificates    Certificate[]
@@ -1078,6 +1080,7 @@ model Certificate {
   reminderDays      Int                 @default(30)
   notes             String?             @db.Text
   isActive          Boolean             @default(true)
+  deletedAt         DateTime?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
   createdBy         String
@@ -1088,6 +1091,7 @@ model Certificate {
   personnel  User?                @relation("CertificatePersonnel", fields: [personnelId], references: [id])
   creator    User                 @relation("CertificateCreator", fields: [createdBy], references: [id])
   renewals   CertificateRenewal[]
+  reminders  CertificateReminder[]
 
   @@map("t_certificates")
 }
@@ -1113,6 +1117,23 @@ model CertificateRenewal {
   processor   User?       @relation("CertificateRenewalProcessor", fields: [processedBy], references: [id])
 
   @@map("t_certificate_renewals")
+}
+
+// Certificate Reminder - Transactional Data
+model CertificateReminder {
+  id            String    @id @default(uuid())
+  certificateId String
+  reminderDate  DateTime
+  isSent        Boolean   @default(false)
+  sentAt        DateTime?
+  recipientId   String
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  certificate Certificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  recipient   User        @relation("CertificateReminderRecipient", fields: [recipientId], references: [id])
+
+  @@map("t_certificate_reminders")
 }
 
 // Work Permit System - Master Data

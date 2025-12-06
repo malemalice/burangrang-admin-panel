@@ -18,6 +18,7 @@ import {
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
+import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import {
     Select,
     SelectContent,
@@ -462,7 +463,12 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                                         <FormItem>
                                             <FormLabel>Issued Date *</FormLabel>
                                             <FormControl>
-                                                <Input type="date" {...field} />
+                                                <DateTimePicker
+                                                    mode="date"
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    placeholder="Select issued date"
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -476,7 +482,12 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                                         <FormItem>
                                             <FormLabel>Validity Date *</FormLabel>
                                             <FormControl>
-                                                <Input type="date" {...field} />
+                                                <DateTimePicker
+                                                    mode="date"
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    placeholder="Select validity date"
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
