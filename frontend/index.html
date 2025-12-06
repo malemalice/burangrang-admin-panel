@@ -6,6 +6,26 @@
     <title>hse-system</title>
     <meta name="description" content="HSE System" />
     <meta name="author" content="Benwara" />
+    
+    <!-- Initialize theme immediately to prevent flash of wrong theme -->
+    <script>
+      (function() {
+        try {
+          const savedMode = localStorage.getItem('theme-mode');
+          const isDark = savedMode === 'dark' || (!savedMode && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+            console.log('[Theme Init] Applied dark mode from localStorage');
+          } else {
+            document.documentElement.classList.remove('dark');
+            console.log('[Theme Init] Applied light mode from localStorage');
+          }
+        } catch (e) {
+          console.error('[Theme Init] Error:', e);
+        }
+      })();
+    </script>
   </head>
 
   <body>

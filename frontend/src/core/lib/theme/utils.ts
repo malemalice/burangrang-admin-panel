@@ -19,15 +19,16 @@ export const getThemeColor = (theme: ThemeColor, colorType: 'primary' | 'seconda
  * Initializes CSS variables from color constants
  * This function should be called when the app starts
  * 
- * In dark mode, theme colors (primary, secondary, accent) are ignored
- * and replaced with neutral dark mode colors following industry best practices
+ * Uses PURE JavaScript approach (like theme colors) - no CSS class conflicts!
+ * Both light and dark mode colors are set via JavaScript setProperty
  */
 export const initializeThemeVariables = (theme: ThemeColor = 'blue', mode: ThemeMode = 'light'): void => {
   const root = document.documentElement;
+  
+  console.log('[initializeThemeVariables] Setting colors via JS:', { theme, mode });
 
-  // Set mode-specific colors
   if (mode === 'light') {
-    // Light mode: Use theme colors
+    // Light mode: Use theme colors for primary/secondary/accent
     const themeColorSet = themeColorsHSL[theme];
     root.style.setProperty('--primary', themeColorSet.primary);
     root.style.setProperty('--secondary', themeColorSet.secondary);
@@ -41,14 +42,21 @@ export const initializeThemeVariables = (theme: ThemeColor = 'blue', mode: Theme
     root.style.setProperty('--input', '214.3 31.8% 91.4%');
     root.style.setProperty('--ring', '222.2 84% 4.9%');
     root.style.setProperty('--card', '0 0% 100%');
+    root.style.setProperty('--card-foreground', '222.2 84% 4.9%');
     root.style.setProperty('--popover', '0 0% 100%');
+    root.style.setProperty('--popover-foreground', '222.2 84% 4.9%');
     
-    // Primary foreground for light mode
+    // Foregrounds
     root.style.setProperty('--primary-foreground', '210 40% 98%');
     root.style.setProperty('--secondary-foreground', '222.2 47.4% 11.2%');
     root.style.setProperty('--accent-foreground', '222.2 47.4% 11.2%');
+    root.style.setProperty('--muted-foreground', '215.4 16.3% 46.9%');
     
-    // Sidebar colors for light mode (use theme colors)
+    // Status
+    root.style.setProperty('--destructive', '0 84.2% 60.2%');
+    root.style.setProperty('--destructive-foreground', '210 40% 98%');
+    
+    // Sidebar (uses theme color)
     root.style.setProperty('--sidebar-background', '0 0% 98%');
     root.style.setProperty('--sidebar-foreground', '240 5.3% 26.1%');
     root.style.setProperty('--sidebar-primary', themeColorSet.primary);
@@ -58,11 +66,10 @@ export const initializeThemeVariables = (theme: ThemeColor = 'blue', mode: Theme
     root.style.setProperty('--sidebar-border', '220 13% 91%');
     root.style.setProperty('--sidebar-ring', '217.2 91.2% 59.8%');
   } else {
-    // Dark mode: Use neutral colors, ignore theme colors
-    // Following industry best practices for dark mode
-    root.style.setProperty('--primary', '210 40% 98%'); // Light neutral for primary actions
-    root.style.setProperty('--secondary', '217.2 32.6% 17.5%'); // Dark neutral for secondary
-    root.style.setProperty('--accent', '217.2 32.6% 17.5%'); // Dark neutral for accent
+    // Dark mode: Use neutral colors (no theme colors)
+    root.style.setProperty('--primary', '210 40% 98%');
+    root.style.setProperty('--secondary', '217.2 32.6% 17.5%');
+    root.style.setProperty('--accent', '217.2 32.6% 17.5%');
     
     // Dark mode base colors
     root.style.setProperty('--background', '222.2 84% 4.9%');
@@ -72,32 +79,32 @@ export const initializeThemeVariables = (theme: ThemeColor = 'blue', mode: Theme
     root.style.setProperty('--input', '217.2 32.6% 17.5%');
     root.style.setProperty('--ring', '212.7 26.8% 83.9%');
     root.style.setProperty('--card', '222.2 84% 4.9%');
+    root.style.setProperty('--card-foreground', '210 40% 98%');
     root.style.setProperty('--popover', '222.2 84% 4.9%');
+    root.style.setProperty('--popover-foreground', '210 40% 98%');
     
-    // Primary foreground for dark mode
+    // Foregrounds
     root.style.setProperty('--primary-foreground', '222.2 47.4% 11.2%');
     root.style.setProperty('--secondary-foreground', '210 40% 98%');
     root.style.setProperty('--accent-foreground', '210 40% 98%');
+    root.style.setProperty('--muted-foreground', '215 20.2% 65.1%');
     
-    // Sidebar colors for dark mode (neutral dark)
+    // Status
+    root.style.setProperty('--destructive', '0 62.8% 30.6%');
+    root.style.setProperty('--destructive-foreground', '210 40% 98%');
+    
+    // Sidebar (neutral dark)
     root.style.setProperty('--sidebar-background', '240 5.9% 10%');
     root.style.setProperty('--sidebar-foreground', '240 4.8% 95.9%');
-    root.style.setProperty('--sidebar-primary', '210 40% 98%'); // Light neutral for active items
+    root.style.setProperty('--sidebar-primary', '210 40% 98%');
     root.style.setProperty('--sidebar-primary-foreground', '222.2 47.4% 11.2%');
     root.style.setProperty('--sidebar-accent', '240 3.7% 15.9%');
     root.style.setProperty('--sidebar-accent-foreground', '240 4.8% 95.9%');
     root.style.setProperty('--sidebar-border', '240 3.7% 15.9%');
     root.style.setProperty('--sidebar-ring', '212.7 26.8% 83.9%');
   }
-
-  // Status colors (same for both modes)
-  root.style.setProperty('--destructive', mode === 'light' ? '0 84.2% 60.2%' : '0 62.8% 30.6%');
-  root.style.setProperty('--destructive-foreground', '210 40% 98%');
   
-  // Muted foreground
-  root.style.setProperty('--muted-foreground', mode === 'light' ? '215.4 16.3% 46.9%' : '215 20.2% 65.1%');
-  
-  // Set radius for consistent border radius
+  // Set radius
   root.style.setProperty('--radius', '0.5rem');
 };
 
@@ -115,12 +122,38 @@ interface UseThemeReturn {
   loadThemeFromBackend: () => Promise<{ color: ThemeColor; mode: ThemeMode }>;
 }
 
+// Initialize theme immediately on module load to prevent flash of wrong theme
+// This runs before React renders anything
+(() => {
+  const savedTheme = (localStorage.getItem('theme-color') as ThemeColor) || 'blue';
+  const savedMode = localStorage.getItem('theme-mode') as ThemeMode;
+  const initialMode: ThemeMode = 
+    (savedMode === 'dark' || savedMode === 'light') 
+      ? savedMode 
+      : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  
+  // Apply dark class immediately if needed
+  if (initialMode === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  
+  console.log('[Theme Utils Init] Initializing theme:', { theme: savedTheme, mode: initialMode });
+  
+  // Initialize CSS variables immediately
+  initializeThemeVariables(savedTheme, initialMode);
+})();
+
 /**
  * Hook for managing theme in the application with backend persistence
  */
 export const useTheme = (): UseThemeReturn => {
   // Loading state for backend operations
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Flag to track if this is the initial mount
+  const [isInitialMount, setIsInitialMount] = useState(true);
 
   // Get initial theme from localStorage or use default 'blue'
   const [theme, setThemeState] = useState<ThemeColor>(() => {
@@ -137,10 +170,10 @@ export const useTheme = (): UseThemeReturn => {
     // Check system preference
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
-
-  // Initialize theme variables on mount
+  
+  // Mark that initial mount is complete
   useEffect(() => {
-    initializeThemeVariables(theme, mode);
+    setIsInitialMount(false);
   }, []);
 
   // Function to load theme settings from backend
@@ -210,63 +243,52 @@ export const useTheme = (): UseThemeReturn => {
 
   // Save theme to localStorage when it changes and update CSS variables
   useEffect(() => {
+    // Skip on initial mount - IIFE already handled it
+    if (isInitialMount) return;
+    
     localStorage.setItem('theme-color', theme);
 
-    // Only apply theme colors in light mode
-    // In dark mode, use neutral colors (handled in mode effect)
-    if (mode === 'light') {
-    const root = document.documentElement;
-    const themeColorSet = themeColorsHSL[theme];
-
-    // Set primary colors in HSL format for Tailwind CSS
-    root.style.setProperty('--primary', themeColorSet.primary);
-    root.style.setProperty('--secondary', themeColorSet.secondary);
-    root.style.setProperty('--accent', themeColorSet.accent);
-    }
+    // Apply theme colors via JavaScript (works for both modes)
+    initializeThemeVariables(theme, mode);
+    
+    console.log('[useEffect theme] Applied theme:', theme, 'mode:', mode);
 
     // Save to backend (don't await to avoid blocking UI)
     saveThemeToBackend(theme, mode);
-  }, [theme, mode]);
+  }, [theme, mode, isInitialMount]);
 
   // Save mode to localStorage when it changes and update document class
   useEffect(() => {
+    // Skip on initial mount - IIFE already handled it
+    if (isInitialMount) return;
+    
     localStorage.setItem('theme-mode', mode);
 
-    // Apply dark mode class to document
+    // Apply dark mode class for Tailwind dark: variants
     if (mode === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-
-    // Update ALL CSS variables based on mode using initializeThemeVariables
-    // This ensures all variables are properly set, including those that might conflict with static CSS
+    
+    // Set all colors via JavaScript
     initializeThemeVariables(theme, mode);
+
+    console.log('[useEffect mode] Applied mode:', mode);
 
     // Save to backend (don't await to avoid blocking UI)
     saveThemeToBackend(theme, mode);
-  }, [mode, theme]);
+  }, [mode, theme, isInitialMount]);
 
   // Set theme with validation
   const setTheme = (newTheme: ThemeColor) => {
     if (themeColorsHSL[newTheme]) {
       setThemeState(newTheme);
 
-      // Only apply theme colors in light mode
-      // In dark mode, neutral colors are used (handled by mode effect)
-      if (mode === 'light') {
-      const root = document.documentElement;
-      const themeColorSet = themeColorsHSL[newTheme];
-
-      // Set primary colors in HSL format
-      root.style.setProperty('--primary', themeColorSet.primary);
-      root.style.setProperty('--secondary', themeColorSet.secondary);
-      root.style.setProperty('--accent', themeColorSet.accent);
-
-      console.log(`Applied theme ${newTheme}:`, themeColorSet);
-      } else {
-        console.log(`Theme ${newTheme} saved but not applied (dark mode uses neutral colors)`);
-      }
+      // Apply via JavaScript immediately
+      initializeThemeVariables(newTheme, mode);
+      
+      console.log(`Applied theme ${newTheme} in ${mode} mode`);
     } else {
       console.warn(`Theme "${newTheme}" is not a valid theme.`);
     }
@@ -277,39 +299,17 @@ export const useTheme = (): UseThemeReturn => {
     if (newMode === 'light' || newMode === 'dark') {
       setModeState(newMode);
 
-      // Apply dark mode class immediately for instant feedback
-      const root = document.documentElement;
-      
+      // Apply dark class for Tailwind dark: variants
       if (newMode === 'dark') {
         document.documentElement.classList.add('dark');
-        
-        // Apply neutral colors for dark mode
-        root.style.setProperty('--primary', '210 40% 98%');
-        root.style.setProperty('--secondary', '217.2 32.6% 17.5%');
-        root.style.setProperty('--accent', '217.2 32.6% 17.5%');
-        root.style.setProperty('--primary-foreground', '222.2 47.4% 11.2%');
-        root.style.setProperty('--secondary-foreground', '210 40% 98%');
-        root.style.setProperty('--accent-foreground', '210 40% 98%');
-        root.style.setProperty('--destructive', '0 62.8% 30.6%');
-        root.style.setProperty('--muted-foreground', '215 20.2% 65.1%');
-        
-        console.log('Applied dark mode with neutral colors');
       } else {
         document.documentElement.classList.remove('dark');
-        
-        // Apply theme colors for light mode
-        const themeColorSet = themeColorsHSL[theme];
-        root.style.setProperty('--primary', themeColorSet.primary);
-        root.style.setProperty('--secondary', themeColorSet.secondary);
-        root.style.setProperty('--accent', themeColorSet.accent);
-        root.style.setProperty('--primary-foreground', '210 40% 98%');
-        root.style.setProperty('--secondary-foreground', '222.2 47.4% 11.2%');
-        root.style.setProperty('--accent-foreground', '222.2 47.4% 11.2%');
-        root.style.setProperty('--destructive', '0 84.2% 60.2%');
-        root.style.setProperty('--muted-foreground', '215.4 16.3% 46.9%');
-        
-        console.log('Applied light mode with theme colors');
       }
+      
+      // Set all colors via JavaScript
+      initializeThemeVariables(theme, newMode);
+      
+      console.log(`Applied ${newMode} mode`);
     } else {
       console.warn(`Mode "${newMode}" is not a valid mode.`);
     }
