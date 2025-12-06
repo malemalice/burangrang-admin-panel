@@ -32,6 +32,12 @@ jobs:
           fi
           echo "✅ Confirmation received. Proceeding with migrations..."
 
+      - name: Checkout latest main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -56,6 +62,52 @@ jobs:
               echo "❌ Backend container is not running!"
               echo "Please ensure the backend is deployed before running migrations."
               exit 1
+            fi
+          ENDSSH
+
+      - name: Pull latest main branch on VPS
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
+        run: |
+          echo "📥 Pulling latest main branch code on VPS..."
+          ssh $VPS_USER@$VPS_HOST << ENDSSH
+            set -e
+            
+            if [ -z "$PROJECT_PATH" ]; then
+              echo "⚠️  PROJECT_PATH secret not set. Skipping code pull on VPS."
+              echo "💡 Note: Migrations will run using code baked into the container."
+            else
+              echo "📂 Navigating to project directory: $PROJECT_PATH"
+              cd $PROJECT_PATH || {
+                echo "❌ Failed to navigate to project path: $PROJECT_PATH"
+                echo "⚠️  Continuing with migrations using container code..."
+                exit 0
+              }
+              
+              echo "📥 Fetching latest changes from remote..."
+              git fetch origin main || {
+                echo "⚠️  Failed to fetch from remote. Continuing..."
+                exit 0
+              }
+              
+              echo "🔄 Checking out main branch..."
+              git checkout main || {
+                echo "⚠️  Failed to checkout main branch. Continuing..."
+                exit 0
+              }
+              
+              echo "📦 Pulling latest changes..."
+              git pull origin main || {
+                echo "⚠️  Failed to pull latest changes. Continuing..."
+                exit 0
+              }
+              
+              echo "📋 Current commit:"
+              git log -1 --oneline
+              echo ""
+              echo "✅ Latest main branch code pulled successfully!"
             fi
           ENDSSH
 
