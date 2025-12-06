@@ -55,7 +55,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 )
 Button.displayName = "Button"
 
-// ThemeButton - A button that automatically uses theme colors
+// ThemeButton - A button that uses theme colors in light mode, neutral colors in dark mode
 export interface ThemeButtonProps
   extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'style'> {
   size?: "default" | "sm" | "lg" | "icon"
@@ -65,8 +65,14 @@ export interface ThemeButtonProps
 
 const ThemeButton = React.forwardRef<HTMLButtonElement, ThemeButtonProps>(
   ({ className, size = "default", asChild = false, ...props }, ref) => {
-    const { theme } = useTheme()
-    const currentThemeColor = themeColors[theme]?.primary || '#6366f1'
+    const { theme, isDark } = useTheme()
+    
+    // In dark mode, use neutral colors; in light mode, use theme colors
+    const currentThemeColor = isDark 
+      ? 'hsl(210 40% 98%)' // Light neutral for dark mode
+      : (themeColors[theme]?.primary || '#6366f1')
+    
+    const textColor = isDark ? 'hsl(222.2 47.4% 11.2%)' : '#ffffff'
 
     const Comp = asChild ? Slot : "button"
 
@@ -83,11 +89,15 @@ const ThemeButton = React.forwardRef<HTMLButtonElement, ThemeButtonProps>(
         ref={ref}
         style={{
           backgroundColor: currentThemeColor,
-          color: '#ffffff',
+          color: textColor,
           borderColor: currentThemeColor,
         }}
         onMouseEnter={(e) => {
+          if (isDark) {
+            e.currentTarget.style.backgroundColor = 'hsl(210 40% 95%)'
+          } else {
           e.currentTarget.style.backgroundColor = currentThemeColor + 'E0'
+          }
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.backgroundColor = currentThemeColor

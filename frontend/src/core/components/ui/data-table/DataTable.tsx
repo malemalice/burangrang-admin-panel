@@ -124,10 +124,10 @@ const DataTable = <T extends Record<string, any>>({
   };
 
   return (
-    <div className="rounded-md border bg-white dark:bg-gray-800">
-      <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
+    <div className="rounded-md border bg-card">
+      <div className="flex items-center justify-between p-4 border-b">
         <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <Input
             placeholder="Search..."
             value={searchTerm}
@@ -147,7 +147,7 @@ const DataTable = <T extends Record<string, any>>({
       
       {/* Display filter badges if there are active filters */}
       {localActiveFilters.length > 0 && (
-        <div className="px-4 py-2 border-b dark:border-gray-700">
+        <div className="px-4 py-2 border-b">
           <FilterBadges
             filters={localActiveFilters}
             fields={filterFields}
@@ -158,7 +158,7 @@ const DataTable = <T extends Record<string, any>>({
       
       <div className="relative">
         {isLoading && (
-          <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 flex items-center justify-center z-10">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
             <div className="h-8 w-8 rounded-full border-4 border-admin-primary/30 border-t-admin-primary animate-spin-slow" />
           </div>
         )}
@@ -171,8 +171,8 @@ const DataTable = <T extends Record<string, any>>({
                   <TableHead 
                     key={column.id}
                     className={cn(
-                      column.isSortable && "cursor-pointer hover:bg-gray-50",
-                      sorting?.id === column.id && "bg-gray-50"
+                      column.isSortable && "cursor-pointer hover:bg-muted",
+                      sorting?.id === column.id && "bg-muted"
                     )}
                     onClick={() => column.isSortable && handleSort(column.id)}
                   >
