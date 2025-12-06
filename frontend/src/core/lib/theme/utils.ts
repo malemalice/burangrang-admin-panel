@@ -122,8 +122,28 @@ interface UseThemeReturn {
   loadThemeFromBackend: () => Promise<{ color: ThemeColor; mode: ThemeMode }>;
 }
 
-// Theme initialization is now handled by init.ts (imported first in main.tsx)
-// This ensures it runs before React renders, preventing flash of wrong theme
+// Initialize theme immediately on module load to prevent flash of wrong theme
+// This runs before React renders anything
+(() => {
+  const savedTheme = (localStorage.getItem('theme-color') as ThemeColor) || 'blue';
+  const savedMode = localStorage.getItem('theme-mode') as ThemeMode;
+  const initialMode: ThemeMode = 
+    (savedMode === 'dark' || savedMode === 'light') 
+      ? savedMode 
+      : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  
+  // Apply dark class immediately if needed
+  if (initialMode === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  
+  console.log('[Theme Utils Init] Initializing theme:', { theme: savedTheme, mode: initialMode });
+  
+  // Initialize CSS variables immediately
+  initializeThemeVariables(savedTheme, initialMode);
+})();
 
 /**
  * Hook for managing theme in the application with backend persistence
@@ -151,31 +171,8 @@ export const useTheme = (): UseThemeReturn => {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
   
-  // Mark that initial mount is complete and verify CSS variables are still set
+  // Mark that initial mount is complete
   useEffect(() => {
-    // Verify CSS variables are set correctly (safeguard against any resets)
-    const currentMode = localStorage.getItem('theme-mode') as ThemeMode;
-    const currentTheme = (localStorage.getItem('theme-color') as ThemeColor) || 'blue';
-    const root = document.documentElement;
-    
-    // Check if variables are set (sample check)
-    const bgValue = root.style.getPropertyValue('--background');
-    const shouldBeDark = currentMode === 'dark';
-    const expectedBg = shouldBeDark ? '222.2 84% 4.9%' : '0 0% 100%';
-    
-    // If variables are missing or wrong, re-apply them
-    if (!bgValue || (shouldBeDark && bgValue !== expectedBg) || (!shouldBeDark && bgValue !== expectedBg)) {
-      console.warn('[useTheme] CSS variables missing or incorrect, re-applying...');
-      initializeThemeVariables(currentTheme, currentMode);
-      
-      // Also ensure dark class is set
-      if (shouldBeDark) {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
-    }
-    
     setIsInitialMount(false);
   }, []);
 
