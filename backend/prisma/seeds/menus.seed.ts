@@ -76,7 +76,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Master Data',
         icon: 'Building2',
-        order: 3,
+        order: 96,
         isActive: true,
         roles: {
           connect: [
@@ -92,7 +92,7 @@ export const seedMenus = async () => {
       data: {
         name: 'User Management',
         icon: 'Users',
-        order: 4,
+        order: 97,
         isActive: true,
         roles: {
           connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
@@ -105,7 +105,7 @@ export const seedMenus = async () => {
         name: 'Notifications',
         path: '/notifications',
         icon: 'Bell',
-        order: 5,
+        order: 98,
         isActive: true,
         roles: {
           connect: [
@@ -123,7 +123,7 @@ export const seedMenus = async () => {
         name: 'Settings',
         path: '/settings',
         icon: 'Settings',
-        order: 6,
+        order: 99,
         isActive: true,
         roles: {
           connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
