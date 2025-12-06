@@ -37,9 +37,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   
   // Initialize CSS variables when the component mounts
   useEffect(() => {
-    // Initialize theme variables when ThemeProvider mounts
-    initializeThemeVariables(defaultTheme, defaultMode);
-
+    // Don't re-initialize on mount - the IIFE in utils.ts already handled it
+    // This prevents overwriting the correct saved theme with defaults
+    
     // Load theme settings from backend on app startup (only once)
     const loadBackendTheme = async () => {
       try {
