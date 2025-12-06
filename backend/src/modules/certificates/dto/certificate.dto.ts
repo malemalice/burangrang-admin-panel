@@ -1,153 +1,103 @@
-import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
-import { IsString, IsOptional, IsDate, IsInt, IsBoolean, IsEnum, IsDateString } from 'class-validator';
-
-export enum CertificateTypeEnum {
-  PERSONNEL_LICENSE = 'PERSONNEL_LICENSE',
-  PERSONNEL_CERTIFICATE = 'PERSONNEL_CERTIFICATE',
-  EQUIPMENT_CALIBRATION = 'EQUIPMENT_CALIBRATION',
-  EQUIPMENT_INSTALLATION = 'EQUIPMENT_INSTALLATION',
-  EQUIPMENT_OPERATIONAL_PERMIT = 'EQUIPMENT_OPERATIONAL_PERMIT',
-}
+import { ApiProperty } from '@nestjs/swagger';
+import { CertificateTypeEnum } from '@prisma/client';
+import { CertificateCategoryDto } from './certificate-category.dto';
 
 export class CertificateDto {
-  @ApiProperty({ description: 'Certificate unique identifier' })
+  @ApiProperty()
   @Expose()
-  @IsString()
   id: string;
 
-  @ApiProperty({ description: 'Certificate number' })
+  @ApiProperty()
   @Expose()
-  @IsString()
   certificateNumber: string;
 
-  @ApiProperty({ description: 'Certificate name' })
+  @ApiProperty()
   @Expose()
-  @IsString()
   certificateName: string;
 
-  @ApiProperty({ description: 'Category ID' })
+  @ApiProperty()
   @Expose()
-  @IsString()
   categoryId: string;
 
-  @ApiProperty({ description: 'Certificate type', enum: CertificateTypeEnum })
+  @ApiProperty({ required: false })
   @Expose()
-  @IsEnum(CertificateTypeEnum)
+  category?: CertificateCategoryDto;
+
+  @ApiProperty({ enum: CertificateTypeEnum })
+  @Expose()
   certificateType: CertificateTypeEnum;
 
-  @ApiProperty({ description: 'Issued date' })
+  @ApiProperty()
   @Expose()
-  @IsDate()
   issuedDate: Date;
 
-  @ApiProperty({ description: 'Validity date (expiry date)' })
+  @ApiProperty()
   @Expose()
-  @IsDate()
   validityDate: Date;
 
-  @ApiProperty({ description: 'Issuer name' })
+  @ApiProperty()
   @Expose()
-  @IsString()
   issuerName: string;
 
-  @ApiProperty({ description: 'Document URL', required: false })
+  @ApiProperty({ required: false })
   @Expose()
-  @IsOptional()
-  @IsString()
-  documentUrl?: string;
+  documentUrl?: string | null;
 
-  @ApiProperty({ description: 'Personnel ID (user ID)', required: false })
+  @ApiProperty({ required: false })
   @Expose()
-  @IsOptional()
-  @IsString()
-  personnelId?: string;
+  personnelId?: string | null;
 
-  @ApiProperty({ description: 'Personnel name (free text)', required: false })
+  @ApiProperty({ required: false })
   @Expose()
-  @IsOptional()
-  @IsString()
-  personnelName?: string;
+  personnelName?: string | null;
 
-  @ApiProperty({ description: 'Equipment ID', required: false })
+  @ApiProperty({ required: false })
   @Expose()
-  @IsOptional()
-  @IsString()
-  equipmentId?: string;
+  equipmentId?: string | null;
 
-  @ApiProperty({ description: 'Equipment name (free text)', required: false })
+  @ApiProperty({ required: false })
   @Expose()
-  @IsOptional()
-  @IsString()
-  equipmentName?: string;
+  equipmentName?: string | null;
 
-  @ApiProperty({ description: 'Department ID' })
+  @ApiProperty()
   @Expose()
-  @IsString()
   departmentId: string;
 
-  @ApiProperty({ description: 'Reminder days before expiry', default: 30 })
+  @ApiProperty({ required: false })
   @Expose()
-  @IsInt()
+  department?: any;
+
+  @ApiProperty()
+  @Expose()
   reminderDays: number;
 
-  @ApiProperty({ description: 'Notes', required: false })
+  @ApiProperty({ required: false })
   @Expose()
-  @IsOptional()
-  @IsString()
-  notes?: string;
+  notes?: string | null;
 
-  @ApiProperty({ description: 'Whether certificate is active' })
+  @ApiProperty()
   @Expose()
-  @IsBoolean()
   isActive: boolean;
 
-  @ApiProperty({ description: 'Created by user ID' })
+  @ApiProperty()
   @Expose()
-  @IsString()
-  createdBy: string;
-
-  @ApiProperty({ description: 'Creation timestamp' })
-  @Expose()
-  @IsDate()
   createdAt: Date;
 
-  @ApiProperty({ description: 'Last update timestamp' })
+  @ApiProperty()
   @Expose()
-  @IsDate()
   updatedAt: Date;
 
-  // Relations (optional, included when requested)
-  @ApiProperty({ description: 'Certificate category', required: false })
+  @ApiProperty()
   @Expose()
-  @IsOptional()
-  category?: {
-    id: string;
-    name: string;
-    code: string;
-    certificateType: CertificateTypeEnum;
-  };
+  createdBy: string;
 
-  @ApiProperty({ description: 'Department', required: false })
+  @ApiProperty({ required: false })
   @Expose()
-  @IsOptional()
-  department?: {
-    id: string;
-    name: string;
-    code: string;
-  };
-
-  @ApiProperty({ description: 'Personnel (user)', required: false })
-  @Expose()
-  @IsOptional()
-  personnel?: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-  };
+  creator?: any;
 
   constructor(partial: Partial<CertificateDto>) {
     Object.assign(this, partial);
   }
 }
+

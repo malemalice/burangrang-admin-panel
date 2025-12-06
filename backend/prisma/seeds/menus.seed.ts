@@ -148,11 +148,65 @@ export const seedMenus = async () => {
       },
     });
 
+    const certificateMenu = await prisma.menu.create({
+      data: {
+        name: 'Certificate Management',
+        icon: 'Award',
+        order: 8,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     const trainingMenu = await prisma.menu.create({
       data: {
         name: 'Training',
         icon: 'GraduationCap',
-        order: 8,
+        order: 9,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    // Create Certificate Management submenus
+    await prisma.menu.create({
+      data: {
+        name: 'Certificates',
+        path: '/certificates',
+        icon: 'Award',
+        parentId: certificateMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Categories',
+        path: '/master/certificate-categories',
+        icon: 'Tag',
+        parentId: certificateMenu.id,
+        order: 2,
         isActive: true,
         roles: {
           connect: [
@@ -531,11 +585,11 @@ export const seedMenus = async () => {
 
     console.log('✅ Menus seeded successfully');
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
-    console.log(`   - Top-level menus: 12`);
-    console.log(`   - Master Data submenus: 7`);
+    console.log(`   - Top-level menus: 9`);
+    console.log(`   - Master Data submenus: 9`);
     console.log(`   - User Management submenus: 3`);
-    console.log(`   - PPE Management submenus: 4`);
-    console.log(`   - Training submenus: 2`);
+    console.log(`   - PPE Management submenus: 2`);
+    console.log(`   - Certificate Management submenus: 2`);
     console.log(`   - Work Permit submenus: 2`);
   } catch (error) {
     console.error('❌ Error seeding menus:', error);

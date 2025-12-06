@@ -87,6 +87,19 @@ export async function seedFileCategories() {
       maxSize: 10 * 1024 * 1024, // 10MB
     },
     {
+      name: 'certificate-documents',
+      allowedTypes: [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+      ],
+      maxSize: 50 * 1024 * 1024, // 50MB
+    },
+    {
       name: 'work-permit-documents',
       allowedTypes: [
         'application/pdf',

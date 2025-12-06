@@ -12,6 +12,7 @@ import { courseRoutes } from '@/modules/courses';
 import { reminderRoutes } from '@/modules/reminders';
 import { enrollmentRoutes } from '@/modules/enrollments';
 import { quizRoutes } from '@/modules/quizzes';
+import certificateRoutes from '@/modules/certificates/routes/certificateRoutes';
 
 /**
  * Application routes registry
@@ -30,6 +31,7 @@ const routes: RouteConfig[] = [
   ...reminderRoutes,
   ...enrollmentRoutes,
   ...quizRoutes,
+  ...certificateRoutes,
   ...moduleRoutes,
 ];
 

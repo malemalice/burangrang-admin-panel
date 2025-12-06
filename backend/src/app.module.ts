@@ -25,6 +25,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { PPEModule } from './modules/ppe/ppe.module';
+import { CertificatesModule } from './modules/certificates/certificates.module';
 import { SharedModule } from './shared/shared.module';
 import { ChaptersModule } from './modules/chapters/chapters.module';
 import { CoursesModule } from './modules/courses/courses.module';
@@ -32,7 +33,6 @@ import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { ProgressModule } from './modules/progress/progress.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
 import { QuizzesModule } from './modules/quizzes/quizzes.module';
-import { CertificatesModule } from './modules/certificates/certificates.module';
 import { WorkPermitsModule } from './modules/work-permits/work-permits.module';
 
 @Module({

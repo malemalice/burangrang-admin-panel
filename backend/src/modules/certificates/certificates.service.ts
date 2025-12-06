@@ -2,409 +2,691 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { Prisma } from '@prisma/client';
+import { CreateCertificateCategoryDto } from './dto/create-certificate-category.dto';
+import { UpdateCertificateCategoryDto } from './dto/update-certificate-category.dto';
+import { CertificateCategoryDto } from './dto/certificate-category.dto';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
 import { CertificateDto } from './dto/certificate.dto';
-import { FindCertificatesDto } from './dto/find-certificates.dto';
-import { RemindersService } from '../reminders/reminders.service';
-import { ReminderRepeatTypeEnum } from '../reminders/dto/reminder.dto';
-import { PaginatedResponse } from '../../shared/types/pagination-params';
-import { Prisma } from '@prisma/client';
+import { FindCertificatesOptions } from './dto/find-certificates.dto';
+import { CreateCertificateRenewalDto } from './dto/create-certificate-renewal.dto';
+import { UpdateCertificateRenewalDto } from './dto/update-certificate-renewal.dto';
+import { CertificateRenewalDto } from './dto/certificate-renewal.dto';
+import { CertificateReminderDto } from './dto/certificate-reminder.dto';
 
 @Injectable()
 export class CertificatesService {
-  private certificateMapper: (entity: any) => CertificateDto;
+    private categoryMapper: (category: any) => CertificateCategoryDto;
+    private categoryArrayMapper: (categories: any[]) => CertificateCategoryDto[];
+    private categoryPaginatedMapper: (data: { data: any[]; meta: any }) => {
+        data: CertificateCategoryDto[];
+        meta: any;
+    };
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly errorHandler: ErrorHandlingService,
-    private readonly dtoMapper: DtoMapperService,
-    private readonly remindersService: RemindersService,
-  ) {
-    this.certificateMapper = this.dtoMapper.createRelationMapper(CertificateDto, {
-      category: {
-        mapper: (category: any) => ({
-          id: category.id,
-          name: category.name,
-          code: category.code,
-          certificateType: category.certificateType,
-        }),
-        isArray: false,
-      },
-      department: {
-        mapper: (department: any) => ({
-          id: department.id,
-          name: department.name,
-          code: department.code,
-        }),
-        isArray: false,
-      },
-      personnel: {
-        mapper: (personnel: any) => ({
-          id: personnel.id,
-          firstName: personnel.firstName,
-          lastName: personnel.lastName,
-          email: personnel.email,
-        }),
-        isArray: false,
-      },
-    });
-  }
+    private certificateMapper: (certificate: any) => CertificateDto;
+    private certificateArrayMapper: (certificates: any[]) => CertificateDto[];
+    private certificatePaginatedMapper: (data: { data: any[]; meta: any }) => {
+        data: CertificateDto[];
+        meta: any;
+    };
 
-  /**
-   * Register certificate reminder based on H day rules
-   * - H day > 30 days → MONTHLY reminder
-   * - H day <= 30 days && H day >= 1 day → WEEKLY reminder
-   * - H day < 1 day → DAILY reminder
-   */
-  async registerCertificateReminder(certificateId: string, userId: string): Promise<void> {
-    return this.errorHandler.safeExecute(async () => {
-      const certificate = await this.prisma.certificate.findUnique({
-        where: { id: certificateId },
-      });
+    private renewalMapper: (renewal: any) => CertificateRenewalDto;
+    private renewalArrayMapper: (renewals: any[]) => CertificateRenewalDto[];
 
-      this.errorHandler.throwIfNotFoundById('Certificate', certificateId, certificate);
+    private reminderMapper: (reminder: any) => CertificateReminderDto;
+    private reminderArrayMapper: (reminders: any[]) => CertificateReminderDto[];
 
-      // Determine recipient: use personnelId if available, otherwise use createdBy
-      const recipientId = certificate.personnelId || certificate.createdBy;
+    constructor(
+        private prisma: PrismaService,
+        private errorHandler: ErrorHandlingService,
+        private dtoMapper: DtoMapperService,
+    ) {
+        // Initialize mappers
+        this.categoryMapper = this.dtoMapper.createSimpleMapper(CertificateCategoryDto);
+        this.categoryArrayMapper = this.dtoMapper.createSimpleArrayMapper(CertificateCategoryDto);
+        this.categoryPaginatedMapper = this.dtoMapper.createPaginatedMapper(CertificateCategoryDto);
 
-      const now = new Date();
-      const validityDate = new Date(certificate.validityDate);
-
-      // Calculate H day (days remaining until expiry)
-      const hDay = Math.ceil((validityDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-      // Determine repeat type based on H day
-      let repeatType: ReminderRepeatTypeEnum;
-      if (hDay > 30) {
-        repeatType = ReminderRepeatTypeEnum.MONTHLY;
-      } else if (hDay >= 1) {
-        repeatType = ReminderRepeatTypeEnum.WEEKLY;
-      } else {
-        // H day < 1 (expired or expiring today)
-        repeatType = ReminderRepeatTypeEnum.DAILY;
-      }
-
-      // Calculate first reminder date: validityDate - reminderDays
-      // If that date is in the past, start immediately
-      const remindAt = new Date(validityDate);
-      remindAt.setDate(remindAt.getDate() - certificate.reminderDays);
-
-      // If remindAt is in the past, start from now
-      const finalRemindAt = remindAt < now ? now : remindAt;
-
-      // Cancel existing reminders for this certificate
-      await this.cancelExistingReminders(certificateId);
-
-      // Create reminder
-      await this.remindersService.create(
-        {
-          entity: 't_certificates',
-          entityId: certificateId,
-          message: `Certificate "${certificate.certificateName}" (${certificate.certificateNumber}) will expire on ${validityDate.toLocaleDateString()}`,
-          remindAt: finalRemindAt.toISOString(),
-          repeatType,
-          repeatUntil: validityDate.toISOString(),
-        },
-        recipientId,
-      );
-    }, 'Registering certificate reminder');
-  }
-
-  /**
-   * Cancel existing reminders for a certificate
-   */
-  private async cancelExistingReminders(certificateId: string): Promise<void> {
-    await this.prisma.reminder.updateMany({
-      where: {
-        entity: 't_certificates',
-        entityId: certificateId,
-        status: 'PENDING',
-      },
-      data: {
-        status: 'CANCELLED',
-      },
-    });
-  }
-
-  /**
-   * Create a new certificate
-   */
-  async create(createDto: CreateCertificateDto, createdBy: string): Promise<CertificateDto> {
-    return this.errorHandler.safeExecute(async () => {
-      // Validate category exists
-      const category = await this.prisma.certificateCategory.findUnique({
-        where: { id: createDto.categoryId },
-      });
-      this.errorHandler.throwIfNotFoundById('CertificateCategory', createDto.categoryId, category);
-
-      // Validate department exists
-      const department = await this.prisma.department.findUnique({
-        where: { id: createDto.departmentId },
-      });
-      this.errorHandler.throwIfNotFoundById('Department', createDto.departmentId, department);
-
-      // Validate personnel if provided
-      if (createDto.personnelId) {
-        const personnel = await this.prisma.user.findUnique({
-          where: { id: createDto.personnelId },
+        this.certificateMapper = this.dtoMapper.createRelationMapper(CertificateDto, {
+            category: { mapper: this.categoryMapper, isArray: false },
+            department: { mapper: (d: any) => d, isArray: false },
+            personnel: { mapper: (p: any) => p, isArray: false },
+            creator: { mapper: (c: any) => c, isArray: false },
         });
-        this.errorHandler.throwIfNotFoundById('User', createDto.personnelId, personnel);
-      }
-
-      // Validate dates
-      const issuedDate = new Date(createDto.issuedDate);
-      const validityDate = new Date(createDto.validityDate);
-
-      if (validityDate <= issuedDate) {
-        throw new Error('Validity date must be after issued date');
-      }
-
-      const certificate = await this.prisma.certificate.create({
-        data: {
-          certificateNumber: createDto.certificateNumber,
-          certificateName: createDto.certificateName,
-          categoryId: createDto.categoryId,
-          certificateType: createDto.certificateType,
-          issuedDate,
-          validityDate,
-          issuerName: createDto.issuerName,
-          documentUrl: createDto.documentUrl,
-          personnelId: createDto.personnelId,
-          personnelName: createDto.personnelName,
-          equipmentId: createDto.equipmentId,
-          equipmentName: createDto.equipmentName,
-          departmentId: createDto.departmentId,
-          reminderDays: createDto.reminderDays || 30,
-          notes: createDto.notes,
-          createdBy,
-        },
-        include: {
-          category: true,
-          department: true,
-          personnel: true,
-        },
-      });
-
-      // Register reminder automatically
-      const recipientId = certificate.personnelId || certificate.createdBy;
-      await this.registerCertificateReminder(certificate.id, recipientId);
-
-      return this.certificateMapper(certificate);
-    }, 'Creating certificate');
-  }
-
-  /**
-   * Get all certificates with pagination and filtering
-   */
-  async findAll(params: FindCertificatesDto): Promise<PaginatedResponse<CertificateDto>> {
-    return this.errorHandler.safeExecute(async () => {
-      const {
-        page = 1,
-        limit = 10,
-        search,
-        sortBy = 'validityDate',
-        sortOrder = 'asc',
-        certificateType,
-        departmentId,
-        isActive,
-      } = params;
-
-      const pageNum = Math.max(1, typeof page === 'string' ? parseInt(page, 10) || 1 : page || 1);
-      const limitNum = Math.max(1, Math.min(100, typeof limit === 'string' ? parseInt(limit, 10) || 10 : limit || 10));
-
-      const where: Prisma.CertificateWhereInput = {};
-
-      if (isActive !== undefined) {
-        where.isActive = isActive;
-      }
-
-      if (certificateType) {
-        where.certificateType = certificateType as any;
-      }
-
-      if (departmentId) {
-        where.departmentId = departmentId;
-      }
-
-      if (search) {
-        where.OR = [
-          { certificateNumber: { contains: search, mode: 'insensitive' } },
-          { certificateName: { contains: search, mode: 'insensitive' } },
-          { personnelName: { contains: search, mode: 'insensitive' } },
-          { equipmentName: { contains: search, mode: 'insensitive' } },
-        ];
-      }
-
-      // Validate sortBy field to prevent SQL injection
-      const allowedSortFields = [
-        'validityDate',
-        'issuedDate',
-        'certificateNumber',
-        'certificateName',
-        'createdAt',
-        'updatedAt',
-      ];
-      const finalSortBy = allowedSortFields.includes(sortBy || '') ? sortBy : 'validityDate';
-      const finalSortOrder = sortOrder === 'desc' ? 'desc' : 'asc';
-
-      const total = await this.prisma.certificate.count({ where });
-
-      const certificates = await this.prisma.certificate.findMany({
-        where,
-        orderBy: { [finalSortBy]: finalSortOrder },
-        skip: (pageNum - 1) * limitNum,
-        take: limitNum,
-        include: {
-          category: true,
-          department: true,
-          personnel: true,
-        },
-      });
-
-      return {
-        data: certificates.map(this.certificateMapper),
-        meta: {
-          total,
-          page: pageNum,
-          limit: limitNum,
-          totalPages: Math.ceil(total / limitNum),
-        },
-      };
-    }, 'Fetching certificates');
-  }
-
-  /**
-   * Get a single certificate by ID
-   */
-  async findOne(id: string): Promise<CertificateDto> {
-    return this.errorHandler.safeExecute(async () => {
-      const certificate = await this.prisma.certificate.findUnique({
-        where: { id },
-        include: {
-          category: true,
-          department: true,
-          personnel: true,
-        },
-      });
-
-      this.errorHandler.throwIfNotFoundById('Certificate', id, certificate);
-
-      return this.certificateMapper(certificate);
-    }, 'Fetching certificate');
-  }
-
-  /**
-   * Update a certificate
-   */
-  async update(id: string, updateDto: UpdateCertificateDto, userId: string): Promise<CertificateDto> {
-    return this.errorHandler.safeExecute(async () => {
-      const existing = await this.prisma.certificate.findUnique({
-        where: { id },
-      });
-
-      this.errorHandler.throwIfNotFoundById('Certificate', id, existing);
-
-      // Validate category if provided
-      if (updateDto.categoryId) {
-        const category = await this.prisma.certificateCategory.findUnique({
-          where: { id: updateDto.categoryId },
+        this.certificateArrayMapper = this.dtoMapper.createArrayMapper(CertificateDto, {
+            relations: {
+                category: { mapper: this.categoryMapper, isArray: false },
+                department: { mapper: (d: any) => d, isArray: false },
+                personnel: { mapper: (p: any) => p, isArray: false },
+                creator: { mapper: (c: any) => c, isArray: false },
+            },
         });
-        this.errorHandler.throwIfNotFoundById('CertificateCategory', updateDto.categoryId, category);
-      }
-
-      // Validate department if provided
-      if (updateDto.departmentId) {
-        const department = await this.prisma.department.findUnique({
-          where: { id: updateDto.departmentId },
+        this.certificatePaginatedMapper = this.dtoMapper.createPaginatedMapper(CertificateDto, {
+            relations: {
+                category: { mapper: this.categoryMapper, isArray: false },
+                department: { mapper: (d: any) => d, isArray: false },
+                personnel: { mapper: (p: any) => p, isArray: false },
+                creator: { mapper: (c: any) => c, isArray: false },
+            },
         });
-        this.errorHandler.throwIfNotFoundById('Department', updateDto.departmentId, department);
-      }
 
-      // Validate personnel if provided
-      if (updateDto.personnelId) {
-        const personnel = await this.prisma.user.findUnique({
-          where: { id: updateDto.personnelId },
+        this.renewalMapper = this.dtoMapper.createRelationMapper(CertificateRenewalDto, {
+            certificate: { mapper: (c: any) => c, isArray: false },
+            requester: { mapper: (r: any) => r, isArray: false },
+            processor: { mapper: (p: any) => p, isArray: false },
         });
-        this.errorHandler.throwIfNotFoundById('User', updateDto.personnelId, personnel);
-      }
+        this.renewalArrayMapper = this.dtoMapper.createArrayMapper(CertificateRenewalDto, {
+            relations: {
+                certificate: { mapper: (c: any) => c, isArray: false },
+                requester: { mapper: (r: any) => r, isArray: false },
+                processor: { mapper: (p: any) => p, isArray: false },
+            },
+        });
 
-      // Prepare update data
-      const updateData: any = {};
+        this.reminderMapper = this.dtoMapper.createRelationMapper(CertificateReminderDto, {
+            certificate: { mapper: (c: any) => c, isArray: false },
+            recipient: { mapper: (r: any) => r, isArray: false },
+        });
+        this.reminderArrayMapper = this.dtoMapper.createArrayMapper(CertificateReminderDto, {
+            relations: {
+                certificate: { mapper: (c: any) => c, isArray: false },
+                recipient: { mapper: (r: any) => r, isArray: false },
+            },
+        });
+    }
 
-      if (updateDto.certificateNumber !== undefined) updateData.certificateNumber = updateDto.certificateNumber;
-      if (updateDto.certificateName !== undefined) updateData.certificateName = updateDto.certificateName;
-      if (updateDto.categoryId !== undefined) updateData.categoryId = updateDto.categoryId;
-      if (updateDto.certificateType !== undefined) updateData.certificateType = updateDto.certificateType;
-      if (updateDto.issuedDate !== undefined) updateData.issuedDate = new Date(updateDto.issuedDate);
-      if (updateDto.validityDate !== undefined) updateData.validityDate = new Date(updateDto.validityDate);
-      if (updateDto.issuerName !== undefined) updateData.issuerName = updateDto.issuerName;
-      if (updateDto.documentUrl !== undefined) updateData.documentUrl = updateDto.documentUrl;
-      if (updateDto.personnelId !== undefined) updateData.personnelId = updateDto.personnelId;
-      if (updateDto.personnelName !== undefined) updateData.personnelName = updateDto.personnelName;
-      if (updateDto.equipmentId !== undefined) updateData.equipmentId = updateDto.equipmentId;
-      if (updateDto.equipmentName !== undefined) updateData.equipmentName = updateDto.equipmentName;
-      if (updateDto.departmentId !== undefined) updateData.departmentId = updateDto.departmentId;
-      if (updateDto.reminderDays !== undefined) updateData.reminderDays = updateDto.reminderDays;
-      if (updateDto.notes !== undefined) updateData.notes = updateDto.notes;
-      if (updateDto.isActive !== undefined) updateData.isActive = updateDto.isActive;
+    // ==================== Certificate Categories ====================
 
-      // Validate dates if both are being updated
-      if (updateData.issuedDate && updateData.validityDate) {
-        if (updateData.validityDate <= updateData.issuedDate) {
-          throw new Error('Validity date must be after issued date');
+    async createCategory(
+        createCategoryDto: CreateCertificateCategoryDto,
+    ): Promise<CertificateCategoryDto> {
+        return this.errorHandler.safeExecute(async () => {
+            const category = await this.prisma.certificateCategory.create({
+                data: createCategoryDto,
+            });
+
+            return this.categoryMapper(category);
+        }, 'create certificate category');
+    }
+
+    async findAllCategories(options?: {
+        page?: number;
+        limit?: number;
+        sortBy?: string;
+        sortOrder?: 'asc' | 'desc';
+        isActive?: boolean;
+        search?: string;
+    }): Promise<{
+        data: CertificateCategoryDto[];
+        meta: { total: number; page: number; limit: number };
+    }> {
+        const {
+            page = 1,
+            limit = 10,
+            sortBy = 'name',
+            sortOrder = 'asc',
+            isActive,
+            search,
+        } = options || {};
+
+        const where: Prisma.CertificateCategoryWhereInput = {
+            deletedAt: null, // Only get non-deleted records
+        };
+
+        if (search) {
+            const searchTerm = search.trim();
+            if (searchTerm.length > 0) {
+                where.OR = [
+                    { name: { contains: searchTerm, mode: 'insensitive' } },
+                    { code: { contains: searchTerm, mode: 'insensitive' } },
+                ];
+            }
         }
-      } else if (updateData.validityDate) {
-        const currentIssuedDate = new Date(existing.issuedDate);
-        if (updateData.validityDate <= currentIssuedDate) {
-          throw new Error('Validity date must be after issued date');
+
+        if (isActive !== undefined) {
+            where.isActive = isActive;
         }
-      } else if (updateData.issuedDate) {
-        const currentValidityDate = new Date(existing.validityDate);
-        if (currentValidityDate <= updateData.issuedDate) {
-          throw new Error('Validity date must be after issued date');
+
+        const [categories, total] = await Promise.all([
+            this.prisma.certificateCategory.findMany({
+                where,
+                orderBy: {
+                    [sortBy]: sortOrder,
+                },
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+            this.prisma.certificateCategory.count({ where }),
+        ]);
+
+        return this.categoryPaginatedMapper({
+            data: categories,
+            meta: { total, page, limit },
+        });
+    }
+
+    async findCategoryById(id: string): Promise<CertificateCategoryDto> {
+        const category = await this.prisma.certificateCategory.findFirst({
+            where: {
+                id,
+                deletedAt: null,
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('CertificateCategory', id, category);
+
+        return this.categoryMapper(category);
+    }
+
+    async updateCategory(
+        id: string,
+        updateCategoryDto: UpdateCertificateCategoryDto,
+    ): Promise<CertificateCategoryDto> {
+        const existingCategory = await this.prisma.certificateCategory.findFirst({
+            where: {
+                id,
+                deletedAt: null,
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('CertificateCategory', id, existingCategory);
+
+        return this.errorHandler.safeExecute(async () => {
+            const updatedCategory = await this.prisma.certificateCategory.update({
+                where: { id },
+                data: updateCategoryDto,
+            });
+
+            return this.categoryMapper(updatedCategory);
+        }, 'update certificate category');
+    }
+
+    async deleteCategory(id: string): Promise<void> {
+        const existingCategory = await this.prisma.certificateCategory.findFirst({
+            where: {
+                id,
+                deletedAt: null,
+            },
+            include: {
+                certificates: {
+                    where: {
+                        deletedAt: null,
+                    },
+                },
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('CertificateCategory', id, existingCategory);
+
+        // Check if category has active certificates
+        if (existingCategory.certificates.length > 0) {
+            this.errorHandler.throwBadRequest(
+                'Cannot delete category. It has active certificates.',
+            );
         }
-      }
 
-      const certificate = await this.prisma.certificate.update({
-        where: { id },
-        data: updateData,
-        include: {
-          category: true,
-          department: true,
-          personnel: true,
-        },
-      });
+        // Soft delete
+        await this.prisma.certificateCategory.update({
+            where: { id },
+            data: {
+                deletedAt: new Date(),
+                isActive: false,
+            },
+        });
+    }
 
-      // Re-register reminder if validityDate or reminderDays changed
-      if (updateDto.validityDate !== undefined || updateDto.reminderDays !== undefined) {
-        const recipientId = certificate.personnelId || certificate.createdBy;
-        await this.registerCertificateReminder(certificate.id, recipientId);
-      }
+    // ==================== Certificates ====================
 
-      return this.certificateMapper(certificate);
-    }, 'Updating certificate');
-  }
+    async create(
+        createCertificateDto: CreateCertificateDto,
+        createdBy: string,
+    ): Promise<CertificateDto> {
+        return this.errorHandler.safeExecute(async () => {
+            // Validate category exists
+            const category = await this.prisma.certificateCategory.findFirst({
+                where: {
+                    id: createCertificateDto.categoryId,
+                    deletedAt: null,
+                },
+            });
 
-  /**
-   * Delete a certificate (soft delete)
-   */
-  async remove(id: string): Promise<void> {
-    return this.errorHandler.safeExecute(async () => {
-      const existing = await this.prisma.certificate.findUnique({
-        where: { id },
-      });
+            this.errorHandler.throwIfNotFoundById(
+                'CertificateCategory',
+                createCertificateDto.categoryId,
+                category,
+            );
 
-      this.errorHandler.throwIfNotFoundById('Certificate', id, existing);
+            // Validate department exists
+            const department = await this.prisma.department.findUnique({
+                where: { id: createCertificateDto.departmentId },
+            });
 
-      // Cancel existing reminders
-      await this.cancelExistingReminders(id);
+            this.errorHandler.throwIfNotFoundById(
+                'Department',
+                createCertificateDto.departmentId,
+                department,
+            );
 
-      // Soft delete
-      await this.prisma.certificate.update({
-        where: { id },
-        data: { isActive: false },
-      });
-    }, 'Deleting certificate');
-  }
+            // Validate personnel if provided
+            if (createCertificateDto.personnelId) {
+                const personnel = await this.prisma.user.findUnique({
+                    where: { id: createCertificateDto.personnelId },
+                });
+
+                this.errorHandler.throwIfNotFoundById(
+                    'User',
+                    createCertificateDto.personnelId,
+                    personnel,
+                );
+            }
+
+            const certificate = await this.prisma.certificate.create({
+                data: {
+                    ...createCertificateDto,
+                    issuedDate: new Date(createCertificateDto.issuedDate),
+                    validityDate: new Date(createCertificateDto.validityDate),
+                    reminderDays: createCertificateDto.reminderDays || 30,
+                    createdBy,
+                },
+                include: {
+                    category: true,
+                    department: true,
+                    personnel: true,
+                    creator: true,
+                },
+            });
+
+            return this.certificateMapper(certificate);
+        }, 'create certificate');
+    }
+
+    async findAll(options?: FindCertificatesOptions): Promise<{
+        data: CertificateDto[];
+        meta: { total: number; page: number; limit: number };
+    }> {
+        const {
+            page = 1,
+            limit = 10,
+            sortBy = 'createdAt',
+            sortOrder = 'desc',
+            isActive,
+            search,
+            categoryId,
+            certificateType,
+            departmentId,
+            personnelId,
+            expired,
+            expiringSoon,
+        } = options || {};
+
+        const where: Prisma.CertificateWhereInput = {
+            deletedAt: null, // Only get non-deleted records
+        };
+
+        if (search) {
+            const searchTerm = search.trim();
+            if (searchTerm.length > 0) {
+                where.OR = [
+                    { certificateNumber: { contains: searchTerm, mode: 'insensitive' } },
+                    { certificateName: { contains: searchTerm, mode: 'insensitive' } },
+                    { personnelName: { contains: searchTerm, mode: 'insensitive' } },
+                    { equipmentName: { contains: searchTerm, mode: 'insensitive' } },
+                ];
+            }
+        }
+
+        if (isActive !== undefined) {
+            where.isActive = isActive;
+        }
+
+        if (categoryId) {
+            where.categoryId = categoryId;
+        }
+
+        if (certificateType) {
+            where.certificateType = certificateType;
+        }
+
+        if (departmentId) {
+            where.departmentId = departmentId;
+        }
+
+        if (personnelId) {
+            where.personnelId = personnelId;
+        }
+
+        // Filter expired certificates
+        if (expired === true) {
+            where.validityDate = {
+                lt: new Date(),
+            };
+        }
+
+        // Filter expiring soon certificates
+        if (expiringSoon === true) {
+            const now = new Date();
+            const reminderDays = 30; // Default reminder days
+            const futureDate = new Date();
+            futureDate.setDate(now.getDate() + reminderDays);
+
+            where.validityDate = {
+                gte: now,
+                lte: futureDate,
+            };
+        }
+
+        const [certificates, total] = await Promise.all([
+            this.prisma.certificate.findMany({
+                where,
+                include: {
+                    category: true,
+                    department: true,
+                    personnel: true,
+                    creator: true,
+                },
+                orderBy: {
+                    [sortBy]: sortOrder,
+                },
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+            this.prisma.certificate.count({ where }),
+        ]);
+
+        return this.certificatePaginatedMapper({
+            data: certificates,
+            meta: { total, page, limit },
+        });
+    }
+
+    async findOne(id: string): Promise<CertificateDto> {
+        const certificate = await this.prisma.certificate.findFirst({
+            where: {
+                id,
+                deletedAt: null,
+            },
+            include: {
+                category: true,
+                department: true,
+                personnel: true,
+                creator: true,
+                renewals: {
+                    include: {
+                        requester: true,
+                        processor: true,
+                    },
+                    orderBy: {
+                        createdAt: 'desc',
+                    },
+                },
+                reminders: {
+                    include: {
+                        recipient: true,
+                    },
+                    orderBy: {
+                        reminderDate: 'desc',
+                    },
+                },
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('Certificate', id, certificate);
+
+        return this.certificateMapper(certificate);
+    }
+
+    async update(
+        id: string,
+        updateCertificateDto: UpdateCertificateDto,
+    ): Promise<CertificateDto> {
+        const existingCertificate = await this.prisma.certificate.findFirst({
+            where: {
+                id,
+                deletedAt: null,
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('Certificate', id, existingCertificate);
+
+        return this.errorHandler.safeExecute(async () => {
+            const updateData: any = { ...updateCertificateDto };
+
+            if (updateCertificateDto.issuedDate) {
+                updateData.issuedDate = new Date(updateCertificateDto.issuedDate);
+            }
+
+            if (updateCertificateDto.validityDate) {
+                updateData.validityDate = new Date(updateCertificateDto.validityDate);
+            }
+
+            // Validate category if provided
+            if (updateCertificateDto.categoryId) {
+                const category = await this.prisma.certificateCategory.findFirst({
+                    where: {
+                        id: updateCertificateDto.categoryId,
+                        deletedAt: null,
+                    },
+                });
+
+                this.errorHandler.throwIfNotFoundById(
+                    'CertificateCategory',
+                    updateCertificateDto.categoryId,
+                    category,
+                );
+            }
+
+            // Validate department if provided
+            if (updateCertificateDto.departmentId) {
+                const department = await this.prisma.department.findUnique({
+                    where: { id: updateCertificateDto.departmentId },
+                });
+
+                this.errorHandler.throwIfNotFoundById(
+                    'Department',
+                    updateCertificateDto.departmentId,
+                    department,
+                );
+            }
+
+            // Validate personnel if provided
+            if (updateCertificateDto.personnelId) {
+                const personnel = await this.prisma.user.findUnique({
+                    where: { id: updateCertificateDto.personnelId },
+                });
+
+                this.errorHandler.throwIfNotFoundById(
+                    'User',
+                    updateCertificateDto.personnelId,
+                    personnel,
+                );
+            }
+
+            const updatedCertificate = await this.prisma.certificate.update({
+                where: { id },
+                data: updateData,
+                include: {
+                    category: true,
+                    department: true,
+                    personnel: true,
+                    creator: true,
+                },
+            });
+
+            return this.certificateMapper(updatedCertificate);
+        }, 'update certificate');
+    }
+
+    async remove(id: string): Promise<void> {
+        const existingCertificate = await this.prisma.certificate.findFirst({
+            where: {
+                id,
+                deletedAt: null,
+            },
+            include: {
+                renewals: {
+                    where: {
+                        status: {
+                            in: ['PENDING', 'REQUESTED', 'IN_PROGRESS'],
+                        },
+                    },
+                },
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('Certificate', id, existingCertificate);
+
+        // Check if certificate has active renewals
+        if (existingCertificate.renewals.length > 0) {
+            this.errorHandler.throwBadRequest(
+                'Cannot delete certificate. It has active renewal requests.',
+            );
+        }
+
+        // Soft delete
+        await this.prisma.certificate.update({
+            where: { id },
+            data: {
+                deletedAt: new Date(),
+                isActive: false,
+            },
+        });
+    }
+
+    // ==================== Certificate Renewals ====================
+
+    async findRenewalsByCertificateId(certificateId: string): Promise<CertificateRenewalDto[]> {
+        const certificate = await this.prisma.certificate.findFirst({
+            where: {
+                id: certificateId,
+                deletedAt: null,
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('Certificate', certificateId, certificate);
+
+        const renewals = await this.prisma.certificateRenewal.findMany({
+            where: {
+                certificateId,
+            },
+            include: {
+                certificate: true,
+                requester: true,
+                processor: true,
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
+
+        return this.renewalArrayMapper(renewals);
+    }
+
+    async createRenewal(
+        certificateId: string,
+        createRenewalDto: CreateCertificateRenewalDto,
+        requestedBy: string,
+    ): Promise<CertificateRenewalDto> {
+        const certificate = await this.prisma.certificate.findFirst({
+            where: {
+                id: certificateId,
+                deletedAt: null,
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('Certificate', certificateId, certificate);
+
+        return this.errorHandler.safeExecute(async () => {
+            const renewal = await this.prisma.certificateRenewal.create({
+                data: {
+                    certificateId,
+                    requestedBy,
+                    notes: createRenewalDto.notes,
+                },
+                include: {
+                    certificate: true,
+                    requester: true,
+                    processor: true,
+                },
+            });
+
+            return this.renewalMapper(renewal);
+        }, 'create certificate renewal');
+    }
+
+    async updateRenewal(
+        id: string,
+        updateRenewalDto: UpdateCertificateRenewalDto,
+        processedBy?: string,
+    ): Promise<CertificateRenewalDto> {
+        const existingRenewal = await this.prisma.certificateRenewal.findUnique({
+            where: { id },
+        });
+
+        this.errorHandler.throwIfNotFoundById('CertificateRenewal', id, existingRenewal);
+
+        return this.errorHandler.safeExecute(async () => {
+            const updateData: any = { ...updateRenewalDto };
+
+            if (updateRenewalDto.newValidityDate) {
+                updateData.newValidityDate = new Date(updateRenewalDto.newValidityDate);
+            }
+
+            // If status is being updated to COMPLETED, update certificate validity date
+            if (updateRenewalDto.status === 'COMPLETED' && updateRenewalDto.newValidityDate) {
+                await this.prisma.certificate.update({
+                    where: { id: existingRenewal.certificateId },
+                    data: {
+                        validityDate: new Date(updateRenewalDto.newValidityDate),
+                        documentUrl: updateRenewalDto.newDocumentUrl || undefined,
+                    },
+                });
+            }
+
+            if (processedBy) {
+                updateData.processedBy = processedBy;
+                updateData.processedDate = new Date();
+            }
+
+            const updatedRenewal = await this.prisma.certificateRenewal.update({
+                where: { id },
+                data: updateData,
+                include: {
+                    certificate: true,
+                    requester: true,
+                    processor: true,
+                },
+            });
+
+            return this.renewalMapper(updatedRenewal);
+        }, 'update certificate renewal');
+    }
+
+    // ==================== Certificate Reminders ====================
+
+    async findRemindersByCertificateId(certificateId: string): Promise<CertificateReminderDto[]> {
+        const certificate = await this.prisma.certificate.findFirst({
+            where: {
+                id: certificateId,
+                deletedAt: null,
+            },
+        });
+
+        this.errorHandler.throwIfNotFoundById('Certificate', certificateId, certificate);
+
+        const reminders = await this.prisma.certificateReminder.findMany({
+            where: {
+                certificateId,
+            },
+            include: {
+                certificate: true,
+                recipient: true,
+            },
+            orderBy: {
+                reminderDate: 'desc',
+            },
+        });
+
+        return this.reminderArrayMapper(reminders);
+    }
 }
+

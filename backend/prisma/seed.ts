@@ -17,6 +17,8 @@ import { seedFileStorageProviders } from './seeds/file-storage-providers.seed';
 import { seedPPE } from './seeds/ppe.seed';
 import { seedSafetyEquipmentTypes } from './seeds/safety-equipment-types.seed';
 import { seedSafetyEquipments } from './seeds/safety-equipments.seed';
+import { seedCertificateCategories } from './seeds/certificate-categories.seed';
+import { seedCertificates } from './seeds/certificates.seed';
 import { seedCourses } from './seeds/courses.seed';
 import { seedQuizzes } from './seeds/quizzes.seed';
 import { seedWorkPermitsData } from './seeds/work-permits.seed';
@@ -50,40 +52,25 @@ async function main() {
       // Clear Safety Equipment data
       await (prisma as any).safetyEquipment.deleteMany();
       await (prisma as any).safetyEquipmentType.deleteMany();
-      // Clear other data
-      await prisma.masterApprovalItem.deleteMany();
-      await prisma.approval.deleteMany();
-      await prisma.masterApproval.deleteMany();
-      await prisma.user.deleteMany();
-      await prisma.menu.deleteMany();
-      await prisma.role.deleteMany();
-      await prisma.permission.deleteMany();
-      await prisma.office.deleteMany();
-      await prisma.department.deleteMany();
-      await prisma.jobPosition.deleteMany();
-      await prisma.threatMitigation.deleteMany();
-      await prisma.threat.deleteMany();
-      await prisma.hseCategory.deleteMany();
-      await prisma.riskMatrix.deleteMany();
-      await prisma.setting.deleteMany();
-      await prisma.fileAccessLog.deleteMany();
-      await prisma.fileUpload.deleteMany();
-      await prisma.fileCategory.deleteMany();
-      await prisma.fileStorageProvider.deleteMany();
-      // Clear Course data
+      // Clear Certificate data (before User deletion)
+      await prisma.certificateReminder.deleteMany();
+      await prisma.certificateRenewal.deleteMany();
+      await prisma.certificate.deleteMany();
+      await prisma.certificateCategory.deleteMany();
+      // Clear Course data (before User deletion)
       await prisma.progress.deleteMany();
       await prisma.enrollment.deleteMany();
       await prisma.chapter.deleteMany();
       await prisma.course.deleteMany();
       await prisma.courseCategory.deleteMany();
-      // Clear Quiz data
+      // Clear Quiz data (before User deletion)
       await prisma.quizAnswer.deleteMany();
       await prisma.quizAttempt.deleteMany();
       await prisma.quizAssignment.deleteMany();
       await prisma.quizQuestionOption.deleteMany();
       await prisma.quizQuestion.deleteMany();
       await prisma.quiz.deleteMany();
-      // Clear Work Permit data
+      // Clear Work Permit data (before User deletion)
       await prisma.workPermitAttachment.deleteMany();
       await prisma.workPermitHazard.deleteMany();
       await prisma.workPermitRequiredCourse.deleteMany();
@@ -100,6 +87,26 @@ async function main() {
       await prisma.workPermitSupervisorToGuest.deleteMany();
       await prisma.workPermit.deleteMany();
       await prisma.guest.deleteMany();
+      // Clear other data
+      await prisma.masterApprovalItem.deleteMany();
+      await prisma.approval.deleteMany();
+      await prisma.masterApproval.deleteMany();
+      await prisma.fileAccessLog.deleteMany();
+      await prisma.fileUpload.deleteMany();
+      await prisma.user.deleteMany();
+      await prisma.menu.deleteMany();
+      await prisma.role.deleteMany();
+      await prisma.permission.deleteMany();
+      await prisma.office.deleteMany();
+      await prisma.department.deleteMany();
+      await prisma.jobPosition.deleteMany();
+      await prisma.threatMitigation.deleteMany();
+      await prisma.threat.deleteMany();
+      await prisma.hseCategory.deleteMany();
+      await prisma.riskMatrix.deleteMany();
+      await prisma.setting.deleteMany();
+      await prisma.fileCategory.deleteMany();
+      await prisma.fileStorageProvider.deleteMany();
       console.log('All existing data cleared successfully');
     } else {
       // Clear only the specified table
@@ -173,6 +180,14 @@ async function main() {
           await (prisma as any).pPEStockItem.deleteMany();
           await (prisma as any).pPEStock.deleteMany();
           break;
+        case 'certificate_categories':
+          await prisma.certificateRenewal.deleteMany();
+          await prisma.certificate.deleteMany();
+          await prisma.certificateCategory.deleteMany();
+          break;
+        case 'certificates':
+          await prisma.certificateRenewal.deleteMany();
+          await prisma.certificate.deleteMany();
         case 'courses':
           await prisma.progress.deleteMany();
           await prisma.enrollment.deleteMany();
@@ -241,6 +256,8 @@ async function main() {
       await seedSafetyEquipmentTypes();
       await seedSafetyEquipments();
       await seedPPE();
+      await seedCertificateCategories(prisma);
+      await seedCertificates(prisma);
       await seedCourses();
       await seedQuizzes();
       await seedWorkPermitsData(prisma);
@@ -345,6 +362,11 @@ async function main() {
         case 'ppe':
           await seedPPE();
           break;
+        case 'certificate_categories':
+          await seedCertificateCategories(prisma);
+          break;
+        case 'certificates':
+          await seedCertificates(prisma);
         case 'courses':
           await seedCourses();
           break;
@@ -357,7 +379,6 @@ async function main() {
           }
           await seedQuizzes();
           break;
-        case 'work-permits':
         case 'work_permits':
           // Clear work permit related data
           await prisma.workPermitAttachment.deleteMany();

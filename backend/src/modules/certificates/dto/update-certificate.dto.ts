@@ -1,87 +1,86 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsDateString, IsInt, IsEnum, IsBoolean, Min, Max } from 'class-validator';
-import { CertificateTypeEnum } from './certificate.dto';
+import { IsString, IsOptional, IsEnum, IsDateString, IsInt, IsUUID, Min } from 'class-validator';
+import { CertificateTypeEnum } from '@prisma/client';
 
 export class UpdateCertificateDto {
   @ApiProperty({ description: 'Certificate number', required: false })
-  @IsOptional()
   @IsString()
+  @IsOptional()
   certificateNumber?: string;
 
   @ApiProperty({ description: 'Certificate name', required: false })
-  @IsOptional()
   @IsString()
+  @IsOptional()
   certificateName?: string;
 
   @ApiProperty({ description: 'Category ID', required: false })
+  @IsUUID()
   @IsOptional()
-  @IsString()
   categoryId?: string;
 
-  @ApiProperty({ description: 'Certificate type', enum: CertificateTypeEnum, required: false })
-  @IsOptional()
+  @ApiProperty({ enum: CertificateTypeEnum, description: 'Type of certificate', required: false })
   @IsEnum(CertificateTypeEnum)
+  @IsOptional()
   certificateType?: CertificateTypeEnum;
 
-  @ApiProperty({ description: 'Issued date (ISO 8601 format)', required: false })
-  @IsOptional()
+  @ApiProperty({ description: 'Issued date', required: false })
   @IsDateString()
+  @IsOptional()
   issuedDate?: string;
 
-  @ApiProperty({ description: 'Validity date / Expiry date (ISO 8601 format)', required: false })
-  @IsOptional()
+  @ApiProperty({ description: 'Validity date', required: false })
   @IsDateString()
+  @IsOptional()
   validityDate?: string;
 
   @ApiProperty({ description: 'Issuer name', required: false })
-  @IsOptional()
   @IsString()
+  @IsOptional()
   issuerName?: string;
 
   @ApiProperty({ description: 'Document URL', required: false })
-  @IsOptional()
   @IsString()
+  @IsOptional()
   documentUrl?: string;
 
-  @ApiProperty({ description: 'Personnel ID (user ID)', required: false })
+  @ApiProperty({ description: 'Personnel ID', required: false })
+  @IsUUID()
   @IsOptional()
-  @IsString()
   personnelId?: string;
 
-  @ApiProperty({ description: 'Personnel name (free text)', required: false })
-  @IsOptional()
+  @ApiProperty({ description: 'Personnel name', required: false })
   @IsString()
+  @IsOptional()
   personnelName?: string;
 
   @ApiProperty({ description: 'Equipment ID', required: false })
-  @IsOptional()
   @IsString()
+  @IsOptional()
   equipmentId?: string;
 
-  @ApiProperty({ description: 'Equipment name (free text)', required: false })
-  @IsOptional()
+  @ApiProperty({ description: 'Equipment name', required: false })
   @IsString()
+  @IsOptional()
   equipmentName?: string;
 
   @ApiProperty({ description: 'Department ID', required: false })
+  @IsUUID()
   @IsOptional()
-  @IsString()
   departmentId?: string;
 
-  @ApiProperty({ description: 'Reminder days before expiry', required: false, minimum: 1, maximum: 365 })
-  @IsOptional()
+  @ApiProperty({ description: 'Reminder days before expiry', required: false })
   @IsInt()
   @Min(1)
-  @Max(365)
+  @IsOptional()
   reminderDays?: number;
 
   @ApiProperty({ description: 'Notes', required: false })
-  @IsOptional()
   @IsString()
+  @IsOptional()
   notes?: string;
 
-  @ApiProperty({ description: 'Whether certificate is active', required: false })
+  @ApiProperty({ description: 'Whether the certificate is active', required: false })
   @IsOptional()
-  @IsBoolean()
   isActive?: boolean;
 }
+
