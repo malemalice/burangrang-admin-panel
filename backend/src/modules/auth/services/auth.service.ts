@@ -48,6 +48,11 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (!user.isActive) {
+      this.logger.warn(`Login attempt for inactive user: ${email}`);
+      throw new UnauthorizedException('Account is inactive. Please contact administrator.');
+    }
+
     if (!user.password) {
       this.logger.error(`User ${email} has no password set`);
       throw new UnauthorizedException('Invalid credentials');
