@@ -1,14 +1,11 @@
 import { RouteConfig } from '@/core/routes/types';
 import CertificatesPage from '../pages/CertificatesPage';
-import CertificateForm from '../pages/CertificateForm';
+import CreateCertificatePage from '../pages/CreateCertificatePage';
+import EditCertificatePage from '../pages/EditCertificatePage';
 import CertificateDetailPage from '../pages/CertificateDetailPage';
 import CertificateCategoriesPage from '../pages/CertificateCategoriesPage';
 import CreateCertificateCategoryPage from '../pages/CreateCertificateCategoryPage';
 import EditCertificateCategoryPage from '../pages/EditCertificateCategoryPage';
-
-// Wrapper components for routes that need props
-const CreateCertificatePage = () => <CertificateForm mode="create" />;
-const EditCertificatePage = () => <CertificateForm mode="edit" />;
 
 const certificateRoutes: RouteConfig[] = [
     {
