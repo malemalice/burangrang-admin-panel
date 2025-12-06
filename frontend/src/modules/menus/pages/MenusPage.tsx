@@ -22,7 +22,7 @@ import {
   CardTitle,
 } from '@/core/components/ui/card';
 import { useMenus } from '../hooks/useMenus';
-import { MenuDTO } from '../types/menu.types';
+import { Menu } from '../types/menu.types';
 
 const MenusPage = () => {
   const navigate = useNavigate();
@@ -39,17 +39,25 @@ const MenusPage = () => {
 
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
+  const [searchTerm, setSearchTerm] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [menuToDelete, setMenuToDelete] = useState<MenuDTO | null>(null);
+  const [menuToDelete, setMenuToDelete] = useState<Menu | null>(null);
   const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+
+  // Handle search
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    setPageIndex(0); // Reset to first page when searching
+  };
 
   // Load menus when dependencies change - using the hook's fetchMenus
   useEffect(() => {
     fetchMenus({
       page: pageIndex + 1, // API expects 1-based pagination
       limit,
+      search: searchTerm || undefined, // Only include search if it has a value
     });
-  }, [fetchMenus, pageIndex, limit]);
+  }, [fetchMenus, pageIndex, limit, searchTerm]);
 
   const handleDropdownOpenChange = (id: string, open: boolean) => {
     setDropdownOpenStates(prev => ({
@@ -58,7 +66,7 @@ const MenusPage = () => {
     }));
   };
 
-  const handleDeleteClick = (menu: MenuDTO) => {
+  const handleDeleteClick = (menu: Menu) => {
     // Close the dropdown menu for this menu item
     setDropdownOpenStates(prev => ({
       ...prev,
@@ -91,7 +99,7 @@ const MenusPage = () => {
       id: 'name',
       header: 'Menu Item',
       isSortable: true,
-      cell: (menu: MenuDTO) => (
+      cell: (menu: Menu) => (
         <div className="flex items-center">
           {menu.parentId && <ArrowRight size={16} className="mr-2 text-gray-400" />}
           <div>
@@ -104,18 +112,18 @@ const MenusPage = () => {
     {
       id: 'icon',
       header: 'Icon',
-      cell: (menu: MenuDTO) => <div className="text-sm">{menu.icon || 'N/A'}</div>,
+      cell: (menu: Menu) => <div className="text-sm">{menu.icon || 'N/A'}</div>,
     },
     {
       id: 'order',
       header: 'Order',
       isSortable: true,
-      cell: (menu: MenuDTO) => <div className="text-center">{menu.order}</div>,
+      cell: (menu: Menu) => <div className="text-center">{menu.order}</div>,
     },
     {
       id: 'isActive',
       header: 'Status',
-      cell: (menu: MenuDTO) => (
+      cell: (menu: Menu) => (
         <Badge variant="outline" className={menu.isActive ? 'bg-green-100 text-green-800 border-0' : 'bg-gray-100 text-gray-800 border-0'}>
           {menu.isActive ? 'Active' : 'Inactive'}
         </Badge>
@@ -124,7 +132,7 @@ const MenusPage = () => {
     {
       id: 'roles',
       header: 'Access',
-      cell: (menu: MenuDTO) => (
+      cell: (menu: Menu) => (
         <div className="flex flex-wrap gap-2">
           {menu.roles && menu.roles.length > 0 ? (
             menu.roles.length > 2 ? (
@@ -154,7 +162,7 @@ const MenusPage = () => {
     {
       id: 'actions',
       header: 'Actions',
-      cell: (menu: MenuDTO) => (
+      cell: (menu: Menu) => (
         <DropdownMenu
           open={dropdownOpenStates[menu.id]}
           onOpenChange={(open) => handleDropdownOpenChange(menu.id, open)}
@@ -305,6 +313,7 @@ const MenusPage = () => {
           total: totalMenus
         }}
         isLoading={isLoading}
+        onSearch={handleSearch}
       />
 
 
