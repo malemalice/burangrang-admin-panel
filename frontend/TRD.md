@@ -2,17 +2,19 @@
 ## Frontend Modular Architecture Restructuring
 
 ### 📋 Document Information
-- **Version**: 1.3
+- **Version**: 1.4
 - **Date**: 2024-12-XX
 - **Status**: Active
 - **Author**: Development Team
-- **Last Updated**: UI/UX Principles Section Added
+- **Last Updated**: Form Layout Principles Merged
 
 ---
 
 ## 🎯 Executive Summary
 
 This document outlines the technical requirements and architectural principles for restructuring the frontend application from a traditional layered architecture to a modular, feature-based architecture. The restructuring aims to improve maintainability, scalability, and developer experience while following modern frontend best practices.
+
+**Version 1.4 Updates**: Merged form layout principles from `frontend-form-general-layout.md`, including page structure patterns (PageHeader → max-w-4xl wrapper → Form Component), component hierarchy guidelines, layout patterns (two-column grid, spacing standards), state patterns (loading/error states), and action button patterns. Enhanced "Form Page Specific Guidelines" and "Form Component Patterns" sections with complete implementation examples and quick reference checklist.
 
 **Version 1.3 Updates**: Added comprehensive UI/UX principles section for back-office systems, including user-centered design principles, layout patterns (Master-Detail, Data Density), component patterns (Data Tables, Search & Filters, Modal vs Page), advanced features (Bulk Actions, Undo/Redo, Audit Trails, Export), form-specific guidelines, and enhanced design system details (typography scale, spacing system, button hierarchy, icon usage, semantic status colors). Merged UI/UX principles from `ui-ux-principle.md` to provide complete design guidance.
 
@@ -406,6 +408,101 @@ When designing UI/UX for **back-office systems** (ERP, Internal Dashboards), the
   - Maximum density
   - Only for simple, short fields
   - Not recommended for complex inputs
+
+#### Page Structure & Component Hierarchy
+
+**Standard Form Page Structure:**
+```
+PageHeader → max-w-4xl wrapper → Form Component (Card)
+```
+
+**Create/Edit Pages Pattern:**
+- **PageHeader** with title, subtitle, and optional back button
+- **max-w-4xl mx-auto** wrapper to constrain form width
+- Form component (Card inside wrapper)
+
+**Form Component Structure:**
+- ❌ **NO PageHeader inside form component** - PageHeader belongs at page level
+- Returns **Card** directly with CardHeader and CardContent
+- Uses `space-y-6` for consistent form field spacing
+
+**Example Structure:**
+```tsx
+// Page level (Create/Edit Page)
+<PageHeader
+  title="Create/Edit [Entity]"
+  subtitle="Description or context"
+  actions={
+    <Button variant="outline" onClick={() => navigate('/path')}>
+      <ArrowLeft className="mr-2 h-4 w-4" /> Back to [Entities]
+    </Button>
+  }
+/>
+<div className="max-w-4xl mx-auto">
+  <[Entity]Form entity={entity} mode={mode} />
+</div>
+
+// Form Component
+<Card>
+  <CardHeader>
+    <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} [Entity]</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* Form fields */}
+      </form>
+    </Form>
+  </CardContent>
+</Card>
+```
+
+#### Layout Patterns & Spacing Standards
+
+**Field Organization:**
+- **Two-column grid**: Related fields (name/code, first/last name)
+  ```tsx
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <FormField name="firstName" />
+    <FormField name="lastName" />
+  </div>
+  ```
+- **Single column**: Full-width fields (email, description, textareas)
+
+**Spacing Standards:**
+- Form container: `space-y-6` (between form sections)
+- Grid gaps: `gap-6` (between grid columns/rows)
+- Button group: `gap-4` (between action buttons)
+- CardContent: `space-y-6` (internal form spacing)
+
+**Action Buttons:**
+- **Position**: `flex justify-end gap-4` at form bottom
+- **Cancel**: `variant="outline"`
+- **Submit**: Primary button (default variant)
+- **Text**: Context-specific ("Create", "Save Changes", "Update")
+
+#### State Patterns
+
+**Loading State:**
+```tsx
+<div className="flex items-center justify-center min-h-[400px]">
+  <div className="flex items-center gap-2">
+    <Loader2 className="h-6 w-6 animate-spin" />
+    <span>Loading [entity] details...</span>
+  </div>
+</div>
+```
+
+**Error State (Not Found):**
+```tsx
+<div className="text-center py-12">
+  <h2 className="text-xl font-semibold text-gray-900 mb-2">[Entity] not found</h2>
+  <p className="text-gray-600 mb-4">The [entity] you're looking for doesn't exist or has been deleted.</p>
+  <Button onClick={() => navigate('/path')}>
+    <ArrowLeft className="mr-2 h-4 w-4" /> Back to [Entities]
+  </Button>
+</div>
+```
 
 #### Optimal Viewport & Layout
 - **Minimum width**: 1280px (comfortable ERP work)
@@ -1324,8 +1421,40 @@ export const use[Entity] = (id: string | null = null) => {
 ```
 
 #### 2. Form Component Patterns
-Consistent form handling across all modules:
+Consistent form handling across all modules. **See "Form Page Specific Guidelines" section above for complete page structure and layout patterns.**
 
+**Page-Level Structure (Create/Edit Page):**
+```typescript
+// modules/[module-name]/pages/Create[Entity]Page.tsx or Edit[Entity]Page.tsx
+import { useNavigate } from 'react-router-dom';
+import PageHeader from '@/core/components/ui/PageHeader';
+import { Button } from '@/core/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
+import { [Entity]Form } from './[Entity]Form';
+
+const Create[Entity]Page = () => {
+  const navigate = useNavigate();
+  
+  return (
+    <>
+      <PageHeader
+        title="Create [Entity]"
+        subtitle="Add a new [entity] to the system"
+        actions={
+          <Button variant="outline" onClick={() => navigate('/[entities]')}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to [Entities]
+          </Button>
+        }
+      />
+      <div className="max-w-4xl mx-auto">
+        <[Entity]Form mode="create" />
+      </div>
+    </>
+  );
+};
+```
+
+**Form Component:**
 ```typescript
 // modules/[module-name]/pages/[Entity]Form.tsx
 import { useEffect, useState } from 'react';
@@ -1435,6 +1564,16 @@ const [Entity]Form = ({ [entity], mode }: [Entity]FormProps) => {
   );
 };
 ```
+
+**Form Layout Quick Checklist:**
+- [ ] PageHeader at page level (not inside form component)
+- [ ] `max-w-4xl mx-auto` wrapper around form component
+- [ ] Form component returns Card directly (no PageHeader inside)
+- [ ] Two-column grid (`grid grid-cols-1 md:grid-cols-2 gap-6`) for related fields
+- [ ] Consistent spacing (`space-y-6` for form, `gap-6` for grids, `gap-4` for buttons)
+- [ ] Standardized loading/error states (see State Patterns above)
+- [ ] Action buttons with `flex justify-end gap-4` at form bottom
+- [ ] Cancel button uses `variant="outline"`, Submit uses primary button
 
 #### 3. Cross-Module Data Dependencies
 When forms need data from other modules:
@@ -1939,6 +2078,7 @@ const columns = [
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.4 | 2024-12-XX | Development Team | Merged form layout principles from `frontend-form-general-layout.md`, including page structure patterns (PageHeader → max-w-4xl wrapper → Form Component), component hierarchy guidelines, layout patterns (two-column grid, spacing standards), state patterns (loading/error states), and action button patterns. Enhanced "Form Page Specific Guidelines" and "Form Component Patterns" sections with complete implementation examples and quick reference checklist. |
 | 1.3 | 2024-12-XX | Development Team | Added comprehensive UI/UX principles section for back-office systems, including user-centered design principles, layout patterns (Master-Detail, Data Density), component patterns (Data Tables, Search & Filters, Modal vs Page), advanced features (Bulk Actions, Undo/Redo, Audit Trails, Export), form-specific guidelines, and enhanced design system details (typography scale, spacing system, button hierarchy, icon usage, semantic status colors). Merged UI/UX principles from `ui-ux-principle.md`. |
 | 1.2 | 2024-12-XX | Development Team | Added comprehensive design system documentation including color system, typography, spacing, component patterns, theme system, animations, and design system best practices |
 | 1.1 | 2024-12-XX | Development Team | Added comprehensive module interaction patterns, API conventions, CRUD patterns, form handling, error handling, implementation checklists, code examples library, and development workflow guidelines |
