@@ -66,7 +66,10 @@ const menuService = {
     });
 
     // Add search and filters
-    if (params.search) queryParams.append('search', params.search);
+    // Only include search if it's a non-empty trimmed string
+    if (params.search && params.search.trim().length > 0) {
+      queryParams.append('search', params.search.trim());
+    }
     if (params.sortBy) queryParams.append('sortBy', params.sortBy);
     if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
     if (params.filters) {
