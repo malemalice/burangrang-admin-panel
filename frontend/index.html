@@ -16,13 +16,11 @@
           
           if (isDark) {
             document.documentElement.classList.add('dark');
-            console.log('[Theme Init] Applied dark mode from localStorage');
           } else {
             document.documentElement.classList.remove('dark');
-            console.log('[Theme Init] Applied light mode from localStorage');
           }
         } catch (e) {
-          console.error('[Theme Init] Error:', e);
+          // Silently fail - theme will be initialized by JavaScript module
         }
       })();
     </script>
