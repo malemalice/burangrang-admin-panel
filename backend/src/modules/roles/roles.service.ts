@@ -7,11 +7,22 @@ import { PermissionDto } from '../permissions/dto/permission.dto';
 import { ConfigService } from '@nestjs/config';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { Prisma } from '@prisma/client';
+
+interface FindRolesOptions {
+  page?: number;
+  limit?: number;
+  search?: string;
+  isActive?: boolean;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
 
 @Injectable()
 export class RolesService {
   private roleMapper: (role: any) => RoleDto;
   private roleArrayMapper: (roles: any[]) => RoleDto[];
+  private rolePaginatedMapper: (data: { data: any[]; meta: any }) => { data: RoleDto[]; meta: any };
   private permissionMapper: (permission: any) => PermissionDto;
   private permissionArrayMapper: (permissions: any[]) => PermissionDto[];
 
@@ -35,6 +46,15 @@ export class RolesService {
     });
 
     this.roleArrayMapper = this.dtoMapper.createArrayMapper(RoleDto, {
+      relations: {
+        permissions: {
+          mapper: this.permissionMapper,
+          isArray: true,
+        },
+      },
+    });
+
+    this.rolePaginatedMapper = this.dtoMapper.createPaginatedMapper(RoleDto, {
       relations: {
         permissions: {
           mapper: this.permissionMapper,
@@ -92,14 +112,61 @@ export class RolesService {
     return this.roleMapper(role);
   }
 
-  async findAll(): Promise<RoleDto[]> {
-    const roles = await this.prisma.role.findMany({
-      include: {
-        permissions: true,
-      },
-    });
+  async findAll(options?: FindRolesOptions): Promise<{
+    data: RoleDto[];
+    meta: { total: number; page: number; limit: number; pageCount: number };
+  }> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      isActive,
+      search,
+    } = options || {};
 
-    return this.roleArrayMapper(roles);
+    const where: Prisma.RoleWhereInput = {};
+
+    // Handle search - only search if search term is not empty after trimming
+    if (search) {
+      const searchTerm = search.trim();
+      if (searchTerm.length > 0) {
+        // Escape special characters for Prisma
+        // Prisma uses contains with mode: 'insensitive' for case-insensitive search
+        where.OR = [
+          { name: { contains: searchTerm, mode: 'insensitive' } },
+          { description: { contains: searchTerm, mode: 'insensitive' } },
+        ];
+      }
+    }
+
+    // Handle isActive filter
+    if (isActive !== undefined) {
+      where.isActive = isActive;
+    }
+
+    // Get total count and roles in parallel
+    const [roles, total] = await Promise.all([
+      this.prisma.role.findMany({
+        where,
+        include: {
+          permissions: true,
+        },
+        orderBy: {
+          [sortBy]: sortOrder,
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.role.count({ where }),
+    ]);
+
+    const pageCount = Math.ceil(total / limit);
+
+    return this.rolePaginatedMapper({
+      data: roles,
+      meta: { total, page, limit, pageCount },
+    });
   }
 
   async findOne(id: string): Promise<RoleDto> {

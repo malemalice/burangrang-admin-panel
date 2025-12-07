@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -15,6 +16,7 @@ import {
   ApiParam,
   ApiBody,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { RolesService } from './roles.service';
 import { CreateRoleDto } from './dto/create-role.dto';
@@ -49,11 +51,42 @@ export class RolesController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all roles' })
-  @ApiResponse({ status: 200, description: 'Return all roles.' })
+  @ApiOperation({ summary: 'Get all roles with pagination and filtering' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term' })
+  @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
+  @ApiQuery({ name: 'sortBy', required: false, type: String, description: 'Sort field' })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Sort order' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Return paginated roles.',
+    type: RoleDto,
+    isArray: false
+  })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
-  findAll() {
-    return this.rolesService.findAll();
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('isActive') isActive?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+  ): Promise<{ data: RoleDto[]; meta: { total: number; page: number; limit: number; pageCount: number } }> {
+    // Convert string parameters to their proper types
+    const pageNumber = page ? parseInt(page, 10) : undefined;
+    const limitNumber = limit ? parseInt(limit, 10) : undefined;
+    const isActiveBoolean =
+      isActive === undefined ? undefined : isActive === 'true';
+
+    return this.rolesService.findAll({
+      page: pageNumber,
+      limit: limitNumber,
+      search,
+      isActive: isActiveBoolean,
+      sortBy,
+      sortOrder,
+    });
   }
 
   @Get(':id')
