@@ -47,7 +47,6 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
           await themeValue.loadThemeFromBackend();
         }
       } catch (error) {
-        console.warn('Failed to load theme from backend on startup, using defaults:', error);
         // Theme will fall back to localStorage or default values
       }
     };

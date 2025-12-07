@@ -54,10 +54,14 @@ const RolesPage = () => {
   const fetchRoles = useCallback(async () => {
     setIsLoading(true);
     try {
+      // Only include search if it's not empty after trimming
+      const trimmedSearch = searchTerm.trim();
+      const searchValue = trimmedSearch.length > 0 ? trimmedSearch : undefined;
+      
       const params: PaginationParams = {
         page: pageIndex + 1,
         limit,
-        search: searchTerm,
+        search: searchValue,
         filters: {
           ...Object.entries(activeFilters).reduce((acc, [key, item]) => ({
             ...acc,
@@ -147,8 +151,12 @@ const RolesPage = () => {
   };
 
   const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    setPageIndex(0); // Reset to first page when search changes
+    // Trim the search term and only update if it's different
+    const trimmedTerm = term.trim();
+    if (trimmedTerm !== searchTerm.trim()) {
+      setSearchTerm(trimmedTerm);
+      setPageIndex(0); // Reset to first page when search changes
+    }
   };
 
   const handleApplyFilters = (filters: FilterValue[]) => {

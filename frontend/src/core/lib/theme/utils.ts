@@ -24,8 +24,6 @@ export const getThemeColor = (theme: ThemeColor, colorType: 'primary' | 'seconda
  */
 export const initializeThemeVariables = (theme: ThemeColor = 'blue', mode: ThemeMode = 'light'): void => {
   const root = document.documentElement;
-  
-  console.log('[initializeThemeVariables] Setting colors via JS:', { theme, mode });
 
   if (mode === 'light') {
     // Light mode: Use theme colors for primary/secondary/accent
@@ -139,8 +137,6 @@ interface UseThemeReturn {
     document.documentElement.classList.remove('dark');
   }
   
-  console.log('[Theme Utils Init] Initializing theme:', { theme: savedTheme, mode: initialMode });
-  
   // Initialize CSS variables immediately
   initializeThemeVariables(savedTheme, initialMode);
 })();
@@ -184,7 +180,6 @@ export const useTheme = (): UseThemeReturn => {
       // Check if user is authenticated before making API calls
       const accessToken = localStorage.getItem('access_token');
       if (!accessToken) {
-        console.debug('User not authenticated, skipping backend theme load');
         return { color: theme, mode };
       }
 
@@ -207,10 +202,6 @@ export const useTheme = (): UseThemeReturn => {
 
       return themeSettings;
     } catch (error: any) {
-      // Don't log 401 errors as they are expected when not authenticated
-      if (error?.response?.status !== 401) {
-        console.warn('Failed to load theme from backend, using localStorage defaults:', error);
-      }
       // Continue with localStorage values if backend fails
       return { color: theme, mode };
     } finally {
@@ -224,7 +215,6 @@ export const useTheme = (): UseThemeReturn => {
       // Check if user is authenticated before making API calls
       const accessToken = localStorage.getItem('access_token');
       if (!accessToken) {
-        console.debug('User not authenticated, skipping backend theme save');
         return;
       }
 
@@ -233,10 +223,6 @@ export const useTheme = (): UseThemeReturn => {
 
       await settingsService.setThemeSettings(newTheme, newMode);
     } catch (error: any) {
-      // Don't log 401 errors as they are expected when not authenticated
-      if (error?.response?.status !== 401) {
-        console.warn('Failed to save theme to backend:', error);
-      }
       // Don't throw error - localStorage will still work as fallback
     }
   };
@@ -250,8 +236,6 @@ export const useTheme = (): UseThemeReturn => {
 
     // Apply theme colors via JavaScript (works for both modes)
     initializeThemeVariables(theme, mode);
-    
-    console.log('[useEffect theme] Applied theme:', theme, 'mode:', mode);
 
     // Save to backend (don't await to avoid blocking UI)
     saveThemeToBackend(theme, mode);
@@ -274,8 +258,6 @@ export const useTheme = (): UseThemeReturn => {
     // Set all colors via JavaScript
     initializeThemeVariables(theme, mode);
 
-    console.log('[useEffect mode] Applied mode:', mode);
-
     // Save to backend (don't await to avoid blocking UI)
     saveThemeToBackend(theme, mode);
   }, [mode, theme, isInitialMount]);
@@ -287,10 +269,6 @@ export const useTheme = (): UseThemeReturn => {
 
       // Apply via JavaScript immediately
       initializeThemeVariables(newTheme, mode);
-      
-      console.log(`Applied theme ${newTheme} in ${mode} mode`);
-    } else {
-      console.warn(`Theme "${newTheme}" is not a valid theme.`);
     }
   };
 
@@ -308,10 +286,6 @@ export const useTheme = (): UseThemeReturn => {
       
       // Set all colors via JavaScript
       initializeThemeVariables(theme, newMode);
-      
-      console.log(`Applied ${newMode} mode`);
-    } else {
-      console.warn(`Mode "${newMode}" is not a valid mode.`);
     }
   };
 

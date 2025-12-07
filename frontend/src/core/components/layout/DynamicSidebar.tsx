@@ -12,9 +12,12 @@ import { themeColors, getContrastTextColor } from '@/core/lib/theme/colors';
 import { useAppName } from '@/modules/settings/hooks/useSettings';
 import { useSidebarMenus } from '@/modules/menus';
 import { Menu, SidebarMenu } from '@/modules/menus/types/menu.types';
+import { useIsMobile } from '@/core/hooks/useIsMobile';
+import { Sheet, SheetContent } from '@/core/components/ui/sheet';
 
 interface DynamicSidebarProps {
   isOpen: boolean;
+  onClose?: () => void;
 }
 
 interface DynamicNavItemProps {
@@ -158,32 +161,29 @@ const DynamicMenuItem = ({ menu, isOpen, level = 0 }: DynamicNavItemProps) => {
   );
 };
 
-const DynamicSidebar = ({ isOpen }: DynamicSidebarProps) => {
-  const { isDark, theme } = useTheme();
-  const { appName } = useAppName();
-  const { sidebarMenus, isLoading, error } = useSidebarMenus();
-
-  // In dark mode, use neutral dark color; in light mode, use theme color
-  const currentThemeColor = isDark 
-    ? 'hsl(240 5.9% 10%)' // Dark neutral for sidebar in dark mode
-    : (themeColors[theme]?.primary || '#6366f1');
-  const textColor = isDark 
-    ? 'hsl(240 4.8% 95.9%)' // Light text for dark sidebar
-    : getContrastTextColor(currentThemeColor);
-
-  // Show loading state
+// Sidebar content component to be reused in both mobile and desktop
+const SidebarContent = ({ 
+  isOpen, 
+  currentThemeColor, 
+  textColor, 
+  appName, 
+  isDark, 
+  sidebarMenus, 
+  isLoading, 
+  error 
+}: {
+  isOpen: boolean;
+  currentThemeColor: string;
+  textColor: string;
+  appName: string;
+  isDark: boolean;
+  sidebarMenus: SidebarMenu[];
+  isLoading: boolean;
+  error: any;
+}) => {
   if (isLoading) {
     return (
-      <aside
-        className={cn(
-          "fixed h-full border-r shadow-sm z-30 transition-all duration-300 ease-in-out flex flex-col",
-          isOpen ? "w-64" : "w-20"
-        )}
-        style={{
-          backgroundColor: currentThemeColor,
-          borderColor: currentThemeColor + '30',
-        }}
-      >
+      <>
         <div className={cn(
           "flex items-center justify-center h-16 border-b px-4 flex-shrink-0",
           "border-sidebar-border"
@@ -200,23 +200,13 @@ const DynamicSidebar = ({ isOpen }: DynamicSidebarProps) => {
             <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
           </div>
         </div>
-      </aside>
+      </>
     );
   }
 
-  // Show error state
   if (error) {
     return (
-      <aside
-        className={cn(
-          "fixed h-full border-r shadow-sm z-30 transition-all duration-300 ease-in-out flex flex-col",
-          isOpen ? "w-64" : "w-20"
-        )}
-        style={{
-          backgroundColor: currentThemeColor,
-          borderColor: currentThemeColor + '30',
-        }}
-      >
+      <>
         <div className={cn(
           "flex items-center justify-center h-16 border-b px-4 flex-shrink-0",
           "border-sidebar-border"
@@ -233,21 +223,12 @@ const DynamicSidebar = ({ isOpen }: DynamicSidebarProps) => {
             {isOpen ? "Failed to load menus" : "!"}
           </div>
         </div>
-      </aside>
+      </>
     );
   }
 
   return (
-    <aside
-      className={cn(
-        "fixed h-full border-r shadow-sm z-30 transition-all duration-300 ease-in-out flex flex-col",
-        isOpen ? "w-64" : "w-20"
-      )}
-      style={{
-        backgroundColor: currentThemeColor,
-        borderColor: currentThemeColor + '30',
-      }}
-    >
+    <>
       <div className={cn(
         "flex items-center justify-center h-16 border-b px-4 flex-shrink-0",
         isDark ? "border-gray-800" : "border-white/10"
@@ -270,6 +251,75 @@ const DynamicSidebar = ({ isOpen }: DynamicSidebarProps) => {
           />
         ))}
       </div>
+    </>
+  );
+};
+
+const DynamicSidebar = ({ isOpen, onClose }: DynamicSidebarProps) => {
+  const { isDark, theme } = useTheme();
+  const { appName } = useAppName();
+  const { sidebarMenus, isLoading, error } = useSidebarMenus();
+  const isMobile = useIsMobile();
+
+  // In dark mode, use neutral dark color; in light mode, use theme color
+  const currentThemeColor = isDark 
+    ? 'hsl(240 5.9% 10%)' // Dark neutral for sidebar in dark mode
+    : (themeColors[theme]?.primary || '#6366f1');
+  const textColor = isDark 
+    ? 'hsl(240 4.8% 95.9%)' // Light text for dark sidebar
+    : getContrastTextColor(currentThemeColor);
+
+  // Mobile: Use Sheet component (overlay drawer)
+  if (isMobile) {
+    return (
+      <Sheet open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
+        <SheetContent
+          side="left"
+          className="w-64 p-0 bg-sidebar border-r [&>button]:hidden"
+          style={{
+            backgroundColor: currentThemeColor,
+            borderColor: currentThemeColor + '30',
+          }}
+        >
+          <div className="flex flex-col h-full">
+            <SidebarContent
+              isOpen={true}
+              currentThemeColor={currentThemeColor}
+              textColor={textColor}
+              appName={appName}
+              isDark={isDark}
+              sidebarMenus={sidebarMenus}
+              isLoading={isLoading}
+              error={error}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  // Desktop: Use fixed sidebar
+  return (
+    <aside
+      className={cn(
+        "fixed h-full border-r shadow-sm z-20 transition-all duration-300 ease-in-out flex flex-col hidden md:flex",
+        isOpen ? "w-64" : "w-20"
+      )}
+      style={{
+        backgroundColor: currentThemeColor,
+        borderColor: currentThemeColor + '30',
+      }}
+    >
+      <SidebarContent
+        isOpen={isOpen}
+        currentThemeColor={currentThemeColor}
+        textColor={textColor}
+        appName={appName}
+        isDark={isDark}
+        sidebarMenus={sidebarMenus}
+        isLoading={isLoading}
+        error={error}
+      />
     </aside>
   );
 };
