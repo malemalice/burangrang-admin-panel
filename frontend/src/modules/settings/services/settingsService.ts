@@ -5,6 +5,65 @@ import { ThemeColor, ThemeMode } from '@/core/lib/theme';
  * Settings service for managing application settings via backend
  */
 const settingsService = {
+  // Email settings helpers
+  getMailSettings: async (): Promise<{
+    provider: 'smtp' | 'gmail' | 'mailgun';
+    host: string;
+    port: string;
+    secure: string;
+    user: string;
+    password: string;
+    from: string;
+  }> => {
+    const [
+      provider,
+      host,
+      port,
+      secure,
+      user,
+      password,
+      from,
+    ] = await Promise.all([
+      settingsService.getSettingValue('mail.provider'),
+      settingsService.getSettingValue('mail.host'),
+      settingsService.getSettingValue('mail.port'),
+      settingsService.getSettingValue('mail.secure'),
+      settingsService.getSettingValue('mail.user'),
+      settingsService.getSettingValue('mail.password'),
+      settingsService.getSettingValue('mail.from'),
+    ]);
+
+    return {
+      provider: (provider as 'smtp' | 'gmail' | 'mailgun') || 'smtp',
+      host: host || '',
+      port: port || '',
+      secure: secure || 'false',
+      user: user || '',
+      password: password || '',
+      from: from || '',
+    };
+  },
+
+  setMailSettings: async (values: {
+    provider: 'smtp' | 'gmail' | 'mailgun';
+    host: string;
+    port: string;
+    secure: string; // 'true' | 'false' as strings to match backend pattern
+    user: string;
+    password: string;
+    from: string;
+  }): Promise<void> => {
+    await Promise.all([
+      settingsService.setSettingValue('mail.provider', values.provider),
+      settingsService.setSettingValue('mail.host', values.host),
+      settingsService.setSettingValue('mail.port', values.port),
+      settingsService.setSettingValue('mail.secure', values.secure),
+      settingsService.setSettingValue('mail.user', values.user),
+      settingsService.setSettingValue('mail.password', values.password),
+      settingsService.setSettingValue('mail.from', values.from),
+    ]);
+  },
+
   // Get setting value by key with retry limit
   getSettingValue: async (key: string, retryCount: number = 0): Promise<string | null> => {
     const MAX_RETRIES = 1; // Only retry once to prevent infinite loops

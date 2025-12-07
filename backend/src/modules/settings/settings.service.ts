@@ -159,7 +159,6 @@ export class SettingsService {
 
     if (!existingSetting) {
       // Create the setting if it doesn't exist
-      console.log(`Setting ${key} not found, creating it`);
       const newSetting = await this.prisma.setting.create({
         data: {
           key,

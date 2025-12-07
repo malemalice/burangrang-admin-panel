@@ -42,7 +42,7 @@ const ProductsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields for products
   const filterFields: FilterField[] = [
@@ -165,9 +165,16 @@ const ProductsPage = () => {
       await deleteProduct(productToDelete.id);
       setDeleteDialogOpen(false);
       setProductToDelete(null);
+      setOpenDropdownId(null); // Ensure dropdown is closed
     } catch (error) {
       console.error('Failed to delete product:', error);
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setProductToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   const handleViewProduct = (product: Product) => {
@@ -179,7 +186,9 @@ const ProductsPage = () => {
     navigate(`/products/${product.id}/edit`);
   };
 
-  const handleDeleteClick = (product: Product) => {
+  const handleDeleteClick = (product: Product, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setProductToDelete(product);
     setDeleteDialogOpen(true);
   };
@@ -268,7 +277,21 @@ const ProductsPage = () => {
       header: 'Price',
       cell: (product: Product) => (
         <div className="text-right">
-          {product.isOnSale ? (
+          {product.isFreePrice ? (
+            <div>
+              <div className="font-medium text-blue-600">Self Price</div>
+              {product.minFreePrice && (
+                <div className="text-xs text-gray-500">
+                  Min: {formatPriceDisplay(product.minFreePrice)}
+                </div>
+              )}
+              {product.maxFreePrice && (
+                <div className="text-xs text-gray-500">
+                  Max: {formatPriceDisplay(product.maxFreePrice)}
+                </div>
+              )}
+            </div>
+          ) : product.isOnSale ? (
             <div>
               <div className="text-sm text-gray-500 line-through">
                 {formatPriceDisplay(product.price)}
@@ -319,7 +342,12 @@ const ProductsPage = () => {
       id: 'actions',
       header: 'Actions',
       cell: (product: Product) => (
-        <DropdownMenu>
+        <DropdownMenu 
+          open={openDropdownId === product.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? product.id : null);
+          }}
+        >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <MoreHorizontal className="h-4 w-4" />
@@ -334,7 +362,7 @@ const ProductsPage = () => {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
-              onClick={() => handleDeleteClick(product)}
+              onClick={(e) => handleDeleteClick(product, e)}
               className="text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -388,10 +416,15 @@ const ProductsPage = () => {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         title="Delete Product"
         description={`Are you sure you want to delete "${productToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDelete}
+        variant="destructive"
       />
     </div>
   );

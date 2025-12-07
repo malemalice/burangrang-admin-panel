@@ -1,9 +1,19 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  Logger,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../../core/services/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { Response } from 'express';
 import * as crypto from 'crypto';
+import { SignupDto } from '../dto/signup.dto';
+import { ForgotPasswordDto } from '../dto/forgot-password.dto';
+import { ResetPasswordDto } from '../dto/reset-password.dto';
+import { MailService } from '../../mail/mail.service';
 
 interface AuthenticatedUser {
   id: string;
@@ -23,14 +33,13 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private mailService: MailService,
   ) {}
 
   async validateUser(
     email: string,
     plainPassword: string,
   ): Promise<AuthenticatedUser> {
-    this.logger.debug(`Attempting to validate user: ${email}`);
-
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: { role: true },
@@ -63,8 +72,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    this.logger.debug(`User ${email} authenticated successfully`);
-    const { password, ...result } = user;
+    const { password: _password, ...result } = user;
     return result as AuthenticatedUser;
   }
 
@@ -95,9 +103,6 @@ export class AuthService {
         where: { userId },
       });
 
-      this.logger.debug(
-        `Deleted ${deleteResult.count} existing refresh token(s) for user ${userId}`,
-      );
 
       // Add randomness to the token to ensure uniqueness
       const randomStr = crypto.randomBytes(32).toString('hex');
@@ -181,9 +186,6 @@ export class AuthService {
       where: { id: refreshToken.id },
     });
 
-    this.logger.debug(
-      `Deleted ${deleteResult.count} refresh token(s) for user ${user.id}`,
-    );
 
     // Create new refresh token
     const newRefreshToken = await this.createRefreshToken(user.id);
@@ -209,19 +211,222 @@ export class AuthService {
         where: { userId },
       });
 
-      this.logger.debug(
-        `Logged out user ${userId}, deleted ${deleteResult.count} refresh token(s)`,
-      );
 
       return { success: true };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.error(`Error during logout for user ${userId}: ${errorMessage}`);
+      this.logger.error(
+        `Error during logout for user ${userId}: ${errorMessage}`,
+      );
       
       // Don't throw error for logout - it should always succeed
       // even if token deletion fails
       return { success: true };
     }
+  }
+
+  async signup(signupDto: SignupDto) {
+    // Check if user already exists
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: signupDto.email },
+    });
+
+    if (existingUser) {
+      this.logger.warn(`User already exists with email: ${signupDto.email}`);
+      throw new ConflictException('User with this email already exists');
+    }
+
+    // Get default role (User role)
+    const defaultRole = await this.prisma.role.findFirst({
+      where: { name: 'User' },
+    });
+
+    if (!defaultRole) {
+      this.logger.error('Default role "User" not found');
+      throw new BadRequestException('Default role not found');
+    }
+
+    // Get default office
+    const defaultOffice = await this.prisma.office.findFirst({
+      where: { isActive: true },
+    });
+
+    if (!defaultOffice) {
+      this.logger.error('No active office found');
+      throw new BadRequestException('No active office found');
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(signupDto.password, 10);
+
+    // Create user
+    const user = await this.prisma.user.create({
+      data: {
+        email: signupDto.email,
+        password: hashedPassword,
+        firstName: signupDto.firstName,
+        lastName: signupDto.lastName,
+        roleId: defaultRole.id,
+        officeId: defaultOffice.id,
+        isActive: true,
+      },
+      include: { role: true },
+    });
+
+    // Best-effort welcome email (non-blocking)
+    try {
+      const fullName =
+        [user.firstName, user.lastName].filter(Boolean).join(' ') ||
+        user.firstName ||
+        user.email;
+      await this.mailService.sendWelcomeEmail({
+        email: user.email,
+        name: fullName,
+      });
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`Welcome email failed for ${user.email}: ${errorMessage}`);
+    }
+
+    // Create customer profile if phone is provided
+    if (signupDto.phone) {
+      await this.prisma.customer.create({
+        data: {
+          userId: user.id,
+          phone: signupDto.phone,
+        },
+      });
+    }
+
+    // Generate JWT tokens
+    const payload = { email: user.email, sub: user.id, role: user.role.name };
+    const accessToken = this.jwtService.sign(payload, { expiresIn: 3600 }); // 1 hour
+    const refreshToken = await this.createRefreshToken(user.id);
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role.name,
+      },
+    };
+  }
+
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+    const { email } = forgotPasswordDto;
+
+    // Check if user exists
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      this.logger.warn(`Password reset requested for non-existent email: ${email}`);
+      return {
+        message: 'If an account with this email exists, a password reset link has been sent.',
+      };
+    }
+
+    // Check if user has a password (not OAuth-only user)
+    if (!user.password) {
+      this.logger.warn(`Password reset requested for OAuth-only user: ${email}`);
+      return {
+        message: 'If an account with this email exists, a password reset link has been sent.',
+      };
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Store reset token in database
+    await this.prisma.passwordResetToken.create({
+      data: {
+        token: resetToken,
+        userId: user.id,
+        email: user.email,
+        expiresAt,
+      },
+    });
+
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+
+    // Send password reset email (non-blocking failure)
+    try {
+      await this.mailService.sendPasswordResetEmail({
+        email: user.email,
+        name: `${user.firstName} ${user.lastName}`.trim(),
+        resetLink: resetUrl,
+      });
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.logger.error(`Failed to send reset email to ${email}: ${errorMessage}`);
+    }
+
+    return {
+      message: 'Password reset link sent to your email',
+      resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined,
+    };
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto) {
+    const { token, newPassword } = resetPasswordDto;
+
+    // Find the reset token
+    const resetToken = await this.prisma.passwordResetToken.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (!resetToken) {
+      this.logger.warn(`Invalid password reset token attempted: ${token}`);
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    // Check if token is expired
+    if (resetToken.expiresAt < new Date()) {
+      this.logger.warn(`Expired password reset token attempted: ${token}`);
+      // Clean up expired token
+      await this.prisma.passwordResetToken.delete({
+        where: { id: resetToken.id },
+      });
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    // Check if token is already used
+    if (resetToken.isUsed) {
+      this.logger.warn(`Already used password reset token attempted: ${token}`);
+      throw new BadRequestException('Reset token has already been used');
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update user password and mark token as used
+    await this.prisma.$transaction(async (tx) => {
+      // Update user password
+      await tx.user.update({
+        where: { id: resetToken.userId },
+        data: { password: hashedPassword },
+      });
+
+      // Mark token as used
+      await tx.passwordResetToken.update({
+        where: { id: resetToken.id },
+        data: { isUsed: true },
+      });
+    });
+
+    this.logger.log(`Password reset successful for user: ${resetToken.email}`);
+
+    return {
+      message: 'Password has been reset successfully',
+    };
   }
 }

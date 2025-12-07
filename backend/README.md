@@ -66,6 +66,167 @@ NODE_ENV="development"
 ### Important Notes:
 - `MEDIA_URL`: Used specifically for generating file upload URLs. This can be different from `API_URL` to serve media files from a CDN or separate media server.
 - `API_URL`: Used for general API endpoints and internal service communication.
+## Mail Services Setup
+
+The backend ships with a Mail module using `@nestjs-modules/mailer`, Handlebars templates, and a small template registry for subjects.
+
+### 1) Install Dependencies
+
+```bash
+# inside backend/
+npm i @nestjs-modules/mailer nodemailer handlebars dayjs
+```
+
+### 2) Configure Mail Settings
+
+Preferred: configure via the Settings table (DB), with these keys:
+
+```
+mail.provider=smtp            # smtp | gmail | mailgun
+mail.host=localhost
+mail.port=1025
+mail.secure=false             # "true" | "false"
+mail.user=
+mail.password=
+mail.from=Burangrang Admin <no-reply@burangrang.local>
+```
+
+Defaults for these keys are included in the settings seeder:
+
+```bash
+# Seed only settings (optional)
+npm run prisma:seed settings
+```
+
+Fallback: you can still use environment variables (the app reads DB first, then env):
+
+```env
+MAIL_HOST=localhost
+MAIL_PORT=1025
+MAIL_USER=""
+MAIL_PASSWORD=""
+MAIL_FROM="Burangrang Admin <no-reply@burangrang.local>"
+MAIL_SECURE=false
+```
+
+The Mail module resolves values from DB via `SettingsHelperService`, falling back to `src/core/config/app.config.ts` (`app.mail.*`).
+
+Implementation detail: `MailModule` uses an async factory and imports `SettingsModule`:
+
+```ts
+MailerModule.forRootAsync({
+  imports: [ConfigModule, SettingsModule],
+  useFactory: async (config, settings) => ({ /* resolves from DB with env fallback */ }),
+  inject: [ConfigService, SettingsHelperService],
+})
+```
+
+### 3) Development with MailHog/Mailpit
+
+Use a local SMTP catcher:
+
+```bash
+# MailHog (Docker)
+docker run -d -p 1025:1025 -p 8025:8025 mailhog/mailhog
+# UI at http://localhost:8025
+```
+
+Set:
+```
+MAIL_HOST=localhost
+MAIL_PORT=1025
+MAIL_SECURE=false
+```
+
+### 4) Templates and Helpers
+
+- Templates live in `src/modules/mail/templates/*.hbs`
+- Handlebars helpers are defined in `src/modules/mail/templates/helpers.ts`
+- Subjects and file mapping are managed in `src/modules/mail/templates/registry.ts`
+
+### 5) Using the MailService
+
+Inject and call one of the typed methods:
+
+```ts
+// example usage
+await this.mailService.sendPasswordResetEmail({
+  email: user.email,
+  name: `${user.firstName} ${user.lastName}`,
+  resetLink: `${frontendUrl}/reset-password?token=${token}`,
+});
+```
+
+Or use the generic templated method:
+
+```ts
+await this.mailService.sendTemplatedMail({
+  email: 'user@example.com',
+  template: 'verification', // one of: verification | password-reset | team-invitation | password-change
+  context: { name: 'Jane', verificationLink: 'https://...' },
+});
+```
+
+On failures, the service will throw; callers in user-critical flows should catch/log and continue.
+
+### 6) Public Test Endpoint (cURL)
+
+Send a templated email via the public testing endpoint:
+
+```bash
+curl -X POST http://localhost:3000/mail/test \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "you@example.com",
+    "template": "verification",
+    "context": {
+      "name": "John Doe",
+      "verificationLink": "https://example.com/verify?token=abc123"
+    }
+  }'
+```
+
+Other templates:
+
+```bash
+# password reset
+curl -X POST http://localhost:3000/mail/test \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "you@example.com",
+    "template": "password-reset",
+    "context": {
+      "name": "John Doe",
+      "resetLink": "https://example.com/reset?token=abc123"
+    }
+  }'
+
+# team invitation
+curl -X POST http://localhost:3000/mail/test \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "you@example.com",
+    "template": "team-invitation",
+    "context": {
+      "name": "John Doe",
+      "inviterName": "Alice",
+      "teamName": "Platform Team",
+      "invitationLink": "https://example.com/invite?token=abc123"
+    }
+  }'
+
+# password change notification
+curl -X POST http://localhost:3000/mail/test \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "you@example.com",
+    "template": "password-change",
+    "context": {
+      "name": "John Doe",
+      "changedAt": "2025-11-16T12:34:56.000Z"
+    }
+  }'
+```
 
 ## Compile and run the project
 

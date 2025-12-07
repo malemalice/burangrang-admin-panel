@@ -32,6 +32,7 @@ const JobPositionsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -130,7 +131,9 @@ const JobPositionsPage = () => {
   };
 
   // Handle delete
-  const handleDelete = (jobPosition: JobPosition) => {
+  const handleDeleteClick = (jobPosition: JobPosition, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setJobPositionToDelete(jobPosition);
     setDeleteDialogOpen(true);
   };
@@ -141,6 +144,7 @@ const JobPositionsPage = () => {
     try {
       await jobPositionService.delete(jobPositionToDelete.id);
       toast.success('Job position deleted successfully');
+      setOpenDropdownId(null); // Ensure dropdown is closed
       fetchJobPositions();
     } catch (error) {
       toast.error('Failed to delete job position');
@@ -148,6 +152,12 @@ const JobPositionsPage = () => {
       setDeleteDialogOpen(false);
       setJobPositionToDelete(null);
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setJobPositionToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   // Table columns
@@ -203,7 +213,12 @@ const JobPositionsPage = () => {
       id: 'actions',
       header: '',
       cell: (jobPosition: JobPosition) => (
-        <DropdownMenu>
+        <DropdownMenu 
+          open={openDropdownId === jobPosition.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? jobPosition.id : null);
+          }}
+        >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <MoreHorizontal className="h-4 w-4" />
@@ -217,7 +232,7 @@ const JobPositionsPage = () => {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-red-600"
-              onClick={() => handleDelete(jobPosition)}
+              onClick={(e) => handleDeleteClick(jobPosition, e)}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
@@ -270,10 +285,15 @@ const JobPositionsPage = () => {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         title="Delete Job Position"
         description={`Are you sure you want to delete "${jobPositionToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
       />
     </>
   );

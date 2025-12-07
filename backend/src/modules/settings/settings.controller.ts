@@ -72,6 +72,26 @@ export class SettingsController {
     };
   }
 
+  @Get('gtm/container-id')
+  @ApiOperation({ summary: 'Get Google Tag Manager container ID (public)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Return GTM container ID if configured.',
+    schema: {
+      type: 'object',
+      properties: {
+        containerId: { type: 'string', description: 'GTM container ID (GTM-XXXXXXX format)' },
+      },
+    },
+  })
+  @Public()
+  async getGTMContainerId(): Promise<{ containerId: string | null }> {
+    const containerId = await this.settingsService.getValueByKey('gtm.container_id');
+    return {
+      containerId: containerId || null,
+    };
+  }
+
   @Patch('app-name')
   @ApiOperation({ summary: 'Update application name' })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
@@ -188,7 +208,6 @@ export class SettingsController {
     // If theme setting doesn't exist, create it with default value
     if (value === null && key.startsWith('theme.')) {
       const defaultValue = key === 'theme.color' ? 'blue' : 'light';
-      console.log(`Creating default theme setting: ${key} = ${defaultValue}`);
 
       await this.settingsService.updateByKey(key, {
         value: defaultValue,

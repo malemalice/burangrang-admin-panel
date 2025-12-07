@@ -31,7 +31,7 @@ const MasterApprovalsPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -92,18 +92,9 @@ const MasterApprovalsPage = () => {
     fetchApprovals();
   }, [fetchApprovals]);
 
-  const handleDropdownOpenChange = (id: string, open: boolean) => {
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [id]: open
-    }));
-  };
-
-  const handleDeleteClick = (approval: MasterApproval) => {
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [approval.id]: false
-    }));
+  const handleDeleteClick = (approval: MasterApproval, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setApprovalToDelete(approval);
     setDeleteDialogOpen(true);
   };
@@ -115,6 +106,7 @@ const MasterApprovalsPage = () => {
     try {
       await masterApprovalService.delete(approvalToDelete.id);
       toast.success(`Approval "${approvalToDelete.entity}" has been deleted`);
+      setOpenDropdownId(null); // Ensure dropdown is closed
       fetchApprovals();
     } catch (error) {
       console.error('Failed to delete approval:', error);
@@ -124,6 +116,12 @@ const MasterApprovalsPage = () => {
       setDeleteDialogOpen(false);
       setApprovalToDelete(null);
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setApprovalToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   const handleSearch = (term: string) => {
@@ -212,8 +210,10 @@ const MasterApprovalsPage = () => {
       header: '',
       cell: (approval: MasterApproval) => (
         <DropdownMenu
-          open={dropdownOpenStates[approval.id]}
-          onOpenChange={(open) => handleDropdownOpenChange(approval.id, open)}
+          open={openDropdownId === approval.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? approval.id : null);
+          }}
         >
           <DropdownMenuTrigger asChild>
             <Button
@@ -234,7 +234,7 @@ const MasterApprovalsPage = () => {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-red-600"
-              onClick={() => handleDeleteClick(approval)}
+              onClick={(e) => handleDeleteClick(approval, e)}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
@@ -284,10 +284,15 @@ const MasterApprovalsPage = () => {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         title="Delete Approval"
         description={`Are you sure you want to delete "${approvalToDelete?.entity}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
       />
     </>
   );

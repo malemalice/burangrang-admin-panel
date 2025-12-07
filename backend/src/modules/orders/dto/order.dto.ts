@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Expose } from 'class-transformer';
+import { Expose, Transform } from 'class-transformer';
+import { Decimal } from '@prisma/client/runtime/library';
 
 export class OrderItemDto {
   @ApiProperty()
@@ -24,10 +25,22 @@ export class OrderItemDto {
 
   @ApiProperty()
   @Expose()
+  @Transform(({ value }) => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'number') return value;
+    if (value instanceof Decimal) return Number(value.toString());
+    return Number(value);
+  })
   unitPrice: number;
 
   @ApiProperty()
   @Expose()
+  @Transform(({ value }) => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'number') return value;
+    if (value instanceof Decimal) return Number(value.toString());
+    return Number(value);
+  })
   totalPrice: number;
 
   @ApiProperty()
@@ -71,18 +84,42 @@ export class OrderDto {
 
   @ApiProperty()
   @Expose()
+  @Transform(({ value }) => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'number') return value;
+    if (value instanceof Decimal) return Number(value.toString());
+    return Number(value);
+  })
   subtotal: number;
 
   @ApiProperty()
   @Expose()
+  @Transform(({ value }) => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'number') return value;
+    if (value instanceof Decimal) return Number(value.toString());
+    return Number(value);
+  })
   taxAmount: number;
 
   @ApiProperty()
   @Expose()
+  @Transform(({ value }) => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'number') return value;
+    if (value instanceof Decimal) return Number(value.toString());
+    return Number(value);
+  })
   discountAmount: number;
 
   @ApiProperty()
   @Expose()
+  @Transform(({ value }) => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'number') return value;
+    if (value instanceof Decimal) return Number(value.toString());
+    return Number(value);
+  })
   totalAmount: number;
 
   @ApiProperty()

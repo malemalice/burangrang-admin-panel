@@ -29,6 +29,7 @@ import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { Public } from '../../shared/decorators/public.decorator';
 import { Role } from '../../shared/types/role.enum';
 import { Request } from 'express';
 
@@ -106,7 +107,7 @@ export class ChaptersController {
   }
 
   @Get('course/:courseId')
-  @ApiOperation({ summary: 'Get all chapters for a specific course' })
+  @ApiOperation({ summary: 'Get all chapters for a specific course (admin only)' })
   @ApiParam({ name: 'courseId', type: String, description: 'Course ID' })
   @ApiResponse({ 
     status: 200, 
@@ -118,6 +119,38 @@ export class ChaptersController {
   @Permissions('chapter:list')
   async findByCourse(@Param('courseId') courseId: string): Promise<ChapterDto[]> {
     return this.chaptersService.findByCourse(courseId);
+  }
+
+  @Get('public/course/:courseId')
+  @Public()
+  @ApiOperation({ summary: 'Get all published chapters for a specific course (public access)' })
+  @ApiParam({ name: 'courseId', type: String, description: 'Course ID' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Published course chapters retrieved successfully', 
+    type: [ChapterDto] 
+  })
+  @ApiResponse({ status: 404, description: 'Course not found or not active' })
+  async findPublishedByCourse(@Param('courseId') courseId: string): Promise<ChapterDto[]> {
+    return this.chaptersService.findPublishedByCourse(courseId);
+  }
+
+  @Get('purchased/course/:courseId')
+  @ApiOperation({ summary: 'Get course chapters for purchased users' })
+  @ApiParam({ name: 'courseId', type: String, description: 'Course ID' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Course chapters with full content retrieved successfully', 
+    type: [ChapterDto] 
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized - authentication required' })
+  @ApiResponse({ status: 403, description: 'Forbidden - user has not purchased this course' })
+  @ApiResponse({ status: 404, description: 'Course not found' })
+  async findPurchasedCourseChapters(
+    @Param('courseId') courseId: string,
+    @Req() req: RequestWithUser
+  ): Promise<ChapterDto[]> {
+    return this.chaptersService.findPurchasedCourseChapters(courseId, req.user.id);
   }
 
   @Get(':id')

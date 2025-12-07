@@ -18,6 +18,7 @@ import { seedProducts } from './seeds/products.seed';
 import { seedCustomers } from './seeds/customers.seed';
 import { seedPaymentMethods } from './seeds/payment-methods.seed';
 import { seedOrders } from './seeds/orders.seed';
+import { seedMailTemplates } from './seeds/mail-templates.seed';
 
 const prisma = new PrismaClient();
 
@@ -38,6 +39,7 @@ async function main() {
       await prisma.notificationRecipient.deleteMany();
       await prisma.notification.deleteMany();
       await prisma.notificationType.deleteMany();
+      await prisma.emailTemplate.deleteMany();
       await prisma.refreshToken.deleteMany();
       await prisma.masterApprovalItem.deleteMany();
       await prisma.approval.deleteMany();
@@ -102,6 +104,9 @@ async function main() {
         case 'roles':
           await prisma.role.deleteMany();
           break;
+        case 'email_templates':
+          await prisma.emailTemplate.deleteMany();
+          break;
         case 'permissions':
           await prisma.permission.deleteMany();
           break;
@@ -158,6 +163,8 @@ async function main() {
           await prisma.customer.deleteMany();
           break;
         case 'payment_methods':
+          // Delete payments first (foreign key dependency)
+          await prisma.payment.deleteMany();
           await prisma.paymentMethod.deleteMany();
           break;
         case 'orders':
@@ -189,9 +196,10 @@ async function main() {
       await seedNotifications();
       const categories = await seedCategories(prisma);
       await seedProductTypes();
+      await seedProducts();
       const courses = await seedCourses(prisma, users, categories);
       await seedChapters(prisma, courses);
-      await seedProducts();
+      await seedMailTemplates(prisma);
       await seedFileStorageProviders();
       await seedFileCategories();
       await seedPaymentMethods();
@@ -207,6 +215,9 @@ async function main() {
         case 'roles':
           const permissions = await seedPermissions(prisma);
           await seedRoles(prisma, permissions);
+          break;
+        case 'email_templates':
+          await seedMailTemplates(prisma);
           break;
         case 'offices':
           await seedOffices(prisma);
@@ -246,6 +257,8 @@ async function main() {
           const officesForCourses = await seedOffices(prisma);
           const usersForCourses = await seedUsers(prisma, rolesForCourses, officesForCourses);
           const categoriesForCourses = await seedCategories(prisma);
+          await seedProductTypes();
+          await seedProducts();
           await seedCourses(prisma, usersForCourses, categoriesForCourses);
           break;
         case 'chapters':
@@ -254,6 +267,8 @@ async function main() {
           const officesForChapters = await seedOffices(prisma);
           const usersForChapters = await seedUsers(prisma, rolesForChapters, officesForChapters);
           const categoriesForChapters = await seedCategories(prisma);
+          await seedProductTypes();
+          await seedProducts();
           const coursesForChapters = await seedCourses(prisma, usersForChapters, categoriesForChapters);
           await seedChapters(prisma, coursesForChapters);
           break;
@@ -293,8 +308,8 @@ async function main() {
           const usersForOrders = await seedUsers(prisma, rolesForOrders, officesForOrders);
           const categoriesForOrders = await seedCategories(prisma);
           await seedProductTypes();
-          await seedCourses(prisma, usersForOrders, categoriesForOrders);
           await seedProducts();
+          await seedCourses(prisma, usersForOrders, categoriesForOrders);
           await seedPaymentMethods();
           await seedCustomers();
           await seedOrders();

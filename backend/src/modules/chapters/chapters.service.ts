@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateChapterDto } from './dto/create-chapter.dto';
 import { UpdateChapterDto } from './dto/update-chapter.dto';
@@ -11,6 +11,7 @@ import { ActivityLoggerService } from '../../shared/services/activity-logger.ser
 
 @Injectable()
 export class ChaptersService {
+  private readonly logger = new Logger(ChaptersService.name);
   private chapterMapper: (chapter: any) => ChapterDto;
   private chapterArrayMapper: (chapters: any[]) => ChapterDto[];
   private chapterPaginatedMapper: (data: { data: any[]; meta: any }) => { data: ChapterDto[]; meta: any };
@@ -195,6 +196,111 @@ export class ChaptersService {
     });
 
     return chapters.map(chapter => this.chapterMapper(chapter));
+  }
+
+  async findPublishedByCourse(courseId: string): Promise<ChapterDto[]> {
+    // Verify course exists and is active (not necessarily published)
+    const course = await this.prisma.course.findUnique({
+      where: { 
+        id: courseId,
+        isActive: true,
+      },
+    });
+
+    this.errorHandler.throwIfNotFoundById('Course', courseId, course);
+
+    const chapters = await this.prisma.chapter.findMany({
+      where: {
+        courseId,
+        isActive: true,
+        isPublished: true,
+      },
+      select: {
+        id: true,
+        courseId: true,
+        title: true,
+        order: true,
+        duration: true,
+        // Only include fields needed for curriculum display
+        // Remove sensitive fields like contentUrl, youtubeVideoId, content, etc.
+      },
+      orderBy: {
+        order: 'asc',
+      },
+    });
+
+    return chapters.map(chapter => this.chapterMapper(chapter));
+  }
+
+  async findPurchasedCourseChapters(courseId: string, userId: string): Promise<ChapterDto[]> {
+    // Verify course exists and is active
+    const course = await this.prisma.course.findUnique({
+      where: { 
+        id: courseId,
+        isActive: true,
+      },
+      include: {
+        product: true
+      }
+    });
+
+    this.errorHandler.throwIfNotFoundById('Course', courseId, course);
+
+    // Verify user has purchased the course (check for FULFILLED order)
+    const hasPurchased = await this.verifyUserCourseAccess(userId, courseId);
+    
+    if (!hasPurchased) {
+      this.errorHandler.throwForbidden('You must purchase this course to access its content');
+    }
+
+    // Get all published chapters with full content for purchased users
+    const chapters = await this.prisma.chapter.findMany({
+      where: {
+        courseId,
+        isActive: true,
+        isPublished: true,
+      },
+      orderBy: {
+        order: 'asc',
+      },
+    });
+
+    return chapters.map(chapter => this.chapterMapper(chapter));
+  }
+
+  private async verifyUserCourseAccess(userId: string, courseId: string): Promise<boolean> {
+    try {
+      // Get the course with its associated product
+      const course = await this.prisma.course.findUnique({
+        where: { id: courseId },
+        include: { product: true }
+      });
+
+      if (!course || !course.product) {
+        return false;
+      }
+
+      // Check if user has a FULFILLED order for this course's product
+      const order = await this.prisma.order.findFirst({
+        where: {
+          customer: { userId },
+          items: {
+            some: {
+              OR: [
+                { productId: course.product.id },
+                { courseId: course.id }
+              ]
+            }
+          },
+          status: 'FULFILLED' // Only FULFILLED orders grant access
+        }
+      });
+
+      return !!order;
+    } catch (error) {
+      this.logger.error(`Error verifying user course access: ${error.message}`, error.stack);
+      return false;
+    }
   }
 
   async findOne(id: string): Promise<ChapterDto> {

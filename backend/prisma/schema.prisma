@@ -8,10 +8,24 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Email Templates - Master Data
+model EmailTemplate {
+  id               String   @id @default(uuid())
+  code             String   @unique         // unique code, e.g. "verification"
+  name             String                      // Human readable name
+  subjectTemplate  String                      // Handlebars template for subject
+  bodyTemplate     String   @db.Text           // Handlebars template for HTML body
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("m_email_templates")
+}
+
 model User {
   id            String         @id @default(uuid())
   email         String         @unique
-  password      String
+  password      String?
   firstName     String
   lastName      String
   isActive      Boolean        @default(true)
@@ -23,6 +37,7 @@ model User {
   updatedAt     DateTime       @updatedAt
   lastLoginAt   DateTime?
   refreshTokens RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
   office        Office         @relation(fields: [officeId], references: [id])
   role          Role           @relation(fields: [roleId], references: [id])
   department    Department?    @relation(fields: [departmentId], references: [id])
@@ -51,6 +66,19 @@ model RefreshToken {
   user      User     @relation(fields: [userId], references: [id])
 
   @@map("t_refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  email     String
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("t_password_reset_tokens")
 }
 
 model Role {
@@ -441,6 +469,9 @@ model Product {
   reviewCount      Int      @default(0)
   thumbnailUrl     String?
   fileUrl          String?  // URL to uploaded file (PDF, etc.)
+  isFreePrice      Boolean  @default(false) // Allow users to set their own price
+  minFreePrice     Decimal  @default(1000) @db.Decimal(10, 2) // Minimum price user can set
+  maxFreePrice     Decimal? @db.Decimal(10, 2) // Maximum price user can set (null = no limit)
   createdBy        String
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())
@@ -636,7 +667,9 @@ model Enrollment {
   order   Order?   @relation(fields: [orderId], references: [id])
   progressRecords Progress[]
 
-  @@unique([userId, courseId])
+  // Removed @@unique([userId, courseId]) to allow re-enrollment after course completion
+  // Users can enroll multiple times (for retakes) but only one ACTIVE enrollment at a time
+  @@index([userId, courseId, status])
   @@map("t_enrollments")
 }
 
