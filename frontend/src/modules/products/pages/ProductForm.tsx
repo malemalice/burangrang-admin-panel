@@ -163,6 +163,12 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
         ? product.productType as ProductTypeName
         : PRODUCT_TYPE_NAMES.E_BOOK;
       
+      // Ensure status is valid and uppercase, fallback to DRAFT if not
+      const statusValues = ['DRAFT', 'REVIEW', 'APPROVED', 'PUBLISHED', 'ARCHIVED'] as const;
+      const upperStatus = product.status?.toUpperCase();
+      const validStatus = (upperStatus && statusValues.includes(upperStatus as typeof statusValues[number]))
+        ? upperStatus as typeof statusValues[number]
+        : 'DRAFT';
       
       form.reset({
         name: product.name,
@@ -170,16 +176,16 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
         description: product.description || '',
         shortDescription: product.shortDescription || '',
         price: product.price,
-        salePrice: product.salePrice || 0, // ✅ Fixed: Use 0 instead of undefined
+        salePrice: product.salePrice ?? 0, // Use nullish coalescing to allow 0 values
         isFreePrice: product.isFreePrice ?? false,
-        minFreePrice: product.minFreePrice || 1000,
+        minFreePrice: product.minFreePrice ?? 1000,
         maxFreePrice: product.maxFreePrice ?? null,
         sku: product.sku,
         productType: validProductType, // ✅ Ensure valid product type
-        status: product.status,
-        downloadLimit: product.downloadLimit || 0, // ✅ Fixed: Use 0 instead of undefined
+        status: validStatus, // ✅ Ensure valid status
+        downloadLimit: product.downloadLimit ?? 0, // Use nullish coalescing to allow 0 values
         thumbnailUrl: product.thumbnailUrl || '',
-        isActive: product.isActive,
+        isActive: product.isActive ?? true,
         categoryIds: product.categoryIds || [],
         courseId: product.course?.id || 'none',
         fileUrl: product.fileUrl || '',
@@ -410,7 +416,7 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select status" />
