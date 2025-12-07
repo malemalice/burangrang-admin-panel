@@ -27,16 +27,22 @@ const formSchema = z.object({
   customerId: z.string().min(1, 'Customer is required'),
   status: z.enum(['PENDING', 'PAYMENT_PENDING', 'PAYMENT_FAILED', 'CONFIRMED', 'FULFILLED', 'CANCELLED', 'REFUNDED']),
   subtotal: z.number().min(0, 'Subtotal must be positive'),
-  taxAmount: z.number().min(0, 'Tax amount must be positive'),
-  discountAmount: z.number().min(0, 'Discount amount must be positive'),
+  taxAmount: z.number().min(0, 'Tax amount must be positive').optional(),
+  discountAmount: z.number().min(0, 'Discount amount must be positive').optional(),
   totalAmount: z.number().min(0, 'Total amount must be positive'),
+  currency: z.string().optional(),
   paymentStatus: z.enum(['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED']),
+  shippingAddress: z.string().optional(),
+  billingAddress: z.string().optional(),
   notes: z.string().optional(),
   items: z.array(z.object({
-    productId: z.string().min(1, 'Product is required'),
+    productId: z.string().optional(),
+    courseId: z.string().optional(),
     quantity: z.number().min(1, 'Quantity must be at least 1'),
     unitPrice: z.number().min(0, 'Unit price must be positive'),
     totalPrice: z.number().min(0, 'Total price must be positive'),
+  }).refine((data) => data.productId || data.courseId, {
+    message: 'Either product or course is required',
   })).min(1, 'At least one item is required'),
 });
 
@@ -66,9 +72,12 @@ const OrderForm = ({ mode }: OrderFormProps) => {
       taxAmount: 0,
       discountAmount: 0,
       totalAmount: 0,
+      currency: DEFAULT_CURRENCY,
       paymentStatus: 'PENDING',
+      shippingAddress: '',
+      billingAddress: '',
       notes: '',
-      items: [{ productId: '', quantity: 1, unitPrice: 0, totalPrice: 0 }],
+      items: [{ productId: undefined, courseId: undefined, quantity: 1, unitPrice: 0, totalPrice: 0 }],
     },
   });
 
@@ -86,10 +95,14 @@ const OrderForm = ({ mode }: OrderFormProps) => {
         taxAmount: order.taxAmount,
         discountAmount: order.discountAmount,
         totalAmount: order.totalAmount,
+        currency: order.currency || DEFAULT_CURRENCY,
         paymentStatus: order.paymentStatus,
+        shippingAddress: order.shippingAddress || '',
+        billingAddress: order.billingAddress || '',
         notes: order.notes || '',
         items: order.items?.map(item => ({
-          productId: item.productId || '',
+          productId: item.productId || undefined,
+          courseId: item.courseId || undefined,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           totalPrice: item.totalPrice,
@@ -179,12 +192,13 @@ const OrderForm = ({ mode }: OrderFormProps) => {
       const finalPrice = selectedProduct.finalPrice || selectedProduct.price || 0;
       form.setValue(`items.${index}.unitPrice`, finalPrice);
       form.setValue(`items.${index}.productId`, productId);
+      form.setValue(`items.${index}.courseId`, undefined); // Clear courseId when product is selected
       updateItemTotal(index);
     }
   };
 
   const addItem = () => {
-    append({ productId: '', quantity: 1, unitPrice: 0, totalPrice: 0 });
+    append({ productId: undefined, courseId: undefined, quantity: 1, unitPrice: 0, totalPrice: 0 });
   };
 
   const removeItem = (index: number) => {
@@ -232,11 +246,14 @@ const OrderForm = ({ mode }: OrderFormProps) => {
           taxAmount: data.taxAmount,
           discountAmount: data.discountAmount,
           totalAmount: data.totalAmount,
-          currency: DEFAULT_CURRENCY, // Default to Indonesian Rupiah
+          currency: data.currency || DEFAULT_CURRENCY,
           paymentStatus: data.paymentStatus,
+          shippingAddress: data.shippingAddress || undefined,
+          billingAddress: data.billingAddress || undefined,
           notes: data.notes,
           items: data.items.map(item => ({
-            productId: item.productId,
+            productId: item.productId || undefined,
+            courseId: item.courseId || undefined,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             totalPrice: item.totalPrice,
@@ -250,7 +267,10 @@ const OrderForm = ({ mode }: OrderFormProps) => {
           taxAmount: data.taxAmount,
           discountAmount: data.discountAmount,
           totalAmount: data.totalAmount,
+          currency: data.currency || undefined,
           paymentStatus: data.paymentStatus,
+          shippingAddress: data.shippingAddress || undefined,
+          billingAddress: data.billingAddress || undefined,
           notes: data.notes,
         });
         toast.success('Order updated successfully');
@@ -332,7 +352,7 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select status" />
@@ -358,7 +378,7 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Payment Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select payment status" />
@@ -404,10 +424,12 @@ const OrderForm = ({ mode }: OrderFormProps) => {
                                   subtitle: product.finalPrice ? formatCurrencyDisplay(product.finalPrice) : formatCurrencyDisplay(product.price),
                                   icon: product.hasCourse ? <BookOpen className="h-4 w-4" /> : <Package className="h-4 w-4" />
                                 }))}
-                                value={field.value}
+                                value={field.value || ''}
                                 onValueChange={(value) => {
-                                  field.onChange(value);
-                                  handleProductSelect(index, value);
+                                  field.onChange(value || undefined);
+                                  if (value) {
+                                    handleProductSelect(index, value);
+                                  }
                                 }}
                                 placeholder="Search and select product..."
                                 searchPlaceholder="Search products by name..."
