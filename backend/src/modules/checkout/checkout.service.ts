@@ -38,6 +38,7 @@ export class CheckoutService {
   /**
    * Main checkout flow
    * Handles guest user creation, order creation, payment, and Xendit QRIS QR Code
+   * For free orders (total = 0), skips payment processing and automatically fulfills the order
    */
   async checkout(checkoutData: CheckoutRequestDto): Promise<CheckoutResponseDto> {
     return this.errorHandler.safeExecute(async () => {
@@ -52,6 +53,50 @@ export class CheckoutService {
       // Step 3: Calculate order totals
       const totals = this.calculateTotals(validatedItems);
 
+      // Check if this is a free order (total = 0)
+      const isFreeOrder = totals.total === 0;
+
+      if (isFreeOrder) {
+        this.logger.log(
+          `Free order detected (total = 0), skipping payment processing and auto-fulfilling order`,
+        );
+
+        // Step 4: Validate payment method (still needed for order creation, but won't be used)
+        const paymentMethod = await this.validatePaymentMethod(
+          checkoutData.paymentMethodCode,
+        );
+
+        // Step 5: Create order with items - set status to FULFILLED and paymentStatus to PAID
+        const order = await this.createFreeOrder(
+          customer.id,
+          checkoutData,
+          validatedItems,
+          totals,
+        );
+
+        // Step 6: Create payment record with COMPLETED status (for audit trail)
+        const payment = await this.createFreePayment(order, paymentMethod);
+
+        this.logger.log(
+          `Free order completed successfully: ${order.orderNumber} - User has immediate access`,
+        );
+
+        // Return checkout response for free order
+        return new CheckoutResponseDto({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          paymentId: payment.id,
+          transactionId: payment.transactionId,
+          paymentMethodCode: paymentMethod.code,
+          status: order.status, // FULFILLED
+          paymentStatus: order.paymentStatus, // PAID
+          totalAmount: Number(order.totalAmount), // 0
+          currency: order.currency,
+          // No QR code for free orders
+        });
+      }
+
+      // Regular paid order flow
       // Step 4: Validate payment method
       const paymentMethod = await this.validatePaymentMethod(
         checkoutData.paymentMethodCode,
@@ -210,9 +255,44 @@ export class CheckoutService {
         throw new BadRequestException(`Product is not available: ${product.name}`);
       }
 
-      // Get actual price from database (use salePrice if available, otherwise regular price)
-      const actualPrice = product.salePrice || product.price;
-      const unitPrice = Number(actualPrice);
+      // Determine unit price
+      let unitPrice: number;
+
+      // Check if product allows free pricing and custom price is provided
+      if (product.isFreePrice && item.price !== undefined && item.price !== null) {
+        // Validate custom price against constraints
+        const minPrice = Number(product.minFreePrice || 1000);
+        const customPrice = Number(item.price);
+
+        if (customPrice < minPrice) {
+          throw new BadRequestException(
+            `Custom price must be at least ${minPrice} for product ${product.name}`,
+          );
+        }
+
+        if (product.maxFreePrice !== null) {
+          const maxPrice = Number(product.maxFreePrice);
+          if (customPrice > maxPrice) {
+            throw new BadRequestException(
+              `Custom price cannot exceed ${maxPrice} for product ${product.name}`,
+            );
+          }
+        }
+
+        // Use custom price
+        unitPrice = customPrice;
+        this.logger.log(
+          `Using custom price ${unitPrice} for product ${product.name} (isFreePrice: true)`,
+        );
+      } else {
+        // Use regular product price (salePrice if available, otherwise regular price)
+        const actualPrice = product.salePrice || product.price;
+        unitPrice = Number(actualPrice);
+        this.logger.log(
+          `Using regular price ${unitPrice} for product ${product.name}`,
+        );
+      }
+
       const totalPrice = unitPrice * item.quantity;
 
       validatedItems.push({
@@ -309,6 +389,51 @@ export class CheckoutService {
   }
 
   /**
+   * Step 5 (Free Order): Create order with items - automatically set to FULFILLED and PAID
+   */
+  private async createFreeOrder(
+    customerId: string,
+    checkoutData: CheckoutRequestDto,
+    validatedItems: any[],
+    totals: any,
+  ) {
+    // Generate unique order number
+    const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
+    const order = await this.prisma.order.create({
+      data: {
+        orderNumber,
+        customerId,
+        status: 'FULFILLED', // ✅ User has immediate access to digital products
+        subtotal: new Decimal(totals.subtotal),
+        taxAmount: new Decimal(totals.taxAmount),
+        discountAmount: new Decimal(totals.discountAmount),
+        totalAmount: new Decimal(totals.total), // 0
+        currency: 'IDR',
+        paymentStatus: 'PAID', // Automatically marked as paid for free orders
+        items: {
+          create: validatedItems.map((item) => ({
+            productId: item.productId,
+            courseId: item.courseId,
+            quantity: item.quantity,
+            unitPrice: new Decimal(item.unitPrice),
+            totalPrice: new Decimal(item.totalPrice),
+          })),
+        },
+      },
+      include: {
+        items: true,
+      },
+    });
+
+    this.logger.log(
+      `Free order created and fulfilled: ${order.orderNumber} - User has immediate access`,
+    );
+
+    return order;
+  }
+
+  /**
    * Step 6: Create payment record
    */
   private async createPayment(order: any, paymentMethod: any, totalAmount: number) {
@@ -326,6 +451,31 @@ export class CheckoutService {
     });
 
     this.logger.log(`Payment created: ${payment.transactionId}`);
+
+    return payment;
+  }
+
+  /**
+   * Step 6 (Free Order): Create payment record with COMPLETED status for audit trail
+   */
+  private async createFreePayment(order: any, paymentMethod: any) {
+    const transactionId = `TXN-FREE-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
+    const payment = await this.prisma.payment.create({
+      data: {
+        orderId: order.id,
+        paymentMethodId: paymentMethod.id,
+        transactionId,
+        amount: new Decimal(0),
+        currency: 'IDR',
+        status: 'COMPLETED', // Automatically completed for free orders
+        processedAt: new Date(), // Mark as processed immediately
+      },
+    });
+
+    this.logger.log(
+      `Free payment created and completed: ${payment.transactionId} (amount: 0)`,
+    );
 
     return payment;
   }

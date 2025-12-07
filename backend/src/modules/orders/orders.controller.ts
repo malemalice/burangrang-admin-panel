@@ -8,6 +8,8 @@ import {
   Delete,
   Query,
   UseGuards,
+  Req,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -18,6 +20,7 @@ import {
   ApiParam,
   ApiBody,
 } from '@nestjs/swagger';
+import { Request } from 'express';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
@@ -29,6 +32,15 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { FindOrdersDto } from './dto/find-orders.dto';
 import { OrderDto } from './dto/order.dto';
 import { ORDER_STATUS_VALUES } from 'src/shared/types';
+
+// Define interface for request with user property from JWT
+interface RequestWithUser extends Request {
+  user: {
+    id: string;
+    email: string;
+    role: string;
+  };
+}
 
 @ApiTags('orders')
 @ApiBearerAuth()
@@ -52,8 +64,88 @@ export class OrdersController {
     return this.ordersService.create(createOrderDto);
   }
 
+  @Get('me')
+  @ApiOperation({ summary: 'Get current user orders with pagination and filtering' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search term',
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    type: String,
+    description: 'Sort field',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    description: 'Sort order',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    type: String,
+    description: 'Filter by status',
+  })
+  @ApiQuery({
+    name: 'paymentStatus',
+    required: false,
+    type: String,
+    description: 'Filter by payment status',
+  })
+  @ApiResponse({
+    status: 200,
+    type: [OrderDto],
+    description: 'User orders retrieved successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid or missing token',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User customer profile not found',
+  })
+  @Roles(Role.USER, Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  async getMyOrders(
+    @Req() req: RequestWithUser,
+    @Query() query: FindOrdersDto,
+  ): Promise<{ data: OrderDto[]; meta: any }> {
+    // First, get the customer for this user
+    const customer = await this.ordersService['prisma'].customer.findUnique({
+      where: { userId: req.user.id },
+    });
+
+    if (!customer) {
+      throw new BadRequestException('Customer profile not found. Please complete your profile first.');
+    }
+
+    // Filter orders by customer ID
+    const queryWithCustomer = {
+      ...query,
+      customerId: customer.id,
+    };
+
+    return this.ordersService.findAll(queryWithCustomer);
+  }
+
   @Get()
-  @ApiOperation({ summary: 'Get all orders with pagination and filtering' })
+  @ApiOperation({ summary: 'Get all orders with pagination and filtering (Admin only)' })
   @ApiQuery({
     name: 'page',
     required: false,

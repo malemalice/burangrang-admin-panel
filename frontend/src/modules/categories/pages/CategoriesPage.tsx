@@ -32,7 +32,7 @@ const CategoriesPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [parentCategories, setParentCategories] = useState<{ id: string; name: string }[]>([]);
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields for categories
   const filterFields: FilterField[] = [
@@ -135,21 +135,9 @@ const CategoriesPage = () => {
     fetchCategories();
   }, [fetchCategories]);
 
-  const handleDropdownOpenChange = (id: string, open: boolean) => {
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [id]: open
-    }));
-  };
-
-  const handleDeleteClick = (category: Category) => {
-    // Close the dropdown menu for this category
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [category.id]: false
-    }));
-    
-    // Set category to delete and open the dialog
+  const handleDeleteClick = (category: Category, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setCategoryToDelete(category);
     setDeleteDialogOpen(true);
   };
@@ -161,6 +149,7 @@ const CategoriesPage = () => {
     try {
       await categoryService.deleteCategory(categoryToDelete.id);
       toast.success('Category deleted successfully');
+      setOpenDropdownId(null); // Ensure dropdown is closed
       fetchCategories();
     } catch (error) {
       console.error('Error deleting category:', error);
@@ -170,6 +159,12 @@ const CategoriesPage = () => {
       setDeleteDialogOpen(false);
       setCategoryToDelete(null);
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setCategoryToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   const handleSearch = (term: string) => {
@@ -294,8 +289,10 @@ const CategoriesPage = () => {
       header: 'Actions',
       cell: (category: Category) => (
         <DropdownMenu 
-          open={dropdownOpenStates[category.id]} 
-          onOpenChange={(open) => handleDropdownOpenChange(category.id, open)}
+          open={openDropdownId === category.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? category.id : null);
+          }}
         >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -312,7 +309,7 @@ const CategoriesPage = () => {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => handleDeleteClick(category)}
+              onClick={(e) => handleDeleteClick(category, e)}
               className="text-red-600 focus:text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -364,10 +361,15 @@ const CategoriesPage = () => {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         title="Delete Category"
         description={`Are you sure you want to delete "${categoryToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
       />
     </>
   );

@@ -1,0 +1,141 @@
+name: Rollback Backend Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to rollback to (e.g., backend-v1.0.0)'
+        required: true
+      confirm:
+        description: 'Type "ROLLBACK" to confirm'
+        required: true
+
+jobs:
+  rollback:
+    name: Rollback Backend to Previous Version
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Validate confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "ROLLBACK" ]; then
+            echo "❌ Rollback not confirmed. You must type 'ROLLBACK' to proceed."
+            exit 1
+          fi
+          echo "✅ Rollback confirmed"
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Add VPS to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Rollback on VPS
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          DEPLOYMENT_PATH: ${{ secrets.DEPLOYMENT_PATH }}
+          WEBAPP_PATH: ${{ secrets.WEBAPP_PATH }}
+          ROLLBACK_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          ssh $VPS_USER@$VPS_HOST << ENDSSH
+            set -e
+            
+            echo "==================================="
+            echo "⏮️  Starting Backend rollback"
+            echo "Target tag: $ROLLBACK_TAG"
+            echo "==================================="
+            
+            # Navigate to webapp repository
+            cd $WEBAPP_PATH
+            
+            echo "📥 Fetching all tags..."
+            git fetch --all --tags
+            
+            # Verify tag exists
+            if ! git rev-parse $ROLLBACK_TAG >/dev/null 2>&1; then
+              echo "❌ Tag $ROLLBACK_TAG does not exist!"
+              exit 1
+            fi
+            
+            echo "🔄 Checking out tag: $ROLLBACK_TAG"
+            git checkout $ROLLBACK_TAG
+            
+            # Navigate to deployment directory
+            cd $DEPLOYMENT_PATH
+            
+            echo "🛑 Stopping current backend container..."
+            docker compose stop backend
+            
+            echo "🗑️  Removing current container..."
+            docker compose rm -f backend
+            
+            echo "🏗️  Building backend from tag $ROLLBACK_TAG..."
+            docker compose build --no-cache backend
+            
+            echo "🚀 Starting backend container..."
+            docker compose up -d backend
+            
+            echo "⏳ Waiting for container to be healthy..."
+            sleep 20
+            
+            echo "🔍 Checking container status..."
+            docker compose ps backend
+            
+            echo "📋 Recent container logs:"
+            docker compose logs --tail=50 backend
+            
+            echo "✅ Rollback completed!"
+            echo "==================================="
+          ENDSSH
+
+      - name: Verify rollback
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          echo "Waiting 30 seconds for application to fully start..."
+          sleep 30
+          
+          ssh $VPS_USER@$VPS_HOST << ENDSSH
+            if docker ps | grep -q soulyousee-backend; then
+              echo "✅ Container is running after rollback"
+              
+              # Check PM2 status
+              if docker exec soulyousee-backend pm2 ping 2>/dev/null; then
+                echo "✅ PM2 is responding"
+              fi
+              
+              # Check health endpoint
+              if docker exec soulyousee-backend wget -q -O- http://localhost:3000/health 2>/dev/null; then
+                echo "✅ Application is responding"
+              else
+                echo "⚠️  Application might not be ready yet"
+              fi
+            else
+              echo "❌ Container is not running after rollback!"
+              exit 1
+            fi
+          ENDSSH
+
+      - name: Create rollback summary
+        if: always()
+        run: |
+          echo "## ⏮️ Backend Rollback Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Rolled back to:** \`${{ github.event.inputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Rollback completed successfully!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️  **Important:** Check if database schema is compatible with this version." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Rollback failed. Manual intervention required!" >> $GITHUB_STEP_SUMMARY
+          fi
+

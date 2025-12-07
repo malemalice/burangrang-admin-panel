@@ -2,11 +2,11 @@
 ## Frontend Modular Architecture Restructuring
 
 ### 📋 Document Information
-- **Version**: 1.1
+- **Version**: 1.2
 - **Date**: 2024-12-XX
 - **Status**: Active
 - **Author**: Development Team
-- **Last Updated**: Module Interaction Patterns Added
+- **Last Updated**: Design System Section Added
 
 ---
 
@@ -14,19 +14,13 @@
 
 This document outlines the technical requirements and architectural principles for restructuring the frontend application from a traditional layered architecture to a modular, feature-based architecture. The restructuring aims to improve maintainability, scalability, and developer experience while following modern frontend best practices.
 
+**Version 1.2 Updates**: Added comprehensive design system documentation including color system, typography, spacing, component patterns, theme system, animations, and design system best practices. Provides complete reference for UI/UX consistency across all modules.
+
 **Version 1.1 Updates**: Added comprehensive module interaction patterns including API calling conventions, table display standards, CRUD operation patterns, form handling guidelines, data transformation patterns, error handling strategies, and cross-module communication protocols. Includes implementation checklists, code examples library, and development workflow guidelines.
 
 ---
 
 ## 🏗️ Current State Analysis
-
-### Existing Architecture Issues
-- ❌ **Scattered files**: Pages, routes, and services are in separate top-level folders
-- ❌ **Mixed patterns**: Some modules grouped (master data), others scattered (users, roles)
-- ❌ **Duplicate services**: `role.service.ts` and `roleService.ts` exist
-- ❌ **Inconsistent organization**: Master data is grouped, but users/roles are not
-- ❌ **Tight coupling**: Pages directly import multiple services
-- ❌ **No clear module boundaries**: Difficult to identify feature ownership
 
 ### Current Modules Identified
 1. **Core Module** (Dashboard, Settings, Login, NotFound)
@@ -275,6 +269,463 @@ export const getOrderStatusColor = (status: OrderStatus): string => {
 3. **Clear Communication**: Status descriptions clearly explain what each status means
 4. **Visual Indicators**: Icons and colors help users understand order progress
 5. **Action Guidance**: Each status provides clear next steps for users
+## 🎨 Design System
+
+### Overview
+
+The frontend application uses a comprehensive design system built on modern web technologies to ensure consistency, accessibility, and maintainability across all modules. The design system is based on **shadcn/ui** components, **Tailwind CSS** for styling, and a custom **BurangrangDesign System** color and theme system.
+
+### Core Technologies
+
+#### 1. Component Library: shadcn/ui
+- **Base**: Built on **Radix UI** primitives for accessibility and functionality
+- **Styling**: Tailwind CSS with `class-variance-authority` for variant management
+- **Location**: `src/core/components/ui/`
+- **Philosophy**: Copy-paste components that can be customized per project needs
+- **Key Features**:
+  - Fully accessible components with ARIA support
+  - Unstyled by default, styled with Tailwind
+  - TypeScript-first with full type safety
+  - Composable and customizable
+
+#### 2. Styling: Tailwind CSS
+- **Version**: 3.4+
+- **Configuration**: `tailwind.config.ts`
+- **Base Colors**: Imported from `src/core/lib/theme/colors.ts`
+- **CSS Variables**: Dynamic theming via HSL color variables
+- **Plugins**: `tailwindcss-animate` for animations
+- **Dark Mode**: Class-based (`dark:` prefix)
+
+#### 3. Icon System: Lucide React
+- **Library**: `lucide-react` (v0.462+)
+- **Wrapper Component**: `src/core/components/ui/icon.tsx`
+- **Icon Picker**: `src/core/components/ui/icon-picker.tsx` for dynamic icon selection
+- **Usage**: Import icons directly or use the `Icon` wrapper component
+- **Size Standard**: Default 16px (h-4 w-4), configurable via `size` prop
+
+### Color System
+
+#### BurangrangDesign System Colors
+
+The application uses a comprehensive color token system defined in `src/core/lib/theme/colors.ts`:
+
+```typescript
+// Base color palette with full scale (50-950)
+baseColors = {
+  indigo: { 50-950 },    // Primary brand color
+  purple: { 50-950 },    // Secondary brand color
+  orange: { 50-950 },     // Accent color
+  slate: { 50-950 },     // Neutrals
+  green: { 50-950 },     // Success states
+  red: { 50-950 },       // Error/destructive states
+  yellow: { 50-950 },    // Warning states
+  blue: { 50-950 },      // Info states
+  gray: { 50-950 },      // Additional neutrals
+}
+```
+
+#### Semantic Color Tokens
+
+Semantic colors map to specific UI purposes:
+
+```typescript
+semanticColors = {
+  app: {
+    background: slate[50],
+    foreground: slate[800],
+    primary: indigo[500],
+    secondary: purple[700],
+    accent: orange[500],
+    muted: slate[100],
+    border: slate[200],
+  },
+  text: {
+    primary: slate[800],
+    secondary: slate[600],
+    muted: slate[500],
+    disabled: slate[400],
+    link: indigo[600],
+  },
+  status: {
+    success: { light, base, dark, foreground },
+    warning: { light, base, dark, foreground },
+    error: { light, base, dark, foreground },
+    info: { light, base, dark, foreground },
+  }
+}
+```
+
+#### Theme Color Variants
+
+Users can select from multiple theme color options:
+- `blue` (default)
+- `green`
+- `purple`
+- `red`
+- `orange`
+- `indigo`
+
+Each theme provides `primary`, `secondary`, and `accent` color variants in HSL format for Tailwind CSS compatibility.
+
+### Typography
+
+#### Font System
+- **Base Font**: System font stack (inherits from Tailwind defaults)
+- **Font Sizes**: Tailwind's default scale (text-xs, text-sm, text-base, text-lg, text-xl, text-2xl, text-3xl)
+- **Font Weights**: 
+  - `font-medium` (500) - Default for buttons and emphasis
+  - `font-semibold` (600) - Card titles, section headers
+  - `font-bold` (700) - Page titles, important headings
+
+#### Typography Patterns
+
+```typescript
+// Page titles
+<h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+
+// Card titles
+<h3 className="text-2xl font-semibold leading-none tracking-tight">{title}</h3>
+
+// Section headers
+<h3 className="text-lg font-medium mb-4">{title}</h3>
+
+// Body text
+<p className="text-sm text-muted-foreground">{content}</p>
+
+// Labels
+<label className="text-sm font-medium">{label}</label>
+```
+
+### Spacing & Layout
+
+#### Spacing Scale
+Uses Tailwind's default spacing scale (0.25rem increments):
+- `space-1` = 0.25rem (4px)
+- `space-2` = 0.5rem (8px)
+- `space-3` = 0.75rem (12px)
+- `space-4` = 1rem (16px)
+- `space-6` = 1.5rem (24px)
+- `space-8` = 2rem (32px)
+
+Additional custom spacing variables in `theme.css`:
+```css
+--space-1: 0.25rem;
+--space-2: 0.5rem;
+--space-4: 1rem;
+--space-6: 1.5rem;
+--space-8: 2rem;
+--space-12: 3rem;
+--space-16: 4rem;
+```
+
+#### Layout Patterns
+
+**Main Layout Structure**:
+```typescript
+// Main content area
+<main className="flex-1 p-4 md:p-6 overflow-x-auto">
+  <div className="animate-fade-in">{children}</div>
+</main>
+
+// Sidebar widths
+sidebarOpen ? "md:ml-64" : "md:ml-20"  // 256px / 80px
+
+// Card padding
+<CardContent className="p-6 pt-0" />
+<CardHeader className="flex flex-col space-y-1.5 p-6" />
+```
+
+**Common Spacing Patterns**:
+- Page padding: `p-4 md:p-6`
+- Card padding: `p-6`
+- Form field gaps: `gap-4` or `space-y-6`
+- Button groups: `gap-2`
+- Section margins: `mb-6` or `mb-4`
+
+### Border Radius
+
+Consistent border radius across components:
+- **Default**: `--radius: 0.5rem` (8px)
+- **Small**: `calc(var(--radius) - 4px)` = 4px
+- **Medium**: `calc(var(--radius) - 2px)` = 6px
+- **Large**: `var(--radius)` = 8px
+- **Full**: `rounded-full` for badges and avatars
+
+### Shadows
+
+Standard shadow utilities:
+- `shadow-sm` - Subtle elevation (cards)
+- `shadow-md` - Medium elevation (modals, popovers)
+- `shadow-lg` - High elevation (dropdowns)
+
+### Component Variants
+
+#### Button Variants
+```typescript
+// Variants
+default: "bg-primary text-primary-foreground hover:bg-primary/90"
+destructive: "bg-destructive text-destructive-foreground"
+outline: "border border-input bg-background hover:bg-accent"
+secondary: "bg-secondary text-secondary-foreground"
+ghost: "hover:bg-accent hover:text-accent-foreground"
+link: "text-primary underline-offset-4 hover:underline"
+
+// Sizes
+default: "h-10 px-4 py-2"
+sm: "h-9 rounded-md px-3"
+lg: "h-11 rounded-md px-8"
+icon: "h-10 w-10"
+```
+
+#### Badge Variants
+```typescript
+default: "border-transparent bg-primary text-primary-foreground"
+secondary: "border-transparent bg-secondary text-secondary-foreground"
+destructive: "border-transparent bg-destructive text-destructive-foreground"
+outline: "text-foreground"
+```
+
+### Theme System
+
+#### Light/Dark Mode
+- **Toggle**: User-selectable via `useTheme()` hook
+- **Persistence**: Saved to localStorage and backend
+- **System Detection**: Respects `prefers-color-scheme` on first load
+- **Implementation**: CSS variables with `.dark` class on `document.documentElement`
+
+#### Theme Provider
+```typescript
+// Usage
+import { useTheme } from '@/core/lib/theme';
+
+const { theme, mode, setTheme, setMode, toggleMode, isDark } = useTheme();
+```
+
+#### CSS Variables
+Dynamic CSS variables set via JavaScript:
+```css
+--primary: [HSL values from theme]
+--secondary: [HSL values from theme]
+--accent: [HSL values from theme]
+--background: [mode-dependent]
+--foreground: [mode-dependent]
+--muted: [mode-dependent]
+--border: [mode-dependent]
+--radius: 0.5rem
+```
+
+### Animation & Transitions
+
+#### Animation Durations
+```css
+--transition-fast: 150ms;
+--transition-normal: 250ms;
+--transition-slow: 400ms;
+```
+
+#### Custom Animations
+Defined in `tailwind.config.ts`:
+- `fade-in`: Opacity + translateY animation
+- `fade-out`: Reverse fade-in
+- `accordion-down/up`: Height transitions
+- `spin-slow`: 3s rotation for loading indicators
+
+#### Common Animation Patterns
+```typescript
+// Loading spinner
+<div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+
+// Page transitions
+<div className="animate-fade-in">{content}</div>
+
+// Sidebar transitions
+<div className="transition-all duration-300 ease-in-out" />
+```
+
+### Form Components
+
+#### Form Library Stack
+- **Validation**: Zod schemas
+- **Form Management**: React Hook Form
+- **Resolver**: `@hookform/resolvers/zod`
+- **Components**: shadcn/ui Form components
+
+#### Form Patterns
+```typescript
+// Form setup
+const form = useForm<FormValues>({
+  resolver: zodResolver(formSchema),
+  defaultValues: { /* ... */ }
+});
+
+// Form field
+<FormField
+  control={form.control}
+  name="fieldName"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Label</FormLabel>
+      <FormControl>
+        <Input {...field} />
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+```
+
+### Status & Feedback
+
+#### Toast Notifications
+- **Library**: Sonner
+- **Position**: `bottom-right`
+- **Features**: Rich colors, action buttons, auto-dismiss
+- **Usage**: `toast.success()`, `toast.error()`, `toast.info()`, `toast.warning()`
+
+#### Status Badges
+Consistent status color mapping:
+```typescript
+// Status colors
+active/success: green-100 bg, green-800 text
+inactive: gray-100 bg, gray-800 text
+pending/warning: yellow-100 bg, yellow-800 text
+error: red-100 bg, red-800 text
+info: blue-100 bg, blue-800 text
+```
+
+### Component Usage Guidelines
+
+#### ✅ DO - Best Practices
+
+1. **Use Design System Components**
+   ```typescript
+   // ✅ Use shared components
+   import { Button } from '@/core/components/ui/button';
+   import { Card, CardHeader, CardTitle, CardContent } from '@/core/components/ui/card';
+   ```
+
+2. **Use Semantic Color Tokens**
+   ```typescript
+   // ✅ Use semantic colors
+   className="bg-primary text-primary-foreground"
+   className="text-muted-foreground"
+   className="border-border"
+   ```
+
+3. **Consistent Spacing**
+   ```typescript
+   // ✅ Use Tailwind spacing scale
+   <div className="flex gap-4 p-6">
+   <div className="space-y-2">
+   ```
+
+4. **Theme-Aware Components**
+   ```typescript
+   // ✅ Use theme hook for dynamic theming
+   const { theme, isDark } = useTheme();
+   ```
+
+5. **Accessible Components**
+   ```typescript
+   // ✅ Use shadcn/ui components (built on Radix UI)
+   // ✅ Include ARIA labels where needed
+   // ✅ Use proper semantic HTML
+   ```
+
+#### ❌ DON'T - Anti-Patterns
+
+1. **Hard-coded Colors**
+   ```typescript
+   // ❌ DON'T use hard-coded colors
+   className="bg-blue-500 text-white"
+   
+   // ✅ DO use semantic tokens
+   className="bg-primary text-primary-foreground"
+   ```
+
+2. **Inline Styles for Colors**
+   ```typescript
+   // ❌ DON'T use inline styles for theming
+   style={{ backgroundColor: '#6366f1' }}
+   
+   // ✅ DO use CSS variables or Tailwind classes
+   className="bg-primary"
+   ```
+
+3. **Custom Component Variants**
+   ```typescript
+   // ❌ DON'T create module-specific button variants
+   <button className="custom-module-button">
+   
+   // ✅ DO extend existing variants or use composition
+   <Button variant="outline" className="module-specific-class">
+   ```
+
+4. **Inconsistent Spacing**
+   ```typescript
+   // ❌ DON'T use arbitrary values
+   className="p-[13px] m-[7px]"
+   
+   // ✅ DO use Tailwind scale
+   className="p-4 m-2"
+   ```
+
+5. **Direct Icon Imports Everywhere**
+   ```typescript
+   // ❌ DON'T import all icons in every file
+   import { User, Settings, Home } from 'lucide-react';
+   
+   // ✅ DO use Icon component or import only needed icons
+   import { Icon } from '@/core/components/ui/icon';
+   <Icon name="User" />
+   ```
+
+### Design System Files Reference
+
+```
+src/
+├── core/
+│   ├── components/
+│   │   ├── ui/                    # shadcn/ui components
+│   │   │   ├── button.tsx
+│   │   │   ├── card.tsx
+│   │   │   ├── input.tsx
+│   │   │   ├── form.tsx
+│   │   │   ├── badge.tsx
+│   │   │   ├── icon.tsx
+│   │   │   └── ...
+│   │   └── layout/                # Layout components
+│   │       ├── MainLayout.tsx
+│   │       ├── DynamicSidebar.tsx
+│   │       └── TopNavbar.tsx
+│   └── lib/
+│       ├── theme/
+│       │   ├── colors.ts          # Color tokens
+│       │   ├── utils.ts           # Theme utilities
+│       │   ├── ThemeProvider.tsx  # Theme context
+│       │   └── theme.css          # CSS variables
+│       └── utils.ts               # cn() utility
+├── index.css                      # Tailwind imports + CSS variables
+└── tailwind.config.ts             # Tailwind configuration
+```
+
+### Design System Checklist
+
+When implementing new components or pages:
+
+- [ ] **Colors**: Use semantic color tokens, not hard-coded values
+- [ ] **Spacing**: Use Tailwind spacing scale consistently
+- [ ] **Typography**: Follow established text size and weight patterns
+- [ ] **Components**: Use shadcn/ui components from `@/core/components/ui`
+- [ ] **Icons**: Use Lucide React icons consistently
+- [ ] **Theme**: Ensure components work in both light and dark modes
+- [ ] **Accessibility**: Include ARIA labels, keyboard navigation support
+- [ ] **Responsive**: Use Tailwind responsive prefixes (sm:, md:, lg:)
+- [ ] **Animations**: Use established animation patterns
+- [ ] **Forms**: Use React Hook Form + Zod validation
+- [ ] **Feedback**: Use Sonner toast notifications for user feedback
+
+---
 
 ## 🔄 Module Interaction Patterns
 
@@ -524,6 +975,152 @@ const filterFields: FilterField[] = [
   }
 ];
 ```
+
+#### 3. Dropdown Menu State Management
+**CRITICAL**: When using DropdownMenu components in table action columns with delete operations, proper state management is essential to prevent UI bugs.
+
+##### Problem: Dropdown State Issues After Delete Operations
+
+Common issues that occur with improper dropdown state management:
+- Dropdown remains open after deletion
+- Cannot open next dropdown after deleting an item
+- Stale state references after data reload
+- Event propagation conflicts
+
+##### Solution: Controlled Dropdown with Single State Variable
+
+**✅ CORRECT Pattern - Single State Variable:**
+
+```typescript
+const [ModuleName]sPage = () => {
+  // ✅ Single state variable - tracks which dropdown is open
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [entityToDelete, setEntityToDelete] = useState<[Entity] | null>(null);
+
+  // ✅ Explicit state cleanup when delete is clicked
+  const handleDeleteClick = (entity: [Entity], event?: React.MouseEvent) => {
+    event?.stopPropagation(); // Prevent event bubbling
+    setOpenDropdownId(null); // Explicitly close the dropdown
+    setEntityToDelete(entity);
+    setDeleteDialogOpen(true);
+  };
+
+  // ✅ Reset state after deletion
+  const handleDeleteConfirm = async () => {
+    if (entityToDelete) {
+      try {
+        await deleteEntity(entityToDelete.id);
+        setDeleteDialogOpen(false);
+        setEntityToDelete(null);
+        setOpenDropdownId(null); // Ensure dropdown is closed
+        await loadEntities(); // Reload to update the list
+      } catch (error) {
+        console.error('Failed to delete entity:', error);
+      }
+    }
+  };
+
+  // ✅ Reset state on cancel
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setEntityToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
+  };
+
+  const columns = [
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: (entity: [Entity]) => (
+        <DropdownMenu 
+          open={openDropdownId === entity.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? entity.id : null);
+          }}
+        >
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => navigate(`/${entities}/${entity.id}`)}>
+              <Eye className="mr-2 h-4 w-4" /> View details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/${entities}/${entity.id}/edit`)}>
+              <Edit className="mr-2 h-4 w-4" /> Edit
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={(e) => handleDeleteClick(entity, e)}
+              className="text-red-600"
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+      isSortable: false
+    }
+  ];
+};
+```
+
+**Key Principles:**
+
+1. **Single Source of Truth**: Use one state variable (`openDropdownId`) to track which dropdown is open
+2. **Explicit State Cleanup**: Always reset dropdown state when:
+   - Delete button is clicked
+   - Delete operation completes
+   - Dialog is cancelled
+3. **Event Propagation**: Use `event?.stopPropagation()` to prevent event bubbling issues
+4. **Controlled Component**: Use `open` and `onOpenChange` props for predictable behavior
+5. **State Synchronization**: Ensure state is reset after async operations (delete, reload)
+
+**❌ ANTI-PATTERNS to Avoid:**
+
+```typescript
+// ❌ WRONG - Multiple state variables per dropdown
+const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+
+// ❌ WRONG - Uncontrolled dropdown without state cleanup
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button>...</Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent>
+    <DropdownMenuItem onClick={() => handleDelete(entity)}>
+      Delete
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
+
+// ❌ WRONG - Missing state reset after operations
+const handleDeleteConfirm = async () => {
+  await deleteEntity(id);
+  // Missing: setOpenDropdownId(null);
+  await loadEntities();
+};
+
+// ❌ WRONG - Toggle function instead of direct state set
+const toggleDropdown = (id: string) => {
+  setOpenDropdownId(prev => prev === id ? null : id);
+};
+// Should use: onOpenChange={(open) => setOpenDropdownId(open ? id : null)}
+```
+
+**Benefits of This Pattern:**
+
+- ✅ Predictable state management
+- ✅ No stale state after deletion
+- ✅ Works correctly after canceling delete dialog
+- ✅ Only one dropdown can be open at a time
+- ✅ Proper cleanup after async operations
+- ✅ No event propagation conflicts
+
+**Reference Implementation:**
+- **✅ Courses Module**: `frontend/src/modules/courses/pages/CoursesPage.tsx`
 
 ### CRUD Operation Patterns
 
@@ -1035,6 +1632,17 @@ useEffect(() => {
   // Loading stats
   fetchStats();
 }, [params]); // Too many responsibilities
+
+// ❌ ANTI-PATTERN: Poor dropdown state management with delete operations
+const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+// Multiple state variables cause conflicts after deletion
+
+const handleDeleteClick = (entity: Entity) => {
+  // Missing: setOpenDropdownId(null);
+  setEntityToDelete(entity);
+  setDeleteDialogOpen(true);
+};
+// Missing state cleanup causes dropdown to remain open or become unresponsive
 ```
 
 #### 6. Reference Implementations
@@ -1134,6 +1742,20 @@ if (isLoading) {
 - ❌ DON'T mix data loading with initialization in single useEffect
 - ❌ DON'T forget to import useCallback from React
 
+### 9. Poor Dropdown State Management
+- ❌ DON'T use multiple state variables (`Record<string, boolean>`) for dropdown states
+- ❌ DON'T forget to reset dropdown state after delete operations
+- ❌ DON'T skip `event.stopPropagation()` when opening dialogs from dropdown items
+- ❌ DON'T use uncontrolled dropdowns without proper cleanup after async operations
+- ❌ DON'T use toggle functions instead of direct state setters in `onOpenChange` handlers
+
+### 10. Design System Violations
+- ❌ DON'T use hard-coded color values instead of semantic tokens
+- ❌ DON'T create module-specific component variants when existing ones suffice
+- ❌ DON'T use arbitrary spacing values outside Tailwind scale
+- ❌ DON'T bypass design system components for custom implementations
+- ❌ DON'T ignore theme support (light/dark mode)
+
 ---
 
 ## ✅ Implementation Checklist
@@ -1154,6 +1776,9 @@ if (isLoading) {
 - [ ] **DataTable usage**: All tables use the shared `DataTable` component
 - [ ] **Column definitions**: Consistent column structure across modules
 - [ ] **Action menus**: Standardized action dropdowns with icons
+- [ ] **Dropdown state management**: Single state variable (`openDropdownId`) for controlled dropdowns
+- [ ] **State cleanup**: Dropdown state reset after delete operations and dialog cancellation
+- [ ] **Event handling**: `stopPropagation()` used when opening dialogs from dropdown items
 - [ ] **Pagination**: Consistent pagination implementation
 - [ ] **Filtering**: Proper filter field configuration
 
@@ -1177,6 +1802,15 @@ if (isLoading) {
 - [ ] **Service isolation**: No direct access to other modules' internal state
 - [ ] **Shared types**: Common types defined in `shared/types/`
 - [ ] **Dependency management**: Clear dependency hierarchy
+
+### Design System Compliance
+- [ ] **Color usage**: All colors use semantic tokens from design system
+- [ ] **Component usage**: shadcn/ui components used consistently
+- [ ] **Spacing**: Tailwind spacing scale used throughout
+- [ ] **Typography**: Consistent font sizes and weights
+- [ ] **Theme support**: Components work in both light and dark modes
+- [ ] **Icons**: Lucide React icons used consistently
+- [ ] **Animations**: Standard animation patterns followed
 
 ### Code Quality
 - [ ] **TypeScript compliance**: Full type safety across all modules
@@ -1450,6 +2084,7 @@ const columns = [
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.2 | 2024-12-XX | Development Team | Added comprehensive design system documentation including color system, typography, spacing, component patterns, theme system, animations, and design system best practices |
 | 1.1 | 2024-12-XX | Development Team | Added comprehensive module interaction patterns, API conventions, CRUD patterns, form handling, error handling, implementation checklists, code examples library, and development workflow guidelines |
 | 1.0 | 2024-01-XX | Development Team | Initial version with modular architecture principles |
 
@@ -1646,4 +2281,4 @@ export {
 
 ---
 
-**Next Steps**: The module interaction patterns have been documented. Proceed with implementing these patterns in existing modules and use this document as the reference for all future module development.
+**Next Steps**: The module interaction patterns and design system have been comprehensively documented. Proceed with implementing these patterns and design system guidelines in existing modules. Use this document as the reference for all future module development, ensuring both architectural consistency and UI/UX design system compliance.

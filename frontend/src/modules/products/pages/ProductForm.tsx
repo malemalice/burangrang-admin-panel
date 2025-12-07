@@ -50,6 +50,9 @@ const formSchema = z.object({
   shortDescription: z.string().optional(),
   price: z.number().min(0, 'Price must be positive'),
   salePrice: z.number().min(0, 'Sale price must be positive').optional(),
+  isFreePrice: z.boolean().default(false),
+  minFreePrice: z.number().min(0, 'Minimum price must be positive').optional(),
+  maxFreePrice: z.number().min(0, 'Maximum price must be positive').optional().nullable(),
   sku: z.string().min(1, 'SKU is required'),
   productType: z.enum(Object.values(PRODUCT_TYPE_NAMES) as [string, ...string[]]) as z.ZodType<ProductTypeName>, // ✅ Use global constants with proper typing
   status: z.enum(['DRAFT', 'REVIEW', 'APPROVED', 'PUBLISHED', 'ARCHIVED']),
@@ -59,6 +62,25 @@ const formSchema = z.object({
   categoryIds: z.array(z.string()).default([]),
   courseId: z.string().optional(), // Course selection for COURSE product type
   fileUrl: z.string().url('Please enter a valid URL').optional().or(z.literal('')), // File URL for EBOOK (PDF), VIDEO/AUDIO (link URL) product types
+}).superRefine((data, ctx) => {
+  // If isFreePrice is true, minFreePrice is required
+  if (data.isFreePrice) {
+    if (!data.minFreePrice || data.minFreePrice <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Minimum price is required when self-price is enabled',
+        path: ['minFreePrice'],
+      });
+    }
+    // If both min and max are set, max must be greater than or equal to min
+    if (data.minFreePrice && data.maxFreePrice && data.maxFreePrice < data.minFreePrice) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Maximum price must be greater than or equal to minimum price',
+        path: ['maxFreePrice'],
+      });
+    }
+  }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -85,6 +107,9 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
       shortDescription: '',
       price: 0,
       salePrice: 0, // ✅ Fixed: Use 0 instead of undefined for numeric fields
+      isFreePrice: false,
+      minFreePrice: 1000, // Default minimum price
+      maxFreePrice: null, // No limit by default
       sku: '',
       productType: product?.productType || PRODUCT_TYPE_NAMES.E_BOOK, // ✅ Use product type if available
       status: 'DRAFT',
@@ -138,6 +163,12 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
         ? product.productType as ProductTypeName
         : PRODUCT_TYPE_NAMES.E_BOOK;
       
+      // Ensure status is valid and uppercase, fallback to DRAFT if not
+      const statusValues = ['DRAFT', 'REVIEW', 'APPROVED', 'PUBLISHED', 'ARCHIVED'] as const;
+      const upperStatus = product.status?.toUpperCase();
+      const validStatus = (upperStatus && statusValues.includes(upperStatus as typeof statusValues[number]))
+        ? upperStatus as typeof statusValues[number]
+        : 'DRAFT';
       
       form.reset({
         name: product.name,
@@ -145,13 +176,16 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
         description: product.description || '',
         shortDescription: product.shortDescription || '',
         price: product.price,
-        salePrice: product.salePrice || 0, // ✅ Fixed: Use 0 instead of undefined
+        salePrice: product.salePrice ?? 0, // Use nullish coalescing to allow 0 values
+        isFreePrice: product.isFreePrice ?? false,
+        minFreePrice: product.minFreePrice ?? 1000,
+        maxFreePrice: product.maxFreePrice ?? null,
         sku: product.sku,
         productType: validProductType, // ✅ Ensure valid product type
-        status: product.status,
-        downloadLimit: product.downloadLimit || 0, // ✅ Fixed: Use 0 instead of undefined
+        status: validStatus, // ✅ Ensure valid status
+        downloadLimit: product.downloadLimit ?? 0, // Use nullish coalescing to allow 0 values
         thumbnailUrl: product.thumbnailUrl || '',
-        isActive: product.isActive,
+        isActive: product.isActive ?? true,
         categoryIds: product.categoryIds || [],
         courseId: product.course?.id || 'none',
         fileUrl: product.fileUrl || '',
@@ -215,12 +249,15 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
         slug: data.slug,
         description: data.description || undefined,
         shortDescription: data.shortDescription || undefined,
-        price: data.price,
-        salePrice: data.salePrice && data.salePrice > 0 ? data.salePrice : undefined, // ✅ Fixed: Convert 0 back to undefined
+        price: data.price, // Allow 0 for free products
+        salePrice: data.salePrice !== undefined && data.salePrice !== null ? data.salePrice : undefined, // Allow 0 for free sale price
+        isFreePrice: data.isFreePrice,
+        minFreePrice: data.isFreePrice && data.minFreePrice ? data.minFreePrice : undefined,
+        maxFreePrice: data.isFreePrice && data.maxFreePrice ? data.maxFreePrice : undefined,
         sku: data.sku,
         productType: data.productType,
         status: data.status,
-        downloadLimit: data.downloadLimit && data.downloadLimit > 0 ? data.downloadLimit : undefined, // ✅ Fixed: Convert 0 back to undefined
+        downloadLimit: data.downloadLimit !== undefined && data.downloadLimit !== null && data.downloadLimit > 0 ? data.downloadLimit : undefined, // Only exclude 0, allow positive values
         thumbnailUrl: data.thumbnailUrl || undefined,
         fileUrl: data.fileUrl && data.fileUrl.trim() !== '' ? data.fileUrl : undefined, // Include file URL for EBOOK products
         isActive: data.isActive,
@@ -379,7 +416,7 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select status" />
@@ -531,65 +568,171 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                 <FormField
                   control={form.control}
                   name="price"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Price (Rp)</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
-                            Rp
-                          </span>
-                          <Input 
-                            type="text"
-                            placeholder="0"
-                            className="pl-8"
-                            value={field.value ? formatPriceInput(field.value) : ''}
-                            onChange={(e) => {
-                              const parsed = parsePrice(e.target.value);
-                              field.onChange(parsed);
-                            }}
-                          />
-                        </div>
-                      </FormControl>
-                      <p className="text-sm text-gray-600">
-                        Enter price in Indonesian Rupiah (e.g., 50000 for Rp 50,000)
-                      </p>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const isFreePriceEnabled = form.watch('isFreePrice');
+                    return (
+                      <FormItem>
+                        <FormLabel>Price (Rp)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
+                              Rp
+                            </span>
+                            <Input 
+                              type="text"
+                              placeholder="0"
+                              className="pl-8"
+                              disabled={isFreePriceEnabled}
+                              value={field.value !== undefined && field.value !== null ? formatPriceInput(field.value) : ''}
+                              onChange={(e) => {
+                                const parsed = parsePrice(e.target.value);
+                                field.onChange(parsed);
+                              }}
+                            />
+                          </div>
+                        </FormControl>
+                        <p className="text-sm text-gray-600">
+                          {isFreePriceEnabled 
+                            ? 'Price is disabled when self-pricing is enabled'
+                            : 'Enter price in Indonesian Rupiah (e.g., 50000 for Rp 50,000)'}
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 <FormField
                   control={form.control}
                   name="salePrice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Sale Price (Optional) (Rp)</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
-                            Rp
-                          </span>
-                          <Input 
-                            type="text"
-                            placeholder="0"
-                            className="pl-8"
-                            value={field.value && field.value > 0 ? formatPriceInput(field.value) : ''}
-                            onChange={(e) => {
-                              const parsed = parsePrice(e.target.value);
-                              field.onChange(parsed > 0 ? parsed : 0);
-                            }}
-                          />
-                        </div>
-                      </FormControl>
-                      <p className="text-sm text-gray-600">
-                        Enter sale price in Indonesian Rupiah (e.g., 40000 for Rp 40,000)
-                      </p>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const isFreePriceEnabled = form.watch('isFreePrice');
+                    return (
+                      <FormItem>
+                        <FormLabel>Sale Price (Optional) (Rp)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
+                              Rp
+                            </span>
+                            <Input 
+                              type="text"
+                              placeholder="0"
+                              className="pl-8"
+                              disabled={isFreePriceEnabled}
+                              value={field.value !== undefined && field.value !== null ? formatPriceInput(field.value) : ''}
+                              onChange={(e) => {
+                                const parsed = parsePrice(e.target.value);
+                                field.onChange(parsed >= 0 ? parsed : 0);
+                              }}
+                            />
+                          </div>
+                        </FormControl>
+                        <p className="text-sm text-gray-600">
+                          {isFreePriceEnabled 
+                            ? 'Sale price is disabled when self-pricing is enabled'
+                            : 'Enter sale price in Indonesian Rupiah (e.g., 40000 for Rp 40,000)'}
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               </div>
+
+              {/* Self Price Toggle */}
+              <FormField
+                control={form.control}
+                name="isFreePrice"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Allow Self-Pricing</FormLabel>
+                      <div className="text-sm text-muted-foreground">
+                        Allow users to set their own price during checkout
+                      </div>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* Min/Max Free Price Fields - Only show when isFreePrice is enabled */}
+              {form.watch('isFreePrice') && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="minFreePrice"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Minimum Price (Rp) *</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
+                              Rp
+                            </span>
+                            <Input 
+                              type="text"
+                              placeholder="1000"
+                              className="pl-8"
+                              value={field.value ? formatPriceInput(field.value) : ''}
+                              onChange={(e) => {
+                                const parsed = parsePrice(e.target.value);
+                                field.onChange(parsed > 0 ? parsed : 1000);
+                              }}
+                            />
+                          </div>
+                        </FormControl>
+                        <p className="text-sm text-gray-600">
+                          Minimum price users can set (e.g., 1000 for Rp 1,000)
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="maxFreePrice"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Maximum Price (Rp) (Optional)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
+                              Rp
+                            </span>
+                            <Input 
+                              type="text"
+                              placeholder="No limit"
+                              className="pl-8"
+                              value={field.value ? formatPriceInput(field.value) : ''}
+                              onChange={(e) => {
+                                const value = e.target.value.trim();
+                                if (value === '') {
+                                  field.onChange(null);
+                                } else {
+                                  const parsed = parsePrice(value);
+                                  field.onChange(parsed > 0 ? parsed : null);
+                                }
+                              }}
+                            />
+                          </div>
+                        </FormControl>
+                        <p className="text-sm text-gray-600">
+                          Maximum price users can set. Leave empty for no limit.
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Digital Product Limits */}

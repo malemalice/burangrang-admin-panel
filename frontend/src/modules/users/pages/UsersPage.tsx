@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, UserPlus, Eye, ShieldCheck, Check, X, Building, MoreHorizontal, Briefcase } from 'lucide-react';
+import { Edit, Trash2, UserPlus, Eye, ShieldCheck, Check, X, Building, MoreHorizontal, Briefcase, KeyRound } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import {
@@ -37,8 +37,8 @@ const UsersPage = () => {
   const [offices, setOffices] = useState<{ id: string; name: string }[]>([]);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [jobPositions, setJobPositions] = useState<{ id: string; name: string }[]>([]);
-  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [activeFilters, setActiveFilters] = useState<Record<string, { value: string | string[] | { from?: Date; to?: Date } | boolean; label: string }>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields for users
   const filterFields: FilterField[] = [
@@ -173,21 +173,9 @@ const UsersPage = () => {
     fetchUsers();
   }, [fetchUsers]);
 
-  const handleDropdownOpenChange = (id: string, open: boolean) => {
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [id]: open
-    }));
-  };
-
-  const handleDeleteClick = (user: User) => {
-    // Close the dropdown menu for this user
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [user.id]: false
-    }));
-    
-    // Set user to delete and open the dialog
+  const handleDeleteClick = (user: User, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setUserToDelete(user);
     setDeleteDialogOpen(true);
   };
@@ -199,6 +187,7 @@ const UsersPage = () => {
     try {
       await userService.deleteUser(userToDelete.id);
       toast.success('User deleted successfully');
+      setOpenDropdownId(null); // Ensure dropdown is closed
       fetchUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -207,6 +196,29 @@ const UsersPage = () => {
       setIsLoading(false);
       setDeleteDialogOpen(false);
       setUserToDelete(null);
+    }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setUserToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
+  };
+
+  const handleSendResetPassword = async (user: User) => {
+    // Close the dropdown menu for this user
+    setDropdownOpenStates(prev => ({
+      ...prev,
+      [user.id]: false,
+    }));
+
+    try {
+      const result = await userService.sendResetPasswordEmail(user.email);
+      const message = typeof result?.message === 'string' ? result.message : 'Password reset email sent';
+      toast.success(message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send reset password email';
+      toast.error(errorMessage);
     }
   };
 
@@ -234,7 +246,7 @@ const UsersPage = () => {
   };
 
   const handleApplyFilters = (filters: FilterValue[]) => {
-    const newActiveFilters: Record<string, { value: any; label: string }> = {};
+    const newActiveFilters: Record<string, { value: string | string[] | { from?: Date; to?: Date } | boolean; label: string }> = {};
     
     filters.forEach(filter => {
       if (filter.id === 'roleId') {
@@ -363,8 +375,10 @@ const UsersPage = () => {
       header: 'Actions',
       cell: (user: User) => (
         <DropdownMenu 
-          open={dropdownOpenStates[user.id]} 
-          onOpenChange={(open) => handleDropdownOpenChange(user.id, open)}
+          open={openDropdownId === user.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? user.id : null);
+          }}
         >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -379,9 +393,12 @@ const UsersPage = () => {
             <DropdownMenuItem onClick={() => navigate(`/users/${user.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSendResetPassword(user)}>
+              <KeyRound className="mr-2 h-4 w-4" /> Send reset password
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => handleDeleteClick(user)}
+              onClick={(e) => handleDeleteClick(user, e)}
               className="text-red-600 focus:text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -432,10 +449,15 @@ const UsersPage = () => {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         title="Delete User"
         description={`Are you sure you want to delete "${userToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
       />
     </>
   );

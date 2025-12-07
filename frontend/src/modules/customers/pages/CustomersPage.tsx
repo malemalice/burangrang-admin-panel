@@ -8,6 +8,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { Button } from '@/core/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/core/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/core/components/ui/avatar';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { MoreHorizontal, Plus, Eye, Edit, Trash2, Users } from 'lucide-react';
 
 const CustomersPage = () => {
@@ -27,6 +28,9 @@ const CustomersPage = () => {
   const [limit, setLimit] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // ✅ CRITICAL: Memoize data loading function
   const loadCustomers = useCallback(async () => {
@@ -118,7 +122,12 @@ const CustomersPage = () => {
       id: 'actions',
       header: 'Actions',
       cell: (customer: Customer) => (
-        <DropdownMenu>
+        <DropdownMenu 
+          open={openDropdownId === customer.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? customer.id : null);
+          }}
+        >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <MoreHorizontal className="h-4 w-4" />
@@ -132,7 +141,7 @@ const CustomersPage = () => {
               <Edit className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => handleDelete(customer)}>
+            <DropdownMenuItem onClick={(e) => handleDeleteClick(customer, e)}>
               <Trash2 className="mr-2 h-4 w-4" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -170,16 +179,31 @@ const CustomersPage = () => {
     }
   ];
 
-  const handleDelete = async (customer: Customer) => {
-    if (window.confirm(`Are you sure you want to delete ${customer.user?.firstName} ${customer.user?.lastName}?`)) {
-      try {
-        await deleteCustomer(customer.id);
-        // Refresh the data
-        await loadCustomers();
-      } catch (error) {
-        console.error('Failed to delete customer:', error);
-      }
+  const handleDeleteClick = (customer: Customer, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
+    setCustomerToDelete(customer);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!customerToDelete) return;
+
+    try {
+      await deleteCustomer(customerToDelete.id);
+      setDeleteDialogOpen(false);
+      setCustomerToDelete(null);
+      setOpenDropdownId(null); // Ensure dropdown is closed
+      await loadCustomers(); // Reload to update the list
+    } catch (error) {
+      console.error('Failed to delete customer:', error);
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setCustomerToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   const handleSearch = (search: string) => {
@@ -230,6 +254,21 @@ const CustomersPage = () => {
         filterFields={filterFields}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+      />
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
+        title="Delete Customer"
+        description={`Are you sure you want to delete "${customerToDelete?.user?.firstName} ${customerToDelete?.user?.lastName}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleDeleteConfirm}
+        variant="destructive"
       />
     </div>
   );

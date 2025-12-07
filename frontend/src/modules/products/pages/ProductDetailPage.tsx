@@ -205,27 +205,63 @@ const ProductDetailPage = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Regular Price</span>
-                  <span className="font-medium">{formatPriceDisplay(product.price)}</span>
-                </div>
-                {product.isOnSale && product.salePrice && (
+                {product.isFreePrice ? (
                   <>
-                    <Separator />
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Sale Price</span>
-                      <span className="font-medium text-green-600">{formatPriceDisplay(product.salePrice)}</span>
+                      <span className="text-muted-foreground">Pricing Type</span>
+                      <Badge variant="outline" className="bg-blue-100 text-blue-800 border-0">
+                        Self Price
+                      </Badge>
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      Save {formatPriceDisplay(product.price - product.salePrice)}
+                    <Separator />
+                    {product.minFreePrice && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Minimum Price</span>
+                        <span className="font-medium">{formatPriceDisplay(product.minFreePrice)}</span>
+                      </div>
+                    )}
+                    {product.maxFreePrice ? (
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Maximum Price</span>
+                        <span className="font-medium">{formatPriceDisplay(product.maxFreePrice)}</span>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Maximum Price</span>
+                        <span className="font-medium text-gray-500">No limit</span>
+                      </div>
+                    )}
+                    <Separator />
+                    <div className="text-sm text-muted-foreground bg-blue-50 p-3 rounded-lg">
+                      <p className="font-medium mb-1">Self-Pricing Enabled</p>
+                      <p>Customers can set their own price within the specified range during checkout.</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Regular Price</span>
+                      <span className="font-medium">{formatPriceDisplay(product.price)}</span>
+                    </div>
+                    {product.isOnSale && product.salePrice && (
+                      <>
+                        <Separator />
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Sale Price</span>
+                          <span className="font-medium text-green-600">{formatPriceDisplay(product.salePrice)}</span>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Save {formatPriceDisplay(product.price - product.salePrice)}
+                        </div>
+                      </>
+                    )}
+                    <Separator />
+                    <div className="flex justify-between items-center text-lg font-semibold">
+                      <span>Final Price</span>
+                      <span>{formatPriceDisplay(product.finalPrice || product.price)}</span>
                     </div>
                   </>
                 )}
-                <Separator />
-                <div className="flex justify-between items-center text-lg font-semibold">
-                  <span>Final Price</span>
-                  <span>{formatPriceDisplay(product.finalPrice || product.price)}</span>
-                </div>
               </div>
             </CardContent>
           </Card>

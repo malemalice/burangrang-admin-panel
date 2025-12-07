@@ -142,7 +142,9 @@ export class OrdersService {
               productId: item.productId,
               courseId: item.courseId,
               quantity: item.quantity,
-              unitPrice: item.unitPrice,
+              unitPrice: item.customPrice !== undefined && item.customPrice !== null 
+                ? item.customPrice 
+                : item.unitPrice,
               totalPrice: item.totalPrice,
             })),
           },
@@ -459,13 +461,70 @@ export class OrdersService {
           item.productId,
           product,
         );
+
+        // Validate custom price if provided
+        if (item.customPrice !== undefined && item.customPrice !== null) {
+          if (!product.isFreePrice) {
+            throw new BadRequestException(
+              `Product ${product.name} does not allow custom pricing`,
+            );
+          }
+
+          const minPrice = Number(product.minFreePrice || 1000);
+          if (item.customPrice < minPrice) {
+            throw new BadRequestException(
+              `Custom price must be at least ${minPrice} for product ${product.name}`,
+            );
+          }
+
+          if (product.maxFreePrice !== null) {
+            const maxPrice = Number(product.maxFreePrice);
+            if (item.customPrice > maxPrice) {
+              throw new BadRequestException(
+                `Custom price cannot exceed ${maxPrice} for product ${product.name}`,
+              );
+            }
+          }
+        }
       }
 
       if (item.courseId) {
         const course = await this.prisma.course.findUnique({
           where: { id: item.courseId },
+          include: { product: true },
         });
         this.errorHandler.throwIfNotFoundById('Course', item.courseId, course);
+
+        // Validate custom price for course (check associated product)
+        if (item.customPrice !== undefined && item.customPrice !== null) {
+          if (!course.product) {
+            throw new BadRequestException(
+              `Course ${course.title} does not have an associated product for custom pricing`,
+            );
+          }
+
+          if (!course.product.isFreePrice) {
+            throw new BadRequestException(
+              `Course ${course.title} does not allow custom pricing`,
+            );
+          }
+
+          const minPrice = Number(course.product.minFreePrice || 1000);
+          if (item.customPrice < minPrice) {
+            throw new BadRequestException(
+              `Custom price must be at least ${minPrice} for course ${course.title}`,
+            );
+          }
+
+          if (course.product.maxFreePrice !== null) {
+            const maxPrice = Number(course.product.maxFreePrice);
+            if (item.customPrice > maxPrice) {
+              throw new BadRequestException(
+                `Custom price cannot exceed ${maxPrice} for course ${course.title}`,
+              );
+            }
+          }
+        }
       }
     }
   }
