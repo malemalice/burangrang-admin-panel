@@ -31,7 +31,7 @@ const RemindersPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields for reminders
   const filterFields: FilterField[] = [
@@ -103,21 +103,9 @@ const RemindersPage = () => {
     fetchReminders();
   }, [fetchReminders]);
 
-  const handleDropdownOpenChange = (id: string, open: boolean) => {
-    setDropdownOpenStates((prev) => ({
-      ...prev,
-      [id]: open,
-    }));
-  };
-
-  const handleDeleteClick = (reminder: Reminder) => {
-    // Close the dropdown menu for this reminder
-    setDropdownOpenStates((prev) => ({
-      ...prev,
-      [reminder.id]: false,
-    }));
-
-    // Set reminder to delete and open the dialog
+  const handleDeleteClick = (reminder: Reminder, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setReminderToDelete(reminder);
     setDeleteDialogOpen(true);
   };
@@ -129,6 +117,7 @@ const RemindersPage = () => {
     try {
       await reminderService.deleteReminder(reminderToDelete.id);
       toast.success('Reminder deleted successfully');
+      setOpenDropdownId(null); // Ensure dropdown is closed
       fetchReminders();
     } catch (error) {
       console.error('Error deleting reminder:', error);
@@ -138,6 +127,12 @@ const RemindersPage = () => {
       setDeleteDialogOpen(false);
       setReminderToDelete(null);
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setReminderToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   const handleSearch = (term: string) => {
@@ -286,8 +281,10 @@ const RemindersPage = () => {
       header: 'Actions',
       cell: (reminder: Reminder) => (
         <DropdownMenu
-          open={dropdownOpenStates[reminder.id]}
-          onOpenChange={(open) => handleDropdownOpenChange(reminder.id, open)}
+          open={openDropdownId === reminder.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? reminder.id : null);
+          }}
         >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -304,7 +301,7 @@ const RemindersPage = () => {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => handleDeleteClick(reminder)}
+              onClick={(e) => handleDeleteClick(reminder, e)}
               className="text-red-600 focus:text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -356,10 +353,15 @@ const RemindersPage = () => {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         title="Delete Reminder"
         description={`Are you sure you want to delete this reminder? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
       />
     </>
   );

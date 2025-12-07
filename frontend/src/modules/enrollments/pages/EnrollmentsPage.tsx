@@ -45,7 +45,7 @@ const EnrollmentsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
   const [users, setUsers] = useState<{ id: string; name: string; email: string; firstName: string; lastName: string }[]>([]);
@@ -185,20 +185,10 @@ const EnrollmentsPage = () => {
     };
   }, [pageIndex, limit, searchTerm, refreshKey]);
 
-  const handleDropdownOpenChange = (id: string, open: boolean) => {
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [id]: open,
-    }));
-  };
-
   const handleCancelEnrollment = async (enrollment: Enrollment) => {
     try {
       await updateEnrollment(enrollment.id, { status: EnrollmentStatus.CANCELLED });
-      setDropdownOpenStates(prev => ({
-        ...prev,
-        [enrollment.id]: false,
-      }));
+      setOpenDropdownId(null); // Close dropdown
       // Refresh data by incrementing refresh key
       setRefreshKey(prev => prev + 1);
     } catch (error) {
@@ -361,8 +351,10 @@ const EnrollmentsPage = () => {
       header: 'Actions',
       cell: (enrollment: Enrollment) => (
         <DropdownMenu
-          open={dropdownOpenStates[enrollment.id]}
-          onOpenChange={(open) => handleDropdownOpenChange(enrollment.id, open)}
+          open={openDropdownId === enrollment.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? enrollment.id : null);
+          }}
         >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">

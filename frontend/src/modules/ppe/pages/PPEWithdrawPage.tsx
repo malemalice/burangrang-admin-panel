@@ -26,7 +26,7 @@ const PPEWithdrawPage = () => {
     const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [withdrawalToDelete, setWithdrawalToDelete] = useState<PPEWithdrawal | null>(null);
-    const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+    const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
     const filterFields: FilterField[] = [
         {
@@ -95,26 +95,22 @@ const PPEWithdrawPage = () => {
         setPageIndex(0);
     };
 
-    const handleDeleteClick = (withdrawal: PPEWithdrawal) => {
+    const handleDeleteClick = (withdrawal: PPEWithdrawal, event?: React.MouseEvent) => {
         // Only allow delete for PENDING or CANCELLED status
         if (withdrawal.status !== PPEWithdrawalStatus.PENDING && withdrawal.status !== PPEWithdrawalStatus.CANCELLED) {
             return;
         }
-        // Close all dropdowns before opening delete dialog
-        setDropdownOpenStates({});
+        event?.stopPropagation();
+        setOpenDropdownId(null); // Explicitly close the dropdown
         setWithdrawalToDelete(withdrawal);
-        // Use setTimeout to ensure dropdown is fully closed before opening dialog
-        setTimeout(() => {
-            setDeleteDialogOpen(true);
-        }, 0);
+        setDeleteDialogOpen(true);
     };
 
     const handleDeleteConfirm = async () => {
         if (!withdrawalToDelete) return;
         try {
             await deleteWithdrawal(withdrawalToDelete.id);
-            // Close all dropdowns and clear state after successful delete
-            setDropdownOpenStates({});
+            setOpenDropdownId(null); // Ensure dropdown is closed
             loadWithdrawals();
         } catch (error) {
             // Error already handled in hook with toast notification
@@ -122,6 +118,12 @@ const PPEWithdrawPage = () => {
             setDeleteDialogOpen(false);
             setWithdrawalToDelete(null);
         }
+    };
+
+    const handleDialogCancel = () => {
+        setDeleteDialogOpen(false);
+        setWithdrawalToDelete(null);
+        setOpenDropdownId(null); // Ensure dropdown is closed
     };
 
     const getStatusBadge = (status: PPEWithdrawalStatus) => {
@@ -184,8 +186,10 @@ const PPEWithdrawPage = () => {
                 const canDelete = withdrawal.status === PPEWithdrawalStatus.PENDING || withdrawal.status === PPEWithdrawalStatus.CANCELLED;
                 return (
                     <DropdownMenu
-                        open={dropdownOpenStates[withdrawal.id]}
-                        onOpenChange={(open) => setDropdownOpenStates(prev => ({ ...prev, [withdrawal.id]: open }))}
+                        open={openDropdownId === withdrawal.id}
+                        onOpenChange={(open) => {
+                            setOpenDropdownId(open ? withdrawal.id : null);
+                        }}
                     >
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon">
@@ -201,7 +205,7 @@ const PPEWithdrawPage = () => {
                                 <>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
-                                        onClick={() => handleDeleteClick(withdrawal)}
+                                        onClick={(e) => handleDeleteClick(withdrawal, e)}
                                         className="text-red-600 focus:text-red-600"
                                     >
                                         <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -247,10 +251,15 @@ const PPEWithdrawPage = () => {
 
             <ConfirmDialog
                 open={deleteDialogOpen}
-                onOpenChange={setDeleteDialogOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        handleDialogCancel();
+                    }
+                }}
                 title="Delete PPE Withdrawal"
                 description={`Are you sure you want to delete withdrawal "${withdrawalToDelete?.withdrawalCode}"? This action cannot be undone.`}
                 onConfirm={handleDeleteConfirm}
+                variant="destructive"
             />
         </>
     );

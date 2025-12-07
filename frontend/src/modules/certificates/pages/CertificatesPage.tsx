@@ -47,7 +47,7 @@ const CertificatesPage = () => {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [certificateToDelete, setCertificateToDelete] = useState<Certificate | null>(null);
     const [activeTab, setActiveTab] = useState('all');
-    const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>({});
+    const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
     const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
@@ -186,15 +186,11 @@ const CertificatesPage = () => {
         fetchData();
     }, [fetchData]);
 
-    const handleDeleteClick = (certificate: Certificate) => {
-        // Close the dropdown for this certificate first
-        setOpenDropdowns((prev) => ({ ...prev, [certificate.id]: false }));
-        // Wait for dropdown animation to complete before opening dialog
-        // This prevents aria-hidden conflicts
-        setTimeout(() => {
-            setCertificateToDelete(certificate);
-            setDeleteDialogOpen(true);
-        }, 150); // Wait for dropdown close animation (usually ~100-150ms)
+    const handleDeleteClick = (certificate: Certificate, event?: React.MouseEvent) => {
+        event?.stopPropagation();
+        setOpenDropdownId(null); // Explicitly close the dropdown
+        setCertificateToDelete(certificate);
+        setDeleteDialogOpen(true);
     };
 
     const handleDeleteConfirm = async () => {
@@ -202,6 +198,7 @@ const CertificatesPage = () => {
 
         try {
             await deleteCertificate(certificateToDelete.id);
+            setOpenDropdownId(null); // Ensure dropdown is closed
             fetchData();
         } catch (error) {
             console.error('Error deleting certificate:', error);
@@ -209,6 +206,12 @@ const CertificatesPage = () => {
             setDeleteDialogOpen(false);
             setCertificateToDelete(null);
         }
+    };
+
+    const handleDialogCancel = () => {
+        setDeleteDialogOpen(false);
+        setCertificateToDelete(null);
+        setOpenDropdownId(null); // Ensure dropdown is closed
     };
 
     const handleSearch = (term: string) => {
@@ -404,13 +407,11 @@ const CertificatesPage = () => {
             id: 'actions',
             header: 'Actions',
             cell: (certificate: Certificate) => {
-                const isOpen = openDropdowns[certificate.id] || false;
-
                 return (
                     <DropdownMenu
-                        open={isOpen}
+                        open={openDropdownId === certificate.id}
                         onOpenChange={(open) => {
-                            setOpenDropdowns((prev) => ({ ...prev, [certificate.id]: open }));
+                            setOpenDropdownId(open ? certificate.id : null);
                         }}
                     >
                         <DropdownMenuTrigger asChild>
@@ -418,14 +419,11 @@ const CertificatesPage = () => {
                                 <MoreHorizontal className="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                            align="end"
-                            onCloseAutoFocus={(e) => e.preventDefault()}
-                        >
+                        <DropdownMenuContent align="end">
                             <DropdownMenuItem
                                 onSelect={(e) => {
                                     e.preventDefault();
-                                    setOpenDropdowns((prev) => ({ ...prev, [certificate.id]: false }));
+                                    setOpenDropdownId(null);
                                     navigate(`/certificates/${certificate.id}`);
                                 }}
                             >
@@ -434,7 +432,7 @@ const CertificatesPage = () => {
                             <DropdownMenuItem
                                 onSelect={(e) => {
                                     e.preventDefault();
-                                    setOpenDropdowns((prev) => ({ ...prev, [certificate.id]: false }));
+                                    setOpenDropdownId(null);
                                     navigate(`/certificates/${certificate.id}/edit`);
                                 }}
                             >
@@ -444,7 +442,7 @@ const CertificatesPage = () => {
                             <DropdownMenuItem
                                 onSelect={(e) => {
                                     e.preventDefault();
-                                    handleDeleteClick(certificate);
+                                    handleDeleteClick(certificate, e as any);
                                 }}
                             >
                                 <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -498,10 +496,15 @@ const CertificatesPage = () => {
 
             <ConfirmDialog
                 open={deleteDialogOpen}
-                onOpenChange={setDeleteDialogOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        handleDialogCancel();
+                    }
+                }}
                 title="Delete Certificate"
                 description={`Are you sure you want to delete certificate "${certificateToDelete?.certificateNumber}"? This action cannot be undone.`}
                 onConfirm={handleDeleteConfirm}
+                variant="destructive"
             />
         </>
     );

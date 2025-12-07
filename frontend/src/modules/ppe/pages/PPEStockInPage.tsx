@@ -26,7 +26,7 @@ const PPEStockInPage = () => {
     const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [stockToDelete, setStockToDelete] = useState<PPEStock | null>(null);
-    const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+    const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
     const filterFields: FilterField[] = [
         {
@@ -87,22 +87,18 @@ const PPEStockInPage = () => {
         setPageIndex(0);
     };
 
-    const handleDeleteClick = (stock: PPEStock) => {
-        // Close all dropdowns before opening delete dialog
-        setDropdownOpenStates({});
+    const handleDeleteClick = (stock: PPEStock, event?: React.MouseEvent) => {
+        event?.stopPropagation();
+        setOpenDropdownId(null); // Explicitly close the dropdown
         setStockToDelete(stock);
-        // Use setTimeout to ensure dropdown is fully closed before opening dialog
-        setTimeout(() => {
-            setDeleteDialogOpen(true);
-        }, 0);
+        setDeleteDialogOpen(true);
     };
 
     const handleDeleteConfirm = async () => {
         if (!stockToDelete) return;
         try {
             await deleteStock(stockToDelete.id);
-            // Close all dropdowns and clear state after successful delete
-            setDropdownOpenStates({});
+            setOpenDropdownId(null); // Ensure dropdown is closed
             loadStocks();
         } catch (error) {
             // Error already handled in hook with toast notification
@@ -110,6 +106,12 @@ const PPEStockInPage = () => {
             setDeleteDialogOpen(false);
             setStockToDelete(null);
         }
+    };
+
+    const handleDialogCancel = () => {
+        setDeleteDialogOpen(false);
+        setStockToDelete(null);
+        setOpenDropdownId(null); // Ensure dropdown is closed
     };
 
     const getAggregateStatus = (stock: PPEStock): { label: string; className: string } => {
@@ -200,8 +202,10 @@ const PPEStockInPage = () => {
             header: 'Actions',
             cell: (stock: PPEStock) => (
                 <DropdownMenu
-                    open={dropdownOpenStates[stock.id]}
-                    onOpenChange={(open) => setDropdownOpenStates(prev => ({ ...prev, [stock.id]: open }))}
+                    open={openDropdownId === stock.id}
+                    onOpenChange={(open) => {
+                        setOpenDropdownId(open ? stock.id : null);
+                    }}
                 >
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
@@ -218,7 +222,7 @@ const PPEStockInPage = () => {
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                            onClick={() => handleDeleteClick(stock)}
+                            onClick={(e) => handleDeleteClick(stock, e)}
                             className="text-red-600 focus:text-red-600"
                         >
                             <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -261,10 +265,15 @@ const PPEStockInPage = () => {
 
             <ConfirmDialog
                 open={deleteDialogOpen}
-                onOpenChange={setDeleteDialogOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        handleDialogCancel();
+                    }
+                }}
                 title="Delete PPE Stock"
                 description={`Are you sure you want to delete stock "${stockToDelete?.stockCode}"? This action cannot be undone.`}
                 onConfirm={handleDeleteConfirm}
+                variant="destructive"
             />
         </>
     );

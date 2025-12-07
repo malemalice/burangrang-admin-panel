@@ -49,6 +49,7 @@ const QuizzesPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: string | number | boolean; label: string }>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields for quizzes
   const filterFields: FilterField[] = [
@@ -151,7 +152,9 @@ const QuizzesPage = () => {
     setPageIndex(0);
   };
 
-  const handleDeleteClick = (quiz: Quiz) => {
+  const handleDeleteClick = (quiz: Quiz, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setQuizToDelete(quiz);
     setDeleteDialogOpen(true);
   };
@@ -160,6 +163,7 @@ const QuizzesPage = () => {
     if (quizToDelete) {
       try {
         await deleteQuiz(quizToDelete.id);
+        setOpenDropdownId(null); // Ensure dropdown is closed
         setDeleteDialogOpen(false);
         setQuizToDelete(null);
         await loadQuizzes();
@@ -167,6 +171,12 @@ const QuizzesPage = () => {
         console.error('Failed to delete quiz:', error);
       }
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setQuizToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   const getEntityLabel = (quiz: Quiz) => {
@@ -257,7 +267,12 @@ const QuizzesPage = () => {
       id: 'actions',
       header: 'Actions',
       cell: (quiz: Quiz) => (
-        <DropdownMenu>
+        <DropdownMenu
+          open={openDropdownId === quiz.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? quiz.id : null);
+          }}
+        >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <MoreHorizontal className="h-4 w-4" />
@@ -272,7 +287,7 @@ const QuizzesPage = () => {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => handleDeleteClick(quiz)}
+              onClick={(e) => handleDeleteClick(quiz, e)}
               className="text-destructive focus:text-destructive"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -315,10 +330,15 @@ const QuizzesPage = () => {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         onConfirm={handleDeleteConfirm}
         title="Delete Quiz"
         description={`Are you sure you want to delete "${quizToDelete?.title}"? This action cannot be undone.`}
+        variant="destructive"
       />
     </div>
   );

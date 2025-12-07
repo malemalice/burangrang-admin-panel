@@ -36,6 +36,7 @@ const ThreatsPage = () => {
   const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
   const [hseCategories, setHseCategories] = useState<HseCategory[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Get HSE categories for filtering
   useEffect(() => {
@@ -181,7 +182,9 @@ const ThreatsPage = () => {
   };
 
   // Handle delete
-  const handleDelete = (threat: Threat) => {
+  const handleDelete = (threat: Threat, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setThreatToDelete(threat);
     setDeleteDialogOpen(true);
   };
@@ -192,6 +195,7 @@ const ThreatsPage = () => {
     try {
       await threatService.delete(threatToDelete.id);
       toast.success('Threat deleted successfully');
+      setOpenDropdownId(null); // Ensure dropdown is closed
       fetchThreats();
     } catch (error) {
       toast.error('Failed to delete threat. It might have associated mitigations.');
@@ -199,6 +203,12 @@ const ThreatsPage = () => {
       setDeleteDialogOpen(false);
       setThreatToDelete(null);
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setThreatToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   // Table columns
@@ -258,7 +268,12 @@ const ThreatsPage = () => {
       id: 'actions',
       header: '',
       cell: (threat: Threat) => (
-        <DropdownMenu>
+        <DropdownMenu
+          open={openDropdownId === threat.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? threat.id : null);
+          }}
+        >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <MoreHorizontal className="h-4 w-4" />
@@ -276,7 +291,7 @@ const ThreatsPage = () => {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-red-600"
-              onClick={() => handleDelete(threat)}
+              onClick={(e) => handleDelete(threat, e)}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
@@ -350,10 +365,15 @@ const ThreatsPage = () => {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         title="Delete Threat"
         description={`Are you sure you want to delete "${threatToDelete?.name}"? This action cannot be undone. Note that threats with associated mitigations cannot be deleted.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
       />
     </>
   );

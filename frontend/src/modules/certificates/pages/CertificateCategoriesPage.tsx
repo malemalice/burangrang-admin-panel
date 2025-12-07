@@ -28,7 +28,7 @@ const CertificateCategoriesPage = () => {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [categoryToDelete, setCategoryToDelete] = useState<CertificateCategory | null>(null);
     const [activeTab, setActiveTab] = useState('all');
-    const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>({});
+    const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilters, setActiveFilters] = useState<
         Record<string, { value: any; label: string }>
@@ -102,15 +102,11 @@ const CertificateCategoriesPage = () => {
         fetchData();
     }, [fetchData]);
 
-    const handleDeleteClick = (category: CertificateCategory) => {
-        // Close the dropdown for this category first
-        setOpenDropdowns((prev) => ({ ...prev, [category.id]: false }));
-        // Wait for dropdown animation to complete before opening dialog
-        // This prevents aria-hidden conflicts
-        setTimeout(() => {
-            setCategoryToDelete(category);
-            setDeleteDialogOpen(true);
-        }, 150); // Wait for dropdown close animation (usually ~100-150ms)
+    const handleDeleteClick = (category: CertificateCategory, event?: React.MouseEvent) => {
+        event?.stopPropagation();
+        setOpenDropdownId(null); // Explicitly close the dropdown
+        setCategoryToDelete(category);
+        setDeleteDialogOpen(true);
     };
 
     const handleDeleteConfirm = async () => {
@@ -119,6 +115,7 @@ const CertificateCategoriesPage = () => {
         try {
             await certificateCategoryService.deleteCategory(categoryToDelete.id);
             toast.success('Certificate category deleted successfully');
+            setOpenDropdownId(null); // Ensure dropdown is closed
             fetchData();
         } catch (error: any) {
             console.error('Error deleting category:', error);
@@ -129,6 +126,12 @@ const CertificateCategoriesPage = () => {
             setDeleteDialogOpen(false);
             setCategoryToDelete(null);
         }
+    };
+
+    const handleDialogCancel = () => {
+        setDeleteDialogOpen(false);
+        setCategoryToDelete(null);
+        setOpenDropdownId(null); // Ensure dropdown is closed
     };
 
     const handleSearch = (term: string) => {
@@ -267,13 +270,11 @@ const CertificateCategoriesPage = () => {
             id: 'actions',
             header: 'Actions',
             cell: (category: CertificateCategory) => {
-                const isOpen = openDropdowns[category.id] || false;
-
                 return (
                     <DropdownMenu
-                        open={isOpen}
+                        open={openDropdownId === category.id}
                         onOpenChange={(open) => {
-                            setOpenDropdowns((prev) => ({ ...prev, [category.id]: open }));
+                            setOpenDropdownId(open ? category.id : null);
                         }}
                     >
                         <DropdownMenuTrigger asChild>
@@ -281,14 +282,11 @@ const CertificateCategoriesPage = () => {
                                 <MoreHorizontal className="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                            align="end"
-                            onCloseAutoFocus={(e) => e.preventDefault()}
-                        >
+                        <DropdownMenuContent align="end">
                             <DropdownMenuItem
                                 onSelect={(e) => {
                                     e.preventDefault();
-                                    setOpenDropdowns((prev) => ({ ...prev, [category.id]: false }));
+                                    setOpenDropdownId(null);
                                     navigate(`/master/certificate-categories/${category.id}/edit`);
                                 }}
                             >
@@ -298,7 +296,7 @@ const CertificateCategoriesPage = () => {
                             <DropdownMenuItem
                                 onSelect={(e) => {
                                     e.preventDefault();
-                                    handleDeleteClick(category);
+                                    handleDeleteClick(category, e as any);
                                 }}
                             >
                                 <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -350,10 +348,15 @@ const CertificateCategoriesPage = () => {
 
             <ConfirmDialog
                 open={deleteDialogOpen}
-                onOpenChange={setDeleteDialogOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        handleDialogCancel();
+                    }
+                }}
                 title="Delete Certificate Category"
                 description={`Are you sure you want to delete category "${categoryToDelete?.name}"? This action cannot be undone.`}
                 onConfirm={handleDeleteConfirm}
+                variant="destructive"
             />
         </>
     );
