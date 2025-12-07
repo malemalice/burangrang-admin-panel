@@ -27,7 +27,21 @@ const menuFormSchema = z.object({
   path: z.string().optional(),
   icon: z.string().optional(),
   parentId: z.string().optional(),
-  order: z.number().min(0, 'Order must be 0 or greater').max(999, 'Order must be less than 1000'),
+  order: z.preprocess(
+    (val) => {
+      // Convert empty string, null, or undefined to undefined for proper validation
+      if (val === '' || val === null || val === undefined) {
+        return undefined;
+      }
+      return Number(val);
+    },
+    z.number({
+      required_error: 'Order is required',
+      invalid_type_error: 'Order must be a number',
+    })
+      .min(0, 'Order must be 0 or greater')
+      .max(999, 'Order must be less than 1000')
+  ),
   isActive: z.boolean().default(true),
   roleIds: z.array(z.string()).default([]),
 });
@@ -54,6 +68,7 @@ const MenuForm: React.FC<MenuFormProps> = ({
 
   const form = useForm<MenuFormData>({
     resolver: zodResolver(menuFormSchema),
+    mode: 'onBlur', // Validate on blur for better UX
     defaultValues: {
       name: menu?.name || '',
       path: menu?.path || '',
@@ -331,7 +346,18 @@ const MenuForm: React.FC<MenuFormProps> = ({
                           type="number"
                           placeholder="0"
                           {...field}
-                          onChange={e => field.onChange(parseInt(e.target.value) || 0)}
+                          value={field.value ?? ''}
+                          onChange={e => {
+                            const value = e.target.value;
+                            // Allow empty string for validation, but convert to number for submission
+                            if (value === '') {
+                              field.onChange(undefined);
+                            } else {
+                              const numValue = parseInt(value, 10);
+                              field.onChange(isNaN(numValue) ? undefined : numValue);
+                            }
+                          }}
+                          onBlur={field.onBlur}
                           aria-describedby="order-description"
                           aria-required="true"
                         />

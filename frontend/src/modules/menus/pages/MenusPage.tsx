@@ -55,7 +55,7 @@ const MenusPage = () => {
     fetchMenus({
       page: pageIndex + 1, // API expects 1-based pagination
       limit,
-      search: searchTerm || undefined, // Only include search if it has a value
+      search: searchTerm?.trim() || undefined, // Only include search if it has a non-empty trimmed value
     });
   }, [fetchMenus, pageIndex, limit, searchTerm]);
 

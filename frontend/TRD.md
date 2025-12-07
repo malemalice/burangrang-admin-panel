@@ -15,6 +15,7 @@
 This document outlines the technical requirements and architectural principles for restructuring the frontend application from a traditional layered architecture to a modular, feature-based architecture. The restructuring aims to improve maintainability, scalability, and developer experience while following modern frontend best practices.
 
 **Version 1.4 Updates**: Merged form layout principles from `frontend-form-general-layout.md`, including page structure patterns (PageHeader → max-w-4xl wrapper → Form Component), component hierarchy guidelines, layout patterns (two-column grid, spacing standards), state patterns (loading/error states), and action button patterns. Enhanced "Form Page Specific Guidelines" and "Form Component Patterns" sections with complete implementation examples and quick reference checklist.
+**Version 1.5 Updates**: Added Dropdown + Dialog pattern to prevent focus trap issues when dropdown menus interact with dialogs. Includes state management, event handling, and cleanup patterns to ensure proper dropdown closing and prevent `aria-hidden` focus traps that block user interactions.
 
 **Version 1.3 Updates**: Added comprehensive UI/UX principles section for back-office systems, including user-centered design principles, layout patterns (Master-Detail, Data Density), component patterns (Data Tables, Search & Filters, Modal vs Page), advanced features (Bulk Actions, Undo/Redo, Audit Trails, Export), form-specific guidelines, and enhanced design system details (typography scale, spacing system, button hierarchy, icon usage, semantic status colors). Merged UI/UX principles from `ui-ux-principle.md` to provide complete design guidance.
 
@@ -1170,6 +1171,9 @@ const [ModuleName]sPage = () => {
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [[entity]ToDelete, set[Entity]ToDelete] = useState<[Entity] | null>(null);
 
   // Define columns with consistent structure
   const columns = [
@@ -1209,7 +1213,10 @@ const [ModuleName]sPage = () => {
       id: 'actions',
       header: 'Actions',
       cell: ([entity]: [Entity]) => (
-        <DropdownMenu>
+        <DropdownMenu
+          open={openDropdownId === [entity].id}
+          onOpenChange={(open) => setOpenDropdownId(open ? [entity].id : null)}
+        >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <MoreHorizontal className="h-4 w-4" />
@@ -1223,7 +1230,10 @@ const [ModuleName]sPage = () => {
               <Edit className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => handleDelete([entity])}>
+            <DropdownMenuItem
+              className="text-red-600"
+              onClick={(e) => handleDeleteClick([entity], e)}
+            >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -1261,12 +1271,106 @@ const [ModuleName]sPage = () => {
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteDialogOpen(false);
+            set[Entity]ToDelete(null);
+            setOpenDropdownId(null);
+          }
+        }}
+        title="Delete [Entity]"
+        description={`Are you sure you want to delete "${[entity]ToDelete?.name}"? This action cannot be undone.`}
+        onConfirm={handleDeleteConfirm}
+        variant="destructive"
+      />
     </div>
   );
 };
 ```
 
-#### 2. Filter Field Configuration
+#### 2. Dropdown + Dialog Pattern (Critical)
+**IMPORTANT**: When using dropdown menus with delete/action dialogs, follow this pattern to prevent focus trap issues:
+
+**Problem**: Dropdown portal wrapper gets stuck with `aria-hidden="true"` when dialog opens, causing focus trap that blocks all clicks.
+
+**Solution Pattern**:
+
+```typescript
+// State management - use single openDropdownId (not Record<string, boolean>)
+const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+const [[entity]ToDelete, set[Entity]ToDelete] = useState<[Entity] | null>(null);
+
+// Close dropdown FIRST, then open dialog
+const handleDeleteClick = ([entity]: [Entity], event?: React.MouseEvent) => {
+  event?.stopPropagation(); // Prevent event bubbling
+  setOpenDropdownId(null); // Explicitly close dropdown
+  set[Entity]ToDelete([entity]);
+  setDeleteDialogOpen(true);
+};
+
+// Close dropdown after successful delete
+const handleDeleteConfirm = async () => {
+  if (![entity]ToDelete) return;
+  try {
+    await [moduleName]Service.delete[Entity]([entity]ToDelete.id);
+    toast.success('[Entity] deleted successfully');
+    setOpenDropdownId(null); // Ensure closed
+    fetch[Entities]();
+  } catch (error) {
+    toast.error('Failed to delete [entity]');
+  } finally {
+    setDeleteDialogOpen(false);
+    set[Entity]ToDelete(null);
+  }
+};
+
+// Always close dropdown when dialog closes
+const handleDialogCancel = () => {
+  setDeleteDialogOpen(false);
+  set[Entity]ToDelete(null);
+  setOpenDropdownId(null); // Ensure closed
+};
+
+// In JSX - use controlled dropdown state
+<DropdownMenu
+  open={openDropdownId === [entity].id}
+  onOpenChange={(open) => setOpenDropdownId(open ? [entity].id : null)}
+>
+  {/* ... dropdown content */}
+  <DropdownMenuItem
+    className="text-red-600"
+    onClick={(e) => handleDeleteClick([entity], e)} // Pass event
+  >
+    <Trash2 className="mr-2 h-4 w-4" /> Delete
+  </DropdownMenuItem>
+</DropdownMenu>
+
+// Dialog with onOpenChange callback
+<ConfirmDialog
+  open={deleteDialogOpen}
+  onOpenChange={(open) => {
+    if (!open) handleDialogCancel(); // Ensure cleanup
+  }}
+  title="Delete [Entity]"
+  description={`Delete "${[entity]ToDelete?.name}"?`}
+  onConfirm={handleDeleteConfirm}
+  variant="destructive"
+/>
+```
+
+**Key Principles**:
+1. **Single State**: Use `openDropdownId: string | null` (not `Record<string, boolean>`)
+2. **Explicit Closing**: Close dropdown at multiple points (click, confirm, cancel)
+3. **Event Handling**: Use `stopPropagation()` to prevent bubbling
+4. **Defensive Cleanup**: Always close dropdown when dialog closes
+
+**Apply to**: All pages with dropdown + delete dialogs (UsersPage, RolesPage, OfficesPage, DepartmentsPage, MenusPage, RiskAssessmentsPage, etc.)
+
+#### 3. Filter Field Configuration
 Consistent filter patterns across all modules:
 
 ```typescript
@@ -2078,7 +2182,8 @@ const columns = [
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.4 | 2024-12-XX | Development Team | Merged form layout principles from `frontend-form-general-layout.md`, including page structure patterns (PageHeader → max-w-4xl wrapper → Form Component), component hierarchy guidelines, layout patterns (two-column grid, spacing standards), state patterns (loading/error states), and action button patterns. Enhanced "Form Page Specific Guidelines" and "Form Component Patterns" sections with complete implementation examples and quick reference checklist. |
+| 1.5 | 2024-12-XX | Development Team | Merged form layout principles from `frontend-form-general-layout.md`, including page structure patterns (PageHeader → max-w-4xl wrapper → Form Component), component hierarchy guidelines, layout patterns (two-column grid, spacing standards), state patterns (loading/error states), and action button patterns. Enhanced "Form Page Specific Guidelines" and "Form Component Patterns" sections with complete implementation examples and quick reference checklist. |
+| 1.4 | 2024-12-XX | Development Team | Added Dropdown + Dialog pattern to Table Display Patterns section. Includes critical pattern for preventing focus trap issues when dropdown menus interact with dialogs, with state management, event handling, and cleanup best practices. |
 | 1.3 | 2024-12-XX | Development Team | Added comprehensive UI/UX principles section for back-office systems, including user-centered design principles, layout patterns (Master-Detail, Data Density), component patterns (Data Tables, Search & Filters, Modal vs Page), advanced features (Bulk Actions, Undo/Redo, Audit Trails, Export), form-specific guidelines, and enhanced design system details (typography scale, spacing system, button hierarchy, icon usage, semantic status colors). Merged UI/UX principles from `ui-ux-principle.md`. |
 | 1.2 | 2024-12-XX | Development Team | Added comprehensive design system documentation including color system, typography, spacing, component patterns, theme system, animations, and design system best practices |
 | 1.1 | 2024-12-XX | Development Team | Added comprehensive module interaction patterns, API conventions, CRUD patterns, form handling, error handling, implementation checklists, code examples library, and development workflow guidelines |

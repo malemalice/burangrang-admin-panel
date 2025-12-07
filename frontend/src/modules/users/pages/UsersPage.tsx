@@ -126,10 +126,14 @@ const UsersPage = () => {
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
+      // Only include search if it's not empty or only spaces
+      const trimmedSearch = searchTerm.trim();
+      const finalSearch = trimmedSearch.length > 0 ? trimmedSearch : undefined;
+
       const params = {
         page: pageIndex + 1,
         limit,
-        search: searchTerm,
+        search: finalSearch,
         filters: {
           ...Object.entries(activeFilters).reduce((acc, [key, item]) => {
             // Map status to isActive for backend compatibility
@@ -211,7 +215,9 @@ const UsersPage = () => {
   };
 
   const handleSearch = (term: string) => {
-    setSearchTerm(term);
+    // Trim the search term and only set if not empty or only spaces
+    const trimmedTerm = term.trim();
+    setSearchTerm(trimmedTerm);
     setPageIndex(0); // Reset to first page on new search
   };
 
@@ -426,6 +432,7 @@ const UsersPage = () => {
           total: totalUsers
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />
