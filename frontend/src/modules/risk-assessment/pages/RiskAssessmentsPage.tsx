@@ -43,7 +43,7 @@ const RiskAssessmentsPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<FilterValue[]>([]);
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -125,7 +125,9 @@ const RiskAssessmentsPage = () => {
     setPageIndex(0);
   };
 
-  const handleDeleteClick = (assessment: RiskAssessment) => {
+  const handleDeleteClick = (assessment: RiskAssessment, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setAssessmentToDelete(assessment);
     setDeleteDialogOpen(true);
   };
@@ -136,6 +138,7 @@ const RiskAssessmentsPage = () => {
     try {
       await riskAssessmentService.delete(assessmentToDelete.id);
       toast.success('Risk assessment deleted successfully');
+      setOpenDropdownId(null); // Ensure dropdown is closed
       fetchAssessments();
     } catch (error) {
       toast.error('Failed to delete risk assessment');
@@ -145,11 +148,10 @@ const RiskAssessmentsPage = () => {
     }
   };
 
-  const handleDropdownOpenChange = (id: string, open: boolean) => {
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [id]: open,
-    }));
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setAssessmentToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   const getStatusBadge = (status: string) => {
@@ -207,9 +209,11 @@ const RiskAssessmentsPage = () => {
       id: 'actions',
       header: 'Actions',
       cell: (assessment: RiskAssessment) => (
-        <DropdownMenu 
-          open={dropdownOpenStates[assessment.id]} 
-          onOpenChange={(open) => handleDropdownOpenChange(assessment.id, open)}
+        <DropdownMenu
+          open={openDropdownId === assessment.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? assessment.id : null);
+          }}
         >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -226,7 +230,7 @@ const RiskAssessmentsPage = () => {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => handleDeleteClick(assessment)}
+              onClick={(e) => handleDeleteClick(assessment, e)}
               className="text-red-600 focus:text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -279,7 +283,14 @@ const RiskAssessmentsPage = () => {
         </CardContent>
       </Card>
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>

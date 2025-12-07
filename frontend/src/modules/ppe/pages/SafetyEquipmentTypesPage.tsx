@@ -37,7 +37,7 @@ export default function SafetyEquipmentTypesPage() {
     const [activeTab, setActiveTab] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-    const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+    const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
     const filterFields: FilterField[] = [
         {
@@ -87,22 +87,18 @@ export default function SafetyEquipmentTypesPage() {
         fetchData();
     }, [fetchData]);
 
-    const handleDeleteClick = (type: SafetyEquipmentType) => {
-        // Close all dropdowns before opening delete dialog
-        setDropdownOpenStates({});
+    const handleDeleteClick = (type: SafetyEquipmentType, event?: React.MouseEvent) => {
+        event?.stopPropagation();
+        setOpenDropdownId(null); // Explicitly close the dropdown
         setTypeToDelete(type);
-        // Use setTimeout to ensure dropdown is fully closed before opening dialog
-        setTimeout(() => {
-            setDeleteDialogOpen(true);
-        }, 0);
+        setDeleteDialogOpen(true);
     };
 
     const handleDeleteConfirm = async () => {
         if (!typeToDelete) return;
         try {
             await deleteType(typeToDelete.id);
-            // Close all dropdowns and clear state after successful delete
-            setDropdownOpenStates({});
+            setOpenDropdownId(null); // Ensure dropdown is closed
             fetchData();
         } catch (error) {
             // Error already handled in hook with toast notification
@@ -110,6 +106,12 @@ export default function SafetyEquipmentTypesPage() {
             setDeleteDialogOpen(false);
             setTypeToDelete(null);
         }
+    };
+
+    const handleDialogCancel = () => {
+        setDeleteDialogOpen(false);
+        setTypeToDelete(null);
+        setOpenDropdownId(null); // Ensure dropdown is closed
     };
 
     const handleSearch = (term: string) => {
@@ -184,8 +186,10 @@ export default function SafetyEquipmentTypesPage() {
             header: 'Actions',
             cell: (type: SafetyEquipmentType) => (
                 <DropdownMenu
-                    open={dropdownOpenStates[type.id]}
-                    onOpenChange={(open) => setDropdownOpenStates(prev => ({ ...prev, [type.id]: open }))}
+                    open={openDropdownId === type.id}
+                    onOpenChange={(open) => {
+                        setOpenDropdownId(open ? type.id : null);
+                    }}
                 >
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
@@ -199,7 +203,7 @@ export default function SafetyEquipmentTypesPage() {
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                            onClick={() => handleDeleteClick(type)}
+                            onClick={(e) => handleDeleteClick(type, e)}
                             className="text-red-600 focus:text-red-600"
                         >
                             <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -249,10 +253,15 @@ export default function SafetyEquipmentTypesPage() {
 
             <ConfirmDialog
                 open={deleteDialogOpen}
-                onOpenChange={setDeleteDialogOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        handleDialogCancel();
+                    }
+                }}
                 title="Delete Safety Equipment Type"
                 description={`Are you sure you want to delete "${typeToDelete?.name}"? This action cannot be undone.`}
                 onConfirm={handleDeleteConfirm}
+                variant="destructive"
             />
         </>
     );

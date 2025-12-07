@@ -32,6 +32,7 @@ const HseCategoriesPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -125,7 +126,9 @@ const HseCategoriesPage = () => {
   };
 
   // Handle delete
-  const handleDelete = (hseCategory: HseCategory) => {
+  const handleDelete = (hseCategory: HseCategory, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setHseCategoryToDelete(hseCategory);
     setDeleteDialogOpen(true);
   };
@@ -136,6 +139,7 @@ const HseCategoriesPage = () => {
     try {
       await hseCategoryService.delete(hseCategoryToDelete.id);
       toast.success('HSE category deleted successfully');
+      setOpenDropdownId(null); // Ensure dropdown is closed
       fetchHseCategories();
     } catch (error) {
       toast.error('Failed to delete HSE category');
@@ -143,6 +147,12 @@ const HseCategoriesPage = () => {
       setDeleteDialogOpen(false);
       setHseCategoryToDelete(null);
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setHseCategoryToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   // Table columns
@@ -187,7 +197,12 @@ const HseCategoriesPage = () => {
       id: 'actions',
       header: '',
       cell: (hseCategory: HseCategory) => (
-        <DropdownMenu>
+        <DropdownMenu
+          open={openDropdownId === hseCategory.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? hseCategory.id : null);
+          }}
+        >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <MoreHorizontal className="h-4 w-4" />
@@ -205,7 +220,7 @@ const HseCategoriesPage = () => {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-red-600"
-              onClick={() => handleDelete(hseCategory)}
+              onClick={(e) => handleDelete(hseCategory, e)}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
@@ -258,10 +273,15 @@ const HseCategoriesPage = () => {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         title="Delete HSE Category"
         description={`Are you sure you want to delete "${hseCategoryToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
       />
     </>
   );

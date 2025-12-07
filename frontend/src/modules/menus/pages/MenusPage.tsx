@@ -42,7 +42,7 @@ const MenusPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [menuToDelete, setMenuToDelete] = useState<Menu | null>(null);
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Handle search
   const handleSearch = (term: string) => {
@@ -59,21 +59,9 @@ const MenusPage = () => {
     });
   }, [fetchMenus, pageIndex, limit, searchTerm]);
 
-  const handleDropdownOpenChange = (id: string, open: boolean) => {
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [id]: open
-    }));
-  };
-
-  const handleDeleteClick = (menu: Menu) => {
-    // Close the dropdown menu for this menu item
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [menu.id]: false
-    }));
-
-    // Set menu to delete and open the dialog
+  const handleDeleteClick = (menu: Menu, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setMenuToDelete(menu);
     setDeleteDialogOpen(true);
   };
@@ -84,6 +72,7 @@ const MenusPage = () => {
     try {
       await deleteMenu(menuToDelete.id);
       toast.success(`Menu item "${menuToDelete.name}" has been deleted`);
+      setOpenDropdownId(null); // Ensure dropdown is closed
       // Hook automatically updates state, no need to refetch
     } catch (error) {
       console.error('Error deleting menu:', error);
@@ -92,6 +81,12 @@ const MenusPage = () => {
       setDeleteDialogOpen(false);
       setMenuToDelete(null);
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setMenuToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   const columns = [
@@ -164,8 +159,10 @@ const MenusPage = () => {
       header: 'Actions',
       cell: (menu: Menu) => (
         <DropdownMenu
-          open={dropdownOpenStates[menu.id]}
-          onOpenChange={(open) => handleDropdownOpenChange(menu.id, open)}
+          open={openDropdownId === menu.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? menu.id : null);
+          }}
         >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -182,7 +179,7 @@ const MenusPage = () => {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => handleDeleteClick(menu)}
+              onClick={(e) => handleDeleteClick(menu, e)}
               className="text-red-600 focus:text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -319,7 +316,11 @@ const MenusPage = () => {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         title="Delete Menu Item"
         description={`Are you sure you want to delete "${menuToDelete?.name}"? This may affect navigation for users.`}
         confirmText="Delete"

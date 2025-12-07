@@ -36,7 +36,7 @@ export default function SafetyEquipmentsPage() {
     const [activeTab, setActiveTab] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-    const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+    const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
     const filterFields: FilterField[] = [
         {
@@ -94,22 +94,18 @@ export default function SafetyEquipmentsPage() {
         fetchData();
     }, [fetchData]);
 
-    const handleDeleteClick = (equipment: SafetyEquipment) => {
-        // Close all dropdowns before opening delete dialog
-        setDropdownOpenStates({});
+    const handleDeleteClick = (equipment: SafetyEquipment, event?: React.MouseEvent) => {
+        event?.stopPropagation();
+        setOpenDropdownId(null); // Explicitly close the dropdown
         setEquipmentToDelete(equipment);
-        // Use setTimeout to ensure dropdown is fully closed before opening dialog
-        setTimeout(() => {
-            setDeleteDialogOpen(true);
-        }, 0);
+        setDeleteDialogOpen(true);
     };
 
     const handleDeleteConfirm = async () => {
         if (!equipmentToDelete) return;
         try {
             await deleteEquipment(equipmentToDelete.id);
-            // Close all dropdowns and clear state after successful delete
-            setDropdownOpenStates({});
+            setOpenDropdownId(null); // Ensure dropdown is closed
             fetchData();
         } catch (error) {
             // Error already handled in hook with toast notification
@@ -117,6 +113,12 @@ export default function SafetyEquipmentsPage() {
             setDeleteDialogOpen(false);
             setEquipmentToDelete(null);
         }
+    };
+
+    const handleDialogCancel = () => {
+        setDeleteDialogOpen(false);
+        setEquipmentToDelete(null);
+        setOpenDropdownId(null); // Ensure dropdown is closed
     };
 
     const handleSearch = (term: string) => {
@@ -215,8 +217,10 @@ export default function SafetyEquipmentsPage() {
             header: 'Actions',
             cell: (equipment: SafetyEquipment) => (
                 <DropdownMenu
-                    open={dropdownOpenStates[equipment.id]}
-                    onOpenChange={(open) => setDropdownOpenStates(prev => ({ ...prev, [equipment.id]: open }))}
+                    open={openDropdownId === equipment.id}
+                    onOpenChange={(open) => {
+                        setOpenDropdownId(open ? equipment.id : null);
+                    }}
                 >
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
@@ -230,7 +234,7 @@ export default function SafetyEquipmentsPage() {
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                            onClick={() => handleDeleteClick(equipment)}
+                            onClick={(e) => handleDeleteClick(equipment, e)}
                             className="text-red-600 focus:text-red-600"
                         >
                             <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -280,10 +284,15 @@ export default function SafetyEquipmentsPage() {
 
             <ConfirmDialog
                 open={deleteDialogOpen}
-                onOpenChange={setDeleteDialogOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        handleDialogCancel();
+                    }
+                }}
                 title="Delete Safety Equipment"
                 description={`Are you sure you want to delete "${equipmentToDelete?.name}"? This action cannot be undone.`}
                 onConfirm={handleDeleteConfirm}
+                variant="destructive"
             />
         </>
     );
