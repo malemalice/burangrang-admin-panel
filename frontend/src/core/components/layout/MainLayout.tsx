@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DynamicSidebar from './DynamicSidebar';
 import TopNavbar from './TopNavbar';
 import { Toaster } from "sonner";
@@ -6,6 +6,7 @@ import { cn } from '@/core/lib/utils';
 import { useTheme } from '@/core/lib/theme';
 import { useAppName } from '@/modules/settings/hooks/useSettings';
 import { MenuProvider } from '@/core/contexts/MenuContext';
+import { useIsMobile } from '@/core/hooks/useIsMobile';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -15,6 +16,16 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { isDark } = useTheme();
   const { appName } = useAppName();
+  const isMobile = useIsMobile();
+
+  // Close sidebar on mobile by default, keep open on desktop
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarOpen(false);
+    } else {
+      setSidebarOpen(true);
+    }
+  }, [isMobile]);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -28,11 +39,12 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           ? "bg-gray-900 text-gray-100" 
           : "bg-admin-background text-admin-foreground"
       )}>
-        <DynamicSidebar isOpen={sidebarOpen} />
+        <DynamicSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
         <div className={cn(
           "flex-1 flex flex-col transition-all duration-300 ease-in-out",
-          sidebarOpen ? "md:ml-64" : "md:ml-20"
+          "ml-0", // No margin on mobile
+          sidebarOpen ? "md:ml-64" : "md:ml-20" // Margin only on desktop
         )}>
           <TopNavbar toggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
           <main className="flex-1 p-4 md:p-6 overflow-x-auto">

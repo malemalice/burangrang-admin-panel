@@ -106,13 +106,16 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
   };
 
   return (
-    <div className="h-16 border-b flex items-center justify-between px-4 bg-background border-border">
+    <div className={cn(
+      "h-16 border-b flex items-center justify-between px-4 bg-background border-border relative z-40",
+      "transition-all duration-300 ease-in-out"
+    )}>
       <div className="flex items-center">
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleSidebar}
-          className="mr-4 text-foreground"
+          className="mr-4 text-foreground z-50 relative"
           aria-label="Toggle sidebar"
         >
           <Menu size={20} />
