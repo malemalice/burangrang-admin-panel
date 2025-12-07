@@ -32,6 +32,9 @@ export const defaultSettings = [
   { key: 'mail.user', value: '' },
   { key: 'mail.password', value: '' },
   { key: 'mail.from', value: 'Burangrang Admin <no-reply@burangrang.local>' },
+
+  // Google Tag Manager Settings
+  { key: 'gtm.container_id', value: '' }, // GTM-XXXXXXX format, empty by default
 ];
 
 export async function seedSettings(prisma: PrismaClient): Promise<Setting[]> {
