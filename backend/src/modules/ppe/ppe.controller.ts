@@ -574,6 +574,8 @@ export class PPEController {
     @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Sort order' })
     @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
     @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term for name, code, or description' })
+    @ApiQuery({ name: 'name', required: false, type: String, description: 'Filter by equipment name' })
+    @ApiQuery({ name: 'code', required: false, type: String, description: 'Filter by equipment code' })
     @ApiQuery({ name: 'category', required: false, enum: ['PERSONAL_PROTECTIVE_EQUIPMENT', 'SAFETY_EQUIPMENT', 'EMERGENCY_EQUIPMENT'], description: 'Filter by equipment category' })
     @ApiQuery({ name: 'safetyEquipmentTypeId', required: false, type: String, description: 'Filter by safety equipment type ID' })
     @ApiResponse({

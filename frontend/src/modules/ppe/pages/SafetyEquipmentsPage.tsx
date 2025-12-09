@@ -76,10 +76,11 @@ export default function SafetyEquipmentsPage() {
             limit,
             search: searchTerm,
             filters: {
-                ...Object.entries(activeFilters).reduce((acc, [key, item]) => ({
-                    ...acc,
-                    [key]: item.value
-                }), {}),
+                ...Object.entries(activeFilters).reduce((acc: any, [key, item]) => {
+                    if (key === 'status') return acc;
+                    acc[key] = item.value;
+                    return acc;
+                }, {}),
                 isActive: activeFilters.status?.value === 'active' ? true :
                     activeFilters.status?.value === 'inactive' ? false :
                         undefined,

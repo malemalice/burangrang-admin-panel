@@ -1678,14 +1678,30 @@ export class PPEService {
             search,
             category,
             safetyEquipmentTypeId,
+            name,
+            code,
         } = options || {};
+
+        console.log('DEBUG options:', JSON.stringify(options));
 
         // Build where clause
         const where: Prisma.SafetyEquipmentWhereInput = {
             deletedAt: null, // Only get non-deleted records
         };
 
-        if (search) {
+        // Handle name filter (exact match or contains)
+        if (name) {
+            where.name = { contains: name, mode: 'insensitive' };
+        }
+
+        // Handle code filter (exact match or contains)
+        if (code) {
+            where.code = { contains: code, mode: 'insensitive' };
+        }
+
+        // Handle search filter (OR logic for name, code, description)
+        // Only apply search if name and code filters are not provided
+        if (search && !name && !code) {
             where.OR = [
                 { name: { contains: search, mode: 'insensitive' } },
                 { code: { contains: search, mode: 'insensitive' } },
