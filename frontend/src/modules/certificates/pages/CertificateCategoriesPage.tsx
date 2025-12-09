@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, Plus, MoreHorizontal, Award } from 'lucide-react';
@@ -34,7 +34,7 @@ const CertificateCategoriesPage = () => {
         Record<string, { value: any; label: string }>
     >({});
 
-    const filterFields: FilterField[] = [
+    const filterFields: FilterField[] = useMemo(() => [
         {
             id: 'name',
             label: 'Category Name',
@@ -69,7 +69,7 @@ const CertificateCategoriesPage = () => {
                 { label: 'Inactive', value: 'inactive' },
             ],
         },
-    ];
+    ], []);
 
     const fetchData = useCallback(async () => {
         const params: any = {
@@ -102,14 +102,14 @@ const CertificateCategoriesPage = () => {
         fetchData();
     }, [fetchData]);
 
-    const handleDeleteClick = (category: CertificateCategory, event?: React.MouseEvent) => {
+    const handleDeleteClick = useCallback((category: CertificateCategory, event?: React.MouseEvent) => {
         event?.stopPropagation();
         setOpenDropdownId(null); // Explicitly close the dropdown
         setCategoryToDelete(category);
         setDeleteDialogOpen(true);
-    };
+    }, []);
 
-    const handleDeleteConfirm = async () => {
+    const handleDeleteConfirm = useCallback(async () => {
         if (!categoryToDelete) return;
 
         try {
@@ -126,20 +126,20 @@ const CertificateCategoriesPage = () => {
             setDeleteDialogOpen(false);
             setCategoryToDelete(null);
         }
-    };
+    }, [categoryToDelete, fetchCategories]);
 
-    const handleDialogCancel = () => {
+    const handleDialogCancel = useCallback(() => {
         setDeleteDialogOpen(false);
         setCategoryToDelete(null);
         setOpenDropdownId(null); // Ensure dropdown is closed
-    };
+    }, []);
 
-    const handleSearch = (term: string) => {
+    const handleSearch = useCallback((term: string) => {
         setSearchTerm(term);
         setPageIndex(0);
-    };
+    }, []);
 
-    const handleTabChange = (value: string) => {
+    const handleTabChange = useCallback((value: string) => {
         setActiveTab(value);
         setPageIndex(0);
 
@@ -167,9 +167,9 @@ const CertificateCategoriesPage = () => {
                 status: { value: 'inactive', label: 'Inactive' },
             });
         }
-    };
+    }, [activeFilters]);
 
-    const handleApplyFilters = (filters: FilterValue[]) => {
+    const handleApplyFilters = useCallback((filters: FilterValue[]) => {
         const newActiveFilters: Record<string, { value: any; label: string }> = {};
 
         filters.forEach((filter) => {
@@ -202,9 +202,9 @@ const CertificateCategoriesPage = () => {
 
         setActiveFilters(newActiveFilters);
         setPageIndex(0);
-    };
+    }, []);
 
-    const columns = [
+    const columns = useMemo(() => [
         {
             id: 'name',
             header: 'Category Name',
@@ -307,7 +307,7 @@ const CertificateCategoriesPage = () => {
             },
             isSortable: false,
         },
-    ];
+    ], [openDropdownId, navigate, handleDeleteClick]);
 
     return (
         <>
@@ -344,6 +344,7 @@ const CertificateCategoriesPage = () => {
                 filterFields={filterFields}
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}
+                activeFilters={activeFilters}
             />
 
             <ConfirmDialog

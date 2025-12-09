@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import workPermitService from '../services/workPermitService';
 import {
@@ -16,7 +16,7 @@ export const useWorkPermits = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchWorkPermits = async (params: WorkPermitSearchParams) => {
+  const fetchWorkPermits = useCallback(async (params: WorkPermitSearchParams) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -31,9 +31,9 @@ export const useWorkPermits = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const createWorkPermit = async (workPermitData: CreateWorkPermitDTO) => {
+  const createWorkPermit = useCallback(async (workPermitData: CreateWorkPermitDTO) => {
     try {
       const newWorkPermit = await workPermitService.createWorkPermit(workPermitData);
       setWorkPermits((prev) => [newWorkPermit, ...prev]);
@@ -45,9 +45,9 @@ export const useWorkPermits = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
-  const updateWorkPermit = async (id: string, workPermitData: UpdateWorkPermitDTO) => {
+  const updateWorkPermit = useCallback(async (id: string, workPermitData: UpdateWorkPermitDTO) => {
     try {
       const updatedWorkPermit = await workPermitService.updateWorkPermit(id, workPermitData);
       setWorkPermits((prev) => prev.map((item) => (item.id === id ? updatedWorkPermit : item)));
@@ -58,9 +58,9 @@ export const useWorkPermits = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
-  const deleteWorkPermit = async (id: string) => {
+  const deleteWorkPermit = useCallback(async (id: string) => {
     try {
       await workPermitService.deleteWorkPermit(id);
       setWorkPermits((prev) => prev.filter((item) => item.id !== id));
@@ -71,9 +71,9 @@ export const useWorkPermits = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
-  const submitWorkPermit = async (id: string, notes?: string) => {
+  const submitWorkPermit = useCallback(async (id: string, notes?: string) => {
     try {
       const updated = await workPermitService.submitWorkPermit(id, notes);
       setWorkPermits((prev) => prev.map((item) => (item.id === id ? updated : item)));
@@ -84,9 +84,9 @@ export const useWorkPermits = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
-  const approveWorkPermit = async (id: string, notes?: string) => {
+  const approveWorkPermit = useCallback(async (id: string, notes?: string) => {
     try {
       const updated = await workPermitService.approveWorkPermit(id, notes);
       setWorkPermits((prev) => prev.map((item) => (item.id === id ? updated : item)));
@@ -97,9 +97,9 @@ export const useWorkPermits = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
-  const rejectWorkPermit = async (id: string, reason: string, notes?: string) => {
+  const rejectWorkPermit = useCallback(async (id: string, reason: string, notes?: string) => {
     try {
       const updated = await workPermitService.rejectWorkPermit(id, reason, notes);
       setWorkPermits((prev) => prev.map((item) => (item.id === id ? updated : item)));
@@ -110,9 +110,9 @@ export const useWorkPermits = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
-  const requestInfo = async (id: string, message: string, ccUserIds?: string[], notes?: string) => {
+  const requestInfo = useCallback(async (id: string, message: string, ccUserIds?: string[], notes?: string) => {
     try {
       const updated = await workPermitService.requestInfo(id, message, ccUserIds, notes);
       setWorkPermits((prev) => prev.map((item) => (item.id === id ? updated : item)));
@@ -123,9 +123,9 @@ export const useWorkPermits = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
-  const extendWorkPermit = async (id: string, newEndDate: string, reason: string, notes?: string) => {
+  const extendWorkPermit = useCallback(async (id: string, newEndDate: string, reason: string, notes?: string) => {
     try {
       const updated = await workPermitService.extendWorkPermit(id, newEndDate, reason, notes);
       setWorkPermits((prev) => prev.map((item) => (item.id === id ? updated : item)));
@@ -136,9 +136,9 @@ export const useWorkPermits = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
-  const closeWorkPermit = async (id: string, notes?: string) => {
+  const closeWorkPermit = useCallback(async (id: string, notes?: string) => {
     try {
       const updated = await workPermitService.closeWorkPermit(id, notes);
       setWorkPermits((prev) => prev.map((item) => (item.id === id ? updated : item)));
@@ -149,7 +149,7 @@ export const useWorkPermits = () => {
       toast.error(errorMessage);
       throw err;
     }
-  };
+  }, []);
 
   return {
     workPermits,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -56,7 +56,7 @@ const CertificatesPage = () => {
     >({});
 
     // Define filter fields
-    const filterFields: FilterField[] = [
+    const filterFields: FilterField[] = useMemo(() => [
         {
             id: 'categoryId',
             label: 'Category',
@@ -126,7 +126,7 @@ const CertificatesPage = () => {
                 { label: 'Inactive', value: 'inactive' },
             ],
         },
-    ];
+    ], [categories, departments, users]);
 
     // Fetch filter options
     useEffect(() => {
@@ -186,14 +186,14 @@ const CertificatesPage = () => {
         fetchData();
     }, [fetchData]);
 
-    const handleDeleteClick = (certificate: Certificate, event?: React.MouseEvent) => {
+    const handleDeleteClick = useCallback((certificate: Certificate, event?: React.MouseEvent) => {
         event?.stopPropagation();
         setOpenDropdownId(null); // Explicitly close the dropdown
         setCertificateToDelete(certificate);
         setDeleteDialogOpen(true);
-    };
+    }, []);
 
-    const handleDeleteConfirm = async () => {
+    const handleDeleteConfirm = useCallback(async () => {
         if (!certificateToDelete) return;
 
         try {
@@ -206,20 +206,20 @@ const CertificatesPage = () => {
             setDeleteDialogOpen(false);
             setCertificateToDelete(null);
         }
-    };
+    }, [certificateToDelete, deleteCertificate, fetchData]);
 
-    const handleDialogCancel = () => {
+    const handleDialogCancel = useCallback(() => {
         setDeleteDialogOpen(false);
         setCertificateToDelete(null);
         setOpenDropdownId(null); // Ensure dropdown is closed
-    };
+    }, []);
 
-    const handleSearch = (term: string) => {
+    const handleSearch = useCallback((term: string) => {
         setSearchTerm(term);
         setPageIndex(0);
-    };
+    }, []);
 
-    const handleTabChange = (value: string) => {
+    const handleTabChange = useCallback((value: string) => {
         setActiveTab(value);
         setPageIndex(0);
 
@@ -242,9 +242,9 @@ const CertificatesPage = () => {
                 expiringSoon: { value: 'true', label: 'Expiring Soon' },
             });
         }
-    };
+    }, []);
 
-    const handleApplyFilters = (filters: FilterValue[]) => {
+    const handleApplyFilters = useCallback((filters: FilterValue[]) => {
         const newActiveFilters: Record<string, { value: any; label: string }> = {};
 
         filters.forEach((filter) => {
@@ -303,17 +303,17 @@ const CertificatesPage = () => {
 
         setActiveFilters(newActiveFilters);
         setPageIndex(0);
-    };
+    }, [categories, departments, users]);
 
-    const formatDate = (dateString: string) => {
+    const formatDate = useCallback((dateString: string) => {
         return new Date(dateString).toLocaleDateString('id-ID', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
         });
-    };
+    }, []);
 
-    const columns = [
+    const columns = useMemo(() => [
         {
             id: 'certificateNumber',
             header: 'Certificate Number',
@@ -453,7 +453,7 @@ const CertificatesPage = () => {
             },
             isSortable: false,
         },
-    ];
+    ], [categories, departments, users, openDropdownId, navigate, handleDeleteClick, formatDate]);
 
     return (
         <>
@@ -492,6 +492,7 @@ const CertificatesPage = () => {
                 filterFields={filterFields}
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}
+                activeFilters={activeFilters}
             />
 
             <ConfirmDialog
