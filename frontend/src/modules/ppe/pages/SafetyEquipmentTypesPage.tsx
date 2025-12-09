@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, Plus, Shield, MoreHorizontal } from 'lucide-react';
@@ -39,7 +39,7 @@ export default function SafetyEquipmentTypesPage() {
     const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
-    const filterFields: FilterField[] = [
+    const filterFields: FilterField[] = useMemo(() => [
         {
             id: 'name',
             label: 'Type Name',
@@ -59,7 +59,7 @@ export default function SafetyEquipmentTypesPage() {
                 { label: 'Inactive', value: 'inactive' },
             ],
         },
-    ];
+    ], []);
 
     const fetchData = useCallback(async () => {
         const params: PaginationParams = {
@@ -87,14 +87,14 @@ export default function SafetyEquipmentTypesPage() {
         fetchData();
     }, [fetchData]);
 
-    const handleDeleteClick = (type: SafetyEquipmentType, event?: React.MouseEvent) => {
+    const handleDeleteClick = useCallback((type: SafetyEquipmentType, event?: React.MouseEvent) => {
         event?.stopPropagation();
         setOpenDropdownId(null); // Explicitly close the dropdown
         setTypeToDelete(type);
         setDeleteDialogOpen(true);
-    };
+    }, []);
 
-    const handleDeleteConfirm = async () => {
+    const handleDeleteConfirm = useCallback(async () => {
         if (!typeToDelete) return;
         try {
             await deleteType(typeToDelete.id);
@@ -106,20 +106,20 @@ export default function SafetyEquipmentTypesPage() {
             setDeleteDialogOpen(false);
             setTypeToDelete(null);
         }
-    };
+    }, [typeToDelete, deleteType, fetchData]);
 
-    const handleDialogCancel = () => {
+    const handleDialogCancel = useCallback(() => {
         setDeleteDialogOpen(false);
         setTypeToDelete(null);
         setOpenDropdownId(null); // Ensure dropdown is closed
-    };
+    }, []);
 
-    const handleSearch = (term: string) => {
+    const handleSearch = useCallback((term: string) => {
         setSearchTerm(term);
         setPageIndex(0);
-    };
+    }, []);
 
-    const handleApplyFilters = (filters: any[]) => {
+    const handleApplyFilters = useCallback((filters: any[]) => {
         const newActiveFilters: Record<string, { value: any; label: string }> = {};
         filters.forEach((filter: any) => {
             if (filter.id === 'status') {
@@ -136,9 +136,9 @@ export default function SafetyEquipmentTypesPage() {
         });
         setActiveFilters(newActiveFilters);
         setPageIndex(0);
-    };
+    }, []);
 
-    const handleTabChange = (value: string) => {
+    const handleTabChange = useCallback((value: string) => {
         setActiveTab(value);
         setPageIndex(0);
         if (value === 'all') {
@@ -148,9 +148,9 @@ export default function SafetyEquipmentTypesPage() {
         } else if (value === 'inactive') {
             setActiveFilters({ status: { value: 'inactive', label: 'Inactive' } });
         }
-    };
+    }, []);
 
-    const columns = [
+    const columns = useMemo(() => [
         {
             id: 'name',
             header: 'Type Name',
@@ -212,7 +212,7 @@ export default function SafetyEquipmentTypesPage() {
                 </DropdownMenu>
             ),
         },
-    ];
+    ], [openDropdownId, navigate, handleDeleteClick]);
 
     return (
         <>
@@ -249,6 +249,7 @@ export default function SafetyEquipmentTypesPage() {
                 filterFields={filterFields}
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}
+                activeFilters={activeFilters}
             />
 
             <ConfirmDialog

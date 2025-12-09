@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Edit, Trash2, Plus, Shield, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
@@ -38,7 +38,7 @@ export default function SafetyEquipmentsPage() {
     const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
-    const filterFields: FilterField[] = [
+    const filterFields: FilterField[] = useMemo(() => [
         {
             id: 'name',
             label: 'Equipment Name',
@@ -68,7 +68,7 @@ export default function SafetyEquipmentsPage() {
                 { label: 'Inactive', value: 'inactive' },
             ],
         },
-    ];
+    ], []);
 
     const fetchData = useCallback(async () => {
         const params: PaginationParams = {
@@ -77,15 +77,16 @@ export default function SafetyEquipmentsPage() {
             search: searchTerm,
             filters: {
                 ...Object.entries(activeFilters).reduce((acc: any, [key, item]) => {
-                    if (key === 'status') return acc;
+                    if (key === 'status') {
+                         return {
+                             ...acc,
+                             isActive: item.value === 'active' ? 'true' : 'false'
+                         };
+                    }
                     acc[key] = item.value;
                     return acc;
                 }, {}),
-                isActive: activeFilters.status?.value === 'active' ? true :
-                    activeFilters.status?.value === 'inactive' ? false :
-                        undefined,
-                category: activeFilters.category?.value,
-                safetyEquipmentTypeId: activeFilters.safetyEquipmentTypeId?.value,
+                // Additional explicit mapping if needed, but the reduce block above covers it like UsersPage
             }
         };
         await fetchEquipments(params);
@@ -130,10 +131,17 @@ export default function SafetyEquipmentsPage() {
     const handleApplyFilters = (filters: any[]) => {
         const newActiveFilters: Record<string, { value: any; label: string }> = {};
         filters.forEach((filter: any) => {
-            newActiveFilters[filter.id] = {
-                value: filter.value,
-                label: String(filter.value)
-            };
+            if (filter.id === 'status') {
+                newActiveFilters[filter.id] = {
+                    value: filter.value,
+                    label: filter.value === 'active' ? 'Active' : 'Inactive' // Explicit label like UsersPage
+                };
+            } else {
+                newActiveFilters[filter.id] = {
+                    value: filter.value,
+                    label: String(filter.value)
+                };
+            }
         });
         setActiveFilters(newActiveFilters);
         setPageIndex(0);

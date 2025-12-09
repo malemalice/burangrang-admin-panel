@@ -45,23 +45,28 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
   const [filterValues, setFilterValues] = useState<FilterValue[]>(initialValues);
   const { isDark } = useTheme();
 
-  // Sync initialValues prop with filterValues state
+  // Sync initialValues prop with filterValues state only when drawer opens
   useEffect(() => {
-    setFilterValues(initialValues || []);
-  }, [initialValues]);
+    if (isOpen) {
+      setFilterValues(initialValues || []);
+    }
+  }, [isOpen, initialValues]);
 
   const updateFilterValue = (id: string, value: string | string[] | { from?: Date; to?: Date } | boolean) => {
-    // Check if filter already exists
+    console.warn(`[FilterDrawer] updateFilterValue START: id=${id}, value=${JSON.stringify(value)}`);
+    console.warn(`[FilterDrawer] Current State:`, filterValues);
+
     const existingFilterIndex = filterValues.findIndex(filter => filter.id === id);
 
     if (existingFilterIndex >= 0) {
-      // Update existing filter
       const updatedFilters = [...filterValues];
       updatedFilters[existingFilterIndex] = { id, value };
+      console.warn(`[FilterDrawer] Updating Existing:`, updatedFilters);
       setFilterValues(updatedFilters);
     } else {
-      // Add new filter
-      setFilterValues([...filterValues, { id, value }]);
+      const newFilters = [...filterValues, { id, value }];
+      console.warn(`[FilterDrawer] Adding New:`, newFilters);
+      setFilterValues(newFilters);
     }
   };
 
@@ -146,7 +151,10 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
               {field.type === 'text' && (
                 <Input
                   value={(getFilterValue(field.id) as string) || ''}
-                  onChange={(e) => updateFilterValue(field.id, e.target.value)}
+                  onChange={(e) => {
+                    console.warn(`[FilterDrawer] Input onChange ${field.id}:`, e.target.value);
+                    updateFilterValue(field.id, e.target.value);
+                  }}
                   placeholder={`Enter ${field.label.toLowerCase()}`}
                   className="w-full"
                 />

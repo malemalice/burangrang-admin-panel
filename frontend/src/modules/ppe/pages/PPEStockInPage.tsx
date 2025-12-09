@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Eye, Edit, Package, Calendar, Trash2, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
@@ -28,7 +28,7 @@ const PPEStockInPage = () => {
     const [stockToDelete, setStockToDelete] = useState<PPEStock | null>(null);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
-    const filterFields: FilterField[] = [
+    const filterFields: FilterField[] = useMemo(() => [
         {
             id: 'stockCode',
             label: 'Stock Code',
@@ -53,7 +53,7 @@ const PPEStockInPage = () => {
             label: 'Received Date To',
             type: 'date',
         },
-    ];
+    ], []);
 
     const loadStocks = useCallback(() => {
         const params: PPEStockSearchParams = {
@@ -73,28 +73,28 @@ const PPEStockInPage = () => {
         loadStocks();
     }, [loadStocks]);
 
-    const handleSearch = (term: string) => {
+    const handleSearch = useCallback((term: string) => {
         setSearchTerm(term);
         setPageIndex(0);
-    };
+    }, []);
 
-    const handleApplyFilters = (filterValues: any[]) => {
+    const handleApplyFilters = useCallback((filterValues: any[]) => {
         const newFilters: Record<string, { value: any; label: string }> = {};
         filterValues.forEach((filter) => {
             newFilters[filter.id] = { value: filter.value, label: filter.label || filter.id };
         });
         setActiveFilters(newFilters);
         setPageIndex(0);
-    };
+    }, []);
 
-    const handleDeleteClick = (stock: PPEStock, event?: React.MouseEvent) => {
+    const handleDeleteClick = useCallback((stock: PPEStock, event?: React.MouseEvent) => {
         event?.stopPropagation();
         setOpenDropdownId(null); // Explicitly close the dropdown
         setStockToDelete(stock);
         setDeleteDialogOpen(true);
-    };
+    }, []);
 
-    const handleDeleteConfirm = async () => {
+    const handleDeleteConfirm = useCallback(async () => {
         if (!stockToDelete) return;
         try {
             await deleteStock(stockToDelete.id);
@@ -106,15 +106,15 @@ const PPEStockInPage = () => {
             setDeleteDialogOpen(false);
             setStockToDelete(null);
         }
-    };
+    }, [stockToDelete, deleteStock, loadStocks]);
 
-    const handleDialogCancel = () => {
+    const handleDialogCancel = useCallback(() => {
         setDeleteDialogOpen(false);
         setStockToDelete(null);
         setOpenDropdownId(null); // Ensure dropdown is closed
-    };
+    }, []);
 
-    const getAggregateStatus = (stock: PPEStock): { label: string; className: string } => {
+    const getAggregateStatus = useCallback((stock: PPEStock): { label: string; className: string } => {
         if (!stock.items || stock.items.length === 0) {
             return { label: 'No Items', className: 'bg-gray-100 text-gray-800 border-0' };
         }
@@ -151,9 +151,9 @@ const PPEStockInPage = () => {
 
         // Mixed status
         return { label: 'Mixed Status', className: 'bg-orange-100 text-orange-800 border-0' };
-    };
+    }, []);
 
-    const columns = [
+    const columns = useMemo(() => [
         {
             id: 'stockCode',
             header: 'Stock Code',
@@ -232,7 +232,7 @@ const PPEStockInPage = () => {
             ),
             isSortable: false,
         },
-    ];
+    ], [openDropdownId, navigate, handleDeleteClick, getAggregateStatus]);
 
     return (
         <>
@@ -261,6 +261,7 @@ const PPEStockInPage = () => {
                 filterFields={filterFields}
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}
+                activeFilters={activeFilters}
             />
 
             <ConfirmDialog
