@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Eye, CheckCircle, XCircle, Package, Trash2, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
@@ -28,7 +28,7 @@ const PPEWithdrawPage = () => {
     const [withdrawalToDelete, setWithdrawalToDelete] = useState<PPEWithdrawal | null>(null);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
-    const filterFields: FilterField[] = [
+    const filterFields: FilterField[] = useMemo(() => [
         {
             id: 'withdrawalCode',
             label: 'Withdrawal Code',
@@ -60,7 +60,7 @@ const PPEWithdrawPage = () => {
             label: 'Withdrawal Date To',
             type: 'date',
         },
-    ];
+    ], []);
 
     const loadWithdrawals = useCallback(() => {
         const params: PPEWithdrawalSearchParams = {
@@ -81,21 +81,21 @@ const PPEWithdrawPage = () => {
         loadWithdrawals();
     }, [loadWithdrawals]);
 
-    const handleSearch = (term: string) => {
+    const handleSearch = useCallback((term: string) => {
         setSearchTerm(term);
         setPageIndex(0);
-    };
+    }, []);
 
-    const handleApplyFilters = (filterValues: any[]) => {
+    const handleApplyFilters = useCallback((filterValues: any[]) => {
         const newFilters: Record<string, { value: any; label: string }> = {};
         filterValues.forEach((filter) => {
             newFilters[filter.id] = { value: filter.value, label: filter.label || filter.id };
         });
         setActiveFilters(newFilters);
         setPageIndex(0);
-    };
+    }, []);
 
-    const handleDeleteClick = (withdrawal: PPEWithdrawal, event?: React.MouseEvent) => {
+    const handleDeleteClick = useCallback((withdrawal: PPEWithdrawal, event?: React.MouseEvent) => {
         // Only allow delete for PENDING or CANCELLED status
         if (withdrawal.status !== PPEWithdrawalStatus.PENDING && withdrawal.status !== PPEWithdrawalStatus.CANCELLED) {
             return;
@@ -104,9 +104,9 @@ const PPEWithdrawPage = () => {
         setOpenDropdownId(null); // Explicitly close the dropdown
         setWithdrawalToDelete(withdrawal);
         setDeleteDialogOpen(true);
-    };
+    }, []);
 
-    const handleDeleteConfirm = async () => {
+    const handleDeleteConfirm = useCallback(async () => {
         if (!withdrawalToDelete) return;
         try {
             await deleteWithdrawal(withdrawalToDelete.id);
@@ -118,15 +118,15 @@ const PPEWithdrawPage = () => {
             setDeleteDialogOpen(false);
             setWithdrawalToDelete(null);
         }
-    };
+    }, [withdrawalToDelete, deleteWithdrawal, loadWithdrawals]);
 
-    const handleDialogCancel = () => {
+    const handleDialogCancel = useCallback(() => {
         setDeleteDialogOpen(false);
         setWithdrawalToDelete(null);
         setOpenDropdownId(null); // Ensure dropdown is closed
-    };
+    }, []);
 
-    const getStatusBadge = (status: PPEWithdrawalStatus) => {
+    const getStatusBadge = useCallback((status: PPEWithdrawalStatus) => {
         const variants: Record<PPEWithdrawalStatus, { className: string; label: string }> = {
             PENDING: { className: 'bg-yellow-100 text-yellow-800 border-0', label: 'Pending' },
             APPROVED: { className: 'bg-blue-100 text-blue-800 border-0', label: 'Approved' },
@@ -135,9 +135,9 @@ const PPEWithdrawPage = () => {
         };
         const variant = variants[status] || variants.PENDING;
         return <Badge variant="outline" className={variant.className}>{variant.label}</Badge>;
-    };
+    }, []);
 
-    const columns = [
+    const columns = useMemo(() => [
         {
             id: 'withdrawalCode',
             header: 'Withdrawal Code',
@@ -218,7 +218,7 @@ const PPEWithdrawPage = () => {
             },
             isSortable: false,
         },
-    ];
+    ], [openDropdownId, navigate, handleDeleteClick, getStatusBadge]);
 
     return (
         <>
@@ -247,6 +247,7 @@ const PPEWithdrawPage = () => {
                 filterFields={filterFields}
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}
+                activeFilters={activeFilters}
             />
 
             <ConfirmDialog

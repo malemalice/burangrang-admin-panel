@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Edit, Trash2, BellPlus, Eye, MoreHorizontal, Calendar, Clock, Repeat } from 'lucide-react';
@@ -34,7 +34,7 @@ const RemindersPage = () => {
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields for reminders
-  const filterFields: FilterField[] = [
+  const filterFields: FilterField[] = useMemo(() => [
     {
       id: 'status',
       label: 'Status',
@@ -62,7 +62,7 @@ const RemindersPage = () => {
       label: 'To Date',
       type: 'date',
     },
-  ];
+  ], []);
 
   const fetchReminders = useCallback(async () => {
     setIsLoading(true);
@@ -103,14 +103,14 @@ const RemindersPage = () => {
     fetchReminders();
   }, [fetchReminders]);
 
-  const handleDeleteClick = (reminder: Reminder, event?: React.MouseEvent) => {
+  const handleDeleteClick = useCallback((reminder: Reminder, event?: React.MouseEvent) => {
     event?.stopPropagation();
     setOpenDropdownId(null); // Explicitly close the dropdown
     setReminderToDelete(reminder);
     setDeleteDialogOpen(true);
-  };
+  }, []);
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = useCallback(async () => {
     if (!reminderToDelete) return;
 
     setIsLoading(true);
@@ -127,20 +127,20 @@ const RemindersPage = () => {
       setDeleteDialogOpen(false);
       setReminderToDelete(null);
     }
-  };
+  }, [reminderToDelete, fetchReminders]);
 
-  const handleDialogCancel = () => {
+  const handleDialogCancel = useCallback(() => {
     setDeleteDialogOpen(false);
     setReminderToDelete(null);
     setOpenDropdownId(null); // Ensure dropdown is closed
-  };
+  }, []);
 
-  const handleSearch = (term: string) => {
+  const handleSearch = useCallback((term: string) => {
     setSearchTerm(term);
     setPageIndex(0); // Reset to first page on new search
-  };
+  }, []);
 
-  const handleTabChange = (value: string) => {
+  const handleTabChange = useCallback((value: string) => {
     setActiveTab(value);
     setPageIndex(0);
 
@@ -152,9 +152,9 @@ const RemindersPage = () => {
         status: { value: value.toUpperCase(), label: value.charAt(0).toUpperCase() + value.slice(1) },
       });
     }
-  };
+  }, []);
 
-  const handleApplyFilters = (filters: FilterValue[]) => {
+  const handleApplyFilters = useCallback((filters: FilterValue[]) => {
     const newActiveFilters: Record<string, { value: any; label: string }> = {};
 
     filters.forEach((filter) => {
@@ -180,9 +180,9 @@ const RemindersPage = () => {
 
     setActiveFilters(newActiveFilters);
     setPageIndex(0); // Reset to first page on new filters
-  };
+  }, []);
 
-  const getStatusBadgeVariant = (status: ReminderStatus) => {
+  const getStatusBadgeVariant = useCallback((status: ReminderStatus) => {
     switch (status) {
       case ReminderStatus.PENDING:
         return 'bg-yellow-100 text-yellow-800';
@@ -197,13 +197,13 @@ const RemindersPage = () => {
       default:
         return 'bg-gray-100 text-gray-800';
     }
-  };
+  }, []);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleString();
-  };
+  }, []);
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       id: 'message',
       header: 'Message',
@@ -311,7 +311,7 @@ const RemindersPage = () => {
       ),
       isSortable: false,
     },
-  ];
+  ], [openDropdownId, navigate, handleDeleteClick, getStatusBadgeVariant, formatDate]);
 
   return (
     <>
@@ -349,6 +349,7 @@ const RemindersPage = () => {
         filterFields={filterFields}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+        activeFilters={activeFilters}
       />
 
       <ConfirmDialog

@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, MoreHorizontal, Eye, Edit, Trash2, FileText } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import { Input } from '@/core/components/ui/input';
+import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { Badge } from '@/core/components/ui/badge';
 import {
   DropdownMenu,
@@ -12,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/core/components/ui/dropdown-menu';
-import { FilterDrawer, FilterField, FilterValue, FilterButton } from '@/core/components/ui/filter-drawer';
+import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/core/components/ui/alert-dialog';
 import PageHeader from '@/core/components/ui/PageHeader';
@@ -38,9 +37,10 @@ const WorkPermitsPage = () => {
   const [workPermitToDelete, setWorkPermitToDelete] = useState<WorkPermit | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [companies, setCompanies] = useState<Array<{ label: string; value: string }>>([]);
   const [areas, setAreas] = useState<Array<{ label: string; value: string }>>([]);
+
+  const [activeTab, setActiveTab] = useState('all');
 
   // Fetch master data for filter options
   useEffect(() => {
@@ -68,7 +68,7 @@ const WorkPermitsPage = () => {
   }, []);
 
   // Define filter fields
-  const filterFields: FilterField[] = [
+  const filterFields: FilterField[] = useMemo(() => [
     {
       id: 'status',
       label: 'Status',
@@ -98,7 +98,7 @@ const WorkPermitsPage = () => {
       type: 'searchableSelect',
       options: areas,
     },
-  ];
+  ], [companies, areas]);
 
   useEffect(() => {
     const params: WorkPermitSearchParams = {
@@ -111,9 +111,33 @@ const WorkPermitsPage = () => {
     };
 
     fetchWorkPermits(params);
-  }, [pageIndex, limit, searchTerm, activeFilters]);
+  }, [pageIndex, limit, searchTerm, activeFilters, fetchWorkPermits]);
 
-  const handleApplyFilters = (filters: FilterValue[]) => {
+  const handleTabChange = useCallback((value: string) => {
+    setActiveTab(value);
+    setPageIndex(0);
+
+    const newFilters: Record<string, { value: any; label: string }> = {};
+
+    // Preserve non-status filters
+    Object.entries(activeFilters).forEach(([key, item]) => {
+      if (key !== 'status') {
+        newFilters[key] = item;
+      }
+    });
+
+    if (value === 'all') {
+      setActiveFilters(newFilters);
+    } else {
+      const statusLabel = value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+      setActiveFilters({
+        ...newFilters,
+        status: { value: value, label: statusLabel },
+      });
+    }
+  }, [activeFilters]);
+
+  const handleApplyFilters = useCallback((filters: FilterValue[]) => {
     const filterMap: Record<string, { value: any; label: string }> = {};
     filters.forEach(filter => {
       if (filter.value !== undefined && filter.value !== null && filter.value !== '') {
@@ -150,8 +174,17 @@ const WorkPermitsPage = () => {
         };
       }
     });
+
+    // Sync tab with status filter if present
+    if (filterMap.status) {
+      setActiveTab(filterMap.status.value as string);
+    } else {
+      setActiveTab('all');
+    }
+
     setActiveFilters(filterMap);
-  };
+    setPageIndex(0);
+  }, [filterFields]);
 
   const handleDelete = async () => {
     if (workPermitToDelete) {
@@ -196,7 +229,7 @@ const WorkPermitsPage = () => {
    */
   const getStatusColor = getWorkPermitStatusColor;
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       id: 'code',
       header: 'Code',
@@ -281,10 +314,10 @@ const WorkPermitsPage = () => {
       ),
       isSortable: false,
     },
-  ];
+  ], [navigate, getStatusColor]);
 
   return (
-    <div>
+    <>
       <PageHeader
         title="Work Permits"
         subtitle="Manage work permit applications and approvals"
@@ -293,53 +326,36 @@ const WorkPermitsPage = () => {
             <Plus className="mr-2 h-4 w-4" /> Create Work Permit
           </Button>
         }
-      />
+      >
+        <Tabs defaultValue="all" value={activeTab} className="w-full" onValueChange={handleTabChange}>
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="DRAFT">Draft</TabsTrigger>
+            <TabsTrigger value="OPEN">Open</TabsTrigger>
+            <TabsTrigger value="WAITING_APPROVAL">Waiting</TabsTrigger>
+            <TabsTrigger value="APPROVED">Approved</TabsTrigger>
+            <TabsTrigger value="CLOSED">Closed</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </PageHeader>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Work Permits</CardTitle>
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Search by code or project name..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-64"
-              />
-              <FilterButton
-                onClick={() => setIsFilterOpen(true)}
-                filterCount={Object.keys(activeFilters).length}
-              />
-              <FilterDrawer
-                isOpen={isFilterOpen}
-                onClose={() => setIsFilterOpen(false)}
-                fields={filterFields}
-                onApplyFilters={handleApplyFilters}
-                onResetFilters={() => setActiveFilters({})}
-                initialValues={Object.entries(activeFilters).map(([id, { value }]) => ({ id, value }))}
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            columns={columns}
-            data={workPermits}
-            isLoading={isLoading}
-            pagination={{
-              pageIndex,
-              limit,
-              pageCount: Math.ceil(totalWorkPermits / limit),
-              onPageChange: setPageIndex,
-              onPageSizeChange: setLimit,
-              total: totalWorkPermits,
-            }}
-            filterFields={filterFields}
-            onSearch={setSearchTerm}
-            onApplyFilters={handleApplyFilters}
-          />
-        </CardContent>
-      </Card>
+      <DataTable
+        columns={columns}
+        data={workPermits}
+        isLoading={isLoading}
+        pagination={{
+          pageIndex,
+          limit,
+          pageCount: Math.ceil(totalWorkPermits / limit),
+          onPageChange: setPageIndex,
+          onPageSizeChange: setLimit,
+          total: totalWorkPermits,
+        }}
+        filterFields={filterFields}
+        onSearch={setSearchTerm}
+        onApplyFilters={handleApplyFilters}
+        activeFilters={activeFilters}
+      />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
@@ -357,7 +373,7 @@ const WorkPermitsPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 };
 

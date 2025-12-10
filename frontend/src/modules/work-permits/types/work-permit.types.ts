@@ -1,4 +1,5 @@
 import { PaginatedResponse, PaginationParams } from '@/core/lib/types';
+export type { PaginatedResponse };
 
 // Master data types for work permit form
 export interface MasterDataOption {
