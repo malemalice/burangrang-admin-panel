@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Button } from "@/core/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/components/ui/avatar";
-import { 
-  Bell, 
-  Menu, 
+import {
+  Bell,
+  Menu,
   Search,
   User,
   Settings,
@@ -24,6 +24,7 @@ import { useAuth } from '@/core/lib/auth';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '@/core/lib/theme';
 import { NotificationDropdown } from '@/modules/notifications';
+import routes from '@/core/routes';
 
 interface TopNavbarProps {
   toggleSidebar: () => void;
@@ -36,23 +37,40 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
   const location = useLocation();
   const { mode, toggleMode } = useTheme();
   const isDark = mode === 'dark';
-  
+
   // Format breadcrumb items from current path
   const breadcrumbItems = () => {
     const paths = location.pathname.split('/').filter(Boolean);
-    
-    if (paths.length === 0) return [{ name: 'Dashboard', path: '/' }];
-    
+
+    if (paths.length === 0) return [{ name: 'Dashboard', path: '/', clickable: true }];
+
+    // Custom name mapping untuk breadcrumb yang lebih user-friendly
+    const nameMapping: Record<string, string> = {
+      'master': 'Master Data',
+      'ppe': 'PPE Management',
+      'safety-equipment-types': 'Safety Equipment Types',
+      'safety-equipments': 'Safety Equipments',
+      'stocks': 'Stocks',
+      'withdrawals': 'Withdrawals',
+    };
+
+    // Helper function untuk check jika route exists
+    const routeExists = (path: string): boolean => {
+      return routes.some(route => route.path === path);
+    };
+
     return [
-      { name: 'Dashboard', path: '/' },
+      { name: 'Dashboard', path: '/', clickable: true },
       ...paths.map((path, index) => {
         const url = `/${paths.slice(0, index + 1).join('/')}`;
-        const formattedName = path.charAt(0).toUpperCase() + path.slice(1);
-        return { name: formattedName, path: url };
+        const formattedName = nameMapping[path] || path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, ' ');
+        const clickable = routeExists(url);
+
+        return { name: formattedName, path: url, clickable };
       })
     ];
   };
-  
+
   const items = breadcrumbItems();
 
   // Get user's display name
@@ -64,17 +82,17 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
   // Get user's initials for avatar
   const getUserInitials = () => {
     if (!user) return 'U';
-    
+
     const firstNameInitial = user.firstName ? user.firstName.charAt(0) : '';
     const lastNameInitial = user.lastName ? user.lastName.charAt(0) : '';
-    
+
     if (firstNameInitial && lastNameInitial) {
       return `${firstNameInitial}${lastNameInitial}`;
     }
-    
+
     return user.email ? user.email.charAt(0).toUpperCase() : 'U';
   };
-  
+
   // Get user role name to display
   const getUserRole = () => {
     if (!user) return 'User';
@@ -86,54 +104,57 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
     }
     return 'User';
   };
-  
+
   return (
-    <div className="h-16 border-b flex items-center justify-between px-4 bg-white dark:bg-gray-800 dark:border-gray-700 border-slate-200">
+    <div className={cn(
+      "h-16 border-b flex items-center justify-between px-4 bg-background border-border relative z-40",
+      "transition-all duration-300 ease-in-out"
+    )}>
       <div className="flex items-center">
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleSidebar}
-          className="mr-4 text-slate-700 dark:text-gray-300"
+          className="mr-4 text-foreground z-50 relative"
           aria-label="Toggle sidebar"
         >
           <Menu size={20} />
         </Button>
-        
+
         {/* Custom Breadcrumb Implementation */}
         <div className="hidden md:block mr-4">
           <nav aria-label="breadcrumb">
             <ol className="flex flex-wrap items-center gap-1.5 break-words text-sm text-muted-foreground sm:gap-2.5">
               {items.map((item, index) => {
                 const isLast = index === items.length - 1;
-                
+
                 // Only add separator if not the last item
                 const separator = !isLast ? (
-                  <span 
+                  <span
                     key={`sep-${item.path}`}
-                    className="mx-1 text-slate-400" 
+                    className="mx-1 text-slate-400"
                     aria-hidden="true"
                   >
                     <ChevronRight className="h-3.5 w-3.5" />
                   </span>
                 ) : null;
-                
+
                 return (
-                  <li 
-                    key={item.path} 
+                  <li
+                    key={item.path}
                     className="inline-flex items-center gap-1.5"
                   >
-                    {isLast ? (
-                      <span 
-                        className="text-slate-900 dark:text-white font-medium"
-                        aria-current="page"
+                    {isLast || !item.clickable ? (
+                      <span
+                        className={isLast ? "text-foreground font-medium" : "text-muted-foreground"}
+                        aria-current={isLast ? "page" : undefined}
                       >
                         {item.name}
                       </span>
                     ) : (
-                      <Link 
+                      <Link
                         to={item.path}
-                        className="text-slate-600 dark:text-gray-300 hover:text-admin-primary hover:dark:text-blue-400 transition-colors"
+                        className="text-muted-foreground hover:text-primary transition-colors"
                       >
                         {item.name}
                       </Link>
@@ -145,26 +166,26 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
             </ol>
           </nav>
         </div>
-        
+
       </div>
-      
+
       <div className="flex items-center space-x-2">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={toggleMode} 
-          className="text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleMode}
+          className="text-foreground hover:bg-accent hover:text-accent-foreground"
         >
           {isDark ? <Sun size={20} /> : <Moon size={20} />}
         </Button>
-        
+
         <NotificationDropdown />
-        
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button 
-              variant="ghost" 
-              className="relative flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-gray-700" 
+            <Button
+              variant="ghost"
+              className="relative flex items-center gap-2 hover:bg-accent hover:text-accent-foreground"
               aria-label="User menu"
             >
               <Avatar className="h-8 w-8">
@@ -174,24 +195,24 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
                 </AvatarFallback>
               </Avatar>
               <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-slate-900 dark:text-white">
+                <p className="text-sm font-medium text-foreground">
                   {getDisplayName()}
                 </p>
-                <p className="text-xs text-slate-500 dark:text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   {getUserRole()}
                 </p>
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="dark:bg-gray-800 dark:border-gray-700">
-            <DropdownMenuItem className="cursor-pointer dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:bg-gray-700 hover:bg-slate-100 focus:bg-slate-100">
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem className="cursor-pointer">
               <User className="mr-2 h-4 w-4" /> Profile
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:bg-gray-700 hover:bg-slate-100 focus:bg-slate-100" onClick={() => navigate('/settings')}>
+            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate('/settings')}>
               <Settings className="mr-2 h-4 w-4" /> Settings
             </DropdownMenuItem>
-            <DropdownMenuSeparator className="dark:border-gray-700 border-slate-200" />
-            <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-500 focus:text-red-500 dark:focus:text-red-400 dark:hover:bg-gray-700 hover:bg-slate-100">
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive focus:text-destructive">
               <LogOut className="mr-2 h-4 w-4" /> Logout
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -50,6 +50,11 @@ Enum QuizAttemptStatusEnum {
   ABANDONED
 }
 
+Enum QuizEntityEnum {
+  COURSE
+  CHAPTER
+}
+
 Enum CertificateTypeEnum {
   PERSONNEL_LICENSE
   PERSONNEL_CERTIFICATE
@@ -64,6 +69,14 @@ Enum CertificateRenewalStatusEnum {
   IN_PROGRESS
   COMPLETED
   REJECTED
+  EXPIRED
+}
+
+Enum EnrollmentStatusEnum {
+  INVITED
+  ACTIVE
+  COMPLETED
+  CANCELLED
   EXPIRED
 }
 
@@ -115,6 +128,20 @@ Enum WasteTypeEnum {
   HAZARDOUS
   FOOD
   GREEN
+}
+
+Enum ReminderStatusEnum {
+  PENDING
+  SENT
+  EXPIRED
+  CANCELLED
+  FAILED
+}
+
+Enum ReminderRepeatTypeEnum {
+  NONE
+  WEEKLY
+  MONTHLY
 }
 
 Enum TransitionTypeEnum {
@@ -1025,6 +1052,18 @@ Table t_work_permit_required_courses {
 
 //// -- LEARNING MANAGEMENT SYSTEM (LMS) --
 
+Table m_course_categories {
+  id varchar [pk, default: `uuid()`]
+  name varchar [unique, not null]
+  slug varchar [unique, not null]
+  description text
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Course category master data for organizing courses'
+}
+
 Table t_courses {
   id varchar [pk, default: `uuid()`]
   title varchar [not null]
@@ -1047,7 +1086,7 @@ Table t_courses {
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
 
-  Note: 'LMS courses with instructor assignment and metadata'
+  Note: 'LMS courses with instructor assignment and metadata. Courses can belong to multiple categories via _CourseToCategory junction table.'
 }
 
 Table t_chapters {
@@ -1075,17 +1114,29 @@ Table t_enrollments {
   id varchar [pk, default: `uuid()`]
   userId varchar [not null, ref: > t_users.id]
   courseId varchar [not null, ref: > t_courses.id]
-  status varchar [default: 'ACTIVE', not null]
-  enrolledAt timestamp [default: `now()`, not null]
+  status EnrollmentStatusEnum [default: 'INVITED', not null]
+  enrolledAt timestamp
   completedAt timestamp
   progress decimal(5,2) [default: 0, not null]
+  score decimal(5,2)
+  summaries jsonb
   lastAccessedAt timestamp
+  
+  // Assignment fields (for admin-assigned courses)
+  assignedBy varchar [ref: > t_users.id]
+  assignedAt timestamp
+  dueDate timestamp
+  isRequired boolean [default: false, not null]
+  notes text
+  
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
 
-  Note: 'Student course enrollments with progress tracking - allows re-enrollment after completion'
+  Note: 'Student course enrollments with progress tracking - allows re-enrollment after completion. Supports admin-assigned courses with assignment tracking, due dates, and required/optional enrollment types.'
   indexes {
     (userId, courseId, status)
+    assignedBy
+    dueDate
   }
 }
 
@@ -1110,8 +1161,11 @@ Table t_course_progress {
 
 Table t_quizzes {
   id varchar [pk, default: `uuid()`]
-  courseId varchar [ref: > t_courses.id]
-  chapterId varchar [ref: > t_chapters.id]
+  
+  // Polymorphic relationship: entity + entityId
+  entity QuizEntityEnum
+  entityId varchar
+  
   title varchar [not null]
   description text
   instructions text
@@ -1128,7 +1182,10 @@ Table t_quizzes {
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
 
-  Note: 'Quizzes/assessments - can be bound to course or chapter'
+  Note: 'Quizzes/assessments - polymorphic design. entity can be COURSE (entityId = courseId) or CHAPTER (entityId = chapterId). If both entity and entityId are null, quiz is standalone and requires t_quiz_assignments for user access. Application-level constraint: if entity is set, entityId must be set; if entity is null, entityId must be null.'
+  indexes {
+    (entity, entityId)
+  }
 }
 
 Table t_quiz_questions {
@@ -1160,10 +1217,37 @@ Table t_quiz_question_options {
   Note: 'Answer options for multiple choice and true/false questions'
 }
 
+Table t_quiz_assignments {
+  id varchar [pk, default: `uuid()`]
+  quizId varchar [not null, ref: > t_quizzes.id]
+  userId varchar [not null, ref: > t_users.id]
+  assignedBy varchar [not null, ref: > t_users.id]
+  assignedAt timestamp [default: `now()`, not null]
+  dueDate timestamp
+  isRequired boolean [default: false, not null]
+  status varchar [default: 'PENDING', not null]
+  notes text
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Assigns standalone quizzes to users without course enrollment. Only used when quiz.entity IS NULL (standalone quiz).'
+  indexes {
+    (quizId, userId) [unique]
+    userId
+    quizId
+    status
+    dueDate
+  }
+}
+
 Table t_quiz_attempts {
   id varchar [pk, default: `uuid()`]
   quizId varchar [not null, ref: > t_quizzes.id]
-  enrollmentId varchar [not null, ref: > t_enrollments.id]
+  
+  // User context (one must be set based on quiz type)
+  enrollmentId varchar [ref: > t_enrollments.id]
+  userId varchar [ref: > t_users.id]
+  
   attemptNumber int [not null]
   status QuizAttemptStatusEnum [default: 'IN_PROGRESS', not null]
   score decimal(5,2)
@@ -1177,9 +1261,11 @@ Table t_quiz_attempts {
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
 
-  Note: 'Student quiz attempts with scoring and deadline tracking'
+  Note: 'Quiz attempts with scoring and deadline tracking. For bound quizzes (entity = COURSE/CHAPTER): enrollmentId required. For standalone quizzes (entity IS NULL): userId required.'
   indexes {
     (enrollmentId, quizId)
+    (userId, quizId)
+    status
   }
 }
 
@@ -1294,6 +1380,15 @@ Table _MenuToRole {
   }
 }
 
+Table _CourseToCategory {
+  A varchar [ref: > t_courses.id]
+  B varchar [ref: > m_course_categories.id]
+
+  Note: 'Many-to-many: Courses and Course Categories'
+  indexes {
+    (A, B) [pk]
+  }
+}
 
 Table _AuditToUser {
   A varchar [ref: > t_audits.id]
@@ -1428,6 +1523,7 @@ TableGroup work_permit_system {
 }
 
 TableGroup learning_management_system {
+  m_course_categories
   t_courses
   t_chapters
   t_enrollments
@@ -1435,8 +1531,10 @@ TableGroup learning_management_system {
   t_quizzes
   t_quiz_questions
   t_quiz_question_options
+  t_quiz_assignments
   t_quiz_attempts
   t_quiz_answers
+  _CourseToCategory
 }
 
 TableGroup certificate_management_system {
@@ -1810,4 +1908,110 @@ TableGroup solid_waste_management_system {
   t_weight_reports
   t_weight_report_items
   t_dispatch_orders
+}
+
+//// -- NOTIFICATION SYSTEM --
+
+Table m_notification_types {
+  id varchar [pk, default: `uuid()`]
+  name varchar [unique, not null]
+  description varchar
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Notification type categorization'
+}
+
+Table t_notifications {
+  id varchar [pk, default: `uuid()`]
+  title varchar [not null]
+  message varchar [not null]
+  context varchar
+  contextId varchar
+  typeId varchar [not null, ref: > m_notification_types.id]
+  isRead boolean [default: false, not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  readAt timestamp
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'System notifications - delivery records for user-facing communication'
+  indexes {
+    typeId
+    createdBy
+    isRead
+    (context, contextId)
+  }
+}
+
+Table t_notification_recipients {
+  id varchar [pk, default: `uuid()`]
+  notificationId varchar [not null, ref: > t_notifications.id]
+  roleId varchar [not null, ref: > m_roles.id]
+  userId varchar [ref: > t_users.id]
+  isRead boolean [default: false, not null]
+  readAt timestamp
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Notification recipients tracking - supports role-based and user-specific targeting'
+  indexes {
+    notificationId
+    roleId
+    userId
+    (notificationId, roleId, userId) [unique]
+  }
+}
+
+//// -- REMINDER SYSTEM --
+
+Table t_reminders {
+  id varchar [pk, default: `uuid()`]
+  userId varchar [not null, ref: > t_users.id]
+  entity varchar
+  entityId varchar
+  message varchar [not null]
+  remindAt timestamp [not null]
+  repeatType ReminderRepeatTypeEnum
+  repeatUntil timestamp
+  status ReminderStatusEnum [default: 'PENDING', not null]
+  lastSentAt timestamp
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Scheduled reminders that trigger notifications at specific times. Supports one-time and recurring reminders (weekly, monthly) with expiration dates. Dynamically references domain entities via context (table/module name) and contextId (entity primary key).'
+  indexes {
+    (status, remindAt)
+    userId
+    (entity, entityId)
+  }
+}
+
+Table t_reminder_logs {
+  id varchar [pk, default: `uuid()`]
+  reminderId varchar [not null, ref: > t_reminders.id]
+  executionStatus varchar [not null]
+  executionDuration int
+  failureReason text
+  notificationId varchar [ref: > t_notifications.id]
+  emailSent boolean [default: false, not null]
+  emailError text
+  executedAt timestamp [default: `now()`, not null]
+  createdAt timestamp [default: `now()`, not null]
+
+  Note: 'Audit trail for reminder executions - tracks execution status, duration, failures, and email delivery. Links to notification record when successfully created.'
+  indexes {
+    reminderId
+    executedAt
+    executionStatus
+  }
+}
+
+TableGroup reminder_notification_system {
+  t_reminders
+  t_reminder_logs
+  t_notifications
+  t_notification_recipients
+  m_notification_types
 }

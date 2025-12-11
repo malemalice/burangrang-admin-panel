@@ -52,15 +52,6 @@ api.interceptors.request.use(
     const token = getAccessToken();
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
-      // Debug logging for settings requests
-      if (config.url?.includes('/settings/')) {
-        console.log('Sending authenticated request to:', config.url);
-      }
-    } else {
-      // Debug logging for unauthenticated requests
-      if (config.url?.includes('/settings/')) {
-        console.warn('Sending UNAUTHENTICATED request to:', config.url);
-      }
     }
     return config;
   },
@@ -176,11 +167,8 @@ export const authApi = {
         
         return { user };
       } catch (error) {
-        console.warn('Error validating token with /users/me endpoint:', error);
         // If there's an error (like 401), proceed to refresh the token
       }
-    } else {
-      console.log('Access token expired or will expire soon, refreshing...');
     }
     
     // If we got here, we need to refresh the token

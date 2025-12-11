@@ -1,6 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
+import { ROLES_KEY } from '../decorators/roles.decorator';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { Request } from 'express';
 
@@ -22,6 +23,17 @@ export class PermissionsGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Check if @Roles decorator exists - if so, skip permission check (roles take precedence)
+    const requiredRoles = this.reflector.getAllAndOverride(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+
+    if (requiredRoles) {
+      // Role-based authorization is present, skip permission check
+      return true;
+    }
+
     const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
       PERMISSIONS_KEY,
       [context.getHandler(), context.getClass()],

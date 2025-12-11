@@ -89,7 +89,14 @@ export function SearchableSelect({
           }
         }}
       >
-        <Command className="w-full" shouldFilter={true}>
+        <Command className="w-full" shouldFilter={true} filter={(value, search) => {
+          // Custom filter function that searches in the combined value+label string
+          // The value is set as `${option.value} ${option.label}` in CommandItem
+          const searchLower = search.toLowerCase();
+          const valueLower = value.toLowerCase();
+          // Check if search term is contained in the combined value+label string
+          return valueLower.includes(searchLower) ? 1 : 0;
+        }}>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
@@ -97,7 +104,7 @@ export function SearchableSelect({
               {allOptions && allOptions.length > 0 ? allOptions.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.label}
+                  value={`${option.value} ${option.label}`}
                   onSelect={() => {
                     if (onValueChange) onValueChange(option.value);
                     setOpen(false);
@@ -205,7 +212,14 @@ export function MultiSelectSearchable({
             }
           }}
         >
-          <Command className="w-full" shouldFilter={true}>
+          <Command className="w-full" shouldFilter={true} filter={(value, search) => {
+            // Custom filter function that searches in the combined value+label string
+            // The value is set as `${option.value} ${option.label}` in CommandItem
+            const searchLower = search.toLowerCase();
+            const valueLower = value.toLowerCase();
+            // Check if search term is contained in the combined value+label string
+            return valueLower.includes(searchLower) ? 1 : 0;
+          }}>
             <CommandInput placeholder={searchPlaceholder} />
             <CommandList>
               <CommandEmpty>{emptyText}</CommandEmpty>
@@ -213,7 +227,7 @@ export function MultiSelectSearchable({
                 {safeOptions && safeOptions.length > 0 ? safeOptions.map((option) => (
                   <CommandItem
                     key={option.value}
-                    value={option.label}
+                    value={`${option.value} ${option.label}`}
                     onSelect={() => handleToggleOption(option.value)}
                     className="cursor-pointer"
                     style={{ pointerEvents: 'auto' }}
@@ -234,7 +248,7 @@ export function MultiSelectSearchable({
       </Popover>
 
       {/* Display selected options as badges */}
-      {selectedOptions.length > 0 && (
+      {/* {selectedOptions.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {selectedOptions.map((option) => (
             <Badge key={option.value} variant="secondary" className="flex items-center gap-1">
@@ -249,7 +263,7 @@ export function MultiSelectSearchable({
             </Badge>
           ))}
         </div>
-      )}
+      )} */}
     </div>
   );
 } 

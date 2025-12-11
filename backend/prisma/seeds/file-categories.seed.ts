@@ -75,6 +75,41 @@ export async function seedFileCategories() {
       ],
       maxSize: 50 * 1024 * 1024, // 50MB
     },
+    {
+      name: 'ppe-withdrawal-letter',
+      allowedTypes: [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ],
+      maxSize: 10 * 1024 * 1024, // 10MB
+    },
+    {
+      name: 'certificate-documents',
+      allowedTypes: [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+      ],
+      maxSize: 50 * 1024 * 1024, // 50MB
+    },
+    {
+      name: 'work-permit-documents',
+      allowedTypes: [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ],
+      maxSize: 10 * 1024 * 1024, // 10MB
+    },
   ];
 
   for (const category of categories) {

@@ -115,6 +115,18 @@ export class UsersController {
     type: String,
     description: 'Filter by role ID',
   })
+  @ApiQuery({
+    name: 'departmentId',
+    required: false,
+    type: String,
+    description: 'Filter by department ID',
+  })
+  @ApiQuery({
+    name: 'jobPositionId',
+    required: false,
+    type: String,
+    description: 'Filter by job position ID',
+  })
   @ApiResponse({
     status: 200,
     description: 'Return paginated list of users.',
@@ -144,6 +156,8 @@ export class UsersController {
     @Query('search') search?: string,
     @Query('officeId') officeId?: string,
     @Query('roleId') roleId?: string,
+    @Query('departmentId') departmentId?: string,
+    @Query('jobPositionId') jobPositionId?: string,
   ): Promise<{ data: UserDto[]; meta: { total: number; page: number; limit: number } }> {
     // Convert string parameters to their proper types
     const pageNumber = page ? parseInt(page, 10) : undefined;
@@ -151,15 +165,21 @@ export class UsersController {
     const isActiveBoolean =
       isActive === undefined ? undefined : isActive === 'true';
 
+    // Trim search term and only use if not empty
+    const trimmedSearch = search?.trim();
+    const finalSearch = trimmedSearch && trimmedSearch.length > 0 ? trimmedSearch : undefined;
+
     return this.usersService.findAll({
       page: pageNumber,
       limit: limitNumber,
       sortBy,
       sortOrder,
       isActive: isActiveBoolean,
-      search,
+      search: finalSearch,
       officeId,
       roleId,
+      departmentId,
+      jobPositionId,
     });
   }
 

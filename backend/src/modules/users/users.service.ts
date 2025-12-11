@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -42,28 +42,36 @@ export class UsersService {
       () => bcrypt.hash(createUserDto.password, 10),
     );
 
-    const user = await this.prisma.user.create({
-      data: {
-        ...createUserDto,
-        password: hashedPassword,
-      },
-      include: {
-        role: true,
-        office: true,
-        department: true,
-        jobPosition: true,
-      },
-    });
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          ...createUserDto,
+          password: hashedPassword,
+        },
+        include: {
+          role: true,
+          office: true,
+          department: true,
+          jobPosition: true,
+        },
+      });
 
-    // Log user creation activity
-    await this.activityLogger.logUserActivity('create', {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-    }, createdBy);
+      // Log user creation activity
+      await this.activityLogger.logUserActivity('create', {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+      }, createdBy);
 
-    return this.userMapper(user);
+      return this.userMapper(user);
+    } catch (error: any) {
+      // Handle Prisma unique constraint error for email
+      if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
+        throw new ConflictException('User with this email already exists');
+      }
+      throw error;
+    }
   }
 
   async findAll(options?: FindUsersOptions): Promise<{
@@ -86,14 +94,13 @@ export class UsersService {
     const where: Prisma.UserWhereInput = {};
 
     if (search) {
-      // Optimize search by using startsWith for better performance
-      // and only search in most relevant fields
+      // Use contains for full keyword search (matches anywhere in the text)
       const searchTerm = search.trim();
       if (searchTerm.length > 0) {
         where.OR = [
-          { firstName: { startsWith: searchTerm, mode: 'insensitive' } },
-          { lastName: { startsWith: searchTerm, mode: 'insensitive' } },
-          { email: { startsWith: searchTerm, mode: 'insensitive' } },
+          { firstName: { contains: searchTerm, mode: 'insensitive' } },
+          { lastName: { contains: searchTerm, mode: 'insensitive' } },
+          { email: { contains: searchTerm, mode: 'insensitive' } },
         ];
       }
     }

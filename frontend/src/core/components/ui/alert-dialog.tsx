@@ -16,7 +16,7 @@ const AlertDialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Overlay
     className={cn(
-      "fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-black/80 dark:bg-black/90 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
     {...props}
@@ -38,10 +38,29 @@ const AlertDialogContent = React.forwardRef<
         className
       )}
       onCloseAutoFocus={(event) => {
+        // Prevent default focus restoration to avoid focus trap issues
         event.preventDefault();
+        
+        // Clean up any remaining aria-hidden attributes from all popper wrappers
+        // This is the root cause of the click blocking issue
         setTimeout(() => {
-          document.body.focus();
-        }, 0);
+          // Remove aria-hidden from all popper content wrappers
+          const allWrappers = document.querySelectorAll('[data-radix-popper-content-wrapper]');
+          allWrappers.forEach((wrapper) => {
+            const element = wrapper as HTMLElement;
+            // Check if the content inside is actually closed
+            const content = element.querySelector('[data-state]');
+            if (!content || content.getAttribute('data-state') !== 'open') {
+              element.removeAttribute('aria-hidden');
+              element.removeAttribute('data-aria-hidden');
+              // Also remove any pointer-events: none that might be lingering
+              element.style.pointerEvents = '';
+            }
+          });
+          
+          // Ensure the body can receive focus and clicks again
+          document.body.style.pointerEvents = '';
+        }, 100);
       }}
       {...props}
     />

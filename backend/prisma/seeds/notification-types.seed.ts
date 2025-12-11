@@ -46,6 +46,38 @@ export async function seedNotificationTypes() {
       name: 'general_activity',
       description: 'General application activities',
     },
+    {
+      name: 'WORK_PERMIT_SUBMITTED',
+      description: 'Work permit submitted for review',
+    },
+    {
+      name: 'WORK_PERMIT_NEED_INFO',
+      description: 'Work permit needs additional information',
+    },
+    {
+      name: 'WORK_PERMIT_APPROVED',
+      description: 'Work permit approved',
+    },
+    {
+      name: 'WORK_PERMIT_REJECTED',
+      description: 'Work permit rejected',
+    },
+    {
+      name: 'WORK_PERMIT_EXTENDED',
+      description: 'Work permit extended',
+    },
+    {
+      name: 'WORK_PERMIT_CLOSED',
+      description: 'Work permit closed',
+    },
+    {
+      name: 'WORK_PERMIT_EXPIRING_SOON',
+      description: 'Work permit expiring soon reminder',
+    },
+    {
+      name: 'WORK_PERMIT_FORWARDED_TO_SECURITY',
+      description: 'Work permit forwarded to Security for review',
+    },
   ];
 
   for (const type of notificationTypes) {

@@ -177,7 +177,11 @@ const MenuDetailPage = () => {
                 <label className="text-sm font-medium text-gray-700">Parent Menu</label>
                 <p className="text-sm text-gray-900 mt-1">
                   {menu.parentId ? (
-                    <span className="text-blue-600">Has parent menu</span>
+                    menu.parent ? (
+                      <span className="text-blue-600 font-medium">{menu.parent.name}</span>
+                    ) : (
+                      <span className="text-blue-600">Has parent menu</span>
+                    )
                   ) : (
                     <span className="text-gray-500">Root level menu</span>
                   )}
