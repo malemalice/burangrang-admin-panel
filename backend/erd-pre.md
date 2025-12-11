@@ -1782,10 +1782,32 @@ Table t_weight_report_items {
   }
 }
 
+Table t_dispatch_orders {
+  id varchar [pk, default: `uuid()`]
+  dispatchCode varchar [unique, not null]
+  dispatchDate timestamp [not null]
+  orderedBy varchar [not null, ref: > t_users.id]
+  quantity decimal(10,2) [not null]
+  memo text
+  status GeneralStatusEnum [default: 'DRAFT', not null]
+  isActive boolean [default: true, not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+  createdBy varchar [not null, ref: > t_users.id]
+
+  Note: 'Dispatch orders for waste management - records dispatch date, user who gives the order, quantity that can be taken, and memo notes'
+  indexes {
+    dispatchDate
+    orderedBy
+    status
+  }
+}
+
 TableGroup solid_waste_management_system {
   m_waste_types
   m_waste_sources
   m_storage_locations
   t_weight_reports
   t_weight_report_items
+  t_dispatch_orders
 }
