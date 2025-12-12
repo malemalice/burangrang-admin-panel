@@ -130,6 +130,7 @@ export class PPEService {
      */
     /**
      * Helper: Populate requestedForName from requestedForUser if not already set
+     * Also populate departmentName and stockItem details
      */
     private populateRequestedForName(withdrawal: any): any {
         let requestedForName = withdrawal.requestedForName;
@@ -141,9 +142,25 @@ export class PPEService {
             requestedForName = `${firstName} ${lastName}`.trim() || null;
         }
 
+        // Populate department name
+        const departmentName = withdrawal.department?.name || null;
+
+        // Populate stockItem details for each withdrawal item
+        const items = withdrawal.items?.map((item: any) => {
+            const stockItem = item.stockItem;
+            return {
+                ...item,
+                stockItemEquipmentName: stockItem?.equipmentName || null,
+                stockItemEquipmentType: stockItem?.equipmentType || null,
+                stockItemEquipmentSize: stockItem?.equipmentSize || null,
+            };
+        });
+
         return {
             ...withdrawal,
             requestedForName: requestedForName || null,
+            departmentName,
+            items: items || withdrawal.items,
         };
     }
 
