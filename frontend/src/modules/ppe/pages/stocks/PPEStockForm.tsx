@@ -105,12 +105,11 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
             try {
                 setIsLoadingData(true);
 
-                // Fetch safety equipments (filter by PPE category)
+                // Fetch safety equipments (all active equipment)
                 const equipmentsResponse = await safetyEquipmentService.getSafetyEquipments({
                     page: 1,
                     limit: 100,
                     filters: {
-                        category: SafetyEquipmentCategory.PERSONAL_PROTECTIVE_EQUIPMENT,
                         isActive: true,
                     },
                 });
