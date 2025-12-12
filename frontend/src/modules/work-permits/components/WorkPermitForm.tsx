@@ -15,6 +15,7 @@ import {
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Switch } from '@/core/components/ui/switch';
+import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import {
   Select,
@@ -606,7 +607,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   <FormItem>
                     <FormLabel>Proposed Start Date *</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DateTimePicker mode="date" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -619,7 +620,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   <FormItem>
                     <FormLabel>Proposed End Date *</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DateTimePicker mode="date" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
