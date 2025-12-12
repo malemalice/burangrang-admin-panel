@@ -254,8 +254,8 @@ export class PPEService {
             };
         }
 
-        if (isActive !== undefined) {
-            where.isActive = isActive;
+        if (isActive !== undefined && isActive !== null) {
+            where.isActive = Boolean(isActive);
         }
 
         if (receivedDateFrom || receivedDateTo) {

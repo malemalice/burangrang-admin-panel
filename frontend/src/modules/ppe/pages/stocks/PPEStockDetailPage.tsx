@@ -83,15 +83,13 @@ const PPEStockDetailPage = () => {
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             Back to Stocks
                         </Button>
-                        {stock.isActive && (
-                            <Button
-                                onClick={() => navigate(`/ppe/stocks/${id}/edit`)}
-                                disabled={isLoading}
-                            >
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit Stock
-                            </Button>
-                        )}
+                        <Button
+                            onClick={() => navigate(`/ppe/stocks/${id}/edit`)}
+                            disabled={isLoading}
+                        >
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit Stock
+                        </Button>
                     </div>
                 }
             />

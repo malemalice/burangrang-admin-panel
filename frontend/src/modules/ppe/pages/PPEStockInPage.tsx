@@ -36,7 +36,7 @@ const PPEStockInPage = () => {
         },
         {
             id: 'isActive',
-            label: 'Status',
+            label: 'Active Status',
             type: 'select',
             options: [
                 { label: 'Active', value: 'true' },
@@ -56,15 +56,36 @@ const PPEStockInPage = () => {
     ], []);
 
     const loadStocks = useCallback(() => {
+        // Use stockCode filter if exists, otherwise use searchTerm
+        const searchValue = activeFilters.stockCode?.value || searchTerm;
+
+        // Format date to ISO string (YYYY-MM-DD) if exists
+        let receivedDateFrom: string | undefined;
+        let receivedDateTo: string | undefined;
+
+        if (activeFilters.receivedDateFrom?.value) {
+            const dateFrom = new Date(activeFilters.receivedDateFrom.value);
+            if (!isNaN(dateFrom.getTime())) {
+                receivedDateFrom = dateFrom.toISOString().split('T')[0];
+            }
+        }
+
+        if (activeFilters.receivedDateTo?.value) {
+            const dateTo = new Date(activeFilters.receivedDateTo.value);
+            if (!isNaN(dateTo.getTime())) {
+                receivedDateTo = dateTo.toISOString().split('T')[0];
+            }
+        }
+
         const params: PPEStockSearchParams = {
             page: pageIndex + 1,
             limit,
             sortBy: 'receivedDate',
             sortOrder: 'desc',
-            search: searchTerm,
+            search: searchValue || undefined,
             isActive: activeFilters.isActive?.value === 'true' ? true : activeFilters.isActive?.value === 'false' ? false : undefined,
-            receivedDateFrom: activeFilters.receivedDateFrom?.value,
-            receivedDateTo: activeFilters.receivedDateTo?.value,
+            receivedDateFrom,
+            receivedDateTo,
         };
         fetchStocks(params);
     }, [pageIndex, limit, searchTerm, activeFilters, fetchStocks]);
@@ -81,11 +102,40 @@ const PPEStockInPage = () => {
     const handleApplyFilters = useCallback((filterValues: any[]) => {
         const newFilters: Record<string, { value: any; label: string }> = {};
         filterValues.forEach((filter) => {
-            newFilters[filter.id] = { value: filter.value, label: filter.label || filter.id };
+            // Skip empty values
+            if (filter.value === undefined || filter.value === null || filter.value === '') {
+                return;
+            }
+
+            // Get label from filterFields
+            const field = filterFields.find(f => f.id === filter.id);
+            const fieldLabel = field?.label || filter.id;
+
+            // For date filters, ensure ISO string format
+            if (filter.id === 'receivedDateFrom' || filter.id === 'receivedDateTo') {
+                if (typeof filter.value === 'string') {
+                    const date = new Date(filter.value);
+                    if (!isNaN(date.getTime())) {
+                        newFilters[filter.id] = {
+                            value: date.toISOString().split('T')[0],
+                            label: fieldLabel
+                        };
+                    }
+                }
+            } else if (filter.id === 'isActive') {
+                // For isActive filter, use the option label
+                const option = field?.options?.find(o => o.value === filter.value);
+                newFilters[filter.id] = {
+                    value: filter.value,
+                    label: fieldLabel
+                };
+            } else {
+                newFilters[filter.id] = { value: filter.value, label: fieldLabel };
+            }
         });
         setActiveFilters(newFilters);
         setPageIndex(0);
-    }, []);
+    }, [filterFields]);
 
     const handleDeleteClick = useCallback((stock: PPEStock, event?: React.MouseEvent) => {
         event?.stopPropagation();
@@ -185,16 +235,19 @@ const PPEStockInPage = () => {
             isSortable: false,
         },
         {
-            id: 'status',
-            header: 'Status',
-            cell: (stock: PPEStock) => {
-                const statusInfo = getAggregateStatus(stock);
-                return (
-                    <Badge variant="outline" className={statusInfo.className}>
-                        {statusInfo.label}
-                    </Badge>
-                );
-            },
+            id: 'stockStatus',
+            header: 'Active Status',
+            cell: (stock: PPEStock) => (
+                <Badge
+                    variant="outline"
+                    className={stock.isActive
+                        ? 'bg-green-100 text-green-800 border-0'
+                        : 'bg-gray-100 text-gray-800 border-0'
+                    }
+                >
+                    {stock.isActive ? 'Active' : 'Inactive'}
+                </Badge>
+            ),
             isSortable: true,
         },
         {

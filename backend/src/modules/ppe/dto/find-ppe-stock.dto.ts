@@ -33,13 +33,29 @@ export class FindPPEStockDto {
     search?: string;
 
     @ApiProperty({ required: false, description: 'Filter by active status' })
-    @IsBoolean()
     @IsOptional()
-    @Transform(({ value }) => {
-        if (value === 'true') return true;
-        if (value === 'false') return false;
+    @Transform(({ value, key, obj }) => {
+        // Get raw value from query object before any conversion
+        const rawValue = obj[key];
+
+        // Handle string values from query parameters
+        if (typeof rawValue === 'string') {
+            if (rawValue.toLowerCase() === 'true') return true;
+            if (rawValue.toLowerCase() === 'false') return false;
+        }
+
+        // Handle boolean values (already converted)
+        if (typeof rawValue === 'boolean') {
+            return rawValue;
+        }
+
+        // Handle string value parameter
+        if (value === 'true' || value === true) return true;
+        if (value === 'false' || value === false) return false;
+
         return value;
     })
+    @IsBoolean()
     isActive?: boolean;
 
     @ApiProperty({ required: false, description: 'Filter by received date from' })
