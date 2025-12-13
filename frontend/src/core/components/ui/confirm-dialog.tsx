@@ -108,7 +108,9 @@ const ConfirmDialog = ({
             ref={confirmRef}
             onClick={handleConfirm}
             className={
-              variant === "destructive" ? "bg-destructive hover:bg-destructive/90" : ""
+              variant === "destructive"
+                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                : ""
             }
           >
             {confirmText}

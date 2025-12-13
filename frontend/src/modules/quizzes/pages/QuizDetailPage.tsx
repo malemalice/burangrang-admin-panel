@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   Edit,
@@ -18,22 +18,27 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
+import { Separator } from '@/core/components/ui/separator';
 import { Badge } from '@/core/components/ui/badge';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { useQuiz, useQuizzes } from '../hooks/useQuizzes';
-import { Quiz, QuizQuestion } from '../types/quiz.types';
+import { Quiz, QuizQuestion, QuizAttempt } from '../types/quiz.types';
 import quizService from '../services/quizService';
 
 const QuizDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { quiz, isLoading, fetchQuiz, setQuiz } = useQuiz(id || null);
   const { deleteQuiz, updateQuiz } = useQuizzes();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [completedAttempt, setCompletedAttempt] = useState<QuizAttempt | null>(
+    location.state?.attempt || null
+  );
 
   useEffect(() => {
     if (id) {
@@ -204,10 +209,13 @@ const QuizDetailPage = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs defaultValue={completedAttempt && quiz?.showCorrectAnswer ? "results" : "overview"} className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="questions">Questions</TabsTrigger>
+          {completedAttempt && quiz?.showCorrectAnswer && (
+            <TabsTrigger value="results">Results</TabsTrigger>
+          )}
           <TabsTrigger value="statistics">Statistics</TabsTrigger>
         </TabsList>
 
@@ -309,11 +317,36 @@ const QuizDetailPage = () => {
                       <p className="text-sm font-medium mb-2">{question.questionText}</p>
                       {question.mediaUrl && (
                         <div className="mb-2">
-                          <img
-                            src={question.mediaUrl}
-                            alt="Question media"
-                            className="max-w-md rounded"
-                          />
+                          {question.mediaType?.startsWith('image/') ? (
+                            <img
+                              src={question.mediaUrl}
+                              alt="Question media"
+                              className="max-w-md rounded"
+                            />
+                          ) : question.mediaType?.startsWith('video/') ? (
+                            <video
+                              src={question.mediaUrl}
+                              controls
+                              className="max-w-md rounded"
+                              style={{ maxHeight: '400px' }}
+                            >
+                              Your browser does not support the video tag.
+                            </video>
+                          ) : question.mediaType?.startsWith('audio/') ? (
+                            <audio
+                              src={question.mediaUrl}
+                              controls
+                              className="w-full"
+                            >
+                              Your browser does not support the audio tag.
+                            </audio>
+                          ) : (
+                            <img
+                              src={question.mediaUrl}
+                              alt="Question media"
+                              className="max-w-md rounded"
+                            />
+                          )}
                         </div>
                       )}
                       {question.options && question.options.length > 0 && (
@@ -348,6 +381,138 @@ const QuizDetailPage = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {completedAttempt && quiz?.showCorrectAnswer && (
+          <TabsContent value="results" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Quiz Results</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="text-center p-4 border rounded-lg">
+                    <p className="text-sm text-muted-foreground">Score</p>
+                    <p className="text-3xl font-bold">
+                      {completedAttempt.score?.toFixed(1) || 0}%
+                    </p>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <Badge
+                      variant={completedAttempt.isPassed ? 'default' : 'destructive'}
+                      className="text-lg px-4 py-2"
+                    >
+                      {completedAttempt.isPassed ? 'Passed' : 'Failed'}
+                    </Badge>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <p className="text-sm text-muted-foreground">Time Spent</p>
+                    <p className="text-2xl font-bold">
+                      {Math.floor((completedAttempt.timeSpent || 0) / 60)}:
+                      {String((completedAttempt.timeSpent || 0) % 60).padStart(2, '0')}
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold">Answers Review</h3>
+                  {completedAttempt.quiz?.questions?.map((question: QuizQuestion, index: number) => {
+                    const answer = completedAttempt.answers?.find(
+                      (a) => a.questionId === question.id
+                    );
+                    const isCorrect = answer?.isCorrect ?? false;
+                    const pointsEarned = answer?.pointsEarned || 0;
+
+                    return (
+                      <div key={question.id} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">{index + 1}</Badge>
+                            <Badge variant="outline">
+                              {getQuestionTypeLabel(question.questionType)}
+                            </Badge>
+                            <Badge
+                              variant={isCorrect ? 'default' : 'destructive'}
+                            >
+                              {isCorrect ? 'Correct' : 'Incorrect'}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">
+                              {pointsEarned} / {question.points} points
+                            </span>
+                          </div>
+                        </div>
+
+                        <p className="font-medium">{question.questionText}</p>
+
+                        {question.questionType === 'MULTIPLE_CHOICE' ||
+                          question.questionType === 'TRUE_FALSE' ? (
+                          <div className="space-y-2">
+                            {question.options?.map((option, optIndex) => {
+                              const isSelected = answer?.selectedOptionId === option.id;
+                              const isCorrectOption = option.isCorrect;
+                              let bgColor = 'bg-muted';
+                              let textColor = 'text-muted-foreground';
+
+                              if (isCorrectOption) {
+                                bgColor = 'bg-green-100 dark:bg-green-900';
+                                textColor = 'text-green-800 dark:text-green-200';
+                              } else if (isSelected && !isCorrectOption) {
+                                bgColor = 'bg-red-100 dark:bg-red-900';
+                                textColor = 'text-red-800 dark:text-red-200';
+                              }
+
+                              return (
+                                <div
+                                  key={option.id}
+                                  className={`p-3 rounded-lg border ${bgColor} ${textColor}`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span>{String.fromCharCode(65 + optIndex)}.</span>
+                                    <span>{option.optionText}</span>
+                                    {isCorrectOption && (
+                                      <CheckCircle2 className="h-4 w-4 ml-auto" />
+                                    )}
+                                    {isSelected && (
+                                      <Badge variant="outline" className="ml-2">
+                                        Your Answer
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="p-3 rounded-lg border bg-muted">
+                              <p className="text-sm font-medium mb-2">Your Answer:</p>
+                              <p className="text-sm">{answer?.essayAnswer || 'No answer provided'}</p>
+                            </div>
+                            {answer?.feedback && (
+                              <div className="p-3 rounded-lg border bg-blue-50 dark:bg-blue-900">
+                                <p className="text-sm font-medium mb-2">Feedback:</p>
+                                <p className="text-sm">{answer.feedback}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {question.explanation && (
+                          <div className="p-3 rounded-lg border bg-blue-50 dark:bg-blue-900">
+                            <p className="text-sm font-medium mb-1">Explanation:</p>
+                            <p className="text-sm">{question.explanation}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         <TabsContent value="statistics" className="space-y-4">
           {quiz.statistics ? (

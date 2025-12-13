@@ -17,9 +17,10 @@ interface QuizFormProps {
   mode: 'create' | 'edit';
   entity?: string;
   entityId?: string;
+  onQuestionMediaFileSelect?: (questionIndex: number, file: File | null) => void;
 }
 
-const QuizForm = ({ mode, entity, entityId }: QuizFormProps) => {
+const QuizForm = ({ mode, entity, entityId, onQuestionMediaFileSelect }: QuizFormProps) => {
   const { control, watch, setValue } = useFormContext();
   const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
   const [chapters, setChapters] = useState<{ id: string; title: string; courseId: string }[]>([]);
@@ -56,6 +57,9 @@ const QuizForm = ({ mode, entity, entityId }: QuizFormProps) => {
             const errorMessage = error instanceof Error ? error.message : 'Failed to load chapters';
             toast.error(errorMessage);
           }
+        } else {
+          // Clear chapters when entity is empty or standalone
+          setChapters([]);
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Failed to load courses or chapters';
@@ -156,12 +160,19 @@ const QuizForm = ({ mode, entity, entityId }: QuizFormProps) => {
                 <FormLabel>Bind to</FormLabel>
                 <Select
                   onValueChange={(value) => {
-                    field.onChange(value);
-                    if (!value) {
+                    // Convert "STANDALONE" to undefined for form value
+                    const entityValue = value === 'STANDALONE' ? undefined : value;
+                    field.onChange(entityValue);
+                    // Reset entityId when entity changes
+                    if (value === 'STANDALONE' || !value) {
+                      setValue('entityId', undefined);
+                      setChapters([]);
+                    } else {
+                      // Clear entityId when switching between COURSE and CHAPTER
                       setValue('entityId', undefined);
                     }
                   }}
-                  value={field.value || undefined}
+                  value={field.value || 'STANDALONE'}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -169,6 +180,7 @@ const QuizForm = ({ mode, entity, entityId }: QuizFormProps) => {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
+                    <SelectItem value="STANDALONE">Standalone</SelectItem>
                     <SelectItem value="COURSE">Course</SelectItem>
                     <SelectItem value="CHAPTER">Chapter</SelectItem>
                   </SelectContent>
@@ -273,7 +285,19 @@ const QuizForm = ({ mode, entity, entityId }: QuizFormProps) => {
                       min="0"
                       max="100"
                       value={field.value ?? ''}
-                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 75)}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '') {
+                          field.onChange(75);
+                          return;
+                        }
+                        const numValue = parseFloat(value);
+                        if (!isNaN(numValue)) {
+                          // Prevent input > 100
+                          const clampedValue = Math.min(100, Math.max(0, numValue));
+                          field.onChange(clampedValue);
+                        }
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -400,6 +424,11 @@ const QuizForm = ({ mode, entity, entityId }: QuizFormProps) => {
                 key={field.id}
                 questionIndex={index}
                 onRemove={() => remove(index)}
+                onMediaFileSelect={(file) => {
+                  if (onQuestionMediaFileSelect) {
+                    onQuestionMediaFileSelect(index, file);
+                  }
+                }}
               />
             ))
           )}

@@ -26,8 +26,8 @@ const ImageUpload = ({
   categoryName,
   isPublic = false,
   maxSize = 5 * 1024 * 1024, // 5MB default
-  allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-  placeholder = 'Upload image',
+  allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'audio/mpeg', 'audio/mp3'],
+  placeholder = 'Upload file',
   disabled = false,
   entityId,
   onFileSelect,
@@ -91,16 +91,16 @@ const ImageUpload = ({
           category.id,
           isPublic,
         );
-        
+
         // Get the public URL
         const fileUrl = uploadService.getPublicFileUrl(response.id);
         setPreview(fileUrl);
         onChange(fileUrl);
         setSelectedFile(null); // Clear selected file after successful upload
-        toast.success('Image uploaded successfully');
+        toast.success('File uploaded successfully');
       } catch (error: any) {
         console.error('Upload error:', error);
-        const errorMessage = error.response?.data?.message || 'Failed to upload image';
+        const errorMessage = error.response?.data?.message || 'Failed to upload file';
         toast.error(errorMessage);
         setSelectedFile(null); // Clear on error too
       } finally {
@@ -169,9 +169,9 @@ const ImageUpload = ({
             onChange={handleFileSelect}
             disabled={disabled || isUploading}
             className="hidden"
-            id="image-upload"
+            id={`file-upload-${categoryName}`}
           />
-          <label htmlFor="image-upload">
+          <label htmlFor={`file-upload-${categoryName}`}>
             <Button
               type="button"
               variant="outline"

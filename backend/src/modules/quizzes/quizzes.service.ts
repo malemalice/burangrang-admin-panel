@@ -372,12 +372,10 @@ export class QuizzesService {
     this.errorHandler.throwIfNotFoundById('Quiz', id, existingQuiz);
 
     // Validate polymorphic relationship if entity is being updated
-    if (updateQuizDto.entity !== undefined) {
-      if (updateQuizDto.entity && !updateQuizDto.entityId) {
+    if (updateQuizDto.entity !== undefined && updateQuizDto.entity !== null) {
+      // Entity is being set to COURSE or CHAPTER
+      if (!updateQuizDto.entityId) {
         this.errorHandler.throwBadRequest('entityId is required when entity is set');
-      }
-      if (!updateQuizDto.entity && updateQuizDto.entityId) {
-        this.errorHandler.throwBadRequest('entityId must be null when entity is null');
       }
 
       // Validate entity exists if provided
@@ -394,6 +392,19 @@ export class QuizzesService {
         });
         this.errorHandler.throwIfNotFoundById('Chapter', updateQuizDto.entityId, chapter);
       }
+    } else if (updateQuizDto.entity === null) {
+      // Entity is being set to null (standalone) - entityId should also be null
+      if (updateQuizDto.entityId !== null && updateQuizDto.entityId !== undefined) {
+        this.errorHandler.throwBadRequest('entityId must be null when entity is null (standalone)');
+      }
+    } else if (updateQuizDto.entityId !== undefined) {
+      // If entityId is being set but entity is not provided, validate against existing entity
+      if (updateQuizDto.entityId && !existingQuiz.entity) {
+        this.errorHandler.throwBadRequest('entityId cannot be set when entity is null');
+      }
+      if (!updateQuizDto.entityId && existingQuiz.entity) {
+        this.errorHandler.throwBadRequest('entityId cannot be null when entity is set');
+      }
     }
 
     // Handle publishing
@@ -406,28 +417,44 @@ export class QuizzesService {
       }
     }
 
-    // Update quiz
+    // Update quiz - only include fields that are being updated
     const updateData: Prisma.QuizUpdateInput = {
-      title: updateQuizDto.title,
-      description: updateQuizDto.description,
-      instructions: updateQuizDto.instructions,
-      entity: updateQuizDto.entity as any,
-      entityId: updateQuizDto.entityId,
-      duration: updateQuizDto.duration,
-      passingScore: updateQuizDto.passingScore,
-      maxAttempts: updateQuizDto.maxAttempts,
-      shuffleQuestions: updateQuizDto.shuffleQuestions,
-      shuffleOptions: updateQuizDto.shuffleOptions,
-      showCorrectAnswer: updateQuizDto.showCorrectAnswer,
-      isPublished: updateQuizDto.isPublished,
-      publishedAt,
+      ...(updateQuizDto.title !== undefined && { title: updateQuizDto.title }),
+      ...(updateQuizDto.description !== undefined && { description: updateQuizDto.description }),
+      ...(updateQuizDto.instructions !== undefined && { instructions: updateQuizDto.instructions }),
+      // Handle entity and entityId updates
+      ...(updateQuizDto.entity !== undefined && {
+        entity: (updateQuizDto.entity && (updateQuizDto.entity === 'COURSE' || updateQuizDto.entity === 'CHAPTER'))
+          ? (updateQuizDto.entity as any)
+          : null,
+        // When entity is set to null (standalone), also set entityId to null
+        // When entity is set to COURSE/CHAPTER, use the provided entityId
+        // Only update entityId if it's different from current value
+        ...((updateQuizDto.entity && (updateQuizDto.entity === 'COURSE' || updateQuizDto.entity === 'CHAPTER'))
+          ? { entityId: updateQuizDto.entityId }
+          : (existingQuiz.entityId !== null ? { entityId: null } : {})), // Only set to null if it's not already null
+      }),
+      // Only update entityId independently if entity is not being changed
+      ...(updateQuizDto.entity === undefined && updateQuizDto.entityId !== undefined && {
+        entityId: updateQuizDto.entityId || null
+      }),
+      ...(updateQuizDto.duration !== undefined && { duration: updateQuizDto.duration }),
+      ...(updateQuizDto.passingScore !== undefined && { passingScore: updateQuizDto.passingScore }),
+      ...(updateQuizDto.maxAttempts !== undefined && { maxAttempts: updateQuizDto.maxAttempts }),
+      ...(updateQuizDto.shuffleQuestions !== undefined && { shuffleQuestions: updateQuizDto.shuffleQuestions }),
+      ...(updateQuizDto.shuffleOptions !== undefined && { shuffleOptions: updateQuizDto.shuffleOptions }),
+      ...(updateQuizDto.showCorrectAnswer !== undefined && { showCorrectAnswer: updateQuizDto.showCorrectAnswer }),
+      ...(updateQuizDto.isPublished !== undefined && { isPublished: updateQuizDto.isPublished }),
+      ...(publishedAt !== undefined && { publishedAt }),
     };
 
     // Update questions if provided
     if (updateQuizDto.questions) {
-      // Delete existing questions (cascade will delete options)
-      await this.prisma.quizQuestion.deleteMany({
+      // Soft delete existing questions (set isActive to false) instead of hard delete
+      // This preserves existing quiz answers that reference these questions
+      await this.prisma.quizQuestion.updateMany({
         where: { quizId: id },
+        data: { isActive: false },
       });
 
       // Create new questions
@@ -440,6 +467,7 @@ export class QuizzesService {
           mediaType: q.mediaType,
           points: q.points || 1,
           order: q.order,
+          isActive: true,
           options: q.options
             ? {
               create: q.options.map((opt) => ({
@@ -629,7 +657,9 @@ export class QuizzesService {
       });
 
       if (existingAttempts >= quiz.maxAttempts) {
-        this.errorHandler.throwBadRequest(`Maximum attempts (${quiz.maxAttempts}) reached`);
+        this.errorHandler.throwBadRequest(
+          `You have reached the maximum number of attempts (${quiz.maxAttempts}) for this quiz.`
+        );
       }
     }
 
@@ -643,6 +673,31 @@ export class QuizzesService {
     });
 
     const attemptNumber = (lastAttempt?.attemptNumber || 0) + 1;
+
+    // Helper function to shuffle array using Fisher-Yates algorithm
+    const shuffleArray = <T>(array: T[]): T[] => {
+      const shuffled = [...array];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    };
+
+    // Prepare questions with shuffling if needed
+    let questionsToReturn = quiz.questions;
+
+    if (quiz.shuffleQuestions) {
+      questionsToReturn = shuffleArray(questionsToReturn);
+    }
+
+    // Shuffle options for each question if needed
+    if (quiz.shuffleOptions) {
+      questionsToReturn = questionsToReturn.map((question) => ({
+        ...question,
+        options: shuffleArray(question.options || []),
+      }));
+    }
 
     // Create attempt
     const attempt = await this.prisma.quizAttempt.create({
@@ -677,6 +732,12 @@ export class QuizzesService {
       },
     });
 
+    // Apply shuffling to the returned quiz object
+    const quizWithShuffled = {
+      ...attempt.quiz,
+      questions: questionsToReturn,
+    };
+
     return {
       id: attempt.id,
       quizId: attempt.quizId,
@@ -687,7 +748,7 @@ export class QuizzesService {
       isPassed: attempt.isPassed,
       startedAt: attempt.startedAt,
       timeSpent: attempt.timeSpent,
-      quiz: attempt.quiz,
+      quiz: quizWithShuffled,
     } as any;
   }
 
@@ -754,8 +815,10 @@ export class QuizzesService {
       isCorrect = selectedOption.isCorrect;
       pointsEarned = isCorrect ? Number(question.points) : 0;
     } else if (question.questionType === 'ESSAY') {
-      if (!submitAnswerDto.essayAnswer) {
-        this.errorHandler.throwBadRequest('essayAnswer is required for essay questions');
+      // Essay allows empty string - will be graded manually later
+      // Only check if essayAnswer field is provided (not undefined/null)
+      if (submitAnswerDto.essayAnswer === undefined || submitAnswerDto.essayAnswer === null) {
+        this.errorHandler.throwBadRequest('essayAnswer field is required for essay questions (can be empty string)');
       }
       // Essay requires manual grading
       isCorrect = null;
