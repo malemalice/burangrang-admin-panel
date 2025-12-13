@@ -14,6 +14,18 @@ export class PPEWithdrawalItemDto {
     @Expose()
     stockItemId: string;
 
+    @ApiProperty({ required: false, nullable: true })
+    @Expose()
+    stockItemEquipmentName: string | null;
+
+    @ApiProperty({ required: false, nullable: true })
+    @Expose()
+    stockItemEquipmentType: string | null;
+
+    @ApiProperty({ required: false, nullable: true })
+    @Expose()
+    stockItemEquipmentSize: string | null;
+
     @ApiProperty()
     @Expose()
     requestedQuantity: number;

@@ -47,14 +47,14 @@ export function SearchableSelect({
   ...props
 }: SearchableSelectProps & React.HTMLAttributes<HTMLButtonElement>) {
   const [open, setOpen] = useState(false);
-  
+
   // Ensure options is always an array
   const safeOptions = Array.isArray(options) ? options : [];
-  
+
   const selectedOption = safeOptions.find((option) => option.value === value);
   const displayValue = selectedOption ? selectedOption.label : placeholder;
-  
-  const allOptions = includeNone 
+
+  const allOptions = includeNone
     ? [{ value: 'none', label: 'None' }, ...safeOptions]
     : safeOptions;
 
@@ -77,8 +77,8 @@ export function SearchableSelect({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent 
-        className="w-full p-0" 
+      <PopoverContent
+        className="w-full p-0"
         style={{ zIndex: 9999 }}
         sideOffset={4}
         align="start"
@@ -90,12 +90,22 @@ export function SearchableSelect({
         }}
       >
         <Command className="w-full" shouldFilter={true} filter={(value, search) => {
-          // Custom filter function that searches in the combined value+label string
+          // Custom filter function that searches only in the label, not the value (ID/UUID)
           // The value is set as `${option.value} ${option.label}` in CommandItem
-          const searchLower = search.toLowerCase();
-          const valueLower = value.toLowerCase();
-          // Check if search term is contained in the combined value+label string
-          return valueLower.includes(searchLower) ? 1 : 0;
+          // Extract label by removing the UUID part (everything before the first space after UUID)
+          const searchLower = search.toLowerCase().trim();
+          if (!searchLower) return 1; // Show all if search is empty
+
+          // Extract label from value string: format is `${option.value} ${option.label}`
+          // Find the label part by splitting and taking everything after the UUID
+          // UUIDs are typically 36 chars (with dashes) or 32 chars (without), but we'll be safe
+          // by finding the first space and taking everything after it
+          const parts = value.split(' ');
+          if (parts.length < 2) return 0; // Invalid format
+
+          // Join all parts after the first one (which is the UUID) to get the full label
+          const label = parts.slice(1).join(' ').toLowerCase();
+          return label.includes(searchLower) ? 1 : 0;
         }}>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
@@ -213,12 +223,20 @@ export function MultiSelectSearchable({
           }}
         >
           <Command className="w-full" shouldFilter={true} filter={(value, search) => {
-            // Custom filter function that searches in the combined value+label string
+            // Custom filter function that searches only in the label, not the value (ID/UUID)
             // The value is set as `${option.value} ${option.label}` in CommandItem
-            const searchLower = search.toLowerCase();
-            const valueLower = value.toLowerCase();
-            // Check if search term is contained in the combined value+label string
-            return valueLower.includes(searchLower) ? 1 : 0;
+            // Extract label by removing the UUID part (everything before the first space after UUID)
+            const searchLower = search.toLowerCase().trim();
+            if (!searchLower) return 1; // Show all if search is empty
+
+            // Extract label from value string: format is `${option.value} ${option.label}`
+            // Find the label part by splitting and taking everything after the UUID
+            const parts = value.split(' ');
+            if (parts.length < 2) return 0; // Invalid format
+
+            // Join all parts after the first one (which is the UUID) to get the full label
+            const label = parts.slice(1).join(' ').toLowerCase();
+            return label.includes(searchLower) ? 1 : 0;
           }}>
             <CommandInput placeholder={searchPlaceholder} />
             <CommandList>

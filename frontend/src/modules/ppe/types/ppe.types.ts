@@ -152,6 +152,9 @@ export interface PPEWithdrawalItem {
     id: string;
     withdrawalId: string;
     stockItemId: string;
+    stockItemEquipmentName?: string | null;
+    stockItemEquipmentType?: string | null;
+    stockItemEquipmentSize?: string | null;
     requestedQuantity: number;
     approvedQuantity?: number | null;
     issuedQuantity?: number | null;
@@ -192,6 +195,7 @@ export interface PPEWithdrawal {
     requestedFor?: string | null;
     requestedForName?: string | null;
     departmentId: string;
+    departmentName?: string | null;
     jobPositionId?: string | null;
     jobPositionName?: string | null;
     status: PPEWithdrawalStatus;

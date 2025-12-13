@@ -212,7 +212,7 @@ const PPEWithdrawalDetailPage = () => {
                             </div>
                             <div>
                                 <h3 className="text-sm font-medium text-gray-500">Department</h3>
-                                <p className="mt-1">{withdrawal.departmentId}</p>
+                                <p className="mt-1">{withdrawal.departmentName || withdrawal.departmentId}</p>
                             </div>
                             {withdrawal.jobPositionName && (
                                 <div>
@@ -231,9 +231,26 @@ const PPEWithdrawalDetailPage = () => {
                                     <h3 className="text-sm font-medium text-gray-500">Withdrawal Letter</h3>
                                     <div className="mt-1">
                                         <a
-                                            href={withdrawal.withdrawalLetterUrl.startsWith('http')
-                                                ? withdrawal.withdrawalLetterUrl
-                                                : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${withdrawal.withdrawalLetterUrl.startsWith('/') ? withdrawal.withdrawalLetterUrl : `/${withdrawal.withdrawalLetterUrl}`}`}
+                                            href={(() => {
+                                                const url = withdrawal.withdrawalLetterUrl!;
+                                                // If already a full URL, use it
+                                                if (url.startsWith('http://') || url.startsWith('https://')) {
+                                                    return url;
+                                                }
+                                                // If starts with /, it's already a path
+                                                if (url.startsWith('/')) {
+                                                    return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${url}`;
+                                                }
+                                                // If it's a UUID (36 chars with dashes), construct proper URL
+                                                // Check if it looks like a UUID (contains dashes and is 36 chars)
+                                                if (url.length === 36 && url.includes('-')) {
+                                                    // This is likely a file ID, but we need accessToken for private files
+                                                    // For now, try public endpoint (might need to fetch file metadata to get accessToken)
+                                                    return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/uploads/public/${url}`;
+                                                }
+                                                // Otherwise, treat as path
+                                                return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${url}`;
+                                            })()}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 underline"
@@ -298,10 +315,10 @@ const PPEWithdrawalDetailPage = () => {
                                     {withdrawal.items.map((item) => (
                                         <TableRow key={item.id}>
                                             <TableCell className="font-medium">
-                                                {item.stockItemId || '-'}
+                                                {item.stockItemEquipmentName || item.stockItemId || '-'}
                                             </TableCell>
-                                            <TableCell>-</TableCell>
-                                            <TableCell>-</TableCell>
+                                            <TableCell>{item.stockItemEquipmentType || '-'}</TableCell>
+                                            <TableCell>{item.stockItemEquipmentSize || '-'}</TableCell>
                                             <TableCell>{item.requestedQuantity}</TableCell>
                                             <TableCell>{item.approvedQuantity || '-'}</TableCell>
                                             <TableCell>{item.issuedQuantity || '-'}</TableCell>

@@ -33,6 +33,10 @@ export class PPEWithdrawalDto {
 
     @ApiProperty({ required: false, nullable: true })
     @Expose()
+    departmentName: string | null;
+
+    @ApiProperty({ required: false, nullable: true })
+    @Expose()
     jobPositionId: string | null;
 
     @ApiProperty({ required: false, nullable: true })

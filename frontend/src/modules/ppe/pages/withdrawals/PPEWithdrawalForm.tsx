@@ -55,9 +55,10 @@ const formSchema = z.object({
         path: ['requestedForName'],
     }
 ).refine(
-    (data) => {
-        // Validate quantity doesn't exceed available stock
-        return true; // Will be validated in onSubmit
+    (data) => data.jobPositionId || data.jobPositionName,
+    {
+        message: 'Either select a job position or enter a job position name',
+        path: ['jobPositionName'],
     }
 );
 
@@ -195,17 +196,14 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
     const handleFileUpload = async (file: File) => {
         if (!file) return;
 
-        // Validate file type (PDF, DOC, DOCX, images)
+        // Validate file type (PDF, DOC, DOCX only)
         const allowedTypes = [
             'application/pdf',
             'application/msword',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'image/jpeg',
-            'image/png',
-            'image/jpg',
         ];
         if (!allowedTypes.includes(file.type)) {
-            toast.error('Invalid file type. Please upload PDF, DOC, DOCX, or image files.');
+            toast.error('Invalid file type. Please upload PDF, DOC, or DOCX files only.');
             return;
         }
 
@@ -235,7 +233,20 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
             });
 
             // Get the file URL from response
-            const fileUrl = response.data.publicUrl || response.data.privateUrl || response.data.id;
+            // Use downloadUrl if available, otherwise construct URL based on isPublic and accessToken
+            let fileUrl: string;
+            if (response.data.downloadUrl) {
+                // downloadUrl is already a path like /uploads/public/:id or /uploads/private/:token
+                fileUrl = response.data.downloadUrl;
+            } else if (response.data.accessToken) {
+                // For private files, use accessToken
+                fileUrl = `/uploads/private/${response.data.accessToken}`;
+            } else if (response.data.id) {
+                // For public files or fallback, use file ID
+                fileUrl = `/uploads/public/${response.data.id}`;
+            } else {
+                throw new Error('No file URL, accessToken, or ID returned from upload');
+            }
             form.setValue('withdrawalLetterUrl', fileUrl);
             setUploadedFileName(file.name);
             toast.success('File uploaded successfully');
@@ -397,8 +408,9 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                                 }))}
                                                 value={field.value || ''}
                                                 onValueChange={(value) => {
-                                                    field.onChange(value);
-                                                    if (value) {
+                                                    const actualValue = value === 'none' ? '' : value;
+                                                    field.onChange(actualValue);
+                                                    if (actualValue) {
                                                         form.setValue('requestedForName', '');
                                                     }
                                                 }}
@@ -422,7 +434,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                             <Input
                                                 placeholder="Enter name if not a user"
                                                 {...field}
-                                                disabled={!!requestedForValue}
+                                                disabled={!!requestedForValue && requestedForValue !== 'none'}
                                             />
                                         </FormControl>
                                         <FormMessage />
@@ -446,8 +458,9 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                                 }))}
                                                 value={field.value || ''}
                                                 onValueChange={(value) => {
-                                                    field.onChange(value);
-                                                    if (value) {
+                                                    const actualValue = value === 'none' ? '' : value;
+                                                    field.onChange(actualValue);
+                                                    if (actualValue) {
                                                         form.setValue('jobPositionName', '');
                                                     }
                                                 }}
@@ -471,7 +484,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                             <Input
                                                 placeholder="Enter job position if not from master data"
                                                 {...field}
-                                                disabled={!!jobPositionIdValue}
+                                                disabled={!!jobPositionIdValue && jobPositionIdValue !== 'none'}
                                             />
                                         </FormControl>
                                         <FormMessage />
@@ -508,7 +521,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                                 <div className="flex items-center gap-2">
                                                     <Input
                                                         type="file"
-                                                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                                        accept=".pdf,.doc,.docx"
                                                         onChange={handleFileInputChange}
                                                         disabled={uploadingFile}
                                                         className="cursor-pointer"
@@ -522,7 +535,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                         </div>
                                     </FormControl>
                                     <p className="text-sm text-muted-foreground">
-                                        Upload PDF, DOC, DOCX, or image files (max 10MB)
+                                        Upload PDF, DOC, or DOCX files only (max 10MB)
                                     </p>
                                     <FormMessage />
                                 </FormItem>
