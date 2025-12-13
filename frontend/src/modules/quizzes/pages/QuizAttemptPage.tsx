@@ -106,6 +106,21 @@ const QuizAttemptPage = () => {
     findEnrollment();
   }, [quiz?.id, quiz?.entity, quiz?.entityId, quiz?.chapter?.courseId, enrollmentId, quizLoading, isLoading, navigate]);
 
+  // Load saved answers from attempt when attempt is loaded
+  useEffect(() => {
+    if (attempt && attempt.answers && attempt.status === 'IN_PROGRESS') {
+      const savedAnswers: Record<string, Partial<SubmitAnswerDTO>> = {};
+      attempt.answers.forEach((answer) => {
+        savedAnswers[answer.questionId] = {
+          questionId: answer.questionId,
+          selectedOptionId: answer.selectedOptionId,
+          essayAnswer: answer.essayAnswer,
+        };
+      });
+      setAnswers(savedAnswers);
+    }
+  }, [attempt]);
+
   // Start attempt when quiz is loaded and enrollment is ready
   useEffect(() => {
     // Skip if quiz is not loaded, attempt already exists, or currently loading
@@ -155,13 +170,13 @@ const QuizAttemptPage = () => {
 
     try {
       const completedAttempt = await submitAttempt(attempt.id);
-      toast.success('Quiz submitted successfully!');
+      // Toast is already shown in useQuizAttempt.submitAttempt
       navigate(`/quizzes/${quiz?.id}`, {
         state: { attempt: completedAttempt },
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to submit quiz';
-      toast.error(errorMessage);
+      // Error toast is already shown in useQuizAttempt.submitAttempt
+      // No need to show duplicate error toast
     }
   }, [attempt, submitAttempt, navigate, quiz?.id]);
 
@@ -208,7 +223,8 @@ const QuizAttemptPage = () => {
   };
 
   const handleNext = () => {
-    if (quiz?.questions && currentQuestionIndex < quiz.questions.length - 1) {
+    const displayQuiz = attempt?.quiz || quiz;
+    if (displayQuiz?.questions && currentQuestionIndex < displayQuiz.questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     }
   };
@@ -276,7 +292,10 @@ const QuizAttemptPage = () => {
     );
   }
 
-  if (!quiz.questions || quiz.questions.length === 0) {
+  // Use attempt.quiz (with shuffled questions) if available, otherwise fall back to quiz
+  const displayQuiz = attempt?.quiz || quiz;
+
+  if (!displayQuiz.questions || displayQuiz.questions.length === 0) {
     return (
       <div className="container mx-auto py-6 max-w-4xl">
         <Card>
@@ -288,13 +307,13 @@ const QuizAttemptPage = () => {
     );
   }
 
-  const currentQuestion = quiz.questions[currentQuestionIndex];
+  const currentQuestion = displayQuiz.questions[currentQuestionIndex];
   if (!currentQuestion) {
     return null;
   }
 
   const currentAnswer = (answers[currentQuestion.id] || {}) as Partial<SubmitAnswerDTO>;
-  const totalQuestions = quiz.questions.length;
+  const totalQuestions = displayQuiz.questions.length;
   const answeredCount = Object.keys(answers).length;
 
   return (
@@ -304,7 +323,7 @@ const QuizAttemptPage = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>{quiz.title}</CardTitle>
+              <CardTitle>{displayQuiz.title}</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 Question {currentQuestionIndex + 1} of {totalQuestions}
               </p>
@@ -351,11 +370,36 @@ const QuizAttemptPage = () => {
             <p className="text-base font-medium mb-2">{currentQuestion.questionText}</p>
             {currentQuestion.mediaUrl && (
               <div className="my-4">
-                <img
-                  src={currentQuestion.mediaUrl}
-                  alt="Question media"
-                  className="max-w-full rounded"
-                />
+                {currentQuestion.mediaType?.startsWith('image/') ? (
+                  <img
+                    src={currentQuestion.mediaUrl}
+                    alt="Question media"
+                    className="max-w-full rounded"
+                  />
+                ) : currentQuestion.mediaType?.startsWith('video/') ? (
+                  <video
+                    src={currentQuestion.mediaUrl}
+                    controls
+                    className="max-w-full rounded"
+                    style={{ maxHeight: '400px' }}
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                ) : currentQuestion.mediaType?.startsWith('audio/') ? (
+                  <audio
+                    src={currentQuestion.mediaUrl}
+                    controls
+                    className="w-full"
+                  >
+                    Your browser does not support the audio tag.
+                  </audio>
+                ) : (
+                  <img
+                    src={currentQuestion.mediaUrl}
+                    alt="Question media"
+                    className="max-w-full rounded"
+                  />
+                )}
               </div>
             )}
           </div>
@@ -407,13 +451,13 @@ const QuizAttemptPage = () => {
 
           {currentQuestion.questionType === 'ESSAY' && (
             <Textarea
-              placeholder="Type your answer here..."
+              placeholder="Type your answer here... (You can leave this empty if needed)"
               className="min-h-[200px]"
               value={currentAnswer.essayAnswer || ''}
               onChange={(e) =>
                 handleAnswerChange(currentQuestion.id, {
                   questionId: currentQuestion.id,
-                  essayAnswer: e.target.value,
+                  essayAnswer: e.target.value, // Allow empty string
                 })
               }
             />

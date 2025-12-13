@@ -37,7 +37,13 @@ export const useQuizAttempt = (attemptId: string | null = null) => {
 
   const submitAnswer = async (attemptId: string, answerData: SubmitAnswerDTO) => {
     try {
-      const answer = await quizService.submitAnswer(attemptId, answerData);
+      // Ensure essayAnswer is always a string (even if empty) for essay questions
+      const normalizedAnswerData = { ...answerData };
+      if (answerData.essayAnswer !== undefined) {
+        normalizedAnswerData.essayAnswer = answerData.essayAnswer || '';
+      }
+
+      const answer = await quizService.submitAnswer(attemptId, normalizedAnswerData);
       // Update attempt with new answer
       if (attempt) {
         const updatedAnswers = attempt.answers || [];
@@ -53,9 +59,27 @@ export const useQuizAttempt = (attemptId: string | null = null) => {
         });
       }
       return answer;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to submit answer';
-      toast.error(errorMessage);
+    } catch (err: any) {
+      // Parse error message for better user experience
+      let errorMessage = 'Failed to submit answer';
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        // Check for specific error patterns
+        if (err.message.includes('Maximum attempts')) {
+          errorMessage = 'You have reached the maximum number of attempts for this quiz.';
+        } else if (err.message.includes('essayAnswer')) {
+          errorMessage = 'Please provide an answer for this essay question (you can leave it empty if needed).';
+        }
+      }
+      // Only show error toast if it's not a duplicate (check if error was already shown)
+      const errorShown = sessionStorage.getItem(`error_shown_${attemptId}_${answerData.questionId}`);
+      if (!errorShown) {
+        toast.error(errorMessage);
+        sessionStorage.setItem(`error_shown_${attemptId}_${answerData.questionId}`, 'true');
+        setTimeout(() => {
+          sessionStorage.removeItem(`error_shown_${attemptId}_${answerData.questionId}`);
+        }, 3000);
+      }
       throw err;
     }
   };
@@ -67,10 +91,26 @@ export const useQuizAttempt = (attemptId: string | null = null) => {
       setAttempt(completedAttempt);
       toast.success('Quiz submitted successfully');
       return completedAttempt;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to submit quiz';
+    } catch (err: any) {
+      // Parse error message for better user experience
+      let errorMessage = 'Failed to submit quiz';
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        // Check for specific error patterns
+        if (err.message.includes('Maximum attempts') || err.message.includes('maximum number of attempts')) {
+          errorMessage = 'You have reached the maximum number of attempts for this quiz.';
+        }
+      }
       setError(errorMessage);
-      toast.error(errorMessage);
+      // Only show error toast once
+      const errorShown = sessionStorage.getItem(`error_shown_submit_${attemptId}`);
+      if (!errorShown) {
+        toast.error(errorMessage);
+        sessionStorage.setItem(`error_shown_submit_${attemptId}`, 'true');
+        setTimeout(() => {
+          sessionStorage.removeItem(`error_shown_submit_${attemptId}`);
+        }, 3000);
+      }
       throw err;
     } finally {
       setIsLoading(false);

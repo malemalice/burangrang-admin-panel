@@ -39,23 +39,29 @@ const questionSchema = z.object({
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
-  description: z.string().optional(),
-  instructions: z.string().optional(),
-  entity: z.enum(['COURSE', 'CHAPTER']).optional().or(z.literal('')),
-  entityId: z.string().optional(),
-  duration: z.coerce.number().min(1).optional(),
+  description: z.string().optional().or(z.literal('')),
+  instructions: z.string().optional().or(z.literal('')),
+  entity: z.enum(['COURSE', 'CHAPTER']).optional(),
+  entityId: z.preprocess(
+    (val) => val === null || val === '' ? undefined : val,
+    z.string().optional()
+  ),
+  duration: z.coerce.number().min(1).optional().nullable(),
   passingScore: z.coerce.number().min(0).max(100).default(75),
-  maxAttempts: z.coerce.number().min(1).optional(),
+  maxAttempts: z.coerce.number().min(1).optional().nullable(),
   shuffleQuestions: z.boolean().default(false),
   shuffleOptions: z.boolean().default(false),
   showCorrectAnswer: z.boolean().default(true),
   isPublished: z.boolean().default(false),
   questions: z.array(questionSchema).min(1, 'At least one question is required'),
 }).refine((data) => {
-  if (data.entity && !data.entityId) {
+  const entityValue = data.entity;
+  // Check if entity is set (not undefined)
+  const hasEntity = entityValue !== undefined;
+  if (hasEntity && !data.entityId) {
     return false;
   }
-  if (!data.entity && data.entityId) {
+  if (!hasEntity && data.entityId && data.entityId !== '') {
     return false;
   }
   return true;
@@ -71,6 +77,8 @@ const EditQuizPage = () => {
   const { id } = useParams<{ id: string }>();
   const { quiz, isLoading, fetchQuiz } = useQuiz(id || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Store File objects for question media files
+  const [questionMediaFiles, setQuestionMediaFiles] = useState<Record<number, File | null>>({});
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -78,7 +86,7 @@ const EditQuizPage = () => {
       title: '',
       description: '',
       instructions: '',
-      entity: '',
+      entity: undefined,
       entityId: undefined,
       duration: undefined,
       passingScore: 75,
@@ -103,8 +111,8 @@ const EditQuizPage = () => {
         title: quiz.title,
         description: quiz.description || '',
         instructions: quiz.instructions || '',
-        entity: quiz.entity || '',
-        entityId: quiz.entityId,
+        entity: quiz.entity || undefined,
+        entityId: quiz.entityId || undefined, // Convert null to undefined
         duration: quiz.duration,
         passingScore: quiz.passingScore,
         maxAttempts: quiz.maxAttempts,
@@ -127,6 +135,8 @@ const EditQuizPage = () => {
           })),
         })) || [],
       });
+      // Clear question media files when quiz is loaded (existing media already has URLs)
+      setQuestionMediaFiles({});
     }
   }, [quiz, form]);
 
@@ -136,33 +146,103 @@ const EditQuizPage = () => {
     try {
       setIsSubmitting(true);
 
+      // Helper to convert entity value - return null for standalone instead of undefined
+      const getEntityValue = (): 'COURSE' | 'CHAPTER' | null | undefined => {
+        const entityValue = data.entity;
+        if (entityValue === undefined || entityValue === null) {
+          // Return null explicitly for standalone (so backend knows to clear entity)
+          // Only return undefined if we're not updating entity at all
+          return null; // Explicitly set to null for standalone
+        }
+        // Type guard: check if it's a valid entity value
+        if (entityValue === 'COURSE' || entityValue === 'CHAPTER') {
+          return entityValue;
+        }
+        // Empty string or other invalid values - treat as standalone
+        return null;
+      };
+
+      // Upload media files before submitting (if there are File objects to upload)
+      const uploadService = (await import('@/modules/uploads/services/uploadService')).default;
+      const uploadedQuestions = await Promise.all(
+        data.questions.map(async (q, index) => {
+          let mediaUrl = q.mediaUrl;
+          const mediaFile = questionMediaFiles[index];
+
+          // If there's a File object to upload, upload it directly
+          if (mediaFile) {
+            try {
+              // Get category
+              const category = await uploadService.getCategoryByName('course-materials');
+              if (!category) {
+                throw new Error('File category "course-materials" not found');
+              }
+
+              // Upload the file
+              const uploadResponse = await uploadService.uploadFile(
+                mediaFile,
+                category.id,
+                true, // isPublic
+              );
+
+              // Get the public URL
+              mediaUrl = uploadService.getPublicFileUrl(uploadResponse.id);
+            } catch (error: any) {
+              console.error('Error uploading media file:', error);
+              const errorMessage = error.response?.data?.message || 'Failed to upload media file';
+              toast.error(errorMessage);
+              throw error;
+            }
+          } else if (mediaUrl && mediaUrl.startsWith('data:')) {
+            // Fallback: If mediaUrl is base64 but no File object, try to convert and upload
+            try {
+              const response = await fetch(mediaUrl);
+              const blob = await response.blob();
+              const file = new File([blob], `question-media-${Date.now()}`, { type: q.mediaType || blob.type });
+
+              const category = await uploadService.getCategoryByName('course-materials');
+              if (category) {
+                const uploadResponse = await uploadService.uploadFile(file, category.id, true);
+                mediaUrl = uploadService.getPublicFileUrl(uploadResponse.id);
+              }
+            } catch (error) {
+              console.error('Failed to upload media file:', error);
+              toast.error('Failed to upload media file. Please try again.');
+              throw error;
+            }
+          }
+
+          return {
+            questionType: q.questionType,
+            questionText: q.questionText,
+            explanation: q.explanation && q.explanation.trim() !== '' ? q.explanation : undefined,
+            mediaUrl: mediaUrl && mediaUrl.trim() !== '' ? mediaUrl : undefined,
+            mediaType: q.mediaType && q.mediaType.trim() !== '' ? q.mediaType : undefined,
+            points: q.points,
+            order: q.order,
+            options: q.options?.map((opt, optIndex) => ({
+              optionText: opt.optionText,
+              isCorrect: opt.isCorrect,
+              order: optIndex,
+            })),
+          };
+        })
+      );
+
       const quizData: UpdateQuizDTO = {
         title: data.title,
-        description: data.description,
-        instructions: data.instructions,
-        entity: data.entity || undefined,
-        entityId: data.entityId,
-        duration: data.duration,
+        description: data.description && data.description.trim() !== '' ? data.description : undefined,
+        instructions: data.instructions && data.instructions.trim() !== '' ? data.instructions : undefined,
+        entity: getEntityValue(),
+        entityId: data.entityId && data.entityId.trim() !== '' ? data.entityId : null, // Set to null for standalone
+        duration: data.duration || undefined,
         passingScore: data.passingScore,
-        maxAttempts: data.maxAttempts,
+        maxAttempts: data.maxAttempts || undefined,
         shuffleQuestions: data.shuffleQuestions,
         shuffleOptions: data.shuffleOptions,
         showCorrectAnswer: data.showCorrectAnswer,
         isPublished: data.isPublished,
-        questions: data.questions.map((q) => ({
-          questionType: q.questionType,
-          questionText: q.questionText,
-          explanation: q.explanation,
-          mediaUrl: q.mediaUrl,
-          mediaType: q.mediaType,
-          points: q.points,
-          order: q.order,
-          options: q.options?.map((opt, optIndex) => ({
-            optionText: opt.optionText,
-            isCorrect: opt.isCorrect,
-            order: optIndex,
-          })),
-        })) as CreateQuizQuestionDTO[],
+        questions: uploadedQuestions as CreateQuizQuestionDTO[],
       };
 
       await quizService.updateQuiz(id, quizData);
@@ -244,56 +324,64 @@ const EditQuizPage = () => {
       />
       <div className="max-w-4xl mx-auto">
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit, onError)} className="space-y-6">
-          <QuizForm mode="edit" />
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit, onError)} className="space-y-6">
+            <QuizForm
+              mode="edit"
+              onQuestionMediaFileSelect={(questionIndex, file) => {
+                setQuestionMediaFiles((prev) => ({
+                  ...prev,
+                  [questionIndex]: file,
+                }));
+              }}
+            />
 
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex justify-end gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate(`/quizzes/${id}`)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={async () => {
-                    form.setValue('isPublished', false);
-                    const isValid = await form.trigger();
-                    if (isValid) {
-                      form.handleSubmit(onSubmit, onError)();
-                    } else {
-                      onError(form.formState.errors);
-                    }
-                  }}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Saving...' : 'Save as Draft'}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={async () => {
-                    form.setValue('isPublished', true);
-                    const isValid = await form.trigger();
-                    if (isValid) {
-                      form.handleSubmit(onSubmit, onError)();
-                    } else {
-                      onError(form.formState.errors);
-                    }
-                  }}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Updating...' : 'Update & Publish'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </form>
-      </Form>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex justify-end gap-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate(`/quizzes/${id}`)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={async () => {
+                      form.setValue('isPublished', false);
+                      const isValid = await form.trigger();
+                      if (isValid) {
+                        form.handleSubmit(onSubmit, onError)();
+                      } else {
+                        onError(form.formState.errors);
+                      }
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? 'Saving...' : 'Save as Draft'}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      form.setValue('isPublished', true);
+                      const isValid = await form.trigger();
+                      if (isValid) {
+                        form.handleSubmit(onSubmit, onError)();
+                      } else {
+                        onError(form.formState.errors);
+                      }
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? 'Updating...' : 'Update & Publish'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </form>
+        </Form>
       </div>
     </>
   );

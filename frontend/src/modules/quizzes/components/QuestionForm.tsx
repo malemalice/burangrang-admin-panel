@@ -12,10 +12,11 @@ import { ImageUpload } from '@/modules/uploads';
 interface QuestionFormProps {
   questionIndex: number;
   onRemove: () => void;
+  onMediaFileSelect?: (file: File | null) => void;
 }
 
-const QuestionForm = ({ questionIndex, onRemove }: QuestionFormProps) => {
-  const { control, watch } = useFormContext();
+const QuestionForm = ({ questionIndex, onRemove, onMediaFileSelect }: QuestionFormProps) => {
+  const { control, watch, setValue } = useFormContext();
   const questionType = watch(`questions.${questionIndex}.questionType`);
 
   return (
@@ -87,8 +88,56 @@ const QuestionForm = ({ questionIndex, onRemove }: QuestionFormProps) => {
                 <div className="space-y-2">
                   <ImageUpload
                     value={field.value}
-                    onChange={(url) => field.onChange(url)}
+                    onChange={(url) => {
+                      field.onChange(url);
+                      // Determine mediaType from URL or file
+                      if (url) {
+                        // Try to determine from URL extension or file type
+                        const urlLower = url.toLowerCase();
+                        let mediaType = '';
+                        if (urlLower.includes('.jpg') || urlLower.includes('.jpeg') || urlLower.includes('image/jpeg')) {
+                          mediaType = 'image/jpeg';
+                        } else if (urlLower.includes('.png') || urlLower.includes('image/png')) {
+                          mediaType = 'image/png';
+                        } else if (urlLower.includes('.gif') || urlLower.includes('image/gif')) {
+                          mediaType = 'image/gif';
+                        } else if (urlLower.includes('.webp') || urlLower.includes('image/webp')) {
+                          mediaType = 'image/webp';
+                        } else if (urlLower.includes('.mp4') || urlLower.includes('video/mp4')) {
+                          mediaType = 'video/mp4';
+                        } else if (urlLower.includes('.mp3') || urlLower.includes('audio/mpeg') || urlLower.includes('audio/mp3')) {
+                          mediaType = 'audio/mpeg';
+                        }
+                        if (mediaType) {
+                          setValue(`questions.${questionIndex}.mediaType`, mediaType);
+                        }
+                      } else {
+                        setValue(`questions.${questionIndex}.mediaType`, '');
+                      }
+                    }}
+                    onFileSelect={(file) => {
+                      // Set mediaType when file is selected
+                      if (file) {
+                        setValue(`questions.${questionIndex}.mediaType`, file.type);
+                      } else {
+                        setValue(`questions.${questionIndex}.mediaType`, '');
+                      }
+                      // Call parent callback to store File object
+                      if (onMediaFileSelect) {
+                        onMediaFileSelect(file);
+                      }
+                    }}
                     categoryName="course-materials"
+                    allowedTypes={[
+                      'image/jpeg',
+                      'image/png',
+                      'image/gif',
+                      'image/webp',
+                      'video/mp4',
+                      'audio/mpeg',
+                      'audio/mp3',
+                    ]}
+                    placeholder="Upload file"
                   />
                   {field.value && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">

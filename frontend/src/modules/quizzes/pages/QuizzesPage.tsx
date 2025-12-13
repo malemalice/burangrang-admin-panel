@@ -22,6 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/core/components/ui/dropdown-menu';
+import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
@@ -47,6 +48,7 @@ const QuizzesPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null);
   const [activeTab, setActiveTab] = useState('all');
+  const [activeStatusTab, setActiveStatusTab] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: string | number | boolean; label: string }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
@@ -108,9 +110,24 @@ const QuizzesPage = () => {
         break;
     }
 
+    // Apply active status tab filter
+    // Only set isActive if tab is explicitly "active" or "inactive"
+    // If "all", don't set isActive (leave it undefined to show all)
+    if (activeStatusTab === 'active') {
+      params.isActive = true;
+    } else if (activeStatusTab === 'inactive') {
+      params.isActive = false;
+    }
+    // If 'all', don't set isActive (leave it undefined)
+
     // Apply active filters
+    // Note: isActive filter from activeFilters should not override tab filter
     Object.entries(activeFilters).forEach(([key, filter]) => {
       if (filter.value !== undefined && filter.value !== '') {
+        // Skip isActive if it's already set by tab filter
+        if (key === 'isActive' && activeStatusTab !== 'all') {
+          return; // Tab filter takes priority
+        }
         if (key === 'isPublished' || key === 'isActive') {
           (params as Record<string, any>)[key] = filter.value === 'true' || filter.value === true;
         } else {
@@ -120,7 +137,7 @@ const QuizzesPage = () => {
     });
 
     await fetchQuizzes(params);
-  }, [pageIndex, limit, searchTerm, activeTab, activeFilters, fetchQuizzes]);
+  }, [pageIndex, limit, searchTerm, activeTab, activeStatusTab, activeFilters, fetchQuizzes]);
 
   useEffect(() => {
     loadQuizzes();
@@ -150,6 +167,19 @@ const QuizzesPage = () => {
     });
     setActiveFilters(filterMap);
     setPageIndex(0);
+  };
+
+  const handleActiveStatusTabChange = (value: string) => {
+    setActiveStatusTab(value);
+    setPageIndex(0);
+    // Remove isActive from activeFilters when switching to 'all' tab to avoid conflicts
+    if (value === 'all') {
+      setActiveFilters((prev) => {
+        const updated = { ...prev };
+        delete updated.isActive;
+        return updated;
+      });
+    }
   };
 
   const handleDeleteClick = (quiz: Quiz, event?: React.MouseEvent) => {
@@ -309,7 +339,15 @@ const QuizzesPage = () => {
             <Plus className="mr-2 h-4 w-4" /> Create Quiz
           </Button>
         }
-      />
+      >
+        <Tabs value={activeStatusTab} onValueChange={handleActiveStatusTabChange} className="w-full">
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="inactive">Inactive</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </PageHeader>
 
       <DataTable
         columns={columns}
@@ -324,6 +362,7 @@ const QuizzesPage = () => {
           total: totalQuizzes,
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />
