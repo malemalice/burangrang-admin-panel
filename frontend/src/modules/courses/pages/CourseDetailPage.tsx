@@ -194,14 +194,9 @@ const CourseDetailPage = () => {
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <h1 className="text-2xl font-bold">{course.title}</h1>
-                <Badge variant="outline" className={`${getStatusColor(course.status)} border-0`}>
+                <Badge variant="outline" className={`${getStatusColor(course.status)} border-0 capitalize`}>
                   {course.status}
                 </Badge>
-                {course.isPublished && (
-                  <Badge variant="outline" className="bg-green-100 text-green-800 border-0">
-                    Published
-                  </Badge>
-                )}
               </div>
               <p className="text-gray-600 mb-2">{course.shortDescription || course.description}</p>
               <div className="flex items-center gap-4 text-sm text-gray-500">
@@ -467,7 +462,7 @@ const CourseDetailPage = () => {
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() =>
-                              navigate(`/quizzes/new?entity=CHAPTER&entityId=${chapter.id}`)
+                              navigate(`/courses/${course.id}/quizzes/manage?entity=CHAPTER&entityId=${chapter.id}`)
                             }
                           >
                             <FileQuestion className="mr-2 h-4 w-4" /> Add Quiz
@@ -494,7 +489,7 @@ const CourseDetailPage = () => {
             <h3 className="text-lg font-medium">Course Quizzes</h3>
             <Button
               onClick={() =>
-                navigate(`/quizzes/new?entity=COURSE&entityId=${course.id}`)
+                navigate(`/courses/${course.id}/quizzes/manage?entity=COURSE&entityId=${course.id}`)
               }
             >
               <Plus className="mr-2 h-4 w-4" />
@@ -514,7 +509,7 @@ const CourseDetailPage = () => {
                 <p className="text-gray-600 mb-4">Add quizzes to assess student understanding.</p>
                 <Button
                   onClick={() =>
-                    navigate(`/quizzes/new?entity=COURSE&entityId=${course.id}`)
+                    navigate(`/courses/${course.id}/quizzes/manage?entity=COURSE&entityId=${course.id}`)
                   }
                 >
                   <Plus className="mr-2 h-4 w-4" />
@@ -590,7 +585,6 @@ const CourseDetailPage = () => {
         confirmText="Delete"
         cancelText="Cancel"
         onConfirm={handleDeleteConfirm}
-        onCancel={handleDeleteCancel}
         variant="destructive"
       />
     </div>

@@ -564,6 +564,94 @@ export class QuizzesService {
     );
   }
 
+  async linkToEntity(
+    id: string,
+    linkData: { entity: 'COURSE' | 'CHAPTER'; entityId: string },
+    updatedBy: string,
+  ): Promise<QuizDto> {
+    const existingQuiz = await this.prisma.quiz.findUnique({
+      where: { id },
+    });
+
+    this.errorHandler.throwIfNotFoundById('Quiz', id, existingQuiz);
+
+    // Validate entity exists
+    if (linkData.entity === 'COURSE') {
+      const course = await this.prisma.course.findUnique({
+        where: { id: linkData.entityId },
+      });
+      this.errorHandler.throwIfNotFoundById('Course', linkData.entityId, course);
+    } else if (linkData.entity === 'CHAPTER') {
+      const chapter = await this.prisma.chapter.findUnique({
+        where: { id: linkData.entityId },
+      });
+      this.errorHandler.throwIfNotFoundById('Chapter', linkData.entityId, chapter);
+    }
+
+    // Update quiz entity and entityId
+    const quiz = await this.prisma.quiz.update({
+      where: { id },
+      data: {
+        entity: linkData.entity as any,
+        entityId: linkData.entityId,
+      },
+      include: {
+        creator: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        questions: {
+          where: { isActive: true },
+          include: {
+            options: {
+              orderBy: { order: 'asc' },
+            },
+          },
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    // Load course/chapter relation
+    let quizWithRelations: any = quiz;
+    if (linkData.entity === 'COURSE') {
+      const course = await this.prisma.course.findUnique({
+        where: { id: linkData.entityId },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+        },
+      });
+      quizWithRelations = { ...quiz, course };
+    } else if (linkData.entity === 'CHAPTER') {
+      const chapter = await this.prisma.chapter.findUnique({
+        where: { id: linkData.entityId },
+        select: {
+          id: true,
+          title: true,
+          courseId: true,
+        },
+      });
+      quizWithRelations = { ...quiz, chapter };
+    }
+
+    // Log activity
+    await this.activityLogger.logActivity(
+      'QUIZ_LINKED',
+      quiz.id,
+      `Linked quiz "${quiz.title}" to ${linkData.entity} ${linkData.entityId}`,
+      [],
+      updatedBy,
+    );
+
+    return this.quizMapper(quizWithRelations);
+  }
+
   async assign(quizId: string, assignQuizDto: AssignQuizDto, assignedBy: string): Promise<void> {
     const quiz = await this.prisma.quiz.findUnique({
       where: { id: quizId },

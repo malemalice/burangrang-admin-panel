@@ -18,12 +18,13 @@ import { Textarea } from '@/core/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 import { Checkbox } from '@/core/components/ui/checkbox';
-import { Play, FileText, Youtube, Clock, ArrowLeft } from 'lucide-react';
+import { Play, FileText, Youtube, Clock, ArrowLeft, FileQuestion, Plus, ExternalLink } from 'lucide-react';
 import { useChapter } from '../hooks/useChapters';
 import { useCourse } from '../hooks/useCourses';
 import chapterService from '../services/chapterService';
 import courseService from '../services/courseService';
-import { ChapterFormData } from '../types/course.types';
+import quizService from '@/modules/quizzes/services/quizService';
+import { Quiz } from '@/modules/quizzes/types/quiz.types';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -52,6 +53,8 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
   const { course, fetchCourse } = useCourse(courseId);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [nextOrder, setNextOrder] = useState(1);
+  const [chapterQuizzes, setChapterQuizzes] = useState<Quiz[]>([]);
+  const [quizzesLoading, setQuizzesLoading] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -100,7 +103,7 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
         description: chapter.description || '',
         order: chapter.order,
         duration: chapter.duration,
-        contentType: chapter.contentType,
+        contentType: chapter.contentType as 'video' | 'youtube' | 'text',
         contentUrl: chapter.contentUrl || '',
         youtubeVideoId: chapter.youtubeVideoId || '',
         content: chapter.content || '',
@@ -110,23 +113,61 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
     }
   }, [chapter, mode]);
 
+  // Load quizzes linked to this chapter
+  useEffect(() => {
+    const loadChapterQuizzes = async () => {
+      if (mode === 'edit' && chapterId) {
+        setQuizzesLoading(true);
+        try {
+          const response = await quizService.getQuizzes({
+            entity: 'CHAPTER',
+            entityId: chapterId,
+            page: 1,
+            limit: 50,
+          });
+          setChapterQuizzes(response.data);
+        } catch (error) {
+          console.error('Failed to load chapter quizzes:', error);
+        } finally {
+          setQuizzesLoading(false);
+        }
+      }
+    };
+    loadChapterQuizzes();
+  }, [mode, chapterId]);
+
   const onSubmit = async (data: FormValues) => {
     try {
       setIsSubmitting(true);
 
-      const chapterData: ChapterFormData = {
-        ...data,
-        courseId,
-        contentUrl: data.contentUrl || undefined,
-        youtubeVideoId: data.youtubeVideoId || undefined,
-        content: data.content || undefined,
-      };
-
       if (mode === 'create') {
-        await chapterService.createChapter(chapterData);
+        await chapterService.createChapter({
+          courseId,
+          title: data.title,
+          description: data.description || undefined,
+          order: data.order,
+          duration: data.duration,
+          contentType: data.contentType,
+          contentUrl: data.contentUrl || undefined,
+          youtubeVideoId: data.youtubeVideoId || undefined,
+          content: data.content || undefined,
+          isFree: data.isFree,
+          isPublished: data.isPublished,
+        });
         toast.success('Chapter created successfully');
       } else if (chapterId) {
-        await chapterService.updateChapter(chapterId, chapterData);
+        await chapterService.updateChapter(chapterId, {
+          title: data.title,
+          description: data.description || undefined,
+          order: data.order,
+          duration: data.duration,
+          contentType: data.contentType,
+          contentUrl: data.contentUrl || undefined,
+          youtubeVideoId: data.youtubeVideoId || undefined,
+          content: data.content || undefined,
+          isFree: data.isFree,
+          isPublished: data.isPublished,
+        });
         toast.success('Chapter updated successfully');
       }
 
@@ -470,6 +511,69 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Chapter Quiz - only show in edit mode (1 chapter = 1 quiz) */}
+              {mode === 'edit' && chapterId && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <FileQuestion className="h-5 w-5" />
+                        Quiz
+                      </span>
+                      {/* Only show add button if no quiz linked yet */}
+                      {chapterQuizzes.length === 0 && !quizzesLoading && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/courses/${courseId}/quizzes/manage?entity=CHAPTER&entityId=${chapterId}`)}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {quizzesLoading ? (
+                      <div className="flex items-center justify-center py-4">
+                        <div className="h-5 w-5 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+                      </div>
+                    ) : chapterQuizzes.length === 0 ? (
+                      <div className="text-center py-4">
+                        <p className="text-sm text-gray-500 mb-3">No quiz linked</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/courses/${courseId}/quizzes/manage?entity=CHAPTER&entityId=${chapterId}`)}
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Quiz
+                        </Button>
+                      </div>
+                    ) : (
+                      // Show only the first quiz (1 chapter = 1 quiz)
+                      <div className="flex items-center justify-between p-2 rounded-md border hover:bg-gray-50 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{chapterQuizzes[0].title}</p>
+                          <p className="text-xs text-gray-500">
+                            {chapterQuizzes[0].questions?.length || 0} questions
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/quizzes/${chapterQuizzes[0].id}`)}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
 
