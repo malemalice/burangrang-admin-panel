@@ -66,9 +66,9 @@ export default function AreasPage() {
         sortBy: 'name',
         sortOrder: 'asc',
         filters: {
-             status: activeFilters.status?.value === 'active' ? 'active' :
-                     activeFilters.status?.value === 'inactive' ? 'inactive' :
-                     undefined,
+             isActive: activeFilters.status?.value === 'active' ? true :
+                       activeFilters.status?.value === 'inactive' ? false :
+                       undefined,
              name: activeFilters.name?.value,
              code: activeFilters.code?.value,
         }
