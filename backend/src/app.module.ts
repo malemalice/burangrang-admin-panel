@@ -38,6 +38,8 @@ import { RoomsModule } from './modules/rooms/rooms.module';
 import { EnvironmentalMeasurementsModule } from './modules/environmental-measurements/environmental-measurements.module';
 import { AreasModule } from './modules/areas/areas.module';
 
+import { WasteManagementModule } from './modules/waste-management/waste-management.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -76,6 +78,8 @@ import { AreasModule } from './modules/areas/areas.module';
     RoomsModule,
     EnvironmentalMeasurementsModule,
     AreasModule,
+    // Waste Management Module (consolidated - includes all waste-related features)
+    WasteManagementModule,
   ],
   providers: [
     Reflector,

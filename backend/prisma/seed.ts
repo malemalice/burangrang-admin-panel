@@ -25,6 +25,7 @@ import { seedWorkPermitsData } from './seeds/work-permits.seed';
 import { seedAreas } from './seeds/areas.seed';
 import { seedRooms } from './seeds/rooms.seed';
 import { seedEnvironmentalMeasurements } from './seeds/environmental-measurements.seed';
+import { seedWasteManagement } from './seeds/waste-management.seed';
 
 const prisma = new PrismaClient();
 
@@ -93,6 +94,17 @@ async function main() {
       // Clear Environmental Measurements and Rooms
       await prisma.environmentalMeasurement.deleteMany();
       await prisma.room.deleteMany();
+      // Clear Waste Management data
+      await prisma.weightReportItem.deleteMany();
+      await prisma.dispatchOrder.deleteMany();
+      await prisma.weightReport.deleteMany();
+      await prisma.waterQualityLabReport.deleteMany();
+      await prisma.monthlyFlowReport.deleteMany();
+      await prisma.storageLocation.deleteMany();
+      await prisma.wasteSource.deleteMany();
+      await prisma.wasteType.deleteMany();
+      await prisma.waterQualityParameter.deleteMany();
+      await prisma.treatmentPlant.deleteMany();
       // Clear other data
       await prisma.masterApprovalItem.deleteMany();
       await prisma.approval.deleteMany();
@@ -270,6 +282,7 @@ async function main() {
       await seedAreas();
       await seedRooms();
       await seedEnvironmentalMeasurements();
+      await seedWasteManagement();
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table

@@ -638,7 +638,168 @@ export const seedMenus = async () => {
       },
     });
 
-    console.log('✅ Menus seeded successfully');
+    // Create Waste Management menu
+    const wasteManagementMenu = await prisma.menu.create({
+      data: {
+        name: 'Waste Management',
+        icon: 'Recycle',
+        order: 4,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Waste Management - Wastewater submenus
+    await prisma.menu.create({
+      data: {
+        name: 'Waste Water Flow Recording',
+        path: '/waste-management/monthly-flow-reports',
+        icon: 'Waves',
+        parentId: wasteManagementMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Waste Water Lab Results',
+        path: '/waste-management/water-quality-lab-reports',
+        icon: 'FlaskConical',
+        parentId: wasteManagementMenu.id,
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    // Waste Management - Solid Waste submenus
+    await prisma.menu.create({
+      data: {
+        name: 'Solid Waste Recording',
+        path: '/waste-management/weight-reports',
+        icon: 'Scale',
+        parentId: wasteManagementMenu.id,
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Dispatch Orders',
+        path: '/waste-management/dispatch-orders',
+        icon: 'Truck',
+        parentId: wasteManagementMenu.id,
+        order: 4,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    // Waste Management - Master Data submenus
+    await prisma.menu.create({
+      data: {
+        name: 'Treatment Plants',
+        path: '/waste-management/treatment-plants',
+        icon: 'Factory',
+        parentId: wasteManagementMenu.id,
+        order: 5,
+        isActive: true,
+        roles: {
+          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Water Quality Parameters',
+        path: '/waste-management/water-quality-parameters',
+        icon: 'Droplets',
+        parentId: wasteManagementMenu.id,
+        order: 6,
+        isActive: true,
+        roles: {
+          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Waste Types',
+        path: '/waste-management/waste-types',
+        icon: 'Tags',
+        parentId: wasteManagementMenu.id,
+        order: 7,
+        isActive: true,
+        roles: {
+          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Waste Sources',
+        path: '/waste-management/waste-sources',
+        icon: 'Building',
+        parentId: wasteManagementMenu.id,
+        order: 8,
+        isActive: true,
+        roles: {
+          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Storage Locations',
+        path: '/waste-management/storage-locations',
+        icon: 'Warehouse',
+        parentId: wasteManagementMenu.id,
+        order: 9,
+        isActive: true,
+        roles: {
+          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+        },
+      },
+    });
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
     console.log(`   - Top-level menus: 9`);
     console.log(`   - Master Data submenus: 9`);
