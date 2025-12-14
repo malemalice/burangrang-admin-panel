@@ -34,6 +34,9 @@ import { ProgressModule } from './modules/progress/progress.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
 import { QuizzesModule } from './modules/quizzes/quizzes.module';
 import { WorkPermitsModule } from './modules/work-permits/work-permits.module';
+import { RoomsModule } from './modules/rooms/rooms.module';
+import { EnvironmentalMeasurementsModule } from './modules/environmental-measurements/environmental-measurements.module';
+import { AreasModule } from './modules/areas/areas.module';
 
 @Module({
   imports: [
@@ -70,6 +73,9 @@ import { WorkPermitsModule } from './modules/work-permits/work-permits.module';
     QuizzesModule,
     CertificatesModule,
     WorkPermitsModule,
+    RoomsModule,
+    EnvironmentalMeasurementsModule,
+    AreasModule,
   ],
   providers: [
     Reflector,

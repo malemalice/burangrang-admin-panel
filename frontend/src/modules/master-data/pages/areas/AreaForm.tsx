@@ -1,0 +1,259 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { toast } from 'sonner';
+import { Button } from '@/core/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/core/components/ui/form';
+import { Input } from '@/core/components/ui/input';
+import { Textarea } from '@/core/components/ui/textarea';
+import { Switch } from '@/core/components/ui/switch';
+import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/core/components/ui/select';
+import areaService from '../../services/areaService';
+import officeService from '../../services/officeService';
+import { CreateAreaDTO, UpdateAreaDTO, AreaDTO, Office } from '../../types/master-data.types';
+
+const formSchema = z.object({
+  name: z.string().min(1, 'Area name is required'),
+  code: z.string().min(1, 'Area code is required'),
+  description: z.string().optional(),
+  officeId: z.string().optional(),
+  isActive: z.boolean().default(true),
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
+interface AreaFormProps {
+  area?: AreaDTO;
+  mode: 'create' | 'edit';
+}
+
+const AreaForm = ({ area, mode }: AreaFormProps) => {
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [offices, setOffices] = useState<Office[]>([]);
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: '',
+      code: '',
+      description: '',
+      officeId: '',
+      isActive: true,
+    },
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoadingData(true);
+      try {
+        // Fetch offices
+        const officesResponse = await officeService.getOffices({ 
+          page: 1, 
+          limit: 100,
+          filters: { status: 'active' } 
+        });
+        setOffices(officesResponse.data);
+
+        // Set form data for edit mode
+        if (area && mode === 'edit') {
+          form.reset({
+            name: area.name,
+            code: area.code,
+            description: area.description || '',
+            officeId: area.officeId || '', // Handle null/undefined
+            isActive: area.isActive,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching form data:', error);
+        toast.error('Failed to load form data');
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    fetchData();
+  }, [area, mode, form]);
+
+  const onSubmit = async (data: FormValues) => {
+    try {
+      setIsLoading(true);
+      if (mode === 'create') {
+        const areaData: CreateAreaDTO = {
+          name: data.name,
+          code: data.code,
+          description: data.description || undefined,
+          officeId: data.officeId || undefined,
+          isActive: data.isActive,
+        };
+        await areaService.createArea(areaData);
+        toast.success('Area created successfully');
+      } else if (area) {
+        const areaData: UpdateAreaDTO = {
+          name: data.name,
+          code: data.code,
+          description: data.description || undefined,
+          officeId: data.officeId || undefined,
+          isActive: data.isActive,
+        };
+        await areaService.updateArea(area.id, areaData);
+        toast.success('Area updated successfully');
+      }
+      navigate('/master/areas');
+    } catch (error: unknown) {
+      console.error('Error saving area:', error);
+      const errorMessage = error instanceof Error ? error.message : `Failed to ${mode} area`;
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoadingData) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Area</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Area Name *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter area name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Area Code *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter area code" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="officeId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Office (Optional)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an office" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {offices.map((office) => (
+                        <SelectItem key={office.id} value={office.id}>
+                          {office.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter area description"
+                      rows={3}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="isActive"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel>Active Status</FormLabel>
+                    <div className="text-sm text-gray-500">
+                      Set whether this area is active
+                    </div>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <div className="flex justify-end gap-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => navigate('/master/areas')}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {mode === 'create' ? 'Create Area' : 'Save Changes'}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default AreaForm;

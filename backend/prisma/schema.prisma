@@ -59,6 +59,7 @@ model User {
   workPermitsCreated           WorkPermit[]            @relation("WorkPermitCreator")
   workPermitEmployees          WorkPermitEmployee[]    @relation("WorkPermitEmployee")
   workPermitHseOfficers        WorkPermitToUser[]      @relation("WorkPermitHseOfficer")
+  environmentalMeasurements    EnvironmentalMeasurement[] @relation("EnvironmentalMeasurementCreator")
 
   @@map("t_users")
 }
@@ -1248,17 +1249,39 @@ model Area {
 }
 
 model Room {
+  id                       String                    @id @default(uuid())
+  name                     String
+  code                     String                    @unique
+  description              String?                   @db.Text
+  areaId                   String                    @unique
+  isActive                 Boolean                   @default(true)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  area                     Area                      @relation(fields: [areaId], references: [id])
+  environmentalMeasurements EnvironmentalMeasurement[]
+
+  @@map("m_rooms")
+}
+
+// Environmental Measurement - Transactional Data
+model EnvironmentalMeasurement {
   id          String   @id @default(uuid())
-  name        String
-  code        String   @unique
-  description String?  @db.Text
-  areaId      String   @unique
+  roomId      String
+  lighting    Decimal? @db.Decimal(10, 2)
+  noise       Decimal? @db.Decimal(10, 2)
+  humidity    Decimal? @db.Decimal(10, 2)
+  temperature Decimal? @db.Decimal(10, 2)
+  remarks     String?  @db.Text
+  date        DateTime
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  area        Area     @relation(fields: [areaId], references: [id])
+  createdBy   String
 
-  @@map("m_rooms")
+  room    Room @relation(fields: [roomId], references: [id])
+  creator User @relation("EnvironmentalMeasurementCreator", fields: [createdBy], references: [id])
+
+  @@map("t_environmental_measurements")
 }
 
 model Guest {

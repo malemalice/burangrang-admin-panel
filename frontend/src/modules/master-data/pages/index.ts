@@ -5,3 +5,5 @@ export * from './hse-categories';
 export * from './threats';
 export * from './threat-mitigations';
 export * from './approvals';
+export * from './rooms';
+export * from './areas';
