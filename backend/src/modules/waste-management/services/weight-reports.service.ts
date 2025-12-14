@@ -51,7 +51,7 @@ export class WeightReportsService {
           mapper: (u) => u ? { id: u.id, firstName: u.firstName, lastName: u.lastName } : undefined,
         },
         items: {
-          mapper: (items) => items ? items.map((item: any) => this.itemMapper(item)) : [],
+          mapper: (item) => this.itemMapper(item),
           isArray: true,
         },
       },
@@ -70,31 +70,50 @@ export class WeightReportsService {
     const storageLocation = await this.prisma.storageLocation.findUnique({ where: { id: createDto.storageLocationId } });
     this.errorHandler.throwIfNotFoundById('Storage Location', createDto.storageLocationId, storageLocation);
 
-    const { items, ...reportData } = createDto;
-    const item = await this.prisma.weightReport.create({
-      data: {
-        ...reportData,
-        submittedBy: userId,
-        reportDate: new Date(createDto.reportDate),
-        submittedAt: new Date(createDto.submittedAt),
-        items: items ? {
-          create: items.map(i => ({
-            wasteTypeId: i.wasteTypeId,
-            weight: i.weight,
-            unit: i.unit || 'kg',
-            order: i.order,
-            notes: i.notes,
-          })),
-        } : undefined,
-      },
-      include: {
-        source: true,
-        storageLocation: true,
-        submitter: true,
-        items: { include: { wasteType: true } },
+    // Check for composite unique constraint
+    const existingPeriod = await this.prisma.weightReport.findUnique({
+      where: {
+        sourceId_reportMonth_reportYear: {
+          sourceId: createDto.sourceId,
+          reportMonth: createDto.reportMonth,
+          reportYear: createDto.reportYear,
+        },
       },
     });
-    return this.reportMapper(item);
+    
+    if (existingPeriod) {
+      this.errorHandler.throwConflictCustom(
+        `Weight Report for this Source, Month (${createDto.reportMonth}), and Year (${createDto.reportYear}) already exists`
+      );
+    }
+
+    return this.errorHandler.safeExecute(async () => {
+      const { items, ...reportData } = createDto;
+      const item = await this.prisma.weightReport.create({
+        data: {
+          ...reportData,
+          submittedBy: userId,
+          reportDate: new Date(createDto.reportDate),
+          submittedAt: new Date(createDto.submittedAt),
+          items: items ? {
+            create: items.map(i => ({
+              wasteTypeId: i.wasteTypeId,
+              weight: i.weight,
+              unit: i.unit || 'kg',
+              order: i.order,
+              notes: i.notes,
+            })),
+          } : undefined,
+        },
+        include: {
+          source: true,
+          storageLocation: true,
+          submitter: true,
+          items: { include: { wasteType: true } },
+        },
+      });
+      return this.reportMapper(item);
+    }, 'creating weight report');
   }
 
   async findAll(options?: FindAllOptions): Promise<{ data: WeightReportDto[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
@@ -153,42 +172,46 @@ export class WeightReportsService {
     const existing = await this.prisma.weightReport.findUnique({ where: { id } });
     this.errorHandler.throwIfNotFoundById('Weight Report', id, existing);
 
-    const { items, ...reportData } = updateDto;
-    const data: any = { ...reportData };
-    if (updateDto.reportDate) data.reportDate = new Date(updateDto.reportDate);
-    if (updateDto.submittedAt) data.submittedAt = new Date(updateDto.submittedAt);
-    if (updateDto.receivedAt) data.receivedAt = new Date(updateDto.receivedAt);
-    if (updateDto.reviewedAt) data.reviewedAt = new Date(updateDto.reviewedAt);
+    return this.errorHandler.safeExecute(async () => {
+      const { items, ...reportData } = updateDto;
+      const data: any = { ...reportData };
+      if (updateDto.reportDate) data.reportDate = new Date(updateDto.reportDate);
+      if (updateDto.submittedAt) data.submittedAt = new Date(updateDto.submittedAt);
+      if (updateDto.receivedAt) data.receivedAt = new Date(updateDto.receivedAt);
+      if (updateDto.reviewedAt) data.reviewedAt = new Date(updateDto.reviewedAt);
 
-    if (items) {
-      await this.prisma.weightReportItem.deleteMany({ where: { weightReportId: id } });
-      data.items = {
-        create: items.map(i => ({
-          wasteTypeId: i.wasteTypeId,
-          weight: i.weight,
-          unit: i.unit || 'kg',
-          order: i.order,
-          notes: i.notes,
-        })),
-      };
-    }
+      if (items) {
+        data.items = {
+          deleteMany: {},
+          create: items.map(i => ({
+            wasteTypeId: i.wasteTypeId,
+            weight: i.weight,
+            unit: i.unit || 'kg',
+            order: i.order,
+            notes: i.notes,
+          })),
+        };
+      }
 
-    const updated = await this.prisma.weightReport.update({
-      where: { id },
-      data,
-      include: {
-        source: true,
-        storageLocation: true,
-        submitter: true,
-        items: { include: { wasteType: true } },
-      },
-    });
-    return this.reportMapper(updated);
+      const updated = await this.prisma.weightReport.update({
+        where: { id },
+        data,
+        include: {
+          source: true,
+          storageLocation: true,
+          submitter: true,
+          items: { include: { wasteType: true } },
+        },
+      });
+      return this.reportMapper(updated);
+    }, 'updating weight report');
   }
 
   async remove(id: string): Promise<void> {
     const item = await this.prisma.weightReport.findUnique({ where: { id } });
     this.errorHandler.throwIfNotFoundById('Weight Report', id, item);
-    await this.prisma.weightReport.delete({ where: { id } });
+    await this.errorHandler.safeExecute(async () => {
+      await this.prisma.weightReport.delete({ where: { id } });
+    }, 'deleting weight report');
   }
 }

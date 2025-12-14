@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Plus, MoreHorizontal, Pencil, Trash2, Eye } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { Badge } from '@/core/components/ui/badge';
 import {
   DropdownMenu,
@@ -34,7 +35,7 @@ export default function DispatchOrdersPage() {
       label: 'Status',
       type: 'select',
       options: Object.values(GeneralStatusEnum).map((status) => ({
-        label: status,
+        label: status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
         value: status,
       })),
     },
@@ -114,7 +115,7 @@ export default function DispatchOrdersPage() {
       header: 'Status',
       cell: (item: DispatchOrder) => (
         <Badge variant={item.status === GeneralStatusEnum.DONE ? 'default' : 'secondary'}>
-          {item.status}
+          {item.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
         </Badge>
       ),
       isSortable: true,
@@ -152,7 +153,30 @@ export default function DispatchOrdersPage() {
             <Plus className="mr-2 h-4 w-4" /> Create Dispatch Order
           </Button>
         }
-      />
+      >
+        <Tabs defaultValue="all" className="w-auto" onValueChange={(value) => {
+          setPage(1);
+          if (value === 'all') {
+            const newFilters = { ...activeFilters };
+            delete newFilters.status;
+            setActiveFilters(newFilters);
+          } else {
+            setActiveFilters({
+              ...activeFilters,
+              status: { value: value, label: value },
+            });
+          }
+        }}>
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            {Object.values(GeneralStatusEnum).map((status) => (
+              <TabsTrigger key={status} value={status}>
+                {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </PageHeader>
       
       <DataTable
         columns={columns}

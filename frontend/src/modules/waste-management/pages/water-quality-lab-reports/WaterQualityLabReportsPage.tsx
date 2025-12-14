@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { Badge } from '@/core/components/ui/badge';
 import {
   DropdownMenu,
@@ -45,14 +46,17 @@ export default function WaterQualityLabReportsPage() {
     {
       id: 'treatmentPlantId',
       label: 'Treatment Plant',
-      type: 'select',
+      type: 'searchableSelect',
       options: treatmentPlants.map((tp) => ({ label: tp.name, value: tp.id })),
     },
     {
       id: 'status',
       label: 'Status',
       type: 'select',
-      options: Object.values(ReportStatusEnum).map((status) => ({ label: status, value: status })),
+      options: Object.values(ReportStatusEnum).map((status) => ({
+        label: status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
+        value: status,
+      })),
     },
     {
       id: 'isActive',
@@ -145,7 +149,7 @@ export default function WaterQualityLabReportsPage() {
       header: 'Report Status',
       cell: (item: WaterQualityLabReport) => (
         <Badge variant={item.status === ReportStatusEnum.SUBMITTED ? 'default' : 'secondary'}>
-          {item.status}
+          {item.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
         </Badge>
       ),
       isSortable: true,
@@ -193,7 +197,30 @@ export default function WaterQualityLabReportsPage() {
             <Plus className="mr-2 h-4 w-4" /> Add Report
           </Button>
         }
-      />
+      >
+        <Tabs defaultValue="all" className="w-auto" onValueChange={(value) => {
+          setPage(1);
+          if (value === 'all') {
+            const newFilters = { ...activeFilters };
+            delete newFilters.status;
+            setActiveFilters(newFilters);
+          } else {
+            setActiveFilters({
+              ...activeFilters,
+              status: { value: value, label: value },
+            });
+          }
+        }}>
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            {Object.values(ReportStatusEnum).map((status) => (
+              <TabsTrigger key={status} value={status}>
+                {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </PageHeader>
       
       <DataTable
         columns={columns}

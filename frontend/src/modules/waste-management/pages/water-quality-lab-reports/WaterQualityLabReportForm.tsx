@@ -19,6 +19,7 @@ import { Switch } from '@/core/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
+import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 
 import { waterQualityLabReportService, treatmentPlantService } from '../../services/wasteManagementService';
 import { CreateWaterQualityLabReportData, WaterQualityLabReport, UpdateWaterQualityLabReportData, TreatmentPlant, PaginatedResponse } from '../../types/waste-management.types';
@@ -189,7 +190,11 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
                   <FormItem>
                     <FormLabel>Report Date *</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DateTimePicker
+                        type="date"
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -203,7 +208,11 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
                   <FormItem>
                     <FormLabel>Submission Date *</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DateTimePicker
+                        type="date"
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

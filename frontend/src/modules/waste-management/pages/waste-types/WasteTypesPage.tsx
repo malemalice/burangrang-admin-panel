@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { Badge } from '@/core/components/ui/badge';
 import {
   DropdownMenu,
@@ -167,7 +168,27 @@ export default function WasteTypesPage() {
             <Plus className="mr-2 h-4 w-4" /> Add Waste Type
           </Button>
         }
-      />
+      >
+        <Tabs defaultValue="all" className="w-auto" onValueChange={(value) => {
+          setPage(1);
+          if (value === 'all') {
+            const newFilters = { ...activeFilters };
+            delete newFilters.isActive;
+            setActiveFilters(newFilters);
+          } else {
+            setActiveFilters({
+              ...activeFilters,
+              isActive: { value: value === 'active' ? 'true' : 'false', label: value === 'active' ? 'Active' : 'Inactive' },
+            });
+          }
+        }}>
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="inactive">Inactive</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </PageHeader>
       
       <DataTable
         columns={columns}

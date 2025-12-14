@@ -19,6 +19,7 @@ import { Switch } from '@/core/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 import { Loader2 } from 'lucide-react';
+import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 
 import { dispatchOrderService } from '../../services/wasteManagementService';
 import { CreateDispatchOrderData, DispatchOrder, UpdateDispatchOrderData, GeneralStatusEnum } from '../../types/waste-management.types';
@@ -153,7 +154,11 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
                   <FormItem>
                     <FormLabel>Dispatch Date *</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DateTimePicker
+                        type="date"
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -192,7 +197,7 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
                         <SelectContent>
                           {Object.values(GeneralStatusEnum).map((status) => (
                             <SelectItem key={status} value={status}>
-                              {status}
+                              {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
                             </SelectItem>
                           ))}
                         </SelectContent>

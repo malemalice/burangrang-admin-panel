@@ -329,9 +329,9 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {Object.values(ReportStatusEnum).map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
+                        {Object.values(ReportStatusEnum).map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
                           </SelectItem>
                         ))}
                       </SelectContent>

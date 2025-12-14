@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/cor
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/core/components/ui/table';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
+import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 
 import { weightReportService, wasteSourceService, storageLocationService, wasteTypeService } from '../../services/wasteManagementService';
 import { CreateWeightReportData, WeightReport, UpdateWeightReportData, WasteSource, StorageLocation, WasteType, MonthEnum, PaginatedResponse } from '../../types/waste-management.types';
@@ -250,7 +251,11 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
                     <FormItem>
                       <FormLabel>Report Date *</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <DateTimePicker
+                          type="date"
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -305,7 +310,11 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
                     <FormItem>
                       <FormLabel>Submission Date *</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <DateTimePicker
+                          type="date"
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

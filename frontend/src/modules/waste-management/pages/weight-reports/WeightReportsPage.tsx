@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { Badge } from '@/core/components/ui/badge';
 import {
   DropdownMenu,
@@ -14,7 +15,7 @@ import {
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
-import { weightReportService } from '../../services/wasteManagementService';
+import { weightReportService, wasteSourceService, storageLocationService } from '../../services/wasteManagementService';
 import { WeightReport, PaginatedResponse, ReportStatusEnum } from '../../types/waste-management.types';
 
 export default function WeightReportsPage() {
@@ -28,12 +29,46 @@ export default function WeightReportsPage() {
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  const [sources, setSources] = useState<{ id: string; name: string }[]>([]);
+  const [locations, setLocations] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    const fetchDependencies = async () => {
+      try {
+        const [sourcesRes, locationsRes] = await Promise.all([
+          wasteSourceService.getAll({ limit: 100, isActive: true }),
+          storageLocationService.getAll({ limit: 100, isActive: true }),
+        ]);
+        setSources((sourcesRes.data as PaginatedResponse<any>).data);
+        setLocations((locationsRes.data as PaginatedResponse<any>).data);
+      } catch (error) {
+        console.error('Failed to fetch dependencies', error);
+      }
+    };
+    fetchDependencies();
+  }, []);
+
   const filterFields: FilterField[] = [
     {
       id: 'status',
       label: 'Report Status',
       type: 'select',
-      options: Object.values(ReportStatusEnum).map((status) => ({ label: status, value: status })),
+      options: Object.values(ReportStatusEnum).map((status) => ({
+        label: status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
+        value: status,
+      })),
+    },
+    {
+      id: 'sourceId',
+      label: 'Waste Source',
+      type: 'searchableSelect',
+      options: sources.map((s) => ({ label: s.name, value: s.id })),
+    },
+    {
+      id: 'storageLocationId',
+      label: 'Location',
+      type: 'searchableSelect',
+      options: locations.map((l) => ({ label: l.name, value: l.id })),
     },
     {
       id: 'isActive',
@@ -54,6 +89,8 @@ export default function WeightReportsPage() {
         limit,
         search: search || undefined,
         status: activeFilters.status?.value as ReportStatusEnum | undefined,
+        sourceId: activeFilters.sourceId?.value,
+        storageLocationId: activeFilters.storageLocationId?.value,
         isActive: activeFilters.isActive?.value === 'true' ? true : activeFilters.isActive?.value === 'false' ? false : undefined,
       };
       const response = await weightReportService.getAll(params);
@@ -88,9 +125,18 @@ export default function WeightReportsPage() {
   const handleApplyFilters = (filters: FilterValue[]) => {
     const newActiveFilters: Record<string, { value: any; label: string }> = {};
     filters.forEach((filter) => {
+      let label = filter.value as string;
+      if (filter.id === 'isActive') {
+        label = filter.value === 'true' ? 'Active' : 'Inactive';
+      } else if (filter.id === 'sourceId') {
+        label = sources.find((s) => s.id === filter.value)?.name || String(filter.value);
+      } else if (filter.id === 'storageLocationId') {
+        label = locations.find((l) => l.id === filter.value)?.name || String(filter.value);
+      }
+      
       newActiveFilters[filter.id] = {
         value: filter.value,
-        label: filter.value === 'true' ? 'Active' : 'Inactive',
+        label,
       };
     });
     setActiveFilters(newActiveFilters);
@@ -127,7 +173,7 @@ export default function WeightReportsPage() {
       header: 'Report Status',
       cell: (item: WeightReport) => (
         <Badge variant={item.status === ReportStatusEnum.SUBMITTED ? 'default' : 'secondary'}>
-          {item.status}
+          {item.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
         </Badge>
       ),
       isSortable: true,
@@ -175,7 +221,30 @@ export default function WeightReportsPage() {
             <Plus className="mr-2 h-4 w-4" /> Add Report
           </Button>
         }
-      />
+      >
+        <Tabs defaultValue="all" className="w-auto" onValueChange={(value) => {
+          setPage(1);
+          if (value === 'all') {
+            const newFilters = { ...activeFilters };
+            delete newFilters.status;
+            setActiveFilters(newFilters);
+          } else {
+            setActiveFilters({
+              ...activeFilters,
+              status: { value: value, label: value },
+            });
+          }
+        }}>
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            {Object.values(ReportStatusEnum).map((status) => (
+              <TabsTrigger key={status} value={status}>
+                {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </PageHeader>
       
       <DataTable
         columns={columns}
