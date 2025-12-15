@@ -22,6 +22,9 @@ import { seedCertificates } from './seeds/certificates.seed';
 import { seedCourses } from './seeds/courses.seed';
 import { seedQuizzes } from './seeds/quizzes.seed';
 import { seedWorkPermitsData } from './seeds/work-permits.seed';
+import { seedAreas } from './seeds/areas.seed';
+import { seedRooms } from './seeds/rooms.seed';
+import { seedEnvironmentalMeasurements } from './seeds/environmental-measurements.seed';
 
 const prisma = new PrismaClient();
 
@@ -87,6 +90,9 @@ async function main() {
       await prisma.workPermitSupervisorToGuest.deleteMany();
       await prisma.workPermit.deleteMany();
       await prisma.guest.deleteMany();
+      // Clear Environmental Measurements and Rooms
+      await prisma.environmentalMeasurement.deleteMany();
+      await prisma.room.deleteMany();
       // Clear other data
       await prisma.masterApprovalItem.deleteMany();
       await prisma.approval.deleteMany();
@@ -261,6 +267,9 @@ async function main() {
       await seedCourses();
       await seedQuizzes();
       await seedWorkPermitsData(prisma);
+      await seedAreas();
+      await seedRooms();
+      await seedEnvironmentalMeasurements();
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table

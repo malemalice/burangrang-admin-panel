@@ -72,6 +72,25 @@ export const seedMenus = async () => {
       },
     });
 
+    // Environmental Measurements menu
+    await prisma.menu.create({
+      data: {
+        name: 'Environmental Measurements',
+        path: '/environmental-measurements',
+        icon: 'Thermometer',
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     const masterDataMenu = await prisma.menu.create({
       data: {
         name: 'Master Data',
@@ -404,14 +423,50 @@ export const seedMenus = async () => {
 
     await prisma.menu.create({
       data: {
-        name: 'Approvals',
-        path: '/master/approvals',
-        icon: 'ShieldCheck',
+        name: 'Areas',
+        path: '/master/areas',
+        icon: 'MapPin',
         parentId: masterDataMenu.id,
         order: 7,
         isActive: true,
         roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Approvals',
+        path: '/master/approvals',
+        icon: 'ShieldCheck',
+        parentId: masterDataMenu.id,
+        order: 9,
+        isActive: true,
+        roles: {
           connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Rooms',
+        path: '/master/rooms',
+        icon: 'DoorOpen',
+        parentId: masterDataMenu.id,
+        order: 8,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
         },
       },
     });

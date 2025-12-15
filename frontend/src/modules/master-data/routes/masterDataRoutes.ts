@@ -25,6 +25,12 @@ import {
   MasterApprovalsPage,
   CreateMasterApprovalPage,
   EditMasterApprovalPage,
+  RoomsPage,
+  CreateRoomPage,
+  EditRoomPage,
+  AreasPage,
+  CreateAreaPage,
+  EditAreaPage,
 } from '../pages';
 
 /**
@@ -130,6 +136,30 @@ const masterDataRoutes: RouteConfig[] = [
   {
     path: '/master/approvals/:id/edit',
     component: EditMasterApprovalPage,
+  },
+  {
+    path: '/master/areas',
+    component: AreasPage,
+  },
+  {
+    path: '/master/areas/create',
+    component: CreateAreaPage,
+  },
+  {
+    path: '/master/areas/:id/edit',
+    component: EditAreaPage,
+  },
+  {
+    path: '/master/rooms',
+    component: RoomsPage,
+  },
+  {
+    path: '/master/rooms/new',
+    component: CreateRoomPage,
+  },
+  {
+    path: '/master/rooms/:id/edit',
+    component: EditRoomPage,
   },
 ];
 
