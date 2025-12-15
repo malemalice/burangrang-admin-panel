@@ -29,6 +29,7 @@ model User {
   department                   Department?                @relation(fields: [departmentId], references: [id])
   jobPosition                  JobPosition?               @relation(fields: [jobPositionId], references: [id])
   riskAssessments              RiskAssessment[]
+  riskAssessmentsCreated       RiskAssessment[]           @relation("RiskAssessmentCreator")
   createdApprovalItems         MasterApprovalItem[]       @relation("CreatedApprovalItems")
   createdApprovals             Approval[]                 @relation("CreatedApprovals")
   createdNotifications         Notification[]             @relation("NotificationCreator")
@@ -248,6 +249,24 @@ model ThreatMitigation {
   @@map("m_threat_mitigations")
 }
 
+model RiskControl {
+  id        String   @id @default(uuid())
+  eliminate String?  @db.Text
+  transfer  String?  @db.Text
+  reduce    String?  @db.Text
+  isOpen    Boolean  @default(true)
+  isAccept  Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  entity    String
+  entityId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("t_risk_control")
+  @@index([entity, entityId])
+  @@index([isActive])
+}
+
 enum RiskRatingEnum {
   LOW
   MEDIUM
@@ -274,7 +293,8 @@ model RiskAssessment {
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
   createdBy      String
-  status         String
+  creator        User                 @relation("RiskAssessmentCreator", fields: [createdBy], references: [id])
+  status         GeneralStatusEnum
   isActive       Boolean              @default(true)
   items          RiskAssessmentItem[]
   assigneeId     String?
@@ -285,16 +305,22 @@ model RiskAssessment {
 }
 
 model RiskAssessmentItem {
-  id               String         @id @default(uuid())
-  riskAssessmentId String
-  riskAssessment   RiskAssessment @relation(fields: [riskAssessmentId], references: [id])
-  mThreatId        String
-  mThreat          Threat         @relation(fields: [mThreatId], references: [id])
-  mHseCategoryId   String
-  mHseCategory     HseCategory    @relation(fields: [mHseCategoryId], references: [id])
-  likelihoodLevel  Int
-  consequenceLevel Int
-  riskMatrixRating RiskRatingEnum
+  id                  String         @id @default(uuid())
+  riskAssessmentId    String
+  riskAssessment      RiskAssessment @relation(fields: [riskAssessmentId], references: [id])
+  mThreatId           String
+  mThreat             Threat         @relation(fields: [mThreatId], references: [id])
+  mHseCategoryId      String
+  mHseCategory        HseCategory    @relation(fields: [mHseCategoryId], references: [id])
+  riskDescription     String         @db.Text
+  likelihoodLevel     Int
+  consequenceLevel    Int
+  riskMatrixRating    RiskRatingEnum
+  interpretation      RiskRatingEnum
+  postLikelihoodLevel Int
+  postConsequenceLevel Int
+  postRiskMatrixRating RiskRatingEnum
+  postInterpretation   RiskRatingEnum
 
   @@map("t_risk_assessment_item")
 }

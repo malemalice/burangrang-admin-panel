@@ -11,6 +11,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { GeneralStatusEnum } from '@prisma/client';
 import { RiskAssessmentService } from '../services/risk-assessment.service';
 import { CreateRiskAssessmentDto } from '../dto/create-risk-assessment.dto';
 import { UpdateRiskAssessmentDto } from '../dto/update-risk-assessment.dto';
@@ -49,7 +50,7 @@ export class RiskAssessmentController {
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('isActive') isActive?: boolean,
     @Query('departmentId') departmentId?: string,
-    @Query('status') status?: string,
+    @Query('status') status?: GeneralStatusEnum,
   ) {
     return this.riskAssessmentService.findAll({
       page: page ? +page : undefined,

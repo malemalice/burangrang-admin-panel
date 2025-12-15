@@ -4,7 +4,12 @@ import { PrismaService } from '../../../core/prisma/prisma.service';
 import { CreateRiskAssessmentDto } from '../dto/create-risk-assessment.dto';
 import { UpdateRiskAssessmentDto } from '../dto/update-risk-assessment.dto';
 import { RiskAssessmentDto } from '../dto/risk-assessment.dto';
-import { RiskAssessment, RiskAssessmentItem, Prisma } from '@prisma/client';
+import {
+  RiskAssessment,
+  RiskAssessmentItem,
+  Prisma,
+  GeneralStatusEnum,
+} from '@prisma/client';
 import { ApprovalsService } from '../../approvals/approvals.service';
 
 interface FindAllOptions {
@@ -14,7 +19,7 @@ interface FindAllOptions {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   departmentId?: string;
-  status?: string;
+  status?: GeneralStatusEnum;
 }
 
 @Injectable()
@@ -33,14 +38,19 @@ export class RiskAssessmentService {
     const assessment = await this.prisma.riskAssessment.create({
       data: {
         ...data,
-        status: 'waiting_approval',
         items: {
           create: items,
         },
       },
       include: {
-        items: true,
+        items: {
+          include: {
+            mThreat: true,
+            mHseCategory: true,
+          },
+        },
         department: true,
+        creator: true,
         assignee: true,
       },
     });
@@ -56,6 +66,7 @@ export class RiskAssessmentService {
             },
           },
           department: true,
+          creator: true,
           assignee: true,
         },
       },
@@ -107,6 +118,7 @@ export class RiskAssessmentService {
             },
           },
           department: true,
+          creator: true,
           assignee: true,
         },
         orderBy: {
@@ -135,6 +147,7 @@ export class RiskAssessmentService {
           },
         },
         department: true,
+        creator: true,
         assignee: true,
       },
     });
@@ -182,6 +195,7 @@ export class RiskAssessmentService {
           },
         },
         department: true,
+        creator: true,
         assignee: true,
       },
     });
@@ -220,6 +234,7 @@ export class RiskAssessmentService {
         mHseCategory: any;
       })[];
       department: any;
+      creator: any;
       assignee: any;
     },
   ): RiskAssessmentDto {
@@ -233,6 +248,7 @@ export class RiskAssessmentService {
       createdAt: assessment.createdAt,
       updatedAt: assessment.updatedAt,
       createdBy: assessment.createdBy,
+      creator: assessment.creator,
       status: assessment.status,
       isActive: assessment.isActive,
       items: assessment.items.map((item) => ({
@@ -242,9 +258,15 @@ export class RiskAssessmentService {
         mThreat: item.mThreat,
         mHseCategoryId: item.mHseCategoryId,
         mHseCategory: item.mHseCategory,
+        riskDescription: item.riskDescription,
         likelihoodLevel: item.likelihoodLevel,
         consequenceLevel: item.consequenceLevel,
         riskMatrixRating: item.riskMatrixRating,
+        interpretation: item.interpretation,
+        postLikelihoodLevel: item.postLikelihoodLevel,
+        postConsequenceLevel: item.postConsequenceLevel,
+        postRiskMatrixRating: item.postRiskMatrixRating,
+        postInterpretation: item.postInterpretation,
       })),
       assigneeId: assessment.assigneeId ?? undefined,
       assignee: assessment.assignee,

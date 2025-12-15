@@ -87,7 +87,7 @@ export class DashboardService {
       {} as { [key in RiskRatingEnum]: number },
     );
 
-    const approvedAssessments = assessments.filter((a) => a.status === 'APPROVED').length;
+    const approvedAssessments = assessments.filter((a) => a.status === 'DONE').length;
 
     return {
       departmentId,
@@ -189,13 +189,13 @@ export class DashboardService {
     ]);
 
     const totalAssessments = assessments.length;
-    const approvedAssessments = assessments.filter((a) => a.status === 'APPROVED').length;
-    const pendingAssessments = assessments.filter((a) => a.status === 'PENDING').length;
+    const approvedAssessments = assessments.filter((a) => a.status === 'DONE').length;
+    const pendingAssessments = assessments.filter((a) => a.status === 'WAITING_APPROVAL').length;
     const rejectedAssessments = assessments.filter((a) => a.status === 'REJECTED').length;
 
     const departmentCompliance = departments.map((dept) => {
       const deptAssessments = assessments.filter((a) => a.departmentId === dept.id);
-      const deptApproved = deptAssessments.filter((a) => a.status === 'APPROVED').length;
+      const deptApproved = deptAssessments.filter((a) => a.status === 'DONE').length;
       
       return {
         departmentId: dept.id,

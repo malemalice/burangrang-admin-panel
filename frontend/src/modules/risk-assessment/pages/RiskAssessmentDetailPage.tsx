@@ -191,6 +191,13 @@ const RiskAssessmentDetailPage = () => {
             </div>
           </CardHeader>
           <CardContent className="space-y-8">
+            {assessment.description && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Description</p>
+                <p className="text-sm text-muted-foreground">{assessment.description}</p>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <p className="text-sm font-medium">Department</p>
@@ -206,7 +213,7 @@ const RiskAssessmentDetailPage = () => {
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium">Created By</p>
-                <p>{assessment.createdBy || 'N/A'}</p>
+                <p>{assessment.creator ? `${assessment.creator.firstName} ${assessment.creator.lastName}` : assessment.createdBy || 'N/A'}</p>
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium">Last Updated</p>
@@ -239,37 +246,71 @@ const RiskAssessmentDetailPage = () => {
                   <p>No risk items available for this assessment.</p>
                 </div>
               ) : (
-                <div className="border rounded-md overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[250px]">HSE Category</TableHead>
-                        <TableHead className="w-[250px]">Threat</TableHead>
-                        <TableHead className="w-[100px]">Likelihood</TableHead>
-                        <TableHead className="w-[100px]">Consequence</TableHead>
-                        <TableHead className="w-[120px]">Risk Rating</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {assessment.items.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>
-                            {item.mHseCategory 
-                              ? `${item.mHseCategory.code} - ${item.mHseCategory.name}` 
-                              : 'Unknown'}
-                          </TableCell>
-                          <TableCell>
-                            {item.mThreat 
-                              ? `${item.mThreat.code} - ${item.mThreat.name}` 
-                              : 'Unknown'}
-                          </TableCell>
-                          <TableCell className="text-center">{item.likelihoodLevel}</TableCell>
-                          <TableCell className="text-center">{item.consequenceLevel}</TableCell>
-                          <TableCell>{getRiskBadge(item.riskMatrixRating)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                <div className="space-y-4">
+                  {assessment.items.map((item) => (
+                    <Card key={item.id} className="border">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base">
+                          {item.mHseCategory 
+                            ? `${item.mHseCategory.code} - ${item.mHseCategory.name}` 
+                            : 'Unknown Category'} - {item.mThreat 
+                            ? `${item.mThreat.code} - ${item.mThreat.name}` 
+                            : 'Unknown Threat'}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {item.riskDescription && (
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium">Risk Description</p>
+                            <p className="text-sm text-muted-foreground">{item.riskDescription}</p>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium">Likelihood</p>
+                            <p className="text-sm">{item.likelihoodLevel}</p>
+                          </div>
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium">Consequence</p>
+                            <p className="text-sm">{item.consequenceLevel}</p>
+                          </div>
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium">Risk Rating</p>
+                            <div>{getRiskBadge(item.riskMatrixRating)}</div>
+                          </div>
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium">Interpretation</p>
+                            <div>{getRiskBadge(item.interpretation)}</div>
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        <div>
+                          <h4 className="text-sm font-medium mb-3">Post-Control Assessment</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium">Post Likelihood</p>
+                              <p className="text-sm">{item.postLikelihoodLevel}</p>
+                            </div>
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium">Post Consequence</p>
+                              <p className="text-sm">{item.postConsequenceLevel}</p>
+                            </div>
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium">Post Risk Rating</p>
+                              <div>{getRiskBadge(item.postRiskMatrixRating)}</div>
+                            </div>
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium">Post Interpretation</p>
+                              <div>{getRiskBadge(item.postInterpretation)}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               )}
             </div>

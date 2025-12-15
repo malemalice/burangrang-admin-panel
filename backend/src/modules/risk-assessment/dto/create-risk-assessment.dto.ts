@@ -7,9 +7,11 @@ import {
   IsArray,
   ValidateNested,
   IsNotEmpty,
+  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { GeneralStatusEnum } from '@prisma/client';
 import { CreateRiskAssessmentItemDto } from './create-risk-assessment-item.dto';
 
 export class CreateRiskAssessmentDto {
@@ -39,9 +41,9 @@ export class CreateRiskAssessmentDto {
   createdBy: string;
 
   @IsNotEmpty()
-  @IsString()
-  @ApiProperty()
-  status: string;
+  @IsEnum(GeneralStatusEnum)
+  @ApiProperty({ enum: GeneralStatusEnum })
+  status: GeneralStatusEnum;
 
   @IsBoolean()
   @IsOptional()

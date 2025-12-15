@@ -170,12 +170,14 @@ export enum RiskRatingEnum {
 export interface RiskAssessment {
   id: string;
   code: string;
+  description?: string;
   departmentId: string;
   department?: Department;
   assessmentDate: Date;
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
+  creator?: User;
   status: string;
   isActive: boolean;
   items: RiskAssessmentItem[];
@@ -188,12 +190,32 @@ export interface RiskAssessmentItem {
   id: string;
   riskAssessmentId: string;
   mThreatId: string;
+  mThreat?: Threat;
   mHseCategoryId: string;
+  mHseCategory?: HseCategory;
+  riskDescription: string;
   likelihoodLevel: number;
   consequenceLevel: number;
   riskMatrixRating: RiskRatingEnum;
-  mThreat?: Threat;
-  mHseCategory?: HseCategory;
+  interpretation: RiskRatingEnum;
+  postLikelihoodLevel: number;
+  postConsequenceLevel: number;
+  postRiskMatrixRating: RiskRatingEnum;
+  postInterpretation: RiskRatingEnum;
+}
+
+export interface RiskControl {
+  id: string;
+  eliminate?: string;
+  transfer?: string;
+  reduce?: string;
+  isOpen: boolean;
+  isAccept: boolean;
+  isActive: boolean;
+  entity: string;
+  entityId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Common response and request types

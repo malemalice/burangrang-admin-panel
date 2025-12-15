@@ -29,7 +29,6 @@ import {
 import { Badge } from '@/core/components/ui/badge';
 import { Separator } from '@/core/components/ui/separator';
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/core/components/ui/table';
 import { Editor } from '@/core/components/ui/editor';
 
 import { RiskAssessment, RiskRatingEnum, Department, Threat, HseCategory, User } from '@/core/lib/types';
@@ -40,6 +39,7 @@ import { userService } from '@/modules/users';
 // Form schema for validation
 const formSchema = z.object({
   code: z.string().min(1, 'Code is required'),
+  description: z.string().optional(),
   departmentId: z.string().min(1, 'Department is required'),
   assessmentDate: z.string().optional(),
   status: z.string().min(1, 'Status is required'),
@@ -47,9 +47,15 @@ const formSchema = z.object({
   items: z.array(z.object({
     mThreatId: z.string().min(1, 'Threat is required'),
     mHseCategoryId: z.string().min(1, 'HSE Category is required'),
+    riskDescription: z.string().min(1, 'Risk description is required'),
     likelihoodLevel: z.coerce.number().min(1, 'Minimum level is 1').max(5, 'Maximum level is 5'),
     consequenceLevel: z.coerce.number().min(1, 'Minimum level is 1').max(5, 'Maximum level is 5'),
     riskMatrixRating: z.string().min(1, 'Risk rating is required'),
+    interpretation: z.string().min(1, 'Interpretation is required'),
+    postLikelihoodLevel: z.coerce.number().min(1, 'Minimum level is 1').max(5, 'Maximum level is 5'),
+    postConsequenceLevel: z.coerce.number().min(1, 'Minimum level is 1').max(5, 'Maximum level is 5'),
+    postRiskMatrixRating: z.string().min(1, 'Post risk rating is required'),
+    postInterpretation: z.string().min(1, 'Post interpretation is required'),
   })).min(1, 'At least one risk item is required'),
   assigneeId: z.string().optional(),
   actionPlan: z.string().optional(),
@@ -111,6 +117,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       code: '',
+      description: '',
       departmentId: '',
       assessmentDate: new Date().toISOString().split('T')[0],
       status: 'DRAFT',
@@ -119,9 +126,15 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
         {
           mThreatId: '',
           mHseCategoryId: '',
+          riskDescription: '',
           likelihoodLevel: 1,
           consequenceLevel: 1,
           riskMatrixRating: RiskRatingEnum.LOW,
+          interpretation: RiskRatingEnum.LOW,
+          postLikelihoodLevel: 1,
+          postConsequenceLevel: 1,
+          postRiskMatrixRating: RiskRatingEnum.LOW,
+          postInterpretation: RiskRatingEnum.LOW,
         },
       ],
       assigneeId: '',
@@ -166,6 +179,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
     if (assessment && mode === 'edit' && dataReady) {
       form.reset({
         code: assessment.code,
+        description: assessment.description || '',
         departmentId: assessment.departmentId,
         assessmentDate: assessment.assessmentDate
           ? new Date(assessment.assessmentDate).toISOString().split('T')[0]
@@ -175,9 +189,15 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
         items: assessment.items.map(item => ({
           mThreatId: item.mThreatId,
           mHseCategoryId: item.mHseCategoryId,
+          riskDescription: item.riskDescription || '',
           likelihoodLevel: item.likelihoodLevel,
           consequenceLevel: item.consequenceLevel,
           riskMatrixRating: item.riskMatrixRating,
+          interpretation: item.interpretation || RiskRatingEnum.LOW,
+          postLikelihoodLevel: item.postLikelihoodLevel || item.likelihoodLevel,
+          postConsequenceLevel: item.postConsequenceLevel || item.consequenceLevel,
+          postRiskMatrixRating: item.postRiskMatrixRating || item.riskMatrixRating,
+          postInterpretation: item.postInterpretation || item.interpretation || RiskRatingEnum.LOW,
         })),
         assigneeId: assessment.assigneeId,
         actionPlan: assessment.actionPlan,
@@ -186,15 +206,24 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
   }, [assessment, mode, dataReady, form]);
 
   // Calculate risk rating when likelihood or consequence changes
-  const calculateRiskRating = async (index: number) => {
-    const likelihoodLevel = form.getValues(`items.${index}.likelihoodLevel`);
-    const consequenceLevel = form.getValues(`items.${index}.consequenceLevel`);
+  const calculateRiskRating = async (index: number, isPostControl = false) => {
+    const likelihoodLevel = form.getValues(`items.${index}.${isPostControl ? 'postLikelihoodLevel' : 'likelihoodLevel'}`);
+    const consequenceLevel = form.getValues(`items.${index}.${isPostControl ? 'postConsequenceLevel' : 'consequenceLevel'}`);
 
     if (!likelihoodLevel || !consequenceLevel) return;
 
     try {
       const response = await riskAssessmentService.calculateRiskRating(likelihoodLevel, consequenceLevel);
-      form.setValue(`items.${index}.riskMatrixRating`, response.riskLevel.description.split(' ')[0].toUpperCase());
+      const rating = response.riskLevel.description.split(' ')[0].toUpperCase();
+      const interpretation = response.interpretation || rating;
+      
+      if (isPostControl) {
+        form.setValue(`items.${index}.postRiskMatrixRating`, rating);
+        form.setValue(`items.${index}.postInterpretation`, interpretation);
+      } else {
+        form.setValue(`items.${index}.riskMatrixRating`, rating);
+        form.setValue(`items.${index}.interpretation`, interpretation);
+      }
     } catch (error) {
       toast.error('Failed to calculate risk rating');
     }
@@ -204,9 +233,15 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
     append({
       mThreatId: '',
       mHseCategoryId: '',
+      riskDescription: '',
       likelihoodLevel: 1,
       consequenceLevel: 1,
       riskMatrixRating: RiskRatingEnum.LOW,
+      interpretation: RiskRatingEnum.LOW,
+      postLikelihoodLevel: 1,
+      postConsequenceLevel: 1,
+      postRiskMatrixRating: RiskRatingEnum.LOW,
+      postInterpretation: RiskRatingEnum.LOW,
     });
   };
 
@@ -216,14 +251,21 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
       // Form validation ensures required fields are present
       const assessmentData: CreateRiskAssessmentDTO = {
         code: data.code as string,
+        description: data.description,
         departmentId: data.departmentId as string,
         status: data.status as string,
         items: data.items.map(item => ({
           mThreatId: item.mThreatId as string,
           mHseCategoryId: item.mHseCategoryId as string,
+          riskDescription: item.riskDescription as string,
           likelihoodLevel: item.likelihoodLevel as number,
           consequenceLevel: item.consequenceLevel as number,
           riskMatrixRating: item.riskMatrixRating as string,
+          interpretation: item.interpretation as string,
+          postLikelihoodLevel: item.postLikelihoodLevel as number,
+          postConsequenceLevel: item.postConsequenceLevel as number,
+          postRiskMatrixRating: item.postRiskMatrixRating as string,
+          postInterpretation: item.postInterpretation as string,
         })),
         assessmentDate: data.assessmentDate ? new Date(data.assessmentDate) : undefined,
         createdBy: 'current-user-id', // This should be replaced with actual user ID
@@ -286,6 +328,20 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                     <FormLabel>Assessment Code</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter assessment code" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter assessment description" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -409,72 +465,189 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
               )}
 
               {fields.length > 0 && (
-                <div className="border rounded-md mb-4 overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[250px]">HSE Category</TableHead>
-                        <TableHead className="w-[250px]">Threat</TableHead>
-                        <TableHead className="w-[120px]">Likelihood</TableHead>
-                        <TableHead className="w-[120px]">Consequence</TableHead>
-                        <TableHead className="w-[120px]">Risk Rating</TableHead>
-                        <TableHead className="w-[80px]"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {fields.map((field, index) => (
-                        <TableRow key={field.id}>
-                          <TableCell>
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.mHseCategoryId`}
-                              render={({ field }) => (
-                                <FormItem>
+                <div className="space-y-4">
+                  {fields.map((field, index) => (
+                    <Card key={field.id} className="border">
+                      <CardHeader className="pb-3">
+                        <div className="flex justify-between items-center">
+                          <CardTitle className="text-base">Risk Item {index + 1}</CardTitle>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => remove(index)}
+                            disabled={fields.length === 1}
+                          >
+                            <X className="h-4 w-4" />
+                            <span className="sr-only">Remove</span>
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.mHseCategoryId`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>HSE Category</FormLabel>
+                                <FormControl>
+                                  <SearchableSelect
+                                    options={hseCategoryOptions}
+                                    value={field.value}
+                                    onValueChange={field.onChange}
+                                    placeholder="Select HSE category"
+                                    searchPlaceholder="Search HSE category..."
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.mThreatId`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Threat</FormLabel>
+                                <FormControl>
+                                  <SearchableSelect
+                                    options={threatOptions}
+                                    value={field.value}
+                                    onValueChange={field.onChange}
+                                    placeholder="Select threat"
+                                    searchPlaceholder="Search threat..."
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.riskDescription`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Risk Description</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Enter risk description" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.likelihoodLevel`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Likelihood</FormLabel>
+                                <Select
+                                  value={field.value.toString()}
+                                  onValueChange={(value) => {
+                                    field.onChange(parseInt(value, 10));
+                                    calculateRiskRating(index, false);
+                                  }}
+                                >
                                   <FormControl>
-                                    <SearchableSelect
-                                      options={hseCategoryOptions}
-                                      value={field.value}
-                                      onValueChange={field.onChange}
-                                      placeholder="Select HSE category"
-                                      searchPlaceholder="Search HSE category..."
-                                    />
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select level" />
+                                    </SelectTrigger>
                                   </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.mThreatId`}
-                              render={({ field }) => (
-                                <FormItem>
+                                  <SelectContent>
+                                    {levelOptions.map((option) => (
+                                      <SelectItem key={option.value} value={option.value}>
+                                        {option.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.consequenceLevel`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Consequence</FormLabel>
+                                <Select
+                                  value={field.value.toString()}
+                                  onValueChange={(value) => {
+                                    field.onChange(parseInt(value, 10));
+                                    calculateRiskRating(index, false);
+                                  }}
+                                >
                                   <FormControl>
-                                    <SearchableSelect
-                                      options={threatOptions}
-                                      value={field.value}
-                                      onValueChange={field.onChange}
-                                      placeholder="Select threat"
-                                      searchPlaceholder="Search threat..."
-                                    />
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select level" />
+                                    </SelectTrigger>
                                   </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </TableCell>
-                          <TableCell>
+                                  <SelectContent>
+                                    {levelOptions.map((option) => (
+                                      <SelectItem key={option.value} value={option.value}>
+                                        {option.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.riskMatrixRating`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Risk Rating</FormLabel>
+                                <FormControl>
+                                  <div className="pt-2">
+                                    {field.value && getRiskBadge(field.value)}
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.interpretation`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Interpretation</FormLabel>
+                                <FormControl>
+                                  <div className="pt-2">
+                                    {field.value && getRiskBadge(field.value)}
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <Separator />
+
+                        <div>
+                          <h4 className="text-sm font-medium mb-3">Post-Control Assessment</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <FormField
                               control={form.control}
-                              name={`items.${index}.likelihoodLevel`}
+                              name={`items.${index}.postLikelihoodLevel`}
                               render={({ field }) => (
                                 <FormItem>
+                                  <FormLabel>Post Likelihood</FormLabel>
                                   <Select
                                     value={field.value.toString()}
                                     onValueChange={(value) => {
                                       field.onChange(parseInt(value, 10));
-                                      calculateRiskRating(index);
+                                      calculateRiskRating(index, true);
                                     }}
                                   >
                                     <FormControl>
@@ -494,18 +667,17 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                                 </FormItem>
                               )}
                             />
-                          </TableCell>
-                          <TableCell>
                             <FormField
                               control={form.control}
-                              name={`items.${index}.consequenceLevel`}
+                              name={`items.${index}.postConsequenceLevel`}
                               render={({ field }) => (
                                 <FormItem>
+                                  <FormLabel>Post Consequence</FormLabel>
                                   <Select
                                     value={field.value.toString()}
                                     onValueChange={(value) => {
                                       field.onChange(parseInt(value, 10));
-                                      calculateRiskRating(index);
+                                      calculateRiskRating(index, true);
                                     }}
                                   >
                                     <FormControl>
@@ -525,15 +697,14 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                                 </FormItem>
                               )}
                             />
-                          </TableCell>
-                          <TableCell>
                             <FormField
                               control={form.control}
-                              name={`items.${index}.riskMatrixRating`}
+                              name={`items.${index}.postRiskMatrixRating`}
                               render={({ field }) => (
                                 <FormItem>
+                                  <FormLabel>Post Risk Rating</FormLabel>
                                   <FormControl>
-                                    <div>
+                                    <div className="pt-2">
                                       {field.value && getRiskBadge(field.value)}
                                     </div>
                                   </FormControl>
@@ -541,23 +712,26 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                                 </FormItem>
                               )}
                             />
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => remove(index)}
-                              disabled={fields.length === 1}
-                            >
-                              <X className="h-4 w-4" />
-                              <span className="sr-only">Remove</span>
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.postInterpretation`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Post Interpretation</FormLabel>
+                                  <FormControl>
+                                    <div className="pt-2">
+                                      {field.value && getRiskBadge(field.value)}
+                                    </div>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               )}
             </div>
