@@ -1,0 +1,448 @@
+/**
+ * Waste Management seed data
+ * Seeds master data for waste management module
+ */
+import { PrismaClient, WasteTypeEnum, MonthEnum, ReportStatusEnum, GeneralStatusEnum } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+export const seedWasteManagement = async () => {
+  console.log('🌱 Seeding waste management data...');
+
+  try {
+    // Get existing offices for treatment plant assignment
+    const offices = await prisma.office.findMany({
+      where: { isActive: true },
+      take: 3,
+    });
+
+    if (offices.length === 0) {
+      console.log('⚠️  No offices found. Please run office seeds first.');
+      return;
+    }
+
+    // Get existing areas for storage location assignment
+    const areas = await prisma.area.findMany({
+      where: { isActive: true },
+      take: 5,
+    });
+
+    // Get existing users for report assignment
+    const users = await prisma.user.findMany({
+      where: { isActive: true },
+      take: 3,
+    });
+
+    // Clear existing waste management data
+    await prisma.weightReportItem.deleteMany({});
+    await prisma.dispatchOrder.deleteMany({});
+    await prisma.weightReport.deleteMany({});
+    await prisma.waterQualityLabReport.deleteMany({});
+    await prisma.monthlyFlowReport.deleteMany({});
+    await prisma.storageLocation.deleteMany({});
+    await prisma.wasteSource.deleteMany({});
+    await prisma.wasteType.deleteMany({});
+    await prisma.waterQualityParameter.deleteMany({});
+    await prisma.treatmentPlant.deleteMany({});
+
+    // Seed Treatment Plants (requires users for createdBy)
+    let treatmentPlants: Awaited<ReturnType<typeof prisma.treatmentPlant.create>>[] = [];
+    if (users.length > 0) {
+      console.log('  📍 Seeding treatment plants...');
+      treatmentPlants = await Promise.all([
+        prisma.treatmentPlant.create({
+          data: {
+            name: 'IPAL Utama',
+            code: 'IPAL-001',
+            description: 'Instalasi Pengolahan Air Limbah Utama',
+            capacity: 500,
+            location: 'Area Produksi Utama',
+            officeId: offices[0]?.id,
+            createdBy: users[0].id,
+            isActive: true,
+          },
+        }),
+        prisma.treatmentPlant.create({
+          data: {
+            name: 'STP Kantor',
+            code: 'STP-001',
+            description: 'Sewage Treatment Plant untuk area perkantoran',
+            capacity: 100,
+            location: 'Gedung Kantor Pusat',
+            officeId: offices[1]?.id || offices[0]?.id,
+            createdBy: users[0].id,
+            isActive: true,
+          },
+        }),
+        prisma.treatmentPlant.create({
+          data: {
+            name: 'WWTP Gudang',
+            code: 'WWTP-001',
+            description: 'Waste Water Treatment Plant area pergudangan',
+            capacity: 200,
+            location: 'Area Pergudangan',
+            officeId: offices[2]?.id || offices[0]?.id,
+            createdBy: users[0].id,
+            isActive: true,
+          },
+        }),
+      ]);
+      console.log(`     ✅ Created ${treatmentPlants.length} treatment plants`);
+    } else {
+      console.log('  ⚠️  Skipping treatment plants (no users found)');
+    }
+
+    // Seed Water Quality Parameters
+    console.log('  💧 Seeding water quality parameters...');
+    const waterQualityParams = await Promise.all([
+      prisma.waterQualityParameter.create({
+        data: {
+          name: 'pH',
+          code: 'WQ-PH',
+          unit: '-',
+          standardLimit: 9.0,
+          regulatoryLimit: 9.0,
+          description: 'Tingkat keasaman air (6-9)',
+          testMethod: 'pH Meter',
+          isActive: true,
+        },
+      }),
+      prisma.waterQualityParameter.create({
+        data: {
+          name: 'BOD',
+          code: 'WQ-BOD',
+          unit: 'mg/L',
+          standardLimit: 30,
+          regulatoryLimit: 30,
+          description: 'Biological Oxygen Demand (max 30 mg/L)',
+          testMethod: 'Titrimetri',
+          isActive: true,
+        },
+      }),
+      prisma.waterQualityParameter.create({
+        data: {
+          name: 'COD',
+          code: 'WQ-COD',
+          unit: 'mg/L',
+          standardLimit: 100,
+          regulatoryLimit: 100,
+          description: 'Chemical Oxygen Demand (max 100 mg/L)',
+          testMethod: 'Spektrofotometri',
+          isActive: true,
+        },
+      }),
+      prisma.waterQualityParameter.create({
+        data: {
+          name: 'TSS',
+          code: 'WQ-TSS',
+          unit: 'mg/L',
+          standardLimit: 50,
+          regulatoryLimit: 50,
+          description: 'Total Suspended Solid (max 50 mg/L)',
+          testMethod: 'Gravimetri',
+          isActive: true,
+        },
+      }),
+      prisma.waterQualityParameter.create({
+        data: {
+          name: 'Ammonia',
+          code: 'WQ-NH3',
+          unit: 'mg/L',
+          standardLimit: 5,
+          regulatoryLimit: 5,
+          description: 'Kadar Ammonia (max 5 mg/L)',
+          testMethod: 'Spektrofotometri',
+          isActive: true,
+        },
+      }),
+    ]);
+    console.log(`     ✅ Created ${waterQualityParams.length} water quality parameters`);
+
+    // Seed Waste Types
+    console.log('  🗑️ Seeding waste types...');
+    const wasteTypes = await Promise.all([
+      prisma.wasteType.create({
+        data: {
+          name: 'Limbah B3 - Oli Bekas',
+          code: 'WT-B3-OLI',
+          wasteType: WasteTypeEnum.HAZARDOUS,
+          description: 'Oli bekas dari mesin dan kendaraan',
+          requiresSpecialHandling: true,
+          isActive: true,
+        },
+      }),
+      prisma.wasteType.create({
+        data: {
+          name: 'Limbah B3 - Aki Bekas',
+          code: 'WT-B3-AKI',
+          wasteType: WasteTypeEnum.HAZARDOUS,
+          description: 'Aki bekas kendaraan dan peralatan',
+          requiresSpecialHandling: true,
+          isActive: true,
+        },
+      }),
+      prisma.wasteType.create({
+        data: {
+          name: 'Limbah Domestik - Kardus',
+          code: 'WT-DOM-KRD',
+          wasteType: WasteTypeEnum.DOMESTIC,
+          description: 'Kardus bekas kemasan',
+          requiresSpecialHandling: false,
+          isActive: true,
+        },
+      }),
+      prisma.wasteType.create({
+        data: {
+          name: 'Limbah Makanan',
+          code: 'WT-FOOD-SM',
+          wasteType: WasteTypeEnum.FOOD,
+          description: 'Sisa makanan dari kantin',
+          requiresSpecialHandling: false,
+          isActive: true,
+        },
+      }),
+      prisma.wasteType.create({
+        data: {
+          name: 'Limbah Hijau (Tanaman)',
+          code: 'WT-GREEN-01',
+          wasteType: WasteTypeEnum.GREEN,
+          description: 'Daun dan ranting dari taman',
+          requiresSpecialHandling: false,
+          isActive: true,
+        },
+      }),
+    ]);
+    console.log(`     ✅ Created ${wasteTypes.length} waste types`);
+
+    // Seed Waste Sources
+    console.log('  🏭 Seeding waste sources...');
+    const wasteSources = await Promise.all([
+      prisma.wasteSource.create({
+        data: {
+          name: 'Area Produksi',
+          code: 'WS-PROD',
+          sourceType: 'Production',
+          description: 'Limbah dari aktivitas produksi',
+          isActive: true,
+        },
+      }),
+      prisma.wasteSource.create({
+        data: {
+          name: 'Bengkel & Maintenance',
+          code: 'WS-MAINT',
+          sourceType: 'Maintenance',
+          description: 'Limbah dari aktivitas pemeliharaan',
+          contactPerson: 'Budi Hartono',
+          phone: '08123456789',
+          isActive: true,
+        },
+      }),
+      prisma.wasteSource.create({
+        data: {
+          name: 'Kantin',
+          code: 'WS-KNTN',
+          sourceType: 'Canteen',
+          description: 'Limbah dari kantin karyawan',
+          contactPerson: 'Ibu Sari',
+          phone: '08234567890',
+          isActive: true,
+        },
+      }),
+      prisma.wasteSource.create({
+        data: {
+          name: 'Perkantoran',
+          code: 'WS-OFC',
+          sourceType: 'Office',
+          description: 'Limbah dari aktivitas perkantoran',
+          isActive: true,
+        },
+      }),
+    ]);
+    console.log(`     ✅ Created ${wasteSources.length} waste sources`);
+
+    // Seed Storage Locations (requires users for createdBy)
+    let storageLocations: Awaited<ReturnType<typeof prisma.storageLocation.create>>[] = [];
+    if (users.length > 0) {
+      console.log('  📦 Seeding storage locations...');
+      storageLocations = await Promise.all([
+        prisma.storageLocation.create({
+          data: {
+            name: 'TPS B3 Utama',
+            code: 'SL-B3-001',
+            location: 'Belakang Gudang Utama',
+            areaId: areas[0]?.id,
+            description: 'Tempat Penyimpanan Sementara Limbah B3',
+            createdBy: users[0].id,
+            isActive: true,
+          },
+        }),
+        prisma.storageLocation.create({
+          data: {
+            name: 'TPS Non-B3',
+            code: 'SL-NB3-001',
+            location: 'Samping Area Parkir',
+            areaId: areas[1]?.id || areas[0]?.id,
+            description: 'Tempat penampungan limbah non-B3',
+            createdBy: users[0].id,
+            isActive: true,
+          },
+        }),
+        prisma.storageLocation.create({
+          data: {
+            name: 'Area Kompos',
+            code: 'SL-KMP-001',
+            location: 'Taman Belakang',
+            areaId: areas[2]?.id || areas[0]?.id,
+            description: 'Area pengolahan kompos',
+            createdBy: users[0].id,
+            isActive: true,
+          },
+        }),
+      ]);
+      console.log(`     ✅ Created ${storageLocations.length} storage locations`);
+    } else {
+      console.log('  ⚠️  Skipping storage locations (no users found)');
+    }
+
+    // Seed sample Monthly Flow Reports (if users exist)
+    if (users.length > 0 && treatmentPlants.length > 0) {
+      console.log('  📊 Seeding monthly flow reports...');
+      const currentYear = new Date().getFullYear();
+      const monthlyFlowReports = await Promise.all([
+        prisma.monthlyFlowReport.create({
+          data: {
+            reportCode: `MFR-${currentYear}-JAN-001`,
+            treatmentPlantId: treatmentPlants[0].id,
+            reportMonth: MonthEnum.JAN,
+            reportYear: currentYear,
+            totalVolume: 12500.5,
+            averageDailyFlow: 403.24,
+            peakFlow: 550.0,
+            minimumFlow: 280.0,
+            status: ReportStatusEnum.SUBMITTED,
+            submittedBy: users[0].id,
+            submittedAt: new Date(),
+            isActive: true,
+          },
+        }),
+        prisma.monthlyFlowReport.create({
+          data: {
+            reportCode: `MFR-${currentYear}-FEB-001`,
+            treatmentPlantId: treatmentPlants[0].id,
+            reportMonth: MonthEnum.FEB,
+            reportYear: currentYear,
+            totalVolume: 11200.0,
+            averageDailyFlow: 400.0,
+            peakFlow: 520.0,
+            minimumFlow: 300.0,
+            status: ReportStatusEnum.SUBMITTED,
+            submittedBy: users[0].id,
+            submittedAt: new Date(),
+            isActive: true,
+          },
+        }),
+      ]);
+      console.log(`     ✅ Created ${monthlyFlowReports.length} monthly flow reports`);
+
+      // Seed sample Water Quality Lab Reports
+      console.log('  🧪 Seeding water quality lab reports...');
+      const waterQualityLabReports = await Promise.all([
+        prisma.waterQualityLabReport.create({
+          data: {
+            reportCode: `WQLR-${currentYear}-001`,
+            treatmentPlantId: treatmentPlants[0].id,
+            reportDate: new Date(),
+            preparedBy: users[0].id,
+            summary: 'Hasil pengujian kualitas air bulan ini menunjukkan parameter dalam batas normal',
+            recommendations: 'Lanjutkan monitoring rutin',
+            status: ReportStatusEnum.SUBMITTED,
+            submittedBy: users[0].id,
+            submittedAt: new Date(),
+            isActive: true,
+          },
+        }),
+      ]);
+      console.log(`     ✅ Created ${waterQualityLabReports.length} water quality lab reports`);
+
+      // Seed sample Weight Reports
+      console.log('  ⚖️ Seeding weight reports...');
+      const weightReports = await Promise.all([
+        prisma.weightReport.create({
+          data: {
+            reportCode: `WR-${currentYear}-JAN-001`,
+            sourceId: wasteSources[0].id,
+            storageLocationId: storageLocations[0].id,
+            reportDate: new Date(),
+            reportMonth: MonthEnum.JAN,
+            reportYear: currentYear,
+            status: ReportStatusEnum.SUBMITTED,
+            submittedBy: users[0].id,
+            submittedAt: new Date(),
+            isActive: true,
+            items: {
+              create: [
+                {
+                  wasteTypeId: wasteTypes[0].id,
+                  weight: 150.5,
+                  unit: 'kg',
+                  order: 1,
+                  notes: 'Oli bekas dari bengkel',
+                },
+                {
+                  wasteTypeId: wasteTypes[1].id,
+                  weight: 25.0,
+                  unit: 'kg',
+                  order: 2,
+                  notes: 'Aki bekas kendaraan operasional',
+                },
+              ],
+            },
+          },
+        }),
+      ]);
+      console.log(`     ✅ Created ${weightReports.length} weight reports with items`);
+
+      // Seed sample Dispatch Orders
+      console.log('  🚛 Seeding dispatch orders...');
+      const dispatchOrders = await Promise.all([
+        prisma.dispatchOrder.create({
+          data: {
+            dispatchCode: `DO-${currentYear}-001`,
+            dispatchDate: new Date(),
+            quantity: 500,
+            memo: 'Pengiriman limbah B3 ke PT. Pengolah Limbah Indonesia',
+            status: GeneralStatusEnum.SCHEDULED,
+            orderedBy: users[0].id,
+            createdBy: users[0].id,
+            isActive: true,
+          },
+        }),
+        prisma.dispatchOrder.create({
+          data: {
+            dispatchCode: `DO-${currentYear}-002`,
+            dispatchDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 1 week from now
+            quantity: 300,
+            memo: 'Pengiriman limbah non-B3 ke bank sampah',
+            status: GeneralStatusEnum.SCHEDULED,
+            orderedBy: users[0].id,
+            createdBy: users[0].id,
+            isActive: true,
+          },
+        }),
+      ]);
+      console.log(`     ✅ Created ${dispatchOrders.length} dispatch orders`);
+    }
+
+    console.log('✅ Waste management data seeded successfully');
+    console.log(`   - Treatment Plants: ${treatmentPlants.length}`);
+    console.log(`   - Water Quality Parameters: ${waterQualityParams.length}`);
+    console.log(`   - Waste Types: ${wasteTypes.length}`);
+    console.log(`   - Waste Sources: ${wasteSources.length}`);
+    console.log(`   - Storage Locations: ${storageLocations.length}`);
+  } catch (error) {
+    console.error('❌ Error seeding waste management data:', error);
+    throw error;
+  }
+};
+
+export default seedWasteManagement;
