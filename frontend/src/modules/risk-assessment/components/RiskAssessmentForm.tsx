@@ -16,6 +16,7 @@ import {
   FormMessage,
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
+import { Textarea } from '@/core/components/ui/textarea';
 import { Switch } from '@/core/components/ui/switch';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
@@ -318,49 +319,60 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <FormField
-                control={form.control}
-                name="code"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Assessment Code</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter assessment code" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Basic Information Section */}
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="code"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Assessment Code <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter assessment code" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="departmentId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Department <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          options={departmentOptions}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder="Select a department"
+                          searchPlaceholder="Search department..."
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}
                 name="description"
                 render={({ field }) => (
-                  <FormItem className="md:col-span-2">
+                  <FormItem>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter assessment description" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="departmentId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Department</FormLabel>
-                    <FormControl>
-                      <SearchableSelect
-                        options={departmentOptions}
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        placeholder="Select a department"
-                        searchPlaceholder="Search department..."
+                      <Textarea 
+                        placeholder="Enter assessment description" 
+                        rows={3}
+                        {...field} 
                       />
                     </FormControl>
                     <FormMessage />
@@ -368,86 +380,92 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="assessmentDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Assessment Date</FormLabel>
-                    <FormControl>
-                      <DateTimePicker mode="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="assessmentDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Assessment Date</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
+                        <DateTimePicker mode="date" {...field} />
                       </FormControl>
-                      <SelectContent>
-                        {statusOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Active</FormLabel>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Status <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {statusOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-              <FormField
-                control={form.control}
-                name="assigneeId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Assignee</FormLabel>
-                    <FormControl>
-                      <SearchableSelect
-                        options={userOptions}
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        placeholder="Select an assignee"
-                        searchPlaceholder="Search user..."
-                        includeNone
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="assigneeId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Assignee</FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          options={userOptions}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder="Select an assignee"
+                          searchPlaceholder="Search user..."
+                          includeNone
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                      <div className="space-y-0.5">
+                        <FormLabel>Active Status</FormLabel>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
-            <Separator className="my-6" />
+            <Separator />
 
             <div>
               <div className="flex justify-between items-center mb-4">
@@ -484,13 +502,15 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <FormField
                             control={form.control}
                             name={`items.${index}.mHseCategoryId`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>HSE Category</FormLabel>
+                                <FormLabel>
+                                  HSE Category <span className="text-destructive">*</span>
+                                </FormLabel>
                                 <FormControl>
                                   <SearchableSelect
                                     options={hseCategoryOptions}
@@ -509,7 +529,9 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                             name={`items.${index}.mThreatId`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Threat</FormLabel>
+                                <FormLabel>
+                                  Threat <span className="text-destructive">*</span>
+                                </FormLabel>
                                 <FormControl>
                                   <SearchableSelect
                                     options={threatOptions}
@@ -530,22 +552,30 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                           name={`items.${index}.riskDescription`}
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Risk Description</FormLabel>
+                              <FormLabel>
+                                Risk Description <span className="text-destructive">*</span>
+                              </FormLabel>
                               <FormControl>
-                                <Input placeholder="Enter risk description" {...field} />
+                                <Textarea 
+                                  placeholder="Enter risk description" 
+                                  rows={2}
+                                  {...field} 
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
 
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                           <FormField
                             control={form.control}
                             name={`items.${index}.likelihoodLevel`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Likelihood</FormLabel>
+                                <FormLabel>
+                                  Likelihood <span className="text-destructive">*</span>
+                                </FormLabel>
                                 <Select
                                   value={field.value.toString()}
                                   onValueChange={(value) => {
@@ -575,7 +605,9 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                             name={`items.${index}.consequenceLevel`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Consequence</FormLabel>
+                                <FormLabel>
+                                  Consequence <span className="text-destructive">*</span>
+                                </FormLabel>
                                 <Select
                                   value={field.value.toString()}
                                   onValueChange={(value) => {
@@ -636,13 +668,15 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
 
                         <div>
                           <h4 className="text-sm font-medium mb-3">Post-Control Assessment</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                             <FormField
                               control={form.control}
                               name={`items.${index}.postLikelihoodLevel`}
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Post Likelihood</FormLabel>
+                                  <FormLabel>
+                                    Post Likelihood <span className="text-destructive">*</span>
+                                  </FormLabel>
                                   <Select
                                     value={field.value.toString()}
                                     onValueChange={(value) => {
@@ -672,7 +706,9 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                               name={`items.${index}.postConsequenceLevel`}
                               render={({ field }) => (
                                 <FormItem>
-                                  <FormLabel>Post Consequence</FormLabel>
+                                  <FormLabel>
+                                    Post Consequence <span className="text-destructive">*</span>
+                                  </FormLabel>
                                   <Select
                                     value={field.value.toString()}
                                     onValueChange={(value) => {
@@ -736,7 +772,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
               )}
             </div>
 
-            <Separator className="my-6" />
+            <Separator />
 
             <div>
               <h3 className="text-lg font-medium mb-4">Action Plan</h3>
