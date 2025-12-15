@@ -219,6 +219,38 @@ export class QuizzesController {
     return this.quizzesService.remove(id, req.user.id);
   }
 
+  @Patch(':id/link')
+  @ApiOperation({ summary: 'Link quiz to a course or chapter' })
+  @ApiParam({ name: 'id', type: String, description: 'Quiz ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['entity', 'entityId'],
+      properties: {
+        entity: { type: 'string', enum: ['COURSE', 'CHAPTER'] },
+        entityId: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Quiz linked successfully',
+    type: QuizDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Quiz not found' })
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @Permissions('quiz:update')
+  async linkQuiz(
+    @Param('id') id: string,
+    @Body() linkQuizDto: { entity: 'COURSE' | 'CHAPTER'; entityId: string },
+    @Req() req: RequestWithUser,
+  ): Promise<QuizDto> {
+    return this.quizzesService.linkToEntity(id, linkQuizDto, req.user.id);
+  }
+
   @Post(':id/assign')
   @ApiOperation({ summary: 'Assign standalone quiz to users' })
   @ApiParam({ name: 'id', type: String, description: 'Quiz ID' })

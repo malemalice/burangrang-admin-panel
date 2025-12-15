@@ -219,6 +219,12 @@ const quizService = {
     return mapQuizAnswerDtoToQuizAnswer(response.data);
   },
 
+  // LINK quiz to course or chapter
+  linkQuiz: async (quizId: string, entity: 'COURSE' | 'CHAPTER', entityId: string): Promise<Quiz> => {
+    const response = await api.patch(`/quizzes/${quizId}/link`, { entity, entityId });
+    return mapQuizDtoToQuiz(response.data);
+  },
+
   // Helper function to get status badge color classes
   getStatusBadgeColor: (status: 'published' | 'draft' | 'active' | 'inactive'): string => {
     switch (status) {

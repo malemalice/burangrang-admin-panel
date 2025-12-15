@@ -170,7 +170,7 @@ const CoursesPage = () => {
     // Apply active filters
     Object.entries(activeFilters).forEach(([key, filter]) => {
       if (filter.value !== undefined && filter.value !== '') {
-        (params as Record<string, string | number | boolean>)[key] = filter.value;
+        (params as unknown as Record<string, string | number | boolean>)[key] = filter.value;
       }
     });
 
@@ -288,16 +288,9 @@ const CoursesPage = () => {
       id: 'status',
       header: 'Status',
       cell: (course: Course) => (
-        <div className="flex flex-col gap-1">
-          <Badge variant="outline" className={`${getStatusColor(course.status)} border-0 text-xs`}>
-            {course.status}
-          </Badge>
-          {course.isPublished && (
-            <Badge variant="outline" className="bg-green-100 text-green-800 border-0 text-xs">
-              Published
-            </Badge>
-          )}
-        </div>
+        <Badge variant="outline" className={`${getStatusColor(course.status)} border-0 text-xs capitalize`}>
+          {course.status}
+        </Badge>
       ),
       isSortable: true
     },
