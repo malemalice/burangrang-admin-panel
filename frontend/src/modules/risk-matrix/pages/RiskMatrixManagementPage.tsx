@@ -178,23 +178,25 @@ const RiskMatrixManagementPage = () => {
   };
 
   const handleLevelInput = (index: number, field: 'likelihoodLevel' | 'consequenceLevel', value: string) => {
-    // Only allow single character
-    if (value.length > 1) {
-      return; // Don't update if more than 1 character
+    // Only allow up to 2 characters
+    if (value.length > 2) {
+      return; // Don't update if more than 2 characters
     }
 
     // Auto-uppercase if it's an alphabet
     const processedValue = /[a-zA-Z]/.test(value) ? value.toUpperCase() : value;
 
-    // Validate: only numbers (1-5) for likelihood, only letters (A-E) for consequence
+    // Validate: numbers (1-99) for likelihood, letters (A-Z, AA-ZZ) for consequence
     if (field === 'likelihoodLevel') {
-      if (processedValue && !/^[1-5]$/.test(processedValue)) {
+      // Allow empty, single digit (1-9), or two digits (10-99)
+      if (processedValue && !/^([1-9]|[1-9][0-9])$/.test(processedValue)) {
         return; // Invalid input, don't update
       }
       const numValue = processedValue ? parseInt(processedValue, 10) : null;
       updateRow(index, field, numValue);
     } else if (field === 'consequenceLevel') {
-      if (processedValue && !/^[A-E]$/.test(processedValue)) {
+      // Allow empty, single letter (A-Z), or two letters (AA-ZZ)
+      if (processedValue && !/^[A-Z]{1,2}$/.test(processedValue)) {
         return; // Invalid input, don't update
       }
       updateRow(index, field, processedValue || null);
@@ -490,11 +492,11 @@ const RiskMatrixManagementPage = () => {
                           <Input
                             type="text"
                             inputMode="numeric"
-                            placeholder="1-5"
+                            placeholder="1-99"
                             value={row.likelihoodLevel?.toString() || ''}
                             onChange={(e) => handleLevelInput(index, 'likelihoodLevel', e.target.value)}
-                            className={`h-8 text-sm text-center max-w-[60px] ${row.error ? 'border-destructive' : ''}`}
-                            maxLength={1}
+                            className={`h-8 text-sm text-center max-w-[80px] ${row.error ? 'border-destructive' : ''}`}
+                            maxLength={2}
                             aria-label="Likelihood level"
                           />
                         </td>
@@ -520,11 +522,11 @@ const RiskMatrixManagementPage = () => {
                         <td className="p-4">
                           <Input
                             type="text"
-                            placeholder="A-E"
+                            placeholder="A-Z, AA-ZZ"
                             value={row.consequenceLevel || ''}
                             onChange={(e) => handleLevelInput(index, 'consequenceLevel', e.target.value)}
-                            className={`h-8 text-sm text-center max-w-[60px] uppercase ${row.error ? 'border-destructive' : ''}`}
-                            maxLength={1}
+                            className={`h-8 text-sm text-center max-w-[80px] uppercase ${row.error ? 'border-destructive' : ''}`}
+                            maxLength={2}
                             aria-label="Consequence level"
                           />
                         </td>

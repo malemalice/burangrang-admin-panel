@@ -1,12 +1,12 @@
-import { IsString, IsInt, IsEnum, IsBoolean, IsOptional, Min, Max } from 'class-validator';
+import { IsString, IsInt, IsEnum, IsBoolean, IsOptional, Min, Max, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { RiskRatingEnum } from '@prisma/client';
 
 export class UpdateRiskMatrixDto {
-  @ApiProperty({ description: 'The numeric likelihood level (1-5)', required: false })
+  @ApiProperty({ description: 'The numeric likelihood level (1-99)', minimum: 1, maximum: 99, required: false })
   @IsInt()
   @Min(1)
-  @Max(5)
+  @Max(99)
   @IsOptional()
   likelihoodLevel?: number;
 
@@ -20,9 +20,10 @@ export class UpdateRiskMatrixDto {
   @IsOptional()
   likelihoodDesc?: string;
 
-  @ApiProperty({ description: 'The consequence level identifier (A, B, C, D, E)', required: false })
+  @ApiProperty({ description: 'The consequence level identifier (A-Z or AA-ZZ, 1-2 uppercase letters)', required: false })
   @IsString()
   @IsOptional()
+  @Matches(/^[A-Z]{1,2}$/, { message: 'Consequence level must be 1-2 uppercase letters (A-Z or AA-ZZ)' })
   consequenceLevel?: string;
 
   @ApiProperty({ description: 'The name of the consequence level', required: false })
