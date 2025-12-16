@@ -18,16 +18,17 @@ import { Loader2 } from 'lucide-react';
 
 interface MatrixRow {
   id?: string;
-  likelihoodLevel: number;
+  likelihoodLevel: number | null;
   likelihoodName: string;
   likelihoodDesc: string;
-  consequenceLevel: string;
+  consequenceLevel: string | null;
   consequenceName: string;
   consequenceDesc: string;
   riskRating: RiskRatingEnum;
   isActive: boolean;
   isNew?: boolean;
   isModified?: boolean;
+  error?: string;
 }
 
 interface LikelihoodOption {
@@ -135,42 +136,96 @@ const RiskMatrixManagementPage = () => {
 
   const addNewRow = () => {
     const newRow: MatrixRow = {
-      likelihoodLevel: likelihoods[0]?.level || 1,
-      likelihoodName: likelihoods[0]?.name || '',
-      likelihoodDesc: likelihoods[0]?.desc || '',
-      consequenceLevel: consequences[0]?.level || 'A',
-      consequenceName: consequences[0]?.name || '',
-      consequenceDesc: consequences[0]?.desc || '',
+      likelihoodLevel: null,
+      likelihoodName: '',
+      likelihoodDesc: '',
+      consequenceLevel: null,
+      consequenceName: '',
+      consequenceDesc: '',
       riskRating: RiskRatingEnum.LOW,
       isActive: true,
       isNew: true,
       isModified: false,
+      error: undefined,
     };
 
     setMatrixRows([...matrixRows, newRow]);
   };
 
-  const updateRow = (index: number, field: keyof MatrixRow, value: string | number | boolean) => {
+  const validatePairing = (rows: MatrixRow[], currentIndex: number, likelihoodLevel: number | null, consequenceLevel: string | null): string | undefined => {
+    if (likelihoodLevel === null || consequenceLevel === null) {
+      return undefined;
+    }
+
+    const duplicate = rows.find((row, index) => {
+      if (index === currentIndex) return false;
+      return row.likelihoodLevel === likelihoodLevel && row.consequenceLevel === consequenceLevel;
+    });
+
+    if (duplicate) {
+      return `This pairing (${likelihoodLevel} and ${consequenceLevel}) already exists`;
+    }
+
+    return undefined;
+  };
+
+  const handleLevelInput = (index: number, field: 'likelihoodLevel' | 'consequenceLevel', value: string) => {
+    // Only allow single character
+    if (value.length > 1) {
+      return; // Don't update if more than 1 character
+    }
+
+    // Auto-uppercase if it's an alphabet
+    const processedValue = /[a-zA-Z]/.test(value) ? value.toUpperCase() : value;
+
+    // Validate: only numbers (1-5) for likelihood, only letters (A-E) for consequence
+    if (field === 'likelihoodLevel') {
+      if (processedValue && !/^[1-5]$/.test(processedValue)) {
+        return; // Invalid input, don't update
+      }
+      const numValue = processedValue ? parseInt(processedValue, 10) : null;
+      updateRow(index, field, numValue);
+    } else if (field === 'consequenceLevel') {
+      if (processedValue && !/^[A-E]$/.test(processedValue)) {
+        return; // Invalid input, don't update
+      }
+      updateRow(index, field, processedValue || null);
+    }
+  };
+
+  const updateRow = (index: number, field: keyof MatrixRow, value: string | number | boolean | null) => {
     const updatedRows = [...matrixRows];
+    const row = updatedRows[index];
+    
     updatedRows[index] = {
-      ...updatedRows[index],
+      ...row,
       [field]: value,
-      isModified: !updatedRows[index].isNew,
+      isModified: !row.isNew,
+      error: undefined,
     };
 
     // Auto-fill likelihood or consequence details when level changes
-    if (field === 'likelihoodLevel') {
+    if (field === 'likelihoodLevel' && value !== null) {
       const likelihood = likelihoods.find((l) => l.level === value);
       if (likelihood) {
         updatedRows[index].likelihoodName = likelihood.name;
         updatedRows[index].likelihoodDesc = likelihood.desc;
       }
-    } else if (field === 'consequenceLevel') {
+    } else if (field === 'consequenceLevel' && value !== null) {
       const consequence = consequences.find((c) => c.level === value);
       if (consequence) {
         updatedRows[index].consequenceName = consequence.name;
         updatedRows[index].consequenceDesc = consequence.desc;
       }
+    }
+
+    // Validate pairing uniqueness
+    const newLikelihoodLevel = field === 'likelihoodLevel' ? (value as number | null) : row.likelihoodLevel;
+    const newConsequenceLevel = field === 'consequenceLevel' ? (value as string | null) : row.consequenceLevel;
+    
+    const validationError = validatePairing(updatedRows, index, newLikelihoodLevel, newConsequenceLevel);
+    if (validationError) {
+      updatedRows[index].error = validationError;
     }
 
     setMatrixRows(updatedRows);
@@ -182,6 +237,28 @@ const RiskMatrixManagementPage = () => {
   };
 
   const handleSaveAll = async () => {
+    // Validate all rows before saving
+    const validationErrors: string[] = [];
+    
+    matrixRows.forEach((row, index) => {
+      // Check for missing required fields
+      if (row.likelihoodLevel === null || row.consequenceLevel === null) {
+        validationErrors.push(`Row ${index + 1}: Likelihood and Consequence levels are required`);
+        return;
+      }
+
+      // Check for duplicate pairings
+      const error = validatePairing(matrixRows, index, row.likelihoodLevel, row.consequenceLevel);
+      if (error) {
+        validationErrors.push(`Row ${index + 1}: ${error}`);
+      }
+    });
+
+    if (validationErrors.length > 0) {
+      toast.error(`Validation failed: ${validationErrors.join('; ')}`);
+      return;
+    }
+
     setIsSaving(true);
     try {
       const createPromises: Promise<RiskMatrix>[] = [];
@@ -190,7 +267,7 @@ const RiskMatrixManagementPage = () => {
 
       // Process new rows
       matrixRows.forEach((row) => {
-        if (row.isNew) {
+        if (row.isNew && row.likelihoodLevel !== null && row.consequenceLevel !== null) {
           const createDto: CreateRiskMatrixDTO = {
             likelihoodLevel: row.likelihoodLevel,
             likelihoodName: row.likelihoodName,
@@ -202,7 +279,7 @@ const RiskMatrixManagementPage = () => {
             isActive: row.isActive,
           };
           createPromises.push(riskMatrixService.createRiskMatrix(createDto));
-        } else if (row.isModified && row.id) {
+        } else if (row.isModified && row.id && row.likelihoodLevel !== null && row.consequenceLevel !== null) {
           const updateDto: UpdateRiskMatrixDTO = {
             likelihoodLevel: row.likelihoodLevel,
             likelihoodName: row.likelihoodName,
@@ -341,21 +418,16 @@ const RiskMatrixManagementPage = () => {
                         }`}
                       >
                         <td className="p-4">
-                          <Select
-                            value={row.likelihoodLevel.toString()}
-                            onValueChange={(value) => updateRow(index, 'likelihoodLevel', parseInt(value))}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {likelihoods.map((likelihood) => (
-                                <SelectItem key={likelihood.level} value={likelihood.level.toString()}>
-                                  {likelihood.level}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="1-5"
+                            value={row.likelihoodLevel?.toString() || ''}
+                            onChange={(e) => handleLevelInput(index, 'likelihoodLevel', e.target.value)}
+                            className={`h-8 text-sm text-center max-w-[60px] ${row.error ? 'border-destructive' : ''}`}
+                            maxLength={1}
+                            aria-label="Likelihood level"
+                          />
                         </td>
                         <td className="p-4">
                           <div className="space-y-2">
@@ -371,24 +443,21 @@ const RiskMatrixManagementPage = () => {
                               onChange={(e) => updateRow(index, 'likelihoodDesc', e.target.value)}
                               className="h-8 text-sm"
                             />
+                            {row.error && (
+                              <p className="text-xs text-destructive mt-1">{row.error}</p>
+                            )}
                           </div>
                         </td>
                         <td className="p-4">
-                          <Select
-                            value={row.consequenceLevel}
-                            onValueChange={(value) => updateRow(index, 'consequenceLevel', value)}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {consequences.map((consequence) => (
-                                <SelectItem key={consequence.level} value={consequence.level}>
-                                  {consequence.level}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <Input
+                            type="text"
+                            placeholder="A-E"
+                            value={row.consequenceLevel || ''}
+                            onChange={(e) => handleLevelInput(index, 'consequenceLevel', e.target.value)}
+                            className={`h-8 text-sm text-center max-w-[60px] uppercase ${row.error ? 'border-destructive' : ''}`}
+                            maxLength={1}
+                            aria-label="Consequence level"
+                          />
                         </td>
                         <td className="p-4">
                           <div className="space-y-2">
