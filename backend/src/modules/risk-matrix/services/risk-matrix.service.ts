@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
-import { RiskLevel, RiskRating, RiskMatrixConfig } from '../interfaces/risk-matrix.interface';
+import {
+  RiskLevel,
+  RiskRating,
+  RiskMatrixConfig,
+} from '../interfaces/risk-matrix.interface';
 import { RiskMatrixDto } from '../dto/risk-matrix.dto';
 import { CreateRiskMatrixDto } from '../dto/create-risk-matrix.dto';
 import { UpdateRiskMatrixDto } from '../dto/update-risk-matrix.dto';
@@ -46,16 +50,35 @@ export class RiskMatrixService {
     this.riskMatrixMapper = this.dtoMapper.createSimpleMapper(RiskMatrixDto);
   }
 
-  calculateRiskRating(likelihoodLevel: number, consequenceLevel: number): RiskRating {
-    // Adjust indices for 0-based array
-    const row = likelihoodLevel - 1;
-    const col = consequenceLevel - 1;
+  async calculateRiskRating(
+    likelihoodLevel: number,
+    consequenceLevel: string,
+  ): Promise<RiskRating> {
+    // Convert consequence level letter (A, B, C, D, E, etc.) to number (1, 2, 3, 4, 5, etc.)
+    // A = 1, B = 2, C = 3, D = 4, E = 5, etc.
+    const consequenceLevelNum = consequenceLevel.charCodeAt(0) - 64; // 'A'.charCodeAt(0) = 65, so A becomes 1
 
-    // Calculate risk score from matrix
-    const score = this.riskMatrixConfig.matrix[row][col];
+    // Query RiskMatrix table to find matching risk rating
+    const riskMatrix = await this.prisma.riskMatrix.findFirst({
+      where: {
+        likelihoodLevel,
+        consequenceLevel: consequenceLevel.toUpperCase(),
+        isActive: true,
+      },
+    });
 
-    // Determine risk level based on score
-    const riskLevel = this.determineRiskLevel(score);
+    // Throw error if no matching risk matrix found
+    this.errorHandler.throwIfNotFound(
+      'RiskMatrix',
+      `likelihoodLevel ${likelihoodLevel} and consequenceLevel ${consequenceLevel}`,
+      riskMatrix,
+    );
+
+    // Calculate risk score (likelihoodLevel * consequenceLevel number)
+    const score = likelihoodLevel * consequenceLevelNum;
+
+    // Map RiskRatingEnum to RiskLevel
+    const riskLevel = this.mapRiskRatingToRiskLevel(riskMatrix.risk_rating);
 
     return {
       riskLevel,
@@ -64,23 +87,43 @@ export class RiskMatrixService {
     };
   }
 
-  private determineRiskLevel(score: number): RiskLevel {
-    if (score <= 4) return this.riskMatrixConfig.levels[0]; // Low Risk
-    if (score <= 8) return this.riskMatrixConfig.levels[1]; // Medium Risk
-    if (score <= 12) return this.riskMatrixConfig.levels[2]; // High Risk
-    if (score <= 16) return this.riskMatrixConfig.levels[3]; // Critical Risk
-    return this.riskMatrixConfig.levels[4]; // Extreme Risk
+  private mapRiskRatingToRiskLevel(riskRating: string): RiskLevel {
+    // Map RiskRatingEnum to RiskLevel interface
+    const ratingMap: Record<string, RiskLevel> = {
+      LOW: { level: 1, description: 'Low Risk', color: 'green' },
+      MEDIUM: { level: 2, description: 'Medium Risk', color: 'yellow' },
+      HIGH: { level: 3, description: 'High Risk', color: 'orange' },
+      EXTREME: { level: 4, description: 'Extreme Risk', color: 'red' },
+    };
+
+    return (
+      ratingMap[riskRating] || {
+        level: 0,
+        description: 'Unknown Risk',
+        color: 'gray',
+      }
+    );
   }
 
   // RiskMatrix CRUD operations
-  async createRiskMatrix(createRiskMatrixDto: CreateRiskMatrixDto): Promise<RiskMatrixDto> {
+  async createRiskMatrix(
+    createRiskMatrixDto: CreateRiskMatrixDto,
+  ): Promise<RiskMatrixDto> {
     const riskMatrix = await this.prisma.riskMatrix.create({
       data: createRiskMatrixDto,
     });
     return this.riskMatrixMapper(riskMatrix);
   }
 
-  async findAllRiskMatrices(options?: FindAllOptions): Promise<{ data: RiskMatrixDto[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+  async findAllRiskMatrices(options?: FindAllOptions): Promise<{
+    data: RiskMatrixDto[];
+    meta: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }> {
     const {
       page = 1,
       limit = 10,
@@ -90,7 +133,15 @@ export class RiskMatrixService {
       search,
     } = options || {};
 
-    const where: any = {};
+    const where: {
+      OR?: Array<{
+        likelihoodName?: { contains: string; mode: 'insensitive' };
+        likelihoodDesc?: { contains: string; mode: 'insensitive' };
+        consequenceName?: { contains: string; mode: 'insensitive' };
+        consequenceDesc?: { contains: string; mode: 'insensitive' };
+      }>;
+      isActive?: boolean;
+    } = {};
 
     if (search) {
       where.OR = [
@@ -118,7 +169,7 @@ export class RiskMatrixService {
     ]);
 
     return {
-      data: riskMatrices.map(riskMatrix => this.riskMatrixMapper(riskMatrix)),
+      data: riskMatrices.map((riskMatrix) => this.riskMatrixMapper(riskMatrix)),
       meta: {
         total,
         page,
@@ -136,7 +187,10 @@ export class RiskMatrixService {
     return this.riskMatrixMapper(riskMatrix);
   }
 
-  async updateRiskMatrix(id: string, updateRiskMatrixDto: UpdateRiskMatrixDto): Promise<RiskMatrixDto> {
+  async updateRiskMatrix(
+    id: string,
+    updateRiskMatrixDto: UpdateRiskMatrixDto,
+  ): Promise<RiskMatrixDto> {
     const existing = await this.prisma.riskMatrix.findUnique({
       where: { id },
     });
@@ -158,4 +212,4 @@ export class RiskMatrixService {
       where: { id },
     });
   }
-} 
+}

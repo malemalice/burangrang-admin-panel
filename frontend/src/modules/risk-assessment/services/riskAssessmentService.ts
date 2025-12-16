@@ -68,10 +68,21 @@ const riskAssessmentService = {
     await api.delete(`/risk-assessment/${id}`);
   },
 
-  calculateRiskRating: async (likelihoodLevel: number, consequenceLevel: number): Promise<any> => {
+  calculateRiskRating: async (likelihoodLevel: number, consequenceLevel: string): Promise<any> => {
     const response = await api.post('/risk-matrix/calculate', {
       likelihoodLevel,
       consequenceLevel
+    });
+    return response.data;
+  },
+
+  // Get all risk matrix entries
+  getRiskMatrixEntries: async (): Promise<any> => {
+    const response = await api.get('/risk-matrix/risk-matrices', {
+      params: {
+        page: 1,
+        limit: 100
+      }
     });
     return response.data;
   },

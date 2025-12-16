@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -76,13 +76,17 @@ const statusOptions = [
   { value: 'REVIEWED', label: 'Reviewed' },
 ];
 
-const levelOptions = [
-  { value: '1', label: '1 - Very Low' },
-  { value: '2', label: '2 - Low' },
-  { value: '3', label: '3 - Medium' },
-  { value: '4', label: '4 - High' },
-  { value: '5', label: '5 - Very High' },
-];
+interface RiskMatrixEntry {
+  id: string;
+  likelihoodLevel: number;
+  likelihoodName: string;
+  likelihoodDesc: string;
+  consequenceLevel: string; // A, B, C, D, E, etc. (dynamic)
+  consequenceName: string;
+  consequenceDesc: string;
+  risk_rating: string;
+  isActive: boolean;
+}
 
 const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
   const navigate = useNavigate();
@@ -90,6 +94,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
   const [threats, setThreats] = useState<Threat[]>([]);
   const [hseCategories, setHseCategories] = useState<HseCategory[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [riskMatrixData, setRiskMatrixData] = useState<RiskMatrixEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dataReady, setDataReady] = useState(false);
 
@@ -113,6 +118,80 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
     value: user.id,
     label: `${user.firstName} ${user.lastName}`
   }));
+
+  // Generate likelihood level options from risk matrix data
+  const likelihoodOptions = useMemo(() => {
+    if (!riskMatrixData || riskMatrixData.length === 0) return [];
+    
+    // Get unique likelihood levels, sorted by level, only active entries
+    const uniqueLikelihoods = Array.from(
+      new Map(
+        riskMatrixData
+          .filter(entry => entry.isActive)
+          .map(entry => [
+            entry.likelihoodLevel,
+            {
+              level: entry.likelihoodLevel,
+              name: entry.likelihoodName,
+              desc: entry.likelihoodDesc,
+            }
+          ])
+      ).values()
+    ).sort((a, b) => a.level - b.level);
+
+    return uniqueLikelihoods.map(likelihood => ({
+      value: likelihood.level.toString(),
+      label: `${likelihood.level} - ${likelihood.name}`,
+      description: likelihood.desc,
+    }));
+  }, [riskMatrixData]);
+
+  // Generate consequence level options from risk matrix data, sorted alphabetically
+  const consequenceOptions = useMemo(() => {
+    if (!riskMatrixData || riskMatrixData.length === 0) return [];
+    
+    // Get unique consequence levels, sorted alphabetically (A, B, C, D, E, etc.), only active entries
+    const uniqueConsequences = Array.from(
+      new Map(
+        riskMatrixData
+          .filter(entry => entry.isActive)
+          .map(entry => [
+            entry.consequenceLevel,
+            {
+              level: entry.consequenceLevel,
+              name: entry.consequenceName,
+              desc: entry.consequenceDesc,
+            }
+          ])
+      ).values()
+    ).sort((a, b) => a.level.localeCompare(b.level)); // Sort alphabetically
+
+    // Map consequence letters to numbers (A=1, B=2, C=3, D=4, E=5, etc.)
+    return uniqueConsequences.map((consequence, index) => ({
+      value: (index + 1).toString(), // Use index+1 as the numeric value (1, 2, 3, 4, 5, etc.)
+      label: `${consequence.level} - ${consequence.name}`,
+      description: consequence.desc,
+      letter: consequence.level, // Store the letter for mapping
+    }));
+  }, [riskMatrixData]);
+
+  // Create mapping from consequence number (1-N) to letter (A-Z)
+  const consequenceNumberToLetter = useMemo(() => {
+    const mapping: Record<number, string> = {};
+    consequenceOptions.forEach((option, index) => {
+      mapping[index + 1] = option.letter;
+    });
+    return mapping;
+  }, [consequenceOptions]);
+
+  // Create mapping from consequence letter (A-Z) to number (1-N)
+  const consequenceLetterToNumber = useMemo(() => {
+    const mapping: Record<string, number> = {};
+    consequenceOptions.forEach((option, index) => {
+      mapping[option.letter] = index + 1;
+    });
+    return mapping;
+  }, [consequenceOptions]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -153,17 +232,19 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [departmentsResponse, hseResponse, threatResponse, usersResponse] = await Promise.all([
+        const [departmentsResponse, hseResponse, threatResponse, usersResponse, riskMatrixResponse] = await Promise.all([
           departmentService.getDepartments({ page: 1, limit: 1000 }),
           hseCategoryService.getAll(),
           threatService.getAll(),
           userService.getAll({ page: 1, limit: 1000 }),
+          riskAssessmentService.getRiskMatrixEntries(),
         ]);
 
         setDepartments(departmentsResponse.data);
         setHseCategories(hseResponse.data);
         setThreats(threatResponse.data);
         setUsers(usersResponse.data);
+        setRiskMatrixData(riskMatrixResponse.data);
       } catch (error) {
         toast.error('Failed to load reference data');
       } finally {
@@ -213,8 +294,15 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
 
     if (!likelihoodLevel || !consequenceLevel) return;
 
+    // Convert consequence level number (1-N) to uppercase letter (A-Z) using dynamic mapping
+    const consequenceLetter = consequenceNumberToLetter[consequenceLevel];
+    if (!consequenceLetter) {
+      toast.error('Invalid consequence level');
+      return;
+    }
+
     try {
-      const response = await riskAssessmentService.calculateRiskRating(likelihoodLevel, consequenceLevel);
+      const response = await riskAssessmentService.calculateRiskRating(likelihoodLevel, consequenceLetter.toUpperCase());
       const rating = response.riskLevel.description.split(' ')[0].toUpperCase();
       const interpretation = response.interpretation || rating;
       
@@ -303,6 +391,24 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
         {rating}
       </span>
     );
+  };
+
+  // Get risk rating code from backend risk matrix data
+  const getRiskRatingCode = (consequenceLevel: number, likelihoodLevel: number): string => {
+    if (!riskMatrixData || riskMatrixData.length === 0 || !consequenceNumberToLetter) return '';
+    
+    // Convert consequence level number (1-N) to letter code (A-Z) using dynamic mapping
+    const consequenceCode = consequenceNumberToLetter[consequenceLevel];
+    if (!consequenceCode) return '';
+    
+    // Find matching entry in risk matrix
+    const matrixEntry = riskMatrixData.find(
+      (entry) => entry.likelihoodLevel === likelihoodLevel && entry.consequenceLevel === consequenceCode
+    );
+    
+    if (!matrixEntry) return `${consequenceCode}${likelihoodLevel}`;
+    
+    return `${matrixEntry.consequenceLevel}${matrixEntry.likelihoodLevel}`;
   };
 
   if (isLoading) {
@@ -589,7 +695,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    {levelOptions.map((option) => (
+                                    {likelihoodOptions.map((option) => (
                                       <SelectItem key={option.value} value={option.value}>
                                         {option.label}
                                       </SelectItem>
@@ -621,7 +727,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    {levelOptions.map((option) => (
+                                    {consequenceOptions.map((option) => (
                                       <SelectItem key={option.value} value={option.value}>
                                         {option.label}
                                       </SelectItem>
@@ -635,17 +741,27 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                           <FormField
                             control={form.control}
                             name={`items.${index}.riskMatrixRating`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Risk Rating</FormLabel>
-                                <FormControl>
-                                  <div className="pt-2">
-                                    {field.value && getRiskBadge(field.value)}
-                                  </div>
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
+                            render={({ field }) => {
+                              const consequenceLevel = form.watch(`items.${index}.consequenceLevel`);
+                              const likelihoodLevel = form.watch(`items.${index}.likelihoodLevel`);
+                              const riskCode = getRiskRatingCode(consequenceLevel, likelihoodLevel);
+                              
+                              return (
+                                <FormItem>
+                                  <FormLabel>Risk Rating</FormLabel>
+                                  <FormControl>
+                                    <div className="pt-2">
+                                      {riskCode && (
+                                        <span className="px-2 py-1 rounded-md text-xs font-medium border bg-gray-100 text-gray-800 border-gray-800">
+                                          {riskCode}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              );
+                            }}
                           />
                           <FormField
                             control={form.control}
@@ -690,7 +806,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                                       </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                      {levelOptions.map((option) => (
+                                      {likelihoodOptions.map((option) => (
                                         <SelectItem key={option.value} value={option.value}>
                                           {option.label}
                                         </SelectItem>
@@ -722,7 +838,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                                       </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                      {levelOptions.map((option) => (
+                                      {consequenceOptions.map((option) => (
                                         <SelectItem key={option.value} value={option.value}>
                                           {option.label}
                                         </SelectItem>
@@ -736,17 +852,27 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                             <FormField
                               control={form.control}
                               name={`items.${index}.postRiskMatrixRating`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Post Risk Rating</FormLabel>
-                                  <FormControl>
-                                    <div className="pt-2">
-                                      {field.value && getRiskBadge(field.value)}
-                                    </div>
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
+                              render={({ field }) => {
+                                const postConsequenceLevel = form.watch(`items.${index}.postConsequenceLevel`);
+                                const postLikelihoodLevel = form.watch(`items.${index}.postLikelihoodLevel`);
+                                const postRiskCode = getRiskRatingCode(postConsequenceLevel, postLikelihoodLevel);
+                                
+                                return (
+                                  <FormItem>
+                                    <FormLabel>Post Risk Rating</FormLabel>
+                                    <FormControl>
+                                      <div className="pt-2">
+                                        {postRiskCode && (
+                                          <span className="px-2 py-1 rounded-md text-xs font-medium border bg-gray-100 text-gray-800 border-gray-800">
+                                            {postRiskCode}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                );
+                              }}
                             />
                             <FormField
                               control={form.control}

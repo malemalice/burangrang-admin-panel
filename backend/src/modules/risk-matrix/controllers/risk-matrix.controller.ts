@@ -45,7 +45,9 @@ export class RiskMatrixController {
     type: 'object',
   })
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
-  calculateRiskRating(@Body() calculateRiskDto: CalculateRiskDto): RiskRating {
+  async calculateRiskRating(
+    @Body() calculateRiskDto: CalculateRiskDto,
+  ): Promise<RiskRating> {
     return this.riskMatrixService.calculateRiskRating(
       calculateRiskDto.likelihoodLevel,
       calculateRiskDto.consequenceLevel,
