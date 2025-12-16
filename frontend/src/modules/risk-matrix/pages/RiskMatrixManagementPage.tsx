@@ -451,14 +451,13 @@ const RiskMatrixManagementPage = () => {
                     <th className="text-left p-4 font-semibold text-sm">Consequence Level</th>
                     <th className="text-left p-4 font-semibold text-sm min-w-[300px]">Consequence Name & Description</th>
                     <th className="text-left p-4 font-semibold text-sm">Risk Rating</th>
-                    <th className="text-left p-4 font-semibold text-sm">Status</th>
                     <th className="text-left p-4 font-semibold text-sm w-20">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {matrixRows.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center p-12">
+                      <td colSpan={6} className="text-center p-12">
                         <div className="flex flex-col items-center gap-4">
                           <div className="text-muted-foreground">
                             <p className="text-base font-medium mb-2">No risk matrix entries found</p>
@@ -564,28 +563,6 @@ const RiskMatrixManagementPage = () => {
                               <SelectItem value={RiskRatingEnum.EXTREME}>
                                 <Badge variant="outline" className="bg-red-100 text-red-800 border-0">
                                   EXTREME
-                                </Badge>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </td>
-                        <td className="p-4">
-                          <Select
-                            value={row.isActive ? 'active' : 'inactive'}
-                            onValueChange={(value) => updateRow(index, 'isActive', value === 'active')}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="active">
-                                <Badge variant="outline" className="bg-green-100 text-green-800 border-0">
-                                  Active
-                                </Badge>
-                              </SelectItem>
-                              <SelectItem value="inactive">
-                                <Badge variant="outline" className="bg-gray-100 text-gray-800 border-0">
-                                  Inactive
                                 </Badge>
                               </SelectItem>
                             </SelectContent>

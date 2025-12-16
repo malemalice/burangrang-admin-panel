@@ -800,6 +800,27 @@ export const seedMenus = async () => {
         },
       },
     });
+
+
+    await prisma.menu.create({
+      data: {
+        name: 'Risk Matrix',
+        path: '/risk-matrix',
+        icon: 'Grid',
+        order: 3,
+        isActive: true,
+        parentId: masterDataMenu.id,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
     console.log(`   - Top-level menus: 9`);
     console.log(`   - Master Data submenus: 9`);
