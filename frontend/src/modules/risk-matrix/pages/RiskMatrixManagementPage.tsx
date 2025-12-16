@@ -429,25 +429,16 @@ const RiskMatrixManagementPage = () => {
                 </>
               )}
             </Button>
+            <Button onClick={addNewRow} aria-label="Add new risk matrix entry">
+              <Plus className="mr-2 h-4 w-4" />
+              Add New Entry
+            </Button>
           </div>
         }
       />
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-2xl font-semibold">Risk Matrix Configuration</CardTitle>
-              <CardDescription className="mt-1.5">
-                Add or modify risk matrix entries below. Each row represents a combination of probability (likelihood)
-                and consequence levels.
-              </CardDescription>
-            </div>
-            <Button onClick={addNewRow} size="sm" aria-label="Add new risk matrix entry">
-              <Plus className="mr-2 h-4 w-4" />
-              Add New Entry
-            </Button>
-          </div>
         </CardHeader>
         <CardContent>
           <div className="border rounded-lg overflow-hidden">
