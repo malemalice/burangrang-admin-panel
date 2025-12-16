@@ -150,7 +150,7 @@ const RiskMatrixManagementPage = () => {
     setMatrixRows([...matrixRows, newRow]);
   };
 
-  const updateRow = (index: number, field: keyof MatrixRow, value: any) => {
+  const updateRow = (index: number, field: keyof MatrixRow, value: string | number | boolean) => {
     const updatedRows = [...matrixRows];
     updatedRows[index] = {
       ...updatedRows[index],
@@ -184,9 +184,9 @@ const RiskMatrixManagementPage = () => {
   const handleSaveAll = async () => {
     setIsSaving(true);
     try {
-      const createPromises: Promise<any>[] = [];
-      const updatePromises: Promise<any>[] = [];
-      const deletePromises: Promise<any>[] = [];
+      const createPromises: Promise<RiskMatrix>[] = [];
+      const updatePromises: Promise<RiskMatrix>[] = [];
+      const deletePromises: Promise<void>[] = [];
 
       // Process new rows
       matrixRows.forEach((row) => {
@@ -264,11 +264,11 @@ const RiskMatrixManagementPage = () => {
         subtitle="Manage risk matrix by defining likelihood and consequence pairs with their risk ratings"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={fetchAllData} disabled={isSaving}>
+            <Button variant="outline" onClick={fetchAllData} disabled={isSaving} aria-label="Refresh risk matrix data">
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
             </Button>
-            <Button onClick={handleSaveAll} disabled={!hasChanges || isSaving}>
+            <Button onClick={handleSaveAll} disabled={!hasChanges || isSaving} aria-label="Save all changes">
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -289,13 +289,13 @@ const RiskMatrixManagementPage = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-xl">Risk Matrix Configuration</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-2xl font-semibold">Risk Matrix Configuration</CardTitle>
+              <CardDescription className="mt-1.5">
                 Add or modify risk matrix entries below. Each row represents a combination of probability (likelihood)
                 and consequence levels.
               </CardDescription>
             </div>
-            <Button onClick={addNewRow} size="sm">
+            <Button onClick={addNewRow} size="sm" aria-label="Add new risk matrix entry">
               <Plus className="mr-2 h-4 w-4" />
               Add New Entry
             </Button>
@@ -304,23 +304,32 @@ const RiskMatrixManagementPage = () => {
         <CardContent>
           <div className="border rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-muted/50">
+              <table className="w-full" role="table" aria-label="Risk matrix entries">
+                <thead className="bg-muted/50 sticky top-0 z-10">
                   <tr className="border-b">
-                    <th className="text-left p-3 font-semibold text-sm">Probability Level</th>
-                    <th className="text-left p-3 font-semibold text-sm min-w-[200px]">Probability Description</th>
-                    <th className="text-left p-3 font-semibold text-sm">Consequence Level</th>
-                    <th className="text-left p-3 font-semibold text-sm min-w-[200px]">Consequence Description</th>
-                    <th className="text-left p-3 font-semibold text-sm">Risk Rating</th>
-                    <th className="text-left p-3 font-semibold text-sm">Status</th>
-                    <th className="text-left p-3 font-semibold text-sm w-20">Actions</th>
+                    <th className="text-left p-4 font-semibold text-sm">Likelihood Level</th>
+                    <th className="text-left p-4 font-semibold text-sm min-w-[300px]">Likelihood Name & Description</th>
+                    <th className="text-left p-4 font-semibold text-sm">Consequence Level</th>
+                    <th className="text-left p-4 font-semibold text-sm min-w-[300px]">Consequence Name & Description</th>
+                    <th className="text-left p-4 font-semibold text-sm">Risk Rating</th>
+                    <th className="text-left p-4 font-semibold text-sm">Status</th>
+                    <th className="text-left p-4 font-semibold text-sm w-20">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {matrixRows.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center p-8 text-muted-foreground">
-                        No risk matrix entries found. Click "Add New Entry" to create one.
+                      <td colSpan={7} className="text-center p-12">
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="text-muted-foreground">
+                            <p className="text-base font-medium mb-2">No risk matrix entries found</p>
+                            <p className="text-sm">Click "Add New Entry" to create your first risk matrix entry.</p>
+                          </div>
+                          <Button onClick={addNewRow} variant="outline" size="sm">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add New Entry
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ) : (
@@ -328,10 +337,10 @@ const RiskMatrixManagementPage = () => {
                       <tr
                         key={index}
                         className={`border-b hover:bg-muted/30 transition-colors ${
-                          row.isNew ? 'bg-blue-50/50' : row.isModified ? 'bg-yellow-50/50' : ''
+                          row.isNew ? 'bg-blue-50/50 dark:bg-blue-950/20' : row.isModified ? 'bg-yellow-50/50 dark:bg-yellow-950/20' : ''
                         }`}
                       >
-                        <td className="p-3">
+                        <td className="p-4">
                           <Select
                             value={row.likelihoodLevel.toString()}
                             onValueChange={(value) => updateRow(index, 'likelihoodLevel', parseInt(value))}
@@ -342,19 +351,29 @@ const RiskMatrixManagementPage = () => {
                             <SelectContent>
                               {likelihoods.map((likelihood) => (
                                 <SelectItem key={likelihood.level} value={likelihood.level.toString()}>
-                                  {likelihood.level} - {likelihood.name}
+                                  {likelihood.level}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </td>
-                        <td className="p-3">
-                          <div className="text-sm">
-                            <div className="font-medium">{row.likelihoodName}</div>
-                            <div className="text-muted-foreground text-xs mt-1">{row.likelihoodDesc}</div>
+                        <td className="p-4">
+                          <div className="space-y-2">
+                            <Input
+                              placeholder="Likelihood name"
+                              value={row.likelihoodName}
+                              onChange={(e) => updateRow(index, 'likelihoodName', e.target.value)}
+                              className="h-8 text-sm"
+                            />
+                            <Input
+                              placeholder="Likelihood description"
+                              value={row.likelihoodDesc}
+                              onChange={(e) => updateRow(index, 'likelihoodDesc', e.target.value)}
+                              className="h-8 text-sm"
+                            />
                           </div>
                         </td>
-                        <td className="p-3">
+                        <td className="p-4">
                           <Select
                             value={row.consequenceLevel}
                             onValueChange={(value) => updateRow(index, 'consequenceLevel', value)}
@@ -365,19 +384,29 @@ const RiskMatrixManagementPage = () => {
                             <SelectContent>
                               {consequences.map((consequence) => (
                                 <SelectItem key={consequence.level} value={consequence.level}>
-                                  {consequence.level} - {consequence.name}
+                                  {consequence.level}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </td>
-                        <td className="p-3">
-                          <div className="text-sm">
-                            <div className="font-medium">{row.consequenceName}</div>
-                            <div className="text-muted-foreground text-xs mt-1">{row.consequenceDesc}</div>
+                        <td className="p-4">
+                          <div className="space-y-2">
+                            <Input
+                              placeholder="Consequence name"
+                              value={row.consequenceName}
+                              onChange={(e) => updateRow(index, 'consequenceName', e.target.value)}
+                              className="h-8 text-sm"
+                            />
+                            <Input
+                              placeholder="Consequence description"
+                              value={row.consequenceDesc}
+                              onChange={(e) => updateRow(index, 'consequenceDesc', e.target.value)}
+                              className="h-8 text-sm"
+                            />
                           </div>
                         </td>
-                        <td className="p-3">
+                        <td className="p-4">
                           <Select
                             value={row.riskRating}
                             onValueChange={(value) => updateRow(index, 'riskRating', value as RiskRatingEnum)}
@@ -409,7 +438,7 @@ const RiskMatrixManagementPage = () => {
                             </SelectContent>
                           </Select>
                         </td>
-                        <td className="p-3">
+                        <td className="p-4">
                           <Select
                             value={row.isActive ? 'active' : 'inactive'}
                             onValueChange={(value) => updateRow(index, 'isActive', value === 'active')}
@@ -431,9 +460,15 @@ const RiskMatrixManagementPage = () => {
                             </SelectContent>
                           </Select>
                         </td>
-                        <td className="p-3">
-                          <Button variant="ghost" size="icon" onClick={() => deleteRow(index)} disabled={isSaving}>
-                            <Trash2 className="h-4 w-4 text-red-600" />
+                        <td className="p-4">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => deleteRow(index)} 
+                            disabled={isSaving}
+                            aria-label={`Delete row ${index + 1}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </td>
                       </tr>
@@ -445,8 +480,8 @@ const RiskMatrixManagementPage = () => {
           </div>
 
           {hasChanges && (
-            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
+            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
                 <strong>You have unsaved changes.</strong> Click "Save All Changes" to apply your modifications.
               </p>
             </div>
