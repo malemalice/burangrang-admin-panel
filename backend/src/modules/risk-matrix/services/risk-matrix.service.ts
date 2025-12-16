@@ -3,12 +3,6 @@ import { PrismaService } from '../../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
 import { RiskLevel, RiskRating, RiskMatrixConfig } from '../interfaces/risk-matrix.interface';
-import { LikelihoodDto } from '../dto/likelihood.dto';
-import { CreateLikelihoodDto } from '../dto/create-likelihood.dto';
-import { UpdateLikelihoodDto } from '../dto/update-likelihood.dto';
-import { ConsequenceDto } from '../dto/consequence.dto';
-import { CreateConsequenceDto } from '../dto/create-consequence.dto';
-import { UpdateConsequenceDto } from '../dto/update-consequence.dto';
 import { RiskMatrixDto } from '../dto/risk-matrix.dto';
 import { CreateRiskMatrixDto } from '../dto/create-risk-matrix.dto';
 import { UpdateRiskMatrixDto } from '../dto/update-risk-matrix.dto';
@@ -42,8 +36,6 @@ export class RiskMatrixService {
     ],
   };
 
-  private likelihoodMapper: (entity: any) => LikelihoodDto;
-  private consequenceMapper: (entity: any) => ConsequenceDto;
   private riskMatrixMapper: (entity: any) => RiskMatrixDto;
 
   constructor(
@@ -51,8 +43,6 @@ export class RiskMatrixService {
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
   ) {
-    this.likelihoodMapper = this.dtoMapper.createSimpleMapper(LikelihoodDto);
-    this.consequenceMapper = this.dtoMapper.createSimpleMapper(ConsequenceDto);
     this.riskMatrixMapper = this.dtoMapper.createSimpleMapper(RiskMatrixDto);
   }
 
@@ -80,176 +70,6 @@ export class RiskMatrixService {
     if (score <= 12) return this.riskMatrixConfig.levels[2]; // High Risk
     if (score <= 16) return this.riskMatrixConfig.levels[3]; // Critical Risk
     return this.riskMatrixConfig.levels[4]; // Extreme Risk
-  }
-
-  // Likelihood CRUD operations
-  async createLikelihood(createLikelihoodDto: CreateLikelihoodDto): Promise<LikelihoodDto> {
-    const likelihood = await this.prisma.likelihood.create({
-      data: createLikelihoodDto,
-    });
-    return this.likelihoodMapper(likelihood);
-  }
-
-  async findAllLikelihoods(options?: FindAllOptions): Promise<{ data: LikelihoodDto[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
-    const {
-      page = 1,
-      limit = 10,
-      sortBy = 'level',
-      sortOrder = 'asc',
-      isActive,
-      search,
-    } = options || {};
-
-    const where: any = {};
-
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { desc: { contains: search, mode: 'insensitive' } },
-      ];
-    }
-
-    if (isActive !== undefined) {
-      where.isActive = isActive;
-    }
-
-    const [likelihoods, total] = await Promise.all([
-      this.prisma.likelihood.findMany({
-        where,
-        orderBy: {
-          [sortBy]: sortOrder,
-        },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.likelihood.count({ where }),
-    ]);
-
-    return {
-      data: likelihoods.map(likelihood => this.likelihoodMapper(likelihood)),
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-  async findOneLikelihood(id: string): Promise<LikelihoodDto> {
-    const likelihood = await this.prisma.likelihood.findUnique({
-      where: { id },
-    });
-    this.errorHandler.throwIfNotFoundById('Likelihood', id, likelihood);
-    return this.likelihoodMapper(likelihood);
-  }
-
-  async updateLikelihood(id: string, updateLikelihoodDto: UpdateLikelihoodDto): Promise<LikelihoodDto> {
-    const existing = await this.prisma.likelihood.findUnique({
-      where: { id },
-    });
-    this.errorHandler.throwIfNotFoundById('Likelihood', id, existing);
-
-    const updated = await this.prisma.likelihood.update({
-      where: { id },
-      data: updateLikelihoodDto,
-    });
-    return this.likelihoodMapper(updated);
-  }
-
-  async removeLikelihood(id: string): Promise<void> {
-    const likelihood = await this.prisma.likelihood.findUnique({
-      where: { id },
-    });
-    this.errorHandler.throwIfNotFoundById('Likelihood', id, likelihood);
-    await this.prisma.likelihood.delete({
-      where: { id },
-    });
-  }
-
-  // Consequence CRUD operations
-  async createConsequence(createConsequenceDto: CreateConsequenceDto): Promise<ConsequenceDto> {
-    const consequence = await this.prisma.consequence.create({
-      data: createConsequenceDto,
-    });
-    return this.consequenceMapper(consequence);
-  }
-
-  async findAllConsequences(options?: FindAllOptions): Promise<{ data: ConsequenceDto[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
-    const {
-      page = 1,
-      limit = 10,
-      sortBy = 'level',
-      sortOrder = 'asc',
-      isActive,
-      search,
-    } = options || {};
-
-    const where: any = {};
-
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { desc: { contains: search, mode: 'insensitive' } },
-      ];
-    }
-
-    if (isActive !== undefined) {
-      where.isActive = isActive;
-    }
-
-    const [consequences, total] = await Promise.all([
-      this.prisma.consequence.findMany({
-        where,
-        orderBy: {
-          [sortBy]: sortOrder,
-        },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.consequence.count({ where }),
-    ]);
-
-    return {
-      data: consequences.map(consequence => this.consequenceMapper(consequence)),
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-  async findOneConsequence(id: string): Promise<ConsequenceDto> {
-    const consequence = await this.prisma.consequence.findUnique({
-      where: { id },
-    });
-    this.errorHandler.throwIfNotFoundById('Consequence', id, consequence);
-    return this.consequenceMapper(consequence);
-  }
-
-  async updateConsequence(id: string, updateConsequenceDto: UpdateConsequenceDto): Promise<ConsequenceDto> {
-    const existing = await this.prisma.consequence.findUnique({
-      where: { id },
-    });
-    this.errorHandler.throwIfNotFoundById('Consequence', id, existing);
-
-    const updated = await this.prisma.consequence.update({
-      where: { id },
-      data: updateConsequenceDto,
-    });
-    return this.consequenceMapper(updated);
-  }
-
-  async removeConsequence(id: string): Promise<void> {
-    const consequence = await this.prisma.consequence.findUnique({
-      where: { id },
-    });
-    this.errorHandler.throwIfNotFoundById('Consequence', id, consequence);
-    await this.prisma.consequence.delete({
-      where: { id },
-    });
   }
 
   // RiskMatrix CRUD operations

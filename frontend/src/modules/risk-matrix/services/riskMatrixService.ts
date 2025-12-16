@@ -1,11 +1,11 @@
 import api from '@/core/lib/api';
+import { PaginatedResponse } from '@/core/lib/types';
 import {
   RiskMatrixDTO,
   RiskMatrix,
   CreateRiskMatrixDTO,
   UpdateRiskMatrixDTO,
   RiskMatrixSearchParams,
-  PaginatedResponse,
   RiskRating,
   CalculateRiskDTO,
 } from '../types/risk-matrix.types';

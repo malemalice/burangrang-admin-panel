@@ -4,6 +4,7 @@
  */
 
 // Pages
+export { default as RiskMatrixManagementPage } from './pages/RiskMatrixManagementPage';
 export { default as RiskMatricesPage } from './pages/RiskMatricesPage';
 export { default as CreateRiskMatrixPage } from './pages/CreateRiskMatrixPage';
 export { default as EditRiskMatrixPage } from './pages/EditRiskMatrixPage';
@@ -17,6 +18,10 @@ export { default as riskMatrixService } from './services/riskMatrixService';
 
 // Types
 export type {
+  // Likelihood & Consequence UI types (extracted from RiskMatrix)
+  LikelihoodOption,
+  ConsequenceOption,
+  // Risk Matrix types
   RiskMatrix,
   RiskMatrixDTO,
   CreateRiskMatrixDTO,
@@ -25,6 +30,7 @@ export type {
   RiskRating,
   CalculateRiskDTO,
   RiskRatingEnum,
+  MatrixCell,
 } from './types/risk-matrix.types';
 
 // Hooks

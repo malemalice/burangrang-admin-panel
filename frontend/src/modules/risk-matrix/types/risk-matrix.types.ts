@@ -13,6 +13,24 @@ export enum RiskRatingEnum {
 }
 
 // =============================================================================
+// LIKELIHOOD TYPES (Local UI Only - extracted from RiskMatrix)
+// =============================================================================
+// Note: Backend does not have separate Likelihood/Consequence tables
+// These types are used for UI organization only
+
+export interface LikelihoodOption {
+  level: number;
+  name: string;
+  desc: string;
+}
+
+export interface ConsequenceOption {
+  level: string;
+  name: string;
+  desc: string;
+}
+
+// =============================================================================
 // RISK MATRIX TYPES
 // =============================================================================
 
@@ -92,4 +110,18 @@ export interface RiskRating {
 export interface CalculateRiskDTO {
   likelihoodLevel: number;
   consequenceLevel: number;
+}
+
+// =============================================================================
+// BATCH UPDATE TYPES
+// =============================================================================
+
+export interface MatrixCell {
+  id?: string;
+  likelihoodLevel: number;
+  consequenceLevel: string;
+  riskRating: RiskRatingEnum;
+  isActive: boolean;
+  isNew?: boolean;
+  isModified?: boolean;
 }

@@ -1,3 +1,4 @@
+export { default as RiskMatrixManagementPage } from './RiskMatrixManagementPage';
 export { default as RiskMatricesPage } from './RiskMatricesPage';
 export { default as CreateRiskMatrixPage } from './CreateRiskMatrixPage';
 export { default as EditRiskMatrixPage } from './EditRiskMatrixPage';

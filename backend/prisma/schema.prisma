@@ -290,32 +290,6 @@ model RiskMatrix {
   @@map("m_risk_matrix")
 }
 
-model Likelihood {
-  id    String @id @default(uuid())
-  name  String
-  desc  String @db.Text
-  level Int
-  isActive Boolean @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("m_likelihood")
-  @@unique([level])
-}
-
-model Consequence {
-  id    String @id @default(uuid())
-  name  String
-  desc  String @db.Text
-  level String // A, B, C, D, E
-  isActive Boolean @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("m_consequence")
-  @@unique([level])
-}
-
 model RiskAssessment {
   id             String               @id @default(uuid())
   code           String               @unique
