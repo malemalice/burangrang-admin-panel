@@ -1718,11 +1718,14 @@ export class PPEService {
 
         // Handle search filter (OR logic for name, code, description)
         // Only apply search if name and code filters are not provided
+        // Use startsWith for name and code to be more strict (only match at the beginning)
+        // Use contains for description to allow searching within longer text
         if (search && !name && !code) {
+            const searchLower = search.toLowerCase().trim();
             where.OR = [
-                { name: { contains: search, mode: 'insensitive' } },
-                { code: { contains: search, mode: 'insensitive' } },
-                { description: { contains: search, mode: 'insensitive' } },
+                { name: { startsWith: searchLower, mode: 'insensitive' } },
+                { code: { startsWith: searchLower, mode: 'insensitive' } },
+                { description: { contains: searchLower, mode: 'insensitive' } },
             ];
         }
 
