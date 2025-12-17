@@ -66,6 +66,8 @@ export class PPEController {
     @ApiQuery({ name: 'status', required: false, enum: ['AVAILABLE', 'RESERVED', 'ISSUED', 'EXPIRED', 'DISPOSED'], description: 'Filter by stock item status' })
     @ApiQuery({ name: 'stockId', required: false, type: String, description: 'Filter by stock ID' })
     @ApiQuery({ name: 'availableOnly', required: false, type: Boolean, description: 'Only return available items with quantity > 0' })
+    @ApiQuery({ name: 'groupBySafetyEquipment', required: false, type: Boolean, description: 'Group items by safety equipment and aggregate quantities' })
+    @ApiQuery({ name: 'includeExpired', required: false, type: Boolean, description: 'Include expired items for disposal' })
     @ApiResponse({
         status: 200,
         description: 'Return paginated list of available stock items.',

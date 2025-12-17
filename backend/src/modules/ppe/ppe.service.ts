@@ -602,6 +602,8 @@ export class PPEService {
             status,
             stockId,
             availableOnly = true,
+            groupBySafetyEquipment = false,
+            includeExpired = false,
         } = options || {};
 
         const where: Prisma.PPEStockItemWhereInput = {
@@ -611,14 +613,23 @@ export class PPEService {
             },
         };
 
-        if (availableOnly) {
+        // Handle status filtering
+        if (availableOnly && !includeExpired) {
             where.status = 'AVAILABLE';
+            where.currentQuantity = {
+                gt: 0,
+            };
+        } else if (includeExpired) {
+            // Include both AVAILABLE and EXPIRED items
+            where.status = {
+                in: ['AVAILABLE', 'EXPIRED'],
+            };
             where.currentQuantity = {
                 gt: 0,
             };
         }
 
-        if (status) {
+        if (status && !includeExpired) {
             where.status = status;
         }
 
@@ -634,6 +645,121 @@ export class PPEService {
             ];
         }
 
+        // If grouping by safety equipment, we need to fetch all items first, then group
+        if (groupBySafetyEquipment) {
+            const allItems = await this.prisma["pPEStockItem"].findMany({
+                where,
+                include: {
+                    stock: true,
+                    safetyEquipment: {
+                        include: {
+                            safetyEquipmentType: true,
+                        },
+                    },
+                },
+            });
+
+            // Group by safetyEquipmentId
+            const groupedMap = new Map<string, any>();
+
+            for (const item of allItems) {
+                const key = item.safetyEquipmentId || `free-text-${item.equipmentName}-${item.equipmentType}-${item.equipmentSize}`;
+
+                if (!groupedMap.has(key)) {
+                    const safetyEquipment = item.safetyEquipment as any;
+                    groupedMap.set(key, {
+                        safetyEquipmentId: item.safetyEquipmentId,
+                        equipmentName: item.equipmentName || safetyEquipment?.name || 'Unknown',
+                        equipmentType: item.equipmentType || safetyEquipment?.safetyEquipmentType?.name || null,
+                        equipmentSize: item.equipmentSize || safetyEquipment?.size || null,
+                        totalCurrentQuantity: 0,
+                        totalReservedQuantity: 0,
+                        stockItemIds: [] as string[],
+                        stockItems: [] as any[],
+                        earliestExpiryDate: item.expiryDate,
+                    });
+                }
+
+                const group = groupedMap.get(key);
+                group.totalCurrentQuantity += item.currentQuantity;
+                group.totalReservedQuantity += item.reservedQuantity;
+                group.stockItemIds.push(item.id);
+                group.stockItems.push(item);
+
+                // Track earliest expiry date
+                if (item.expiryDate && (!group.earliestExpiryDate || item.expiryDate < group.earliestExpiryDate)) {
+                    group.earliestExpiryDate = item.expiryDate;
+                }
+            }
+
+            // Filter only groups with total stock > 1 and convert to DTO format
+            const groupedItems = Array.from(groupedMap.values())
+                .filter((group) => group.totalCurrentQuantity > 1)
+                .map((group) => {
+                    // Use the first stock item as base, but update quantities
+                    const baseItem = group.stockItems[0];
+                    const dto = this.ppeStockItemMapper({
+                        ...baseItem,
+                        currentQuantity: group.totalCurrentQuantity,
+                        reservedQuantity: group.totalReservedQuantity,
+                        expiryDate: group.earliestExpiryDate,
+                    });
+                    // Add metadata for grouping
+                    (dto as any).stockItemIds = group.stockItemIds;
+                    (dto as any).isGrouped = true;
+                    return dto;
+                });
+
+            // Apply search filter on grouped items if needed
+            let filteredItems = groupedItems;
+            if (search) {
+                const searchLower = search.toLowerCase();
+                filteredItems = groupedItems.filter((item) => {
+                    const name = (item.equipmentName || '').toLowerCase();
+                    const type = (item.equipmentType || '').toLowerCase();
+                    const size = (item.equipmentSize || '').toLowerCase();
+                    return name.includes(searchLower) || type.includes(searchLower) || size.includes(searchLower);
+                });
+            }
+
+            // Apply sorting
+            if (sortBy) {
+                filteredItems.sort((a, b) => {
+                    let aVal: any = (a as any)[sortBy];
+                    let bVal: any = (b as any)[sortBy];
+
+                    if (sortBy === 'currentQuantity') {
+                        aVal = a.currentQuantity;
+                        bVal = b.currentQuantity;
+                    }
+
+                    if (aVal === null || aVal === undefined) return 1;
+                    if (bVal === null || bVal === undefined) return -1;
+
+                    if (typeof aVal === 'string') {
+                        aVal = aVal.toLowerCase();
+                        bVal = bVal.toLowerCase();
+                    }
+
+                    if (sortOrder === 'asc') {
+                        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+                    } else {
+                        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+                    }
+                });
+            }
+
+            // Apply pagination
+            const total = filteredItems.length;
+            const paginatedItems = filteredItems.slice((page - 1) * limit, page * limit);
+
+            return {
+                data: paginatedItems,
+                meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+            };
+        }
+
+        // Original non-grouped logic
         const orderBy: Prisma.PPEStockItemOrderByWithRelationInput = {};
         if (sortBy) {
             orderBy[sortBy] = sortOrder || 'desc';
@@ -676,7 +802,8 @@ export class PPEService {
 
             this.errorHandler.throwIfNotFoundById('PPEStockItem', item.stockItemId, stockItem);
 
-            if (stockItem.status !== 'AVAILABLE') {
+            // Allow AVAILABLE and EXPIRED status for withdrawal (EXPIRED for disposal)
+            if (stockItem.status !== 'AVAILABLE' && stockItem.status !== 'EXPIRED') {
                 this.errorHandler.throwBadRequest(
                     `Stock item ${item.stockItemId} is not available for withdrawal. Current status: ${stockItem.status}`,
                 );
@@ -727,7 +854,10 @@ export class PPEService {
 
                     // Determine new status
                     let newStatus = stockItem.status;
-                    if (availableQuantity <= 0) {
+                    if (stockItem.status === 'EXPIRED') {
+                        // Keep EXPIRED status for expired items
+                        newStatus = 'EXPIRED' as any;
+                    } else if (availableQuantity <= 0) {
                         // All stock is reserved
                         newStatus = 'RESERVED' as any;
                     } else if (newReservedQuantity > 0 && stockItem.status === 'AVAILABLE') {
@@ -1178,7 +1308,8 @@ export class PPEService {
 
             this.errorHandler.throwIfNotFoundById('PPEStockItem', item.stockItemId, stockItem);
 
-            if (stockItem.status !== 'AVAILABLE') {
+            // Allow AVAILABLE and EXPIRED status for withdrawal (EXPIRED for disposal)
+            if (stockItem.status !== 'AVAILABLE' && stockItem.status !== 'EXPIRED') {
                 this.errorHandler.throwBadRequest(
                     `Stock item ${item.stockItemId} is not available for withdrawal. Current status: ${stockItem.status}`,
                 );
@@ -1214,7 +1345,10 @@ export class PPEService {
 
                 // Determine new status after releasing reservation
                 let newStatus: any;
-                if (newReservedQuantity === 0) {
+                if (stockItem.status === 'EXPIRED') {
+                    // Keep EXPIRED status for expired items
+                    newStatus = 'EXPIRED';
+                } else if (newReservedQuantity === 0) {
                     newStatus = 'AVAILABLE';
                 } else if (newReservedQuantity >= stockItem.currentQuantity) {
                     newStatus = 'RESERVED';
@@ -1269,7 +1403,10 @@ export class PPEService {
 
                     // Determine new status
                     let newStatus: any;
-                    if (availableQuantity <= 0) {
+                    if (stockItem.status === 'EXPIRED') {
+                        // Keep EXPIRED status for expired items
+                        newStatus = 'EXPIRED' as any;
+                    } else if (availableQuantity <= 0) {
                         // All stock is reserved
                         newStatus = 'RESERVED';
                     } else if (newReservedQuantity > 0 && stockItem.status === 'AVAILABLE') {
@@ -1368,7 +1505,10 @@ export class PPEService {
 
                     // Determine new status after releasing reservation
                     let newStatus: any;
-                    if (newReservedQuantity === 0) {
+                    if (stockItem.status === 'EXPIRED') {
+                        // Keep EXPIRED status for expired items
+                        newStatus = 'EXPIRED';
+                    } else if (newReservedQuantity === 0) {
                         newStatus = 'AVAILABLE';
                     } else if (newReservedQuantity >= stockItem.currentQuantity) {
                         newStatus = 'RESERVED';

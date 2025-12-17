@@ -52,7 +52,19 @@ const formSchema = z.object({
     (data) => data.requestedFor || data.requestedForName,
     {
         message: 'Either select a user or enter a name',
+        path: ['requestedFor'],
+    }
+).refine(
+    (data) => data.requestedFor || data.requestedForName,
+    {
+        message: 'Either select a user or enter a name',
         path: ['requestedForName'],
+    }
+).refine(
+    (data) => data.jobPositionId || data.jobPositionName,
+    {
+        message: 'Either select a job position or enter a job position name',
+        path: ['jobPositionId'],
     }
 ).refine(
     (data) => data.jobPositionId || data.jobPositionName,
@@ -137,6 +149,8 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                         limit: 1000,
                         availableOnly: true,
                         status: PPEStockStatus.AVAILABLE,
+                        groupBySafetyEquipment: true,
+                        includeExpired: true,
                     }),
                 ]);
 
@@ -274,7 +288,14 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
     const onSubmit = async (data: FormValues) => {
         // Validate quantities don't exceed available stock
         for (const item of data.items) {
-            const maxQty = getMaxQuantity(item.stockItemId);
+            const stockItem = availableStockItems.find((si) => si.id === item.stockItemId);
+            if (!stockItem) {
+                toast.error(`Stock item not found`);
+                return;
+            }
+
+            // For grouped items, validate against total quantity
+            const maxQty = stockItem.isGrouped ? stockItem.currentQuantity : getMaxQuantity(item.stockItemId);
             if (item.requestedQuantity > maxQty) {
                 toast.error(`Requested quantity exceeds available stock for selected item`);
                 return;
@@ -283,6 +304,69 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
 
         setIsLoading(true);
         try {
+            // Process items - for grouped items, we need to fetch individual stock items
+            const processedItems: CreatePPEWithdrawalItemDTO[] = [];
+
+            for (let index = 0; index < data.items.length; index++) {
+                const item = data.items[index];
+                const stockItem = availableStockItems.find((si) => si.id === item.stockItemId);
+
+                if (stockItem?.isGrouped && stockItem.stockItemIds && stockItem.stockItemIds.length > 0) {
+                    // For grouped items, fetch individual stock items and select appropriate ones
+                    const individualItemsRes = await ppeService.getAvailableStockItems({
+                        page: 1,
+                        limit: 1000,
+                        availableOnly: true,
+                        includeExpired: true,
+                        groupBySafetyEquipment: false,
+                    });
+
+                    // Filter items that belong to this safety equipment
+                    const matchingItems = individualItemsRes.data.filter((si) =>
+                        stockItem.stockItemIds?.includes(si.id) &&
+                        si.currentQuantity > 0 &&
+                        (si.status === PPEStockStatus.AVAILABLE || si.status === PPEStockStatus.EXPIRED)
+                    );
+
+                    // Sort by expiry date (earliest first) to use FIFO
+                    matchingItems.sort((a, b) => {
+                        if (!a.expiryDate && !b.expiryDate) return 0;
+                        if (!a.expiryDate) return 1;
+                        if (!b.expiryDate) return -1;
+                        return new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime();
+                    });
+
+                    // Distribute quantity across items
+                    let remainingQty = item.requestedQuantity;
+                    for (const individualItem of matchingItems) {
+                        if (remainingQty <= 0) break;
+
+                        const qtyToUse = Math.min(remainingQty, individualItem.currentQuantity - individualItem.reservedQuantity);
+                        if (qtyToUse > 0) {
+                            processedItems.push({
+                                stockItemId: individualItem.id,
+                                requestedQuantity: qtyToUse,
+                                order: index + 1,
+                            });
+                            remainingQty -= qtyToUse;
+                        }
+                    }
+
+                    if (remainingQty > 0) {
+                        toast.error(`Insufficient stock for ${stockItem.equipmentName}`);
+                        setIsLoading(false);
+                        return;
+                    }
+                } else {
+                    // Regular item, use as is
+                    processedItems.push({
+                        stockItemId: item.stockItemId,
+                        requestedQuantity: item.requestedQuantity,
+                        order: index + 1,
+                    });
+                }
+            }
+
             if (mode === 'create') {
                 const createData: CreatePPEWithdrawalDTO = {
                     withdrawalDate: data.withdrawalDate,
@@ -293,14 +377,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                     jobPositionName: data.jobPositionName || undefined,
                     withdrawalLetterUrl: data.withdrawalLetterUrl || undefined,
                     notes: data.notes || undefined,
-                    items: data.items.map((item, index) => {
-                        const itemData: CreatePPEWithdrawalItemDTO = {
-                            stockItemId: item.stockItemId,
-                            requestedQuantity: item.requestedQuantity,
-                            order: index + 1,
-                        };
-                        return itemData;
-                    }),
+                    items: processedItems,
                 };
                 const createdWithdrawal = await ppeService.createWithdrawal(createData);
                 toast.success('Withdrawal created successfully');
@@ -315,11 +392,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                     jobPositionName: data.jobPositionName || undefined,
                     withdrawalLetterUrl: data.withdrawalLetterUrl || undefined,
                     notes: data.notes || undefined,
-                    items: data.items.map((item, index) => ({
-                        stockItemId: item.stockItemId,
-                        requestedQuantity: item.requestedQuantity,
-                        order: index + 1,
-                    })),
+                    items: processedItems,
                 };
                 await ppeService.updateWithdrawal(withdrawal!.id, updateData);
                 toast.success('Withdrawal updated successfully');

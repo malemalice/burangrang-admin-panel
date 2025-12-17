@@ -68,6 +68,9 @@ export interface PPEStockItem {
     order: number;
     createdAt: string;
     updatedAt: string;
+    // Support for grouped items
+    stockItemIds?: string[];
+    isGrouped?: boolean;
 }
 
 export interface PPEStockDTO {
@@ -267,6 +270,8 @@ export interface PPEStockItemSearchParams extends Omit<PaginationParams, 'filter
     status?: PPEStockStatus;
     stockId?: string;
     availableOnly?: boolean;
+    groupBySafetyEquipment?: boolean;
+    includeExpired?: boolean;
 }
 
 export interface PPEWithdrawalSearchParams extends Omit<PaginationParams, 'filters'> {

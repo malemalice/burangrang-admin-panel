@@ -37,6 +37,9 @@ const mapPPEStockItemDtoToPPEStockItem = (itemDto: PPEStockItemDTO): PPEStockIte
     order: itemDto.order,
     createdAt: itemDto.createdAt,
     updatedAt: itemDto.updatedAt,
+    // Support for grouped items
+    stockItemIds: (itemDto as any).stockItemIds || undefined,
+    isGrouped: (itemDto as any).isGrouped || false,
 });
 
 const mapPPEStockDtoToPPEStock = (stockDto: PPEStockDTO): PPEStock => ({
@@ -123,6 +126,14 @@ const ppeService = {
 
             if (params.availableOnly !== undefined) {
                 queryParams.append('availableOnly', params.availableOnly.toString());
+            }
+
+            if (params.groupBySafetyEquipment !== undefined) {
+                queryParams.append('groupBySafetyEquipment', params.groupBySafetyEquipment.toString());
+            }
+
+            if (params.includeExpired !== undefined) {
+                queryParams.append('includeExpired', params.includeExpired.toString());
             }
 
             const response = await api.get(`/ppe/stock-items/available?${queryParams.toString()}`);
