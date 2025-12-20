@@ -17,7 +17,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { PaginationParams } from '@/core/lib/types';
 import { useSafetyEquipments } from '../hooks/useSafetyEquipments';
 import { SafetyEquipment, SafetyEquipmentCategory } from '../types/ppe-master-data.types';
-import { FilterField } from '@/core/components/ui/filter-drawer';
+import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 
 export default function SafetyEquipmentsPage() {
     const navigate = useNavigate();
@@ -71,22 +71,25 @@ export default function SafetyEquipmentsPage() {
     ], []);
 
     const fetchData = useCallback(async () => {
+        // Only include search if it's not empty or only spaces
+        const trimmedSearch = searchTerm.trim();
+        const finalSearch = trimmedSearch.length > 0 ? trimmedSearch : undefined;
+
         const params: PaginationParams = {
             page: pageIndex + 1,
             limit,
-            search: searchTerm,
+            search: finalSearch,
             filters: {
                 ...Object.entries(activeFilters).reduce((acc: any, [key, item]) => {
                     if (key === 'status') {
-                         return {
-                             ...acc,
-                             isActive: item.value === 'active' ? 'true' : 'false'
-                         };
+                        return {
+                            ...acc,
+                            isActive: item.value === 'active' ? 'true' : 'false'
+                        };
                     }
                     acc[key] = item.value;
                     return acc;
                 }, {}),
-                // Additional explicit mapping if needed, but the reduce block above covers it like UsersPage
             }
         };
         await fetchEquipments(params);
@@ -124,17 +127,28 @@ export default function SafetyEquipmentsPage() {
     };
 
     const handleSearch = (term: string) => {
-        setSearchTerm(term);
+        // Trim the search term to avoid issues with whitespace
+        const trimmedTerm = term.trim();
+        setSearchTerm(trimmedTerm);
         setPageIndex(0);
     };
 
-    const handleApplyFilters = (filters: any[]) => {
+    const handleApplyFilters = (filters: FilterValue[]) => {
         const newActiveFilters: Record<string, { value: any; label: string }> = {};
-        filters.forEach((filter: any) => {
+        filters.forEach((filter: FilterValue) => {
             if (filter.id === 'status') {
                 newActiveFilters[filter.id] = {
                     value: filter.value,
-                    label: filter.value === 'active' ? 'Active' : 'Inactive' // Explicit label like UsersPage
+                    label: filter.value === 'active' ? 'Active' : 'Inactive'
+                };
+            } else if (filter.id === 'category') {
+                // Handle category label from filterFields options
+                const categoryOption = filterFields.find(f => f.id === 'category')?.options?.find(
+                    opt => opt.value === filter.value
+                );
+                newActiveFilters[filter.id] = {
+                    value: filter.value,
+                    label: categoryOption?.label || String(filter.value)
                 };
             } else {
                 newActiveFilters[filter.id] = {
@@ -287,6 +301,7 @@ export default function SafetyEquipmentsPage() {
                     total: totalEquipments
                 }}
                 filterFields={filterFields}
+                activeFilters={activeFilters}
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}
             />

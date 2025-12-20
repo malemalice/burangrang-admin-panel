@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, MoreHorizontal, Pencil, Trash2, Eye } from 'lucide-react';
+import { Plus, MoreHorizontal, Pencil, Trash2, Eye, Printer } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
@@ -27,6 +27,7 @@ export default function DispatchOrdersPage() {
   const [limit, setLimit] = useState(10);
   const [search, setSearch] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const filterFields: FilterField[] = [
@@ -39,6 +40,15 @@ export default function DispatchOrdersPage() {
         value: status,
       })),
     },
+    {
+      id: 'isActive',
+      label: 'Active Status',
+      type: 'select',
+      options: [
+        { label: 'Active', value: 'true' },
+        { label: 'Inactive', value: 'false' },
+      ],
+    },
   ];
 
   const fetchData = useCallback(async () => {
@@ -49,6 +59,7 @@ export default function DispatchOrdersPage() {
         limit,
         search: search || undefined,
         status: activeFilters.status?.value,
+        isActive: activeFilters.isActive?.value === 'true' ? true : activeFilters.isActive?.value === 'false' ? false : undefined,
       };
       const response = await dispatchOrderService.getAll(params);
       const result = response.data as PaginatedResponse<DispatchOrder>;
@@ -66,11 +77,18 @@ export default function DispatchOrdersPage() {
     fetchData();
   }, [fetchData]);
 
+  const handleDeleteClick = (item: DispatchOrder, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Close dropdown first
+    setDeleteId(item.id);
+  };
+
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
       await dispatchOrderService.delete(deleteId);
       toast.success('Deleted successfully');
+      setOpenDropdownId(null); // Ensure closed
       fetchData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to delete');
@@ -84,7 +102,7 @@ export default function DispatchOrdersPage() {
     filters.forEach((filter) => {
       newActiveFilters[filter.id] = {
         value: filter.value,
-        label: String(filter.value),
+        label: filter.id === 'isActive' ? (filter.value === 'true' ? 'Active' : 'Inactive') : String(filter.value),
       };
     });
     setActiveFilters(newActiveFilters);
@@ -124,17 +142,29 @@ export default function DispatchOrdersPage() {
       id: 'actions',
       header: 'Actions',
       cell: (item: DispatchOrder) => (
-        <DropdownMenu>
+        <DropdownMenu
+          open={openDropdownId === item.id}
+          onOpenChange={(open) => setOpenDropdownId(open ? item.id : null)}
+        >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => navigate(`/waste-management/dispatch-orders/${item.id}`)}>
+              <Eye className="mr-2 h-4 w-4" /> View Details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/waste-management/dispatch-orders/${item.id}`)}>
+              <Printer className="mr-2 h-4 w-4" /> Print PDF
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/waste-management/dispatch-orders/${item.id}/edit`)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setDeleteId(item.id)} className="text-destructive">
+            <DropdownMenuItem
+              onClick={(e) => handleDeleteClick(item, e)}
+              className="text-destructive"
+            >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -177,7 +207,7 @@ export default function DispatchOrdersPage() {
           </TabsList>
         </Tabs>
       </PageHeader>
-      
+
       <DataTable
         columns={columns}
         data={data}
@@ -201,7 +231,12 @@ export default function DispatchOrdersPage() {
 
       <ConfirmDialog
         open={!!deleteId}
-        onOpenChange={() => setDeleteId(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteId(null);
+            setOpenDropdownId(null); // Cleanup
+          }
+        }}
         title="Delete Dispatch Order"
         description="Are you sure you want to delete this order? This action cannot be undone."
         onConfirm={handleDelete}
