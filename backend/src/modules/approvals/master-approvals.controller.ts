@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   UseInterceptors,
+  HttpException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -132,31 +133,96 @@ export class MasterApprovalsController {
   @ApiOperation({
     summary: 'Check if current user has approval rights for a risk assessment',
   })
-  @ApiResponse({ status: 200, type: Boolean })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns approval rights check result, always returns 200 even on errors',
+    schema: {
+      type: 'object',
+      properties: {
+        canApprove: { type: 'boolean' },
+        error: { type: 'boolean' },
+        message: { type: 'string' },
+      },
+    },
+  })
   async checkApprovalRights(
     @CurrentUser() user: User,
     @Param('dataId') dataId: string,
-  ): Promise<{ canApprove: boolean }> {
-    return this.masterApprovalsService.checkApprovalRights(
-      dataId,
-      user,
-      'RiskAssessment',
-    );
+  ): Promise<{ canApprove: boolean; error?: boolean; message?: string }> {
+    try {
+      return await this.masterApprovalsService.checkApprovalRights(
+        dataId,
+        user,
+        'RiskAssessment',
+      );
+    } catch (error) {
+      let errorMessage = 'An unexpected error occurred';
+      if (error instanceof HttpException) {
+        const response = error.getResponse();
+        errorMessage =
+          typeof response === 'string'
+            ? response
+            : (response as { message?: string }).message || error.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      return {
+        canApprove: false,
+        error: true,
+        message: errorMessage,
+      };
+    }
   }
 
   @Get('check-approval-status/:dataId')
   @ApiOperation({
-    summary: 'Check if current user has approval rights for a risk assessment',
+    summary: 'Check approval status for a risk assessment',
   })
-  @ApiResponse({ status: 200, type: Boolean })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns approval status, always returns 200 even on errors',
+    schema: {
+      type: 'object',
+      properties: {
+        history: {
+          type: 'array',
+          items: { type: 'object' },
+        },
+        nextApprover: { type: 'object', nullable: true },
+        currentStatus: { type: 'string' },
+        error: { type: 'boolean' },
+        message: { type: 'string' },
+      },
+    },
+  })
   async checkApprovalStatus(
     @CurrentUser() user: User,
     @Param('dataId') dataId: string,
-  ): Promise<ApprovalStatusHistory> {
-    return this.masterApprovalsService.checkApprovalStatus(
-      dataId,
-      'RiskAssessment',
-    );
+  ): Promise<ApprovalStatusHistory & { error?: boolean; message?: string }> {
+    try {
+      return await this.masterApprovalsService.checkApprovalStatus(
+        dataId,
+        'RiskAssessment',
+      );
+    } catch (error) {
+      let errorMessage = 'An unexpected error occurred';
+      if (error instanceof HttpException) {
+        const response = error.getResponse();
+        errorMessage =
+          typeof response === 'string'
+            ? response
+            : (response as { message?: string }).message || error.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      return {
+        history: [],
+        nextApprover: null,
+        currentStatus: 'ERROR',
+        error: true,
+        message: errorMessage,
+      };
+    }
   }
 
   @Patch(':id')

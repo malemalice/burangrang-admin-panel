@@ -35,7 +35,7 @@ import { riskCategoryService, riskService } from '@/modules/master-data';
 const formSchema = z.object({
   items: z.array(z.object({
     mRiskId: z.string().min(1, 'Risk is required'),
-    mHseCategoryId: z.string().min(1, 'HSE Category is required'),
+    mRiskCategoryId: z.string().min(1, 'HSE Category is required'),
     riskDescription: z.string().min(1, 'Risk description is required'),
     likelihoodLevel: z.coerce.number().min(1, 'Minimum level is 1').max(5, 'Maximum level is 5'),
     consequenceLevel: z.coerce.number().min(1, 'Minimum level is 1').max(5, 'Maximum level is 5'),
@@ -54,6 +54,8 @@ interface RiskAssessmentItemFormProps {
   assessmentId?: string;
   initialItems?: any[];
   onSubmit?: (items: CreateRiskAssessmentItemDTO[]) => void;
+  onCancel?: () => void;
+  showCard?: boolean; // Optional: whether to show Card wrapper (default: true)
 }
 
 interface RiskMatrixEntry {
@@ -68,7 +70,7 @@ interface RiskMatrixEntry {
   isActive: boolean;
 }
 
-const RiskAssessmentItemForm = ({ assessmentId, initialItems, onSubmit }: RiskAssessmentItemFormProps) => {
+const RiskAssessmentItemForm = ({ assessmentId, initialItems, onSubmit, onCancel, showCard = true }: RiskAssessmentItemFormProps) => {
   const [risks, setRisks] = useState<Risk[]>([]);
   const [hseCategories, setHseCategories] = useState<HseCategory[]>([]);
   const [riskMatrixData, setRiskMatrixData] = useState<RiskMatrixEntry[]>([]);
@@ -156,7 +158,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItems, onSubmit }: RiskAs
       items: initialItems && initialItems.length > 0
         ? initialItems.map(item => ({
             mRiskId: item.mRiskId || '',
-            mHseCategoryId: item.mHseCategoryId || '',
+            mRiskCategoryId: item.mRiskCategoryId || item.mHseCategoryId || '',
             riskDescription: item.riskDescription || '',
             likelihoodLevel: item.likelihoodLevel || 1,
             consequenceLevel: item.consequenceLevel || 1,
@@ -170,7 +172,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItems, onSubmit }: RiskAs
         : [
             {
               mRiskId: '',
-              mHseCategoryId: '',
+              mRiskCategoryId: '',
               riskDescription: '',
               likelihoodLevel: 1,
               consequenceLevel: 1,
@@ -246,10 +248,10 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItems, onSubmit }: RiskAs
   };
 
   const handleAddItem = () => {
-    append({
-      mRiskId: '',
-      mHseCategoryId: '',
-      riskDescription: '',
+    append(            {
+              mRiskId: '',
+              mRiskCategoryId: '',
+              riskDescription: '',
       likelihoodLevel: 1,
       consequenceLevel: 1,
       riskMatrixRating: RiskRatingEnum.LOW,
@@ -265,7 +267,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItems, onSubmit }: RiskAs
     if (onSubmit) {
       onSubmit(data.items.map(item => ({
         mRiskId: item.mRiskId as string,
-        mHseCategoryId: item.mHseCategoryId as string,
+        mRiskCategoryId: item.mRiskCategoryId as string,
         riskDescription: item.riskDescription as string,
         likelihoodLevel: item.likelihoodLevel as number,
         consequenceLevel: item.consequenceLevel as number,
@@ -315,24 +317,26 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItems, onSubmit }: RiskAs
   };
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="flex items-center gap-2">
+          <div className="h-6 w-6 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+          <span>Loading...</span>
+        </div>
+      </div>
+    );
   }
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Risk Assessment Items</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium">Risk Assessment Items</h3>
-                <Button type="button" variant="outline" size="sm" onClick={handleAddItem}>
-                  <PlusCircle className="h-4 w-4 mr-2" /> Add Item
-                </Button>
-              </div>
+  const formContent = (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+        <div>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium">Risk Assessment Items</h3>
+            <Button type="button" variant="outline" size="sm" onClick={handleAddItem}>
+              <PlusCircle className="h-4 w-4 mr-2" /> Add Item
+            </Button>
+          </div>
 
               {fields.length === 0 && (
                 <div className="flex items-center justify-center p-6 border rounded-md mb-4 bg-muted/20">
@@ -364,7 +368,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItems, onSubmit }: RiskAs
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <FormField
                             control={form.control}
-                            name={`items.${index}.mHseCategoryId`}
+                            name={`items.${index}.mRiskCategoryId`}
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>
@@ -651,18 +655,36 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItems, onSubmit }: RiskAs
               )}
             </div>
 
-            {onSubmit && (
-              <div className="flex justify-end gap-4">
-                <Button type="submit">
-                  Save Items
+          {onSubmit && (
+            <div className="flex justify-end gap-4">
+              {onCancel && (
+                <Button type="button" variant="outline" onClick={onCancel}>
+                  Cancel
                 </Button>
-              </div>
-            )}
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
-  );
+              )}
+              <Button type="submit">
+                Save Items
+              </Button>
+            </div>
+          )}
+        </form>
+      </Form>
+    );
+
+  if (showCard) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Risk Assessment Items</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {formContent}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return formContent;
 };
 
 export default RiskAssessmentItemForm;

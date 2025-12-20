@@ -3,7 +3,7 @@ import api from '@/core/lib/api';
 
 export interface CreateRiskAssessmentItemDTO {
   mRiskId: string;
-  mHseCategoryId: string;
+  mRiskCategoryId: string;
   riskDescription: string;
   likelihoodLevel: number;
   consequenceLevel: number;
@@ -105,6 +105,31 @@ const riskAssessmentService = {
 
   deleteRiskControl: async (id: string): Promise<void> => {
     await api.delete(`/risk-control/${id}`);
+  },
+
+  // Risk Assessment Items endpoints
+  getItems: async (assessmentId: string, params: PaginationParams): Promise<PaginatedResponse<any>> => {
+    const response = await api.get(`/risk-assessment/${assessmentId}/items`, { params });
+    return response.data;
+  },
+
+  getItemById: async (assessmentId: string, itemId: string): Promise<any> => {
+    const response = await api.get(`/risk-assessment/${assessmentId}/items/${itemId}`);
+    return response.data;
+  },
+
+  createItem: async (assessmentId: string, data: CreateRiskAssessmentItemDTO): Promise<any> => {
+    const response = await api.post(`/risk-assessment/${assessmentId}/items`, data);
+    return response.data;
+  },
+
+  updateItem: async (assessmentId: string, itemId: string, data: Partial<CreateRiskAssessmentItemDTO>): Promise<any> => {
+    const response = await api.patch(`/risk-assessment/${assessmentId}/items/${itemId}`, data);
+    return response.data;
+  },
+
+  deleteItem: async (assessmentId: string, itemId: string): Promise<void> => {
+    await api.delete(`/risk-assessment/${assessmentId}/items/${itemId}`);
   }
 };
 

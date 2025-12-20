@@ -1,15 +1,17 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { FileEdit, ArrowLeft, AlertTriangle, CheckCircle2, XCircle, Clock, FileDown } from 'lucide-react';
+import { FileEdit, ArrowLeft, CheckCircle2, XCircle, Clock, FileDown, Plus, MoreHorizontal, Trash2, Eye } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
 
-import { Button } from '@/core/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/core/components/ui/card';
+import { Button, ThemeButton } from '@/core/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import { Separator } from '@/core/components/ui/separator';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/core/components/ui/table';
+import PageHeader from '@/core/components/ui/PageHeader';
+import DataTable from '@/core/components/ui/data-table/DataTable';
+import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import {
   Dialog,
   DialogContent,
@@ -18,21 +20,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/core/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/core/components/ui/dropdown-menu';
 import { Label } from '@/core/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
 import { Textarea } from '@/core/components/ui/textarea';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 
-import { RiskAssessment, ApprovalStatus } from '@/core/lib/types';
-import riskAssessmentService from '../services/riskAssessmentService';
+import { RiskAssessment, RiskAssessmentItem, ApprovalStatus } from '@/core/lib/types';
+import riskAssessmentService, { type CreateRiskAssessmentItemDTO } from '../services/riskAssessmentService';
 import { approvalService, type ApprovalStatusHistory } from '@/modules/master-data';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import RiskAssessmentItemForm from '../components/RiskAssessmentItemForm';
 
 const RiskAssessmentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toPDF, targetRef } = usePDF({ filename: 'risk-assessment.pdf' });
   const [assessment, setAssessment] = useState<RiskAssessment | null>(null);
+  const [items, setItems] = useState<RiskAssessmentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
@@ -40,7 +53,21 @@ const RiskAssessmentDetailPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  
+  // Items table state
+  const [pageIndex, setPageIndex] = useState(0);
+  const [limit, setLimit] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<RiskAssessmentItem | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  
+  // Add Item Dialog
+  const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
 
+  // Fetch assessment details
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -64,6 +91,40 @@ const RiskAssessmentDetailPage = () => {
 
     fetchData();
   }, [id, navigate]);
+
+  // Fetch items with pagination
+  const fetchItems = useCallback(async () => {
+    if (!id) return;
+    
+    setIsLoadingItems(true);
+    try {
+      const params: any = {
+        page: pageIndex + 1,
+        limit,
+      };
+
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+
+      Object.entries(activeFilters).forEach(([key, filter]) => {
+        params[key] = filter.value;
+      });
+
+      const response = await riskAssessmentService.getItems(id, params);
+      setItems(response.data);
+      setTotalItems(response.meta.total);
+    } catch (error) {
+      console.error('Failed to fetch items:', error);
+      toast.error('Failed to load risk assessment items');
+    } finally {
+      setIsLoadingItems(false);
+    }
+  }, [id, pageIndex, limit, searchTerm, activeFilters]);
+
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems]);
 
   const handleSubmitApproval = async () => {
     if (!id) return;
@@ -96,6 +157,72 @@ const RiskAssessmentDetailPage = () => {
     } catch (error) {
       toast.error('Failed to export PDF');
     }
+  };
+
+  const handleAddItem = async (itemsData: CreateRiskAssessmentItemDTO[]) => {
+    if (!id || !itemsData || itemsData.length === 0) return;
+
+    try {
+      // Create items one by one (or batch if backend supports it)
+      for (const itemData of itemsData) {
+        await riskAssessmentService.createItem(id, itemData);
+      }
+      toast.success('Risk assessment item(s) created successfully');
+      setIsAddItemDialogOpen(false);
+      fetchItems();
+      // Refresh assessment to update item count
+      const assessmentData = await riskAssessmentService.getById(id);
+      setAssessment(assessmentData);
+    } catch (error) {
+      console.error('Failed to create item:', error);
+      toast.error('Failed to create risk assessment item');
+    }
+  };
+
+  const handleDeleteItem = async (item: RiskAssessmentItem, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null);
+    setItemToDelete(item);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteItemConfirm = async () => {
+    if (!id || !itemToDelete) return;
+
+    try {
+      await riskAssessmentService.deleteItem(id, itemToDelete.id);
+      toast.success('Risk assessment item deleted successfully');
+      setOpenDropdownId(null);
+      fetchItems();
+      // Refresh assessment to update item count
+      const assessmentData = await riskAssessmentService.getById(id);
+      setAssessment(assessmentData);
+    } catch (error) {
+      console.error('Failed to delete item:', error);
+      toast.error('Failed to delete risk assessment item');
+    } finally {
+      setDeleteDialogOpen(false);
+      setItemToDelete(null);
+    }
+  };
+
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    setPageIndex(0);
+  };
+
+  const handleApplyFilters = (filters: FilterValue[]) => {
+    const newActiveFilters: Record<string, { value: any; label: string }> = {};
+    
+    filters.forEach(filter => {
+      newActiveFilters[filter.id] = {
+        value: filter.value,
+        label: String(filter.value)
+      };
+    });
+    
+    setActiveFilters(newActiveFilters);
+    setPageIndex(0);
   };
 
   // Get risk badge color based on rating
@@ -134,66 +261,171 @@ const RiskAssessmentDetailPage = () => {
     );
   };
 
+  // Define filter fields for items
+  const filterFields: FilterField[] = [
+    {
+      id: 'riskDescription',
+      label: 'Risk Description',
+      type: 'text',
+    },
+  ];
+
+  // Define columns for items table
+  const columns = [
+    {
+      id: 'category',
+      header: 'HSE Category',
+      cell: (item: RiskAssessmentItem) => (
+        <div className="font-medium">
+          {item.mHseCategory 
+            ? `${item.mHseCategory.code} - ${item.mHseCategory.name}` 
+            : 'N/A'}
+        </div>
+      ),
+      isSortable: true,
+    },
+    {
+      id: 'risk',
+      header: 'Risk',
+      cell: (item: RiskAssessmentItem) => (
+        <div>
+          {item.mRisk 
+            ? `${item.mRisk.code} - ${item.mRisk.name}` 
+            : 'N/A'}
+        </div>
+      ),
+      isSortable: true,
+    },
+    {
+      id: 'riskDescription',
+      header: 'Risk Description',
+      cell: (item: RiskAssessmentItem) => (
+        <div className="max-w-md truncate">{item.riskDescription}</div>
+      ),
+      isSortable: true,
+    },
+    {
+      id: 'likelihood',
+      header: 'Likelihood',
+      cell: (item: RiskAssessmentItem) => <div className="text-center">{item.likelihoodLevel}</div>,
+      isSortable: true,
+    },
+    {
+      id: 'consequence',
+      header: 'Consequence',
+      cell: (item: RiskAssessmentItem) => <div className="text-center">{item.consequenceLevel}</div>,
+      isSortable: true,
+    },
+    {
+      id: 'riskRating',
+      header: 'Risk Rating',
+      cell: (item: RiskAssessmentItem) => getRiskBadge(item.riskMatrixRating),
+      isSortable: true,
+    },
+    {
+      id: 'interpretation',
+      header: 'Interpretation',
+      cell: (item: RiskAssessmentItem) => getRiskBadge(item.interpretation),
+      isSortable: true,
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: (item: RiskAssessmentItem) => (
+        <DropdownMenu
+          open={openDropdownId === item.id}
+          onOpenChange={(open) => setOpenDropdownId(open ? item.id : null)}
+        >
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <span className="sr-only">Open menu</span>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => {/* View details - can be implemented later */}}>
+              <Eye className="mr-2 h-4 w-4" /> View details
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-red-600"
+              onClick={(e) => handleDeleteItem(item, e)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+      isSortable: false,
+    },
+  ];
+
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+          <span>Loading risk assessment details...</span>
+        </div>
+      </div>
+    );
   }
 
   if (!assessment) {
-    return null;
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Risk Assessment not found</h2>
+        <p className="text-gray-600 mb-4">The risk assessment you're looking for doesn't exist or has been deleted.</p>
+        <Button onClick={() => navigate('/risk-assessment')}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Risk Assessments
+        </Button>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => navigate('/risk-assessment')} 
-          className="mb-6"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Assessments
-        </Button>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            onClick={handleExportPDF}
-          >
-            <FileDown className="h-4 w-4 mr-2" />
-            Export PDF
-          </Button>
-          {canApprove && (
+      <PageHeader
+        title={`Risk Assessment: ${assessment.code}`}
+        subtitle={`Created on ${format(new Date(assessment.createdAt), 'dd MMM yyyy')}`}
+        actions={
+          <div className="flex gap-2">
             <Button 
-              variant="default"
-              onClick={() => setIsApprovalModalOpen(true)}
+              variant="outline"
+              onClick={handleExportPDF}
             >
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Submit Approval
+              <FileDown className="h-4 w-4 mr-2" />
+              Export PDF
             </Button>
-          )}
-          <Button onClick={() => navigate(`/risk-assessment/${id}/edit`)}>
-            <FileEdit className="h-4 w-4 mr-2" />
-            Edit Assessment
-          </Button>
+            {canApprove && (
+              <Button 
+                variant="default"
+                onClick={() => setIsApprovalModalOpen(true)}
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Submit Approval
+              </Button>
+            )}
+            <Button onClick={() => navigate(`/risk-assessment/${id}/edit`)}>
+              <FileEdit className="h-4 w-4 mr-2" />
+              Edit Assessment
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex items-center gap-3">
+          {getStatusBadge(assessment.status)}
         </div>
-      </div>
+      </PageHeader>
 
+      {/* Risk Assessment Details Card */}
       <div ref={targetRef}>
         <Card>
           <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle className="text-2xl">Risk Assessment: {assessment.code}</CardTitle>
-                <CardDescription>
-                  Created on {format(new Date(assessment.createdAt), 'dd MMM yyyy')}
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-3">
-                {getStatusBadge(assessment.status)}
-              </div>
-            </div>
+            <CardTitle>Assessment Details</CardTitle>
+            <CardDescription>Basic information about this risk assessment</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-8">
+          <CardContent className="space-y-6">
             {assessment.description && (
               <div className="space-y-2">
                 <p className="text-sm font-medium">Description</p>
@@ -228,177 +460,139 @@ const RiskAssessmentDetailPage = () => {
               </div>
             </div>
 
-            <Separator />
-
             {assessment.actionPlan && (
               <>
+                <Separator />
                 <div>
                   <h3 className="text-lg font-medium mb-4">Action Plan</h3>
                   <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: assessment.actionPlan }} />
                 </div>
-                <Separator />
               </>
-            )}
-
-            <div>
-              <h3 className="text-lg font-medium mb-4">Risk Assessment Items</h3>
-              
-              {assessment.items.length === 0 ? (
-                <div className="flex items-center justify-center p-6 border rounded-md bg-muted/20">
-                  <AlertTriangle className="h-5 w-5 mr-2 text-amber-500" />
-                  <p>No risk items available for this assessment.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {assessment.items.map((item) => (
-                    <Card key={item.id} className="border">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base">
-                          {item.mHseCategory 
-                            ? `${item.mHseCategory.code} - ${item.mHseCategory.name}` 
-                            : 'Unknown Category'} - {item.mRisk 
-                            ? `${item.mRisk.code} - ${item.mRisk.name}` 
-                            : 'Unknown Risk'}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        {item.riskDescription && (
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium">Risk Description</p>
-                            <p className="text-sm text-muted-foreground">{item.riskDescription}</p>
-                          </div>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium">Likelihood</p>
-                            <p className="text-sm">{item.likelihoodLevel}</p>
-                          </div>
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium">Consequence</p>
-                            <p className="text-sm">{item.consequenceLevel}</p>
-                          </div>
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium">Risk Rating</p>
-                            <div>{getRiskBadge(item.riskMatrixRating)}</div>
-                          </div>
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium">Interpretation</p>
-                            <div>{getRiskBadge(item.interpretation)}</div>
-                          </div>
-                        </div>
-
-                        <Separator />
-
-                        <div>
-                          <h4 className="text-sm font-medium mb-3">Post-Control Assessment</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="space-y-2">
-                              <p className="text-sm font-medium">Post Likelihood</p>
-                              <p className="text-sm">{item.postLikelihoodLevel}</p>
-                            </div>
-                            <div className="space-y-2">
-                              <p className="text-sm font-medium">Post Consequence</p>
-                              <p className="text-sm">{item.postConsequenceLevel}</p>
-                            </div>
-                            <div className="space-y-2">
-                              <p className="text-sm font-medium">Post Risk Rating</p>
-                              <div>{getRiskBadge(item.postRiskMatrixRating)}</div>
-                            </div>
-                            <div className="space-y-2">
-                              <p className="text-sm font-medium">Post Interpretation</p>
-                              <div>{getRiskBadge(item.postInterpretation)}</div>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-between border-t p-6">
-            <div className="text-sm text-muted-foreground">
-              Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}
-            </div>
-          </CardFooter>
-        </Card>
-
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Approval History</CardTitle>
-            <CardDescription>Track the approval progress of this risk assessment</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoadingHistory ? (
-              <div className="flex items-center justify-center p-6">
-                <p>Loading approval history...</p>
-              </div>
-            ) : !approvalHistory?.history.length ? (
-              <div className="flex items-center justify-center p-6 border rounded-md bg-muted/20">
-                <Clock className="h-5 w-5 mr-2 text-muted-foreground" />
-                <p>No approval history available.</p>
-              </div>
-            ) : (
-              <div className="relative">
-                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
-                <div className="space-y-8">
-                  {approvalHistory.history.map((item, index) => (
-                    <div key={item.id} className="relative pl-8">
-                      <div className="absolute left-0 w-8 flex items-center justify-center">
-                        <div className={`w-3 h-3 rounded-full ${
-                          item.status === 'APPROVED' ? 'bg-green-500' : 
-                          item.status === 'REJECTED' ? 'bg-red-500' : 
-                          'bg-yellow-500'
-                        }`} />
-                      </div>
-                      <div className="bg-card border rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <Badge variant={
-                              item.status === 'APPROVED' ? 'default' :
-                              item.status === 'REJECTED' ? 'destructive' :
-                              'secondary'
-                            }>
-                              {item.status}
-                            </Badge>
-                            <span className="text-sm text-muted-foreground">
-                              {format(new Date(item.createdAt), 'dd MMM yyyy HH:mm')}
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-sm mb-2">{item.notes}</p>
-                        <div className="text-xs text-muted-foreground">
-                          <p>Approved by: {item.creator.name}</p>
-                          <p>Department: {item.department.name}</p>
-                          <p>Position: {item.jobPosition.name}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {approvalHistory.nextApprover && (
-                    <div className="relative pl-8">
-                      <div className="absolute left-0 w-8 flex items-center justify-center">
-                        <div className="w-3 h-3 rounded-full bg-blue-500" />
-                      </div>
-                      <div className="bg-blue-50 border-blue-100 border rounded-lg p-4">
-                        <p className="font-medium mb-1">Waiting for Approval</p>
-                        <div className="text-sm text-muted-foreground">
-                          <p>Department: {approvalHistory.nextApprover.department.name}</p>
-                          <p>Position: {approvalHistory.nextApprover.jobPosition.name}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
             )}
           </CardContent>
         </Card>
       </div>
 
+      {/* Risk Assessment Items Section */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold">Risk Assessment Items</h2>
+          <ThemeButton onClick={() => setIsAddItemDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Add Item
+          </ThemeButton>
+        </div>
+
+        <DataTable
+          columns={columns}
+          data={items}
+          isLoading={isLoadingItems}
+          pagination={{
+            pageIndex,
+            limit,
+            pageCount: Math.ceil(totalItems / limit),
+            onPageChange: setPageIndex,
+            onPageSizeChange: setLimit,
+            total: totalItems,
+          }}
+          filterFields={filterFields}
+          onSearch={handleSearch}
+          onApplyFilters={handleApplyFilters}
+        />
+      </div>
+
+      {/* Approval History Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Approval History</CardTitle>
+          <CardDescription>Track the approval progress of this risk assessment</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingHistory ? (
+            <div className="flex items-center justify-center p-6">
+              <p>Loading approval history...</p>
+            </div>
+          ) : !approvalHistory?.history.length ? (
+            <div className="flex items-center justify-center p-6 border rounded-md bg-muted/20">
+              <Clock className="h-5 w-5 mr-2 text-muted-foreground" />
+              <p>No approval history available.</p>
+            </div>
+          ) : (
+            <div className="relative">
+              <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+              <div className="space-y-8">
+                {approvalHistory.history.map((item) => (
+                  <div key={item.id} className="relative pl-8">
+                    <div className="absolute left-0 w-8 flex items-center justify-center">
+                      <div className={`w-3 h-3 rounded-full ${
+                        item.status === 'APPROVED' ? 'bg-green-500' : 
+                        item.status === 'REJECTED' ? 'bg-red-500' : 
+                        'bg-yellow-500'
+                      }`} />
+                    </div>
+                    <div className="bg-card border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={
+                            item.status === 'APPROVED' ? 'default' :
+                            item.status === 'REJECTED' ? 'destructive' :
+                            'secondary'
+                          }>
+                            {item.status}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {format(new Date(item.createdAt), 'dd MMM yyyy HH:mm')}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-sm mb-2">{item.notes}</p>
+                      <div className="text-xs text-muted-foreground">
+                        <p>Approved by: {item.creator.name}</p>
+                        <p>Department: {item.department.name}</p>
+                        <p>Position: {item.jobPosition.name}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {approvalHistory.nextApprover && (
+                  <div className="relative pl-8">
+                    <div className="absolute left-0 w-8 flex items-center justify-center">
+                      <div className="w-3 h-3 rounded-full bg-blue-500" />
+                    </div>
+                    <div className="bg-blue-50 border-blue-100 border rounded-lg p-4">
+                      <p className="font-medium mb-1">Waiting for Approval</p>
+                      <div className="text-sm text-muted-foreground">
+                        <p>Department: {approvalHistory.nextApprover.department.name}</p>
+                        <p>Position: {approvalHistory.nextApprover.jobPosition.name}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add Item Dialog */}
+      <Dialog open={isAddItemDialogOpen} onOpenChange={setIsAddItemDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Risk Assessment Item</DialogTitle>
+            <DialogDescription>
+              Add a new risk assessment item to this assessment.
+            </DialogDescription>
+          </DialogHeader>
+          <RiskAssessmentItemForm
+            assessmentId={id}
+            onSubmit={handleAddItem}
+            onCancel={() => setIsAddItemDialogOpen(false)}
+            showCard={false}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval Dialog */}
       <Dialog open={isApprovalModalOpen} onOpenChange={setIsApprovalModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -461,9 +655,24 @@ const RiskAssessmentDetailPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Item Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteDialogOpen(false);
+            setItemToDelete(null);
+            setOpenDropdownId(null);
+          }
+        }}
+        title="Delete Risk Assessment Item"
+        description={`Are you sure you want to delete this risk assessment item? This action cannot be undone.`}
+        onConfirm={handleDeleteItemConfirm}
+        variant="destructive"
+      />
     </div>
   );
 };
 
 export default RiskAssessmentDetailPage;
-
