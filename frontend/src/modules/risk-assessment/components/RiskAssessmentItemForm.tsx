@@ -29,6 +29,7 @@ import { ModalCombobox, ModalComboboxOption } from '@/core/components/ui/modal-c
 
 import { RiskRatingEnum, Risk, RiskCategory } from '@/core/lib/types';
 import riskAssessmentService, { type CreateRiskAssessmentItemDTO } from '../services/riskAssessmentService';
+import riskMitigationService, { type RiskMitigation } from '../services/riskMitigationService';
 import { riskCategoryService, riskService } from '@/modules/master-data';
 import { createRiskCategoryFromQuery } from '@/modules/master-data/pages/risk-categories';
 import { createRiskFromQuery } from '@/modules/master-data/pages/risks';
@@ -73,10 +74,12 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
   const [risks, setRisks] = useState<Risk[]>([]);
   const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
   const [riskMatrixData, setRiskMatrixData] = useState<RiskMatrixEntry[]>([]);
+  const [riskMitigations, setRiskMitigations] = useState<RiskMitigation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingRisks, setIsLoadingRisks] = useState(false);
   const [isLoadingRiskCategories, setIsLoadingRiskCategories] = useState(false);
+  const [isLoadingRiskMitigations, setIsLoadingRiskMitigations] = useState(false);
 
   // Convert data to SearchableSelectOption format (use SearchableSelect outside modal, ModalCombobox inside modal)
   const riskOptions: ModalComboboxOption[] = risks.map(risk => ({
@@ -384,6 +387,31 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
   const consequenceLevel = form.watch('consequenceLevel');
   const postLikelihoodLevel = form.watch('postLikelihoodLevel');
   const postConsequenceLevel = form.watch('postConsequenceLevel');
+  const selectedRiskId = form.watch('mRiskId');
+
+  // Fetch risk mitigations when risk is selected
+  useEffect(() => {
+    const fetchRiskMitigations = async () => {
+      if (!selectedRiskId) {
+        setRiskMitigations([]);
+        return;
+      }
+
+      setIsLoadingRiskMitigations(true);
+      try {
+        const mitigations = await riskMitigationService.getByRiskId(selectedRiskId);
+        setRiskMitigations(mitigations);
+      } catch (error) {
+        console.error('Failed to fetch risk mitigations:', error);
+        toast.error('Failed to load risk mitigation options');
+        setRiskMitigations([]);
+      } finally {
+        setIsLoadingRiskMitigations(false);
+      }
+    };
+
+    fetchRiskMitigations();
+  }, [selectedRiskId]);
 
   if (isLoading) {
     return (
@@ -583,6 +611,68 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
               </FormItem>
             )}
           />
+        </div>
+
+        <Separator />
+
+        {/* Risk Mitigation Options Section */}
+        <div>
+          <h3 className="text-lg font-medium mb-4">Risk Mitigation Options</h3>
+          {isLoadingRiskMitigations ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm text-muted-foreground">Loading risk mitigation options...</span>
+              </div>
+            </div>
+          ) : selectedRiskId && riskMitigations.length > 0 ? (
+            <div className="space-y-4">
+              {riskMitigations.map((mitigation) => (
+                <div key={mitigation.id} className="space-y-4">
+                  {mitigation.eliminate && (
+                    <div>
+                      <FormLabel className="text-sm font-medium text-muted-foreground">Eliminate</FormLabel>
+                      <div className="mt-1 p-3 rounded-md border bg-card text-card-foreground">
+                        <p className="text-sm">{mitigation.eliminate}</p>
+                      </div>
+                    </div>
+                  )}
+                  {mitigation.transfer && (
+                    <div>
+                      <FormLabel className="text-sm font-medium text-muted-foreground">Transfer</FormLabel>
+                      <div className="mt-1 p-3 rounded-md border bg-card text-card-foreground">
+                        <p className="text-sm">{mitigation.transfer}</p>
+                      </div>
+                    </div>
+                  )}
+                  {mitigation.reduce && (
+                    <div>
+                      <FormLabel className="text-sm font-medium text-muted-foreground">Reduce</FormLabel>
+                      <div className="mt-1 p-3 rounded-md border bg-card text-card-foreground">
+                        <p className="text-sm">{mitigation.reduce}</p>
+                      </div>
+                    </div>
+                  )}
+                  {mitigation.accept && (
+                    <div>
+                      <FormLabel className="text-sm font-medium text-muted-foreground">Accept</FormLabel>
+                      <div className="mt-1 p-3 rounded-md border bg-card text-card-foreground">
+                        <p className="text-sm">{mitigation.accept}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : selectedRiskId ? (
+            <div className="text-center py-8 text-sm text-muted-foreground">
+              No risk mitigation options available for the selected risk.
+            </div>
+          ) : (
+            <div className="text-center py-8 text-sm text-muted-foreground">
+              Please select a risk to view mitigation options.
+            </div>
+          )}
         </div>
 
         <Separator />
