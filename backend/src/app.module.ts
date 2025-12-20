@@ -15,7 +15,7 @@ import { DepartmentsModule } from './modules/departments/departments.module';
 import { JobPositionsModule } from './modules/job-positions/job-positions.module';
 import { HseCategoriesModule } from './modules/hse-categories/hse-categories.module';
 import { RisksModule } from './modules/risks/risks.module';
-import { ThreatMitigationsModule } from './modules/threat-mitigations/threat-mitigations.module';
+import { RiskMitigationsModule } from './modules/risk-mitigations/risk-mitigations.module';
 import { RiskAssessmentModule } from './modules/risk-assessment/risk-assessment.module';
 import { RiskMatrixModule } from './modules/risk-matrix/risk-matrix.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
@@ -58,7 +58,7 @@ import { WasteManagementModule } from './modules/waste-management/waste-manageme
     JobPositionsModule,
     HseCategoriesModule,
     RisksModule,
-    ThreatMitigationsModule,
+    RiskMitigationsModule,
     RiskAssessmentModule,
     RiskMatrixModule,
     DashboardModule,

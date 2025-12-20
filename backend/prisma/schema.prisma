@@ -229,24 +229,26 @@ model Risk {
   updatedAt           DateTime             @updatedAt
   hseCategoryId       String
   hseCategory         HseCategory          @relation(fields: [hseCategoryId], references: [id])
-  mitigations         ThreatMitigation[]
+  mitigations         RiskMitigation[]
   riskAssessmentItems RiskAssessmentItem[]
   workPermitHazards   WorkPermitHazard[]
 
   @@map("m_risk")
 }
 
-model ThreatMitigation {
-  id                    String   @id @default(uuid())
-  level                 Int
-  mitigationDescription String   @db.Text
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  threatId              String   @map("threatId")
-  risk                  Risk     @relation(fields: [threatId], references: [id])
+model RiskMitigation {
+  id        String   @id @default(uuid())
+  eliminate String?  @db.Text
+  transfer  String?  @db.Text
+  reduce    String?  @db.Text
+  accept    String?  @db.Text
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  riskId    String
+  risk      Risk     @relation(fields: [riskId], references: [id])
 
-  @@map("m_threat_mitigations")
+  @@map("m_risk_mitigations")
 }
 
 model RiskControl {

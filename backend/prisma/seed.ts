@@ -7,7 +7,7 @@ import { seedDepartments } from './seeds/departments.seed';
 import { seedJobPositions } from './seeds/jobpositions.seed';
 import { seedHseCategories } from './seeds/hse-categories.seed';
 import { seedThreats } from './seeds/threats.seed'; // TODO: Rename to risks.seed.ts
-import { seedThreatMitigations } from './seeds/threat-mitigations.seed';
+import { seedRiskMitigations } from './seeds/risk-mitigations.seed'; // TODO: Remove old threat-mitigations.seed.ts
 import { seedRiskMatrix } from './seeds/risk-matrix.seed';
 import { seedSettings } from './seeds/settings.seed';
 import { seedMenus } from './seeds/menus.seed';
@@ -118,7 +118,21 @@ async function main() {
       await prisma.office.deleteMany();
       await prisma.department.deleteMany();
       await prisma.jobPosition.deleteMany();
-      await prisma.threatMitigation.deleteMany();
+      // Try to delete from riskMitigation table (new name after migration)
+      try {
+        await (prisma as any).riskMitigation.deleteMany();
+      } catch (error: any) {
+        // If table doesn't exist yet (P2021), try old table name
+        if (error.code === 'P2021') {
+          try {
+            await prisma.threatMitigation.deleteMany();
+          } catch {
+            // Ignore if old table also doesn't exist
+          }
+        } else {
+          throw error;
+        }
+      }
       // Try to delete from m_risk table (new name after migration)
       try {
         await (prisma as any).risk.deleteMany();
@@ -156,7 +170,21 @@ async function main() {
           await prisma.jobPosition.deleteMany();
           break;
         case 'hse_categories':
-          await prisma.threatMitigation.deleteMany();
+          // Try to delete from riskMitigation table (new name after migration)
+      try {
+        await (prisma as any).riskMitigation.deleteMany();
+      } catch (error: any) {
+        // If table doesn't exist yet (P2021), try old table name
+        if (error.code === 'P2021') {
+          try {
+            await prisma.threatMitigation.deleteMany();
+          } catch {
+            // Ignore if old table also doesn't exist
+          }
+        } else {
+          throw error;
+        }
+      }
           // Try to delete from m_risk table (new name after migration)
           try {
             await (prisma as any).risk.deleteMany();
@@ -170,7 +198,21 @@ async function main() {
           break;
         case 'risks':
         case 'threats': // Keep for backward compatibility
-          await prisma.threatMitigation.deleteMany();
+          // Try to delete from riskMitigation table (new name after migration)
+      try {
+        await (prisma as any).riskMitigation.deleteMany();
+      } catch (error: any) {
+        // If table doesn't exist yet (P2021), try old table name
+        if (error.code === 'P2021') {
+          try {
+            await prisma.threatMitigation.deleteMany();
+          } catch {
+            // Ignore if old table also doesn't exist
+          }
+        } else {
+          throw error;
+        }
+      }
           // Try to delete from m_risk table (new name after migration)
           try {
             await (prisma as any).risk.deleteMany();
@@ -181,8 +223,23 @@ async function main() {
             }
           }
           break;
-        case 'threat_mitigations':
-          await prisma.threatMitigation.deleteMany();
+        case 'risk_mitigations':
+        case 'threat_mitigations': // Keep for backward compatibility
+          // Try to delete from riskMitigation table (new name after migration)
+      try {
+        await (prisma as any).riskMitigation.deleteMany();
+      } catch (error: any) {
+        // If table doesn't exist yet (P2021), try old table name
+        if (error.code === 'P2021') {
+          try {
+            await prisma.threatMitigation.deleteMany();
+          } catch {
+            // Ignore if old table also doesn't exist
+          }
+        } else {
+          throw error;
+        }
+      }
           break;
         case 'risk_matrix':
           await prisma.riskMatrix.deleteMany();
@@ -286,7 +343,7 @@ async function main() {
       // Seed HSE-related data
       const hseCategories = await seedHseCategories(prisma);
       const risks = await seedThreats(prisma, hseCategories.map(c => c.id)); // TODO: Update seedThreats to seedRisks
-      await seedThreatMitigations(prisma, risks.map(t => t.id));
+      await seedRiskMitigations(prisma, risks.map(t => t.id));
 
       // Seed Risk Matrix
       await seedRiskMatrix(prisma);
@@ -354,7 +411,8 @@ async function main() {
           }
           await seedThreats(prisma, categories.map(c => c.id)); // TODO: Update to seedRisks
           break;
-        case 'threat_mitigations':
+        case 'risk_mitigations':
+        case 'threat_mitigations': // Keep for backward compatibility
           // Find existing risks or create new ones if they don't exist
           let cats, risks;
           try {
@@ -386,7 +444,7 @@ async function main() {
             cats = await seedHseCategories(prisma);
             risks = await seedThreats(prisma, cats.map(c => c.id)); // TODO: Update to seedRisks
           }
-          await seedThreatMitigations(prisma, risks.map(t => t.id));
+          await seedRiskMitigations(prisma, risks.map(t => t.id));
           break;
         case 'risk_matrix':
           await seedRiskMatrix(prisma);

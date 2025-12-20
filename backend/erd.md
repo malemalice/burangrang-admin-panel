@@ -381,18 +381,20 @@ Table m_risk {
   }
 }
 
-Table m_threat_mitigations {
+Table m_risk_mitigations {
   id varchar [pk, default: `uuid()`]
-  level int [not null, note: 'Mitigation level']
-  mitigationDescription text [not null]
+  eliminate text [null]
+  transfer text [null]
+  reduce text [null]
+  accept text [null]
   isActive boolean [not null, default: true]
-  threatId varchar [not null, ref: > m_risk.id]
+  riskId varchar [not null, ref: > m_risk.id]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
-  Note: 'Mitigation strategies for risks'
+  Note: 'Risk mitigation strategies with control measures'
   indexes {
-    threatId
+    riskId
     level
   }
 }
@@ -1921,7 +1923,7 @@ TableGroup approval_system {
 TableGroup risk_management {
   m_risk_categories
   m_risk
-  m_threat_mitigations
+  m_risk_mitigations
   t_risk_control
 }
 
