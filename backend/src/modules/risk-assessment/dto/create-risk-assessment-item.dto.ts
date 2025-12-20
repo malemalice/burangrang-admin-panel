@@ -23,9 +23,9 @@ export class CreateRiskAssessmentItemDto {
   @ApiProperty({ minimum: 1, maximum: 5 })
   consequenceLevel: number;
 
-  @IsEnum(RiskRatingEnum)
-  @ApiProperty({ enum: RiskRatingEnum })
-  riskMatrixRating: RiskRatingEnum;
+  @IsString()
+  @ApiProperty({ description: 'Risk matrix rating as combination of consequence and likelihood (e.g., A1, B2, B4)' })
+  riskMatrixRating: string;
 
   @IsEnum(RiskRatingEnum)
   @ApiProperty({ enum: RiskRatingEnum })
@@ -43,9 +43,9 @@ export class CreateRiskAssessmentItemDto {
   @ApiProperty({ minimum: 1, maximum: 5 })
   postConsequenceLevel: number;
 
-  @IsEnum(RiskRatingEnum)
-  @ApiProperty({ enum: RiskRatingEnum })
-  postRiskMatrixRating: RiskRatingEnum;
+  @IsString()
+  @ApiProperty({ description: 'Post-control risk matrix rating as combination of consequence and likelihood (e.g., A1, B2, B4)' })
+  postRiskMatrixRating: string;
 
   @IsEnum(RiskRatingEnum)
   @ApiProperty({ enum: RiskRatingEnum })

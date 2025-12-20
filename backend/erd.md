@@ -471,11 +471,11 @@ Table t_risk_assessment_item {
   riskDescription text [not null]
   likelihoodLevel int [not null]
   consequenceLevel int [not null]
-  riskMatrixRating RiskRatingEnum [not null]
+  riskMatrixRating text [not null]
   interpretation RiskRatingEnum [not null]
   postLikelihoodLevel int [not null]
   postConsequenceLevel int [not null]
-  postRiskMatrixRating RiskRatingEnum [not null]
+  postRiskMatrixRating text [not null]
   postInterpretation RiskRatingEnum [not null]
   
   Note: 'Individual risk assessment entries'

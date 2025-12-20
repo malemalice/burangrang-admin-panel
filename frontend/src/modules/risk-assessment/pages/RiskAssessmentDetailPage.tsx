@@ -249,7 +249,7 @@ const RiskAssessmentDetailPage = () => {
               assessmentId={id}
               initialItem={{
                 mRiskId: editingItem.mRiskId,
-                mRiskCategoryId: editingItem.mHseCategoryId,
+                mRiskCategoryId: editingItem.mRiskCategoryId,
                 likelihoodLevel: editingItem.likelihoodLevel,
                 consequenceLevel: editingItem.consequenceLevel,
                 riskMatrixRating: editingItem.riskMatrixRating,

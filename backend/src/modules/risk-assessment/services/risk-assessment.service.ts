@@ -44,7 +44,7 @@ export class RiskAssessmentService {
         createdBy: userId, // Use authenticated user ID from request
         ...(items && items.length > 0 && {
           items: {
-            create: items, // Prisma will automatically map mRiskId to mThreatId column via @map
+            create: items, // Prisma will automatically map mRiskId to mriskid column via @map
           },
         }),
       },
@@ -189,7 +189,7 @@ export class RiskAssessmentService {
         ...(items && {
           items: {
             deleteMany: {},
-            create: items, // Prisma will automatically map mRiskId to mThreatId column via @map
+            create: items, // Prisma will automatically map mRiskId to mriskid column via @map
           },
         }),
       },

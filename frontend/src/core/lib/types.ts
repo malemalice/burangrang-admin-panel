@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Core entity types
 
 export interface User {
@@ -204,8 +205,8 @@ export interface RiskAssessmentItem {
   riskAssessmentId: string;
   mRiskId: string;
   mRisk?: Risk;
-  mHseCategoryId: string;
-  mHseCategory?: HseCategory;
+  mRiskCategoryId: string;
+  mRiskCategory?: RiskCategory;
   likelihoodLevel: number;
   consequenceLevel: number;
   riskMatrixRating: RiskRatingEnum;

@@ -157,11 +157,11 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
       mRiskCategoryId: initialItem?.mRiskCategoryId || '',
       likelihoodLevel: initialItem?.likelihoodLevel || 1,
       consequenceLevel: initialItem?.consequenceLevel || 1,
-      riskMatrixRating: initialItem?.riskMatrixRating || RiskRatingEnum.LOW,
+      riskMatrixRating: initialItem?.riskMatrixRating || '',
       interpretation: initialItem?.interpretation || RiskRatingEnum.LOW,
       postLikelihoodLevel: initialItem?.postLikelihoodLevel || initialItem?.likelihoodLevel || 1,
       postConsequenceLevel: initialItem?.postConsequenceLevel || initialItem?.consequenceLevel || 1,
-      postRiskMatrixRating: initialItem?.postRiskMatrixRating || initialItem?.riskMatrixRating || RiskRatingEnum.LOW,
+      postRiskMatrixRating: initialItem?.postRiskMatrixRating || initialItem?.riskMatrixRating || '',
       postInterpretation: initialItem?.postInterpretation || initialItem?.interpretation || RiskRatingEnum.LOW,
     },
   });
@@ -303,14 +303,16 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
 
     try {
       const response = await riskAssessmentService.calculateRiskRating(likelihoodLevel, consequenceLetter.toUpperCase());
-      const rating = response.riskLevel.description.split(' ')[0].toUpperCase();
-      const interpretation = response.interpretation || rating;
+      const interpretation = response.interpretation || response.riskLevel?.description?.split(' ')[0].toUpperCase();
+      
+      // Generate the combination code (e.g., A1, B2, B4)
+      const riskMatrixCode = getRiskRatingCode(consequenceLevel, likelihoodLevel);
       
       if (isPostControl) {
-        form.setValue('postRiskMatrixRating', rating);
+        form.setValue('postRiskMatrixRating', riskMatrixCode);
         form.setValue('postInterpretation', interpretation);
       } else {
-        form.setValue('riskMatrixRating', rating);
+        form.setValue('riskMatrixRating', riskMatrixCode);
         form.setValue('interpretation', interpretation);
       }
     } catch (error) {
@@ -358,7 +360,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
   };
 
   // Get risk rating code from backend risk matrix data
-  const getRiskRatingCode = (consequenceLevel: number, likelihoodLevel: number): string => {
+  const getRiskRatingCode = useCallback((consequenceLevel: number, likelihoodLevel: number): string => {
     if (!riskMatrixData || riskMatrixData.length === 0 || !consequenceNumberToLetter) return '';
     
     // Convert consequence level number (1-N) to letter code (A-Z) using dynamic mapping
@@ -373,7 +375,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
     if (!matrixEntry) return `${consequenceCode}${likelihoodLevel}`;
     
     return `${matrixEntry.consequenceLevel}${matrixEntry.likelihoodLevel}`;
-  };
+  }, [riskMatrixData, consequenceNumberToLetter]);
 
   // Watch form values for risk rating code calculation
   const likelihoodLevel = form.watch('likelihoodLevel');
@@ -381,6 +383,30 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
   const postLikelihoodLevel = form.watch('postLikelihoodLevel');
   const postConsequenceLevel = form.watch('postConsequenceLevel');
   const selectedRiskId = form.watch('mRiskId');
+
+  // Sync risk rating when likelihood or consequence changes (pre-control)
+  useEffect(() => {
+    if (!likelihoodLevel || !consequenceLevel) return;
+    
+    const riskCode = getRiskRatingCode(consequenceLevel, likelihoodLevel);
+    const currentValue = form.getValues('riskMatrixRating');
+    
+    if (riskCode && currentValue !== riskCode) {
+      form.setValue('riskMatrixRating', riskCode, { shouldValidate: true });
+    }
+  }, [likelihoodLevel, consequenceLevel, form, getRiskRatingCode]);
+
+  // Sync post risk rating when post likelihood or post consequence changes
+  useEffect(() => {
+    if (!postLikelihoodLevel || !postConsequenceLevel) return;
+    
+    const postRiskCode = getRiskRatingCode(postConsequenceLevel, postLikelihoodLevel);
+    const currentValue = form.getValues('postRiskMatrixRating');
+    
+    if (postRiskCode && currentValue !== postRiskCode) {
+      form.setValue('postRiskMatrixRating', postRiskCode, { shouldValidate: true });
+    }
+  }, [postLikelihoodLevel, postConsequenceLevel, form, getRiskRatingCode]);
 
   // Fetch risk mitigations when risk is selected
   useEffect(() => {

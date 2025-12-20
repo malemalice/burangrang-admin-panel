@@ -55,8 +55,8 @@ export const RiskAssessmentItemsTable = ({
       header: 'Risk Category',
       cell: (item: RiskAssessmentItem) => (
         <div className="font-medium">
-          {item.mRisk?.riskCategory 
-            ? `${item.mRisk.riskCategory.code} - ${item.mRisk.riskCategory.name}` 
+          {item.mRiskCategory
+            ? `${item.mRiskCategory.code} - ${item.mRiskCategory.name}` 
             : 'N/A'}
         </div>
       ),

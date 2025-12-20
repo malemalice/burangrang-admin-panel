@@ -317,17 +317,17 @@ model RiskAssessmentItem {
   id                  String         @id @default(uuid())
   riskAssessmentId    String
   riskAssessment      RiskAssessment @relation(fields: [riskAssessmentId], references: [id])
-  mRiskId             String         @map("mThreatId")
+  mRiskId             String         @map("mriskid")
   mRisk               Risk           @relation(fields: [mRiskId], references: [id])
   mRiskCategoryId     String
   mRiskCategory       RiskCategory         @relation(fields: [mRiskCategoryId], references: [id])
   likelihoodLevel     Int
   consequenceLevel    Int
-  riskMatrixRating    RiskRatingEnum
+  riskMatrixRating    String
   interpretation      RiskRatingEnum
   postLikelihoodLevel Int
   postConsequenceLevel Int
-  postRiskMatrixRating RiskRatingEnum
+  postRiskMatrixRating String
   postInterpretation   RiskRatingEnum
 
   @@map("t_risk_assessment_item")

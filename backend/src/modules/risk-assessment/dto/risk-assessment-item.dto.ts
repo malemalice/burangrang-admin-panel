@@ -37,9 +37,9 @@ export class RiskAssessmentItemDto {
   @Expose()
   consequenceLevel: number;
 
-  @ApiProperty({ enum: RiskRatingEnum })
+  @ApiProperty({ description: 'Risk matrix rating as combination of consequence and likelihood (e.g., A1, B2, B4)' })
   @Expose()
-  riskMatrixRating: RiskRatingEnum;
+  riskMatrixRating: string;
 
   @ApiProperty({ enum: RiskRatingEnum })
   @Expose()
@@ -53,9 +53,9 @@ export class RiskAssessmentItemDto {
   @Expose()
   postConsequenceLevel: number;
 
-  @ApiProperty({ enum: RiskRatingEnum })
+  @ApiProperty({ description: 'Post-control risk matrix rating as combination of consequence and likelihood (e.g., A1, B2, B4)' })
   @Expose()
-  postRiskMatrixRating: RiskRatingEnum;
+  postRiskMatrixRating: string;
 
   @ApiProperty({ enum: RiskRatingEnum })
   @Expose()
