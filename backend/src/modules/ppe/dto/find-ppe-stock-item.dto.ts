@@ -59,5 +59,25 @@ export class FindPPEStockItemDto {
         return value;
     })
     availableOnly?: boolean;
+
+    @ApiProperty({ required: false, description: 'Group by safety equipment and aggregate quantities' })
+    @IsBoolean()
+    @IsOptional()
+    @Transform(({ value }) => {
+        if (value === 'true') return true;
+        if (value === 'false') return false;
+        return value;
+    })
+    groupBySafetyEquipment?: boolean;
+
+    @ApiProperty({ required: false, description: 'Include expired items for disposal' })
+    @IsBoolean()
+    @IsOptional()
+    @Transform(({ value }) => {
+        if (value === 'true') return true;
+        if (value === 'false') return false;
+        return value;
+    })
+    includeExpired?: boolean;
 }
 

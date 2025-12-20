@@ -16,6 +16,7 @@ import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { usePPEWithdrawals } from '../hooks/usePPE';
 import { PPEWithdrawal, PPEWithdrawalSearchParams, PPEWithdrawalStatus } from '../types/ppe.types';
 import { FilterField } from '@/core/components/ui/filter-drawer';
+import { departmentService, type Department } from '@/modules/master-data';
 
 const PPEWithdrawPage = () => {
     const navigate = useNavigate();
@@ -27,6 +28,20 @@ const PPEWithdrawPage = () => {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [withdrawalToDelete, setWithdrawalToDelete] = useState<PPEWithdrawal | null>(null);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+    const [departments, setDepartments] = useState<Department[]>([]);
+
+    // Fetch departments for filter
+    useEffect(() => {
+        const fetchDepartments = async () => {
+            try {
+                const response = await departmentService.getDepartments({ page: 1, limit: 1000 });
+                setDepartments(response.data);
+            } catch (error) {
+                console.error('Failed to fetch departments:', error);
+            }
+        };
+        fetchDepartments();
+    }, []);
 
     const filterFields: FilterField[] = useMemo(() => [
         {
@@ -48,7 +63,11 @@ const PPEWithdrawPage = () => {
         {
             id: 'departmentId',
             label: 'Department',
-            type: 'text',
+            type: 'select',
+            options: departments.map((dept) => ({
+                label: dept.name,
+                value: dept.id,
+            })),
         },
         {
             id: 'withdrawalDateFrom',
