@@ -20,10 +20,10 @@ export interface CreateRiskAssessmentDTO {
   description?: string;
   departmentId: string;
   assessmentDate?: Date;
-  createdBy: string;
+  createdBy?: string; // Optional - backend sets this from authenticated user
   status: string;
   isActive?: boolean;
-  items: CreateRiskAssessmentItemDTO[];
+  items?: CreateRiskAssessmentItemDTO[];
   assigneeId?: string;
   actionPlan?: string;
 }

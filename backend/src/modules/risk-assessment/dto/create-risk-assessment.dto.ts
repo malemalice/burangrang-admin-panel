@@ -37,8 +37,9 @@ export class CreateRiskAssessmentDto {
   assessmentDate?: Date;
 
   @IsString()
-  @ApiProperty()
-  createdBy: string;
+  @IsOptional()
+  @ApiProperty({ required: false, description: 'Will be set automatically from authenticated user' })
+  createdBy?: string;
 
   @IsNotEmpty()
   @IsEnum(GeneralStatusEnum)
@@ -63,6 +64,7 @@ export class CreateRiskAssessmentDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateRiskAssessmentItemDto)
-  @ApiProperty({ type: [CreateRiskAssessmentItemDto] })
-  items: CreateRiskAssessmentItemDto[];
+  @IsOptional()
+  @ApiProperty({ type: [CreateRiskAssessmentItemDto], required: false })
+  items?: CreateRiskAssessmentItemDto[];
 }

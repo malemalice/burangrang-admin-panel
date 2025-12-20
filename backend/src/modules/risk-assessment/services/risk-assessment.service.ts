@@ -33,14 +33,17 @@ export class RiskAssessmentService {
     createRiskAssessmentDto: CreateRiskAssessmentDto,
     userId: string,
   ): Promise<RiskAssessmentDto> {
-    const { items, ...data } = createRiskAssessmentDto;
+    const { items, createdBy, ...data } = createRiskAssessmentDto;
 
     const assessment = await this.prisma.riskAssessment.create({
       data: {
         ...data,
-        items: {
-          create: items, // Prisma will automatically map mRiskId to mThreatId column via @map
-        },
+        createdBy: userId, // Use authenticated user ID from request
+        ...(items && items.length > 0 && {
+          items: {
+            create: items, // Prisma will automatically map mRiskId to mThreatId column via @map
+          },
+        }),
       },
       include: {
         items: {

@@ -25,6 +25,7 @@ import { Textarea } from '@/core/components/ui/textarea';
 import { RiskAssessment, ApprovalStatus } from '@/core/lib/types';
 import riskAssessmentService from '../services/riskAssessmentService';
 import { approvalService, type ApprovalStatusHistory } from '@/modules/master-data';
+import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 
 const RiskAssessmentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -116,10 +117,12 @@ const RiskAssessmentDetailPage = () => {
 
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
-      DRAFT: { label: 'Draft', variant: 'outline' },
-      IN_PROGRESS: { label: 'In Progress', variant: 'secondary' },
-      COMPLETED: { label: 'Completed', variant: 'default' },
-      REVIEWED: { label: 'Reviewed', variant: 'default' },
+      [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
+      [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'outline' },
+      [GeneralStatusEnum.OPEN]: { label: 'Open', variant: 'secondary' },
+      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Approval', variant: 'secondary' },
+      [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
+      [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
     };
 
     const statusInfo = statusMap[status] || { label: status, variant: 'outline' };

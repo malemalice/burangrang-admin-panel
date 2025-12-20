@@ -30,6 +30,7 @@ import { Badge } from '@/core/components/ui/badge';
 
 import { RiskAssessment } from '@/core/lib/types';
 import riskAssessmentService from '../services/riskAssessmentService';
+import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
 
 const RiskAssessmentsPage = () => {
   const navigate = useNavigate();
@@ -62,12 +63,10 @@ const RiskAssessmentsPage = () => {
       id: 'status',
       label: 'Status',
       type: 'select',
-      options: [
-        { label: 'Draft', value: 'DRAFT' },
-        { label: 'In Progress', value: 'IN_PROGRESS' },
-        { label: 'Completed', value: 'COMPLETED' },
-        { label: 'Reviewed', value: 'REVIEWED' },
-      ],
+      options: GENERAL_STATUS_OPTIONS.map(option => ({
+        label: option.label,
+        value: option.value,
+      })),
     }
   ];
 
@@ -156,10 +155,12 @@ const RiskAssessmentsPage = () => {
 
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
-      DRAFT: { label: 'Draft', variant: 'outline' },
-      IN_PROGRESS: { label: 'In Progress', variant: 'secondary' },
-      COMPLETED: { label: 'Completed', variant: 'default' },
-      REVIEWED: { label: 'Reviewed', variant: 'default' },
+      [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
+      [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'outline' },
+      [GeneralStatusEnum.OPEN]: { label: 'Open', variant: 'secondary' },
+      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Approval', variant: 'secondary' },
+      [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
+      [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
     };
 
     const statusInfo = statusMap[status] || { label: status, variant: 'outline' };
