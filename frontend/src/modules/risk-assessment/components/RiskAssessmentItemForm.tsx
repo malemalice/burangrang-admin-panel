@@ -30,6 +30,8 @@ import { ModalCombobox, ModalComboboxOption } from '@/core/components/ui/modal-c
 import { RiskRatingEnum, Risk, RiskCategory } from '@/core/lib/types';
 import riskAssessmentService, { type CreateRiskAssessmentItemDTO } from '../services/riskAssessmentService';
 import { riskCategoryService, riskService } from '@/modules/master-data';
+import { createRiskCategoryFromQuery } from '@/modules/master-data/pages/risk-categories';
+import { createRiskFromQuery } from '@/modules/master-data/pages/risks';
 
 // Form schema for validation - single item
 const formSchema = z.object({
@@ -236,33 +238,11 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
 
   // Create new risk category handler
   const handleCreateNewRiskCategory = useCallback(async (searchQuery: string): Promise<string> => {
-    try {
-      const trimmedQuery = searchQuery.trim();
-      if (!trimmedQuery) {
-        throw new Error('Risk category name cannot be empty');
-      }
-
-      // Generate code from name (uppercase, replace spaces with underscores)
-      const code = trimmedQuery.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '');
-
-      const newCategory = await riskCategoryService.create({
-        name: trimmedQuery,
-        code,
-        description: `Risk category: ${trimmedQuery}`,
-        isActive: true,
-      });
-
+    return createRiskCategoryFromQuery(searchQuery, (newCategory) => {
       // Add to the list and select it
       setRiskCategories(prev => [newCategory, ...prev]);
       form.setValue('mRiskCategoryId', newCategory.id);
-      
-      toast.success(`Risk category "${trimmedQuery}" created successfully`);
-      return newCategory.id;
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to create risk category';
-      toast.error(errorMessage);
-      throw error;
-    }
+    });
   }, [form]);
 
   // Search risks handler
@@ -297,41 +277,18 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
 
   // Create new risk handler
   const handleCreateNewRisk = useCallback(async (searchQuery: string): Promise<string> => {
-    try {
-      const trimmedQuery = searchQuery.trim();
-      if (!trimmedQuery) {
-        throw new Error('Risk name cannot be empty');
-      }
+    // Get the selected risk category ID
+    const riskCategoryId = form.getValues('mRiskCategoryId');
+    if (!riskCategoryId) {
+      toast.error('Please select a risk category first');
+      throw new Error('Risk category is required');
+    }
 
-      // Get the selected risk category ID
-      const riskCategoryId = form.getValues('mRiskCategoryId');
-      if (!riskCategoryId) {
-        toast.error('Please select a risk category first');
-        throw new Error('Risk category is required');
-      }
-
-      // Generate code from name (uppercase, replace spaces with underscores)
-      const code = trimmedQuery.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '');
-
-      const newRisk = await riskService.create({
-        name: trimmedQuery,
-        code,
-        description: `Risk: ${trimmedQuery}`,
-        riskCategoryId,
-        isActive: true,
-      });
-
+    return createRiskFromQuery(searchQuery, riskCategoryId, (newRisk) => {
       // Add to the list and select it
       setRisks(prev => [newRisk, ...prev]);
       form.setValue('mRiskId', newRisk.id);
-      
-      toast.success(`Risk "${trimmedQuery}" created successfully`);
-      return newRisk.id;
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to create risk';
-      toast.error(errorMessage);
-      throw error;
-    }
+    });
   }, [form]);
 
   // Calculate risk rating when likelihood or consequence changes
