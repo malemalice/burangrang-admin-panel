@@ -6,7 +6,7 @@ import { seedUsers } from './seeds/users.seed';
 import { seedDepartments } from './seeds/departments.seed';
 import { seedJobPositions } from './seeds/jobpositions.seed';
 import { seedHseCategories } from './seeds/hse-categories.seed';
-import { seedThreats } from './seeds/threats.seed';
+import { seedThreats } from './seeds/threats.seed'; // TODO: Rename to risks.seed.ts
 import { seedThreatMitigations } from './seeds/threat-mitigations.seed';
 import { seedRiskMatrix } from './seeds/risk-matrix.seed';
 import { seedSettings } from './seeds/settings.seed';
@@ -119,7 +119,15 @@ async function main() {
       await prisma.department.deleteMany();
       await prisma.jobPosition.deleteMany();
       await prisma.threatMitigation.deleteMany();
-      await prisma.threat.deleteMany();
+      // Try to delete from m_risk table (new name after migration)
+      try {
+        await (prisma as any).risk.deleteMany();
+      } catch (error: any) {
+        // If table doesn't exist yet (P2021), it means migration hasn't run - that's OK, nothing to clear
+        if (error.code !== 'P2021') {
+          throw error;
+        }
+      }
       await prisma.hseCategory.deleteMany();
       await prisma.riskMatrix.deleteMany();
       await prisma.setting.deleteMany();
@@ -149,12 +157,29 @@ async function main() {
           break;
         case 'hse_categories':
           await prisma.threatMitigation.deleteMany();
-          await prisma.threat.deleteMany();
+          // Try to delete from m_risk table (new name after migration)
+          try {
+            await (prisma as any).risk.deleteMany();
+          } catch (error: any) {
+            // If table doesn't exist yet (P2021), it means migration hasn't run - that's OK, nothing to clear
+            if (error.code !== 'P2021') {
+              throw error;
+            }
+          }
           await prisma.hseCategory.deleteMany();
           break;
-        case 'threats':
+        case 'risks':
+        case 'threats': // Keep for backward compatibility
           await prisma.threatMitigation.deleteMany();
-          await prisma.threat.deleteMany();
+          // Try to delete from m_risk table (new name after migration)
+          try {
+            await (prisma as any).risk.deleteMany();
+          } catch (error: any) {
+            // If table doesn't exist yet (P2021), it means migration hasn't run - that's OK, nothing to clear
+            if (error.code !== 'P2021') {
+              throw error;
+            }
+          }
           break;
         case 'threat_mitigations':
           await prisma.threatMitigation.deleteMany();
@@ -260,8 +285,8 @@ async function main() {
 
       // Seed HSE-related data
       const hseCategories = await seedHseCategories(prisma);
-      const threats = await seedThreats(prisma, hseCategories.map(c => c.id));
-      await seedThreatMitigations(prisma, threats.map(t => t.id));
+      const risks = await seedThreats(prisma, hseCategories.map(c => c.id)); // TODO: Update seedThreats to seedRisks
+      await seedThreatMitigations(prisma, risks.map(t => t.id));
 
       // Seed Risk Matrix
       await seedRiskMatrix(prisma);
@@ -312,7 +337,8 @@ async function main() {
         case 'hse_categories':
           await seedHseCategories(prisma);
           break;
-        case 'threats':
+        case 'risks':
+        case 'threats': // Keep for backward compatibility
           // Find existing categories or create new ones if they don't exist
           let categories;
           try {
@@ -326,11 +352,11 @@ async function main() {
             console.log('Error finding categories, creating new ones...');
             categories = await seedHseCategories(prisma);
           }
-          await seedThreats(prisma, categories.map(c => c.id));
+          await seedThreats(prisma, categories.map(c => c.id)); // TODO: Update to seedRisks
           break;
         case 'threat_mitigations':
-          // Find existing threats or create new ones if they don't exist
-          let cats, thrs;
+          // Find existing risks or create new ones if they don't exist
+          let cats, risks;
           try {
             cats = await prisma.hseCategory.findMany();
             if (cats.length === 0) {
@@ -339,18 +365,28 @@ async function main() {
               console.log('Using existing HSE categories...');
             }
 
-            thrs = await prisma.threat.findMany();
-            if (thrs.length === 0) {
-              thrs = await seedThreats(prisma, cats.map(c => c.id));
+            // Try to find risks from m_risk table (new name after migration)
+            try {
+              risks = await (prisma as any).risk.findMany();
+            } catch (error: any) {
+              // If table doesn't exist yet (P2021), it means migration hasn't run - just set to empty array
+              if (error.code === 'P2021') {
+                risks = [];
+              } else {
+                throw error;
+              }
+            }
+            if (risks.length === 0) {
+              risks = await seedThreats(prisma, cats.map(c => c.id)); // TODO: Update to seedRisks
             } else {
-              console.log('Using existing threats...');
+              console.log('Using existing risks...');
             }
           } catch (error) {
-            console.log('Error finding categories or threats, creating new ones...');
+            console.log('Error finding categories or risks, creating new ones...');
             cats = await seedHseCategories(prisma);
-            thrs = await seedThreats(prisma, cats.map(c => c.id));
+            risks = await seedThreats(prisma, cats.map(c => c.id)); // TODO: Update to seedRisks
           }
-          await seedThreatMitigations(prisma, thrs.map(t => t.id));
+          await seedThreatMitigations(prisma, risks.map(t => t.id));
           break;
         case 'risk_matrix':
           await seedRiskMatrix(prisma);

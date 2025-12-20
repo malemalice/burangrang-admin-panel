@@ -5,7 +5,7 @@ import { RiskRatingEnum } from '@prisma/client';
 export class CreateRiskAssessmentItemDto {
   @IsUUID()
   @ApiProperty()
-  mThreatId: string;
+  mRiskId: string;
 
   @IsUUID()
   @ApiProperty()

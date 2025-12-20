@@ -20,20 +20,20 @@ export class ThreatMitigationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createThreatMitigationDto: CreateThreatMitigationDto): Promise<ThreatMitigationDto> {
-    // Verify the Threat exists first
-    const threat = await (this.prisma as any).threat.findUnique({
+    // Verify the Risk exists first
+    const risk = await (this.prisma as any).risk.findUnique({
       where: { id: createThreatMitigationDto.threatId }
     });
 
-    if (!threat) {
-      throw new NotFoundException(`Threat with ID ${createThreatMitigationDto.threatId} not found`);
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${createThreatMitigationDto.threatId} not found`);
     }
 
     // Create the threat mitigation
     const mitigation = await (this.prisma as any).threatMitigation.create({
       data: createThreatMitigationDto,
       include: {
-        threat: true,
+        risk: true,
       },
     });
 
@@ -75,7 +75,7 @@ export class ThreatMitigationsService {
       (this.prisma as any).threatMitigation.findMany({
         where,
         include: {
-          threat: true,
+          risk: true,
         },
         orderBy: {
           [sortBy]: sortOrder,
@@ -96,7 +96,7 @@ export class ThreatMitigationsService {
     const mitigation = await (this.prisma as any).threatMitigation.findUnique({
       where: { id },
       include: {
-        threat: true,
+        risk: true,
       },
     });
 
@@ -116,14 +116,14 @@ export class ThreatMitigationsService {
       throw new NotFoundException(`Threat mitigation with ID ${id} not found`);
     }
 
-    // If updating Threat ID, verify it exists
+    // If updating Risk ID, verify it exists
     if (updateThreatMitigationDto.threatId) {
-      const threat = await (this.prisma as any).threat.findUnique({
+      const risk = await (this.prisma as any).risk.findUnique({
         where: { id: updateThreatMitigationDto.threatId }
       });
 
-      if (!threat) {
-        throw new NotFoundException(`Threat with ID ${updateThreatMitigationDto.threatId} not found`);
+      if (!risk) {
+        throw new NotFoundException(`Risk with ID ${updateThreatMitigationDto.threatId} not found`);
       }
     }
 
@@ -131,7 +131,7 @@ export class ThreatMitigationsService {
       where: { id },
       data: updateThreatMitigationDto,
       include: {
-        threat: true,
+        risk: true,
       },
     });
 
@@ -159,7 +159,7 @@ export class ThreatMitigationsService {
       mitigationDescription: mitigation.mitigationDescription,
       isActive: mitigation.isActive,
       threatId: mitigation.threatId,
-      threat: mitigation.threat,
+      threat: mitigation.risk, // Map risk to threat for backward compatibility with DTO
       createdAt: mitigation.createdAt,
       updatedAt: mitigation.updatedAt,
     };

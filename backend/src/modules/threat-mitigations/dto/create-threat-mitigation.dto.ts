@@ -17,7 +17,7 @@ export class CreateThreatMitigationDto {
   @IsOptional()
   isActive?: boolean;
 
-  @ApiProperty({ description: 'The ID of the threat this mitigation belongs to' })
+  @ApiProperty({ description: 'The ID of the risk this mitigation belongs to' })
   @IsUUID()
   threatId: string;
 } 

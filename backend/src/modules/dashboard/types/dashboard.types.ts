@@ -33,8 +33,8 @@ export interface HseCategoryAnalysis {
   };
 }
 
-export interface ThreatAnalysis {
-  threatId: string;
+export interface RiskAnalysis {
+  riskId: string;
   name: string;
   category: string;
   occurrences: number;

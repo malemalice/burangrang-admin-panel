@@ -39,13 +39,13 @@ export class RiskAssessmentService {
       data: {
         ...data,
         items: {
-          create: items,
+          create: items, // Prisma will automatically map mRiskId to mThreatId column via @map
         },
       },
       include: {
         items: {
           include: {
-            mThreat: true,
+            mRisk: true,
             mHseCategory: true,
           },
         },
@@ -61,7 +61,7 @@ export class RiskAssessmentService {
         include: {
           items: {
             include: {
-              mThreat: true,
+              mRisk: true,
               mHseCategory: true,
             },
           },
@@ -142,7 +142,7 @@ export class RiskAssessmentService {
       include: {
         items: {
           include: {
-            mThreat: true,
+            mRisk: true,
             mHseCategory: true,
           },
         },
@@ -183,14 +183,14 @@ export class RiskAssessmentService {
         ...(items && {
           items: {
             deleteMany: {},
-            create: items,
+            create: items, // Prisma will automatically map mRiskId to mThreatId column via @map
           },
         }),
       },
       include: {
         items: {
           include: {
-            mThreat: true,
+            mRisk: true,
             mHseCategory: true,
           },
         },
@@ -230,7 +230,7 @@ export class RiskAssessmentService {
   private mapToDto(
     assessment: RiskAssessment & {
       items: (RiskAssessmentItem & {
-        mThreat: any;
+        mRisk: any;
         mHseCategory: any;
       })[];
       department: any;
@@ -254,8 +254,8 @@ export class RiskAssessmentService {
       items: assessment.items.map((item) => ({
         id: item.id,
         riskAssessmentId: item.riskAssessmentId,
-        mThreatId: item.mThreatId,
-        mThreat: item.mThreat,
+        mRiskId: (item as any).mRiskId,
+        mRisk: (item as any).mRisk,
         mHseCategoryId: item.mHseCategoryId,
         mHseCategory: item.mHseCategory,
         riskDescription: item.riskDescription,

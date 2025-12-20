@@ -213,13 +213,13 @@ model HseCategory {
   isActive            Boolean              @default(true)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
-  threats             Threat[]
+  risks               Risk[]
   riskAssessmentItems RiskAssessmentItem[]
 
   @@map("m_hse_categories")
 }
 
-model Threat {
+model Risk {
   id                  String               @id @default(uuid())
   name                String
   code                String               @unique
@@ -233,7 +233,7 @@ model Threat {
   riskAssessmentItems RiskAssessmentItem[]
   workPermitHazards   WorkPermitHazard[]
 
-  @@map("m_threats")
+  @@map("m_risk")
 }
 
 model ThreatMitigation {
@@ -243,8 +243,8 @@ model ThreatMitigation {
   isActive              Boolean  @default(true)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
-  threatId              String
-  threat                Threat   @relation(fields: [threatId], references: [id])
+  threatId              String   @map("threatId")
+  risk                  Risk     @relation(fields: [threatId], references: [id])
 
   @@map("m_threat_mitigations")
 }
@@ -315,8 +315,8 @@ model RiskAssessmentItem {
   id                  String         @id @default(uuid())
   riskAssessmentId    String
   riskAssessment      RiskAssessment @relation(fields: [riskAssessmentId], references: [id])
-  mThreatId           String
-  mThreat             Threat         @relation(fields: [mThreatId], references: [id])
+  mRiskId             String         @map("mThreatId")
+  mRisk               Risk           @relation(fields: [mRiskId], references: [id])
   mHseCategoryId      String
   mHseCategory        HseCategory    @relation(fields: [mHseCategoryId], references: [id])
   riskDescription     String         @db.Text
@@ -1533,7 +1533,7 @@ model WorkPermitRequiredCourse {
 model WorkPermitHazard {
   id             String   @id @default(uuid())
   workPermitId   String
-  hazardId       String? // Reference to m_risks/threats if exists
+  hazardId       String? // Reference to m_risks if exists
   hazardName     String // Free text hazard name
   description    String?  @db.Text
   controlMeasure String?  @db.Text
@@ -1543,7 +1543,7 @@ model WorkPermitHazard {
 
   // Relations
   workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
-  threat     Threat?    @relation(fields: [hazardId], references: [id])
+  risk       Risk?      @relation(fields: [hazardId], references: [id])
 
   @@map("t_work_permit_hazards")
 }

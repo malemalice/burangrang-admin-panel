@@ -74,9 +74,9 @@ export class HseCategoryAnalysisDto {
   riskDistribution: RiskDistributionDto;
 }
 
-export class ThreatAnalysisDto {
+export class RiskAnalysisDto {
   @ApiProperty()
-  threatId: string;
+  riskId: string;
 
   @ApiProperty()
   name: string;

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ThreatDto } from '../../threats/dto/threat.dto';
+import { RiskDto } from '../../risks/dto/risk.dto';
 
 export class ThreatMitigationDto {
   @ApiProperty()
@@ -17,8 +17,8 @@ export class ThreatMitigationDto {
   @ApiProperty()
   threatId: string;
 
-  @ApiProperty({ type: () => ThreatDto, required: false })
-  threat?: ThreatDto;
+  @ApiProperty({ type: () => RiskDto, required: false })
+  threat?: RiskDto;
 
   @ApiProperty()
   createdAt: Date;

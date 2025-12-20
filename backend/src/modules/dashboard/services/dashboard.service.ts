@@ -5,7 +5,7 @@ import {
   RiskOverview,
   DepartmentProfile,
   HseCategoryAnalysis,
-  ThreatAnalysis,
+  RiskAnalysis,
   ComplianceProgress,
 } from '../types/dashboard.types';
 
@@ -130,8 +130,8 @@ export class DashboardService {
     });
   }
 
-  async getThreatAnalysis(): Promise<ThreatAnalysis[]> {
-    const threats = await this.prisma.threat.findMany({
+  async getRiskAnalysis(): Promise<RiskAnalysis[]> {
+    const risks = await (this.prisma as any).risk.findMany({
       where: { isActive: true },
       include: {
         hseCategory: true,
@@ -143,15 +143,15 @@ export class DashboardService {
       },
     });
 
-    return threats.map((threat) => {
-      const occurrences = threat.riskAssessmentItems.length;
+    return risks.map((risk: any) => {
+      const occurrences = risk.riskAssessmentItems.length;
       
       // Calculate average risk rating
       const ratingCounts = Object.values(RiskRatingEnum).reduce(
         (acc, rating) => ({
           ...acc,
-          [rating]: threat.riskAssessmentItems.filter(
-            (item) => item.riskMatrixRating === rating,
+          [rating]: risk.riskAssessmentItems.filter(
+            (item: any) => item.riskMatrixRating === rating,
           ).length,
         }),
         {} as { [key in RiskRatingEnum]: number },
@@ -164,9 +164,9 @@ export class DashboardService {
       );
 
       return {
-        threatId: threat.id,
-        name: threat.name,
-        category: threat.hseCategory.name,
+        riskId: risk.id,
+        name: risk.name,
+        category: risk.hseCategory.name,
         occurrences,
         averageRiskRating,
       };

@@ -154,7 +154,7 @@ export const threats = [
 ];
 
 export async function seedThreats(prisma: PrismaClient, hseCategoryIds: string[]) {
-  console.log('Creating threats...');
+  console.log('Creating risks...');
   
   // Map threats to categories based on CSV data
   const threatsWithCategories = [
@@ -185,13 +185,13 @@ export async function seedThreats(prisma: PrismaClient, hseCategoryIds: string[]
     { ...threats[24], hseCategoryId: hseCategoryIds[7] }, // Government Permit
   ];
 
-  const createdThreats = await Promise.all(
+  const createdRisks = await Promise.all(
     threatsWithCategories.map((threat) =>
-      prisma.threat.create({
+      (prisma as any).risk.create({
         data: threat,
       })
     )
   );
-  console.log('Created threats:', createdThreats.map((t) => t.name));
-  return createdThreats;
+  console.log('Created risks:', createdRisks.map((t) => t.name));
+  return createdRisks;
 } 

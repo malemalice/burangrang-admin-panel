@@ -5,14 +5,14 @@ import {
   RiskOverviewDto,
   DepartmentProfileDto,
   HseCategoryAnalysisDto,
-  ThreatAnalysisDto,
+  RiskAnalysisDto,
   ComplianceProgressDto,
 } from '../dto/dashboard.dto';
 import {
   RiskOverview,
   DepartmentProfile,
   HseCategoryAnalysis,
-  ThreatAnalysis,
+  RiskAnalysis,
   ComplianceProgress,
 } from '../types/dashboard.types';
 
@@ -55,15 +55,15 @@ export class DashboardController {
     return this.dashboardService.getHseCategoryAnalysis();
   }
 
-  @Get('threat-analysis')
-  @ApiOperation({ summary: 'Get threat analysis' })
+  @Get('risk-analysis')
+  @ApiOperation({ summary: 'Get risk analysis' })
   @ApiResponse({
     status: 200,
-    description: 'Returns analysis of threats including frequency and risk ratings',
-    type: [ThreatAnalysisDto],
+    description: 'Returns analysis of risks including frequency and risk ratings',
+    type: [RiskAnalysisDto],
   })
-  async getThreatAnalysis(): Promise<ThreatAnalysis[]> {
-    return this.dashboardService.getThreatAnalysis();
+  async getRiskAnalysis(): Promise<RiskAnalysis[]> {
+    return this.dashboardService.getRiskAnalysis();
   }
 
   @Get('compliance-progress')

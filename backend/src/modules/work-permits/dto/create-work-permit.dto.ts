@@ -172,7 +172,7 @@ export class WorkPermitRequiredCourseDto {
 }
 
 export class WorkPermitHazardDto {
-  @ApiProperty({ description: 'Hazard ID (reference to threat/risk)', required: false })
+  @ApiProperty({ description: 'Hazard ID (reference to risk)', required: false })
   @IsOptional()
   @IsString()
   hazardId?: string;

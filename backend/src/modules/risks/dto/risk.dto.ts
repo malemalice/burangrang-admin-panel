@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { HseCategoryDto } from '../../hse-categories/dto/hse-category.dto';
 
-export class ThreatDto {
+export class RiskDto {
   @ApiProperty()
   id: string;
 
@@ -31,4 +31,4 @@ export class ThreatDto {
 
   @ApiProperty({ required: false, type: 'array', isArray: true })
   mitigations?: any[]; // We'll only include mitigations when explicitly requested
-} 
+}
