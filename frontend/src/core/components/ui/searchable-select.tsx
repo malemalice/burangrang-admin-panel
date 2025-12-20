@@ -79,14 +79,11 @@ export function SearchableSelect({
       </PopoverTrigger>
       <PopoverContent
         className="w-full p-0"
-        style={{ zIndex: 9999 }}
+        style={{ zIndex: 99999 }}
         sideOffset={4}
         align="start"
-        onPointerDownOutside={(e) => {
-          // Don't close when clicking on the trigger button
-          if ((e.target as Element)?.closest('[role="combobox"]')) {
-            e.preventDefault();
-          }
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
         }}
       >
         <Command className="w-full" shouldFilter={true} filter={(value, search) => {
@@ -119,8 +116,6 @@ export function SearchableSelect({
                     if (onValueChange) onValueChange(option.value);
                     setOpen(false);
                   }}
-                  className="cursor-pointer"
-                  style={{ pointerEvents: 'auto' }}
                 >
                   <Check
                     className={cn(
@@ -212,14 +207,11 @@ export function MultiSelectSearchable({
         </PopoverTrigger>
         <PopoverContent
           className="w-full p-0"
-          style={{ zIndex: 9999 }}
+          style={{ zIndex: 99999 }}
           sideOffset={4}
           align="start"
-          onPointerDownOutside={(e) => {
-            // Don't close when clicking on the trigger button
-            if ((e.target as Element)?.closest('[role="combobox"]')) {
-              e.preventDefault();
-            }
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
           }}
         >
           <Command className="w-full" shouldFilter={true} filter={(value, search) => {
@@ -247,8 +239,6 @@ export function MultiSelectSearchable({
                     key={option.value}
                     value={`${option.value} ${option.label}`}
                     onSelect={() => handleToggleOption(option.value)}
-                    className="cursor-pointer"
-                    style={{ pointerEvents: 'auto' }}
                   >
                     <Check
                       className={cn(

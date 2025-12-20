@@ -25,6 +25,7 @@ import {
 import { Badge } from '@/core/components/ui/badge';
 import { Separator } from '@/core/components/ui/separator';
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
+import { ModalCombobox, ModalComboboxOption } from '@/core/components/ui/modal-combobox';
 
 import { RiskRatingEnum, Risk, RiskCategory } from '@/core/lib/types';
 import riskAssessmentService, { type CreateRiskAssessmentItemDTO } from '../services/riskAssessmentService';
@@ -73,13 +74,13 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Convert data to SearchableSelectOption format
-  const riskOptions: SearchableSelectOption[] = risks.map(risk => ({
+  // Convert data to SearchableSelectOption format (use SearchableSelect outside modal, ModalCombobox inside modal)
+  const riskOptions: ModalComboboxOption[] = risks.map(risk => ({
     value: risk.id,
     label: `${risk.name} - ${risk.description}`
   }));
 
-  const riskCategoryOptions: SearchableSelectOption[] = riskCategories.map(category => ({
+  const riskCategoryOptions: ModalComboboxOption[] = riskCategories.map(category => ({
     value: category.id,
     label: `${category.name}`
   }));
@@ -307,13 +308,23 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                   Risk Category <span className="text-destructive">*</span>
                 </FormLabel>
                 <FormControl>
-                  <SearchableSelect
-                    options={riskCategoryOptions}
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    placeholder="Select Risk Category"
-                    searchPlaceholder="Search Risk Category..."
-                  />
+                  {showCard ? (
+                    <SearchableSelect
+                      options={riskCategoryOptions}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      placeholder="Select Risk Category"
+                      searchPlaceholder="Search Risk Category..."
+                    />
+                  ) : (
+                    <ModalCombobox
+                      options={riskCategoryOptions}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      placeholder="Select Risk Category"
+                      searchPlaceholder="Search Risk Category..."
+                    />
+                  )}
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -328,13 +339,23 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                   Risk <span className="text-destructive">*</span>
                 </FormLabel>
                 <FormControl>
-                  <SearchableSelect
-                    options={riskOptions}
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    placeholder="Select risk"
-                    searchPlaceholder="Search risk..."
-                  />
+                  {showCard ? (
+                    <SearchableSelect
+                      options={riskOptions}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      placeholder="Select risk"
+                      searchPlaceholder="Search risk..."
+                    />
+                  ) : (
+                    <ModalCombobox
+                      options={riskOptions}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      placeholder="Select risk"
+                      searchPlaceholder="Search risk..."
+                    />
+                  )}
                 </FormControl>
                 <FormMessage />
               </FormItem>
