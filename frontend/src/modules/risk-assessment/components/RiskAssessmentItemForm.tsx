@@ -15,13 +15,6 @@ import {
   FormMessage,
 } from '@/core/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/core/components/ui/select';
 import { Badge } from '@/core/components/ui/badge';
 import { Separator } from '@/core/components/ui/separator';
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
@@ -517,26 +510,19 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                 <FormLabel>
                   Likelihood <span className="text-destructive">*</span>
                 </FormLabel>
-                <Select
-                  value={field.value.toString()}
-                  onValueChange={(value) => {
-                    field.onChange(parseInt(value, 10));
-                    calculateRiskRating(false);
-                  }}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select level" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {likelihoodOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <ModalCombobox
+                    options={likelihoodOptions}
+                    value={field.value.toString()}
+                    onValueChange={(value) => {
+                      field.onChange(parseInt(value, 10));
+                      calculateRiskRating(false);
+                    }}
+                    placeholder="Select level"
+                    searchPlaceholder="Search likelihood level..."
+                    emptyText="No likelihood levels found"
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -549,26 +535,19 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                 <FormLabel>
                   Consequence <span className="text-destructive">*</span>
                 </FormLabel>
-                <Select
-                  value={field.value.toString()}
-                  onValueChange={(value) => {
-                    field.onChange(parseInt(value, 10));
-                    calculateRiskRating(false);
-                  }}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select level" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {consequenceOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <ModalCombobox
+                    options={consequenceOptions}
+                    value={field.value.toString()}
+                    onValueChange={(value) => {
+                      field.onChange(parseInt(value, 10));
+                      calculateRiskRating(false);
+                    }}
+                    placeholder="Select level"
+                    searchPlaceholder="Search consequence level..."
+                    emptyText="No consequence levels found"
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -688,26 +667,19 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                   <FormLabel>
                     Post Likelihood <span className="text-destructive">*</span>
                   </FormLabel>
-                  <Select
-                    value={field.value.toString()}
-                    onValueChange={(value) => {
-                      field.onChange(parseInt(value, 10));
-                      calculateRiskRating(true);
-                    }}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select level" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {likelihoodOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <ModalCombobox
+                      options={likelihoodOptions}
+                      value={field.value.toString()}
+                      onValueChange={(value) => {
+                        field.onChange(parseInt(value, 10));
+                        calculateRiskRating(true);
+                      }}
+                      placeholder="Select level"
+                      searchPlaceholder="Search likelihood level..."
+                      emptyText="No likelihood levels found"
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -720,26 +692,19 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                   <FormLabel>
                     Post Consequence <span className="text-destructive">*</span>
                   </FormLabel>
-                  <Select
-                    value={field.value.toString()}
-                    onValueChange={(value) => {
-                      field.onChange(parseInt(value, 10));
-                      calculateRiskRating(true);
-                    }}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select level" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {consequenceOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <ModalCombobox
+                      options={consequenceOptions}
+                      value={field.value.toString()}
+                      onValueChange={(value) => {
+                        field.onChange(parseInt(value, 10));
+                        calculateRiskRating(true);
+                      }}
+                      placeholder="Select level"
+                      searchPlaceholder="Search consequence level..."
+                      emptyText="No consequence levels found"
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
