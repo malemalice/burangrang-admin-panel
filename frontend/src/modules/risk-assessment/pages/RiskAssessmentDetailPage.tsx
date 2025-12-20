@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { FileEdit, ArrowLeft, CheckCircle2, XCircle, Clock, FileDown, Plus, MoreHorizontal, Trash2, Eye } from 'lucide-react';
+import { FileEdit, ArrowLeft, CheckCircle2, XCircle, Clock, FileDown, Plus, Trash2, Eye, Edit } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
 
 import { Button, ThemeButton } from '@/core/components/ui/button';
@@ -11,6 +11,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { Separator } from '@/core/components/ui/separator';
 import PageHeader from '@/core/components/ui/PageHeader';
 import DataTable from '@/core/components/ui/data-table/DataTable';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/tooltip';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import {
   Dialog,
@@ -20,13 +21,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/core/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/core/components/ui/dropdown-menu';
 import { Label } from '@/core/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
 import { Textarea } from '@/core/components/ui/textarea';
@@ -37,6 +31,8 @@ import riskAssessmentService, { type CreateRiskAssessmentItemDTO } from '../serv
 import { approvalService, type ApprovalStatusHistory } from '@/modules/master-data';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import RiskAssessmentItemForm from '../components/RiskAssessmentItemForm';
+import riskMitigationService, { type RiskMitigation } from '../services/riskMitigationService';
+import { Loader2 } from 'lucide-react';
 
 const RiskAssessmentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -60,12 +56,21 @@ const RiskAssessmentDetailPage = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [itemToDelete, setItemToDelete] = useState<RiskAssessmentItem | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
   // Add Item Dialog
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
+  
+  // View Item Dialog
+  const [isViewItemDialogOpen, setIsViewItemDialogOpen] = useState(false);
+  const [viewingItem, setViewingItem] = useState<RiskAssessmentItem | null>(null);
+  const [riskMitigations, setRiskMitigations] = useState<RiskMitigation[]>([]);
+  const [isLoadingRiskMitigations, setIsLoadingRiskMitigations] = useState(false);
+  
+  // Edit Item Dialog
+  const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<RiskAssessmentItem | null>(null);
 
   // Fetch assessment details
   useEffect(() => {
@@ -176,9 +181,52 @@ const RiskAssessmentDetailPage = () => {
     }
   };
 
+  const handleEditItem = (item: RiskAssessmentItem) => {
+    setEditingItem(item);
+    setIsEditItemDialogOpen(true);
+  };
+
+  const handleUpdateItem = async (itemData: CreateRiskAssessmentItemDTO) => {
+    if (!id || !editingItem || !itemData) return;
+
+    try {
+      await riskAssessmentService.updateItem(id, editingItem.id, itemData);
+      toast.success('Risk assessment item updated successfully');
+      setIsEditItemDialogOpen(false);
+      setEditingItem(null);
+      fetchItems();
+      // Refresh assessment to update item count
+      const assessmentData = await riskAssessmentService.getById(id);
+      setAssessment(assessmentData);
+    } catch (error) {
+      console.error('Failed to update item:', error);
+      toast.error('Failed to update risk assessment item');
+    }
+  };
+
+  const handleViewItem = async (item: RiskAssessmentItem) => {
+    setViewingItem(item);
+    setIsViewItemDialogOpen(true);
+    
+    // Fetch risk mitigations if risk is selected
+    if (item.mRiskId) {
+      setIsLoadingRiskMitigations(true);
+      try {
+        const mitigations = await riskMitigationService.getByRiskId(item.mRiskId);
+        setRiskMitigations(mitigations);
+      } catch (error) {
+        console.error('Failed to fetch risk mitigations:', error);
+        setRiskMitigations([]);
+      } finally {
+        setIsLoadingRiskMitigations(false);
+      }
+    } else {
+      setRiskMitigations([]);
+    }
+  };
+
   const handleDeleteItem = async (item: RiskAssessmentItem, event?: React.MouseEvent) => {
     event?.stopPropagation();
-    setOpenDropdownId(null);
     setItemToDelete(item);
     setDeleteDialogOpen(true);
   };
@@ -189,7 +237,6 @@ const RiskAssessmentDetailPage = () => {
     try {
       await riskAssessmentService.deleteItem(id, itemToDelete.id);
       toast.success('Risk assessment item deleted successfully');
-      setOpenDropdownId(null);
       fetchItems();
       // Refresh assessment to update item count
       const assessmentData = await riskAssessmentService.getById(id);
@@ -265,11 +312,11 @@ const RiskAssessmentDetailPage = () => {
   const columns = [
     {
       id: 'category',
-      header: 'HSE Category',
+      header: 'Risk Category',
       cell: (item: RiskAssessmentItem) => (
         <div className="font-medium">
-          {item.mHseCategory 
-            ? `${item.mHseCategory.code} - ${item.mHseCategory.name}` 
+          {item.mRisk?.riskCategory 
+            ? `${item.mRisk.riskCategory.code} - ${item.mRisk.riskCategory.name}` 
             : 'N/A'}
         </div>
       ),
@@ -288,21 +335,13 @@ const RiskAssessmentDetailPage = () => {
       isSortable: true,
     },
     {
-      id: 'likelihood',
-      header: 'Likelihood',
-      cell: (item: RiskAssessmentItem) => <div className="text-center">{item.likelihoodLevel}</div>,
-      isSortable: true,
-    },
-    {
-      id: 'consequence',
-      header: 'Consequence',
-      cell: (item: RiskAssessmentItem) => <div className="text-center">{item.consequenceLevel}</div>,
-      isSortable: true,
-    },
-    {
       id: 'riskRating',
-      header: 'Risk Rating',
-      cell: (item: RiskAssessmentItem) => getRiskBadge(item.riskMatrixRating),
+      header: 'Risk Matrix Rating',
+      cell: (item: RiskAssessmentItem) => (
+        <div className="font-medium">
+          {item.riskMatrixRating || 'N/A'}
+        </div>
+      ),
       isSortable: true,
     },
     {
@@ -312,32 +351,74 @@ const RiskAssessmentDetailPage = () => {
       isSortable: true,
     },
     {
+      id: 'postRiskMatrixRating',
+      header: 'Post Risk Matrix Rating',
+      cell: (item: RiskAssessmentItem) => (
+        <div className="font-medium">
+          {item.postRiskMatrixRating || 'N/A'}
+        </div>
+      ),
+      isSortable: true,
+    },
+    {
+      id: 'postInterpretation',
+      header: 'Post Interpretation',
+      cell: (item: RiskAssessmentItem) => (
+        <div>
+          {item.postInterpretation ? getRiskBadge(item.postInterpretation) : 'N/A'}
+        </div>
+      ),
+      isSortable: true,
+    },
+    {
       id: 'actions',
       header: 'Actions',
       cell: (item: RiskAssessmentItem) => (
-        <DropdownMenu
-          open={openDropdownId === item.id}
-          onOpenChange={(open) => setOpenDropdownId(open ? item.id : null)}
-        >
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => {/* View details - can be implemented later */}}>
-              <Eye className="mr-2 h-4 w-4" /> View details
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-red-600"
-              onClick={(e) => handleDeleteItem(item, e)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleViewItem(item)}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>View</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleEditItem(item)}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Edit</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={(e) => handleDeleteItem(item, e)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Delete</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
       ),
       isSortable: false,
     },
@@ -592,6 +673,46 @@ const RiskAssessmentDetailPage = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Item Dialog */}
+      <Dialog open={isEditItemDialogOpen} onOpenChange={(open) => {
+        setIsEditItemDialogOpen(open);
+        if (!open) {
+          setEditingItem(null);
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Risk Assessment Item</DialogTitle>
+            <DialogDescription>
+              Update the risk assessment item details.
+            </DialogDescription>
+          </DialogHeader>
+          {editingItem && (
+            <RiskAssessmentItemForm
+              assessmentId={id}
+              initialItem={{
+                mRiskId: editingItem.mRiskId,
+                mRiskCategoryId: editingItem.mHseCategoryId, // Map mHseCategoryId to mRiskCategoryId
+                likelihoodLevel: editingItem.likelihoodLevel,
+                consequenceLevel: editingItem.consequenceLevel,
+                riskMatrixRating: editingItem.riskMatrixRating,
+                interpretation: editingItem.interpretation,
+                postLikelihoodLevel: editingItem.postLikelihoodLevel,
+                postConsequenceLevel: editingItem.postConsequenceLevel,
+                postRiskMatrixRating: editingItem.postRiskMatrixRating,
+                postInterpretation: editingItem.postInterpretation,
+              }}
+              onSubmit={handleUpdateItem}
+              onCancel={() => {
+                setIsEditItemDialogOpen(false);
+                setEditingItem(null);
+              }}
+              showCard={false}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Approval Dialog */}
       <Dialog open={isApprovalModalOpen} onOpenChange={setIsApprovalModalOpen}>
         <DialogContent>
@@ -656,6 +777,165 @@ const RiskAssessmentDetailPage = () => {
         </DialogContent>
       </Dialog>
 
+      {/* View Item Dialog */}
+      <Dialog open={isViewItemDialogOpen} onOpenChange={setIsViewItemDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Risk Assessment Item Details</DialogTitle>
+            <DialogDescription>
+              View detailed information about this risk assessment item.
+            </DialogDescription>
+          </DialogHeader>
+
+          {viewingItem && (
+            <div className="space-y-6 py-4">
+              {/* Basic Information */}
+              <div>
+                <h3 className="text-lg font-medium mb-4">Basic Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-muted-foreground">Risk Category</p>
+                    <p className="text-sm">
+                      {viewingItem.mHseCategory
+                        ? `${viewingItem.mHseCategory.code} - ${viewingItem.mHseCategory.name}`
+                        : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-muted-foreground">Risk</p>
+                    <p className="text-sm">
+                      {viewingItem.mRisk
+                        ? `${viewingItem.mRisk.code} - ${viewingItem.mRisk.name}`
+                        : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Pre-Control Assessment */}
+              <div>
+                <h3 className="text-lg font-medium mb-4">Pre-Control Assessment</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-muted-foreground">Likelihood</p>
+                    <p className="text-sm">{viewingItem.likelihoodLevel}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-muted-foreground">Consequence</p>
+                    <p className="text-sm">{viewingItem.consequenceLevel}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-muted-foreground">Risk Rating</p>
+                    <div>{getRiskBadge(viewingItem.riskMatrixRating)}</div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-muted-foreground">Interpretation</p>
+                    <div>{getRiskBadge(viewingItem.interpretation)}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Risk Mitigation Options */}
+              {viewingItem.mRiskId && (
+                <>
+                  <Separator />
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Risk Mitigation Options</h3>
+                    {isLoadingRiskMitigations ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="text-sm text-muted-foreground">Loading risk mitigation options...</span>
+                        </div>
+                      </div>
+                    ) : riskMitigations.length > 0 ? (
+                      <div className="space-y-4">
+                        {riskMitigations.map((mitigation) => (
+                          <div key={mitigation.id} className="space-y-4">
+                            {mitigation.eliminate && (
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground mb-1">Eliminate</p>
+                                <div className="p-3 rounded-md border bg-card text-card-foreground">
+                                  <p className="text-sm">{mitigation.eliminate}</p>
+                                </div>
+                              </div>
+                            )}
+                            {mitigation.transfer && (
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground mb-1">Transfer</p>
+                                <div className="p-3 rounded-md border bg-card text-card-foreground">
+                                  <p className="text-sm">{mitigation.transfer}</p>
+                                </div>
+                              </div>
+                            )}
+                            {mitigation.reduce && (
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground mb-1">Reduce</p>
+                                <div className="p-3 rounded-md border bg-card text-card-foreground">
+                                  <p className="text-sm">{mitigation.reduce}</p>
+                                </div>
+                              </div>
+                            )}
+                            {mitigation.accept && (
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground mb-1">Accept</p>
+                                <div className="p-3 rounded-md border bg-card text-card-foreground">
+                                  <p className="text-sm">{mitigation.accept}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-sm text-muted-foreground">
+                        No risk mitigation options available for the selected risk.
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              <Separator />
+
+              {/* Post-Control Assessment */}
+              <div>
+                <h3 className="text-lg font-medium mb-4">Post-Control Assessment</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-muted-foreground">Post Likelihood</p>
+                    <p className="text-sm">{viewingItem.postLikelihoodLevel}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-muted-foreground">Post Consequence</p>
+                    <p className="text-sm">{viewingItem.postConsequenceLevel}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-muted-foreground">Post Risk Rating</p>
+                    <div>{getRiskBadge(viewingItem.postRiskMatrixRating)}</div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-muted-foreground">Post Interpretation</p>
+                    <div>{getRiskBadge(viewingItem.postInterpretation)}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsViewItemDialogOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Item Dialog */}
       <ConfirmDialog
         open={deleteDialogOpen}
@@ -663,7 +943,6 @@ const RiskAssessmentDetailPage = () => {
           if (!open) {
             setDeleteDialogOpen(false);
             setItemToDelete(null);
-            setOpenDropdownId(null);
           }
         }}
         title="Delete Risk Assessment Item"
