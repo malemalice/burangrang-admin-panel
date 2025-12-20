@@ -44,6 +44,7 @@ import EditWeightReportPage from '../pages/weight-reports/EditWeightReportPage';
 import DispatchOrdersPage from '../pages/dispatch-orders/DispatchOrdersPage';
 import CreateDispatchOrderPage from '../pages/dispatch-orders/CreateDispatchOrderPage';
 import EditDispatchOrderPage from '../pages/dispatch-orders/EditDispatchOrderPage';
+import DispatchOrderDetailPage from '../pages/dispatch-orders/DispatchOrderDetailPage';
 
 /**
  * Waste Management module routes
@@ -93,6 +94,7 @@ const wasteManagementRoutes: RouteConfig[] = [
   { path: '/waste-management/dispatch-orders', component: DispatchOrdersPage },
   { path: '/waste-management/dispatch-orders/create', component: CreateDispatchOrderPage },
   { path: '/waste-management/dispatch-orders/:id/edit', component: EditDispatchOrderPage },
+  { path: '/waste-management/dispatch-orders/:id', component: DispatchOrderDetailPage },
 ];
 
 export default wasteManagementRoutes;

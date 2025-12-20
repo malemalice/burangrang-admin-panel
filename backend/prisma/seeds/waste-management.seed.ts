@@ -429,9 +429,72 @@ export const seedWasteManagement = async () => {
             isActive: true,
           },
         }),
+        prisma.dispatchOrder.create({
+          data: {
+            dispatchCode: `DO-${currentYear}-003`,
+            dispatchDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+            quantity: 750,
+            memo: 'Pengiriman limbah padat ke TPA regional',
+            status: GeneralStatusEnum.DONE,
+            orderedBy: users[1]?.id || users[0].id,
+            createdBy: users[0].id,
+            isActive: true,
+          },
+        }),
+        prisma.dispatchOrder.create({
+          data: {
+            dispatchCode: `DO-${currentYear}-004`,
+            dispatchDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+            quantity: 200,
+            memo: 'Pengiriman limbah organik ke komposter',
+            status: GeneralStatusEnum.OPEN,
+            orderedBy: users[0].id,
+            createdBy: users[0].id,
+            isActive: true,
+          },
+        }),
+        prisma.dispatchOrder.create({
+          data: {
+            dispatchCode: `DO-${currentYear}-005`,
+            dispatchDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 2 weeks from now
+            quantity: 1000,
+            memo: 'Pengiriman limbah berbahaya ke vendor terdaftar',
+            status: GeneralStatusEnum.DRAFT,
+            orderedBy: users[2]?.id || users[0].id,
+            createdBy: users[0].id,
+            isActive: true,
+          },
+        }),
+        prisma.dispatchOrder.create({
+          data: {
+            dispatchCode: `DO-${currentYear}-006`,
+            dispatchDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+            quantity: 150,
+            memo: 'Pengiriman ditolak karena dokumen tidak lengkap',
+            status: GeneralStatusEnum.REJECTED,
+            orderedBy: users[0].id,
+            createdBy: users[0].id,
+            isActive: true,
+          },
+        }),
+        prisma.dispatchOrder.create({
+          data: {
+            dispatchCode: `DO-${currentYear}-007`,
+            dispatchDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
+            quantity: 450,
+            memo: 'Menunggu persetujuan manajer untuk pengiriman',
+            status: GeneralStatusEnum.WAITING_APPROVAL,
+            orderedBy: users[1]?.id || users[0].id,
+            createdBy: users[0].id,
+            isActive: true,
+          },
+        }),
       ]);
       console.log(`     ✅ Created ${dispatchOrders.length} dispatch orders`);
     }
+
+    // Get dispatch orders count for summary
+    const dispatchOrdersCount = await prisma.dispatchOrder.count();
 
     console.log('✅ Waste management data seeded successfully');
     console.log(`   - Treatment Plants: ${treatmentPlants.length}`);
@@ -439,6 +502,9 @@ export const seedWasteManagement = async () => {
     console.log(`   - Waste Types: ${wasteTypes.length}`);
     console.log(`   - Waste Sources: ${wasteSources.length}`);
     console.log(`   - Storage Locations: ${storageLocations.length}`);
+    if (users.length > 0) {
+      console.log(`   - Dispatch Orders: ${dispatchOrdersCount}`);
+    }
   } catch (error) {
     console.error('❌ Error seeding waste management data:', error);
     throw error;
