@@ -9,7 +9,7 @@ export class CreateRiskAssessmentItemDto {
 
   @IsUUID()
   @ApiProperty()
-  mHseCategoryId: string;
+  mRiskCategoryId: string;
 
   @IsString()
   @IsNotEmpty()

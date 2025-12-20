@@ -36,8 +36,10 @@ import { RiskMitigation, Risk } from '@/core/lib/types';
 
 // Define form schema
 const formSchema = z.object({
-  level: z.coerce.number().min(1).max(5),
-  mitigationDescription: z.string().min(1, "Description is required"),
+  eliminate: z.string().optional(),
+  transfer: z.string().optional(),
+  reduce: z.string().optional(),
+  accept: z.string().optional(),
   riskId: z.string().min(1, "Risk is required"),
   isActive: z.boolean().default(true),
 });
@@ -58,8 +60,10 @@ const RiskMitigationForm = ({ riskMitigation, mode }: RiskMitigationFormProps) =
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      level: riskMitigation?.level || 1,
-      mitigationDescription: riskMitigation?.mitigationDescription || '',
+      eliminate: riskMitigation?.eliminate || '',
+      transfer: riskMitigation?.transfer || '',
+      reduce: riskMitigation?.reduce || '',
+      accept: riskMitigation?.accept || '',
       riskId: riskMitigation?.riskId || '',
       isActive: riskMitigation?.isActive !== undefined ? riskMitigation.isActive : true,
     },
@@ -148,30 +152,20 @@ const RiskMitigationForm = ({ riskMitigation, mode }: RiskMitigationFormProps) =
 
             <FormField
               control={form.control}
-              name="level"
+              name="eliminate"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Level</FormLabel>
-                  <Select
-                    onValueChange={(value) => field.onChange(parseInt(value))}
-                    defaultValue={field.value.toString()}
-                    value={field.value.toString()}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select mitigation level" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="1">Level 1 (Lowest)</SelectItem>
-                      <SelectItem value="2">Level 2</SelectItem>
-                      <SelectItem value="3">Level 3</SelectItem>
-                      <SelectItem value="4">Level 4</SelectItem>
-                      <SelectItem value="5">Level 5 (Highest)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>Eliminate</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter eliminate control measure"
+                      className="min-h-[100px]"
+                      {...field}
+                      value={field.value || ''}
+                    />
+                  </FormControl>
                   <FormDescription>
-                    Select the level of the mitigation measure (1-5)
+                    Describe measures to eliminate the risk
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -180,19 +174,64 @@ const RiskMitigationForm = ({ riskMitigation, mode }: RiskMitigationFormProps) =
 
             <FormField
               control={form.control}
-              name="mitigationDescription"
+              name="transfer"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Transfer</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Enter mitigation description"
-                      className="min-h-[120px]"
+                      placeholder="Enter transfer control measure"
+                      className="min-h-[100px]"
                       {...field}
+                      value={field.value || ''}
                     />
                   </FormControl>
                   <FormDescription>
-                    Describe the mitigation measure in detail
+                    Describe measures to transfer the risk (e.g., insurance, outsourcing)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="reduce"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Reduce</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter reduce control measure"
+                      className="min-h-[100px]"
+                      {...field}
+                      value={field.value || ''}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Describe measures to reduce the risk
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="accept"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Accept</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter accept control measure"
+                      className="min-h-[100px]"
+                      {...field}
+                      value={field.value || ''}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Describe when and how to accept the risk
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

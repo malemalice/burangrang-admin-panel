@@ -150,8 +150,10 @@ export interface Risk {
 
 export interface RiskMitigation {
   id: string;
-  level: number;
-  mitigationDescription: string;
+  eliminate?: string;
+  transfer?: string;
+  reduce?: string;
+  accept?: string;
   isActive: boolean;
   riskId: string;
   risk?: Risk;

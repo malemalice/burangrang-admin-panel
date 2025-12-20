@@ -13,7 +13,7 @@ import appConfig from './core/config/app.config';
 import { Reflector } from '@nestjs/core';
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { JobPositionsModule } from './modules/job-positions/job-positions.module';
-import { HseCategoriesModule } from './modules/hse-categories/hse-categories.module';
+import { RiskCategoriesModule } from './modules/risk-categories/risk-categories.module';
 import { RisksModule } from './modules/risks/risks.module';
 import { RiskMitigationsModule } from './modules/risk-mitigations/risk-mitigations.module';
 import { RiskAssessmentModule } from './modules/risk-assessment/risk-assessment.module';
@@ -56,7 +56,7 @@ import { WasteManagementModule } from './modules/waste-management/waste-manageme
     PermissionsModule,
     DepartmentsModule,
     JobPositionsModule,
-    HseCategoriesModule,
+    RiskCategoriesModule,
     RisksModule,
     RiskMitigationsModule,
     RiskAssessmentModule,

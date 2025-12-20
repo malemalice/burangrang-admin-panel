@@ -369,8 +369,8 @@ export const seedMenus = async () => {
 
     await prisma.menu.create({
       data: {
-        name: 'HSE Categories',
-        path: '/master/hse-categories',
+        name: 'Risk Categories',
+        path: '/master/risk-categories',
         icon: 'ShieldAlert',
         parentId: masterDataMenu.id,
         order: 4,

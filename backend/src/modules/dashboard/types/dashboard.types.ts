@@ -24,7 +24,7 @@ export interface DepartmentProfile {
   complianceRate: number;
 }
 
-export interface HseCategoryAnalysis {
+export interface RiskCategoryAnalysis {
   categoryId: string;
   name: string;
   totalOccurrences: number;

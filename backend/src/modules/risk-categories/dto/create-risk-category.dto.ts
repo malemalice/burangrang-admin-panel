@@ -1,16 +1,16 @@
 import { IsString, IsOptional, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class CreateHseCategoryDto {
-  @ApiProperty({ description: 'The name of the HSE category' })
+export class CreateRiskCategoryDto {
+  @ApiProperty({ description: 'The name of the risk category' })
   @IsString()
   name: string;
 
-  @ApiProperty({ description: 'A unique code for the HSE category' })
+  @ApiProperty({ description: 'A unique code for the risk category' })
   @IsString()
   code: string;
 
-  @ApiProperty({ description: 'Optional description of the HSE category', required: false })
+  @ApiProperty({ description: 'Optional description of the risk category', required: false })
   @IsString()
   @IsOptional()
   description?: string;

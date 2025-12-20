@@ -46,7 +46,7 @@ export class RiskAssessmentService {
         items: {
           include: {
             mRisk: true,
-            mHseCategory: true,
+            mRiskCategory: true,
           },
         },
         department: true,
@@ -62,7 +62,7 @@ export class RiskAssessmentService {
           items: {
             include: {
               mRisk: true,
-              mHseCategory: true,
+              mRiskCategory: true,
             },
           },
           department: true,
@@ -114,7 +114,7 @@ export class RiskAssessmentService {
           items: {
             include: {
               mRisk: true,
-              mHseCategory: true,
+              mRiskCategory: true,
             },
           },
           department: true,
@@ -143,7 +143,7 @@ export class RiskAssessmentService {
         items: {
           include: {
             mRisk: true,
-            mHseCategory: true,
+            mRiskCategory: true,
           },
         },
         department: true,
@@ -191,7 +191,7 @@ export class RiskAssessmentService {
         items: {
           include: {
             mRisk: true,
-            mHseCategory: true,
+            mRiskCategory: true,
           },
         },
         department: true,
@@ -231,7 +231,7 @@ export class RiskAssessmentService {
     assessment: RiskAssessment & {
       items: (RiskAssessmentItem & {
         mRisk: any;
-        mHseCategory: any;
+        mRiskCategory: any;
       })[];
       department: any;
       creator: any;
@@ -256,8 +256,8 @@ export class RiskAssessmentService {
         riskAssessmentId: item.riskAssessmentId,
         mRiskId: (item as any).mRiskId,
         mRisk: (item as any).mRisk,
-        mHseCategoryId: item.mHseCategoryId,
-        mHseCategory: item.mHseCategory,
+        mRiskCategoryId: item.mRiskCategoryId,
+        mRiskCategory: item.mRiskCategory,
         riskDescription: item.riskDescription,
         likelihoodLevel: item.likelihoodLevel,
         consequenceLevel: item.consequenceLevel,

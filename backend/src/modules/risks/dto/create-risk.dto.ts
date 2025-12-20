@@ -20,7 +20,7 @@ export class CreateRiskDto {
   @IsOptional()
   isActive?: boolean;
 
-  @ApiProperty({ description: 'The ID of the HSE category this risk belongs to' })
+  @ApiProperty({ description: 'The ID of the risk category this risk belongs to' })
   @IsUUID()
-  hseCategoryId: string;
+  riskCategoryId: string;
 }

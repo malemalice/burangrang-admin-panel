@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
 import { RiskRatingEnum } from '@prisma/client';
-import { HseCategoryDto } from 'src/modules/hse-categories/dto/hse-category.dto';
+import { RiskCategoryDto } from 'src/modules/risk-categories/dto/risk-category.dto';
 import { RiskDto } from 'src/modules/risks/dto/risk.dto';
 
 export class RiskAssessmentItemDto {
@@ -23,11 +23,11 @@ export class RiskAssessmentItemDto {
 
   @ApiProperty()
   @Expose()
-  mHseCategoryId: string;
+  mRiskCategoryId: string;
 
-  @ApiProperty({ type: HseCategoryDto })
+  @ApiProperty({ type: RiskCategoryDto })
   @Expose()
-  mHseCategory: HseCategoryDto;
+  mRiskCategory: RiskCategoryDto;
 
   @ApiProperty()
   @Expose()

@@ -205,7 +205,7 @@ model JobPosition {
   @@map("m_job_positions")
 }
 
-model HseCategory {
+model RiskCategory {
   id                  String               @id @default(uuid())
   name                String
   code                String               @unique
@@ -216,7 +216,7 @@ model HseCategory {
   risks               Risk[]
   riskAssessmentItems RiskAssessmentItem[]
 
-  @@map("m_hse_categories")
+  @@map("m_risk_categories")
 }
 
 model Risk {
@@ -227,8 +227,8 @@ model Risk {
   isActive            Boolean              @default(true)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
-  hseCategoryId       String
-  hseCategory         HseCategory          @relation(fields: [hseCategoryId], references: [id])
+  riskCategoryId      String
+  riskCategory        RiskCategory         @relation(fields: [riskCategoryId], references: [id])
   mitigations         RiskMitigation[]
   riskAssessmentItems RiskAssessmentItem[]
   workPermitHazards   WorkPermitHazard[]
@@ -319,8 +319,8 @@ model RiskAssessmentItem {
   riskAssessment      RiskAssessment @relation(fields: [riskAssessmentId], references: [id])
   mRiskId             String         @map("mThreatId")
   mRisk               Risk           @relation(fields: [mRiskId], references: [id])
-  mHseCategoryId      String
-  mHseCategory        HseCategory    @relation(fields: [mHseCategoryId], references: [id])
+  mRiskCategoryId     String
+  mRiskCategory       RiskCategory         @relation(fields: [mRiskCategoryId], references: [id])
   riskDescription     String         @db.Text
   likelihoodLevel     Int
   consequenceLevel    Int

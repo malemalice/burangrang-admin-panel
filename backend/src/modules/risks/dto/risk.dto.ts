@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { HseCategoryDto } from '../../hse-categories/dto/hse-category.dto';
+import { RiskCategoryDto } from '../../risk-categories/dto/risk-category.dto';
 
 export class RiskDto {
   @ApiProperty()
@@ -18,10 +18,10 @@ export class RiskDto {
   isActive: boolean;
 
   @ApiProperty()
-  hseCategoryId: string;
+  riskCategoryId: string;
 
-  @ApiProperty({ type: () => HseCategoryDto, required: false })
-  hseCategory?: HseCategoryDto;
+  @ApiProperty({ type: () => RiskCategoryDto, required: false })
+  riskCategory?: RiskCategoryDto;
 
   @ApiProperty()
   createdAt: Date;

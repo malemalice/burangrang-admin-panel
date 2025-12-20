@@ -4,7 +4,7 @@ import { RiskRatingEnum } from '@prisma/client';
 import {
   RiskOverview,
   DepartmentProfile,
-  HseCategoryAnalysis,
+  RiskCategoryAnalysis,
   RiskAnalysis,
   ComplianceProgress,
 } from '../types/dashboard.types';
@@ -98,8 +98,8 @@ export class DashboardService {
     };
   }
 
-  async getHseCategoryAnalysis(): Promise<HseCategoryAnalysis[]> {
-    const categories = await this.prisma.hseCategory.findMany({
+  async getRiskCategoryAnalysis(): Promise<RiskCategoryAnalysis[]> {
+    const categories = await (this.prisma as any).riskCategory.findMany({
       where: { isActive: true },
       include: {
         riskAssessmentItems: {
@@ -134,7 +134,7 @@ export class DashboardService {
     const risks = await (this.prisma as any).risk.findMany({
       where: { isActive: true },
       include: {
-        hseCategory: true,
+        riskCategory: true,
         riskAssessmentItems: {
           where: {
             riskAssessment: { isActive: true },
@@ -166,7 +166,7 @@ export class DashboardService {
       return {
         riskId: risk.id,
         name: risk.name,
-        category: risk.hseCategory.name,
+        category: risk.riskCategory.name,
         occurrences,
         averageRiskRating,
       };

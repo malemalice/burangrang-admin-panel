@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
-import { CreateHseCategoryDto } from './dto/create-hse-category.dto';
-import { UpdateHseCategoryDto } from './dto/update-hse-category.dto';
-import { HseCategoryDto } from './dto/hse-category.dto';
+import { CreateRiskCategoryDto } from './dto/create-risk-category.dto';
+import { UpdateRiskCategoryDto } from './dto/update-risk-category.dto';
+import { RiskCategoryDto } from './dto/risk-category.dto';
 
 interface FindAllOptions {
   page?: number;
@@ -14,18 +14,18 @@ interface FindAllOptions {
 }
 
 @Injectable()
-export class HseCategoriesService {
+export class RiskCategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createHseCategoryDto: CreateHseCategoryDto): Promise<HseCategoryDto> {
-    const category = await (this.prisma as any).hseCategory.create({
-      data: createHseCategoryDto,
+  async create(createRiskCategoryDto: CreateRiskCategoryDto): Promise<RiskCategoryDto> {
+    const category = await (this.prisma as any).riskCategory.create({
+      data: createRiskCategoryDto,
     });
 
     return this.mapToDto(category);
   }
 
-  async findAll(options?: FindAllOptions): Promise<{ data: HseCategoryDto[]; meta: { total: number; page: number; limit: number } }> {
+  async findAll(options?: FindAllOptions): Promise<{ data: RiskCategoryDto[]; meta: { total: number; page: number; limit: number } }> {
     const {
       page = 1,
       limit = 10,
@@ -50,7 +50,7 @@ export class HseCategoriesService {
     }
 
     const [categories, total] = await Promise.all([
-      (this.prisma as any).hseCategory.findMany({
+      (this.prisma as any).riskCategory.findMany({
         where,
         orderBy: {
           [sortBy]: sortOrder,
@@ -58,7 +58,7 @@ export class HseCategoriesService {
         skip: (page - 1) * limit,
         take: limit,
       }),
-      (this.prisma as any).hseCategory.count({ where }),
+      (this.prisma as any).riskCategory.count({ where }),
     ]);
 
     return {
@@ -67,35 +67,35 @@ export class HseCategoriesService {
     };
   }
 
-  async findOne(id: string): Promise<HseCategoryDto> {
-    const category = await (this.prisma as any).hseCategory.findUnique({
+  async findOne(id: string): Promise<RiskCategoryDto> {
+    const category = await (this.prisma as any).riskCategory.findUnique({
       where: { id },
       include: {
-        threats: true,
+        risks: true,
       },
     });
 
     if (!category) {
-      throw new NotFoundException(`HSE category with ID ${id} not found`);
+      throw new NotFoundException(`Risk category with ID ${id} not found`);
     }
 
     return this.mapToDto(category);
   }
 
-  async update(id: string, updateHseCategoryDto: UpdateHseCategoryDto): Promise<HseCategoryDto> {
-    const existingCategory = await (this.prisma as any).hseCategory.findUnique({
+  async update(id: string, updateRiskCategoryDto: UpdateRiskCategoryDto): Promise<RiskCategoryDto> {
+    const existingCategory = await (this.prisma as any).riskCategory.findUnique({
       where: { id },
     });
 
     if (!existingCategory) {
-      throw new NotFoundException(`HSE category with ID ${id} not found`);
+      throw new NotFoundException(`Risk category with ID ${id} not found`);
     }
 
-    const updatedCategory = await (this.prisma as any).hseCategory.update({
+    const updatedCategory = await (this.prisma as any).riskCategory.update({
       where: { id },
-      data: updateHseCategoryDto,
+      data: updateRiskCategoryDto,
       include: {
-        threats: true,
+        risks: true,
       },
     });
 
@@ -103,27 +103,27 @@ export class HseCategoriesService {
   }
 
   async remove(id: string): Promise<void> {
-    const category = await (this.prisma as any).hseCategory.findUnique({
+    const category = await (this.prisma as any).riskCategory.findUnique({
       where: { id },
       include: {
-        threats: true,
+        risks: true,
       },
     });
 
     if (!category) {
-      throw new NotFoundException(`HSE category with ID ${id} not found`);
+      throw new NotFoundException(`Risk category with ID ${id} not found`);
     }
 
-    if (category.threats.length > 0) {
-      throw new NotFoundException(`Cannot delete HSE category with ID ${id} because it has associated threats`);
+    if (category.risks.length > 0) {
+      throw new NotFoundException(`Cannot delete risk category with ID ${id} because it has associated risks`);
     }
 
-    await (this.prisma as any).hseCategory.delete({
+    await (this.prisma as any).riskCategory.delete({
       where: { id },
     });
   }
 
-  private mapToDto(category: any): HseCategoryDto {
+  private mapToDto(category: any): RiskCategoryDto {
     return {
       id: category.id,
       name: category.name,
@@ -132,7 +132,7 @@ export class HseCategoriesService {
       isActive: category.isActive,
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
-      threats: category.threats,
+      risks: category.risks,
     };
   }
 } 

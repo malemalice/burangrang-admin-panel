@@ -155,40 +155,40 @@ export const risks = [
 
 export async function seedRisks(
   prisma: PrismaClient,
-  hseCategoryIds: string[],
+  riskCategoryIds: string[],
 ) {
   console.log('Creating risks...');
 
-  // Map risks to categories based on HSE category order
+  // Map risks to categories based on risk category order
   // Categories: [0] Natural Disaster, [1] Physical Hazard, [2] Mechanical Hazard,
   //             [3] Ergonomic Hazard, [4] Environmental Hazard, [5] Chemical Hazard,
   //             [6] Biological Hazard, [7] Government Permit
   const risksWithCategories = [
-    { ...risks[0], hseCategoryId: hseCategoryIds[0] }, // Natural Disaster
-    { ...risks[1], hseCategoryId: hseCategoryIds[1] }, // Physical Hazard
-    { ...risks[2], hseCategoryId: hseCategoryIds[1] }, // Physical Hazard
-    { ...risks[3], hseCategoryId: hseCategoryIds[1] }, // Physical Hazard
-    { ...risks[4], hseCategoryId: hseCategoryIds[1] }, // Physical Hazard
-    { ...risks[5], hseCategoryId: hseCategoryIds[1] }, // Physical Hazard
-    { ...risks[6], hseCategoryId: hseCategoryIds[1] }, // Physical Hazard
-    { ...risks[7], hseCategoryId: hseCategoryIds[1] }, // Physical Hazard
-    { ...risks[8], hseCategoryId: hseCategoryIds[2] }, // Mechanical Hazard
-    { ...risks[9], hseCategoryId: hseCategoryIds[2] }, // Mechanical Hazard
-    { ...risks[10], hseCategoryId: hseCategoryIds[2] }, // Mechanical Hazard
-    { ...risks[11], hseCategoryId: hseCategoryIds[2] }, // Mechanical Hazard
-    { ...risks[12], hseCategoryId: hseCategoryIds[2] }, // Mechanical Hazard
-    { ...risks[13], hseCategoryId: hseCategoryIds[2] }, // Mechanical Hazard
-    { ...risks[14], hseCategoryId: hseCategoryIds[2] }, // Mechanical Hazard
-    { ...risks[15], hseCategoryId: hseCategoryIds[3] }, // Ergonomic Hazard
-    { ...risks[16], hseCategoryId: hseCategoryIds[4] }, // Environmental Hazard
-    { ...risks[17], hseCategoryId: hseCategoryIds[4] }, // Environmental Hazard
-    { ...risks[18], hseCategoryId: hseCategoryIds[5] }, // Chemical Hazard
-    { ...risks[19], hseCategoryId: hseCategoryIds[5] }, // Chemical Hazard
-    { ...risks[20], hseCategoryId: hseCategoryIds[6] }, // Biological Hazard
-    { ...risks[21], hseCategoryId: hseCategoryIds[6] }, // Biological Hazard
-    { ...risks[22], hseCategoryId: hseCategoryIds[6] }, // Biological Hazard
-    { ...risks[23], hseCategoryId: hseCategoryIds[6] }, // Biological Hazard
-    { ...risks[24], hseCategoryId: hseCategoryIds[7] }, // Government Permit
+    { ...risks[0], riskCategoryId: riskCategoryIds[0] }, // Natural Disaster
+    { ...risks[1], riskCategoryId: riskCategoryIds[1] }, // Physical Hazard
+    { ...risks[2], riskCategoryId: riskCategoryIds[1] }, // Physical Hazard
+    { ...risks[3], riskCategoryId: riskCategoryIds[1] }, // Physical Hazard
+    { ...risks[4], riskCategoryId: riskCategoryIds[1] }, // Physical Hazard
+    { ...risks[5], riskCategoryId: riskCategoryIds[1] }, // Physical Hazard
+    { ...risks[6], riskCategoryId: riskCategoryIds[1] }, // Physical Hazard
+    { ...risks[7], riskCategoryId: riskCategoryIds[1] }, // Physical Hazard
+    { ...risks[8], riskCategoryId: riskCategoryIds[2] }, // Mechanical Hazard
+    { ...risks[9], riskCategoryId: riskCategoryIds[2] }, // Mechanical Hazard
+    { ...risks[10], riskCategoryId: riskCategoryIds[2] }, // Mechanical Hazard
+    { ...risks[11], riskCategoryId: riskCategoryIds[2] }, // Mechanical Hazard
+    { ...risks[12], riskCategoryId: riskCategoryIds[2] }, // Mechanical Hazard
+    { ...risks[13], riskCategoryId: riskCategoryIds[2] }, // Mechanical Hazard
+    { ...risks[14], riskCategoryId: riskCategoryIds[2] }, // Mechanical Hazard
+    { ...risks[15], riskCategoryId: riskCategoryIds[3] }, // Ergonomic Hazard
+    { ...risks[16], riskCategoryId: riskCategoryIds[4] }, // Environmental Hazard
+    { ...risks[17], riskCategoryId: riskCategoryIds[4] }, // Environmental Hazard
+    { ...risks[18], riskCategoryId: riskCategoryIds[5] }, // Chemical Hazard
+    { ...risks[19], riskCategoryId: riskCategoryIds[5] }, // Chemical Hazard
+    { ...risks[20], riskCategoryId: riskCategoryIds[6] }, // Biological Hazard
+    { ...risks[21], riskCategoryId: riskCategoryIds[6] }, // Biological Hazard
+    { ...risks[22], riskCategoryId: riskCategoryIds[6] }, // Biological Hazard
+    { ...risks[23], riskCategoryId: riskCategoryIds[6] }, // Biological Hazard
+    { ...risks[24], riskCategoryId: riskCategoryIds[7] }, // Government Permit
   ];
 
   const createdRisks = await Promise.all(

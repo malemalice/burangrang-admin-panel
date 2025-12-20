@@ -34,7 +34,6 @@ const RiskMitigationsPage = () => {
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
   const [selectedRiskId, setSelectedRiskId] = useState<string | undefined>(undefined);
-  const [selectedLevel, setSelectedLevel] = useState<number | undefined>(undefined);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Fetch risks for filter dropdown
@@ -63,19 +62,6 @@ const RiskMitigationsPage = () => {
       ],
     },
     {
-      id: 'level',
-      label: 'Level',
-      type: 'select',
-      options: [
-        { label: 'All Levels', value: 'all' },
-        { label: 'Level 1', value: '1' },
-        { label: 'Level 2', value: '2' },
-        { label: 'Level 3', value: '3' },
-        { label: 'Level 4', value: '4' },
-        { label: 'Level 5', value: '5' },
-      ],
-    },
-    {
       id: 'status',
       label: 'Status',
       type: 'select',
@@ -99,7 +85,6 @@ const RiskMitigationsPage = () => {
         sortBy: sorting?.id,
         sortOrder: sorting?.desc ? 'desc' : 'asc',
         riskId: selectedRiskId !== 'all' ? selectedRiskId : undefined,
-        level: selectedLevel,
       });
       setMitigations(response.data);
       setTotalMitigations(response.meta.total);
@@ -113,7 +98,7 @@ const RiskMitigationsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, activeTab, searchTerm, sorting, selectedRiskId, selectedLevel]);
+  }, [pageIndex, limit, activeTab, searchTerm, sorting, selectedRiskId]);
 
   useEffect(() => {
     fetchMitigations();
@@ -149,8 +134,6 @@ const RiskMitigationsPage = () => {
         // Set the specific filter state variables
         if (filter.id === 'riskId') {
           setSelectedRiskId(filter.value === 'all' ? undefined : filter.value);
-        } else if (filter.id === 'level') {
-          setSelectedLevel(filter.value === 'all' ? undefined : Number(filter.value));
         }
         
         newFilters[filter.id] = { value: filter.value, label };
@@ -206,27 +189,6 @@ const RiskMitigationsPage = () => {
   // Table columns
   const columns = [
     {
-      id: 'level',
-      header: 'Level',
-      cell: (mitigation: RiskMitigation) => (
-        <div className="flex items-center gap-2">
-          <Badge
-            variant="outline"
-            className={`${
-              mitigation.level >= 4 
-                ? 'bg-red-100 text-red-800'
-                : mitigation.level >= 3
-                ? 'bg-orange-100 text-orange-800'
-                : 'bg-blue-100 text-blue-800'
-            } border-0 px-2 py-1`}
-          >
-            Level {mitigation.level}
-          </Badge>
-        </div>
-      ),
-      isSortable: true,
-    },
-    {
       id: 'riskId',
       header: 'Risk',
       cell: (mitigation: RiskMitigation) => (
@@ -244,12 +206,60 @@ const RiskMitigationsPage = () => {
       isSortable: true,
     },
     {
-      id: 'mitigationDescription',
-      header: 'Description',
+      id: 'eliminate',
+      header: 'Eliminate',
       cell: (mitigation: RiskMitigation) => (
-        <div className="max-w-md truncate">{mitigation.mitigationDescription}</div>
+        <div className="max-w-xs">
+          {mitigation.eliminate ? (
+            <div className="truncate text-sm">{mitigation.eliminate}</div>
+          ) : (
+            <span className="text-gray-400 text-sm">-</span>
+          )}
+        </div>
       ),
-      isSortable: true,
+      isSortable: false,
+    },
+    {
+      id: 'transfer',
+      header: 'Transfer',
+      cell: (mitigation: RiskMitigation) => (
+        <div className="max-w-xs">
+          {mitigation.transfer ? (
+            <div className="truncate text-sm">{mitigation.transfer}</div>
+          ) : (
+            <span className="text-gray-400 text-sm">-</span>
+          )}
+        </div>
+      ),
+      isSortable: false,
+    },
+    {
+      id: 'reduce',
+      header: 'Reduce',
+      cell: (mitigation: RiskMitigation) => (
+        <div className="max-w-xs">
+          {mitigation.reduce ? (
+            <div className="truncate text-sm">{mitigation.reduce}</div>
+          ) : (
+            <span className="text-gray-400 text-sm">-</span>
+          )}
+        </div>
+      ),
+      isSortable: false,
+    },
+    {
+      id: 'accept',
+      header: 'Accept',
+      cell: (mitigation: RiskMitigation) => (
+        <div className="max-w-xs">
+          {mitigation.accept ? (
+            <div className="truncate text-sm">{mitigation.accept}</div>
+          ) : (
+            <span className="text-gray-400 text-sm">-</span>
+          )}
+        </div>
+      ),
+      isSortable: false,
     },
     {
       id: 'isActive',

@@ -11,7 +11,7 @@ interface FindAllOptions {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   search?: string;
-  hseCategoryId?: string;
+  riskCategoryId?: string;
 }
 
 @Injectable()
@@ -19,20 +19,20 @@ export class RisksService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createRiskDto: CreateRiskDto): Promise<RiskDto> {
-    // Verify the HSE category exists first
-    const hseCategory = await (this.prisma as any).hseCategory.findUnique({
-      where: { id: createRiskDto.hseCategoryId }
+    // Verify the risk category exists first
+    const riskCategory = await (this.prisma as any).riskCategory.findUnique({
+      where: { id: createRiskDto.riskCategoryId }
     });
 
-    if (!hseCategory) {
-      throw new NotFoundException(`HSE category with ID ${createRiskDto.hseCategoryId} not found`);
+    if (!riskCategory) {
+      throw new NotFoundException(`Risk category with ID ${createRiskDto.riskCategoryId} not found`);
     }
 
     // Create the risk
     const risk = await (this.prisma as any).risk.create({
       data: createRiskDto,
       include: {
-        hseCategory: true,
+        riskCategory: true,
       },
     });
 
@@ -47,7 +47,7 @@ export class RisksService {
       sortOrder = 'asc',
       isActive,
       search,
-      hseCategoryId,
+      riskCategoryId,
     } = options || {};
 
     // Using 'any' as a workaround until the Prisma client is regenerated
@@ -65,15 +65,15 @@ export class RisksService {
       where.isActive = isActive;
     }
 
-    if (hseCategoryId) {
-      where.hseCategoryId = hseCategoryId;
+    if (riskCategoryId) {
+      where.riskCategoryId = riskCategoryId;
     }
 
     const [risks, total] = await Promise.all([
       (this.prisma as any).risk.findMany({
         where,
         include: {
-          hseCategory: true,
+          riskCategory: true,
         },
         orderBy: {
           [sortBy]: sortOrder,
@@ -94,7 +94,7 @@ export class RisksService {
     const risk = await (this.prisma as any).risk.findUnique({
       where: { id },
       include: {
-        hseCategory: true,
+        riskCategory: true,
         mitigations: true,
       },
     });
@@ -115,14 +115,14 @@ export class RisksService {
       throw new NotFoundException(`Risk with ID ${id} not found`);
     }
 
-    // If updating HSE Category ID, verify it exists
-    if (updateRiskDto.hseCategoryId) {
-      const hseCategory = await (this.prisma as any).hseCategory.findUnique({
-        where: { id: updateRiskDto.hseCategoryId }
+    // If updating Risk Category ID, verify it exists
+    if (updateRiskDto.riskCategoryId) {
+      const riskCategory = await (this.prisma as any).riskCategory.findUnique({
+        where: { id: updateRiskDto.riskCategoryId }
       });
 
-      if (!hseCategory) {
-        throw new NotFoundException(`HSE category with ID ${updateRiskDto.hseCategoryId} not found`);
+      if (!riskCategory) {
+        throw new NotFoundException(`Risk category with ID ${updateRiskDto.riskCategoryId} not found`);
       }
     }
 
@@ -130,7 +130,7 @@ export class RisksService {
       where: { id },
       data: updateRiskDto,
       include: {
-        hseCategory: true,
+        riskCategory: true,
         mitigations: true,
       },
     });
@@ -167,8 +167,8 @@ export class RisksService {
       code: risk.code,
       description: risk.description,
       isActive: risk.isActive,
-      hseCategoryId: risk.hseCategoryId,
-      hseCategory: risk.hseCategory,
+      riskCategoryId: risk.riskCategoryId,
+      riskCategory: risk.riskCategory,
       createdAt: risk.createdAt,
       updatedAt: risk.updatedAt,
       mitigations: risk.mitigations,

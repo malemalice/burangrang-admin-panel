@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 
-export const hseCategories = [
+export const riskCategories = [
   {
     name: 'Natural Disaster',
     code: 'NAT-DIS',
@@ -51,15 +51,15 @@ export const hseCategories = [
   },
 ];
 
-export async function seedHseCategories(prisma: PrismaClient) {
-  console.log('Creating HSE categories...');
+export async function seedRiskCategories(prisma: PrismaClient) {
+  console.log('Creating risk categories...');
   const createdCategories = await Promise.all(
-    hseCategories.map((category) =>
-      prisma.hseCategory.create({
+    riskCategories.map((category) =>
+      (prisma as any).riskCategory.create({
         data: category,
       })
     )
   );
-  console.log('Created HSE categories:', createdCategories.map((c) => c.name));
+  console.log('Created risk categories:', createdCategories.map((c) => c.name));
   return createdCategories;
 } 

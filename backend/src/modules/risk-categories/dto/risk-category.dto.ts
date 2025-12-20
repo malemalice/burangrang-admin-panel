@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class HseCategoryDto {
+export class RiskCategoryDto {
   @ApiProperty()
   id: string;
 
@@ -23,5 +23,5 @@ export class HseCategoryDto {
   updatedAt: Date;
 
   @ApiProperty({ required: false, type: 'array', isArray: true })
-  threats?: any[]; // We'll only include threats when explicitly requested
+  risks?: any[]; // We'll only include risks when explicitly requested
 } 

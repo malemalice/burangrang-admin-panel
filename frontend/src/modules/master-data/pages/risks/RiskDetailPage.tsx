@@ -63,20 +63,54 @@ const RiskDetailPage = () => {
 
   const mitigationsColumns = [
     {
-      id: 'level',
-      header: 'Level',
+      id: 'eliminate',
+      header: 'Eliminate',
       cell: (mitigation: RiskMitigation) => (
-        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-0">
-          Level {mitigation.level}
-        </Badge>
+        <div className="text-sm max-w-xs">
+          {mitigation.eliminate ? (
+            <div className="truncate">{mitigation.eliminate}</div>
+          ) : (
+            <span className="text-gray-400">-</span>
+          )}
+        </div>
       ),
     },
     {
-      id: 'description',
-      header: 'Description',
+      id: 'transfer',
+      header: 'Transfer',
       cell: (mitigation: RiskMitigation) => (
-        <div className="text-sm">
-          {mitigation.mitigationDescription}
+        <div className="text-sm max-w-xs">
+          {mitigation.transfer ? (
+            <div className="truncate">{mitigation.transfer}</div>
+          ) : (
+            <span className="text-gray-400">-</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'reduce',
+      header: 'Reduce',
+      cell: (mitigation: RiskMitigation) => (
+        <div className="text-sm max-w-xs">
+          {mitigation.reduce ? (
+            <div className="truncate">{mitigation.reduce}</div>
+          ) : (
+            <span className="text-gray-400">-</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'accept',
+      header: 'Accept',
+      cell: (mitigation: RiskMitigation) => (
+        <div className="text-sm max-w-xs">
+          {mitigation.accept ? (
+            <div className="truncate">{mitigation.accept}</div>
+          ) : (
+            <span className="text-gray-400">-</span>
+          )}
         </div>
       ),
     },

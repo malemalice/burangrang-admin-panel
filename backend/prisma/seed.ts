@@ -5,7 +5,7 @@ import { seedOffices } from './seeds/offices.seed';
 import { seedUsers } from './seeds/users.seed';
 import { seedDepartments } from './seeds/departments.seed';
 import { seedJobPositions } from './seeds/jobpositions.seed';
-import { seedHseCategories } from './seeds/hse-categories.seed';
+import { seedRiskCategories } from './seeds/risk-categories.seed';
 import { seedRisks } from './seeds/risks.seed';
 import { seedRiskMitigations } from './seeds/risk-mitigations.seed';
 import { seedRiskMatrix } from './seeds/risk-matrix.seed';
@@ -136,7 +136,7 @@ async function main() {
           throw error;
         }
       }
-      await prisma.hseCategory.deleteMany();
+      await (prisma as any).riskCategory.deleteMany();
       await prisma.riskMatrix.deleteMany();
       await prisma.setting.deleteMany();
       await prisma.fileCategory.deleteMany();
@@ -182,7 +182,7 @@ async function main() {
               throw error;
             }
           }
-          await prisma.hseCategory.deleteMany();
+          await (prisma as any).riskCategory.deleteMany();
           break;
         case 'risks':
           // Delete from riskMitigation table
@@ -316,11 +316,11 @@ async function main() {
       const jobPositions = await seedJobPositions(prisma);
       await seedUsers(prisma, roles, offices);
 
-      // Seed HSE-related data
-      const hseCategories = await seedHseCategories(prisma);
+      // Seed risk-related data
+      const riskCategories = await seedRiskCategories(prisma);
       const risks = await seedRisks(
         prisma,
-        hseCategories.map((c) => c.id),
+        riskCategories.map((c) => c.id),
       );
       await seedRiskMitigations(
         prisma,
@@ -373,22 +373,22 @@ async function main() {
           const offices = await seedOffices(prisma);
           await seedUsers(prisma, roles, offices);
           break;
-        case 'hse_categories':
-          await seedHseCategories(prisma);
+        case 'risk_categories':
+          await seedRiskCategories(prisma);
           break;
         case 'risks':
           // Find existing categories or create new ones if they don't exist
           let categories;
           try {
-            categories = await prisma.hseCategory.findMany();
+            categories = await (prisma as any).riskCategory.findMany();
             if (categories.length === 0) {
-              categories = await seedHseCategories(prisma);
+              categories = await seedRiskCategories(prisma);
             } else {
-              console.log('Using existing HSE categories...');
+              console.log('Using existing risk categories...');
             }
           } catch (error) {
             console.log('Error finding categories, creating new ones...');
-            categories = await seedHseCategories(prisma);
+            categories = await seedRiskCategories(prisma);
           }
           await seedRisks(
             prisma,
@@ -399,11 +399,11 @@ async function main() {
           // Find existing risks or create new ones if they don't exist
           let cats, risks;
           try {
-            cats = await prisma.hseCategory.findMany();
+            cats = await (prisma as any).riskCategory.findMany();
             if (cats.length === 0) {
-              cats = await seedHseCategories(prisma);
+              cats = await seedRiskCategories(prisma);
             } else {
-              console.log('Using existing HSE categories...');
+              console.log('Using existing risk categories...');
             }
 
             // Try to find risks from m_risk table
@@ -429,7 +429,7 @@ async function main() {
             console.log(
               'Error finding categories or risks, creating new ones...',
             );
-            cats = await seedHseCategories(prisma);
+            cats = await seedRiskCategories(prisma);
             risks = await seedRisks(
               prisma,
               cats.map((c) => c.id),
