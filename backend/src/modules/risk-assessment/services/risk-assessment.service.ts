@@ -264,7 +264,6 @@ export class RiskAssessmentService {
         mRisk: (item as any).mRisk,
         mRiskCategoryId: item.mRiskCategoryId,
         mRiskCategory: item.mRiskCategory,
-        riskDescription: item.riskDescription,
         likelihoodLevel: item.likelihoodLevel,
         consequenceLevel: item.consequenceLevel,
         riskMatrixRating: item.riskMatrixRating,
@@ -348,7 +347,6 @@ export class RiskAssessmentService {
       'riskAssessmentId',
       'mRiskId',
       'mRiskCategoryId',
-      'riskDescription',
       'likelihoodLevel',
       'consequenceLevel',
       'riskMatrixRating',
@@ -366,7 +364,6 @@ export class RiskAssessmentService {
       riskAssessmentId,
       ...(search && {
         OR: [
-          { riskDescription: { contains: search, mode: 'insensitive' } },
           {
             mRisk: {
               OR: [
@@ -497,7 +494,6 @@ export class RiskAssessmentService {
       mRisk: (item as any).mRisk,
       mRiskCategoryId: item.mRiskCategoryId,
       mRiskCategory: item.mRiskCategory,
-      riskDescription: item.riskDescription,
       likelihoodLevel: item.likelihoodLevel,
       consequenceLevel: item.consequenceLevel,
       riskMatrixRating: item.riskMatrixRating,

@@ -159,15 +159,12 @@ const RiskAssessmentDetailPage = () => {
     }
   };
 
-  const handleAddItem = async (itemsData: CreateRiskAssessmentItemDTO[]) => {
-    if (!id || !itemsData || itemsData.length === 0) return;
+  const handleAddItem = async (itemData: CreateRiskAssessmentItemDTO) => {
+    if (!id || !itemData) return;
 
     try {
-      // Create items one by one (or batch if backend supports it)
-      for (const itemData of itemsData) {
-        await riskAssessmentService.createItem(id, itemData);
-      }
-      toast.success('Risk assessment item(s) created successfully');
+      await riskAssessmentService.createItem(id, itemData);
+      toast.success('Risk assessment item created successfully');
       setIsAddItemDialogOpen(false);
       fetchItems();
       // Refresh assessment to update item count
@@ -262,13 +259,7 @@ const RiskAssessmentDetailPage = () => {
   };
 
   // Define filter fields for items
-  const filterFields: FilterField[] = [
-    {
-      id: 'riskDescription',
-      label: 'Risk Description',
-      type: 'text',
-    },
-  ];
+  const filterFields: FilterField[] = [];
 
   // Define columns for items table
   const columns = [
@@ -293,14 +284,6 @@ const RiskAssessmentDetailPage = () => {
             ? `${item.mRisk.code} - ${item.mRisk.name}` 
             : 'N/A'}
         </div>
-      ),
-      isSortable: true,
-    },
-    {
-      id: 'riskDescription',
-      header: 'Risk Description',
-      cell: (item: RiskAssessmentItem) => (
-        <div className="max-w-md truncate">{item.riskDescription}</div>
       ),
       isSortable: true,
     },

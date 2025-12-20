@@ -321,7 +321,6 @@ model RiskAssessmentItem {
   mRisk               Risk           @relation(fields: [mRiskId], references: [id])
   mRiskCategoryId     String
   mRiskCategory       RiskCategory         @relation(fields: [mRiskCategoryId], references: [id])
-  riskDescription     String         @db.Text
   likelihoodLevel     Int
   consequenceLevel    Int
   riskMatrixRating    RiskRatingEnum

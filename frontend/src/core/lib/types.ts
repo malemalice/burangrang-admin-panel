@@ -206,7 +206,6 @@ export interface RiskAssessmentItem {
   mRisk?: Risk;
   mHseCategoryId: string;
   mHseCategory?: HseCategory;
-  riskDescription: string;
   likelihoodLevel: number;
   consequenceLevel: number;
   riskMatrixRating: RiskRatingEnum;

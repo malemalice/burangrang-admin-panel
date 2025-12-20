@@ -11,11 +11,6 @@ export class CreateRiskAssessmentItemDto {
   @ApiProperty()
   mRiskCategoryId: string;
 
-  @IsString()
-  @IsNotEmpty()
-  @ApiProperty()
-  riskDescription: string;
-
   @IsInt()
   @Min(1)
   @Max(5)

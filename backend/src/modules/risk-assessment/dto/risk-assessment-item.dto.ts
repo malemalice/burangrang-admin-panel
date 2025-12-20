@@ -31,10 +31,6 @@ export class RiskAssessmentItemDto {
 
   @ApiProperty()
   @Expose()
-  riskDescription: string;
-
-  @ApiProperty()
-  @Expose()
   likelihoodLevel: number;
 
   @ApiProperty()

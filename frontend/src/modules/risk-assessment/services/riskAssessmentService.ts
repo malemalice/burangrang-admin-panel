@@ -4,7 +4,6 @@ import api from '@/core/lib/api';
 export interface CreateRiskAssessmentItemDTO {
   mRiskId: string;
   mRiskCategoryId: string;
-  riskDescription: string;
   likelihoodLevel: number;
   consequenceLevel: number;
   riskMatrixRating: string;
