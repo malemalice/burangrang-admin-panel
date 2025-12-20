@@ -2,11 +2,11 @@
 ## Frontend Modular Architecture Restructuring
 
 ### 📋 Document Information
-- **Version**: 1.4
-- **Date**: 2024-12-XX
+- **Version**: 1.6
+- **Date**: 2024-12-20
 - **Status**: Active
 - **Author**: Development Team
-- **Last Updated**: Form Layout Principles Merged
+- **Last Updated**: Searchable Select/Combobox Inside Dialog Pattern Added
 
 ---
 
@@ -14,8 +14,9 @@
 
 This document outlines the technical requirements and architectural principles for restructuring the frontend application from a traditional layered architecture to a modular, feature-based architecture. The restructuring aims to improve maintainability, scalability, and developer experience while following modern frontend best practices.
 
-**Version 1.4 Updates**: Merged form layout principles from `frontend-form-general-layout.md`, including page structure patterns (PageHeader → max-w-4xl wrapper → Form Component), component hierarchy guidelines, layout patterns (two-column grid, spacing standards), state patterns (loading/error states), and action button patterns. Enhanced "Form Page Specific Guidelines" and "Form Component Patterns" sections with complete implementation examples and quick reference checklist.
+**Version 1.6 Updates**: Added "Searchable Select/Combobox Inside Dialog Pattern" documenting critical aria-hidden conflicts when using portaled components (Popover, Select) inside Dialog modals. Provides solution using ModalCombobox component with absolute positioning (no portals) for guaranteed interactivity. Includes root cause analysis, failed solution attempts, implementation principles, and usage patterns.
 **Version 1.5 Updates**: Added Dropdown + Dialog pattern to prevent focus trap issues when dropdown menus interact with dialogs. Includes state management, event handling, and cleanup patterns to ensure proper dropdown closing and prevent `aria-hidden` focus traps that block user interactions.
+**Version 1.4 Updates**: Merged form layout principles from `frontend-form-general-layout.md`, including page structure patterns (PageHeader → max-w-4xl wrapper → Form Component), component hierarchy guidelines, layout patterns (two-column grid, spacing standards), state patterns (loading/error states), and action button patterns. Enhanced "Form Page Specific Guidelines" and "Form Component Patterns" sections with complete implementation examples and quick reference checklist.
 
 **Version 1.3 Updates**: Added comprehensive UI/UX principles section for back-office systems, including user-centered design principles, layout patterns (Master-Detail, Data Density), component patterns (Data Tables, Search & Filters, Modal vs Page), advanced features (Bulk Actions, Undo/Redo, Audit Trails, Export), form-specific guidelines, and enhanced design system details (typography scale, spacing system, button hierarchy, icon usage, semantic status colors). Merged UI/UX principles from `ui-ux-principle.md` to provide complete design guidance.
 
@@ -887,6 +888,8 @@ const form = useForm<FormValues>({
 />
 ```
 
+**⚠️ Important**: When forms are rendered inside Dialog modals, use `ModalCombobox` instead of `SearchableSelect` for searchable select fields. See "Searchable Select/Combobox Inside Dialog Pattern" in Module Interaction Patterns section for details.
+
 ### Status & Feedback
 
 #### Toast Notifications
@@ -1370,7 +1373,93 @@ const handleDialogCancel = () => {
 
 **Apply to**: All pages with dropdown + delete dialogs (UsersPage, RolesPage, OfficesPage, DepartmentsPage, MenusPage, RiskAssessmentsPage, etc.)
 
-#### 3. Filter Field Configuration
+#### 3. Searchable Select/Combobox Inside Dialog Pattern (Critical)
+**IMPORTANT**: When using searchable select/combobox components inside Dialog modals, you MUST use portal-free components to avoid aria-hidden conflicts.
+
+**Problem**: When a Popover or Select component (using portals) opens inside a Dialog, Radix UI Dialog sets `aria-hidden="true"` on itself, blocking ALL interactions with the portaled content. This causes:
+- ❌ Cannot type in search input
+- ❌ Cannot click on options
+- ❌ Hover cursor doesn't change
+- ❌ Console warnings: "Blocked aria-hidden on an element because its descendant retained focus"
+
+**Root Cause**: Radix UI Dialog's focus trap management conflicts with portaled Popover/Select content. Both components use portals, and Dialog's focus management sets `aria-hidden` on sibling portals.
+
+**Failed Solutions** (What doesn't work):
+1. ❌ `modal={true}` on Popover - Creates competing focus traps
+2. ❌ `modal={false}` on Dialog - Dialog still manages focus scope
+3. ❌ High z-index values - Doesn't solve aria-hidden blocking
+4. ❌ Inline rendering with `inModal` prop - Positioning issues with scrollable dialogs
+5. ❌ Using Radix UI Select primitive - Still uses portals, same conflict
+
+**The ONLY Working Solution**: Use `ModalCombobox` component which uses **absolute positioning WITHOUT portals**.
+
+**Solution Pattern**:
+
+```typescript
+// ✅ DO - Use ModalCombobox inside Dialog
+import { ModalCombobox, ModalComboboxOption } from '@/core/components/ui/modal-combobox';
+
+// In form component
+<FormField
+  control={form.control}
+  name="fieldName"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Field Label</FormLabel>
+      <FormControl>
+        {showCard ? (
+          // Outside modal - use SearchableSelect with portal
+          <SearchableSelect
+            options={options}
+            value={field.value}
+            onValueChange={field.onChange}
+            placeholder="Select option"
+            searchPlaceholder="Search..."
+          />
+        ) : (
+          // Inside Dialog - use ModalCombobox without portal
+          <ModalCombobox
+            options={options}
+            value={field.value}
+            onValueChange={field.onChange}
+            placeholder="Select option"
+            searchPlaceholder="Search..."
+          />
+        )}
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+
+// In Dialog
+<Dialog open={isOpen} onOpenChange={setIsOpen}>
+  <DialogContent>
+    <FormComponent showCard={false} /> {/* Pass showCard={false} */}
+  </DialogContent>
+</Dialog>
+```
+
+**ModalCombobox Implementation Principles**:
+1. **No Portals**: Uses `position: absolute` instead of portals
+2. **Native HTML Elements**: Uses `<button>`, `<input>`, `<div>` - no Radix UI primitives
+3. **Direct Event Handlers**: `onClick`, `onMouseEnter`, `onMouseLeave` for guaranteed interactivity
+4. **Auto-focus Search**: Search input automatically focuses when dropdown opens
+5. **Proper z-index**: `z-[100]` to ensure visibility above dialog content
+6. **Event Propagation**: `onClick={(e) => e.stopPropagation()}` on search input
+
+**Key Principles**:
+1. **Portal-Free Inside Dialogs**: Never use portaled components (Popover, Select with portal) inside Dialog
+2. **Conditional Rendering**: Use `showCard` prop to switch between SearchableSelect (with portal) and ModalCombobox (without portal)
+3. **Native Elements**: When inside Dialog, prefer native HTML elements over Radix UI primitives
+4. **Absolute Positioning**: Use `position: absolute` with proper z-index for dropdown content
+5. **Direct Event Handling**: Use direct event handlers (`onClick`, `onMouseEnter`) instead of library abstractions
+
+**Component Location**: `src/core/components/ui/modal-combobox.tsx`
+
+**Apply to**: All forms that are rendered inside Dialog modals (RiskAssessmentItemForm, AssignCourseDialog, etc.)
+
+#### 4. Filter Field Configuration
 Consistent filter patterns across all modules:
 
 ```typescript
@@ -2182,6 +2271,7 @@ const columns = [
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.6 | 2024-12-20 | Development Team | Added "Searchable Select/Combobox Inside Dialog Pattern" to Module Interaction Patterns section. Documents critical issue where portaled components (Popover, Select) inside Dialog modals cause aria-hidden conflicts that block all interactions. Provides solution using ModalCombobox component with absolute positioning (no portals) for guaranteed interactivity inside Dialogs. Includes failed solution attempts, root cause analysis, implementation principles, and usage patterns. Updated Form Components section with warning about using ModalCombobox inside dialogs. |
 | 1.5 | 2024-12-XX | Development Team | Merged form layout principles from `frontend-form-general-layout.md`, including page structure patterns (PageHeader → max-w-4xl wrapper → Form Component), component hierarchy guidelines, layout patterns (two-column grid, spacing standards), state patterns (loading/error states), and action button patterns. Enhanced "Form Page Specific Guidelines" and "Form Component Patterns" sections with complete implementation examples and quick reference checklist. |
 | 1.4 | 2024-12-XX | Development Team | Added Dropdown + Dialog pattern to Table Display Patterns section. Includes critical pattern for preventing focus trap issues when dropdown menus interact with dialogs, with state management, event handling, and cleanup best practices. |
 | 1.3 | 2024-12-XX | Development Team | Added comprehensive UI/UX principles section for back-office systems, including user-centered design principles, layout patterns (Master-Detail, Data Density), component patterns (Data Tables, Search & Filters, Modal vs Page), advanced features (Bulk Actions, Undo/Redo, Audit Trails, Export), form-specific guidelines, and enhanced design system details (typography scale, spacing system, button hierarchy, icon usage, semantic status colors). Merged UI/UX principles from `ui-ux-principle.md`. |
