@@ -113,7 +113,7 @@ export class RiskAssessmentService {
         include: {
           items: {
             include: {
-              mThreat: true,
+              mRisk: true,
               mHseCategory: true,
             },
           },
