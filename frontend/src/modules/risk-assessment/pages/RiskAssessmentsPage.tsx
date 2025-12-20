@@ -1,20 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { 
   Clipboard,
-  Search, 
-  PlusCircle, 
+  Plus, 
   MoreHorizontal, 
   FileEdit, 
   Trash2,
-  AlertCircle,
-  Tag
 } from 'lucide-react';
 
-import { Button } from '@/core/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { Button, ThemeButton } from '@/core/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import {
   DropdownMenu,
@@ -25,7 +21,8 @@ import {
 } from '@/core/components/ui/dropdown-menu';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import DataTable from '@/core/components/ui/data-table/DataTable';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/core/components/ui/alert-dialog';
+import PageHeader from '@/core/components/ui/PageHeader';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Badge } from '@/core/components/ui/badge';
 
 import { RiskAssessment } from '@/core/lib/types';
@@ -43,7 +40,7 @@ const RiskAssessmentsPage = () => {
   const [assessmentToDelete, setAssessmentToDelete] = useState<RiskAssessment | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilters, setActiveFilters] = useState<FilterValue[]>([]);
+  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields
@@ -70,7 +67,7 @@ const RiskAssessmentsPage = () => {
     }
   ];
 
-  const fetchAssessments = async () => {
+  const fetchAssessments = useCallback(async () => {
     setIsLoading(true);
     try {
       const params: any = {
@@ -83,31 +80,40 @@ const RiskAssessmentsPage = () => {
         params.search = searchTerm;
       }
 
-      // Add active status from tabs
-      if (activeTab === 'active') {
+      // Add active status from filters
+      if (activeFilters.status?.value === 'active') {
         params.isActive = true;
-      } else if (activeTab === 'inactive') {
+      } else if (activeFilters.status?.value === 'inactive') {
         params.isActive = false;
       }
 
-      // Add filters
-      activeFilters.forEach((filter) => {
-        params[filter.id] = filter.value;
+      // Add other filters
+      Object.entries(activeFilters).forEach(([key, filter]) => {
+        if (key !== 'status') {
+          params[key] = filter.value;
+        }
       });
 
       const response = await riskAssessmentService.getAll(params);
       setAssessments(response.data);
       setTotalAssessments(response.meta.total);
+      
+      // Ensure we have data from the correct page
+      const actualPage = response.meta.page;
+      if (actualPage && actualPage - 1 !== pageIndex) {
+        setPageIndex(actualPage - 1);
+      }
     } catch (error) {
-      toast.error('Failed to fetch risk assessments');
+      console.error('Failed to fetch risk assessments:', error);
+      toast.error('Failed to load risk assessments');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [pageIndex, limit, searchTerm, activeFilters]);
 
   useEffect(() => {
     fetchAssessments();
-  }, [pageIndex, limit, activeTab, searchTerm, activeFilters]);
+  }, [fetchAssessments]);
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
@@ -117,11 +123,41 @@ const RiskAssessmentsPage = () => {
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     setPageIndex(0);
+    
+    // Update filters based on tab
+    if (value === 'all') {
+      setActiveFilters({});
+    } else if (value === 'active') {
+      setActiveFilters({
+        status: { value: 'active', label: 'Active' }
+      });
+    } else if (value === 'inactive') {
+      setActiveFilters({
+        status: { value: 'inactive', label: 'Inactive' }
+      });
+    }
   };
 
   const handleApplyFilters = (filters: FilterValue[]) => {
-    setActiveFilters(filters);
-    setPageIndex(0);
+    const newActiveFilters: Record<string, { value: any; label: string }> = {};
+    
+    filters.forEach(filter => {
+      if (filter.id === 'status') {
+        const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === filter.value);
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: statusOption?.label || String(filter.value)
+        };
+      } else {
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: String(filter.value)
+        };
+      }
+    });
+    
+    setActiveFilters(newActiveFilters);
+    setPageIndex(0); // Reset to first page on new filters
   };
 
   const handleDeleteClick = (assessment: RiskAssessment, event?: React.MouseEvent) => {
@@ -133,15 +169,18 @@ const RiskAssessmentsPage = () => {
 
   const handleDeleteConfirm = async () => {
     if (!assessmentToDelete) return;
-
+    
+    setIsLoading(true);
     try {
       await riskAssessmentService.delete(assessmentToDelete.id);
-      toast.success('Risk assessment deleted successfully');
+      toast.success('Risk assessment has been deleted');
       setOpenDropdownId(null); // Ensure dropdown is closed
       fetchAssessments();
     } catch (error) {
+      console.error('Failed to delete risk assessment:', error);
       toast.error('Failed to delete risk assessment');
     } finally {
+      setIsLoading(false);
       setDeleteDialogOpen(false);
       setAssessmentToDelete(null);
     }
@@ -244,76 +283,53 @@ const RiskAssessmentsPage = () => {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">Risk Assessments</h1>
-        <Button onClick={() => navigate('/risk-assessment/new')}>
-          <PlusCircle className="h-4 w-4 mr-2" /> New Assessment
-        </Button>
-      </div>
+      <PageHeader
+        title="Risk Assessments"
+        subtitle="Create and manage risk assessments with associated risk items"
+        actions={
+          <ThemeButton onClick={() => navigate('/risk-assessment/new')}>
+            <Plus className="mr-2 h-4 w-4" /> New Assessment
+          </ThemeButton>
+        }
+      >
+        <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
+          <TabsList>
+            <TabsTrigger value="all">All Assessments</TabsTrigger>
+            <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="inactive">Inactive</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </PageHeader>
 
-      <Card>
-        <CardHeader className="px-6 py-4 flex flex-row items-center justify-between space-y-0">
-          <CardTitle>Risk Assessments</CardTitle>
-          <div className="px-6 py-3 border-y">
-            <Tabs defaultValue={activeTab} onValueChange={handleTabChange}>
-              <TabsList>
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="active">Active</TabsTrigger>
-                <TabsTrigger value="inactive">Inactive</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <DataTable
-            columns={columns}
-            data={assessments}
-            isLoading={isLoading}
-            pagination={{
-              pageIndex,
-              limit,
-              pageCount: Math.ceil(totalAssessments / limit),
-              onPageChange: setPageIndex,
-              onPageSizeChange: setLimit,
-              total: totalAssessments,
-            }}
-            filterFields={filterFields}
-            onSearch={handleSearch}
-            onApplyFilters={handleApplyFilters}
-          />
-        </CardContent>
-      </Card>
+      <DataTable
+        columns={columns}
+        data={assessments}
+        isLoading={isLoading}
+        pagination={{
+          pageIndex,
+          limit,
+          pageCount: Math.ceil(totalAssessments / limit),
+          onPageChange: setPageIndex,
+          onPageSizeChange: setLimit,
+          total: totalAssessments
+        }}
+        filterFields={filterFields}
+        onSearch={handleSearch}
+        onApplyFilters={handleApplyFilters}
+      />
 
-      <AlertDialog
+      <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={(open) => {
           if (!open) {
             handleDialogCancel();
           }
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-destructive" />
-                Confirm Deletion
-              </div>
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete the risk assessment 
-              <span className="font-semibold"> {assessmentToDelete?.code}</span>?
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title="Delete Risk Assessment"
+        description={`Are you sure you want to delete the risk assessment "${assessmentToDelete?.code}"? This action cannot be undone.`}
+        onConfirm={handleDeleteConfirm}
+        variant="destructive"
+      />
     </>
   );
 };
