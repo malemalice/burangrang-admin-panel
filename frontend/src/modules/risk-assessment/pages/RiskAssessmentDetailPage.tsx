@@ -418,57 +418,147 @@ const RiskAssessmentDetailPage = () => {
         </div>
       </PageHeader>
 
-      {/* Risk Assessment Details Card */}
+      {/* Risk Assessment Details & Approval History Card - Side by Side */}
       <div ref={targetRef}>
         <Card>
           <CardHeader>
-            <CardTitle>Assessment Details</CardTitle>
-            <CardDescription>Basic information about this risk assessment</CardDescription>
+            <CardTitle>Assessment Details & Approval History</CardTitle>
+            <CardDescription>Basic information and approval progress of this risk assessment</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {assessment.description && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Description</p>
-                <p className="text-sm text-muted-foreground">{assessment.description}</p>
-              </div>
-            )}
+          <CardContent>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column: Assessment Details */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Assessment Details</h3>
+                </div>
+                
+                {assessment.description && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">Description</p>
+                    <p className="text-sm">{assessment.description}</p>
+                  </div>
+                )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Department</p>
-                <p>{assessment.department?.name || 'N/A'}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">Department</p>
+                    <p className="text-sm">{assessment.department?.name || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">Assessment Date</p>
+                    <p className="text-sm">
+                      {assessment.assessmentDate 
+                        ? format(new Date(assessment.assessmentDate), 'dd MMM yyyy') 
+                        : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">Assignee</p>
+                    <p className="text-sm">{assessment.assignee ? `${assessment.assignee.firstName} ${assessment.assignee.lastName}` : 'N/A'}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">Created By</p>
+                    <p className="text-sm">{assessment.creator ? `${assessment.creator.firstName} ${assessment.creator.lastName}` : assessment.createdBy || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">Created At</p>
+                    <p className="text-sm">{format(new Date(assessment.createdAt), 'dd MMM yyyy')}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">Last Updated</p>
+                    <p className="text-sm">{format(new Date(assessment.updatedAt), 'dd MMM yyyy')}</p>
+                  </div>
+                </div>
+
+                {assessment.actionPlan && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">Action Plan</p>
+                    <div className="prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: assessment.actionPlan }} />
+                  </div>
+                )}
               </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Assessment Date</p>
-                <p>
-                  {assessment.assessmentDate 
-                    ? format(new Date(assessment.assessmentDate), 'dd MMM yyyy') 
-                    : 'N/A'}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Created By</p>
-                <p>{assessment.creator ? `${assessment.creator.firstName} ${assessment.creator.lastName}` : assessment.createdBy || 'N/A'}</p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Last Updated</p>
-                <p>{format(new Date(assessment.updatedAt), 'dd MMM yyyy')}</p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Assignee</p>
-                <p>{assessment.assignee ? `${assessment.assignee.firstName} ${assessment.assignee.lastName}` : 'N/A'}</p>
+
+              {/* Right Column: Approval History */}
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold mb-1">Approval History</h3>
+                  <p className="text-xs text-muted-foreground">Track the approval progress</p>
+                </div>
+                
+                {isLoadingHistory ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="h-4 w-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+                    <span className="ml-2 text-sm text-muted-foreground">Loading...</span>
+                  </div>
+                ) : !approvalHistory?.history.length ? (
+                  <div className="flex items-center gap-2 p-4 border rounded-md bg-muted/20">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">No approval history available.</p>
+                  </div>
+                ) : (
+                  <div className="relative max-h-[600px] overflow-y-auto pr-2">
+                    <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-border" />
+                    <div className="space-y-3">
+                      {approvalHistory.history.map((item) => (
+                        <div key={item.id} className="relative pl-6">
+                          <div className="absolute left-0 w-6 flex items-center justify-center">
+                            <div className={`w-2.5 h-2.5 rounded-full border-2 border-background ${
+                              item.status === 'APPROVED' ? 'bg-green-500' : 
+                              item.status === 'REJECTED' ? 'bg-red-500' : 
+                              'bg-yellow-500'
+                            }`} />
+                          </div>
+                          <div className="bg-muted/30 border rounded-md p-3">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <Badge 
+                                variant={
+                                  item.status === 'APPROVED' ? 'default' :
+                                  item.status === 'REJECTED' ? 'destructive' :
+                                  'secondary'
+                                }
+                                className="text-xs"
+                              >
+                                {item.status}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {format(new Date(item.createdAt), 'dd MMM yyyy HH:mm')}
+                              </span>
+                            </div>
+                            {item.notes && (
+                              <p className="text-xs mb-1.5 text-muted-foreground">{item.notes}</p>
+                            )}
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                              <span>By: {item.creator.name}</span>
+                              <span>Dept: {item.department.name}</span>
+                              <span>Pos: {item.jobPosition.name}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {approvalHistory.nextApprover && (
+                        <div className="relative pl-6">
+                          <div className="absolute left-0 w-6 flex items-center justify-center">
+                            <div className="w-2.5 h-2.5 rounded-full border-2 border-background bg-blue-500 animate-pulse" />
+                          </div>
+                          <div className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 border rounded-md p-3">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <Clock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                              <p className="text-xs font-medium text-blue-900 dark:text-blue-100">Waiting for Approval</p>
+                            </div>
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-blue-700 dark:text-blue-300">
+                              <span>Dept: {approvalHistory.nextApprover.department.name}</span>
+                              <span>Pos: {approvalHistory.nextApprover.jobPosition.name}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-
-            {assessment.actionPlan && (
-              <>
-                <Separator />
-                <div>
-                  <h3 className="text-lg font-medium mb-4">Action Plan</h3>
-                  <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: assessment.actionPlan }} />
-                </div>
-              </>
-            )}
           </CardContent>
         </Card>
       </div>
@@ -500,79 +590,6 @@ const RiskAssessmentDetailPage = () => {
         />
       </div>
 
-      {/* Approval History Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Approval History</CardTitle>
-          <CardDescription>Track the approval progress of this risk assessment</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoadingHistory ? (
-            <div className="flex items-center justify-center p-6">
-              <p>Loading approval history...</p>
-            </div>
-          ) : !approvalHistory?.history.length ? (
-            <div className="flex items-center justify-center p-6 border rounded-md bg-muted/20">
-              <Clock className="h-5 w-5 mr-2 text-muted-foreground" />
-              <p>No approval history available.</p>
-            </div>
-          ) : (
-            <div className="relative">
-              <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
-              <div className="space-y-8">
-                {approvalHistory.history.map((item) => (
-                  <div key={item.id} className="relative pl-8">
-                    <div className="absolute left-0 w-8 flex items-center justify-center">
-                      <div className={`w-3 h-3 rounded-full ${
-                        item.status === 'APPROVED' ? 'bg-green-500' : 
-                        item.status === 'REJECTED' ? 'bg-red-500' : 
-                        'bg-yellow-500'
-                      }`} />
-                    </div>
-                    <div className="bg-card border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Badge variant={
-                            item.status === 'APPROVED' ? 'default' :
-                            item.status === 'REJECTED' ? 'destructive' :
-                            'secondary'
-                          }>
-                            {item.status}
-                          </Badge>
-                          <span className="text-sm text-muted-foreground">
-                            {format(new Date(item.createdAt), 'dd MMM yyyy HH:mm')}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-sm mb-2">{item.notes}</p>
-                      <div className="text-xs text-muted-foreground">
-                        <p>Approved by: {item.creator.name}</p>
-                        <p>Department: {item.department.name}</p>
-                        <p>Position: {item.jobPosition.name}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {approvalHistory.nextApprover && (
-                  <div className="relative pl-8">
-                    <div className="absolute left-0 w-8 flex items-center justify-center">
-                      <div className="w-3 h-3 rounded-full bg-blue-500" />
-                    </div>
-                    <div className="bg-blue-50 border-blue-100 border rounded-lg p-4">
-                      <p className="font-medium mb-1">Waiting for Approval</p>
-                      <div className="text-sm text-muted-foreground">
-                        <p>Department: {approvalHistory.nextApprover.department.name}</p>
-                        <p>Position: {approvalHistory.nextApprover.jobPosition.name}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Add Item Dialog */}
       <Dialog open={isAddItemDialogOpen} onOpenChange={setIsAddItemDialogOpen}>

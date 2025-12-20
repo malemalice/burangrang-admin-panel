@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { 
-  Clipboard,
+  Eye,
   Plus, 
   MoreHorizontal, 
   FileEdit, 
@@ -215,7 +215,25 @@ const RiskAssessmentsPage = () => {
     {
       id: 'code',
       header: 'Code',
-      cell: (assessment: RiskAssessment) => <div className="font-medium">{assessment.code}</div>,
+      cell: (assessment: RiskAssessment) => (
+        <button
+          onClick={() => navigate(`/risk-assessment/${assessment.id}`)}
+          className="font-medium text-primary hover:underline focus:outline-none focus:underline"
+          aria-label={`View details for ${assessment.code}`}
+        >
+          {assessment.code}
+        </button>
+      ),
+    },{
+      id: 'assessmentDate',
+      header: 'Assessment Date',
+      cell: (assessment: RiskAssessment) => (
+        <div>
+          {assessment.assessmentDate 
+            ? format(new Date(assessment.assessmentDate), 'dd MMM yyyy') 
+            : 'N/A'}
+        </div>
+      ),
     },
     {
       id: 'department',
@@ -229,17 +247,7 @@ const RiskAssessmentsPage = () => {
         <div className="text-center">{assessment.items?.length || 0}</div>
       ),
     },
-    {
-      id: 'assessmentDate',
-      header: 'Assessment Date',
-      cell: (assessment: RiskAssessment) => (
-        <div>
-          {assessment.assessmentDate 
-            ? format(new Date(assessment.assessmentDate), 'dd MMM yyyy') 
-            : 'N/A'}
-        </div>
-      ),
-    },
+    
     {
       id: 'status',
       header: 'Status',
@@ -249,34 +257,43 @@ const RiskAssessmentsPage = () => {
       id: 'actions',
       header: 'Actions',
       cell: (assessment: RiskAssessment) => (
-        <DropdownMenu
-          open={openDropdownId === assessment.id}
-          onOpenChange={(open) => {
-            setOpenDropdownId(open ? assessment.id : null);
-          }}
-        >
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/risk-assessment/${assessment.id}`)}>
-              <Clipboard className="mr-2 h-4 w-4" /> View details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/risk-assessment/${assessment.id}/edit`)}>
-              <FileEdit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => handleDeleteClick(assessment, e)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/risk-assessment/${assessment.id}`)}
+            className="text-primary hover:text-primary hover:bg-primary/10"
+            aria-label={`View details for ${assessment.code}`}
+          >
+            <Eye className="mr-2 h-4 w-4" />
+            View
+          </Button>
+          <DropdownMenu
+            open={openDropdownId === assessment.id}
+            onOpenChange={(open) => {
+              setOpenDropdownId(open ? assessment.id : null);
+            }}
+          >
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => navigate(`/risk-assessment/${assessment.id}/edit`)}>
+                <FileEdit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={(e) => handleDeleteClick(assessment, e)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       )
     }
   ];
