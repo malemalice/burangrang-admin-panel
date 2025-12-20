@@ -60,7 +60,7 @@ export class DepartmentProfileDto {
   complianceRate: number;
 }
 
-export class HseCategoryAnalysisDto {
+export class RiskCategoryAnalysisDto {
   @ApiProperty()
   categoryId: string;
 
@@ -74,9 +74,9 @@ export class HseCategoryAnalysisDto {
   riskDistribution: RiskDistributionDto;
 }
 
-export class ThreatAnalysisDto {
+export class RiskAnalysisDto {
   @ApiProperty()
-  threatId: string;
+  riskId: string;
 
   @ApiProperty()
   name: string;

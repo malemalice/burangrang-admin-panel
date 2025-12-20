@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Core entity types
 
 export interface User {
@@ -132,29 +133,42 @@ export interface HseCategory {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
-  threats?: any[];
+  risks?: any[];
 }
 
-export interface Threat {
+export interface RiskCategory {
   id: string;
   name: string;
   code: string;
   description?: string;
   isActive: boolean;
-  hseCategoryId: string;
-  hseCategory?: HseCategory;
   createdAt: Date;
   updatedAt: Date;
-  mitigations?: ThreatMitigation[];
+  risks?: any[];
 }
 
-export interface ThreatMitigation {
+export interface Risk {
   id: string;
-  level: number;
-  mitigationDescription: string;
+  name: string;
+  code: string;
+  description?: string;
   isActive: boolean;
-  threatId: string;
-  threat?: Threat;
+  riskCategoryId: string;
+  riskCategory?: RiskCategory;
+  createdAt: Date;
+  updatedAt: Date;
+  mitigations?: RiskMitigation[];
+}
+
+export interface RiskMitigation {
+  id: string;
+  eliminate?: string;
+  transfer?: string;
+  reduce?: string;
+  accept?: string;
+  isActive: boolean;
+  riskId: string;
+  risk?: Risk;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -170,12 +184,14 @@ export enum RiskRatingEnum {
 export interface RiskAssessment {
   id: string;
   code: string;
+  description?: string;
   departmentId: string;
   department?: Department;
   assessmentDate: Date;
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
+  creator?: User;
   status: string;
   isActive: boolean;
   items: RiskAssessmentItem[];
@@ -187,13 +203,32 @@ export interface RiskAssessment {
 export interface RiskAssessmentItem {
   id: string;
   riskAssessmentId: string;
-  mThreatId: string;
-  mHseCategoryId: string;
+  mRiskId: string;
+  mRisk?: Risk;
+  mRiskCategoryId: string;
+  mRiskCategory?: RiskCategory;
   likelihoodLevel: number;
   consequenceLevel: number;
   riskMatrixRating: RiskRatingEnum;
-  mThreat?: Threat;
-  mHseCategory?: HseCategory;
+  interpretation: RiskRatingEnum;
+  postLikelihoodLevel: number;
+  postConsequenceLevel: number;
+  postRiskMatrixRating: RiskRatingEnum;
+  postInterpretation: RiskRatingEnum;
+}
+
+export interface RiskControl {
+  id: string;
+  eliminate?: string;
+  transfer?: string;
+  reduce?: string;
+  isOpen: boolean;
+  isAccept: boolean;
+  isActive: boolean;
+  entity: string;
+  entityId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Common response and request types

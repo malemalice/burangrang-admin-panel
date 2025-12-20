@@ -40,17 +40,17 @@ const Dashboard = () => {
     queryFn: DashboardService.getComplianceProgress,
   });
 
-  const { data: hseCategoryAnalysis, isLoading: isLoadingHse } = useQuery({
-    queryKey: ['dashboard', 'hse-category-analysis'],
-    queryFn: DashboardService.getHseCategoryAnalysis,
+  const { data: riskCategoryAnalysis, isLoading: isLoadingRiskCategories } = useQuery({
+    queryKey: ['dashboard', 'risk-category-analysis'],
+    queryFn: DashboardService.getRiskCategoryAnalysis,
   });
 
-  const { data: threatAnalysis, isLoading: isLoadingThreats } = useQuery({
-    queryKey: ['dashboard', 'threat-analysis'],
-    queryFn: DashboardService.getThreatAnalysis,
+  const { data: riskAnalysis, isLoading: isLoadingRisks } = useQuery({
+    queryKey: ['dashboard', 'risk-analysis'],
+    queryFn: DashboardService.getRiskAnalysis,
   });
 
-  const isLoading = isLoadingOverview || isLoadingCompliance || isLoadingHse || isLoadingThreats;
+  const isLoading = isLoadingOverview || isLoadingCompliance || isLoadingRiskCategories || isLoadingRisks;
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -162,14 +162,14 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* HSE Categories */}
+        {/* Risk Categories */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">HSE Categories</CardTitle>
+            <CardTitle className="text-lg">Risk Categories</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {hseCategoryAnalysis?.map((category) => (
+              {riskCategoryAnalysis?.map((category) => (
                 <div key={category.categoryId} className="pb-4 border-b last:border-0">
                   <div className="flex justify-between items-center">
                     <p className="font-medium text-sm">{category.name}</p>
@@ -221,35 +221,35 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Threat Analysis */}
+      {/* Risk Analysis */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Critical Threats</CardTitle>
+          <CardTitle className="text-lg">Critical Risks</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {threatAnalysis?.filter(threat => 
-              ['HIGH', 'EXTREME'].includes(threat.averageRiskRating)
-            ).map((threat) => (
+            {riskAnalysis?.filter(risk => 
+              ['HIGH', 'EXTREME'].includes(risk.averageRiskRating)
+            ).map((risk) => (
               <div
-                key={threat.threatId}
+                key={risk.riskId}
                 className="p-4 rounded-lg border"
               >
                 <div className="flex items-center gap-2 mb-2">
                   <ShieldAlert className={`h-5 w-5 ${
-                    threat.averageRiskRating === 'EXTREME' ? 'text-red-500' : 'text-orange-500'
+                    risk.averageRiskRating === 'EXTREME' ? 'text-red-500' : 'text-orange-500'
                   }`} />
-                  <h3 className="font-medium text-sm">{threat.name}</h3>
+                  <h3 className="font-medium text-sm">{risk.name}</h3>
                 </div>
-                <p className="text-xs text-gray-500 mb-2">{threat.category}</p>
+                <p className="text-xs text-gray-500 mb-2">{risk.category}</p>
                 <div className="flex items-center justify-between">
                   <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                    {threat.occurrences} occurrences
+                    {risk.occurrences} occurrences
                   </span>
                   <span className={`text-xs px-2 py-1 rounded ${
-                    riskLevelColors[threat.averageRiskRating]
+                    riskLevelColors[risk.averageRiskRating]
                   }`}>
-                    {threat.averageRiskRating}
+                    {risk.averageRiskRating}
                   </span>
                 </div>
               </div>

@@ -24,7 +24,7 @@ export interface DepartmentProfile {
   complianceRate: number;
 }
 
-export interface HseCategoryAnalysis {
+export interface RiskCategoryAnalysis {
   categoryId: string;
   name: string;
   totalOccurrences: number;
@@ -33,8 +33,8 @@ export interface HseCategoryAnalysis {
   };
 }
 
-export interface ThreatAnalysis {
-  threatId: string;
+export interface RiskAnalysis {
+  riskId: string;
   name: string;
   category: string;
   occurrences: number;

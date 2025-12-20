@@ -369,8 +369,8 @@ export const seedMenus = async () => {
 
     await prisma.menu.create({
       data: {
-        name: 'HSE Categories',
-        path: '/master/hse-categories',
+        name: 'Risk Categories',
+        path: '/master/risk-categories',
         icon: 'ShieldAlert',
         parentId: masterDataMenu.id,
         order: 4,
@@ -387,8 +387,8 @@ export const seedMenus = async () => {
 
     await prisma.menu.create({
       data: {
-        name: 'Threats',
-        path: '/master/threats',
+        name: 'Risks',
+        path: '/master/risks',
         icon: 'AlertTriangle',
         parentId: masterDataMenu.id,
         order: 5,
@@ -405,8 +405,8 @@ export const seedMenus = async () => {
 
     await prisma.menu.create({
       data: {
-        name: 'Threat Mitigations',
-        path: '/master/threat-mitigations',
+        name: 'Risk Mitigations',
+        path: '/master/risk-mitigations',
         icon: 'Shield',
         parentId: masterDataMenu.id,
         order: 6,
@@ -800,6 +800,27 @@ export const seedMenus = async () => {
         },
       },
     });
+
+
+    await prisma.menu.create({
+      data: {
+        name: 'Risk Matrix',
+        path: '/risk-matrix',
+        icon: 'Grid',
+        order: 3,
+        isActive: true,
+        parentId: masterDataMenu.id,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
     console.log(`   - Top-level menus: 9`);
     console.log(`   - Master Data submenus: 9`);

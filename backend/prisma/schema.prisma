@@ -29,6 +29,7 @@ model User {
   department                   Department?                @relation(fields: [departmentId], references: [id])
   jobPosition                  JobPosition?               @relation(fields: [jobPositionId], references: [id])
   riskAssessments              RiskAssessment[]
+  riskAssessmentsCreated       RiskAssessment[]           @relation("RiskAssessmentCreator")
   createdApprovalItems         MasterApprovalItem[]       @relation("CreatedApprovalItems")
   createdApprovals             Approval[]                 @relation("CreatedApprovals")
   createdNotifications         Notification[]             @relation("NotificationCreator")
@@ -204,7 +205,7 @@ model JobPosition {
   @@map("m_job_positions")
 }
 
-model HseCategory {
+model RiskCategory {
   id                  String               @id @default(uuid())
   name                String
   code                String               @unique
@@ -212,13 +213,13 @@ model HseCategory {
   isActive            Boolean              @default(true)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
-  threats             Threat[]
+  risks               Risk[]
   riskAssessmentItems RiskAssessmentItem[]
 
-  @@map("m_hse_categories")
+  @@map("m_risk_categories")
 }
 
-model Threat {
+model Risk {
   id                  String               @id @default(uuid())
   name                String
   code                String               @unique
@@ -226,26 +227,46 @@ model Threat {
   isActive            Boolean              @default(true)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
-  hseCategoryId       String
-  hseCategory         HseCategory          @relation(fields: [hseCategoryId], references: [id])
-  mitigations         ThreatMitigation[]
+  riskCategoryId      String
+  riskCategory        RiskCategory         @relation(fields: [riskCategoryId], references: [id])
+  mitigations         RiskMitigation[]
   riskAssessmentItems RiskAssessmentItem[]
   workPermitHazards   WorkPermitHazard[]
 
-  @@map("m_threats")
+  @@map("m_risk")
 }
 
-model ThreatMitigation {
-  id                    String   @id @default(uuid())
-  level                 Int
-  mitigationDescription String   @db.Text
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  threatId              String
-  threat                Threat   @relation(fields: [threatId], references: [id])
+model RiskMitigation {
+  id        String   @id @default(uuid())
+  eliminate String?  @db.Text
+  transfer  String?  @db.Text
+  reduce    String?  @db.Text
+  accept    String?  @db.Text
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  riskId    String
+  risk      Risk     @relation(fields: [riskId], references: [id])
 
-  @@map("m_threat_mitigations")
+  @@map("m_risk_mitigations")
+}
+
+model RiskControl {
+  id        String   @id @default(uuid())
+  eliminate String?  @db.Text
+  transfer  String?  @db.Text
+  reduce    String?  @db.Text
+  isOpen    Boolean  @default(true)
+  isAccept  Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  entity    String
+  entityId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("t_risk_control")
+  @@index([entity, entityId])
+  @@index([isActive])
 }
 
 enum RiskRatingEnum {
@@ -258,8 +279,15 @@ enum RiskRatingEnum {
 model RiskMatrix {
   id               String         @id @default(uuid())
   likelihoodLevel  Int
-  consequenceLevel Int
+  likelihoodName   String         @default("")
+  likelihoodDesc   String         @default("") @db.Text
+  consequenceLevel String
+  consequenceName  String         @default("")
+  consequenceDesc  String         @default("") @db.Text
   risk_rating      RiskRatingEnum
+  isActive         Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   @@map("m_risk_matrix")
 }
@@ -274,7 +302,8 @@ model RiskAssessment {
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
   createdBy      String
-  status         String
+  creator        User                 @relation("RiskAssessmentCreator", fields: [createdBy], references: [id])
+  status         GeneralStatusEnum
   isActive       Boolean              @default(true)
   items          RiskAssessmentItem[]
   assigneeId     String?
@@ -285,16 +314,21 @@ model RiskAssessment {
 }
 
 model RiskAssessmentItem {
-  id               String         @id @default(uuid())
-  riskAssessmentId String
-  riskAssessment   RiskAssessment @relation(fields: [riskAssessmentId], references: [id])
-  mThreatId        String
-  mThreat          Threat         @relation(fields: [mThreatId], references: [id])
-  mHseCategoryId   String
-  mHseCategory     HseCategory    @relation(fields: [mHseCategoryId], references: [id])
-  likelihoodLevel  Int
-  consequenceLevel Int
-  riskMatrixRating RiskRatingEnum
+  id                  String         @id @default(uuid())
+  riskAssessmentId    String
+  riskAssessment      RiskAssessment @relation(fields: [riskAssessmentId], references: [id])
+  mRiskId             String         @map("mriskid")
+  mRisk               Risk           @relation(fields: [mRiskId], references: [id])
+  mRiskCategoryId     String
+  mRiskCategory       RiskCategory         @relation(fields: [mRiskCategoryId], references: [id])
+  likelihoodLevel     Int
+  consequenceLevel    Int
+  riskMatrixRating    String
+  interpretation      RiskRatingEnum
+  postLikelihoodLevel Int
+  postConsequenceLevel Int
+  postRiskMatrixRating String
+  postInterpretation   RiskRatingEnum
 
   @@map("t_risk_assessment_item")
 }
@@ -1500,7 +1534,7 @@ model WorkPermitRequiredCourse {
 model WorkPermitHazard {
   id             String   @id @default(uuid())
   workPermitId   String
-  hazardId       String? // Reference to m_risks/threats if exists
+  hazardId       String? // Reference to m_risks if exists
   hazardName     String // Free text hazard name
   description    String?  @db.Text
   controlMeasure String?  @db.Text
@@ -1510,7 +1544,7 @@ model WorkPermitHazard {
 
   // Relations
   workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
-  threat     Threat?    @relation(fields: [hazardId], references: [id])
+  risk       Risk?      @relation(fields: [hazardId], references: [id])
 
   @@map("t_work_permit_hazards")
 }

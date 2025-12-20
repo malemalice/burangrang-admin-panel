@@ -1,33 +1,67 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Expose } from 'class-transformer';
 import { RiskRatingEnum } from '@prisma/client';
-import { HseCategoryDto } from 'src/modules/hse-categories/dto/hse-category.dto';
-import { ThreatDto } from 'src/modules/threats/dto/threat.dto';
+import { RiskCategoryDto } from 'src/modules/risk-categories/dto/risk-category.dto';
+import { RiskDto } from 'src/modules/risks/dto/risk.dto';
 
 export class RiskAssessmentItemDto {
   @ApiProperty()
+  @Expose()
   id: string;
 
   @ApiProperty()
+  @Expose()
   riskAssessmentId: string;
 
   @ApiProperty()
-  mThreatId: string;
+  @Expose()
+  mRiskId: string;
 
-  @ApiProperty({ type: ThreatDto })
-  mThreat: ThreatDto;
-
-  @ApiProperty()
-  mHseCategoryId: string;
-
-  @ApiProperty({ type: HseCategoryDto })
-  mHseCategory: HseCategoryDto;
+  @ApiProperty({ type: RiskDto })
+  @Expose()
+  mRisk: RiskDto;
 
   @ApiProperty()
+  @Expose()
+  mRiskCategoryId: string;
+
+  @ApiProperty({ type: RiskCategoryDto })
+  @Expose()
+  mRiskCategory: RiskCategoryDto;
+
+  @ApiProperty()
+  @Expose()
   likelihoodLevel: number;
 
   @ApiProperty()
+  @Expose()
   consequenceLevel: number;
 
+  @ApiProperty({ description: 'Risk matrix rating as combination of consequence and likelihood (e.g., A1, B2, B4)' })
+  @Expose()
+  riskMatrixRating: string;
+
   @ApiProperty({ enum: RiskRatingEnum })
-  riskMatrixRating: RiskRatingEnum;
+  @Expose()
+  interpretation: RiskRatingEnum;
+
+  @ApiProperty()
+  @Expose()
+  postLikelihoodLevel: number;
+
+  @ApiProperty()
+  @Expose()
+  postConsequenceLevel: number;
+
+  @ApiProperty({ description: 'Post-control risk matrix rating as combination of consequence and likelihood (e.g., A1, B2, B4)' })
+  @Expose()
+  postRiskMatrixRating: string;
+
+  @ApiProperty({ enum: RiskRatingEnum })
+  @Expose()
+  postInterpretation: RiskRatingEnum;
+
+  constructor(partial: Partial<RiskAssessmentItemDto>) {
+    Object.assign(this, partial);
+  }
 }
