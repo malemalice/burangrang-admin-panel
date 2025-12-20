@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -49,7 +49,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 interface RiskAssessmentItemFormProps {
   assessmentId?: string;
-  initialItem?: any;
+  initialItem?: Partial<CreateRiskAssessmentItemDTO>;
   onSubmit?: (item: CreateRiskAssessmentItemDTO) => void;
   onCancel?: () => void;
   showCard?: boolean; // Optional: whether to show Card wrapper (default: true)
@@ -73,6 +73,8 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
   const [riskMatrixData, setRiskMatrixData] = useState<RiskMatrixEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingRisks, setIsLoadingRisks] = useState(false);
+  const [isLoadingRiskCategories, setIsLoadingRiskCategories] = useState(false);
 
   // Convert data to SearchableSelectOption format (use SearchableSelect outside modal, ModalCombobox inside modal)
   const riskOptions: ModalComboboxOption[] = risks.map(risk => ({
@@ -154,7 +156,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
     resolver: zodResolver(formSchema),
     defaultValues: {
       mRiskId: initialItem?.mRiskId || '',
-      mRiskCategoryId: initialItem?.mRiskCategoryId || initialItem?.mHseCategoryId || '',
+      mRiskCategoryId: initialItem?.mRiskCategoryId || '',
       likelihoodLevel: initialItem?.likelihoodLevel || 1,
       consequenceLevel: initialItem?.consequenceLevel || 1,
       riskMatrixRating: initialItem?.riskMatrixRating || RiskRatingEnum.LOW,
@@ -166,29 +168,101 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
     },
   });
 
-  // Fetch reference data
+  // Fetch risk matrix data (only this is needed upfront)
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchRiskMatrix = async () => {
       setIsLoading(true);
       try {
-        const [riskCategoryResponse, riskResponse, riskMatrixResponse] = await Promise.all([
-          riskCategoryService.getAll(),
-          riskService.getAll(),
-          riskAssessmentService.getRiskMatrixEntries(),
-        ]);
-
-        setRiskCategories(riskCategoryResponse.data);
-        setRisks(riskResponse.data);
+        const riskMatrixResponse = await riskAssessmentService.getRiskMatrixEntries();
         setRiskMatrixData(riskMatrixResponse.data);
       } catch (error) {
-        toast.error('Failed to load reference data');
+        toast.error('Failed to load risk matrix data');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchData();
+    fetchRiskMatrix();
   }, []);
+
+  // Helper to ensure selected item is in the list
+  const ensureSelectedItemInList = useCallback(async <T extends { id: string }>(
+    items: T[],
+    selectedId: string | undefined,
+    getById: (id: string) => Promise<T>
+  ): Promise<T[]> => {
+    if (!selectedId) return items;
+    
+    const existingIds = new Set(items.map(item => item.id));
+    if (existingIds.has(selectedId)) return items;
+    
+    try {
+      const selectedItem = await getById(selectedId);
+      return [selectedItem, ...items.filter(item => item.id !== selectedId)];
+    } catch {
+      return items;
+    }
+  }, []);
+
+  // Search risk categories handler
+  const handleSearchRiskCategories = useCallback(async (searchQuery: string) => {
+    setIsLoadingRiskCategories(true);
+    try {
+      const query = searchQuery.trim();
+      const limit = query ? 20 : 5; // Show more results when searching
+      
+      const response = await riskCategoryService.getAll({
+        page: 1,
+        limit,
+        isActive: true,
+        search: query || undefined,
+      });
+      
+      // Ensure selected item is included if it exists
+      const selectedId = form.getValues('mRiskCategoryId');
+      const categoriesWithSelected = await ensureSelectedItemInList(
+        response.data,
+        selectedId,
+        riskCategoryService.getById
+      );
+      
+      setRiskCategories(categoriesWithSelected);
+    } catch (error) {
+      toast.error('Failed to search risk categories');
+    } finally {
+      setIsLoadingRiskCategories(false);
+    }
+  }, [form, ensureSelectedItemInList]);
+
+  // Search risks handler
+  const handleSearchRisks = useCallback(async (searchQuery: string) => {
+    setIsLoadingRisks(true);
+    try {
+      const query = searchQuery.trim();
+      const limit = query ? 20 : 5; // Show more results when searching
+      
+      const response = await riskService.getAll({
+        page: 1,
+        limit,
+        isActive: true,
+        search: query || undefined,
+      });
+      
+      // Ensure selected item is included if it exists
+      const selectedId = form.getValues('mRiskId');
+      const risksWithSelected = await ensureSelectedItemInList(
+        response.data,
+        selectedId,
+        riskService.getById
+      );
+      
+      setRisks(risksWithSelected);
+    } catch (error) {
+      toast.error('Failed to search risks');
+    } finally {
+      setIsLoadingRisks(false);
+    }
+  }, [form, ensureSelectedItemInList]);
 
   // Calculate risk rating when likelihood or consequence changes
   const calculateRiskRating = async (isPostControl = false) => {
@@ -315,6 +389,8 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                       onValueChange={field.onChange}
                       placeholder="Select Risk Category"
                       searchPlaceholder="Search Risk Category..."
+                      onSearch={handleSearchRiskCategories}
+                      isLoading={isLoadingRiskCategories}
                     />
                   ) : (
                     <ModalCombobox
@@ -323,6 +399,8 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                       onValueChange={field.onChange}
                       placeholder="Select Risk Category"
                       searchPlaceholder="Search Risk Category..."
+                      onSearch={handleSearchRiskCategories}
+                      isLoading={isLoadingRiskCategories}
                     />
                   )}
                 </FormControl>
@@ -346,6 +424,8 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                       onValueChange={field.onChange}
                       placeholder="Select risk"
                       searchPlaceholder="Search risk..."
+                      onSearch={handleSearchRisks}
+                      isLoading={isLoadingRisks}
                     />
                   ) : (
                     <ModalCombobox
@@ -354,6 +434,8 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                       onValueChange={field.onChange}
                       placeholder="Select risk"
                       searchPlaceholder="Search risk..."
+                      onSearch={handleSearchRisks}
+                      isLoading={isLoadingRisks}
                     />
                   )}
                 </FormControl>

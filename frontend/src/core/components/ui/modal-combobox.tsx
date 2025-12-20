@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { cn } from "@/core/lib/utils";
 
 export interface ModalComboboxOption {
@@ -17,6 +17,10 @@ interface ModalComboboxProps {
   className?: string;
   includeNone?: boolean;
   id?: string;
+  // Async search props
+  onSearch?: (searchQuery: string) => Promise<void> | void;
+  isLoading?: boolean;
+  debounceMs?: number;
 }
 
 /**
@@ -34,6 +38,9 @@ export function ModalCombobox({
   className,
   includeNone = false,
   id,
+  onSearch,
+  isLoading = false,
+  debounceMs = 300,
 }: ModalComboboxProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -41,6 +48,7 @@ export function ModalCombobox({
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Ensure options is always an array
   const safeOptions = Array.isArray(options) ? options : [];
@@ -52,15 +60,31 @@ export function ModalCombobox({
     ? [{ value: 'none', label: 'None' }, ...safeOptions]
     : safeOptions;
 
-  // Filter options based on search query
+  // Debounced search handler
+  const handleSearch = useCallback((query: string) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    if (onSearch) {
+      debounceTimerRef.current = setTimeout(() => {
+        onSearch(query);
+      }, debounceMs);
+    }
+  }, [onSearch, debounceMs]);
+
+  // Filter options based on search query (only if not using async search)
   const filteredOptions = useMemo(() => {
+    // If async search is enabled, don't filter locally
+    if (onSearch) return allOptions;
+    
     if (!searchQuery.trim()) return allOptions;
     
     const query = searchQuery.toLowerCase();
     return allOptions.filter((option) =>
       option.label.toLowerCase().includes(query)
     );
-  }, [allOptions, searchQuery]);
+  }, [allOptions, searchQuery, onSearch]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -97,8 +121,27 @@ export function ModalCombobox({
   useEffect(() => {
     if (open && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 0);
+      // Load initial data if async search is enabled
+      if (onSearch && searchQuery === "") {
+        handleSearch("");
+      }
     }
-  }, [open]);
+  }, [open, onSearch, handleSearch, searchQuery]);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    handleSearch(query);
+  };
 
   const handleSelect = (optionValue: string) => {
     if (onValueChange) onValueChange(optionValue);
@@ -148,14 +191,22 @@ export function ModalCombobox({
               className="flex h-8 w-full rounded-md bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               placeholder={searchPlaceholder}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearchChange}
               onClick={(e) => e.stopPropagation()}
             />
+            {isLoading && (
+              <Loader2 className="h-4 w-4 animate-spin ml-2 text-muted-foreground" />
+            )}
           </div>
 
           {/* Options list */}
           <div className="max-h-[250px] overflow-y-auto p-1">
-            {filteredOptions.length === 0 ? (
+            {isLoading && filteredOptions.length === 0 ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                Loading...
+              </div>
+            ) : filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
                 {emptyText}
               </div>
