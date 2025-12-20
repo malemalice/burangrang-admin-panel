@@ -4,32 +4,31 @@ import { toast } from 'sonner';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import PageHeader from '@/core/components/ui/PageHeader';
-import ThreatForm from './ThreatForm';
-import { threatService } from '@/modules/master-data';
-import { Threat } from '@/core/lib/types';
+import RiskMitigationForm from './RiskMitigationForm';
+import { riskMitigationService } from '@/modules/master-data';
+import { RiskMitigation } from '@/core/lib/types';
 
-const EditThreatPage = () => {
+const EditRiskMitigationPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [threat, setThreat] = useState<Threat | null>(null);
+  const [riskMitigation, setRiskMitigation] = useState<RiskMitigation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchThreat = async () => {
+    const fetchRiskMitigation = async () => {
       try {
         if (!id) return;
-        const data = await threatService.getById(id);
-        setThreat(data);
+        const data = await riskMitigationService.getById(id);
+        setRiskMitigation(data);
       } catch (error) {
-        console.error('Failed to fetch threat:', error);
-        toast.error('Failed to fetch threat');
-        navigate('/master/threats');
+        toast.error('Failed to fetch risk mitigation');
+        navigate('/master/risk-mitigations');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchThreat();
+    fetchRiskMitigation();
   }, [id, navigate]);
 
   if (isLoading) {
@@ -37,24 +36,24 @@ const EditThreatPage = () => {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex items-center gap-2">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading threat details...</span>
+          <span>Loading risk mitigation details...</span>
         </div>
       </div>
     );
   }
 
-  if (!threat) {
+  if (!riskMitigation) {
     return (
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold text-gray-900 mb-2">
-          Threat not found
+          Risk Mitigation not found
         </h2>
         <p className="text-gray-600 mb-4">
-          The threat you're looking for doesn't exist or has been deleted.
+          The risk mitigation you're looking for doesn't exist or has been deleted.
         </p>
-        <Button onClick={() => navigate('/master/threats')}>
+        <Button onClick={() => navigate('/master/risk-mitigations')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Threats
+          Back to Risk Mitigations
         </Button>
       </div>
     );
@@ -63,19 +62,19 @@ const EditThreatPage = () => {
   return (
     <>
       <PageHeader
-        title="Edit Threat"
-        subtitle={`Modify the details of "${threat.name}"`}
+        title="Edit Risk Mitigation"
+        subtitle={`Modify the details of this risk mitigation`}
         actions={
-          <Button variant="outline" onClick={() => navigate('/master/threats')}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Threats
+          <Button variant="outline" onClick={() => navigate('/master/risk-mitigations')}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Risk Mitigations
           </Button>
         }
       />
       <div className="max-w-4xl mx-auto">
-        <ThreatForm threat={threat} mode="edit" />
+        <RiskMitigationForm riskMitigation={riskMitigation} mode="edit" />
       </div>
     </>
   );
 };
 
-export default EditThreatPage; 
+export default EditRiskMitigationPage;

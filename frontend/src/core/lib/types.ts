@@ -132,10 +132,10 @@ export interface HseCategory {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
-  threats?: any[];
+  risks?: any[];
 }
 
-export interface Threat {
+export interface Risk {
   id: string;
   name: string;
   code: string;
@@ -145,16 +145,16 @@ export interface Threat {
   hseCategory?: HseCategory;
   createdAt: Date;
   updatedAt: Date;
-  mitigations?: ThreatMitigation[];
+  mitigations?: RiskMitigation[];
 }
 
-export interface ThreatMitigation {
+export interface RiskMitigation {
   id: string;
   level: number;
   mitigationDescription: string;
   isActive: boolean;
-  threatId: string;
-  threat?: Threat;
+  riskId: string;
+  risk?: Risk;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -189,8 +189,8 @@ export interface RiskAssessment {
 export interface RiskAssessmentItem {
   id: string;
   riskAssessmentId: string;
-  mThreatId: string;
-  mThreat?: Threat;
+  mRiskId: string;
+  mRisk?: Risk;
   mHseCategoryId: string;
   mHseCategory?: HseCategory;
   riskDescription: string;

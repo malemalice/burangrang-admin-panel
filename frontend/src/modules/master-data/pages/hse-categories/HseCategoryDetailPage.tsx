@@ -54,46 +54,46 @@ const HseCategoryDetailPage = () => {
       navigate('/master/hse-categories');
     } catch (error) {
       console.error('Failed to delete HSE category:', error);
-      toast.error('Failed to delete HSE category. It might have associated threats.');
+      toast.error('Failed to delete HSE category. It might have associated risks.');
     } finally {
       setIsDeleting(false);
       setDeleteDialogOpen(false);
     }
   };
 
-  const threatsColumns = [
+  const risksColumns = [
     {
       id: 'name',
-      header: 'Threat Name',
-      cell: (threat: any) => (
+      header: 'Risk Name',
+      cell: (risk: any) => (
         <div>
-          <div className="font-medium">{threat.name}</div>
-          {threat.code && <div className="text-xs text-gray-500">Code: {threat.code}</div>}
+          <div className="font-medium">{risk.name}</div>
+          {risk.code && <div className="text-xs text-gray-500">Code: {risk.code}</div>}
         </div>
       ),
     },
     {
       id: 'description',
       header: 'Description',
-      cell: (threat: any) => (
+      cell: (risk: any) => (
         <div className="text-sm">
-          {threat.description || 'No description provided'}
+          {risk.description || 'No description provided'}
         </div>
       ),
     },
     {
       id: 'status',
       header: 'Status',
-      cell: (threat: any) => (
+      cell: (risk: any) => (
         <Badge
           variant="outline"
           className={`${
-            threat.isActive
+            risk.isActive
               ? 'bg-green-100 text-green-800'
               : 'bg-gray-100 text-gray-800'
           } border-0`}
         >
-          {threat.isActive ? 'Active' : 'Inactive'}
+          {risk.isActive ? 'Active' : 'Inactive'}
         </Badge>
       ),
     },
@@ -142,8 +142,8 @@ const HseCategoryDetailPage = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList>
               <TabsTrigger value="details">Details</TabsTrigger>
-              {hseCategory.threats && hseCategory.threats.length > 0 && (
-                <TabsTrigger value="threats">Associated Threats ({hseCategory.threats.length})</TabsTrigger>
+              {hseCategory.risks && hseCategory.risks.length > 0 && (
+                <TabsTrigger value="risks">Associated Risks ({hseCategory.risks.length})</TabsTrigger>
               )}
             </TabsList>
 
@@ -189,11 +189,11 @@ const HseCategoryDetailPage = () => {
                   )}
 
                   <div>
-                    <h3 className="text-sm font-medium text-gray-500">Related Threats</h3>
+                    <h3 className="text-sm font-medium text-gray-500">Related Risks</h3>
                     <p className="mt-1">
-                      {hseCategory.threats && hseCategory.threats.length > 0
-                        ? `${hseCategory.threats.length} threat(s) associated with this category`
-                        : 'No threats associated with this category'}
+                      {hseCategory.risks && hseCategory.risks.length > 0
+                        ? `${hseCategory.risks.length} risk(s) associated with this category`
+                        : 'No risks associated with this category'}
                     </p>
                   </div>
 
@@ -210,25 +210,25 @@ const HseCategoryDetailPage = () => {
               </Card>
             </TabsContent>
 
-            {hseCategory.threats && hseCategory.threats.length > 0 && (
-              <TabsContent value="threats">
+            {hseCategory.risks && hseCategory.risks.length > 0 && (
+              <TabsContent value="risks">
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
-                      <AlertTriangle className="mr-2 h-5 w-5" /> Associated Threats
+                      <AlertTriangle className="mr-2 h-5 w-5" /> Associated Risks
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <DataTable
-                      columns={threatsColumns}
-                      data={hseCategory.threats}
+                      columns={risksColumns}
+                      data={hseCategory.risks}
                       pagination={{
                         pageIndex: 0,
                         limit: 10,
-                        pageCount: Math.ceil(hseCategory.threats.length / 10),
+                        pageCount: Math.ceil(hseCategory.risks.length / 10),
                         onPageChange: () => {},
                         onPageSizeChange: () => {},
-                        total: hseCategory.threats.length
+                        total: hseCategory.risks.length
                       }}
                     />
                   </CardContent>
@@ -243,7 +243,7 @@ const HseCategoryDetailPage = () => {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Delete HSE Category"
-        description={`Are you sure you want to delete the HSE category "${hseCategory?.name}"? This action cannot be undone. Note that categories with associated threats cannot be deleted.`}
+        description={`Are you sure you want to delete the HSE category "${hseCategory?.name}"? This action cannot be undone. Note that categories with associated risks cannot be deleted.`}
         onConfirm={handleDeleteConfirm}
       />
     </>

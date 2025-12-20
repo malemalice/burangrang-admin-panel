@@ -36,8 +36,8 @@ export interface HseCategoryAnalysis {
   riskDistribution: RiskDistribution;
 }
 
-export interface ThreatAnalysis {
-  threatId: string;
+export interface RiskAnalysis {
+  riskId: string;
   name: string;
   category: string;
   occurrences: number;
@@ -75,8 +75,8 @@ const DashboardService = {
     return data;
   },
 
-  getThreatAnalysis: async (): Promise<ThreatAnalysis[]> => {
-    const { data } = await api.get('/dashboard/threat-analysis');
+  getRiskAnalysis: async (): Promise<RiskAnalysis[]> => {
+    const { data } = await api.get('/dashboard/risk-analysis');
     return data;
   },
 

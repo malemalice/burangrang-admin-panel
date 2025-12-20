@@ -32,9 +32,9 @@ import { Separator } from '@/core/components/ui/separator';
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
 import { Editor } from '@/core/components/ui/editor';
 
-import { RiskAssessment, RiskRatingEnum, Department, Threat, HseCategory, User } from '@/core/lib/types';
+import { RiskAssessment, RiskRatingEnum, Department, Risk, HseCategory, User } from '@/core/lib/types';
 import riskAssessmentService, { type CreateRiskAssessmentDTO } from '../services/riskAssessmentService';
-import { departmentService, hseCategoryService, threatService } from '@/modules/master-data';
+import { departmentService, hseCategoryService, riskService } from '@/modules/master-data';
 import { userService } from '@/modules/users';
 
 // Form schema for validation
@@ -46,7 +46,7 @@ const formSchema = z.object({
   status: z.string().min(1, 'Status is required'),
   isActive: z.boolean().default(true),
   items: z.array(z.object({
-    mThreatId: z.string().min(1, 'Threat is required'),
+    mRiskId: z.string().min(1, 'Risk is required'),
     mHseCategoryId: z.string().min(1, 'HSE Category is required'),
     riskDescription: z.string().min(1, 'Risk description is required'),
     likelihoodLevel: z.coerce.number().min(1, 'Minimum level is 1').max(5, 'Maximum level is 5'),
@@ -91,7 +91,7 @@ interface RiskMatrixEntry {
 const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
   const navigate = useNavigate();
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [threats, setThreats] = useState<Threat[]>([]);
+  const [risks, setRisks] = useState<Risk[]>([]);
   const [hseCategories, setHseCategories] = useState<HseCategory[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [riskMatrixData, setRiskMatrixData] = useState<RiskMatrixEntry[]>([]);
@@ -104,9 +104,9 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
     label: dept.name
   }));
 
-  const threatOptions: SearchableSelectOption[] = threats.map(threat => ({
-    value: threat.id,
-    label: `${threat.name} - ${threat.description}`
+  const riskOptions: SearchableSelectOption[] = risks.map(risk => ({
+    value: risk.id,
+    label: `${risk.name} - ${risk.description}`
   }));
 
   const hseCategoryOptions: SearchableSelectOption[] = hseCategories.map(category => ({
@@ -204,7 +204,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
       isActive: true,
       items: [
         {
-          mThreatId: '',
+          mRiskId: '',
           mHseCategoryId: '',
           riskDescription: '',
           likelihoodLevel: 1,
@@ -232,17 +232,17 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [departmentsResponse, hseResponse, threatResponse, usersResponse, riskMatrixResponse] = await Promise.all([
+        const [departmentsResponse, hseResponse, riskResponse, usersResponse, riskMatrixResponse] = await Promise.all([
           departmentService.getDepartments({ page: 1, limit: 1000 }),
           hseCategoryService.getAll(),
-          threatService.getAll(),
+          riskService.getAll(),
           userService.getAll({ page: 1, limit: 1000 }),
           riskAssessmentService.getRiskMatrixEntries(),
         ]);
 
         setDepartments(departmentsResponse.data);
         setHseCategories(hseResponse.data);
-        setThreats(threatResponse.data);
+        setRisks(riskResponse.data);
         setUsers(usersResponse.data);
         setRiskMatrixData(riskMatrixResponse.data);
       } catch (error) {
@@ -269,7 +269,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
         status: assessment.status,
         isActive: assessment.isActive,
         items: assessment.items.map(item => ({
-          mThreatId: item.mThreatId,
+          mRiskId: item.mRiskId,
           mHseCategoryId: item.mHseCategoryId,
           riskDescription: item.riskDescription || '',
           likelihoodLevel: item.likelihoodLevel,
@@ -320,7 +320,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
 
   const handleAddItem = () => {
     append({
-      mThreatId: '',
+      mRiskId: '',
       mHseCategoryId: '',
       riskDescription: '',
       likelihoodLevel: 1,
@@ -344,7 +344,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
         departmentId: data.departmentId as string,
         status: data.status as string,
         items: data.items.map(item => ({
-          mThreatId: item.mThreatId as string,
+          mRiskId: item.mRiskId as string,
           mHseCategoryId: item.mHseCategoryId as string,
           riskDescription: item.riskDescription as string,
           likelihoodLevel: item.likelihoodLevel as number,
@@ -632,19 +632,19 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                           />
                           <FormField
                             control={form.control}
-                            name={`items.${index}.mThreatId`}
+                            name={`items.${index}.mRiskId`}
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>
-                                  Threat <span className="text-destructive">*</span>
+                                  Risk <span className="text-destructive">*</span>
                                 </FormLabel>
                                 <FormControl>
                                   <SearchableSelect
-                                    options={threatOptions}
+                                    options={riskOptions}
                                     value={field.value}
                                     onValueChange={field.onChange}
-                                    placeholder="Select threat"
-                                    searchPlaceholder="Search threat..."
+                                    placeholder="Select risk"
+                                    searchPlaceholder="Search risk..."
                                   />
                                 </FormControl>
                                 <FormMessage />

@@ -253,9 +253,9 @@ const RiskAssessmentDetailPage = () => {
                         <CardTitle className="text-base">
                           {item.mHseCategory 
                             ? `${item.mHseCategory.code} - ${item.mHseCategory.name}` 
-                            : 'Unknown Category'} - {item.mThreat 
-                            ? `${item.mThreat.code} - ${item.mThreat.name}` 
-                            : 'Unknown Threat'}
+                            : 'Unknown Category'} - {item.mRisk 
+                            ? `${item.mRisk.code} - ${item.mRisk.name}` 
+                            : 'Unknown Risk'}
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-4">

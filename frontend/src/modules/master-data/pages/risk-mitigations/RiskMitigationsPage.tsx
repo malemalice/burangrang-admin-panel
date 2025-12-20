@@ -16,50 +16,50 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
-import { threatMitigationService, threatService } from '@/modules/master-data';
-import { ThreatMitigation, Threat } from '@/core/lib/types';
+import { riskMitigationService, riskService } from '@/modules/master-data';
+import { RiskMitigation, Risk } from '@/core/lib/types';
 
-const ThreatMitigationsPage = () => {
+const RiskMitigationsPage = () => {
   const navigate = useNavigate();
-  const [mitigations, setMitigations] = useState<ThreatMitigation[]>([]);
-  const [threats, setThreats] = useState<Threat[]>([]);
+  const [mitigations, setMitigations] = useState<RiskMitigation[]>([]);
+  const [risks, setRisks] = useState<Risk[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
   const [totalMitigations, setTotalMitigations] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [mitigationToDelete, setMitigationToDelete] = useState<ThreatMitigation | null>(null);
+  const [mitigationToDelete, setMitigationToDelete] = useState<RiskMitigation | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
-  const [selectedThreatId, setSelectedThreatId] = useState<string | undefined>(undefined);
+  const [selectedRiskId, setSelectedRiskId] = useState<string | undefined>(undefined);
   const [selectedLevel, setSelectedLevel] = useState<number | undefined>(undefined);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
-  // Fetch threats for filter dropdown
+  // Fetch risks for filter dropdown
   useEffect(() => {
-    const fetchThreats = async () => {
+    const fetchRisks = async () => {
       try {
-        const response = await threatService.getAll({ limit: 100 });
-        setThreats(response.data);
+        const response = await riskService.getAll({ limit: 100 });
+        setRisks(response.data);
       } catch (error) {
-        toast.error('Failed to fetch threats for filtering');
+        toast.error('Failed to fetch risks for filtering');
       }
     };
     
-    fetchThreats();
+    fetchRisks();
   }, []);
 
   // Define filter fields
   const filterFields: FilterField[] = [
     {
-      id: 'threatId',
-      label: 'Threat',
+      id: 'riskId',
+      label: 'Risk',
       type: 'select',
       options: [
-        { label: 'All Threats', value: 'all' },
-        ...threats.map(threat => ({ label: threat.name, value: threat.id }))
+        { label: 'All Risks', value: 'all' },
+        ...risks.map(risk => ({ label: risk.name, value: risk.id }))
       ],
     },
     {
@@ -87,18 +87,18 @@ const ThreatMitigationsPage = () => {
     },
   ];
 
-  // Fetch threat mitigations
+  // Fetch risk mitigations
   const fetchMitigations = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await threatMitigationService.getAll({
+      const response = await riskMitigationService.getAll({
         page: pageIndex + 1,
         limit,
         isActive: activeTab === 'all' ? undefined : activeTab === 'active',
         search: searchTerm,
         sortBy: sorting?.id,
         sortOrder: sorting?.desc ? 'desc' : 'asc',
-        threatId: selectedThreatId !== 'all' ? selectedThreatId : undefined,
+        riskId: selectedRiskId !== 'all' ? selectedRiskId : undefined,
         level: selectedLevel,
       });
       setMitigations(response.data);
@@ -109,11 +109,11 @@ const ThreatMitigationsPage = () => {
         setPageIndex(response.meta.page - 1); // Convert 1-based to 0-based
       }
     } catch (error) {
-      toast.error('Failed to fetch threat mitigations');
+      toast.error('Failed to fetch risk mitigations');
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, activeTab, searchTerm, sorting, selectedThreatId, selectedLevel]);
+  }, [pageIndex, limit, activeTab, searchTerm, sorting, selectedRiskId, selectedLevel]);
 
   useEffect(() => {
     fetchMitigations();
@@ -147,8 +147,8 @@ const ThreatMitigationsPage = () => {
         }
         
         // Set the specific filter state variables
-        if (filter.id === 'threatId') {
-          setSelectedThreatId(filter.value === 'all' ? undefined : filter.value);
+        if (filter.id === 'riskId') {
+          setSelectedRiskId(filter.value === 'all' ? undefined : filter.value);
         } else if (filter.id === 'level') {
           setSelectedLevel(filter.value === 'all' ? undefined : Number(filter.value));
         }
@@ -168,7 +168,7 @@ const ThreatMitigationsPage = () => {
   };
 
   // Handle delete
-  const handleDelete = (mitigation: ThreatMitigation, event?: React.MouseEvent) => {
+  const handleDelete = (mitigation: RiskMitigation, event?: React.MouseEvent) => {
     event?.stopPropagation();
     setOpenDropdownId(null); // Explicitly close the dropdown
     setMitigationToDelete(mitigation);
@@ -179,12 +179,12 @@ const ThreatMitigationsPage = () => {
     if (!mitigationToDelete) return;
 
     try {
-      await threatMitigationService.delete(mitigationToDelete.id);
-      toast.success('Threat mitigation deleted successfully');
+      await riskMitigationService.delete(mitigationToDelete.id);
+      toast.success('Risk mitigation deleted successfully');
       setOpenDropdownId(null); // Ensure dropdown is closed
       fetchMitigations();
     } catch (error) {
-      toast.error('Failed to delete threat mitigation');
+      toast.error('Failed to delete risk mitigation');
     } finally {
       setDeleteDialogOpen(false);
       setMitigationToDelete(null);
@@ -197,10 +197,10 @@ const ThreatMitigationsPage = () => {
     setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
-  // Get threat name by ID
-  const getThreatName = (threatId: string) => {
-    const threat = threats.find(t => t.id === threatId);
-    return threat ? threat.name : 'Unknown';
+  // Get risk name by ID
+  const getRiskName = (riskId: string) => {
+    const risk = risks.find(r => r.id === riskId);
+    return risk ? risk.name : 'Unknown';
   };
 
   // Table columns
@@ -208,7 +208,7 @@ const ThreatMitigationsPage = () => {
     {
       id: 'level',
       header: 'Level',
-      cell: (mitigation: ThreatMitigation) => (
+      cell: (mitigation: RiskMitigation) => (
         <div className="flex items-center gap-2">
           <Badge
             variant="outline"
@@ -227,16 +227,16 @@ const ThreatMitigationsPage = () => {
       isSortable: true,
     },
     {
-      id: 'threatId',
-      header: 'Threat',
-      cell: (mitigation: ThreatMitigation) => (
+      id: 'riskId',
+      header: 'Risk',
+      cell: (mitigation: RiskMitigation) => (
         <div>
           <div className="font-medium">
-            {mitigation.threat?.name || getThreatName(mitigation.threatId)}
+            {mitigation.risk?.name || getRiskName(mitigation.riskId)}
           </div>
-          {mitigation.threat && (
+          {mitigation.risk && (
             <div className="text-xs text-gray-500 mt-1">
-              {mitigation.threat.code}
+              {mitigation.risk.code}
             </div>
           )}
         </div>
@@ -246,7 +246,7 @@ const ThreatMitigationsPage = () => {
     {
       id: 'mitigationDescription',
       header: 'Description',
-      cell: (mitigation: ThreatMitigation) => (
+      cell: (mitigation: RiskMitigation) => (
         <div className="max-w-md truncate">{mitigation.mitigationDescription}</div>
       ),
       isSortable: true,
@@ -254,7 +254,7 @@ const ThreatMitigationsPage = () => {
     {
       id: 'isActive',
       header: 'Status',
-      cell: (mitigation: ThreatMitigation) => (
+      cell: (mitigation: RiskMitigation) => (
         <Badge
           variant="outline"
           className={`${
@@ -271,7 +271,7 @@ const ThreatMitigationsPage = () => {
     {
       id: 'actions',
       header: '',
-      cell: (mitigation: ThreatMitigation) => (
+      cell: (mitigation: RiskMitigation) => (
         <DropdownMenu
           open={openDropdownId === mitigation.id}
           onOpenChange={(open) => {
@@ -284,7 +284,7 @@ const ThreatMitigationsPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/master/threat-mitigations/${mitigation.id}`)}>
+            <DropdownMenuItem onClick={() => navigate(`/master/risk-mitigations/${mitigation.id}`)}>
               <Edit className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
@@ -306,10 +306,10 @@ const ThreatMitigationsPage = () => {
   return (
     <>
       <PageHeader
-        title="Threat Mitigations"
-        subtitle="Manage your organization's threat mitigation measures"
+        title="Risk Mitigations"
+        subtitle="Manage your organization's risk mitigation measures"
         actions={
-          <Button onClick={() => navigate('/master/threat-mitigations/new')}>
+          <Button onClick={() => navigate('/master/risk-mitigations/new')}>
             <Plus className="mr-2 h-4 w-4" /> Add Mitigation
           </Button>
         }
@@ -349,7 +349,7 @@ const ThreatMitigationsPage = () => {
             handleDialogCancel();
           }
         }}
-        title="Delete Threat Mitigation"
+        title="Delete Risk Mitigation"
         description={`Are you sure you want to delete this mitigation? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
         variant="destructive"
@@ -358,4 +358,4 @@ const ThreatMitigationsPage = () => {
   );
 };
 
-export default ThreatMitigationsPage; 
+export default RiskMitigationsPage;

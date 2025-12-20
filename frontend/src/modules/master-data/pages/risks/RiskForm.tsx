@@ -24,8 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/core/components/ui/select';
-import { threatService, hseCategoryService } from '@/modules/master-data';
-import { Threat, HseCategory } from '@/core/lib/types';
+import { riskService, hseCategoryService } from '@/modules/master-data';
+import { Risk, HseCategory } from '@/core/lib/types';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -37,12 +37,12 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-interface ThreatFormProps {
-  threat?: Threat;
+interface RiskFormProps {
+  risk?: Risk;
   mode: 'create' | 'edit';
 }
 
-const ThreatForm = ({ threat, mode }: ThreatFormProps) => {
+const RiskForm = ({ risk, mode }: RiskFormProps) => {
   const navigate = useNavigate();
   const [hseCategories, setHseCategories] = useState<HseCategory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -76,33 +76,33 @@ const ThreatForm = ({ threat, mode }: ThreatFormProps) => {
     fetchHseCategories();
   }, []);
 
-  // Set form values when editing an existing threat
+  // Set form values when editing an existing risk
   useEffect(() => {
-    if (threat) {
+    if (risk) {
       form.reset({
-        name: threat.name,
-        code: threat.code,
-        description: threat.description || '',
-        hseCategoryId: threat.hseCategoryId,
-        isActive: threat.isActive,
+        name: risk.name,
+        code: risk.code,
+        description: risk.description || '',
+        hseCategoryId: risk.hseCategoryId,
+        isActive: risk.isActive,
       });
     }
-  }, [threat, form]);
+  }, [risk, form]);
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
     try {
       if (mode === 'create') {
-        await threatService.create(data);
-        toast.success('Threat created successfully');
+        await riskService.create(data);
+        toast.success('Risk created successfully');
       } else {
-        await threatService.update(threat!.id, data);
-        toast.success('Threat updated successfully');
+        await riskService.update(risk!.id, data);
+        toast.success('Risk updated successfully');
       }
-      navigate('/master/threats');
+      navigate('/master/risks');
     } catch (error) {
-      console.error('Error saving threat:', error);
-      toast.error(`Failed to ${mode} threat`);
+      console.error('Error saving risk:', error);
+      toast.error(`Failed to ${mode} risk`);
     } finally {
       setIsLoading(false);
     }
@@ -111,7 +111,7 @@ const ThreatForm = ({ threat, mode }: ThreatFormProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Threat</CardTitle>
+        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Risk</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -152,7 +152,7 @@ const ThreatForm = ({ threat, mode }: ThreatFormProps) => {
                 <FormItem>
                   <FormLabel>Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter threat name" {...field} />
+                    <Input placeholder="Enter risk name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -166,7 +166,7 @@ const ThreatForm = ({ threat, mode }: ThreatFormProps) => {
                 <FormItem>
                   <FormLabel>Code</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter threat code" {...field} />
+                    <Input placeholder="Enter risk code" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -181,7 +181,7 @@ const ThreatForm = ({ threat, mode }: ThreatFormProps) => {
                   <FormLabel>Description</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Enter threat description"
+                      placeholder="Enter risk description"
                       {...field}
                     />
                   </FormControl>
@@ -198,7 +198,7 @@ const ThreatForm = ({ threat, mode }: ThreatFormProps) => {
                   <div className="space-y-0.5">
                     <FormLabel>Active Status</FormLabel>
                     <div className="text-sm text-gray-500">
-                      Enable or disable this threat
+                      Enable or disable this risk
                     </div>
                   </div>
                   <FormControl>
@@ -215,7 +215,7 @@ const ThreatForm = ({ threat, mode }: ThreatFormProps) => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate('/master/threats')}
+                onClick={() => navigate('/master/risks')}
                 disabled={isLoading}
               >
                 Cancel
@@ -231,4 +231,4 @@ const ThreatForm = ({ threat, mode }: ThreatFormProps) => {
   );
 };
 
-export default ThreatForm; 
+export default RiskForm;

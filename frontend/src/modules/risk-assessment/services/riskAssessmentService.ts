@@ -2,7 +2,7 @@ import { RiskAssessment, PaginatedResponse, PaginationParams } from '@/core/lib/
 import api from '@/core/lib/api';
 
 export interface CreateRiskAssessmentItemDTO {
-  mThreatId: string;
+  mRiskId: string;
   mHseCategoryId: string;
   riskDescription: string;
   likelihoodLevel: number;

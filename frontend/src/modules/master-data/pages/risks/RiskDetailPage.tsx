@@ -9,13 +9,13 @@ import { Badge } from '@/core/components/ui/badge';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import DataTable from '@/core/components/ui/data-table/DataTable';
-import { Threat, ThreatMitigation } from '@/core/lib/types';
-import { threatService } from '@/modules/master-data';
+import { Risk, RiskMitigation } from '@/core/lib/types';
+import { riskService } from '@/modules/master-data';
 
-const ThreatDetailPage = () => {
+const RiskDetailPage = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const [threat, setThreat] = useState<Threat | null>(null);
+  const [risk, setRisk] = useState<Risk | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -24,20 +24,20 @@ const ThreatDetailPage = () => {
   useEffect(() => {
     if (!id) return;
 
-    const fetchThreat = async () => {
+    const fetchRisk = async () => {
       setIsLoading(true);
       try {
-        const threatData = await threatService.getById(id);
-        setThreat(threatData);
+        const riskData = await riskService.getById(id);
+        setRisk(riskData);
       } catch (error) {
-        console.error('Failed to fetch threat:', error);
-        toast.error('Failed to load threat data');
+        console.error('Failed to fetch risk:', error);
+        toast.error('Failed to load risk data');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchThreat();
+    fetchRisk();
   }, [id]);
 
   const handleDeleteClick = () => {
@@ -49,12 +49,12 @@ const ThreatDetailPage = () => {
     
     setIsDeleting(true);
     try {
-      await threatService.delete(id);
-      toast.success('Threat deleted successfully');
-      navigate('/master/threats');
+      await riskService.delete(id);
+      toast.success('Risk deleted successfully');
+      navigate('/master/risks');
     } catch (error) {
-      console.error('Failed to delete threat:', error);
-      toast.error('Failed to delete threat. It might have associated mitigations.');
+      console.error('Failed to delete risk:', error);
+      toast.error('Failed to delete risk. It might have associated mitigations.');
     } finally {
       setIsDeleting(false);
       setDeleteDialogOpen(false);
@@ -65,7 +65,7 @@ const ThreatDetailPage = () => {
     {
       id: 'level',
       header: 'Level',
-      cell: (mitigation: ThreatMitigation) => (
+      cell: (mitigation: RiskMitigation) => (
         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-0">
           Level {mitigation.level}
         </Badge>
@@ -74,7 +74,7 @@ const ThreatDetailPage = () => {
     {
       id: 'description',
       header: 'Description',
-      cell: (mitigation: ThreatMitigation) => (
+      cell: (mitigation: RiskMitigation) => (
         <div className="text-sm">
           {mitigation.mitigationDescription}
         </div>
@@ -83,7 +83,7 @@ const ThreatDetailPage = () => {
     {
       id: 'status',
       header: 'Status',
-      cell: (mitigation: ThreatMitigation) => (
+      cell: (mitigation: RiskMitigation) => (
         <Badge
           variant="outline"
           className={`${
@@ -101,24 +101,24 @@ const ThreatDetailPage = () => {
   return (
     <>
       <PageHeader
-        title={threat?.name || 'Threat Details'}
-        subtitle="View and manage health, safety, and environment threat information"
+        title={risk?.name || 'Risk Details'}
+        subtitle="View and manage health, safety, and environment risk information"
         actions={
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={() => navigate('/master/threats')}
+              onClick={() => navigate('/master/risks')}
               disabled={isLoading || isDeleting}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Threats
+              Back to Risks
             </Button>
             <Button
-              onClick={() => navigate(`/master/threats/${id}/edit`)}
+              onClick={() => navigate(`/master/risks/${id}/edit`)}
               disabled={isLoading || isDeleting}
             >
               <Edit className="mr-2 h-4 w-4" />
-              Edit Threat
+              Edit Risk
             </Button>
             <Button
               variant="destructive"
@@ -126,7 +126,7 @@ const ThreatDetailPage = () => {
               disabled={isLoading || isDeleting}
             >
               <Trash2 className="mr-2 h-4 w-4" />
-              Delete Threat
+              Delete Risk
             </Button>
           </div>
         }
@@ -136,13 +136,13 @@ const ThreatDetailPage = () => {
         <div className="flex justify-center items-center h-64">
           <div className="h-8 w-8 rounded-full border-4 border-admin-primary/30 border-t-admin-primary animate-spin-slow" />
         </div>
-      ) : threat ? (
+      ) : risk ? (
         <div className="container py-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList>
               <TabsTrigger value="details">Details</TabsTrigger>
-              {threat.mitigations && threat.mitigations.length > 0 && (
-                <TabsTrigger value="mitigations">Mitigations ({threat.mitigations.length})</TabsTrigger>
+              {risk.mitigations && risk.mitigations.length > 0 && (
+                <TabsTrigger value="mitigations">Mitigations ({risk.mitigations.length})</TabsTrigger>
               )}
             </TabsList>
 
@@ -151,33 +151,33 @@ const ThreatDetailPage = () => {
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center">
-                      <AlertTriangle className="mr-2 h-5 w-5" /> Threat Information
+                      <AlertTriangle className="mr-2 h-5 w-5" /> Risk Information
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
                       <h3 className="text-sm font-medium text-gray-500">Name</h3>
-                      <p className="mt-1">{threat.name}</p>
+                      <p className="mt-1">{risk.name}</p>
                     </div>
 
-                    {threat.code && (
+                    {risk.code && (
                       <div>
                         <h3 className="text-sm font-medium text-gray-500">Code</h3>
-                        <p className="mt-1">{threat.code}</p>
+                        <p className="mt-1">{risk.code}</p>
                       </div>
                     )}
 
                     <div>
                       <h3 className="text-sm font-medium text-gray-500">HSE Category</h3>
                       <p className="mt-1">
-                        {threat.hseCategory ? (
+                        {risk.hseCategory ? (
                           <Button
                             variant="link"
                             className="p-0 h-auto"
-                            onClick={() => navigate(`/master/hse-categories/${threat.hseCategoryId}`)}
+                            onClick={() => navigate(`/master/hse-categories/${risk.hseCategoryId}`)}
                           >
                             <Tag className="mr-2 h-4 w-4" />
-                            {threat.hseCategory.name}
+                            {risk.hseCategory.name}
                           </Button>
                         ) : (
                           'N/A'
@@ -190,44 +190,44 @@ const ThreatDetailPage = () => {
                       <Badge
                         variant="outline"
                         className={`${
-                          threat.isActive
+                          risk.isActive
                             ? 'bg-green-100 text-green-800'
                             : 'bg-gray-100 text-gray-800'
                         } border-0 mt-1`}
                       >
-                        {threat.isActive ? 'Active' : 'Inactive'}
+                        {risk.isActive ? 'Active' : 'Inactive'}
                       </Badge>
                     </div>
 
-                    {threat.description && (
+                    {risk.description && (
                       <div>
                         <h3 className="text-sm font-medium text-gray-500">Description</h3>
-                        <p className="mt-1">{threat.description}</p>
+                        <p className="mt-1">{risk.description}</p>
                       </div>
                     )}
 
                     <div>
                       <h3 className="text-sm font-medium text-gray-500">Mitigations</h3>
                       <p className="mt-1">
-                        {threat.mitigations && threat.mitigations.length > 0
-                          ? `${threat.mitigations.length} mitigation(s) associated with this threat`
-                          : 'No mitigations associated with this threat'}
+                        {risk.mitigations && risk.mitigations.length > 0
+                          ? `${risk.mitigations.length} mitigation(s) associated with this risk`
+                          : 'No mitigations associated with this risk'}
                       </p>
                     </div>
 
                     <div>
                       <h3 className="text-sm font-medium text-gray-500">Created</h3>
-                      <p className="mt-1">{new Date(threat.createdAt).toLocaleDateString()}</p>
+                      <p className="mt-1">{new Date(risk.createdAt).toLocaleDateString()}</p>
                     </div>
 
                     <div>
                       <h3 className="text-sm font-medium text-gray-500">Last Updated</h3>
-                      <p className="mt-1">{new Date(threat.updatedAt).toLocaleDateString()}</p>
+                      <p className="mt-1">{new Date(risk.updatedAt).toLocaleDateString()}</p>
                     </div>
                   </CardContent>
                 </Card>
 
-                {threat.description && (
+                {risk.description && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg flex items-center">
@@ -235,14 +235,14 @@ const ThreatDetailPage = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="whitespace-pre-line">{threat.description}</p>
+                      <p className="whitespace-pre-line">{risk.description}</p>
                     </CardContent>
                   </Card>
                 )}
               </div>
             </TabsContent>
 
-            {threat.mitigations && threat.mitigations.length > 0 && (
+            {risk.mitigations && risk.mitigations.length > 0 && (
               <TabsContent value="mitigations">
                 <Card>
                   <CardHeader>
@@ -253,14 +253,14 @@ const ThreatDetailPage = () => {
                   <CardContent>
                     <DataTable
                       columns={mitigationsColumns}
-                      data={threat.mitigations}
+                      data={risk.mitigations}
                       pagination={{
                         pageIndex: 0,
                         limit: 10,
-                        pageCount: Math.ceil(threat.mitigations.length / 10),
+                        pageCount: Math.ceil(risk.mitigations.length / 10),
                         onPageChange: () => {},
                         onPageSizeChange: () => {},
-                        total: threat.mitigations.length
+                        total: risk.mitigations.length
                       }}
                     />
                   </CardContent>
@@ -274,12 +274,12 @@ const ThreatDetailPage = () => {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Threat"
-        description={`Are you sure you want to delete the threat "${threat?.name}"? This action cannot be undone. Note that threats with associated mitigations cannot be deleted.`}
+        title="Delete Risk"
+        description={`Are you sure you want to delete the risk "${risk?.name}"? This action cannot be undone. Note that risks with associated mitigations cannot be deleted.`}
         onConfirm={handleDeleteConfirm}
       />
     </>
   );
 };
 
-export default ThreatDetailPage; 
+export default RiskDetailPage;

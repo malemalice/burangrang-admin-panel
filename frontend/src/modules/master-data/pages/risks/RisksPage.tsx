@@ -16,20 +16,20 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
-import { threatService, hseCategoryService } from '@/modules/master-data';
-import { Threat, HseCategory } from '@/core/lib/types';
+import { riskService, hseCategoryService } from '@/modules/master-data';
+import { Risk, HseCategory } from '@/core/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 
-const ThreatsPage = () => {
+const RisksPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [threats, setThreats] = useState<Threat[]>([]);
+  const [risks, setRisks] = useState<Risk[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
-  const [totalThreats, setTotalThreats] = useState(0);
+  const [totalRisks, setTotalRisks] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [threatToDelete, setThreatToDelete] = useState<Threat | null>(null);
+  const [riskToDelete, setRiskToDelete] = useState<Risk | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
@@ -67,12 +67,12 @@ const ThreatsPage = () => {
   const filterFields: FilterField[] = [
     {
       id: 'name',
-      label: 'Threat Name',
+      label: 'Risk Name',
       type: 'text',
     },
     {
       id: 'code',
-      label: 'Threat Code',
+      label: 'Risk Code',
       type: 'text',
     },
     {
@@ -98,11 +98,11 @@ const ThreatsPage = () => {
     },
   ];
 
-  // Fetch threats
-  const fetchThreats = useCallback(async () => {
+  // Fetch risks
+  const fetchRisks = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await threatService.getAll({
+      const response = await riskService.getAll({
         page: pageIndex + 1,
         limit,
         isActive: activeTab === 'all' ? undefined : activeTab === 'active',
@@ -111,23 +111,23 @@ const ThreatsPage = () => {
         sortOrder: sorting?.desc ? 'desc' : 'asc',
         hseCategoryId: selectedCategoryId && selectedCategoryId !== 'all' ? selectedCategoryId : undefined,
       });
-      setThreats(response.data);
-      setTotalThreats(response.meta.total);
+      setRisks(response.data);
+      setTotalRisks(response.meta.total);
       
       // Update pageIndex based on returned page from backend
       if (response.meta.page) {
         setPageIndex(response.meta.page - 1); // Convert 1-based to 0-based
       }
     } catch (error) {
-      toast.error('Failed to fetch threats');
+      toast.error('Failed to fetch risks');
     } finally {
       setIsLoading(false);
     }
   }, [pageIndex, limit, activeTab, searchTerm, sorting, selectedCategoryId]);
 
   useEffect(() => {
-    fetchThreats();
-  }, [fetchThreats]);
+    fetchRisks();
+  }, [fetchRisks]);
 
   // Handle category filter change
   const handleCategoryChange = (value: string) => {
@@ -182,32 +182,32 @@ const ThreatsPage = () => {
   };
 
   // Handle delete
-  const handleDelete = (threat: Threat, event?: React.MouseEvent) => {
+  const handleDelete = (risk: Risk, event?: React.MouseEvent) => {
     event?.stopPropagation();
     setOpenDropdownId(null); // Explicitly close the dropdown
-    setThreatToDelete(threat);
+    setRiskToDelete(risk);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!threatToDelete) return;
+    if (!riskToDelete) return;
 
     try {
-      await threatService.delete(threatToDelete.id);
-      toast.success('Threat deleted successfully');
+      await riskService.delete(riskToDelete.id);
+      toast.success('Risk deleted successfully');
       setOpenDropdownId(null); // Ensure dropdown is closed
-      fetchThreats();
+      fetchRisks();
     } catch (error) {
-      toast.error('Failed to delete threat. It might have associated mitigations.');
+      toast.error('Failed to delete risk. It might have associated mitigations.');
     } finally {
       setDeleteDialogOpen(false);
-      setThreatToDelete(null);
+      setRiskToDelete(null);
     }
   };
 
   const handleDialogCancel = () => {
     setDeleteDialogOpen(false);
-    setThreatToDelete(null);
+    setRiskToDelete(null);
     setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
@@ -215,12 +215,12 @@ const ThreatsPage = () => {
   const columns = [
     {
       id: 'name',
-      header: 'Threat Name',
-      cell: (threat: Threat) => (
+      header: 'Risk Name',
+      cell: (risk: Risk) => (
         <div>
-          <div className="font-medium">{threat.name}</div>
+          <div className="font-medium">{risk.name}</div>
           <div className="text-xs text-gray-500 mt-1">
-            Code: {threat.code}
+            Code: {risk.code}
           </div>
         </div>
       ),
@@ -229,10 +229,10 @@ const ThreatsPage = () => {
     {
       id: 'hseCategory',
       header: 'HSE Category',
-      cell: (threat: Threat) => (
+      cell: (risk: Risk) => (
         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-0">
           <Tag className="h-3.5 w-3.5 mr-1" />
-          {threat.hseCategory?.name || '-'}
+          {risk.hseCategory?.name || '-'}
         </Badge>
       ),
       isSortable: false,
@@ -240,9 +240,9 @@ const ThreatsPage = () => {
     {
       id: 'description',
       header: 'Description',
-      cell: (threat: Threat) => (
+      cell: (risk: Risk) => (
         <div className="max-w-md truncate">
-          {threat.description || '-'}
+          {risk.description || '-'}
         </div>
       ),
       isSortable: true,
@@ -250,16 +250,16 @@ const ThreatsPage = () => {
     {
       id: 'isActive',
       header: 'Status',
-      cell: (threat: Threat) => (
+      cell: (risk: Risk) => (
         <Badge
           variant="outline"
           className={`${
-            threat.isActive
+            risk.isActive
               ? 'bg-green-100 text-green-800'
               : 'bg-gray-100 text-gray-800'
           } border-0`}
         >
-          {threat.isActive ? 'Active' : 'Inactive'}
+          {risk.isActive ? 'Active' : 'Inactive'}
         </Badge>
       ),
       isSortable: true,
@@ -267,11 +267,11 @@ const ThreatsPage = () => {
     {
       id: 'actions',
       header: '',
-      cell: (threat: Threat) => (
+      cell: (risk: Risk) => (
         <DropdownMenu
-          open={openDropdownId === threat.id}
+          open={openDropdownId === risk.id}
           onOpenChange={(open) => {
-            setOpenDropdownId(open ? threat.id : null);
+            setOpenDropdownId(open ? risk.id : null);
           }}
         >
           <DropdownMenuTrigger asChild>
@@ -280,18 +280,18 @@ const ThreatsPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/master/threats/${threat.id}`)}>
+            <DropdownMenuItem onClick={() => navigate(`/master/risks/${risk.id}`)}>
               <AlertTriangle className="mr-2 h-4 w-4" />
               View details
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/master/threats/${threat.id}/edit`)}>
+            <DropdownMenuItem onClick={() => navigate(`/master/risks/${risk.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-red-600"
-              onClick={(e) => handleDelete(threat, e)}
+              onClick={(e) => handleDelete(risk, e)}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
@@ -306,18 +306,18 @@ const ThreatsPage = () => {
   return (
     <>
       <PageHeader
-        title="Threats"
-        subtitle="Manage your organization's health, safety, and environment threats"
+        title="Risks"
+        subtitle="Manage your organization's health, safety, and environment risks"
         actions={
-          <Button onClick={() => navigate('/master/threats/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Threat
+          <Button onClick={() => navigate('/master/risks/new')}>
+            <Plus className="mr-2 h-4 w-4" /> Add Risk
           </Button>
         }
       >
         <div className="flex flex-col md:flex-row gap-4 w-full">
           <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
             <TabsList>
-              <TabsTrigger value="all">All Threats</TabsTrigger>
+              <TabsTrigger value="all">All Risks</TabsTrigger>
               <TabsTrigger value="active">Active</TabsTrigger>
               <TabsTrigger value="inactive">Inactive</TabsTrigger>
             </TabsList>
@@ -346,15 +346,15 @@ const ThreatsPage = () => {
 
       <DataTable
         columns={columns}
-        data={threats}
+        data={risks}
         isLoading={isLoading}
         pagination={{
           pageIndex,
           limit,
-          pageCount: Math.ceil(totalThreats / limit),
+          pageCount: Math.ceil(totalRisks / limit),
           onPageChange: setPageIndex,
           onPageSizeChange: setLimit,
-          total: totalThreats
+          total: totalRisks
         }}
         filterFields={filterFields}
         onSearch={handleSearch}
@@ -370,8 +370,8 @@ const ThreatsPage = () => {
             handleDialogCancel();
           }
         }}
-        title="Delete Threat"
-        description={`Are you sure you want to delete "${threatToDelete?.name}"? This action cannot be undone. Note that threats with associated mitigations cannot be deleted.`}
+        title="Delete Risk"
+        description={`Are you sure you want to delete "${riskToDelete?.name}"? This action cannot be undone. Note that risks with associated mitigations cannot be deleted.`}
         onConfirm={handleDeleteConfirm}
         variant="destructive"
       />
@@ -379,4 +379,4 @@ const ThreatsPage = () => {
   );
 };
 
-export default ThreatsPage; 
+export default RisksPage;

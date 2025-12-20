@@ -31,52 +31,52 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/core/components/ui/select';
-import { threatMitigationService, threatService } from '@/modules/master-data';
-import { ThreatMitigation, Threat } from '@/core/lib/types';
+import { riskMitigationService, riskService } from '@/modules/master-data';
+import { RiskMitigation, Risk } from '@/core/lib/types';
 
 // Define form schema
 const formSchema = z.object({
   level: z.coerce.number().min(1).max(5),
   mitigationDescription: z.string().min(1, "Description is required"),
-  threatId: z.string().min(1, "Threat is required"),
+  riskId: z.string().min(1, "Risk is required"),
   isActive: z.boolean().default(true),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
-interface ThreatMitigationFormProps {
-  threatMitigation?: ThreatMitigation;
+interface RiskMitigationFormProps {
+  riskMitigation?: RiskMitigation;
   mode: 'create' | 'edit';
 }
 
-const ThreatMitigationForm = ({ threatMitigation, mode }: ThreatMitigationFormProps) => {
+const RiskMitigationForm = ({ riskMitigation, mode }: RiskMitigationFormProps) => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [threats, setThreats] = useState<Threat[]>([]);
+  const [risks, setRisks] = useState<Risk[]>([]);
 
   // Initialize form
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      level: threatMitigation?.level || 1,
-      mitigationDescription: threatMitigation?.mitigationDescription || '',
-      threatId: threatMitigation?.threatId || '',
-      isActive: threatMitigation?.isActive !== undefined ? threatMitigation.isActive : true,
+      level: riskMitigation?.level || 1,
+      mitigationDescription: riskMitigation?.mitigationDescription || '',
+      riskId: riskMitigation?.riskId || '',
+      isActive: riskMitigation?.isActive !== undefined ? riskMitigation.isActive : true,
     },
   });
 
-  // Fetch threats for dropdown
+  // Fetch risks for dropdown
   useEffect(() => {
-    const fetchThreats = async () => {
+    const fetchRisks = async () => {
       try {
-        const response = await threatService.getAll({ limit: 100, isActive: true });
-        setThreats(response.data);
+        const response = await riskService.getAll({ limit: 100, isActive: true });
+        setRisks(response.data);
       } catch (error) {
-        toast.error('Failed to fetch threats');
+        toast.error('Failed to fetch risks');
       }
     };
 
-    fetchThreats();
+    fetchRisks();
   }, []);
 
   // Form submission handler
@@ -85,14 +85,14 @@ const ThreatMitigationForm = ({ threatMitigation, mode }: ThreatMitigationFormPr
     
     try {
       if (mode === 'create') {
-        await threatMitigationService.create(values);
-        toast.success('Threat mitigation created successfully');
-      } else if (mode === 'edit' && threatMitigation) {
-        await threatMitigationService.update(threatMitigation.id, values);
-        toast.success('Threat mitigation updated successfully');
+        await riskMitigationService.create(values);
+        toast.success('Risk mitigation created successfully');
+      } else if (mode === 'edit' && riskMitigation) {
+        await riskMitigationService.update(riskMitigation.id, values);
+        toast.success('Risk mitigation updated successfully');
       }
       
-      navigate('/master/threat-mitigations');
+      navigate('/master/risk-mitigations');
     } catch (error: any) {
       const errorMessage = error.message || 'Something went wrong';
       toast.error(errorMessage);
@@ -103,23 +103,23 @@ const ThreatMitigationForm = ({ threatMitigation, mode }: ThreatMitigationFormPr
 
   // Handle cancel
   const handleCancel = () => {
-    navigate('/master/threat-mitigations');
+    navigate('/master/risk-mitigations');
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Threat Mitigation</CardTitle>
+        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Risk Mitigation</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
-              name="threatId"
+              name="riskId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Threat</FormLabel>
+                  <FormLabel>Risk</FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
@@ -127,19 +127,19 @@ const ThreatMitigationForm = ({ threatMitigation, mode }: ThreatMitigationFormPr
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a threat" />
+                        <SelectValue placeholder="Select a risk" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {threats.map((threat) => (
-                        <SelectItem key={threat.id} value={threat.id}>
-                          {threat.name} ({threat.code})
+                      {risks.map((risk) => (
+                        <SelectItem key={risk.id} value={risk.id}>
+                          {risk.name} ({risk.code})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    Select the threat for which this mitigation applies
+                    Select the risk for which this mitigation applies
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -235,4 +235,4 @@ const ThreatMitigationForm = ({ threatMitigation, mode }: ThreatMitigationFormPr
   );
 };
 
-export default ThreatMitigationForm; 
+export default RiskMitigationForm;

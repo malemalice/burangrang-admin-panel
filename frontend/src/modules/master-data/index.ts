@@ -36,18 +36,18 @@ export { default as EditHseCategoryPage } from './pages/hse-categories/EditHseCa
 export { default as HseCategoryDetailPage } from './pages/hse-categories/HseCategoryDetailPage';
 export { default as HseCategoryForm } from './pages/hse-categories/HseCategoryForm';
 
-// Pages - Threats
-export { default as ThreatsPage } from './pages/threats/ThreatsPage';
-export { default as CreateThreatPage } from './pages/threats/CreateThreatPage';
-export { default as EditThreatPage } from './pages/threats/EditThreatPage';
-export { default as ThreatDetailPage } from './pages/threats/ThreatDetailPage';
-export { default as ThreatForm } from './pages/threats/ThreatForm';
+// Pages - Risks
+export { default as RisksPage } from './pages/risks/RisksPage';
+export { default as CreateRiskPage } from './pages/risks/CreateRiskPage';
+export { default as EditRiskPage } from './pages/risks/EditRiskPage';
+export { default as RiskDetailPage } from './pages/risks/RiskDetailPage';
+export { default as RiskForm } from './pages/risks/RiskForm';
 
-// Pages - Threat Mitigations
-export { default as ThreatMitigationsPage } from './pages/threat-mitigations/ThreatMitigationsPage';
-export { default as CreateThreatMitigationPage } from './pages/threat-mitigations/CreateThreatMitigationPage';
-export { default as EditThreatMitigationPage } from './pages/threat-mitigations/EditThreatMitigationPage';
-export { default as ThreatMitigationForm } from './pages/threat-mitigations/ThreatMitigationForm';
+// Pages - Risk Mitigations
+export { default as RiskMitigationsPage } from './pages/risk-mitigations/RiskMitigationsPage';
+export { default as CreateRiskMitigationPage } from './pages/risk-mitigations/CreateRiskMitigationPage';
+export { default as EditRiskMitigationPage } from './pages/risk-mitigations/EditRiskMitigationPage';
+export { default as RiskMitigationForm } from './pages/risk-mitigations/RiskMitigationForm';
 
 
 // Routes
@@ -59,8 +59,8 @@ export { default as departmentService } from './services/departmentService';
 export { default as jobPositionService } from './services/jobPositionService';
 export { default as masterApprovalService } from './services/masterApprovalService';
 export { default as hseCategoryService } from './services/hseCategoryService';
-export { default as threatService } from './services/threatService';
-export { default as threatMitigationService } from './services/threatMitigationService';
+export { default as riskService } from './services/riskService';
+export { default as riskMitigationService } from './services/riskMitigationService';
 export { default as approvalService } from './services/approvalService';
 export { default as DashboardService } from './services/dashboard.service';
 
