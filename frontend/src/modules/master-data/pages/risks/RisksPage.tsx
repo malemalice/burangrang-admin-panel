@@ -16,8 +16,8 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
-import { riskService, hseCategoryService } from '@/modules/master-data';
-import { Risk, HseCategory } from '@/core/lib/types';
+import { riskService, riskCategoryService } from '@/modules/master-data';
+import { Risk, RiskCategory } from '@/core/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 
 const RisksPage = () => {
@@ -34,25 +34,25 @@ const RisksPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
-  const [hseCategories, setHseCategories] = useState<HseCategory[]>([]);
+  const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
-  // Get HSE categories for filtering
+  // Get risk categories for filtering
   useEffect(() => {
-    const fetchHseCategories = async () => {
+    const fetchRiskCategories = async () => {
       try {
-        const response = await hseCategoryService.getAll({
+        const response = await riskCategoryService.getAll({
           limit: 100,
           isActive: true,
         });
-        setHseCategories(response.data);
+        setRiskCategories(response.data);
       } catch (error) {
-        console.error('Failed to fetch HSE categories:', error);
+        console.error('Failed to fetch risk categories:', error);
       }
     };
 
-    fetchHseCategories();
+    fetchRiskCategories();
   }, []);
 
   // Check for category filter in URL
@@ -76,12 +76,12 @@ const RisksPage = () => {
       type: 'text',
     },
     {
-      id: 'hseCategoryId',
-      label: 'HSE Category',
+      id: 'riskCategoryId',
+      label: 'Risk Category',
       type: 'select',
       options: [
         { label: 'All Categories', value: 'all' },
-        ...hseCategories.map(category => ({
+        ...riskCategories.map(category => ({
           label: category.name,
           value: category.id,
         })),
@@ -109,7 +109,7 @@ const RisksPage = () => {
         search: searchTerm,
         sortBy: sorting?.id,
         sortOrder: sorting?.desc ? 'desc' : 'asc',
-        hseCategoryId: selectedCategoryId && selectedCategoryId !== 'all' ? selectedCategoryId : undefined,
+        riskCategoryId: selectedCategoryId && selectedCategoryId !== 'all' ? selectedCategoryId : undefined,
       });
       setRisks(response.data);
       setTotalRisks(response.meta.total);
@@ -227,12 +227,12 @@ const RisksPage = () => {
       isSortable: true,
     },
     {
-      id: 'hseCategory',
-      header: 'HSE Category',
+      id: 'riskCategory',
+      header: 'Risk Category',
       cell: (risk: Risk) => (
         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-0">
           <Tag className="h-3.5 w-3.5 mr-1" />
-          {risk.hseCategory?.name || '-'}
+          {risk.riskCategory?.name || '-'}
         </Badge>
       ),
       isSortable: false,
@@ -333,7 +333,7 @@ const RisksPage = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                {hseCategories.map((category) => (
+                {riskCategories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}
                   </SelectItem>

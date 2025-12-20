@@ -4,31 +4,31 @@ import { toast } from 'sonner';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import PageHeader from '@/core/components/ui/PageHeader';
-import HseCategoryForm from './HseCategoryForm';
-import { hseCategoryService } from '@/modules/master-data';
-import { HseCategory } from '@/core/lib/types';
+import RiskCategoryForm from './RiskCategoryForm';
+import { riskCategoryService } from '@/modules/master-data';
+import { RiskCategory } from '@/core/lib/types';
 
-const EditHseCategoryPage = () => {
+const EditRiskCategoryPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [hseCategory, setHseCategory] = useState<HseCategory | null>(null);
+  const [riskCategory, setRiskCategory] = useState<RiskCategory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchHseCategory = async () => {
+    const fetchRiskCategory = async () => {
       try {
         if (!id) return;
-        const data = await hseCategoryService.getById(id);
-        setHseCategory(data);
+        const data = await riskCategoryService.getById(id);
+        setRiskCategory(data);
       } catch (error) {
-        toast.error('Failed to fetch HSE category');
-        navigate('/master/hse-categories');
+        toast.error('Failed to fetch risk category');
+        navigate('/master/risk-categories');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchHseCategory();
+    fetchRiskCategory();
   }, [id, navigate]);
 
   if (isLoading) {
@@ -36,24 +36,24 @@ const EditHseCategoryPage = () => {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex items-center gap-2">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading HSE category details...</span>
+          <span>Loading risk category details...</span>
         </div>
       </div>
     );
   }
 
-  if (!hseCategory) {
+  if (!riskCategory) {
     return (
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold text-gray-900 mb-2">
-          HSE Category not found
+          Risk Category not found
         </h2>
         <p className="text-gray-600 mb-4">
-          The HSE category you're looking for doesn't exist or has been deleted.
+          The risk category you're looking for doesn't exist or has been deleted.
         </p>
-        <Button onClick={() => navigate('/master/hse-categories')}>
+        <Button onClick={() => navigate('/master/risk-categories')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to HSE Categories
+          Back to Risk Categories
         </Button>
       </div>
     );
@@ -62,19 +62,19 @@ const EditHseCategoryPage = () => {
   return (
     <>
       <PageHeader
-        title="Edit HSE Category"
-        subtitle={`Modify the details of "${hseCategory.name}"`}
+        title="Edit Risk Category"
+        subtitle={`Modify the details of "${riskCategory.name}"`}
         actions={
-          <Button variant="outline" onClick={() => navigate('/master/hse-categories')}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to HSE Categories
+          <Button variant="outline" onClick={() => navigate('/master/risk-categories')}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Risk Categories
           </Button>
         }
       />
       <div className="max-w-4xl mx-auto">
-        <HseCategoryForm hseCategory={hseCategory} mode="edit" />
+        <RiskCategoryForm riskCategory={riskCategory} mode="edit" />
       </div>
     </>
   );
 };
 
-export default EditHseCategoryPage; 
+export default EditRiskCategoryPage;

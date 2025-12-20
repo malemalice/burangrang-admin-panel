@@ -16,18 +16,18 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
-import { hseCategoryService } from '@/modules/master-data';
-import { HseCategory } from '@/core/lib/types';
+import { riskCategoryService } from '@/modules/master-data';
+import { RiskCategory } from '@/core/lib/types';
 
-const HseCategoriesPage = () => {
+const RiskCategoriesPage = () => {
   const navigate = useNavigate();
-  const [hseCategories, setHseCategories] = useState<HseCategory[]>([]);
+  const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
-  const [totalHseCategories, setTotalHseCategories] = useState(0);
+  const [totalRiskCategories, setTotalRiskCategories] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [hseCategoryToDelete, setHseCategoryToDelete] = useState<HseCategory | null>(null);
+  const [riskCategoryToDelete, setRiskCategoryToDelete] = useState<RiskCategory | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
@@ -57,11 +57,11 @@ const HseCategoriesPage = () => {
     },
   ];
 
-  // Fetch HSE categories
-  const fetchHseCategories = useCallback(async () => {
+  // Fetch risk categories
+  const fetchRiskCategories = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await hseCategoryService.getAll({
+      const response = await riskCategoryService.getAll({
         page: pageIndex + 1,
         limit,
         isActive: activeTab === 'all' ? undefined : activeTab === 'active',
@@ -69,23 +69,23 @@ const HseCategoriesPage = () => {
         sortBy: sorting?.id,
         sortOrder: sorting?.desc ? 'desc' : 'asc',
       });
-      setHseCategories(response.data);
-      setTotalHseCategories(response.meta.total);
+      setRiskCategories(response.data);
+      setTotalRiskCategories(response.meta.total);
       
       // Update pageIndex based on returned page from backend
       if (response.meta.page) {
         setPageIndex(response.meta.page - 1); // Convert 1-based to 0-based
       }
     } catch (error) {
-      toast.error('Failed to fetch HSE categories');
+      toast.error('Failed to fetch risk categories');
     } finally {
       setIsLoading(false);
     }
   }, [pageIndex, limit, activeTab, searchTerm, sorting]);
 
   useEffect(() => {
-    fetchHseCategories();
-  }, [fetchHseCategories]);
+    fetchRiskCategories();
+  }, [fetchRiskCategories]);
 
   // Handle tab change
   const handleTabChange = (value: string) => {
@@ -126,32 +126,32 @@ const HseCategoriesPage = () => {
   };
 
   // Handle delete
-  const handleDelete = (hseCategory: HseCategory, event?: React.MouseEvent) => {
+  const handleDelete = (riskCategory: RiskCategory, event?: React.MouseEvent) => {
     event?.stopPropagation();
     setOpenDropdownId(null); // Explicitly close the dropdown
-    setHseCategoryToDelete(hseCategory);
+    setRiskCategoryToDelete(riskCategory);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!hseCategoryToDelete) return;
+    if (!riskCategoryToDelete) return;
 
     try {
-      await hseCategoryService.delete(hseCategoryToDelete.id);
-      toast.success('HSE category deleted successfully');
+      await riskCategoryService.delete(riskCategoryToDelete.id);
+      toast.success('Risk category deleted successfully');
       setOpenDropdownId(null); // Ensure dropdown is closed
-      fetchHseCategories();
+      fetchRiskCategories();
     } catch (error) {
-      toast.error('Failed to delete HSE category');
+      toast.error('Failed to delete risk category');
     } finally {
       setDeleteDialogOpen(false);
-      setHseCategoryToDelete(null);
+      setRiskCategoryToDelete(null);
     }
   };
 
   const handleDialogCancel = () => {
     setDeleteDialogOpen(false);
-    setHseCategoryToDelete(null);
+    setRiskCategoryToDelete(null);
     setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
@@ -160,11 +160,11 @@ const HseCategoriesPage = () => {
     {
       id: 'name',
       header: 'Category Name',
-      cell: (hseCategory: HseCategory) => (
+      cell: (riskCategory: RiskCategory) => (
         <div>
-          <div className="font-medium">{hseCategory.name}</div>
+          <div className="font-medium">{riskCategory.name}</div>
           <div className="text-xs text-gray-500 mt-1">
-            Code: {hseCategory.code}
+            Code: {riskCategory.code}
           </div>
         </div>
       ),
@@ -173,22 +173,22 @@ const HseCategoriesPage = () => {
     {
       id: 'description',
       header: 'Description',
-      cell: (hseCategory: HseCategory) => hseCategory.description || '-',
+      cell: (riskCategory: RiskCategory) => riskCategory.description || '-',
       isSortable: true,
     },
     {
       id: 'isActive',
       header: 'Status',
-      cell: (hseCategory: HseCategory) => (
+      cell: (riskCategory: RiskCategory) => (
         <Badge
           variant="outline"
           className={`${
-            hseCategory.isActive
+            riskCategory.isActive
               ? 'bg-green-100 text-green-800'
               : 'bg-gray-100 text-gray-800'
           } border-0`}
         >
-          {hseCategory.isActive ? 'Active' : 'Inactive'}
+          {riskCategory.isActive ? 'Active' : 'Inactive'}
         </Badge>
       ),
       isSortable: true,
@@ -196,11 +196,11 @@ const HseCategoriesPage = () => {
     {
       id: 'actions',
       header: '',
-      cell: (hseCategory: HseCategory) => (
+      cell: (riskCategory: RiskCategory) => (
         <DropdownMenu
-          open={openDropdownId === hseCategory.id}
+          open={openDropdownId === riskCategory.id}
           onOpenChange={(open) => {
-            setOpenDropdownId(open ? hseCategory.id : null);
+            setOpenDropdownId(open ? riskCategory.id : null);
           }}
         >
           <DropdownMenuTrigger asChild>
@@ -209,18 +209,18 @@ const HseCategoriesPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/master/hse-categories/${hseCategory.id}`)}>
+            <DropdownMenuItem onClick={() => navigate(`/master/risk-categories/${riskCategory.id}`)}>
               <Shield className="mr-2 h-4 w-4" />
               View details
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/master/hse-categories/${hseCategory.id}/edit`)}>
+            <DropdownMenuItem onClick={() => navigate(`/master/risk-categories/${riskCategory.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-red-600"
-              onClick={(e) => handleDelete(hseCategory, e)}
+              onClick={(e) => handleDelete(riskCategory, e)}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
@@ -235,10 +235,10 @@ const HseCategoriesPage = () => {
   return (
     <>
       <PageHeader
-        title="HSE Categories"
-        subtitle="Manage your organization's health, safety, and environment categories"
+        title="Risk Categories"
+        subtitle="Manage your organization's risk categories"
         actions={
-          <Button onClick={() => navigate('/master/hse-categories/new')}>
+          <Button onClick={() => navigate('/master/risk-categories/new')}>
             <Plus className="mr-2 h-4 w-4" /> Add Category
           </Button>
         }
@@ -254,15 +254,15 @@ const HseCategoriesPage = () => {
 
       <DataTable
         columns={columns}
-        data={hseCategories}
+        data={riskCategories}
         isLoading={isLoading}
         pagination={{
           pageIndex,
           limit,
-          pageCount: Math.ceil(totalHseCategories / limit),
+          pageCount: Math.ceil(totalRiskCategories / limit),
           onPageChange: setPageIndex,
           onPageSizeChange: setLimit,
-          total: totalHseCategories
+          total: totalRiskCategories
         }}
         filterFields={filterFields}
         onSearch={handleSearch}
@@ -278,8 +278,8 @@ const HseCategoriesPage = () => {
             handleDialogCancel();
           }
         }}
-        title="Delete HSE Category"
-        description={`Are you sure you want to delete "${hseCategoryToDelete?.name}"? This action cannot be undone.`}
+        title="Delete Risk Category"
+        description={`Are you sure you want to delete "${riskCategoryToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
         variant="destructive"
       />
@@ -287,4 +287,4 @@ const HseCategoriesPage = () => {
   );
 };
 
-export default HseCategoriesPage; 
+export default RiskCategoriesPage;

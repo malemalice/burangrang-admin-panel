@@ -34,7 +34,7 @@ import { Editor } from '@/core/components/ui/editor';
 
 import { RiskAssessment, RiskRatingEnum, Department, Risk, HseCategory, User } from '@/core/lib/types';
 import riskAssessmentService, { type CreateRiskAssessmentDTO } from '../services/riskAssessmentService';
-import { departmentService, hseCategoryService, riskService } from '@/modules/master-data';
+import { departmentService, riskCategoryService, riskService } from '@/modules/master-data';
 import { userService } from '@/modules/users';
 
 // Form schema for validation
@@ -234,7 +234,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
       try {
         const [departmentsResponse, hseResponse, riskResponse, usersResponse, riskMatrixResponse] = await Promise.all([
           departmentService.getDepartments({ page: 1, limit: 1000 }),
-          hseCategoryService.getAll(),
+          riskCategoryService.getAll(),
           riskService.getAll(),
           userService.getAll({ page: 1, limit: 1000 }),
           riskAssessmentService.getRiskMatrixEntries(),

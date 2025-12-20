@@ -24,14 +24,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/core/components/ui/select';
-import { riskService, hseCategoryService } from '@/modules/master-data';
-import { Risk, HseCategory } from '@/core/lib/types';
+import { riskService, riskCategoryService } from '@/modules/master-data';
+import { Risk, RiskCategory } from '@/core/lib/types';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   code: z.string().min(1, 'Code is required'),
   description: z.string().optional(),
-  hseCategoryId: z.string().min(1, 'HSE Category is required'),
+  riskCategoryId: z.string().min(1, 'Risk Category is required'),
   isActive: z.boolean().default(true),
 });
 
@@ -44,7 +44,7 @@ interface RiskFormProps {
 
 const RiskForm = ({ risk, mode }: RiskFormProps) => {
   const navigate = useNavigate();
-  const [hseCategories, setHseCategories] = useState<HseCategory[]>([]);
+  const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
   const form = useForm<FormValues>({
@@ -53,27 +53,27 @@ const RiskForm = ({ risk, mode }: RiskFormProps) => {
       name: '',
       code: '',
       description: '',
-      hseCategoryId: '',
+      riskCategoryId: '',
       isActive: true,
     },
   });
 
-  // Fetch HSE categories for the dropdown
+  // Fetch risk categories for the dropdown
   useEffect(() => {
-    const fetchHseCategories = async () => {
+    const fetchRiskCategories = async () => {
       try {
-        const response = await hseCategoryService.getAll({
+        const response = await riskCategoryService.getAll({
           limit: 100,
           isActive: true,
         });
-        setHseCategories(response.data);
+        setRiskCategories(response.data);
       } catch (error) {
-        console.error('Failed to fetch HSE categories:', error);
-        toast.error('Failed to load HSE categories');
+        console.error('Failed to fetch risk categories:', error);
+        toast.error('Failed to load risk categories');
       }
     };
 
-    fetchHseCategories();
+    fetchRiskCategories();
   }, []);
 
   // Set form values when editing an existing risk
@@ -83,7 +83,7 @@ const RiskForm = ({ risk, mode }: RiskFormProps) => {
         name: risk.name,
         code: risk.code,
         description: risk.description || '',
-        hseCategoryId: risk.hseCategoryId,
+        riskCategoryId: risk.riskCategoryId,
         isActive: risk.isActive,
       });
     }
@@ -118,10 +118,10 @@ const RiskForm = ({ risk, mode }: RiskFormProps) => {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
-              name="hseCategoryId"
+              name="riskCategoryId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>HSE Category</FormLabel>
+                  <FormLabel>Risk Category</FormLabel>
                   <Select 
                     onValueChange={field.onChange} 
                     defaultValue={field.value}
@@ -129,11 +129,11 @@ const RiskForm = ({ risk, mode }: RiskFormProps) => {
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select an HSE category" />
+                        <SelectValue placeholder="Select a risk category" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {hseCategories.map((category) => (
+                      {riskCategories.map((category) => (
                         <SelectItem key={category.id} value={category.id}>
                           {category.name}
                         </SelectItem>

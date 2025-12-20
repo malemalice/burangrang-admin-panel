@@ -17,8 +17,8 @@ import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Switch } from '@/core/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import { hseCategoryService } from '@/modules/master-data';
-import { HseCategory } from '@/core/lib/types';
+import { riskCategoryService } from '@/modules/master-data';
+import { RiskCategory } from '@/core/lib/types';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -29,12 +29,12 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-interface HseCategoryFormProps {
-  hseCategory?: HseCategory;
+interface RiskCategoryFormProps {
+  riskCategory?: RiskCategory;
   mode: 'create' | 'edit';
 }
 
-const HseCategoryForm = ({ hseCategory, mode }: HseCategoryFormProps) => {
+const RiskCategoryForm = ({ riskCategory, mode }: RiskCategoryFormProps) => {
   const navigate = useNavigate();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -47,35 +47,35 @@ const HseCategoryForm = ({ hseCategory, mode }: HseCategoryFormProps) => {
   });
 
   useEffect(() => {
-    if (hseCategory) {
+    if (riskCategory) {
       form.reset({
-        name: hseCategory.name,
-        code: hseCategory.code,
-        description: hseCategory.description || '',
-        isActive: hseCategory.isActive,
+        name: riskCategory.name,
+        code: riskCategory.code,
+        description: riskCategory.description || '',
+        isActive: riskCategory.isActive,
       });
     }
-  }, [hseCategory, form]);
+  }, [riskCategory, form]);
 
   const onSubmit = async (data: FormValues) => {
     try {
       if (mode === 'create') {
-        await hseCategoryService.create(data);
-        toast.success('HSE category created successfully');
+        await riskCategoryService.create(data);
+        toast.success('Risk category created successfully');
       } else {
-        await hseCategoryService.update(hseCategory!.id, data);
-        toast.success('HSE category updated successfully');
+        await riskCategoryService.update(riskCategory!.id, data);
+        toast.success('Risk category updated successfully');
       }
-      navigate('/master/hse-categories');
+      navigate('/master/risk-categories');
     } catch (error) {
-      toast.error(`Failed to ${mode} HSE category`);
+      toast.error(`Failed to ${mode} risk category`);
     }
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} HSE Category</CardTitle>
+        <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Risk Category</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -133,7 +133,7 @@ const HseCategoryForm = ({ hseCategory, mode }: HseCategoryFormProps) => {
                   <div className="space-y-0.5">
                     <FormLabel>Active Status</FormLabel>
                     <div className="text-sm text-gray-500">
-                      Enable or disable this HSE category
+                      Enable or disable this risk category
                     </div>
                   </div>
                   <FormControl>
@@ -150,7 +150,7 @@ const HseCategoryForm = ({ hseCategory, mode }: HseCategoryFormProps) => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate('/master/hse-categories')}
+                onClick={() => navigate('/master/risk-categories')}
               >
                 Cancel
               </Button>
@@ -165,4 +165,4 @@ const HseCategoryForm = ({ hseCategory, mode }: HseCategoryFormProps) => {
   );
 };
 
-export default HseCategoryForm; 
+export default RiskCategoryForm;

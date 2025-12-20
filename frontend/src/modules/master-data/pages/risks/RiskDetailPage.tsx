@@ -202,16 +202,16 @@ const RiskDetailPage = () => {
                     )}
 
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500">HSE Category</h3>
+                      <h3 className="text-sm font-medium text-gray-500">Risk Category</h3>
                       <p className="mt-1">
-                        {risk.hseCategory ? (
+                        {risk.riskCategory ? (
                           <Button
                             variant="link"
                             className="p-0 h-auto"
-                            onClick={() => navigate(`/master/hse-categories/${risk.hseCategoryId}`)}
+                            onClick={() => navigate(`/master/risk-categories/${risk.riskCategoryId}`)}
                           >
                             <Tag className="mr-2 h-4 w-4" />
-                            {risk.hseCategory.name}
+                            {risk.riskCategory.name}
                           </Button>
                         ) : (
                           'N/A'

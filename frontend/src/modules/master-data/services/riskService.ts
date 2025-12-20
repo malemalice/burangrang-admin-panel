@@ -8,7 +8,7 @@ interface PaginationParams {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   search?: string;
-  hseCategoryId?: string;
+  riskCategoryId?: string;
 }
 
 interface PaginatedResponse<T> {
@@ -45,9 +45,9 @@ const riskService = {
     await api.delete(`/risks/${id}`);
   },
 
-  // Get risks by HSE category ID
-  getByHseCategory: async (hseCategoryId: string, params?: Omit<PaginationParams, 'hseCategoryId'>): Promise<PaginatedResponse<Risk>> => {
-    const queryParams = { ...params, hseCategoryId };
+  // Get risks by risk category ID
+  getByRiskCategory: async (riskCategoryId: string, params?: Omit<PaginationParams, 'riskCategoryId'>): Promise<PaginatedResponse<Risk>> => {
+    const queryParams = { ...params, riskCategoryId };
     const response = await api.get('/risks', { params: queryParams });
     return response.data;
   }

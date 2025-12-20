@@ -135,14 +135,25 @@ export interface HseCategory {
   risks?: any[];
 }
 
+export interface RiskCategory {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  risks?: any[];
+}
+
 export interface Risk {
   id: string;
   name: string;
   code: string;
   description?: string;
   isActive: boolean;
-  hseCategoryId: string;
-  hseCategory?: HseCategory;
+  riskCategoryId: string;
+  riskCategory?: RiskCategory;
   createdAt: Date;
   updatedAt: Date;
   mitigations?: RiskMitigation[];

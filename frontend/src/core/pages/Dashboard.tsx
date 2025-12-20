@@ -40,9 +40,9 @@ const Dashboard = () => {
     queryFn: DashboardService.getComplianceProgress,
   });
 
-  const { data: hseCategoryAnalysis, isLoading: isLoadingHse } = useQuery({
-    queryKey: ['dashboard', 'hse-category-analysis'],
-    queryFn: DashboardService.getHseCategoryAnalysis,
+  const { data: riskCategoryAnalysis, isLoading: isLoadingRiskCategories } = useQuery({
+    queryKey: ['dashboard', 'risk-category-analysis'],
+    queryFn: DashboardService.getRiskCategoryAnalysis,
   });
 
   const { data: riskAnalysis, isLoading: isLoadingRisks } = useQuery({
@@ -50,7 +50,7 @@ const Dashboard = () => {
     queryFn: DashboardService.getRiskAnalysis,
   });
 
-  const isLoading = isLoadingOverview || isLoadingCompliance || isLoadingHse || isLoadingRisks;
+  const isLoading = isLoadingOverview || isLoadingCompliance || isLoadingRiskCategories || isLoadingRisks;
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -162,14 +162,14 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* HSE Categories */}
+        {/* Risk Categories */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">HSE Categories</CardTitle>
+            <CardTitle className="text-lg">Risk Categories</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {hseCategoryAnalysis?.map((category) => (
+              {riskCategoryAnalysis?.map((category) => (
                 <div key={category.categoryId} className="pb-4 border-b last:border-0">
                   <div className="flex justify-between items-center">
                     <p className="font-medium text-sm">{category.name}</p>

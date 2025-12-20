@@ -29,7 +29,7 @@ export interface DepartmentProfile {
   complianceRate: number;
 }
 
-export interface HseCategoryAnalysis {
+export interface RiskCategoryAnalysis {
   categoryId: string;
   name: string;
   totalOccurrences: number;
@@ -70,8 +70,8 @@ const DashboardService = {
     return data;
   },
 
-  getHseCategoryAnalysis: async (): Promise<HseCategoryAnalysis[]> => {
-    const { data } = await api.get('/dashboard/hse-category-analysis');
+  getRiskCategoryAnalysis: async (): Promise<RiskCategoryAnalysis[]> => {
+    const { data } = await api.get('/dashboard/risk-category-analysis');
     return data;
   },
 

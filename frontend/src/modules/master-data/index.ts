@@ -29,12 +29,12 @@ export { default as CreateMasterApprovalPage } from './pages/approvals/CreateMas
 export { default as EditMasterApprovalPage } from './pages/approvals/EditMasterApprovalPage';
 export { default as MasterApprovalForm } from './pages/approvals/MasterApprovalForm';
 
-// Pages - HSE Categories
-export { default as HseCategoriesPage } from './pages/hse-categories/HseCategoriesPage';
-export { default as CreateHseCategoryPage } from './pages/hse-categories/CreateHseCategoryPage';
-export { default as EditHseCategoryPage } from './pages/hse-categories/EditHseCategoryPage';
-export { default as HseCategoryDetailPage } from './pages/hse-categories/HseCategoryDetailPage';
-export { default as HseCategoryForm } from './pages/hse-categories/HseCategoryForm';
+// Pages - Risk Categories
+export { default as RiskCategoriesPage } from './pages/risk-categories/RiskCategoriesPage';
+export { default as CreateRiskCategoryPage } from './pages/risk-categories/CreateRiskCategoryPage';
+export { default as EditRiskCategoryPage } from './pages/risk-categories/EditRiskCategoryPage';
+export { default as RiskCategoryDetailPage } from './pages/risk-categories/RiskCategoryDetailPage';
+export { default as RiskCategoryForm } from './pages/risk-categories/RiskCategoryForm';
 
 // Pages - Risks
 export { default as RisksPage } from './pages/risks/RisksPage';
@@ -58,7 +58,7 @@ export { default as officeService } from './services/officeService';
 export { default as departmentService } from './services/departmentService';
 export { default as jobPositionService } from './services/jobPositionService';
 export { default as masterApprovalService } from './services/masterApprovalService';
-export { default as hseCategoryService } from './services/hseCategoryService';
+export { default as riskCategoryService } from './services/riskCategoryService';
 export { default as riskService } from './services/riskService';
 export { default as riskMitigationService } from './services/riskMitigationService';
 export { default as approvalService } from './services/approvalService';
