@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/core/components/ui/button';
 import {
@@ -25,14 +26,14 @@ import { Badge } from '@/core/components/ui/badge';
 import { Separator } from '@/core/components/ui/separator';
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
 
-import { RiskRatingEnum, Risk, HseCategory } from '@/core/lib/types';
+import { RiskRatingEnum, Risk, RiskCategory } from '@/core/lib/types';
 import riskAssessmentService, { type CreateRiskAssessmentItemDTO } from '../services/riskAssessmentService';
 import { riskCategoryService, riskService } from '@/modules/master-data';
 
 // Form schema for validation - single item
 const formSchema = z.object({
   mRiskId: z.string().min(1, 'Risk is required'),
-  mRiskCategoryId: z.string().min(1, 'HSE Category is required'),
+  mRiskCategoryId: z.string().min(1, 'Risk Category is required'),
   likelihoodLevel: z.coerce.number().min(1, 'Minimum level is 1').max(5, 'Maximum level is 5'),
   consequenceLevel: z.coerce.number().min(1, 'Minimum level is 1').max(5, 'Maximum level is 5'),
   riskMatrixRating: z.string().min(1, 'Risk rating is required'),
@@ -67,7 +68,7 @@ interface RiskMatrixEntry {
 
 const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel, showCard = true }: RiskAssessmentItemFormProps) => {
   const [risks, setRisks] = useState<Risk[]>([]);
-  const [hseCategories, setHseCategories] = useState<HseCategory[]>([]);
+  const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
   const [riskMatrixData, setRiskMatrixData] = useState<RiskMatrixEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,7 +79,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
     label: `${risk.name} - ${risk.description}`
   }));
 
-  const hseCategoryOptions: SearchableSelectOption[] = hseCategories.map(category => ({
+  const riskCategoryOptions: SearchableSelectOption[] = riskCategories.map(category => ({
     value: category.id,
     label: `${category.name}`
   }));
@@ -169,13 +170,13 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [hseResponse, riskResponse, riskMatrixResponse] = await Promise.all([
+        const [riskCategoryResponse, riskResponse, riskMatrixResponse] = await Promise.all([
           riskCategoryService.getAll(),
           riskService.getAll(),
           riskAssessmentService.getRiskMatrixEntries(),
         ]);
 
-        setHseCategories(hseResponse.data);
+        setRiskCategories(riskCategoryResponse.data);
         setRisks(riskResponse.data);
         setRiskMatrixData(riskMatrixResponse.data);
       } catch (error) {
@@ -284,10 +285,10 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[200px]">
+      <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex items-center gap-2">
-          <div className="h-6 w-6 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
-          <span>Loading...</span>
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading risk assessment item details...</span>
         </div>
       </div>
     );
@@ -303,15 +304,15 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
             render={({ field }) => (
               <FormItem>
                 <FormLabel>
-                  HSE Category <span className="text-destructive">*</span>
+                  Risk Category <span className="text-destructive">*</span>
                 </FormLabel>
                 <FormControl>
                   <SearchableSelect
-                    options={hseCategoryOptions}
+                    options={riskCategoryOptions}
                     value={field.value}
                     onValueChange={field.onChange}
-                    placeholder="Select HSE category"
-                    searchPlaceholder="Search HSE category..."
+                    placeholder="Select Risk Category"
+                    searchPlaceholder="Search Risk Category..."
                   />
                 </FormControl>
                 <FormMessage />
@@ -449,7 +450,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
         <Separator />
 
         <div>
-          <h4 className="text-sm font-medium mb-3">Post-Control Assessment</h4>
+          <h3 className="text-lg font-medium mb-4">Post-Control Assessment</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <FormField
               control={form.control}
