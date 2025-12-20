@@ -21,6 +21,9 @@ interface ModalComboboxProps {
   onSearch?: (searchQuery: string) => Promise<void> | void;
   isLoading?: boolean;
   debounceMs?: number;
+  // Create new option props
+  onCreateNew?: (searchQuery: string) => Promise<string | void> | string | void;
+  createNewText?: string;
 }
 
 /**
@@ -41,6 +44,8 @@ export function ModalCombobox({
   onSearch,
   isLoading = false,
   debounceMs = 300,
+  onCreateNew,
+  createNewText = "Create new",
 }: ModalComboboxProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -85,6 +90,9 @@ export function ModalCombobox({
       option.label.toLowerCase().includes(query)
     );
   }, [allOptions, searchQuery, onSearch]);
+
+  // Check if we should show "Create new" option
+  const shouldShowCreateNew = onCreateNew && searchQuery.trim() && filteredOptions.length === 0 && !isLoading;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -143,6 +151,30 @@ export function ModalCombobox({
     handleSearch(query);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Handle Enter key to create new option when no results
+    if (e.key === 'Enter' && shouldShowCreateNew && onCreateNew) {
+      e.preventDefault();
+      handleCreateNew();
+    }
+  };
+
+  const handleCreateNew = async () => {
+    if (!onCreateNew || !searchQuery.trim()) return;
+    
+    try {
+      const newValue = await onCreateNew(searchQuery);
+      if (newValue && onValueChange) {
+        onValueChange(newValue);
+      }
+      setSearchQuery("");
+      setOpen(false);
+      buttonRef.current?.focus();
+    } catch (error) {
+      console.error('Failed to create new option:', error);
+    }
+  };
+
   const handleSelect = (optionValue: string) => {
     if (onValueChange) onValueChange(optionValue);
     setOpen(false);
@@ -192,6 +224,7 @@ export function ModalCombobox({
               placeholder={searchPlaceholder}
               value={searchQuery}
               onChange={handleSearchChange}
+              onKeyDown={handleKeyDown}
               onClick={(e) => e.stopPropagation()}
             />
             {isLoading && (
@@ -205,6 +238,21 @@ export function ModalCombobox({
               <div className="py-6 text-center text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
                 Loading...
+              </div>
+            ) : shouldShowCreateNew ? (
+              <div
+                className={cn(
+                  "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors",
+                  "hover:bg-accent hover:text-accent-foreground",
+                  highlightedIndex === 0 && "bg-accent text-accent-foreground"
+                )}
+                onClick={handleCreateNew}
+                onMouseEnter={() => setHighlightedIndex(0)}
+                onMouseLeave={() => setHighlightedIndex(-1)}
+              >
+                <span className="text-primary font-medium">
+                  {createNewText}: "{searchQuery}"
+                </span>
               </div>
             ) : filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">

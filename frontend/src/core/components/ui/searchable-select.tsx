@@ -36,6 +36,9 @@ interface SearchableSelectProps {
   onSearch?: (searchQuery: string) => Promise<void> | void;
   isLoading?: boolean;
   debounceMs?: number;
+  // Create new option props
+  onCreateNew?: (searchQuery: string) => Promise<string | void> | string | void;
+  createNewText?: string;
 }
 
 export function SearchableSelect({
@@ -51,6 +54,8 @@ export function SearchableSelect({
   onSearch,
   isLoading = false,
   debounceMs = 300,
+  onCreateNew,
+  createNewText = "Create new",
   ...props
 }: SearchableSelectProps & React.HTMLAttributes<HTMLButtonElement>) {
   const [open, setOpen] = useState(false);
@@ -66,6 +71,9 @@ export function SearchableSelect({
   const allOptions = includeNone
     ? [{ value: 'none', label: 'None' }, ...safeOptions]
     : safeOptions;
+
+  // Check if we should show "Create new" option
+  const shouldShowCreateNew = onCreateNew && searchQuery.trim() && allOptions.length === 0 && !isLoading;
 
   // Debounced search handler
   const handleSearch = useCallback((query: string) => {
@@ -155,6 +163,21 @@ export function SearchableSelect({
                 handleSearch(value);
               }
             }}
+            onKeyDown={(e) => {
+              // Handle Enter key to create new option when no results
+              if (e.key === 'Enter' && shouldShowCreateNew && onCreateNew) {
+                e.preventDefault();
+                onCreateNew(searchQuery).then((newValue) => {
+                  if (newValue && onValueChange) {
+                    onValueChange(newValue);
+                  }
+                  setSearchQuery("");
+                  setOpen(false);
+                }).catch((error) => {
+                  console.error('Failed to create new option:', error);
+                });
+              }
+            }}
           />
           <CommandList>
             {isLoading && allOptions.length === 0 ? (
@@ -164,27 +187,55 @@ export function SearchableSelect({
               </div>
             ) : (
               <>
-                <CommandEmpty>{emptyText}</CommandEmpty>
-                <CommandGroup>
-                  {allOptions && allOptions.length > 0 ? allOptions.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={`${option.value} ${option.label}`}
-                  onSelect={() => {
-                    if (onValueChange) onValueChange(option.value);
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      option.value === value ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  <span>{option.label}</span>
-                </CommandItem>
-              )) : null}
-                </CommandGroup>
+                {shouldShowCreateNew ? (
+                  <CommandGroup>
+                    <CommandItem
+                      value={`create-new-${searchQuery}`}
+                      onSelect={async () => {
+                        if (onCreateNew) {
+                          try {
+                            const newValue = await onCreateNew(searchQuery);
+                            if (newValue && onValueChange) {
+                              onValueChange(newValue);
+                            }
+                            setSearchQuery("");
+                            setOpen(false);
+                          } catch (error) {
+                            console.error('Failed to create new option:', error);
+                          }
+                        }
+                      }}
+                    >
+                      <span className="text-primary font-medium">
+                        {createNewText}: "{searchQuery}"
+                      </span>
+                    </CommandItem>
+                  </CommandGroup>
+                ) : (
+                  <>
+                    <CommandEmpty>{emptyText}</CommandEmpty>
+                    <CommandGroup>
+                      {allOptions && allOptions.length > 0 ? allOptions.map((option) => (
+                        <CommandItem
+                          key={option.value}
+                          value={`${option.value} ${option.label}`}
+                          onSelect={() => {
+                            if (onValueChange) onValueChange(option.value);
+                            setOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              option.value === value ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <span>{option.label}</span>
+                        </CommandItem>
+                      )) : null}
+                    </CommandGroup>
+                  </>
+                )}
               </>
             )}
           </CommandList>

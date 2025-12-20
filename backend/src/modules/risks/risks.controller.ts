@@ -15,6 +15,8 @@ import { UpdateRiskDto } from './dto/update-risk.dto';
 import { RiskDto } from './dto/risk.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
+import { Roles } from '../../shared/decorators/roles.decorator';
+import { Role } from '../../shared/types/role.enum';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 
 @ApiTags('risks')
@@ -24,6 +26,7 @@ export class RisksController {
   constructor(private readonly risksService: RisksService) {}
 
   @Post()
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   @ApiOperation({ summary: 'Create a new risk' })
   @ApiResponse({ status: 201, description: 'The risk has been successfully created.', type: RiskDto })
   create(@Body() createRiskDto: CreateRiskDto): Promise<RiskDto> {
@@ -31,6 +34,7 @@ export class RisksController {
   }
 
   @Get()
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   @ApiOperation({ summary: 'Get all risks with pagination' })
   @ApiResponse({ status: 200, description: 'Return all risks.', type: [RiskDto] })
   @ApiQuery({ name: 'riskCategoryId', required: false, description: 'Filter risks by risk category ID' })
@@ -60,6 +64,7 @@ export class RisksController {
   }
 
   @Get(':id')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   @ApiOperation({ summary: 'Get a risk by id' })
   @ApiResponse({ status: 200, description: 'Return the risk.', type: RiskDto })
   @ApiResponse({ status: 404, description: 'Risk not found.' })
@@ -68,6 +73,7 @@ export class RisksController {
   }
 
   @Patch(':id')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
   @ApiOperation({ summary: 'Update a risk' })
   @ApiResponse({ status: 200, description: 'The risk has been successfully updated.', type: RiskDto })
   @ApiResponse({ status: 404, description: 'Risk not found.' })
@@ -79,6 +85,7 @@ export class RisksController {
   }
 
   @Delete(':id')
+  @Roles(Role.SUPER_ADMIN)
   @ApiOperation({ summary: 'Delete a risk' })
   @ApiResponse({ status: 200, description: 'The risk has been successfully deleted.' })
   @ApiResponse({ status: 404, description: 'Risk not found.' })
