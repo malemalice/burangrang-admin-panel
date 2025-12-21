@@ -23,17 +23,22 @@ const questionSchema = z.object({
   points: z.coerce.number().min(0).default(1),
   order: z.coerce.number().min(0),
   options: z.array(z.object({
-    optionText: z.string().min(1, 'Option text is required'),
+    optionText: z.string(), // Allow empty for ESSAY questions
     isCorrect: z.boolean(),
     order: z.coerce.number().min(0),
   })).optional(),
 }).refine((data) => {
+  // Only validate options for MULTIPLE_CHOICE and TRUE_FALSE
   if (data.questionType === 'MULTIPLE_CHOICE' || data.questionType === 'TRUE_FALSE') {
-    return data.options && data.options.length >= 2;
+    if (!data.options || data.options.length < 2) {
+      return false;
+    }
+    // Check that all options have text
+    return data.options.every(opt => opt.optionText && opt.optionText.trim().length > 0);
   }
   return true;
 }, {
-  message: 'Multiple choice and true/false questions require at least 2 options',
+  message: 'Multiple choice and true/false questions require at least 2 options with text',
   path: ['options'],
 });
 
@@ -77,8 +82,10 @@ const EditQuizPage = () => {
   const { id } = useParams<{ id: string }>();
   const { quiz, isLoading, fetchQuiz } = useQuiz(id || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Store File objects for question media files
-  const [questionMediaFiles, setQuestionMediaFiles] = useState<Record<number, File | null>>({});
+  // Store File objects for question media files using fieldId as key
+  const [questionMediaFiles, setQuestionMediaFiles] = useState<Record<string, File | null>>({});
+  // Track fieldId for each question index
+  const [questionFieldIds, setQuestionFieldIds] = useState<string[]>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -167,7 +174,9 @@ const EditQuizPage = () => {
       const uploadedQuestions = await Promise.all(
         data.questions.map(async (q, index) => {
           let mediaUrl = q.mediaUrl;
-          const mediaFile = questionMediaFiles[index];
+          // Get fieldId for this question index (falls back to index as string if not tracked)
+          const fieldId = questionFieldIds[index] || String(index);
+          const mediaFile = questionMediaFiles[fieldId];
 
           // If there's a File object to upload, upload it directly
           if (mediaFile) {
@@ -235,9 +244,9 @@ const EditQuizPage = () => {
         instructions: data.instructions && data.instructions.trim() !== '' ? data.instructions : undefined,
         entity: getEntityValue(),
         entityId: data.entityId && data.entityId.trim() !== '' ? data.entityId : null, // Set to null for standalone
-        duration: data.duration || undefined,
+        duration: data.duration != null && data.duration > 0 ? data.duration : null,
         passingScore: data.passingScore,
-        maxAttempts: data.maxAttempts || undefined,
+        maxAttempts: data.maxAttempts != null && data.maxAttempts > 0 ? data.maxAttempts : null,
         shuffleQuestions: data.shuffleQuestions,
         shuffleOptions: data.shuffleOptions,
         showCorrectAnswer: data.showCorrectAnswer,
@@ -328,10 +337,17 @@ const EditQuizPage = () => {
           <form onSubmit={form.handleSubmit(onSubmit, onError)} className="space-y-6">
             <QuizForm
               mode="edit"
-              onQuestionMediaFileSelect={(questionIndex, file) => {
+              onQuestionMediaFileSelect={(questionIndex, file, fieldId) => {
+                // Update fieldId tracking for this index
+                setQuestionFieldIds((prev) => {
+                  const updated = [...prev];
+                  updated[questionIndex] = fieldId;
+                  return updated;
+                });
+                // Store file by fieldId
                 setQuestionMediaFiles((prev) => ({
                   ...prev,
-                  [questionIndex]: file,
+                  [fieldId]: file,
                 }));
               }}
             />

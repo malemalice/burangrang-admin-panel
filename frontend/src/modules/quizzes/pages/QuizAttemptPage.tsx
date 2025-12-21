@@ -36,6 +36,7 @@ const QuizAttemptPage = () => {
   const [enrollmentId, setEnrollmentId] = useState<string | undefined>(enrollmentIdFromUrl);
   const [isFindingEnrollment, setIsFindingEnrollment] = useState(false);
   const hasAutoSubmittedRef = useRef(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load quiz
   useEffect(() => {
@@ -120,6 +121,32 @@ const QuizAttemptPage = () => {
       setAnswers(savedAnswers);
     }
   }, [attempt]);
+
+  // Save answers to localStorage as backup for Q-062
+  useEffect(() => {
+    if (attempt?.id && Object.keys(answers).length > 0) {
+      localStorage.setItem(`quiz_answers_${attempt.id}`, JSON.stringify(answers));
+    }
+  }, [answers, attempt?.id]);
+
+  // Load answers from localStorage on mount if attempt exists
+  useEffect(() => {
+    if (attempt?.id && attempt.status === 'IN_PROGRESS') {
+      const savedAnswersStr = localStorage.getItem(`quiz_answers_${attempt.id}`);
+      if (savedAnswersStr && Object.keys(answers).length === 0) {
+        try {
+          const savedAnswers = JSON.parse(savedAnswersStr);
+          setAnswers(savedAnswers);
+        } catch (e) {
+          console.error('Failed to parse saved answers:', e);
+        }
+      }
+    }
+    // Cleanup localStorage when attempt is completed
+    if (attempt?.status === 'COMPLETED' && attempt?.id) {
+      localStorage.removeItem(`quiz_answers_${attempt.id}`);
+    }
+  }, [attempt?.id, attempt?.status]);
 
   // Start attempt when quiz is loaded and enrollment is ready
   useEffect(() => {
@@ -214,10 +241,31 @@ const QuizAttemptPage = () => {
 
     // Auto-save answer if attempt exists
     if (attempt) {
-      try {
-        await submitAnswer(attempt.id, answer);
-      } catch (error) {
-        console.error('Failed to save answer:', error);
+      // Get current question type for debounce decision
+      const displayQuiz = attempt?.quiz || quiz;
+      const question = displayQuiz?.questions?.find(q => q.id === questionId);
+      
+      // Clear any pending save timeout
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      
+      // Use debounce for essay questions (Q-069 fix)
+      if (question?.questionType === 'ESSAY') {
+        saveTimeoutRef.current = setTimeout(async () => {
+          try {
+            await submitAnswer(attempt.id, answer);
+          } catch (error) {
+            console.error('Failed to save answer:', error);
+          }
+        }, 800); // 800ms debounce for essay
+      } else {
+        // Immediate save for multiple choice
+        try {
+          await submitAnswer(attempt.id, answer);
+        } catch (error) {
+          console.error('Failed to save answer:', error);
+        }
       }
     }
   };

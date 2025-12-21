@@ -236,7 +236,12 @@ export class QuizzesService {
     }
 
     if (entity) {
-      where.entity = entity as any;
+      // Handle STANDALONE filter - filter for quizzes with entity = null
+      if (entity === 'STANDALONE' || entity === 'null') {
+        where.entity = null;
+      } else {
+        where.entity = entity as any;
+      }
     }
 
     if (entityId) {

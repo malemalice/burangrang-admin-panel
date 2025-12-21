@@ -17,7 +17,7 @@ interface QuizFormProps {
   mode: 'create' | 'edit';
   entity?: string;
   entityId?: string;
-  onQuestionMediaFileSelect?: (questionIndex: number, file: File | null) => void;
+  onQuestionMediaFileSelect?: (questionIndex: number, file: File | null, fieldId: string) => void;
 }
 
 const QuizForm = ({ mode, entity, entityId, onQuestionMediaFileSelect }: QuizFormProps) => {
@@ -36,22 +36,24 @@ const QuizForm = ({ mode, entity, entityId, onQuestionMediaFileSelect }: QuizFor
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Always load courses for course selection
         const coursesResponse = await courseService.getCourses({ page: 1, limit: 100 });
         setCourses(coursesResponse.data.map(c => ({ id: c.id, title: c.title })));
 
-        if (selectedEntity === 'COURSE' && selectedEntityId) {
-          // Load chapters for selected course
+        // Load chapters based on entity type
+        if (selectedEntity === 'CHAPTER') {
+          // Load all chapters immediately when CHAPTER is selected
           try {
-            const chaptersResponse = await chapterService.getChapters({ page: 1, limit: 100, courseId: selectedEntityId });
+            const chaptersResponse = await chapterService.getChapters({ page: 1, limit: 1000 });
             setChapters(chaptersResponse.data.map(ch => ({ id: ch.id, title: ch.title, courseId: ch.courseId })));
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to load chapters';
             toast.error(errorMessage);
           }
-        } else if (selectedEntity === 'CHAPTER') {
-          // Load all chapters for chapter selection
+        } else if (selectedEntity === 'COURSE' && selectedEntityId) {
+          // Load chapters for selected course (if needed for reference)
           try {
-            const chaptersResponse = await chapterService.getChapters({ page: 1, limit: 1000 });
+            const chaptersResponse = await chapterService.getChapters({ page: 1, limit: 100, courseId: selectedEntityId });
             setChapters(chaptersResponse.data.map(ch => ({ id: ch.id, title: ch.title, courseId: ch.courseId })));
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to load chapters';
@@ -69,6 +71,7 @@ const QuizForm = ({ mode, entity, entityId, onQuestionMediaFileSelect }: QuizFor
 
     loadData();
   }, [selectedEntity, selectedEntityId]);
+
 
   // Set initial entity values if provided
   useEffect(() => {
@@ -426,7 +429,8 @@ const QuizForm = ({ mode, entity, entityId, onQuestionMediaFileSelect }: QuizFor
                 onRemove={() => remove(index)}
                 onMediaFileSelect={(file) => {
                   if (onQuestionMediaFileSelect) {
-                    onQuestionMediaFileSelect(index, file);
+                    // Use field.id as key to maintain correct mapping when questions are reordered
+                    onQuestionMediaFileSelect(index, file, field.id);
                   }
                 }}
               />
