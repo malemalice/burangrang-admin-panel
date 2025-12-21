@@ -1,0 +1,168 @@
+name: Reset Database
+
+on:
+  # Allow manual trigger from GitHub UI only (for safety)
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - development
+          - production
+        default: 'development'
+      confirm:
+        description: 'Type "RESET" to confirm database reset (THIS WILL DELETE ALL DATA)'
+        required: true
+        default: 'no'
+
+jobs:
+  reset-database:
+    name: Reset Database
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Validate confirmation
+        id: validate
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "RESET" ]; then
+            echo "❌ Database reset cancelled. You must type 'RESET' in the confirmation field."
+            exit 1
+          fi
+          echo "✅ Confirmation received. Proceeding with database reset..."
+          echo "⚠️  WARNING: This will DELETE ALL DATA in the database!"
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.environment == 'production' && 'main' || 'development' }}
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Add VPS to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Check container status
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          echo "Checking if backend container is running..."
+          ssh $VPS_USER@$VPS_HOST << ENDSSH
+            if docker ps | grep -q burangrang-backend; then
+              echo "✅ Backend container is running"
+              docker ps | grep burangrang-backend
+            else
+              echo "❌ Backend container is not running!"
+              echo "Please ensure the backend is deployed before resetting the database."
+              exit 1
+            fi
+          ENDSSH
+
+      - name: Reset database
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          ENVIRONMENT: ${{ github.event.inputs.environment }}
+        run: |
+          ssh $VPS_USER@$VPS_HOST << ENDSSH
+            set -e
+            
+            echo "==================================="
+            echo "🗄️  Starting Database Reset"
+            echo "Environment: $ENVIRONMENT"
+            echo "==================================="
+            echo ""
+            echo "⚠️  WARNING: This operation will:"
+            echo "   - Drop the entire database"
+            echo "   - Delete ALL data"
+            echo "   - Recreate the database"
+            echo "   - Apply all migrations"
+            echo "   - Run seed scripts (if configured)"
+            echo ""
+            
+            # Check if container is running
+            if ! docker ps | grep -q burangrang-backend; then
+              echo "❌ Backend container is not running!"
+              exit 1
+            fi
+            
+            echo "📋 Current database status:"
+            docker exec burangrang-backend npx prisma migrate status || echo "⚠️  Could not check migration status"
+            
+            echo ""
+            echo "🔄 Resetting database..."
+            echo "Running: npx prisma migrate reset --non-interactive"
+            
+            # Run the reset command
+            # --non-interactive: Skip interactive prompts (required for CI/CD)
+            # Note: This will also run seed scripts if configured in package.json
+            docker exec burangrang-backend npx prisma migrate reset --non-interactive
+            
+            echo ""
+            echo "✅ Database reset completed successfully!"
+            echo "==================================="
+          ENDSSH
+
+      - name: Verify database reset
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          echo "Verifying database reset..."
+          ssh $VPS_USER@$VPS_HOST << ENDSSH
+            echo "📋 Migration status after reset:"
+            docker exec burangrang-backend npx prisma migrate status
+            
+            echo ""
+            echo "🔍 Verifying Prisma Client:"
+            docker exec burangrang-backend npx prisma generate --schema=./prisma/schema.prisma || echo "⚠️  Prisma client generation skipped"
+            
+            echo ""
+            echo "✅ Database reset verification completed!"
+          ENDSSH
+
+      - name: Create reset summary
+        if: always()
+        run: |
+          echo "## 🗄️  Database Reset Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** \`${{ github.event.inputs.environment }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Database reset completed successfully!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**What happened:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Database was dropped and recreated" >> $GITHUB_STEP_SUMMARY
+            echo "- All migrations were applied" >> $GITHUB_STEP_SUMMARY
+            echo "- Seed scripts were executed (if configured)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️  **Important:** All previous data has been deleted!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Database reset failed. Please check the logs above for details." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Troubleshooting:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Verify backend container is running" >> $GITHUB_STEP_SUMMARY
+            echo "- Check database connection" >> $GITHUB_STEP_SUMMARY
+            echo "- Review Prisma schema for errors" >> $GITHUB_STEP_SUMMARY
+            echo "- Check migration files for issues" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Notify reset status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Database reset completed successfully!"
+            echo "⚠️  All previous data has been deleted!"
+          else
+            echo "❌ Database reset failed!"
+            echo "Please check the logs above for details."
+          fi
