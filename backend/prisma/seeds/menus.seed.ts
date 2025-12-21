@@ -312,20 +312,7 @@ export const seedMenus = async () => {
       },
     });
 
-    // Settings submenus (align with frontend routes)
-    await prisma.menu.create({
-      data: {
-        name: 'Management',
-        path: '/settings/management',
-        icon: 'SlidersHorizontal',
-        parentId: settingsMenu.id,
-        order: 1,
-        isActive: true,
-        roles: {
-          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
-        },
-      },
-    });
+  
 
     await prisma.menu.create({
       data: {
