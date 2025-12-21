@@ -26,6 +26,7 @@ import { seedAreas } from './seeds/areas.seed';
 import { seedRooms } from './seeds/rooms.seed';
 import { seedEnvironmentalMeasurements } from './seeds/environmental-measurements.seed';
 import { seedWasteManagement } from './seeds/waste-management.seed';
+import { seedManHours } from './seeds/man-hours.seed';
 
 const prisma = new PrismaClient();
 
@@ -105,6 +106,8 @@ async function main() {
       await prisma.wasteType.deleteMany();
       await prisma.waterQualityParameter.deleteMany();
       await prisma.treatmentPlant.deleteMany();
+      // Clear Man Hours data
+      await prisma.manHour.deleteMany();
       // Clear other data
       await prisma.masterApprovalItem.deleteMany();
       await prisma.approval.deleteMany();
@@ -296,10 +299,14 @@ async function main() {
           await prisma.workPermit.deleteMany();
           await prisma.guest.deleteMany();
           break;
+        case 'man_hours':
+        case 'man-hours':
+          await prisma.manHour.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
           console.log(
-            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits',
+            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours',
           );
           process.exit(1);
       }
@@ -347,6 +354,7 @@ async function main() {
       await seedRooms();
       await seedEnvironmentalMeasurements();
       await seedWasteManagement();
+      await seedManHours();
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -509,6 +517,10 @@ async function main() {
           await prisma.guest.deleteMany();
           // Note: Master data (work classifications, equipment, etc.) are not cleared
           await seedWorkPermitsData(prisma);
+          break;
+        case 'man_hours':
+        case 'man-hours':
+          await seedManHours();
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

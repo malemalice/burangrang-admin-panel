@@ -14,6 +14,7 @@ import { enrollmentRoutes } from '@/modules/enrollments';
 import { quizRoutes } from '@/modules/quizzes';
 import certificateRoutes from '@/modules/certificates/routes/certificateRoutes';
 import { riskMatrixRoutes } from '@/modules/risk-matrix';
+import { manHourRoutes } from '@/modules/man-hours';
 
 /**
  * Application routes registry
@@ -34,6 +35,7 @@ const routes: RouteConfig[] = [
   ...quizRoutes,
   ...certificateRoutes,
   ...riskMatrixRoutes,
+  ...manHourRoutes,
   ...moduleRoutes,
 ];
 
