@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Trash2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
   Form,
@@ -65,10 +65,10 @@ const formSchema = z.object({
   workers: z
     .array(
       z.object({
-        guestId: z.string().min(1, 'Guest is required'),
+        guestId: z.string().min(1, 'Worker is required'),
         idNumber: z.string().optional(),
         certificateUrl: z.string().optional(),
-        healthDeclarationUrl: z.string().min(1, 'Health declaration URL is required'),
+        healthDeclarationUrl: z.string().min(1, 'Health declaration is required'),
         order: z.number().min(0),
       }),
     )
@@ -465,6 +465,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           ? uploadService.getPublicFileUrl(response.id)
           : uploadService.getPrivateFileUrl(response.accessToken || response.id));
       form.setValue(`workers.${workerIndex}.${fieldName}`, fileUrl);
+      // Trigger validation to clear error message (WP-039)
+      form.trigger(`workers.${workerIndex}.${fieldName}`);
       setUploadedFileNames((prev) => ({ ...prev, [uploadKey]: file.name }));
       toast.success('File uploaded successfully');
     } catch (error: any) {
@@ -504,8 +506,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       const startDate = new Date(data.proposedStartDate);
       const endDate = new Date(data.proposedEndDate);
 
-      if (endDate <= startDate) {
-        toast.error('End date must be after start date');
+      if (endDate < startDate) {
+        toast.error('End date must be on or after start date');
         setIsSubmitting(false);
         return;
       }
@@ -529,10 +531,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        {/* Section 1: Identitas Permit */}
+        {/* Section 1: Permit Identity */}
         <Card>
           <CardHeader>
-            <CardTitle>Identitas Permit</CardTitle>
+            <CardTitle>Permit Identity</CardTitle>
             <CardDescription>Basic permit information</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -630,10 +632,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </CardContent>
         </Card>
 
-        {/* Section 2: Proyek & Pekerjaan */}
+        {/* Section 2: Project and Work */}
         <Card>
           <CardHeader>
-            <CardTitle>Proyek & Pekerjaan</CardTitle>
+            <CardTitle>Project and Work</CardTitle>
             <CardDescription>Project and work details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -690,58 +692,92 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               )}
             />
             <div className="space-y-4">
-              <FormLabel>Work Classifications</FormLabel>
-              {classificationFields.map((field, index) => (
-                <div key={field.id} className="flex gap-2 items-end">
-                  <FormField
-                    control={form.control}
-                    name={`classifications.${index}.workClassificationId`}
-                    render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormControl>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select classification" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {workClassifications.map((wc) => (
-                                <SelectItem key={wc.id} value={wc.id}>
-                                  {wc.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeClassification(index)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => appendClassification({ workClassificationId: '', order: classificationFields.length })}
-              >
-                <Plus className="mr-2 h-4 w-4" /> Add Classification
-              </Button>
+              <div className="flex justify-between items-center">
+                <FormLabel>Work Classifications</FormLabel>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => appendClassification({ workClassificationId: '', order: classificationFields.length })}
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Add Classification
+                </Button>
+              </div>
+              {classificationFields.map((field, index) => {
+                // Get all classification values from form for reactive updates
+                const allClassificationValues = form.watch('classifications') || [];
+                
+                // Get already selected classification IDs (excluding current field)
+                const selectedIds = allClassificationValues
+                  .filter((_, i) => i !== index)
+                  .map((c) => c?.workClassificationId)
+                  .filter(Boolean);
+                
+                return (
+                  <div key={field.id} className="flex gap-2 items-end">
+                    <FormField
+                      control={form.control}
+                      name={`classifications.${index}.workClassificationId`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormControl>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select classification" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {workClassifications
+                                  .filter((wc) => !selectedIds.includes(wc.id) || wc.id === field.value)
+                                  .map((wc) => (
+                                    <SelectItem key={wc.id} value={wc.id}>
+                                      {wc.name}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeClassification(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
 
         {/* Section 3: Workers */}
         <Card>
-          <CardHeader>
-            <CardTitle>Workers</CardTitle>
-            <CardDescription>List of workers assigned to this permit</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Workers</CardTitle>
+              <CardDescription>List of workers assigned to this permit</CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                appendWorker({
+                  guestId: '',
+                  idNumber: '',
+                  certificateUrl: '',
+                  healthDeclarationUrl: '',
+                  order: workerFields.length,
+                })
+              }
+            >
+              <Plus className="mr-2 h-4 w-4" /> Add Worker
+            </Button>
           </CardHeader>
           <CardContent className="space-y-4">
             {workerFields.map((field, index) => (
@@ -754,9 +790,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                         type="button"
                         variant="ghost"
                         size="icon"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() => removeWorker(index)}
                       >
-                        <X className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     )}
                   </div>
@@ -824,7 +861,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => handleFileRemove('certificateUrl', index)}
-                                    className="h-8 w-8 p-0"
+                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/20"
                                     disabled={isUploading}
                                   >
                                     <XIcon className="h-4 w-4" />
@@ -903,7 +940,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => handleFileRemove('healthDeclarationUrl', index)}
-                                    className="h-8 w-8 p-0"
+                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/20"
                                     disabled={isUploading}
                                   >
                                     <XIcon className="h-4 w-4" />
@@ -958,21 +995,6 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 </CardContent>
               </Card>
             ))}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                appendWorker({
-                  guestId: '',
-                  idNumber: '',
-                  certificateUrl: '',
-                  healthDeclarationUrl: '',
-                  order: workerFields.length,
-                })
-              }
-            >
-              <Plus className="mr-2 h-4 w-4" /> Add Worker
-            </Button>
           </CardContent>
         </Card>
 

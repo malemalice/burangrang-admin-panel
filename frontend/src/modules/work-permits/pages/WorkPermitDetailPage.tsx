@@ -57,13 +57,24 @@ const WorkPermitDetailPage = () => {
     }
   }, [id]);
 
+  const handleSubmitForApproval = async () => {
+    if (!id) return;
+    try {
+      await submit(id);
+      // Refresh data immediately to show updated buttons (WP-047)
+      await fetchWorkPermit(id);
+    } catch (error) {
+      // Error handled in hook
+    }
+  };
+
   const handleApprove = async () => {
     if (!id) return;
     try {
       await approve(id, approveNotes);
       setApproveDialogOpen(false);
       setApproveNotes('');
-      fetchWorkPermit(id);
+      await fetchWorkPermit(id);
     } catch (error) {
       // Error handled in hook
     }
@@ -105,6 +116,17 @@ const WorkPermitDetailPage = () => {
       toast.error('Extension date and reason are required');
       return;
     }
+    
+    // Validate that new end date is after existing end date (WP-053)
+    if (workPermit) {
+      const existingEndDate = new Date(workPermit.proposedEndDate);
+      const newEndDate = new Date(extendDate);
+      if (newEndDate <= existingEndDate) {
+        toast.error(`New end date must be after the current end date (${existingEndDate.toLocaleDateString()})`);
+        return;
+      }
+    }
+    
     try {
       await extend(id, extendDate, extendReason);
       setExtendDialogOpen(false);
@@ -173,7 +195,7 @@ const WorkPermitDetailPage = () => {
               </Button>
             )}
             {canSubmit && (
-              <Button onClick={() => submit(workPermit.id)} disabled={isActionLoading}>
+              <Button onClick={handleSubmitForApproval} disabled={isActionLoading}>
                 Submit for Approval
               </Button>
             )}
@@ -214,27 +236,29 @@ const WorkPermitDetailPage = () => {
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Status</Label>
-              <Badge className="mt-1">{workPermit.status.replace(/_/g, ' ')}</Badge>
+              <Label className="text-gray-500">Status</Label>
+              <div className="mt-1">
+                <Badge>{workPermit.status.replace(/_/g, ' ')}</Badge>
+              </div>
             </div>
             <div>
-              <Label>Project Name</Label>
+              <Label className="text-gray-500">Project Name</Label>
               <p className="mt-1">{workPermit.projectName}</p>
             </div>
             <div>
-              <Label>Area</Label>
+              <Label className="text-gray-500">Area</Label>
               <p className="mt-1">{workPermit.area?.name || '-'}</p>
             </div>
             <div>
-              <Label>Company</Label>
+              <Label className="text-gray-500">Company</Label>
               <p className="mt-1">{workPermit.company?.name || '-'}</p>
             </div>
             <div>
-              <Label>Start Date</Label>
+              <Label className="text-gray-500">Start Date</Label>
               <p className="mt-1">{format(new Date(workPermit.proposedStartDate), 'MMM dd, yyyy')}</p>
             </div>
             <div>
-              <Label>End Date</Label>
+              <Label className="text-gray-500">End Date</Label>
               <p className="mt-1">{format(new Date(workPermit.proposedEndDate), 'MMM dd, yyyy')}</p>
             </div>
           </CardContent>
