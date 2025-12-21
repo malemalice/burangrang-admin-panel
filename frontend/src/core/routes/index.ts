@@ -7,6 +7,14 @@ import { roleRoutes } from '@/modules/roles';
 import { masterDataRoutes } from '@/modules/master-data';
 import { menuRoutes } from '@/modules/menus';
 import { notificationRoutes } from '@/modules/notifications';
+import { ppeRoutes } from '@/modules/ppe';
+import { courseRoutes } from '@/modules/courses';
+import { reminderRoutes } from '@/modules/reminders';
+import { enrollmentRoutes } from '@/modules/enrollments';
+import { quizRoutes } from '@/modules/quizzes';
+import certificateRoutes from '@/modules/certificates/routes/certificateRoutes';
+import { riskMatrixRoutes } from '@/modules/risk-matrix';
+import { manHourRoutes } from '@/modules/man-hours';
 import { emailTemplateRoutes } from '@/modules/mail-templates';
 
 /**
@@ -21,6 +29,14 @@ const routes: RouteConfig[] = [
   ...masterDataRoutes,
   ...settingsRoutes,
   ...notificationRoutes,
+  ...ppeRoutes,
+  ...courseRoutes,
+  ...reminderRoutes,
+  ...enrollmentRoutes,
+  ...quizRoutes,
+  ...certificateRoutes,
+  ...riskMatrixRoutes,
+  ...manHourRoutes,
   ...moduleRoutes,
   ...emailTemplateRoutes,
 ];

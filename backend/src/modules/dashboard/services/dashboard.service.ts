@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../core/services/prisma.service';
+import { PrismaService } from '../../../core/prisma/prisma.service';
 import { RiskRatingEnum } from '@prisma/client';
 import {
   RiskOverview,
   DepartmentProfile,
-  HseCategoryAnalysis,
-  ThreatAnalysis,
+  RiskCategoryAnalysis,
+  RiskAnalysis,
   ComplianceProgress,
 } from '../types/dashboard.types';
 
@@ -87,7 +87,7 @@ export class DashboardService {
       {} as { [key in RiskRatingEnum]: number },
     );
 
-    const approvedAssessments = assessments.filter((a) => a.status === 'APPROVED').length;
+    const approvedAssessments = assessments.filter((a) => a.status === 'DONE').length;
 
     return {
       departmentId,
@@ -98,8 +98,8 @@ export class DashboardService {
     };
   }
 
-  async getHseCategoryAnalysis(): Promise<HseCategoryAnalysis[]> {
-    const categories = await this.prisma.hseCategory.findMany({
+  async getRiskCategoryAnalysis(): Promise<RiskCategoryAnalysis[]> {
+    const categories = await (this.prisma as any).riskCategory.findMany({
       where: { isActive: true },
       include: {
         riskAssessmentItems: {
@@ -130,11 +130,11 @@ export class DashboardService {
     });
   }
 
-  async getThreatAnalysis(): Promise<ThreatAnalysis[]> {
-    const threats = await this.prisma.threat.findMany({
+  async getRiskAnalysis(): Promise<RiskAnalysis[]> {
+    const risks = await (this.prisma as any).risk.findMany({
       where: { isActive: true },
       include: {
-        hseCategory: true,
+        riskCategory: true,
         riskAssessmentItems: {
           where: {
             riskAssessment: { isActive: true },
@@ -143,15 +143,15 @@ export class DashboardService {
       },
     });
 
-    return threats.map((threat) => {
-      const occurrences = threat.riskAssessmentItems.length;
+    return risks.map((risk: any) => {
+      const occurrences = risk.riskAssessmentItems.length;
       
       // Calculate average risk rating
       const ratingCounts = Object.values(RiskRatingEnum).reduce(
         (acc, rating) => ({
           ...acc,
-          [rating]: threat.riskAssessmentItems.filter(
-            (item) => item.riskMatrixRating === rating,
+          [rating]: risk.riskAssessmentItems.filter(
+            (item: any) => item.riskMatrixRating === rating,
           ).length,
         }),
         {} as { [key in RiskRatingEnum]: number },
@@ -164,9 +164,9 @@ export class DashboardService {
       );
 
       return {
-        threatId: threat.id,
-        name: threat.name,
-        category: threat.hseCategory.name,
+        riskId: risk.id,
+        name: risk.name,
+        category: risk.riskCategory.name,
         occurrences,
         averageRiskRating,
       };
@@ -189,13 +189,13 @@ export class DashboardService {
     ]);
 
     const totalAssessments = assessments.length;
-    const approvedAssessments = assessments.filter((a) => a.status === 'APPROVED').length;
-    const pendingAssessments = assessments.filter((a) => a.status === 'PENDING').length;
+    const approvedAssessments = assessments.filter((a) => a.status === 'DONE').length;
+    const pendingAssessments = assessments.filter((a) => a.status === 'WAITING_APPROVAL').length;
     const rejectedAssessments = assessments.filter((a) => a.status === 'REJECTED').length;
 
     const departmentCompliance = departments.map((dept) => {
       const deptAssessments = assessments.filter((a) => a.departmentId === dept.id);
-      const deptApproved = deptAssessments.filter((a) => a.status === 'APPROVED').length;
+      const deptApproved = deptAssessments.filter((a) => a.status === 'DONE').length;
       
       return {
         departmentId: dept.id,

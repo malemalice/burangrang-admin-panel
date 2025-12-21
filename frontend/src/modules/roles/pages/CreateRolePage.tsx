@@ -164,7 +164,8 @@ const CreateRolePage = () => {
         }
       />
 
-      <Card className="max-w-2xl mx-auto">
+      <div className="max-w-4xl mx-auto">
+        <Card>
         <form onSubmit={handleSubmit}>
           <CardHeader>
             <CardTitle>Role Information</CardTitle>
@@ -265,7 +266,7 @@ const CreateRolePage = () => {
             </div>
           </CardContent>
           
-          <CardFooter className="flex justify-end gap-2">
+          <CardFooter className="flex justify-end gap-4">
             <Button 
               type="button" 
               variant="outline" 
@@ -291,7 +292,8 @@ const CreateRolePage = () => {
             </Button>
           </CardFooter>
         </form>
-      </Card>
+        </Card>
+      </div>
     </>
   );
 };

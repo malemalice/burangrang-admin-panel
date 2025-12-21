@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -20,7 +20,6 @@ import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { cn } from '@/core/lib/utils';
 import { FilterButton, FilterDrawer, FilterField, FilterValue, FilterBadges } from '../filter-drawer';
 import { useTheme } from '@/core/lib/theme';
-import { themeColors } from '@/core/lib/theme/colors';
 
 interface DataTableProps<T> {
   columns: {
@@ -60,11 +59,22 @@ const DataTable = <T extends Record<string, any>>({
   sorting,
   onSortingChange,
 }: DataTableProps<T>) => {
-  const { theme } = useTheme();
-  const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [localActiveFilters, setLocalActiveFilters] = useState<FilterValue[]>([]);
+
+  // Sync activeFilters prop with localActiveFilters when it changes
+  useEffect(() => {
+    if (activeFilters) {
+      const filterValues: FilterValue[] = Object.entries(activeFilters).map(([id, item]) => ({
+        id,
+        value: item.value
+      }));
+      setLocalActiveFilters(filterValues);
+    } else {
+      setLocalActiveFilters([]);
+    }
+  }, [activeFilters]);
 
   // Search handler
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,10 +134,10 @@ const DataTable = <T extends Record<string, any>>({
   };
 
   return (
-    <div className="rounded-md border bg-white dark:bg-gray-800">
-      <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
+    <div className="rounded-md border bg-card">
+      <div className="flex items-center justify-between p-4 border-b">
         <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <Input
             placeholder="Search..."
             value={searchTerm}
@@ -147,7 +157,7 @@ const DataTable = <T extends Record<string, any>>({
       
       {/* Display filter badges if there are active filters */}
       {localActiveFilters.length > 0 && (
-        <div className="px-4 py-2 border-b dark:border-gray-700">
+        <div className="px-4 py-2 border-b">
           <FilterBadges
             filters={localActiveFilters}
             fields={filterFields}
@@ -158,7 +168,7 @@ const DataTable = <T extends Record<string, any>>({
       
       <div className="relative">
         {isLoading && (
-          <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 flex items-center justify-center z-10">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
             <div className="h-8 w-8 rounded-full border-4 border-admin-primary/30 border-t-admin-primary animate-spin-slow" />
           </div>
         )}
@@ -171,8 +181,8 @@ const DataTable = <T extends Record<string, any>>({
                   <TableHead 
                     key={column.id}
                     className={cn(
-                      column.isSortable && "cursor-pointer hover:bg-gray-50",
-                      sorting?.id === column.id && "bg-gray-50"
+                      column.isSortable && "cursor-pointer hover:bg-muted",
+                      sorting?.id === column.id && "bg-muted"
                     )}
                     onClick={() => column.isSortable && handleSort(column.id)}
                   >
@@ -212,7 +222,7 @@ const DataTable = <T extends Record<string, any>>({
       </div>
       
       {pagination && (
-        <div className="flex items-center justify-between px-4 py-3 border-t dark:border-gray-700">
+        <div className="flex items-center justify-between px-4 py-3 border-t">
           <div className="flex items-center gap-2">
             <Select
               value={pagination.limit.toString()}
@@ -229,7 +239,7 @@ const DataTable = <T extends Record<string, any>>({
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               {pagination.total ? (
                 <>
                   Showing{" "}
@@ -254,23 +264,6 @@ const DataTable = <T extends Record<string, any>>({
               size="icon"
               onClick={() => pagination.onPageChange(pageIndex - 1)}
               disabled={pageIndex === 0}
-              style={{
-                backgroundColor: '#ffffff',
-                color: pageIndex === 0 ? '#9ca3af' : '#374151',
-                borderColor: '#d1d5db',
-              }}
-              onMouseEnter={(e) => {
-                if (pageIndex !== 0) {
-                  e.currentTarget.style.backgroundColor = '#f9fafb';
-                  e.currentTarget.style.borderColor = '#9ca3af';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (pageIndex !== 0) {
-                  e.currentTarget.style.backgroundColor = '#ffffff';
-                  e.currentTarget.style.borderColor = '#d1d5db';
-                }
-              }}
             >
               <ChevronLeft size={18} />
             </Button>
@@ -306,35 +299,6 @@ const DataTable = <T extends Record<string, any>>({
                       size="icon"
                       onClick={() => pagination.onPageChange(pageNumber)}
                       className="w-9 h-9"
-                      style={pageIndex === pageNumber ? {
-                        backgroundColor: currentThemeColor,
-                        color: '#ffffff',
-                        borderColor: currentThemeColor,
-                      } : {
-                        backgroundColor: '#ffffff',
-                        color: '#374151',
-                        borderColor: '#d1d5db',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (pageIndex === pageNumber) {
-                          // Darken theme color on hover for selected items
-                          e.currentTarget.style.backgroundColor = currentThemeColor + 'CC';
-                          e.currentTarget.style.borderColor = currentThemeColor + 'CC';
-                        } else {
-                          e.currentTarget.style.backgroundColor = '#f9fafb';
-                          e.currentTarget.style.borderColor = '#9ca3af';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (pageIndex === pageNumber) {
-                          // Restore original theme color
-                          e.currentTarget.style.backgroundColor = currentThemeColor;
-                          e.currentTarget.style.borderColor = currentThemeColor;
-                        } else {
-                          e.currentTarget.style.backgroundColor = '#ffffff';
-                          e.currentTarget.style.borderColor = '#d1d5db';
-                        }
-                      }}
                     >
                       {pageNumber + 1}
                     </Button>
@@ -349,23 +313,6 @@ const DataTable = <T extends Record<string, any>>({
               size="icon"
               onClick={() => pagination.onPageChange(pageIndex + 1)}
               disabled={pageIndex >= pageCount - 1}
-              style={{
-                backgroundColor: '#ffffff',
-                color: pageIndex >= pageCount - 1 ? '#9ca3af' : '#374151',
-                borderColor: '#d1d5db',
-              }}
-              onMouseEnter={(e) => {
-                if (pageIndex < pageCount - 1) {
-                  e.currentTarget.style.backgroundColor = '#f9fafb';
-                  e.currentTarget.style.borderColor = '#9ca3af';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (pageIndex < pageCount - 1) {
-                  e.currentTarget.style.backgroundColor = '#ffffff';
-                  e.currentTarget.style.borderColor = '#d1d5db';
-                }
-              }}
             >
               <ChevronRight size={18} />
             </Button>

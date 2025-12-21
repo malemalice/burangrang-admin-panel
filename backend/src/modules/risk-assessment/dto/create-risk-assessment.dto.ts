@@ -7,9 +7,11 @@ import {
   IsArray,
   ValidateNested,
   IsNotEmpty,
+  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { GeneralStatusEnum } from '@prisma/client';
 import { CreateRiskAssessmentItemDto } from './create-risk-assessment-item.dto';
 
 export class CreateRiskAssessmentDto {
@@ -35,13 +37,14 @@ export class CreateRiskAssessmentDto {
   assessmentDate?: Date;
 
   @IsString()
-  @ApiProperty()
-  createdBy: string;
+  @IsOptional()
+  @ApiProperty({ required: false, description: 'Will be set automatically from authenticated user' })
+  createdBy?: string;
 
   @IsNotEmpty()
-  @IsString()
-  @ApiProperty()
-  status: string;
+  @IsEnum(GeneralStatusEnum)
+  @ApiProperty({ enum: GeneralStatusEnum })
+  status: GeneralStatusEnum;
 
   @IsBoolean()
   @IsOptional()
@@ -61,6 +64,7 @@ export class CreateRiskAssessmentDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateRiskAssessmentItemDto)
-  @ApiProperty({ type: [CreateRiskAssessmentItemDto] })
-  items: CreateRiskAssessmentItemDto[];
+  @IsOptional()
+  @ApiProperty({ type: [CreateRiskAssessmentItemDto], required: false })
+  items?: CreateRiskAssessmentItemDto[];
 }

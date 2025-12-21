@@ -4,15 +4,15 @@ import { DashboardService } from '../services/dashboard.service';
 import {
   RiskOverviewDto,
   DepartmentProfileDto,
-  HseCategoryAnalysisDto,
-  ThreatAnalysisDto,
+  RiskCategoryAnalysisDto,
+  RiskAnalysisDto,
   ComplianceProgressDto,
 } from '../dto/dashboard.dto';
 import {
   RiskOverview,
   DepartmentProfile,
-  HseCategoryAnalysis,
-  ThreatAnalysis,
+  RiskCategoryAnalysis,
+  RiskAnalysis,
   ComplianceProgress,
 } from '../types/dashboard.types';
 
@@ -44,26 +44,26 @@ export class DashboardController {
     return this.dashboardService.getDepartmentProfile(departmentId);
   }
 
-  @Get('hse-category-analysis')
-  @ApiOperation({ summary: 'Get HSE category analysis' })
+  @Get('risk-category-analysis')
+  @ApiOperation({ summary: 'Get risk category analysis' })
   @ApiResponse({
     status: 200,
-    description: 'Returns analysis of HSE categories and their risk distributions',
-    type: [HseCategoryAnalysisDto],
+    description: 'Returns analysis of risk categories and their risk distributions',
+    type: [RiskCategoryAnalysisDto],
   })
-  async getHseCategoryAnalysis(): Promise<HseCategoryAnalysis[]> {
-    return this.dashboardService.getHseCategoryAnalysis();
+  async getRiskCategoryAnalysis(): Promise<RiskCategoryAnalysis[]> {
+    return this.dashboardService.getRiskCategoryAnalysis();
   }
 
-  @Get('threat-analysis')
-  @ApiOperation({ summary: 'Get threat analysis' })
+  @Get('risk-analysis')
+  @ApiOperation({ summary: 'Get risk analysis' })
   @ApiResponse({
     status: 200,
-    description: 'Returns analysis of threats including frequency and risk ratings',
-    type: [ThreatAnalysisDto],
+    description: 'Returns analysis of risks including frequency and risk ratings',
+    type: [RiskAnalysisDto],
   })
-  async getThreatAnalysis(): Promise<ThreatAnalysis[]> {
-    return this.dashboardService.getThreatAnalysis();
+  async getRiskAnalysis(): Promise<RiskAnalysis[]> {
+    return this.dashboardService.getRiskAnalysis();
   }
 
   @Get('compliance-progress')

@@ -95,9 +95,13 @@ const roleService = {
         queryParams.append('sortOrder', params.sortOrder || 'asc');
       }
 
-      // Add search if provided
+      // Add search if provided and not empty/whitespace only
       if (params.search) {
-        queryParams.append('search', params.search);
+        const trimmedSearch = params.search.trim();
+        // Only add search if it's not empty and contains at least one alphanumeric character
+        if (trimmedSearch.length > 0) {
+          queryParams.append('search', trimmedSearch);
+        }
       }
 
       // Add any additional filters
@@ -111,7 +115,20 @@ const roleService = {
 
       const response = await api.get(`/roles?${queryParams.toString()}`);
       
-      // If the backend doesn't return paginated data yet, we'll mock it
+      // Backend should now return paginated response with { data: RoleDto[], meta: {...} }
+      if (response.data && response.data.data && Array.isArray(response.data.data)) {
+        return {
+          data: response.data.data.map(mapRoleDtoToRole),
+          meta: {
+            total: response.data.meta.total,
+            page: response.data.meta.page,
+            limit: response.data.meta.limit,
+            pageCount: response.data.meta.pageCount || Math.ceil(response.data.meta.total / response.data.meta.limit)
+          }
+        };
+      }
+      
+      // Fallback for non-paginated response (shouldn't happen with new backend)
       if (Array.isArray(response.data)) {
         const roles = response.data.map(mapRoleDtoToRole);
         return {
@@ -125,10 +142,15 @@ const roleService = {
         };
       }
       
-      // If backend returns proper paginated response
+      // If response structure is unexpected, return empty
       return {
-        data: response.data.data.map(mapRoleDtoToRole),
-        meta: response.data.meta
+        data: [],
+        meta: {
+          total: 0,
+          page: params.page,
+          limit: params.limit,
+          pageCount: 0
+        }
       };
     } catch (error) {
       console.error('Error fetching roles:', error);

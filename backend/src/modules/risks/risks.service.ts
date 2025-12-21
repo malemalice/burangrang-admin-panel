@@ -1,0 +1,177 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../core/prisma/prisma.service';
+import { CreateRiskDto } from './dto/create-risk.dto';
+import { UpdateRiskDto } from './dto/update-risk.dto';
+import { RiskDto } from './dto/risk.dto';
+
+interface FindAllOptions {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  isActive?: boolean;
+  search?: string;
+  riskCategoryId?: string;
+}
+
+@Injectable()
+export class RisksService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(createRiskDto: CreateRiskDto): Promise<RiskDto> {
+    // Verify the risk category exists first
+    const riskCategory = await (this.prisma as any).riskCategory.findUnique({
+      where: { id: createRiskDto.riskCategoryId }
+    });
+
+    if (!riskCategory) {
+      throw new NotFoundException(`Risk category with ID ${createRiskDto.riskCategoryId} not found`);
+    }
+
+    // Create the risk
+    const risk = await (this.prisma as any).risk.create({
+      data: createRiskDto,
+      include: {
+        riskCategory: true,
+      },
+    });
+
+    return this.mapToDto(risk);
+  }
+
+  async findAll(options?: FindAllOptions): Promise<{ data: RiskDto[]; meta: { total: number; page: number; limit: number } }> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'name',
+      sortOrder = 'asc',
+      isActive,
+      search,
+      riskCategoryId,
+    } = options || {};
+
+    // Using 'any' as a workaround until the Prisma client is regenerated
+    const where: any = {};
+    
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { code: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (isActive !== undefined) {
+      where.isActive = isActive;
+    }
+
+    if (riskCategoryId) {
+      where.riskCategoryId = riskCategoryId;
+    }
+
+    const [risks, total] = await Promise.all([
+      (this.prisma as any).risk.findMany({
+        where,
+        include: {
+          riskCategory: true,
+        },
+        orderBy: {
+          [sortBy]: sortOrder,
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      (this.prisma as any).risk.count({ where }),
+    ]);
+
+    return {
+      data: risks.map(risk => this.mapToDto(risk)),
+      meta: { total, page, limit },
+    };
+  }
+
+  async findOne(id: string): Promise<RiskDto> {
+    const risk = await (this.prisma as any).risk.findUnique({
+      where: { id },
+      include: {
+        riskCategory: true,
+        mitigations: true,
+      },
+    });
+
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${id} not found`);
+    }
+
+    return this.mapToDto(risk);
+  }
+
+  async update(id: string, updateRiskDto: UpdateRiskDto): Promise<RiskDto> {
+    const existingRisk = await (this.prisma as any).risk.findUnique({
+      where: { id },
+    });
+
+    if (!existingRisk) {
+      throw new NotFoundException(`Risk with ID ${id} not found`);
+    }
+
+    // If updating Risk Category ID, verify it exists
+    if (updateRiskDto.riskCategoryId) {
+      const riskCategory = await (this.prisma as any).riskCategory.findUnique({
+        where: { id: updateRiskDto.riskCategoryId }
+      });
+
+      if (!riskCategory) {
+        throw new NotFoundException(`Risk category with ID ${updateRiskDto.riskCategoryId} not found`);
+      }
+    }
+
+    const updatedRisk = await (this.prisma as any).risk.update({
+      where: { id },
+      data: updateRiskDto,
+      include: {
+        riskCategory: true,
+        mitigations: true,
+      },
+    });
+
+    return this.mapToDto(updatedRisk);
+  }
+
+  async remove(id: string): Promise<void> {
+    const risk = await (this.prisma as any).risk.findUnique({
+      where: { id },
+      include: {
+        mitigations: true,
+      },
+    });
+
+    if (!risk) {
+      throw new NotFoundException(`Risk with ID ${id} not found`);
+    }
+
+    // Check if the risk has mitigations
+    if (risk.mitigations.length > 0) {
+      throw new NotFoundException(`Cannot delete risk with ID ${id} because it has associated mitigations`);
+    }
+
+    await (this.prisma as any).risk.delete({
+      where: { id },
+    });
+  }
+
+  private mapToDto(risk: any): RiskDto {
+    return {
+      id: risk.id,
+      name: risk.name,
+      code: risk.code,
+      description: risk.description,
+      isActive: risk.isActive,
+      riskCategoryId: risk.riskCategoryId,
+      riskCategory: risk.riskCategory,
+      createdAt: risk.createdAt,
+      updatedAt: risk.updatedAt,
+      mitigations: risk.mitigations,
+    };
+  }
+}

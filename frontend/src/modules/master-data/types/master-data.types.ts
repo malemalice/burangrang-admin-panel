@@ -2,8 +2,8 @@
  * Master Data module types
  */
 
-// Re-export core types that are used by master data module
-export type { 
+// Import core types that are used by master data module
+import type { 
   Office, 
   Department, 
   JobPosition, 
@@ -13,6 +13,18 @@ export type {
   PaginatedResponse, 
   PaginationParams 
 } from '@/core/lib/types';
+
+// Re-export for external usage
+export type { 
+  Office, 
+  Department, 
+  JobPosition, 
+  Asset, 
+  MasterApproval,
+  MasterApprovalItem,
+  PaginatedResponse, 
+  PaginationParams 
+};
 
 // =============================================================================
 // OFFICE TYPES
@@ -30,7 +42,7 @@ export interface OfficeDTO {
   parentId?: string;
   children?: OfficeDTO[];
   parent?: OfficeDTO;
-  users?: any[]; // User type from core
+  users?: Array<{ id: string; firstName: string; lastName: string; email: string }>;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -328,4 +340,115 @@ export interface MasterDataStats {
       count: number;
     }>;
   };
+}
+
+// =============================================================================
+// ROOM TYPES
+// =============================================================================
+
+// Interface for room data from API
+export interface RoomDTO {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  areaId: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  area?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+}
+
+// Interface for creating a room
+export interface CreateRoomDTO {
+  name: string;
+  code: string;
+  description?: string;
+  areaId: string;
+  isActive?: boolean;
+}
+
+// Interface for updating a room
+export interface UpdateRoomDTO {
+  name?: string;
+  code?: string;
+  description?: string;
+  areaId?: string;
+  isActive?: boolean;
+}
+
+// Room form data for frontend forms
+export interface RoomFormData {
+  name: string;
+  code: string;
+  description: string;
+  areaId: string;
+  isActive: boolean;
+}
+
+// Room filter options
+export interface RoomFilters {
+  name?: string;
+  code?: string;
+  areaId?: string;
+  status?: 'active' | 'inactive' | 'all';
+}
+
+// =============================================================================
+// AREA TYPES (for Room dropdown)
+// =============================================================================
+
+export interface AreaDTO {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  officeId?: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  office?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+}
+
+// Interface for creating an area
+export interface CreateAreaDTO {
+  name: string;
+  code: string;
+  description?: string;
+  officeId?: string;
+  isActive?: boolean;
+}
+
+// Interface for updating an area
+export interface UpdateAreaDTO {
+  name?: string;
+  code?: string;
+  description?: string;
+  officeId?: string;
+  isActive?: boolean;
+}
+
+// Area form data for frontend forms
+export interface AreaFormData {
+  name: string;
+  code: string;
+  description: string;
+  officeId: string;
+  isActive: boolean;
+}
+
+// Area filter options
+export interface AreaFilters {
+  name?: string;
+  code?: string;
+  officeId?: string;
+  status?: 'active' | 'inactive' | 'all';
 }

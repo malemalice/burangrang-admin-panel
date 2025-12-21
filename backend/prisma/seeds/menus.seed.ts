@@ -72,11 +72,30 @@ export const seedMenus = async () => {
       },
     });
 
+    // Environmental Measurements menu
+    await prisma.menu.create({
+      data: {
+        name: 'Environmental Measurements',
+        path: '/environmental-measurements',
+        icon: 'Thermometer',
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     const masterDataMenu = await prisma.menu.create({
       data: {
         name: 'Master Data',
         icon: 'Building2',
-        order: 3,
+        order: 96,
         isActive: true,
         roles: {
           connect: [
@@ -92,7 +111,7 @@ export const seedMenus = async () => {
       data: {
         name: 'User Management',
         icon: 'Users',
-        order: 4,
+        order: 97,
         isActive: true,
         roles: {
           connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
@@ -105,7 +124,7 @@ export const seedMenus = async () => {
         name: 'Notifications',
         path: '/notifications',
         icon: 'Bell',
-        order: 5,
+        order: 98,
         isActive: true,
         roles: {
           connect: [
@@ -123,10 +142,172 @@ export const seedMenus = async () => {
         name: 'Settings',
         path: '/settings',
         icon: 'Settings',
-        order: 6,
+        order: 99,
         isActive: true,
         roles: {
           connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+        },
+      },
+    });
+
+    const ppeMenu = await prisma.menu.create({
+      data: {
+        name: 'PPE Management',
+        icon: 'Shield',
+        order: 7,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    const certificateMenu = await prisma.menu.create({
+      data: {
+        name: 'Certificate Management',
+        icon: 'Award',
+        order: 8,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    const trainingMenu = await prisma.menu.create({
+      data: {
+        name: 'Training',
+        icon: 'GraduationCap',
+        order: 9,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    // Create Certificate Management submenus
+    await prisma.menu.create({
+      data: {
+        name: 'Certificates',
+        path: '/certificates',
+        icon: 'Award',
+        parentId: certificateMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Categories',
+        path: '/master/certificate-categories',
+        icon: 'Tag',
+        parentId: certificateMenu.id,
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Safety Equipment Types',
+        path: '/master/safety-equipment-types',
+        icon: 'Tag',
+        parentId: ppeMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Safety Equipment',
+        path: '/master/safety-equipments',
+        icon: 'Shield',
+        parentId: ppeMenu.id,
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    // Create PPE submenus
+    await prisma.menu.create({
+      data: {
+        name: 'Stock In',
+        path: '/ppe/stocks',
+        icon: 'Package',
+        parentId: ppeMenu.id,
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Withdraw',
+        path: '/ppe/withdrawals',
+        icon: 'LogOut',
+        parentId: ppeMenu.id,
+        order: 4,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
         },
       },
     });
@@ -217,8 +398,8 @@ export const seedMenus = async () => {
 
     await prisma.menu.create({
       data: {
-        name: 'HSE Categories',
-        path: '/master/hse-categories',
+        name: 'Risk Categories',
+        path: '/master/risk-categories',
         icon: 'ShieldAlert',
         parentId: masterDataMenu.id,
         order: 4,
@@ -235,8 +416,8 @@ export const seedMenus = async () => {
 
     await prisma.menu.create({
       data: {
-        name: 'Threats',
-        path: '/master/threats',
+        name: 'Risks',
+        path: '/master/risks',
         icon: 'AlertTriangle',
         parentId: masterDataMenu.id,
         order: 5,
@@ -253,11 +434,29 @@ export const seedMenus = async () => {
 
     await prisma.menu.create({
       data: {
-        name: 'Threat Mitigations',
-        path: '/master/threat-mitigations',
+        name: 'Risk Mitigations',
+        path: '/master/risk-mitigations',
         icon: 'Shield',
         parentId: masterDataMenu.id,
         order: 6,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Areas',
+        path: '/master/areas',
+        icon: 'MapPin',
+        parentId: masterDataMenu.id,
+        order: 7,
         isActive: true,
         roles: {
           connect: [
@@ -275,10 +474,28 @@ export const seedMenus = async () => {
         path: '/master/approvals',
         icon: 'ShieldCheck',
         parentId: masterDataMenu.id,
-        order: 7,
+        order: 9,
         isActive: true,
         roles: {
           connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Rooms',
+        path: '/master/rooms',
+        icon: 'DoorOpen',
+        parentId: masterDataMenu.id,
+        order: 8,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
         },
       },
     });
@@ -326,8 +543,373 @@ export const seedMenus = async () => {
       },
     });
 
-    console.log('✅ Menus seeded successfully');
-    console.log(`   - Total menu items: ${await prisma.menu.count()}`);
+    // Create Training submenus
+    await prisma.menu.create({
+      data: {
+        name: 'Courses',
+        path: '/courses',
+        icon: 'BookOpen',
+        parentId: trainingMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Course Enrollments',
+        path: '/enrollments',
+        icon: 'Users',
+        parentId: trainingMenu.id,
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Create Quizzes menu - accessible to admins and managers for quiz management
+    await prisma.menu.create({
+      data: {
+        name: 'Quizzes',
+        path: '/quizzes',
+        icon: 'FileQuestion',
+        order: 10,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    // Create Work Permit menu - accessible to all users
+    await prisma.menu.create({
+      data: {
+        name: 'Work Permit',
+        icon: 'FileText',
+        path: '/work-permits',
+        order: 8,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Create Reminders menu - accessible to all users for reminder management
+    await prisma.menu.create({
+      data: {
+        name: 'Reminders',
+        path: '/reminders',
+        icon: 'Clock',
+        parentId: settingsMenu.id,
+        order: 9,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'General Settings',
+        path: '/settings',
+        icon: 'Gear',
+        parentId: settingsMenu.id,
+        order: 11,
+        isActive: true,
+        roles: {
+          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Application Settings',
+        path: '/settings/application',
+        icon: 'Gear',
+        parentId: settingsMenu.id,
+        order: 10,
+        isActive: true,
+        roles: {
+          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+        },
+      },
+    });
+
+    // Create Waste Management menu
+    const wasteManagementMenu = await prisma.menu.create({
+      data: {
+        name: 'Waste Management',
+        icon: 'Recycle',
+        order: 4,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Waste Management - Wastewater submenus
+    await prisma.menu.create({
+      data: {
+        name: 'Waste Water Flow Recording',
+        path: '/waste-management/monthly-flow-reports',
+        icon: 'Waves',
+        parentId: wasteManagementMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Waste Water Lab Results',
+        path: '/waste-management/water-quality-lab-reports',
+        icon: 'FlaskConical',
+        parentId: wasteManagementMenu.id,
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    // Waste Management - Solid Waste submenus
+    await prisma.menu.create({
+      data: {
+        name: 'Solid Waste Recording',
+        path: '/waste-management/weight-reports',
+        icon: 'Scale',
+        parentId: wasteManagementMenu.id,
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Dispatch Orders',
+        path: '/waste-management/dispatch-orders',
+        icon: 'Truck',
+        parentId: wasteManagementMenu.id,
+        order: 4,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    // Waste Management - Master Data submenus
+    await prisma.menu.create({
+      data: {
+        name: 'Treatment Plants',
+        path: '/waste-management/treatment-plants',
+        icon: 'Factory',
+        parentId: wasteManagementMenu.id,
+        order: 5,
+        isActive: true,
+        roles: {
+          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Water Quality Parameters',
+        path: '/waste-management/water-quality-parameters',
+        icon: 'Droplets',
+        parentId: wasteManagementMenu.id,
+        order: 6,
+        isActive: true,
+        roles: {
+          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Waste Types',
+        path: '/waste-management/waste-types',
+        icon: 'Tags',
+        parentId: wasteManagementMenu.id,
+        order: 7,
+        isActive: true,
+        roles: {
+          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Waste Sources',
+        path: '/waste-management/waste-sources',
+        icon: 'Building',
+        parentId: wasteManagementMenu.id,
+        order: 8,
+        isActive: true,
+        roles: {
+          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Storage Locations',
+        path: '/waste-management/storage-locations',
+        icon: 'Warehouse',
+        parentId: wasteManagementMenu.id,
+        order: 9,
+        isActive: true,
+        roles: {
+          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Risk Matrix',
+        path: '/risk-matrix',
+        icon: 'Grid',
+        order: 3,
+        isActive: true,
+        parentId: masterDataMenu.id,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Man Hour Management Menu
+    const manHourMenu = await prisma.menu.create({
+      data: {
+        name: 'Man Hour',
+        icon: 'Clock',
+        order: 5,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Manage Man Hour',
+        path: '/man-hours',
+        icon: 'ClipboardList',
+        parentId: manHourMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Man Hour Report',
+        path: '/man-hours/report',
+        icon: 'BarChart3',
+        parentId: manHourMenu.id,
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    console.log(`   - Created ${await prisma.menu.count()} menu items`);
+    console.log(`   - Top-level menus: 10`);
+    console.log(`   - Master Data submenus: 9`);
+    console.log(`   - User Management submenus: 3`);
+    console.log(`   - PPE Management submenus: 2`);
+    console.log(`   - Certificate Management submenus: 2`);
+    console.log(`   - Work Permit submenus: 2`);
+    console.log(`   - Man Hour submenus: 2`);
   } catch (error) {
     console.error('❌ Error seeding menus:', error);
     throw error;

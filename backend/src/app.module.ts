@@ -13,9 +13,9 @@ import appConfig from './core/config/app.config';
 import { Reflector } from '@nestjs/core';
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { JobPositionsModule } from './modules/job-positions/job-positions.module';
-import { HseCategoriesModule } from './modules/hse-categories/hse-categories.module';
-import { ThreatsModule } from './modules/threats/threats.module';
-import { ThreatMitigationsModule } from './modules/threat-mitigations/threat-mitigations.module';
+import { RiskCategoriesModule } from './modules/risk-categories/risk-categories.module';
+import { RisksModule } from './modules/risks/risks.module';
+import { RiskMitigationsModule } from './modules/risk-mitigations/risk-mitigations.module';
 import { RiskAssessmentModule } from './modules/risk-assessment/risk-assessment.module';
 import { RiskMatrixModule } from './modules/risk-matrix/risk-matrix.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
@@ -24,7 +24,22 @@ import { MasterApprovalsModule } from './modules/approvals/master-approvals.modu
 import { SettingsModule } from './modules/settings/settings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
+import { PPEModule } from './modules/ppe/ppe.module';
+import { CertificatesModule } from './modules/certificates/certificates.module';
 import { SharedModule } from './shared/shared.module';
+import { ChaptersModule } from './modules/chapters/chapters.module';
+import { CoursesModule } from './modules/courses/courses.module';
+import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
+import { ProgressModule } from './modules/progress/progress.module';
+import { RemindersModule } from './modules/reminders/reminders.module';
+import { QuizzesModule } from './modules/quizzes/quizzes.module';
+import { WorkPermitsModule } from './modules/work-permits/work-permits.module';
+import { RoomsModule } from './modules/rooms/rooms.module';
+import { EnvironmentalMeasurementsModule } from './modules/environmental-measurements/environmental-measurements.module';
+import { AreasModule } from './modules/areas/areas.module';
+
+import { WasteManagementModule } from './modules/waste-management/waste-management.module';
+import { ManHoursModule } from './modules/man-hours/man-hours.module';
 
 @Module({
   imports: [
@@ -42,9 +57,9 @@ import { SharedModule } from './shared/shared.module';
     PermissionsModule,
     DepartmentsModule,
     JobPositionsModule,
-    HseCategoriesModule,
-    ThreatsModule,
-    ThreatMitigationsModule,
+    RiskCategoriesModule,
+    RisksModule,
+    RiskMitigationsModule,
     RiskAssessmentModule,
     RiskMatrixModule,
     DashboardModule,
@@ -52,6 +67,22 @@ import { SharedModule } from './shared/shared.module';
     SettingsModule,
     NotificationsModule,
     UploadsModule,
+    PPEModule,
+    ChaptersModule,
+    CoursesModule,
+    EnrollmentsModule,
+    ProgressModule,
+    RemindersModule,
+    QuizzesModule,
+    CertificatesModule,
+    WorkPermitsModule,
+    RoomsModule,
+    EnvironmentalMeasurementsModule,
+    AreasModule,
+    // Waste Management Module (consolidated - includes all waste-related features)
+    WasteManagementModule,
+    // Man Hours Module
+    ManHoursModule,
   ],
   providers: [
     Reflector,
@@ -61,4 +92,4 @@ import { SharedModule } from './shared/shared.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }

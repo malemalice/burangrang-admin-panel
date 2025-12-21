@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../../../core/services/prisma.service';
+import { PrismaService } from '../../../core/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { Response } from 'express';
 import * as crypto from 'crypto';
@@ -48,6 +48,11 @@ export class AuthService {
     if (!user) {
       this.logger.warn(`User not found with email: ${email}`);
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (!user.isActive) {
+      this.logger.warn(`Login attempt for inactive user: ${email}`);
+      throw new UnauthorizedException('Account is inactive. Please contact administrator.');
     }
 
     if (!user.password) {

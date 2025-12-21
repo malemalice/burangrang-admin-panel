@@ -1,21 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { 
-  Clipboard,
-  Search, 
-  PlusCircle, 
+  Eye,
+  Plus, 
   MoreHorizontal, 
   FileEdit, 
   Trash2,
-  AlertCircle,
-  Tag
 } from 'lucide-react';
 
-import { Button } from '@/core/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import { Input } from '@/core/components/ui/input';
+import { Button, ThemeButton } from '@/core/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import {
   DropdownMenu,
@@ -24,13 +19,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/core/components/ui/dropdown-menu';
-import { FilterDrawer, FilterField } from '@/core/components/ui/filter-drawer';
+import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import DataTable from '@/core/components/ui/data-table/DataTable';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/core/components/ui/alert-dialog';
+import PageHeader from '@/core/components/ui/PageHeader';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Badge } from '@/core/components/ui/badge';
 
 import { RiskAssessment } from '@/core/lib/types';
 import riskAssessmentService from '../services/riskAssessmentService';
+import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
 
 const RiskAssessmentsPage = () => {
   const navigate = useNavigate();
@@ -44,7 +41,7 @@ const RiskAssessmentsPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -63,16 +60,14 @@ const RiskAssessmentsPage = () => {
       id: 'status',
       label: 'Status',
       type: 'select',
-      options: [
-        { label: 'Draft', value: 'DRAFT' },
-        { label: 'In Progress', value: 'IN_PROGRESS' },
-        { label: 'Completed', value: 'COMPLETED' },
-        { label: 'Reviewed', value: 'REVIEWED' },
-      ],
+      options: GENERAL_STATUS_OPTIONS.map(option => ({
+        label: option.label,
+        value: option.value,
+      })),
     }
   ];
 
-  const fetchAssessments = async () => {
+  const fetchAssessments = useCallback(async () => {
     setIsLoading(true);
     try {
       const params: any = {
@@ -85,85 +80,126 @@ const RiskAssessmentsPage = () => {
         params.search = searchTerm;
       }
 
-      // Add active status from tabs
-      if (activeTab === 'active') {
+      // Add active status from filters
+      if (activeFilters.status?.value === 'active') {
         params.isActive = true;
-      } else if (activeTab === 'inactive') {
+      } else if (activeFilters.status?.value === 'inactive') {
         params.isActive = false;
       }
 
-      // Add filters
-      Object.entries(activeFilters).forEach(([key, { value }]) => {
-        params[key] = value;
+      // Add other filters
+      Object.entries(activeFilters).forEach(([key, filter]) => {
+        if (key !== 'status') {
+          params[key] = filter.value;
+        }
       });
 
       const response = await riskAssessmentService.getAll(params);
       setAssessments(response.data);
       setTotalAssessments(response.meta.total);
+      
+      // Ensure we have data from the correct page
+      const actualPage = response.meta.page;
+      if (actualPage && actualPage - 1 !== pageIndex) {
+        setPageIndex(actualPage - 1);
+      }
     } catch (error) {
-      toast.error('Failed to fetch risk assessments');
+      console.error('Failed to fetch risk assessments:', error);
+      toast.error('Failed to load risk assessments');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [pageIndex, limit, searchTerm, activeFilters]);
 
   useEffect(() => {
     fetchAssessments();
-  }, [pageIndex, limit, activeTab, searchTerm, activeFilters]);
+  }, [fetchAssessments]);
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
     setPageIndex(0);
   };
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     setPageIndex(0);
+    
+    // Update filters based on tab
+    if (value === 'all') {
+      setActiveFilters({});
+    } else if (value === 'active') {
+      setActiveFilters({
+        status: { value: 'active', label: 'Active' }
+      });
+    } else if (value === 'inactive') {
+      setActiveFilters({
+        status: { value: 'inactive', label: 'Inactive' }
+      });
+    }
   };
 
-  const handleApplyFilters = (filters: Record<string, { value: any; label: string }>) => {
-    setActiveFilters(filters);
-    setPageIndex(0);
+  const handleApplyFilters = (filters: FilterValue[]) => {
+    const newActiveFilters: Record<string, { value: any; label: string }> = {};
+    
+    filters.forEach(filter => {
+      if (filter.id === 'status') {
+        const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === filter.value);
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: statusOption?.label || String(filter.value)
+        };
+      } else {
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: String(filter.value)
+        };
+      }
+    });
+    
+    setActiveFilters(newActiveFilters);
+    setPageIndex(0); // Reset to first page on new filters
   };
 
-  const handleClearFilters = () => {
-    setActiveFilters({});
-    setPageIndex(0);
-  };
-
-  const handleDeleteClick = (assessment: RiskAssessment) => {
+  const handleDeleteClick = (assessment: RiskAssessment, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setAssessmentToDelete(assessment);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
     if (!assessmentToDelete) return;
-
+    
+    setIsLoading(true);
     try {
       await riskAssessmentService.delete(assessmentToDelete.id);
-      toast.success('Risk assessment deleted successfully');
+      toast.success('Risk assessment has been deleted');
+      setOpenDropdownId(null); // Ensure dropdown is closed
       fetchAssessments();
     } catch (error) {
+      console.error('Failed to delete risk assessment:', error);
       toast.error('Failed to delete risk assessment');
     } finally {
+      setIsLoading(false);
       setDeleteDialogOpen(false);
       setAssessmentToDelete(null);
     }
   };
 
-  const handleDropdownOpenChange = (id: string, open: boolean) => {
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [id]: open,
-    }));
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setAssessmentToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
-      DRAFT: { label: 'Draft', variant: 'outline' },
-      IN_PROGRESS: { label: 'In Progress', variant: 'secondary' },
-      COMPLETED: { label: 'Completed', variant: 'default' },
-      REVIEWED: { label: 'Reviewed', variant: 'default' },
+      [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
+      [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'outline' },
+      [GeneralStatusEnum.OPEN]: { label: 'Open', variant: 'secondary' },
+      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Approval', variant: 'secondary' },
+      [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
+      [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
     };
 
     const statusInfo = statusMap[status] || { label: status, variant: 'outline' };
@@ -179,7 +215,25 @@ const RiskAssessmentsPage = () => {
     {
       id: 'code',
       header: 'Code',
-      cell: (assessment: RiskAssessment) => <div className="font-medium">{assessment.code}</div>,
+      cell: (assessment: RiskAssessment) => (
+        <button
+          onClick={() => navigate(`/risk-assessment/${assessment.id}`)}
+          className="font-medium text-primary hover:underline focus:outline-none focus:underline"
+          aria-label={`View details for ${assessment.code}`}
+        >
+          {assessment.code}
+        </button>
+      ),
+    },{
+      id: 'assessmentDate',
+      header: 'Assessment Date',
+      cell: (assessment: RiskAssessment) => (
+        <div>
+          {assessment.assessmentDate 
+            ? format(new Date(assessment.assessmentDate), 'dd MMM yyyy') 
+            : 'N/A'}
+        </div>
+      ),
     },
     {
       id: 'department',
@@ -193,17 +247,7 @@ const RiskAssessmentsPage = () => {
         <div className="text-center">{assessment.items?.length || 0}</div>
       ),
     },
-    {
-      id: 'assessmentDate',
-      header: 'Assessment Date',
-      cell: (assessment: RiskAssessment) => (
-        <div>
-          {assessment.assessmentDate 
-            ? format(new Date(assessment.assessmentDate), 'dd MMM yyyy') 
-            : 'N/A'}
-        </div>
-      ),
-    },
+    
     {
       id: 'status',
       header: 'Status',
@@ -213,115 +257,96 @@ const RiskAssessmentsPage = () => {
       id: 'actions',
       header: 'Actions',
       cell: (assessment: RiskAssessment) => (
-        <DropdownMenu 
-          open={dropdownOpenStates[assessment.id]} 
-          onOpenChange={(open) => handleDropdownOpenChange(assessment.id, open)}
-        >
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/risk-assessment/${assessment.id}`)}>
-              <Clipboard className="mr-2 h-4 w-4" /> View details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/risk-assessment/${assessment.id}/edit`)}>
-              <FileEdit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => handleDeleteClick(assessment)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/risk-assessment/${assessment.id}`)}
+            className="text-primary hover:text-primary hover:bg-primary/10"
+            aria-label={`View details for ${assessment.code}`}
+          >
+            <Eye className="mr-2 h-4 w-4" />
+            View
+          </Button>
+          <DropdownMenu
+            open={openDropdownId === assessment.id}
+            onOpenChange={(open) => {
+              setOpenDropdownId(open ? assessment.id : null);
+            }}
+          >
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => navigate(`/risk-assessment/${assessment.id}/edit`)}>
+                <FileEdit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={(e) => handleDeleteClick(assessment, e)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       )
     }
   ];
 
   return (
     <>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">Risk Assessments</h1>
-        <Button onClick={() => navigate('/risk-assessment/new')}>
-          <PlusCircle className="h-4 w-4 mr-2" /> New Assessment
-        </Button>
-      </div>
+      <PageHeader
+        title="Risk Assessments"
+        subtitle="Create and manage risk assessments with associated risk items"
+        actions={
+          <ThemeButton onClick={() => navigate('/risk-assessment/new')}>
+            <Plus className="mr-2 h-4 w-4" /> New Assessment
+          </ThemeButton>
+        }
+      >
+        <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
+          <TabsList>
+            <TabsTrigger value="all">All Assessments</TabsTrigger>
+            <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="inactive">Inactive</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </PageHeader>
 
-      <Card>
-        <CardHeader className="px-6 py-4 flex flex-row items-center justify-between space-y-0">
-          <CardTitle>Risk Assessments</CardTitle>
-          <div className="flex items-center gap-2">
-            <div className="relative w-64">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search assessments..."
-                className="pl-8"
-                value={searchTerm}
-                onChange={handleSearch}
-              />
-            </div>
-            <FilterDrawer
-              fields={filterFields}
-              activeFilters={activeFilters}
-              onApplyFilters={handleApplyFilters}
-              onClearFilters={handleClearFilters}
-            />
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="px-6 py-3 border-y">
-            <Tabs defaultValue={activeTab} onValueChange={handleTabChange}>
-              <TabsList>
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="active">Active</TabsTrigger>
-                <TabsTrigger value="inactive">Inactive</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-          <DataTable
-            columns={columns}
-            data={assessments}
-            isLoading={isLoading}
-            pagination={{
-              pageIndex,
-              limit,
-              pageCount: Math.ceil(totalAssessments / limit),
-              onPageChange: setPageIndex,
-              onPageSizeChange: setLimit,
-              total: totalAssessments,
-            }}
-          />
-        </CardContent>
-      </Card>
+      <DataTable
+        columns={columns}
+        data={assessments}
+        isLoading={isLoading}
+        pagination={{
+          pageIndex,
+          limit,
+          pageCount: Math.ceil(totalAssessments / limit),
+          onPageChange: setPageIndex,
+          onPageSizeChange: setLimit,
+          total: totalAssessments
+        }}
+        filterFields={filterFields}
+        onSearch={handleSearch}
+        onApplyFilters={handleApplyFilters}
+      />
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-destructive" />
-                Confirm Deletion
-              </div>
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete the risk assessment 
-              <span className="font-semibold"> {assessmentToDelete?.code}</span>?
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
+        title="Delete Risk Assessment"
+        description={`Are you sure you want to delete the risk assessment "${assessmentToDelete?.code}"? This action cannot be undone.`}
+        onConfirm={handleDeleteConfirm}
+        variant="destructive"
+      />
     </>
   );
 };

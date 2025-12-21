@@ -31,7 +31,7 @@ export default function DepartmentsPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-  const [dropdownOpenStates, setDropdownOpenStates] = useState<Record<string, boolean>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -96,21 +96,9 @@ export default function DepartmentsPage() {
     fetchDepartments();
   }, [fetchDepartments]);
 
-  const handleDropdownOpenChange = (id: string, open: boolean) => {
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [id]: open
-    }));
-  };
-
-  const handleDeleteClick = (department: Department) => {
-    // Close the dropdown menu for this department
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [department.id]: false
-    }));
-    
-    // Set department to delete and open the dialog
+  const handleDeleteClick = (department: Department, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Explicitly close the dropdown
     setDepartmentToDelete(department);
     setDeleteDialogOpen(true);
   };
@@ -122,6 +110,7 @@ export default function DepartmentsPage() {
     try {
       await departmentService.deleteDepartment(departmentToDelete.id);
       toast.success(`Department "${departmentToDelete.name}" has been deleted`);
+      setOpenDropdownId(null); // Ensure dropdown is closed
       fetchDepartments();
     } catch (error) {
       console.error(`Failed to delete department:`, error);
@@ -131,6 +120,12 @@ export default function DepartmentsPage() {
       setDeleteDialogOpen(false);
       setDepartmentToDelete(null);
     }
+  };
+
+  const handleDialogCancel = () => {
+    setDeleteDialogOpen(false);
+    setDepartmentToDelete(null);
+    setOpenDropdownId(null); // Ensure dropdown is closed
   };
 
   const handleSearch = (term: string) => {
@@ -215,9 +210,11 @@ export default function DepartmentsPage() {
       id: 'actions',
       header: 'Actions',
       cell: (department: Department) => (
-        <DropdownMenu 
-          open={dropdownOpenStates[department.id]} 
-          onOpenChange={(open) => handleDropdownOpenChange(department.id, open)}
+        <DropdownMenu
+          open={openDropdownId === department.id}
+          onOpenChange={(open) => {
+            setOpenDropdownId(open ? department.id : null);
+          }}
         >
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -234,7 +231,7 @@ export default function DepartmentsPage() {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => handleDeleteClick(department)}
+              onClick={(e) => handleDeleteClick(department, e)}
               className="text-red-600 focus:text-red-600"
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -284,10 +281,15 @@ export default function DepartmentsPage() {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogCancel();
+          }
+        }}
         title="Delete Department"
         description={`Are you sure you want to delete "${departmentToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
       />
     </>
   );

@@ -29,15 +29,15 @@ export interface DepartmentProfile {
   complianceRate: number;
 }
 
-export interface HseCategoryAnalysis {
+export interface RiskCategoryAnalysis {
   categoryId: string;
   name: string;
   totalOccurrences: number;
   riskDistribution: RiskDistribution;
 }
 
-export interface ThreatAnalysis {
-  threatId: string;
+export interface RiskAnalysis {
+  riskId: string;
   name: string;
   category: string;
   occurrences: number;
@@ -70,13 +70,13 @@ const DashboardService = {
     return data;
   },
 
-  getHseCategoryAnalysis: async (): Promise<HseCategoryAnalysis[]> => {
-    const { data } = await api.get('/dashboard/hse-category-analysis');
+  getRiskCategoryAnalysis: async (): Promise<RiskCategoryAnalysis[]> => {
+    const { data } = await api.get('/dashboard/risk-category-analysis');
     return data;
   },
 
-  getThreatAnalysis: async (): Promise<ThreatAnalysis[]> => {
-    const { data } = await api.get('/dashboard/threat-analysis');
+  getRiskAnalysis: async (): Promise<RiskAnalysis[]> => {
+    const { data } = await api.get('/dashboard/risk-analysis');
     return data;
   },
 
