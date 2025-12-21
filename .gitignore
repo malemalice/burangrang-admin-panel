@@ -57,3 +57,4 @@ playwright/test-results
 .cursor
 
 backend/uploads
+.agent

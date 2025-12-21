@@ -85,9 +85,9 @@ export class FindQuizzesOptions {
   @IsBoolean()
   isPublished?: boolean;
 
-  @ApiProperty({ description: 'Filter by entity type', enum: ['COURSE', 'CHAPTER'], required: false })
+  @ApiProperty({ description: 'Filter by entity type', enum: ['COURSE', 'CHAPTER', 'STANDALONE'], required: false })
   @IsOptional()
-  @IsEnum(['COURSE', 'CHAPTER'])
+  @IsEnum(['COURSE', 'CHAPTER', 'STANDALONE'])
   entity?: string;
 
   @ApiProperty({ description: 'Filter by entity ID', required: false })

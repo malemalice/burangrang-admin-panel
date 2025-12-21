@@ -138,11 +138,43 @@ const ImageUpload = ({
     <div className="space-y-2">
       {preview ? (
         <div className="relative">
-          <img
-            src={preview}
-            alt="Preview"
-            className="w-full h-48 object-cover rounded-lg border"
-          />
+          {/* Determine media type based on URL or file extension */}
+          {(() => {
+            const isVideo = preview.includes('video') || 
+                           preview.match(/\.(mp4|webm|ogg|mov)($|\?)/i) ||
+                           selectedFile?.type.startsWith('video/');
+            const isAudio = preview.includes('audio') || 
+                           preview.match(/\.(mp3|wav|ogg|aac|mpeg)($|\?)/i) ||
+                           selectedFile?.type.startsWith('audio/');
+            
+            if (isVideo) {
+              return (
+                <video
+                  src={preview}
+                  controls
+                  className="w-full h-48 object-cover rounded-lg border bg-black"
+                >
+                  Your browser does not support the video tag.
+                </video>
+              );
+            } else if (isAudio) {
+              return (
+                <div className="w-full h-48 flex items-center justify-center rounded-lg border bg-gray-100">
+                  <audio src={preview} controls className="w-full px-4">
+                    Your browser does not support the audio tag.
+                  </audio>
+                </div>
+              );
+            } else {
+              return (
+                <img
+                  src={preview}
+                  alt="Preview"
+                  className="w-full h-48 object-cover rounded-lg border"
+                />
+              );
+            }
+          })()}
           <Button
             type="button"
             variant="destructive"

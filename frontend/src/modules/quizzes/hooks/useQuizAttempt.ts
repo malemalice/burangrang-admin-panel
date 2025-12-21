@@ -23,12 +23,12 @@ export const useQuizAttempt = (attemptId: string | null = null) => {
       setError(null);
       const newAttempt = await quizService.startAttempt(quizId, attemptData);
       setAttempt(newAttempt);
-      toast.success('Quiz attempt started');
+      // Toast handled by caller if needed
       return newAttempt;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to start quiz attempt';
       setError(errorMessage);
-      toast.error(errorMessage);
+      // Don't show toast here - let caller handle error display
       throw err;
     } finally {
       setIsLoading(false);
