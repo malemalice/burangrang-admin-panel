@@ -579,8 +579,11 @@ export class WorkPermitsService {
 
       const where: Prisma.WorkPermitWhereInput = {};
 
-      if (isActive !== undefined) {
-        where.isActive = isActive;
+      // WP-046: Default to active records only (hide soft-deleted)
+      if (isActive === false) {
+        where.isActive = false;
+      } else {
+        where.isActive = true;
       }
 
       if (status) {
@@ -814,28 +817,33 @@ export class WorkPermitsService {
         this.errorHandler.throwIfNotFoundById('Company', updateDto.companyId, company);
       }
 
-      // Validate dates if provided
+      // Validate dates if provided (WP-016: allow same start and end date)
       const proposedStartDate = updateDto.proposedStartDate ? new Date(updateDto.proposedStartDate) : null;
       const proposedEndDate = updateDto.proposedEndDate ? new Date(updateDto.proposedEndDate) : null;
 
       if (proposedStartDate && proposedEndDate) {
-        if (proposedEndDate <= proposedStartDate) {
-          this.errorHandler.throwBadRequest('Proposed end date must be after start date');
+        if (proposedEndDate < proposedStartDate) {
+          this.errorHandler.throwBadRequest('Proposed end date must be on or after start date');
         }
       } else if (proposedEndDate) {
         const currentStartDate = new Date(existing.proposedStartDate);
-        if (proposedEndDate <= currentStartDate) {
-          this.errorHandler.throwBadRequest('Proposed end date must be after start date');
+        if (proposedEndDate < currentStartDate) {
+          this.errorHandler.throwBadRequest('Proposed end date must be on or after start date');
         }
       } else if (proposedStartDate) {
         const currentEndDate = new Date(existing.proposedEndDate);
-        if (currentEndDate <= proposedStartDate) {
-          this.errorHandler.throwBadRequest('Proposed end date must be after start date');
+        if (currentEndDate < proposedStartDate) {
+          this.errorHandler.throwBadRequest('Proposed end date must be on or after start date');
         }
       }
 
       // Prepare update data
       const updateData: any = {};
+
+      // WP-049: If status is NEED_INFO, change to DRAFT after editing
+      if (existing.status === 'NEED_INFO') {
+        updateData.status = 'DRAFT';
+      }
 
       if (updateDto.projectName !== undefined) updateData.projectName = updateDto.projectName;
       if (updateDto.areaId !== undefined) updateData.areaId = updateDto.areaId;

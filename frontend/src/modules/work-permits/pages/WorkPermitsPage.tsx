@@ -331,8 +331,8 @@ const WorkPermitsPage = () => {
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="DRAFT">Draft</TabsTrigger>
-            <TabsTrigger value="OPEN">Open</TabsTrigger>
             <TabsTrigger value="WAITING_APPROVAL">Waiting</TabsTrigger>
+            <TabsTrigger value="IN_REVIEW_HSE">In Review HSE</TabsTrigger>
             <TabsTrigger value="APPROVED">Approved</TabsTrigger>
             <TabsTrigger value="CLOSED">Closed</TabsTrigger>
           </TabsList>
