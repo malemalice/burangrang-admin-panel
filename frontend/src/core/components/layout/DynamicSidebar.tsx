@@ -59,6 +59,7 @@ const DynamicNavItem = ({ menu, isOpen, level = 0 }: DynamicNavItemProps) => {
   return (
     <NavLink
       to={menu.path || '#'}
+      end // Use exact matching to avoid parent routes being highlighted
       className={({ isActive }) => cn(
         "flex items-center text-sm py-2 px-4 rounded-md transition-all",
         getNavStyles(isDark, isActive),

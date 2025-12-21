@@ -78,6 +78,9 @@ model User {
   dispatchOrdersOrdered           DispatchOrder[]         @relation("DispatchOrderOrderer")
   dispatchOrdersCreated           DispatchOrder[]         @relation("DispatchOrderCreator")
 
+  // Man Hour Relations
+  manHoursCreated                 ManHour[]               @relation("ManHourCreator")
+
   @@map("t_users")
 }
 
@@ -1643,6 +1646,11 @@ enum MonthEnum {
   DEC
 }
 
+enum ManHourGroupEnum {
+  STUDENT
+  NON_STUDENT
+}
+
 enum GeneralStatusEnum {
   SCHEDULED
   DRAFT
@@ -1923,4 +1931,33 @@ model DispatchOrder {
   @@index([orderedBy])
   @@index([status])
   @@map("t_dispatch_orders")
+}
+
+// ============================================================
+// MAN HOUR MANAGEMENT
+// ============================================================
+
+// Man Hour - Transactional Data
+model ManHour {
+  id            String           @id @default(uuid())
+  name          String
+  group         ManHourGroupEnum
+  qty           Int
+  manHourPerDay Decimal          @db.Decimal(4, 2)
+  month         MonthEnum
+  year          Int
+  total         Decimal          @db.Decimal(10, 2)
+  notes         String?          @db.Text
+  isActive      Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  createdBy     String
+
+  // Relations
+  creator User @relation("ManHourCreator", fields: [createdBy], references: [id])
+
+  @@unique([name, group, month, year])
+  @@index([month, year])
+  @@index([group])
+  @@map("t_man_hours")
 }
