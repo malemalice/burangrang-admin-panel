@@ -9,6 +9,7 @@ import { UpdateReminderDto } from './dto/update-reminder.dto';
 import { FindRemindersDto } from './dto/find-reminders.dto';
 import { PaginatedResponse } from '../../shared/types/pagination-params';
 import { Prisma } from '@prisma/client';
+import { NotificationsService } from '../notifications/services/notifications.service';
 
 @Injectable()
 export class RemindersService {
@@ -20,6 +21,7 @@ export class RemindersService {
     private readonly prisma: PrismaService,
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
+    private readonly notificationsService: NotificationsService,
   ) {
     this.reminderMapper = this.dtoMapper.createSimpleMapper(ReminderDto);
     this.reminderLogMapper = this.dtoMapper.createSimpleMapper(ReminderLogDto);
@@ -403,5 +405,84 @@ export class RemindersService {
     }
 
     return next;
+  }
+
+  /**
+   * Get or create the reminder notification type
+   * This is a helper method for manual trigger
+   */
+  async getOrCreateReminderNotificationType(): Promise<string> {
+    const typeName = 'REMINDER';
+
+    let notificationType = await this.prisma.notificationType.findFirst({
+      where: { name: typeName },
+    });
+
+    if (!notificationType) {
+      notificationType = await this.prisma.notificationType.create({
+        data: {
+          name: typeName,
+          description: 'Scheduled reminder notifications',
+        },
+      });
+    }
+
+    return notificationType.id;
+  }
+
+  /**
+   * Manually trigger a notification for a reminder
+   * This creates a notification without updating the reminder data
+   * Can be triggered at any time regardless of reminder status or due date
+   */
+  async triggerNotification(
+    id: string,
+    userId: string,
+  ): Promise<{ success: boolean; message: string; notificationId?: string }> {
+    return this.errorHandler.safeExecute(async () => {
+      // Verify reminder exists and belongs to user
+      const reminder = await this.prisma.reminder.findFirst({
+        where: {
+          id,
+          userId,
+        },
+        include: {
+          user: {
+            include: {
+              role: true,
+            },
+          },
+        },
+      });
+
+      this.errorHandler.throwIfNotFoundById('Reminder', id, reminder);
+
+      // Get user details
+      if (!reminder.user) {
+        throw new Error(`User ${reminder.userId} not found`);
+      }
+
+      // Get or create notification type
+      const typeId = await this.getOrCreateReminderNotificationType();
+
+      // Create notification
+      const notification = await this.notificationsService.createNotificationForRoles(
+        {
+          title: 'Reminder',
+          message: reminder.message,
+          context: reminder.entity ?? undefined,
+          contextId: reminder.entityId ?? undefined,
+          typeId,
+          roleIds: [reminder.user.roleId],
+        },
+        userId, // Created by the current user
+      );
+
+      return {
+        success: true,
+        message: 'Notification triggered successfully',
+        notificationId: notification.id,
+      };
+    }, 'Triggering reminder notification');
   }
 }

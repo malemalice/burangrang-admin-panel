@@ -147,6 +147,18 @@ const reminderService = {
       throw new Error(errorMessage);
     }
   },
+
+  // Manually trigger notification for a reminder
+  triggerNotification: async (id: string): Promise<{ success: boolean; message: string; notificationId?: string }> => {
+    try {
+      const response = await api.post(`/reminders/${id}/trigger`);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Error triggering notification for reminder ${id}:`, error);
+      const errorMessage = error.response?.data?.message || 'Failed to trigger notification';
+      throw new Error(errorMessage);
+    }
+  },
 };
 
 export default reminderService;

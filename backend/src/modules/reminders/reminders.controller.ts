@@ -193,4 +193,31 @@ export class RemindersController {
   async remove(@Param('id') id: string, @Request() req): Promise<void> {
     return this.remindersService.remove(id, req.user.id);
   }
+
+  @Post(':id/trigger')
+  @ApiOperation({ summary: 'Manually trigger notification for a reminder' })
+  @ApiParam({ name: 'id', type: String, description: 'Reminder ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Notification triggered successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        message: { type: 'string' },
+        notificationId: { type: 'string' },
+      },
+      required: ['success', 'message'],
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Reminder does not meet criteria' })
+  @ApiResponse({ status: 404, description: 'Reminder not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  async triggerNotification(
+    @Param('id') id: string,
+    @Request() req,
+  ): Promise<{ success: boolean; message: string; notificationId?: string }> {
+    return this.remindersService.triggerNotification(id, req.user.id);
+  }
 }
