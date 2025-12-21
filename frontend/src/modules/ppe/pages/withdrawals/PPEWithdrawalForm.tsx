@@ -48,31 +48,46 @@ const formSchema = z.object({
     withdrawalLetterUrl: z.string().optional(),
     notes: z.string().optional(),
     items: z.array(withdrawalItemSchema).min(1, 'At least one item is required'),
-}).refine(
-    (data) => data.requestedFor || data.requestedForName,
-    {
-        message: 'Either select a user or enter a name',
-        path: ['requestedFor'],
+}).superRefine((data, ctx) => {
+    // Validate requestedFor or requestedForName
+    if (!data.requestedFor && !data.requestedForName) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Either select a user or enter a name',
+            path: ['requestedFor'],
+        });
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Either select a user or enter a name',
+            path: ['requestedForName'],
+        });
     }
-).refine(
-    (data) => data.requestedFor || data.requestedForName,
-    {
-        message: 'Either select a user or enter a name',
-        path: ['requestedForName'],
+    
+    // Validate jobPositionId or jobPositionName
+    if (!data.jobPositionId && !data.jobPositionName) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Either select a job position or enter a job position name',
+            path: ['jobPositionId'],
+        });
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Either select a job position or enter a job position name',
+            path: ['jobPositionName'],
+        });
     }
-).refine(
-    (data) => data.jobPositionId || data.jobPositionName,
-    {
-        message: 'Either select a job position or enter a job position name',
-        path: ['jobPositionId'],
-    }
-).refine(
-    (data) => data.jobPositionId || data.jobPositionName,
-    {
-        message: 'Either select a job position or enter a job position name',
-        path: ['jobPositionName'],
-    }
-);
+    
+    // Validate items - ensure all items have stockItemId
+    data.items.forEach((item, index) => {
+        if (!item.stockItemId) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Stock item is required',
+                path: ['items', index, 'stockItemId'],
+            });
+        }
+    });
+});
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -466,13 +481,17 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                             />
                         </div>
 
+                        <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">Either select a user OR enter a name manually</p>
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <FormField
                                 control={form.control}
                                 name="requestedFor"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Requested For (User)</FormLabel>
+                                        <FormLabel>Requested For (User) *</FormLabel>
                                         <FormControl>
                                             <SearchableSelect
                                                 options={users.map((user) => ({
@@ -502,7 +521,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                 name="requestedForName"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Requested For (Name)</FormLabel>
+                                        <FormLabel>Requested For (Name) *</FormLabel>
                                         <FormControl>
                                             <Input
                                                 placeholder="Enter name if not a user"
@@ -516,13 +535,17 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                             />
                         </div>
 
+                        <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">Either select a job position OR enter a name manually</p>
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <FormField
                                 control={form.control}
                                 name="jobPositionId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Job Position</FormLabel>
+                                        <FormLabel>Job Position *</FormLabel>
                                         <FormControl>
                                             <SearchableSelect
                                                 options={jobPositions.map((pos) => ({
@@ -552,7 +575,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                 name="jobPositionName"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Job Position Name</FormLabel>
+                                        <FormLabel>Job Position Name *</FormLabel>
                                         <FormControl>
                                             <Input
                                                 placeholder="Enter job position if not from master data"
@@ -706,17 +729,27 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                                             <Input
                                                                 type="number"
                                                                 min="1"
-                                                                max={maxQty}
+                                                                {...(maxQty > 0 ? { max: maxQty } : {})}
                                                                 {...field}
                                                                 onChange={(e) => {
                                                                     const value = parseInt(e.target.value) || 1;
-                                                                    field.onChange(Math.min(value, maxQty));
+                                                                    // Only apply max constraint if stock item is selected
+                                                                    if (maxQty > 0) {
+                                                                        field.onChange(Math.min(value, maxQty));
+                                                                    } else {
+                                                                        field.onChange(Math.max(1, value));
+                                                                    }
                                                                 }}
                                                             />
                                                         </FormControl>
-                                                        {selectedStockItemId && (
+                                                        {selectedStockItemId && maxQty > 0 && (
                                                             <p className="text-sm text-muted-foreground">
                                                                 Maximum available: {maxQty}
+                                                            </p>
+                                                        )}
+                                                        {!selectedStockItemId && (
+                                                            <p className="text-sm text-yellow-600">
+                                                                Please select a stock item first
                                                             </p>
                                                         )}
                                                         <FormMessage />
