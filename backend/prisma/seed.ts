@@ -27,6 +27,7 @@ import { seedRooms } from './seeds/rooms.seed';
 import { seedEnvironmentalMeasurements } from './seeds/environmental-measurements.seed';
 import { seedWasteManagement } from './seeds/waste-management.seed';
 import { seedManHours } from './seeds/man-hours.seed';
+import { seedMailTemplates } from './seeds/mail-templates.seed';
 
 const prisma = new PrismaClient();
 
@@ -46,6 +47,7 @@ async function main() {
       await prisma.notificationRecipient.deleteMany();
       await prisma.notification.deleteMany();
       await prisma.notificationType.deleteMany();
+      await prisma.emailTemplate.deleteMany();
       await prisma.refreshToken.deleteMany();
       // Clear PPE data first (before User deletion due to foreign keys)
       await (prisma as any).pPEWithdrawalItem.deleteMany();
@@ -153,6 +155,9 @@ async function main() {
           break;
         case 'roles':
           await prisma.role.deleteMany();
+          break;
+        case 'email_templates':
+          await prisma.emailTemplate.deleteMany();
           break;
         case 'permissions':
           await prisma.permission.deleteMany();
@@ -340,6 +345,7 @@ async function main() {
       await seedSettings(prisma);
       await seedMenus();
       await seedNotifications();
+      await seedMailTemplates(prisma);
       await seedFileStorageProviders();
       await seedFileCategories();
       await seedSafetyEquipmentTypes();
@@ -365,6 +371,9 @@ async function main() {
         case 'roles':
           const permissions = await seedPermissions(prisma);
           await seedRoles(prisma, permissions);
+          break;
+        case 'email_templates':
+          await seedMailTemplates(prisma);
           break;
         case 'offices':
           await seedOffices(prisma);

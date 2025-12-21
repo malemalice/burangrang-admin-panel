@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, UserPlus, Eye, ShieldCheck, Check, X, Building, MoreHorizontal, Briefcase } from 'lucide-react';
+import { Edit, Trash2, UserPlus, Eye, ShieldCheck, Check, X, Building, MoreHorizontal, Briefcase, KeyRound } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import {
@@ -37,7 +37,7 @@ const UsersPage = () => {
   const [offices, setOffices] = useState<{ id: string; name: string }[]>([]);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [jobPositions, setJobPositions] = useState<{ id: string; name: string }[]>([]);
-  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [activeFilters, setActiveFilters] = useState<Record<string, { value: string | string[] | { from?: Date; to?: Date } | boolean; label: string }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields for users
@@ -203,6 +203,23 @@ const UsersPage = () => {
     }
   };
 
+  const handleSendResetPassword = async (user: User) => {
+    // Close the dropdown menu for this user
+    setDropdownOpenStates(prev => ({
+      ...prev,
+      [user.id]: false,
+    }));
+
+    try {
+      const result = await userService.sendResetPasswordEmail(user.email);
+      const message = typeof result?.message === 'string' ? result.message : 'Password reset email sent';
+      toast.success(message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send reset password email';
+      toast.error(errorMessage);
+    }
+  };
+
   const handleDialogCancel = () => {
     setDeleteDialogOpen(false);
     setUserToDelete(null);
@@ -235,7 +252,7 @@ const UsersPage = () => {
   };
 
   const handleApplyFilters = (filters: FilterValue[]) => {
-    const newActiveFilters: Record<string, { value: any; label: string }> = {};
+    const newActiveFilters: Record<string, { value: string | string[] | { from?: Date; to?: Date } | boolean; label: string }> = {};
     
     filters.forEach(filter => {
       if (filter.id === 'roleId') {
@@ -381,6 +398,9 @@ const UsersPage = () => {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/users/${user.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSendResetPassword(user)}>
+              <KeyRound className="mr-2 h-4 w-4" /> Send reset password
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

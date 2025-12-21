@@ -3,6 +3,7 @@ import Dashboard from '@/core/pages/Dashboard';
 import SettingsPage from '@/modules/settings/pages/SettingsPage';
 import NotFound from '@/core/pages/NotFound';
 import Login from '@/core/pages/Login';
+import ResetPassword from '@/core/pages/ResetPassword';
 
 /**
  * Core application routes
@@ -19,6 +20,10 @@ const coreRoutes: RouteConfig[] = [
   {
     path: '/login',
     component: Login,
+  },
+  {
+    path: '/reset-password',
+    component: ResetPassword,
   },
   {
     path: '*',
