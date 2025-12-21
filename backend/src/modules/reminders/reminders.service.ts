@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
@@ -27,7 +28,10 @@ export class RemindersService {
   /**
    * Create a new reminder
    */
-  async create(createDto: CreateReminderDto, userId: string): Promise<ReminderDto> {
+  async create(
+    createDto: CreateReminderDto,
+    userId: string,
+  ): Promise<ReminderDto> {
     return this.errorHandler.safeExecute(async () => {
       // Validate user exists
       const user = await this.prisma.user.findUnique({
@@ -37,7 +41,9 @@ export class RemindersService {
 
       // Convert string dates to Date objects
       const remindAt = new Date(createDto.remindAt);
-      const repeatUntil = createDto.repeatUntil ? new Date(createDto.repeatUntil) : undefined;
+      const repeatUntil = createDto.repeatUntil
+        ? new Date(createDto.repeatUntil)
+        : undefined;
 
       // Validate dates
       const now = new Date();
@@ -89,8 +95,17 @@ export class RemindersService {
       } = params;
 
       // Ensure limit and page are numbers with proper validation
-      const pageNum = Math.max(1, typeof page === 'string' ? parseInt(page, 10) || 1 : page || 1);
-      const limitNum = Math.max(1, Math.min(100, typeof limit === 'string' ? parseInt(limit, 10) || 10 : limit || 10));
+      const pageNum = Math.max(
+        1,
+        typeof page === 'string' ? parseInt(page, 10) || 1 : page || 1,
+      );
+      const limitNum = Math.max(
+        1,
+        Math.min(
+          100,
+          typeof limit === 'string' ? parseInt(limit, 10) || 10 : limit || 10,
+        ),
+      );
 
       // Build where clause
       const where: Prisma.ReminderWhereInput = {
@@ -175,7 +190,11 @@ export class RemindersService {
   /**
    * Update a reminder
    */
-  async update(id: string, userId: string, updateDto: UpdateReminderDto): Promise<ReminderDto> {
+  async update(
+    id: string,
+    userId: string,
+    updateDto: UpdateReminderDto,
+  ): Promise<ReminderDto> {
     return this.errorHandler.safeExecute(async () => {
       // Verify reminder exists and belongs to user
       const existing = await this.prisma.reminder.findFirst({
@@ -191,8 +210,10 @@ export class RemindersService {
       const updateData: any = {};
 
       if (updateDto.entity !== undefined) updateData.entity = updateDto.entity;
-      if (updateDto.entityId !== undefined) updateData.entityId = updateDto.entityId;
-      if (updateDto.message !== undefined) updateData.message = updateDto.message;
+      if (updateDto.entityId !== undefined)
+        updateData.entityId = updateDto.entityId;
+      if (updateDto.message !== undefined)
+        updateData.message = updateDto.message;
       if (updateDto.remindAt !== undefined) {
         updateData.remindAt = new Date(updateDto.remindAt);
 
@@ -201,7 +222,8 @@ export class RemindersService {
           throw new Error('Remind at date must be in the future');
         }
       }
-      if (updateDto.repeatType !== undefined) updateData.repeatType = updateDto.repeatType;
+      if (updateDto.repeatType !== undefined)
+        updateData.repeatType = updateDto.repeatType;
       if (updateDto.repeatUntil !== undefined) {
         updateData.repeatUntil = new Date(updateDto.repeatUntil);
       }
@@ -334,7 +356,10 @@ export class RemindersService {
         // Recurring reminder, calculate next execution
         // Check if repeatType is a valid recurring type
         const validRepeatTypes = ['DAILY', 'WEEKLY', 'MONTHLY'];
-        if (reminder.repeatType && validRepeatTypes.includes(reminder.repeatType)) {
+        if (
+          reminder.repeatType &&
+          validRepeatTypes.includes(reminder.repeatType)
+        ) {
           const nextRemindAt = this.calculateNextRemindAt(
             reminder.remindAt,
             reminder.repeatType,
@@ -363,7 +388,10 @@ export class RemindersService {
   /**
    * Calculate next remind at date for recurring reminders
    */
-  private calculateNextRemindAt(currentRemindAt: Date, repeatType: string): Date {
+  private calculateNextRemindAt(
+    currentRemindAt: Date,
+    repeatType: string,
+  ): Date {
     const next = new Date(currentRemindAt);
 
     if (repeatType === 'DAILY') {
@@ -377,4 +405,3 @@ export class RemindersService {
     return next;
   }
 }
-

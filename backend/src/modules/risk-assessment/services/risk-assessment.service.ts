@@ -14,6 +14,8 @@ import {
   GeneralStatusEnum,
 } from '@prisma/client';
 import { ApprovalsService } from '../../approvals/approvals.service';
+import { RemindersService } from '../../reminders/reminders.service';
+import { ReminderRepeatTypeEnum } from '../../reminders/dto/reminder.dto';
 
 interface FindAllOptions {
   page?: number;
@@ -30,6 +32,7 @@ export class RiskAssessmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly approvalsService: ApprovalsService,
+    private readonly remindersService: RemindersService,
   ) {}
 
   async create(
@@ -81,6 +84,17 @@ export class RiskAssessmentService {
     if (!assessmentWithRelations) {
       throw new NotFoundException(
         `Risk assessment with ID ${assessment.id} not found`,
+      );
+    }
+
+    // Create reminder if status is SCHEDULED
+    if (assessmentWithRelations.status === GeneralStatusEnum.SCHEDULED) {
+      const reminderUserId = assessmentWithRelations.assigneeId || userId;
+      await this.createReminderForRiskAssessment(
+        assessmentWithRelations.id,
+        assessmentWithRelations.assessmentDate,
+        reminderUserId,
+        assessmentWithRelations.code,
       );
     }
 
@@ -181,6 +195,21 @@ export class RiskAssessmentService {
       throw new NotFoundException(`Risk Assessment with ID ${id} not found`);
     }
 
+    // Track status change for reminder management
+    const oldStatus = existingAssessment.status;
+    const newStatus = data.status;
+    const statusChangedToScheduled =
+      oldStatus !== GeneralStatusEnum.SCHEDULED &&
+      newStatus === GeneralStatusEnum.SCHEDULED;
+    const statusChangedFromScheduled =
+      oldStatus === GeneralStatusEnum.SCHEDULED &&
+      newStatus !== GeneralStatusEnum.SCHEDULED &&
+      newStatus !== undefined;
+    const assessmentDateChanged =
+      data.assessmentDate &&
+      data.assessmentDate.getTime() !==
+        existingAssessment.assessmentDate.getTime();
+
     // Update the assessment and its items
     const assessment = await this.prisma.riskAssessment.update({
       where: { id },
@@ -206,6 +235,34 @@ export class RiskAssessmentService {
       },
     });
 
+    // Handle reminder creation/deletion based on status changes
+    if (statusChangedFromScheduled) {
+      // Status changed from SCHEDULED to something else - delete reminders
+      await this.deleteRemindersForRiskAssessment(id);
+    } else if (statusChangedToScheduled) {
+      // Status changed to SCHEDULED - create reminder
+      const reminderUserId = assessment.assigneeId || assessment.createdBy;
+      await this.createReminderForRiskAssessment(
+        assessment.id,
+        assessment.assessmentDate,
+        reminderUserId,
+        assessment.code,
+      );
+    } else if (
+      assessment.status === GeneralStatusEnum.SCHEDULED &&
+      assessmentDateChanged
+    ) {
+      // Status is still SCHEDULED but assessmentDate changed - delete old and create new reminder
+      await this.deleteRemindersForRiskAssessment(id);
+      const reminderUserId = assessment.assigneeId || assessment.createdBy;
+      await this.createReminderForRiskAssessment(
+        assessment.id,
+        assessment.assessmentDate,
+        reminderUserId,
+        assessment.code,
+      );
+    }
+
     return this.mapToDto(assessment);
   }
 
@@ -227,10 +284,130 @@ export class RiskAssessmentService {
       where: { riskAssessmentId: id },
     });
 
+    // Delete related reminders
+    await this.deleteRemindersForRiskAssessment(id);
+
     // Then delete the assessment
     await this.prisma.riskAssessment.delete({
       where: { id },
     });
+  }
+
+  /**
+   * Convert assessment date to reminder time (09:00 AM GMT+7 converted to UTC)
+   * GMT+7 means UTC+7, so 09:00 AM GMT+7 = 02:00 AM UTC
+   * Returns the date at 09:00 AM GMT+7 (02:00 AM UTC)
+   */
+  private convertAssessmentDateToReminderTime(assessmentDate: Date): Date {
+    // Extract date components using UTC methods to avoid timezone issues
+    const year = assessmentDate.getUTCFullYear();
+    const month = assessmentDate.getUTCMonth();
+    const day = assessmentDate.getUTCDate();
+
+    // Create UTC date at 02:00 AM UTC (which is 09:00 AM GMT+7)
+    return new Date(Date.UTC(year, month, day, 2, 0, 0));
+  }
+
+  /**
+   * Get the first reminder date (today or tomorrow at 09:00 AM GMT+7)
+   * If today's 09:00 AM GMT+7 has passed, start from tomorrow
+   */
+  private getFirstReminderDate(): Date {
+    const now = new Date();
+    const todayReminder = this.convertAssessmentDateToReminderTime(now);
+
+    // If today's reminder time has passed, start from tomorrow
+    if (todayReminder <= now) {
+      const tomorrow = new Date(now);
+      tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+      return this.convertAssessmentDateToReminderTime(tomorrow);
+    }
+
+    return todayReminder;
+  }
+
+  /**
+   * Create reminder for risk assessment when status is SCHEDULED
+   * Reminder repeats daily from today/tomorrow until assessmentDate
+   */
+  private async createReminderForRiskAssessment(
+    assessmentId: string,
+    assessmentDate: Date,
+    userId: string,
+    code: string,
+  ): Promise<void> {
+    try {
+      const now = new Date();
+      const assessmentReminderTime =
+        this.convertAssessmentDateToReminderTime(assessmentDate);
+
+      // Only create reminder if assessmentDate reminder time is in the future
+      if (assessmentReminderTime <= now) {
+        return;
+      }
+
+      // Get the first reminder date (today or tomorrow)
+      const firstReminderDate = this.getFirstReminderDate();
+
+      // Only create if first reminder date is before or equal to assessmentDate
+      if (firstReminderDate > assessmentReminderTime) {
+        return;
+      }
+
+      // Set repeatUntil to assessmentDate at 09:00 AM GMT+7
+      // This ensures the reminder fires on assessmentDate and stops after that
+      const repeatUntil = new Date(assessmentReminderTime);
+
+      await this.remindersService.create(
+        {
+          entity: 't_risk_assessment',
+          entityId: assessmentId,
+          message: `Risk Assessment ${code} is scheduled for ${assessmentDate.toLocaleDateString()}`,
+          remindAt: firstReminderDate.toISOString(),
+          repeatType: ReminderRepeatTypeEnum.DAILY,
+          repeatUntil: repeatUntil.toISOString(),
+        },
+        userId,
+      );
+    } catch (error) {
+      // Log error but don't throw to avoid breaking the main operation
+      console.error(
+        `Failed to create reminder for risk assessment ${assessmentId}:`,
+        error,
+      );
+    }
+  }
+
+  /**
+   * Delete all reminders associated with a risk assessment
+   */
+  private async deleteRemindersForRiskAssessment(
+    assessmentId: string,
+  ): Promise<void> {
+    try {
+      // Find all reminders for this risk assessment
+      const reminders = await this.prisma.reminder.findMany({
+        where: {
+          entity: 't_risk_assessment',
+          entityId: assessmentId,
+          status: 'PENDING', // Only cancel pending reminders
+        },
+      });
+
+      // Cancel each reminder by updating status to CANCELLED
+      for (const reminder of reminders) {
+        await this.prisma.reminder.update({
+          where: { id: reminder.id },
+          data: { status: 'CANCELLED' },
+        });
+      }
+    } catch (error) {
+      // Log error but don't throw to avoid breaking the main operation
+      console.error(
+        `Failed to delete reminders for risk assessment ${assessmentId}:`,
+        error,
+      );
+    }
   }
 
   private mapToDto(
