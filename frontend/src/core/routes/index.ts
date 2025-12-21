@@ -7,6 +7,7 @@ import { roleRoutes } from '@/modules/roles';
 import { masterDataRoutes } from '@/modules/master-data';
 import { menuRoutes } from '@/modules/menus';
 import { notificationRoutes } from '@/modules/notifications';
+import { emailTemplateRoutes } from '@/modules/mail-templates';
 
 /**
  * Application routes registry
@@ -21,11 +22,13 @@ const routes: RouteConfig[] = [
   ...settingsRoutes,
   ...notificationRoutes,
   ...moduleRoutes,
+  ...emailTemplateRoutes,
 ];
 
 // Public routes that don't require authentication
 export const publicRoutes: RouteConfig[] = [
   coreRoutes.find(route => route.path === '/login')!,
+  coreRoutes.find(route => route.path === '/reset-password')!,
 ];
 
 // Not Found route

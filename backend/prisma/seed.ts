@@ -14,6 +14,7 @@ import { seedMenus } from './seeds/menus.seed';
 import { seedNotifications } from './seeds/notification-types.seed';
 import { seedFileCategories } from './seeds/file-categories.seed';
 import { seedFileStorageProviders } from './seeds/file-storage-providers.seed';
+import { seedMailTemplates } from './seeds/mail-templates.seed';
 
 const prisma = new PrismaClient();
 
@@ -33,6 +34,7 @@ async function main() {
       await prisma.notificationRecipient.deleteMany();
       await prisma.notification.deleteMany();
       await prisma.notificationType.deleteMany();
+      await prisma.emailTemplate.deleteMany();
       await prisma.refreshToken.deleteMany();
       await prisma.masterApprovalItem.deleteMany();
       await prisma.approval.deleteMany();
@@ -62,6 +64,9 @@ async function main() {
           break;
         case 'roles':
           await prisma.role.deleteMany();
+          break;
+        case 'email_templates':
+          await prisma.emailTemplate.deleteMany();
           break;
         case 'permissions':
           await prisma.permission.deleteMany();
@@ -141,6 +146,7 @@ async function main() {
       await seedSettings(prisma);
       await seedMenus();
       await seedNotifications();
+      await seedMailTemplates(prisma);
       await seedFileStorageProviders();
       await seedFileCategories();
       console.log('All tables seeded successfully');
@@ -153,6 +159,9 @@ async function main() {
         case 'roles':
           const permissions = await seedPermissions(prisma);
           await seedRoles(prisma, permissions);
+          break;
+        case 'email_templates':
+          await seedMailTemplates(prisma);
           break;
         case 'offices':
           await seedOffices(prisma);

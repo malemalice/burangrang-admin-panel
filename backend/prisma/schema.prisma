@@ -8,6 +8,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Email Templates - Master Data
+model EmailTemplate {
+  id               String   @id @default(uuid())
+  code             String   @unique         // unique code, e.g. "verification"
+  name             String                      // Human readable name
+  subjectTemplate  String                      // Handlebars template for subject
+  bodyTemplate     String   @db.Text           // Handlebars template for HTML body
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("m_email_templates")
+}
+
 model User {
   id            String         @id @default(uuid())
   email         String         @unique
