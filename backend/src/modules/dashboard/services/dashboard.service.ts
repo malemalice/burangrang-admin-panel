@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../core/services/prisma.service';
+import { PrismaService } from '../../../core/prisma/prisma.service';
 import { RiskRatingEnum } from '@prisma/client';
 import {
   RiskOverview,

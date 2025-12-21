@@ -8,7 +8,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { JwtAuthGuard } from './shared/guards/jwt-auth.guard';
 import { PermissionsGuard } from './shared/guards/permissions.guard';
 import { Reflector } from '@nestjs/core';
-import { PrismaService } from './core/services/prisma.service';
+import { PrismaService } from './core/prisma/prisma.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
