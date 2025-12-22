@@ -2,26 +2,39 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
-import { NotificationDto, NotificationTypeDto, NotificationRecipientDto } from '../dto/notification.dto';
+import {
+  NotificationDto,
+  NotificationTypeDto,
+  NotificationRecipientDto,
+} from '../dto/notification.dto';
 import { CreateNotificationDto } from '../dto/create-notification.dto';
 import { UpdateNotificationDto } from '../dto/update-notification.dto';
-import { PaginatedResponse, FindAllQueryDto } from '../../../shared/types/pagination-params';
+import {
+  PaginatedResponse,
+  FindAllQueryDto,
+} from '../../../shared/types/pagination-params';
 
 @Injectable()
 export class NotificationsService {
   // Initialize mappers in constructor
   private notificationMapper: (entity: any) => NotificationDto;
   private notificationTypeMapper: (entity: any) => NotificationTypeDto;
-  private notificationRecipientMapper: (entity: any) => NotificationRecipientDto;
+  private notificationRecipientMapper: (
+    entity: any,
+  ) => NotificationRecipientDto;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
   ) {
-    this.notificationMapper = this.dtoMapper.createSimpleMapper(NotificationDto);
-    this.notificationTypeMapper = this.dtoMapper.createSimpleMapper(NotificationTypeDto);
-    this.notificationRecipientMapper = this.dtoMapper.createSimpleMapper(NotificationRecipientDto);
+    this.notificationMapper =
+      this.dtoMapper.createSimpleMapper(NotificationDto);
+    this.notificationTypeMapper =
+      this.dtoMapper.createSimpleMapper(NotificationTypeDto);
+    this.notificationRecipientMapper = this.dtoMapper.createSimpleMapper(
+      NotificationRecipientDto,
+    );
   }
 
   // Create notification for specific roles and/or users
@@ -35,7 +48,7 @@ export class NotificationsService {
 
       // Add role-based recipients
       if (createDto.roleIds && createDto.roleIds.length > 0) {
-        createDto.roleIds.forEach(roleId => {
+        createDto.roleIds.forEach((roleId) => {
           recipients.push({ roleId });
         });
       }
@@ -48,7 +61,7 @@ export class NotificationsService {
           select: { id: true, roleId: true },
         });
 
-        users.forEach(user => {
+        users.forEach((user) => {
           recipients.push({
             roleId: user.roleId,
             userId: user.id,
@@ -66,17 +79,17 @@ export class NotificationsService {
           createdBy,
           recipients: {
             create: recipients,
-          }
+          },
         },
         include: {
           type: true,
           recipients: {
             include: {
               role: true,
-              user: true
-            }
-          }
-        }
+              user: true,
+            },
+          },
+        },
       });
 
       return this.notificationMapper(notification);
@@ -89,32 +102,50 @@ export class NotificationsService {
     params: FindAllQueryDto,
   ): Promise<PaginatedResponse<NotificationDto>> {
     return this.errorHandler.safeExecute(async () => {
-      const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc', isRead, context, typeId } = params;
+      const {
+        page = 1,
+        limit = 10,
+        search,
+        sortBy = 'createdAt',
+        sortOrder = 'desc',
+        isRead,
+        context,
+        typeId,
+      } = params;
 
       // Ensure limit and page are numbers with proper validation
-      const pageNum = Math.max(1, typeof page === 'string' ? parseInt(page, 10) || 1 : page || 1);
-      const limitNum = Math.max(1, Math.min(100, typeof limit === 'string' ? parseInt(limit, 10) || 10 : limit || 10));
+      const pageNum = Math.max(
+        1,
+        typeof page === 'string' ? parseInt(page, 10) || 1 : page || 1,
+      );
+      const limitNum = Math.max(
+        1,
+        Math.min(
+          100,
+          typeof limit === 'string' ? parseInt(limit, 10) || 10 : limit || 10,
+        ),
+      );
 
       // Get user's role
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { roleId: true }
+        select: { roleId: true },
       });
 
       this.errorHandler.throwIfNotFoundById('User', userId, user);
 
       // Build the where clause
-      let where: any = {
+      const where: any = {
         isActive: true,
         recipients: {
           some: {
             roleId: user.roleId,
             OR: [
               { userId: null }, // Role-based notifications
-              { userId: userId } // User-specific notifications
-            ]
-          }
-        }
+              { userId: userId }, // User-specific notifications
+            ],
+          },
+        },
       };
 
       // Note: isRead filtering is handled after fetching the data
@@ -135,7 +166,7 @@ export class NotificationsService {
         where.OR = [
           { title: { contains: search, mode: 'insensitive' } },
           { message: { contains: search, mode: 'insensitive' } },
-          { context: { contains: search, mode: 'insensitive' } }
+          { context: { contains: search, mode: 'insensitive' } },
         ];
       }
 
@@ -147,22 +178,19 @@ export class NotificationsService {
           recipients: {
             where: {
               roleId: user.roleId,
-              OR: [
-                { userId: null },
-                { userId: userId }
-              ]
+              OR: [{ userId: null }, { userId: userId }],
             },
             include: {
               role: true,
-              user: true
-            }
-          }
+              user: true,
+            },
+          },
         },
         orderBy: { [sortBy]: sortOrder },
       });
 
       // Map notifications and set isRead based on recipient's read status
-      let mappedNotifications = allNotifications.map(notification => {
+      let mappedNotifications = allNotifications.map((notification) => {
         const recipient = notification.recipients?.[0]; // Get the first (and should be only) recipient for this user
         return this.notificationMapper({
           ...notification,
@@ -173,14 +201,16 @@ export class NotificationsService {
 
       // Apply isRead filter if specified
       if (isRead !== undefined && isRead !== null) {
-        mappedNotifications = mappedNotifications.filter(notification => notification.isRead === isRead);
+        mappedNotifications = mappedNotifications.filter(
+          (notification) => notification.isRead === isRead,
+        );
       }
 
       // Apply pagination after filtering
       const total = mappedNotifications.length;
       const paginatedNotifications = mappedNotifications.slice(
         (pageNum - 1) * limitNum,
-        pageNum * limitNum
+        pageNum * limitNum,
       );
 
       return {
@@ -201,7 +231,7 @@ export class NotificationsService {
       // Get user's role
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { roleId: true }
+        select: { roleId: true },
       });
 
       this.errorHandler.throwIfNotFoundById('User', userId, user);
@@ -213,29 +243,23 @@ export class NotificationsService {
           recipients: {
             some: {
               roleId: user.roleId,
-              OR: [
-                { userId: null },
-                { userId: userId }
-              ]
-            }
-          }
+              OR: [{ userId: null }, { userId: userId }],
+            },
+          },
         },
         include: {
           type: true,
           recipients: {
             where: {
               roleId: user.roleId,
-              OR: [
-                { userId: null },
-                { userId: userId }
-              ]
+              OR: [{ userId: null }, { userId: userId }],
             },
             include: {
               role: true,
-              user: true
-            }
-          }
-        }
+              user: true,
+            },
+          },
+        },
       });
 
       this.errorHandler.throwIfNotFoundById('Notification', id, notification);
@@ -256,7 +280,7 @@ export class NotificationsService {
       // Get user's role
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { roleId: true }
+        select: { roleId: true },
       });
 
       this.errorHandler.throwIfNotFoundById('User', userId, user);
@@ -266,23 +290,20 @@ export class NotificationsService {
         where: {
           notificationId,
           roleId: user.roleId,
-          OR: [
-            { userId: null },
-            { userId: userId }
-          ]
+          OR: [{ userId: null }, { userId: userId }],
         },
         data: {
           isRead: true,
           readAt: new Date(),
-        }
+        },
       });
 
       // Check if all recipients have read the notification
       const unreadCount = await this.prisma.notificationRecipient.count({
         where: {
           notificationId,
-          isRead: false
-        }
+          isRead: false,
+        },
       });
 
       // If all recipients have read it, mark the notification as read
@@ -292,7 +313,7 @@ export class NotificationsService {
           data: {
             isRead: true,
             readAt: new Date(),
-          }
+          },
         });
       }
     }, 'Marking notification as read');
@@ -304,7 +325,7 @@ export class NotificationsService {
       // Get user's role
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { roleId: true }
+        select: { roleId: true },
       });
 
       this.errorHandler.throwIfNotFoundById('User', userId, user);
@@ -313,16 +334,13 @@ export class NotificationsService {
       await this.prisma.notificationRecipient.updateMany({
         where: {
           roleId: user.roleId,
-          OR: [
-            { userId: null },
-            { userId: userId }
-          ],
-          isRead: false
+          OR: [{ userId: null }, { userId: userId }],
+          isRead: false,
         },
         data: {
           isRead: true,
           readAt: new Date(),
-        }
+        },
       });
 
       // Update all notifications that are now fully read
@@ -332,24 +350,24 @@ export class NotificationsService {
           isRead: false,
           recipients: {
             every: {
-              isRead: true
-            }
-          }
+              isRead: true,
+            },
+          },
         },
-        select: { id: true }
+        select: { id: true },
       });
 
       if (fullyReadNotifications.length > 0) {
         await this.prisma.notification.updateMany({
           where: {
             id: {
-              in: fullyReadNotifications.map(n => n.id)
-            }
+              in: fullyReadNotifications.map((n) => n.id),
+            },
           },
           data: {
             isRead: true,
             readAt: new Date(),
-          }
+          },
         });
       }
     }, 'Marking all notifications as read');
@@ -361,7 +379,7 @@ export class NotificationsService {
       // Get user's role
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { roleId: true }
+        select: { roleId: true },
       });
 
       this.errorHandler.throwIfNotFoundById('User', userId, user);
@@ -369,12 +387,9 @@ export class NotificationsService {
       const count = await this.prisma.notificationRecipient.count({
         where: {
           roleId: user.roleId,
-          OR: [
-            { userId: null },
-            { userId: userId }
-          ],
-          isRead: false
-        }
+          OR: [{ userId: null }, { userId: userId }],
+          isRead: false,
+        },
       });
 
       return count;
@@ -386,7 +401,7 @@ export class NotificationsService {
     return this.errorHandler.safeExecute(async () => {
       const types = await this.prisma.notificationType.findMany({
         where: { isActive: true },
-        orderBy: { name: 'asc' }
+        orderBy: { name: 'asc' },
       });
 
       return types.map(this.notificationTypeMapper);
@@ -394,7 +409,10 @@ export class NotificationsService {
   }
 
   // Update notification (admin only)
-  async update(id: string, updateDto: UpdateNotificationDto): Promise<NotificationDto> {
+  async update(
+    id: string,
+    updateDto: UpdateNotificationDto,
+  ): Promise<NotificationDto> {
     return this.errorHandler.safeExecute(async () => {
       const notification = await this.prisma.notification.update({
         where: { id },
@@ -404,10 +422,10 @@ export class NotificationsService {
           recipients: {
             include: {
               role: true,
-              user: true
-            }
-          }
-        }
+              user: true,
+            },
+          },
+        },
       });
 
       return this.notificationMapper(notification);
@@ -419,7 +437,7 @@ export class NotificationsService {
     return this.errorHandler.safeExecute(async () => {
       await this.prisma.notification.update({
         where: { id },
-        data: { isActive: false }
+        data: { isActive: false },
       });
     }, 'Deleting notification');
   }

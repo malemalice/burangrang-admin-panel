@@ -466,17 +466,18 @@ export class RemindersService {
       const typeId = await this.getOrCreateReminderNotificationType();
 
       // Create notification
-      const notification = await this.notificationsService.createNotificationForRoles(
-        {
-          title: 'Reminder',
-          message: reminder.message,
-          context: reminder.entity ?? undefined,
-          contextId: reminder.entityId ?? undefined,
-          typeId,
-          roleIds: [reminder.user.roleId],
-        },
-        userId, // Created by the current user
-      );
+      const notification =
+        await this.notificationsService.createNotificationForRoles(
+          {
+            title: 'Reminder',
+            message: reminder.message,
+            context: reminder.entity ?? undefined,
+            contextId: reminder.entityId ?? undefined,
+            typeId,
+            roleIds: [reminder.user.roleId],
+          },
+          userId, // Created by the current user
+        );
 
       return {
         success: true,
