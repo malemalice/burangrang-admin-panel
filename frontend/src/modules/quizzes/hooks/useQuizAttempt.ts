@@ -25,11 +25,20 @@ export const useQuizAttempt = (attemptId: string | null = null) => {
       setAttempt(newAttempt);
       // Toast handled by caller if needed
       return newAttempt;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to start quiz attempt';
+    } catch (err: any) {
+      // Extract error message from various error structures
+      let errorMessage = 'Failed to start quiz attempt';
+      if (err && typeof err === 'object') {
+        // Check for axios error structure (err.response.data.message)
+        if (err.response?.data?.message) {
+          errorMessage = err.response.data.message;
+        } else if (err.message) {
+          errorMessage = err.message;
+        }
+      }
       setError(errorMessage);
       // Don't show toast here - let caller handle error display
-      throw err;
+      throw new Error(errorMessage);
     } finally {
       setIsLoading(false);
     }

@@ -48,7 +48,7 @@ const QuizzesPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null);
   const [activeTab, setActiveTab] = useState('all');
-  const [activeStatusTab, setActiveStatusTab] = useState<string>('all');
+  const [activeStatusTab, setActiveStatusTab] = useState<string>('active');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: string | number | boolean; label: string }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
