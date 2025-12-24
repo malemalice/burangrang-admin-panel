@@ -414,6 +414,7 @@ const EnrollmentsPage = () => {
           total: totalEnrollments,
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

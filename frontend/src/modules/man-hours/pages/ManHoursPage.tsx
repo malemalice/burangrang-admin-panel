@@ -316,6 +316,7 @@ export default function ManHoursPage() {
           total: totalManHours
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

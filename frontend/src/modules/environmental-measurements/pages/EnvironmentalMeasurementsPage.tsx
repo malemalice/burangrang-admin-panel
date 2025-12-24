@@ -298,6 +298,7 @@ export default function EnvironmentalMeasurementsPage() {
           total: totalMeasurements
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />
