@@ -1183,4 +1183,116 @@ export class QuizzesService {
       selectedOption: updatedAnswer.selectedOption,
     } as any;
   }
+
+  /**
+   * Get current in-progress attempt for a quiz
+   * Used to resume an existing attempt instead of starting a new one
+   */
+  async getCurrentAttempt(quizId: string, userId: string, enrollmentId?: string): Promise<QuizAttemptDto | null> {
+    const quiz = await this.prisma.quiz.findUnique({
+      where: { id: quizId },
+    });
+
+    this.errorHandler.throwIfNotFoundById('Quiz', quizId, quiz);
+
+    // Build where clause based on quiz type
+    const whereClause: any = {
+      quizId,
+      status: 'IN_PROGRESS',
+    };
+
+    if (quiz.entity === 'COURSE' || quiz.entity === 'CHAPTER') {
+      // Bound quiz - look by enrollmentId
+      if (enrollmentId) {
+        whereClause.enrollmentId = enrollmentId;
+      } else {
+        // Try to find any in-progress attempt for this user via enrollment
+        whereClause.enrollment = {
+          userId,
+        };
+      }
+    } else {
+      // Standalone quiz - look by userId
+      whereClause.userId = userId;
+    }
+
+    const attempt = await this.prisma.quizAttempt.findFirst({
+      where: whereClause,
+      include: {
+        quiz: {
+          include: {
+            questions: {
+              where: { isActive: true },
+              include: {
+                options: {
+                  orderBy: { order: 'asc' },
+                },
+              },
+              orderBy: { order: 'asc' },
+            },
+          },
+        },
+        answers: {
+          include: {
+            question: {
+              include: {
+                options: true,
+              },
+            },
+            selectedOption: true,
+          },
+        },
+        enrollment: {
+          select: {
+            id: true,
+            userId: true,
+          },
+        },
+      },
+      orderBy: {
+        startedAt: 'desc',
+      },
+    });
+
+    if (!attempt) {
+      return null;
+    }
+
+    // Verify attempt belongs to user
+    const attemptUserId = attempt.userId || (attempt.enrollment ? attempt.enrollment.userId : null);
+    if (attemptUserId !== userId) {
+      return null; // Don't throw error, just return null
+    }
+
+    return {
+      id: attempt.id,
+      quizId: attempt.quizId,
+      enrollmentId: attempt.enrollmentId,
+      userId: attempt.userId,
+      attemptNumber: attempt.attemptNumber,
+      status: attempt.status,
+      score: attempt.score ? Number(attempt.score) : null,
+      totalPoints: attempt.totalPoints ? Number(attempt.totalPoints) : null,
+      earnedPoints: attempt.earnedPoints ? Number(attempt.earnedPoints) : null,
+      isPassed: attempt.isPassed,
+      startedAt: attempt.startedAt,
+      completedAt: attempt.completedAt,
+      timeSpent: attempt.timeSpent,
+      quiz: attempt.quiz,
+      answers: attempt.answers?.map((answer) => ({
+        id: answer.id,
+        attemptId: answer.attemptId,
+        questionId: answer.questionId,
+        selectedOptionId: answer.selectedOptionId,
+        essayAnswer: answer.essayAnswer,
+        isCorrect: answer.isCorrect,
+        pointsEarned: answer.pointsEarned ? Number(answer.pointsEarned) : 0,
+        feedback: answer.feedback,
+        gradedBy: answer.gradedBy,
+        gradedAt: answer.gradedAt,
+        question: answer.question,
+        selectedOption: answer.selectedOption,
+      })),
+    } as any;
+  }
 }

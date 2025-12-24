@@ -451,6 +451,7 @@ const CoursesPage = () => {
           total: totalCourses
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

@@ -138,6 +138,7 @@ const QuestionForm = ({ questionIndex, onRemove, onMediaFileSelect }: QuestionFo
                       'audio/mp3',
                     ]}
                     placeholder="Upload file"
+                    mediaType={watch(`questions.${questionIndex}.mediaType`)}
                   />
                   {field.value && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">

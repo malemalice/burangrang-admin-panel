@@ -173,7 +173,36 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                 setDepartments(deptsRes.data);
                 setJobPositions(positionsRes.data);
                 setUsers(usersRes.data);
-                setAvailableStockItems(stockItemsRes.data);
+
+                // For edit mode, include existing withdrawal items in available options
+                // This ensures previously selected items appear in the dropdown
+                let finalStockItems = stockItemsRes.data;
+                if (withdrawal && mode === 'edit' && withdrawal.items) {
+                    const existingItemIds = new Set(stockItemsRes.data.map(si => si.id));
+                    const existingWithdrawalItems: PPEStockItem[] = [];
+
+                    for (const item of withdrawal.items) {
+                        if (!existingItemIds.has(item.stockItemId)) {
+                            existingWithdrawalItems.push({
+                                id: item.stockItemId,
+                                stockId: '',
+                                equipmentName: item.stockItemEquipmentName || 'Unknown',
+                                equipmentType: item.stockItemEquipmentType || null,
+                                equipmentSize: item.stockItemEquipmentSize || null,
+                                currentQuantity: item.requestedQuantity,
+                                initialQuantity: 0,
+                                reservedQuantity: 0,
+                                status: PPEStockStatus.AVAILABLE,
+                                order: item.order,
+                                createdAt: '',
+                                updatedAt: '',
+                            });
+                        }
+                    }
+
+                    finalStockItems = [...stockItemsRes.data, ...existingWithdrawalItems];
+                }
+                setAvailableStockItems(finalStockItems);
 
                 // Set form data for edit mode
                 if (withdrawal && mode === 'edit') {

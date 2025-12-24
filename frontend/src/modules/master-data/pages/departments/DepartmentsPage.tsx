@@ -275,6 +275,7 @@ export default function DepartmentsPage() {
           total: totalDepartments
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

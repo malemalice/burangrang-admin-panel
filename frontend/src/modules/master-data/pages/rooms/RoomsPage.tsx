@@ -273,6 +273,7 @@ export default function RoomsPage() {
           total: totalRooms
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

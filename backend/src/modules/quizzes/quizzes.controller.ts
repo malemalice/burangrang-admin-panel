@@ -273,6 +273,32 @@ export class QuizzesController {
     return this.quizzesService.assign(id, assignQuizDto, req.user.id);
   }
 
+  @Get(':id/attempts/current')
+  @ApiOperation({ summary: 'Get current in-progress attempt for a quiz (for resume functionality)' })
+  @ApiParam({ name: 'id', type: String, description: 'Quiz ID' })
+  @ApiQuery({
+    name: 'enrollmentId',
+    required: false,
+    type: String,
+    description: 'Enrollment ID (required for bound quizzes)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Current attempt retrieved successfully or null if no in-progress attempt',
+    type: QuizAttemptDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Quiz not found' })
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('quiz:attempt')
+  async getCurrentAttempt(
+    @Param('id') id: string,
+    @Query('enrollmentId') enrollmentId: string,
+    @Req() req: RequestWithUser,
+  ): Promise<QuizAttemptDto | null> {
+    return this.quizzesService.getCurrentAttempt(id, req.user.id, enrollmentId);
+  }
+
   @Post(':id/attempts')
   @ApiOperation({ summary: 'Start a new quiz attempt' })
   @ApiParam({ name: 'id', type: String, description: 'Quiz ID' })

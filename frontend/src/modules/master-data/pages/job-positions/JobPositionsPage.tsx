@@ -277,6 +277,7 @@ const JobPositionsPage = () => {
           total: totalJobPositions
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
         sorting={sorting}
