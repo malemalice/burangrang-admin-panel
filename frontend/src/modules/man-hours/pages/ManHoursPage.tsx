@@ -75,7 +75,7 @@ export default function ManHoursPage() {
         page: pageIndex + 1,
         limit,
         search: searchTerm || undefined,
-        sortBy: 'year',
+        sortBy: 'createdAt',
         sortOrder: 'desc',
         year: activeFilters.year?.value ? parseInt(activeFilters.year.value) : undefined,
         group: activeFilters.group?.value || undefined,
@@ -216,6 +216,7 @@ export default function ManHoursPage() {
     {
       id: 'qty',
       header: 'Qty',
+      headerClassName: 'justify-end',
       cell: (manHour: ManHour) => (
         <div className="text-right">{manHour.qty.toLocaleString()}</div>
       ),
@@ -223,6 +224,7 @@ export default function ManHoursPage() {
     {
       id: 'manHourPerDay',
       header: 'Hours/Day',
+      headerClassName: 'justify-end',
       cell: (manHour: ManHour) => (
         <div className="text-right">{manHour.manHourPerDay}</div>
       ),
@@ -230,6 +232,7 @@ export default function ManHoursPage() {
     {
       id: 'total',
       header: 'Total',
+      headerClassName: 'justify-end',
       cell: (manHour: ManHour) => (
         <div className="text-right font-medium">{manHour.total.toLocaleString()}</div>
       ),
