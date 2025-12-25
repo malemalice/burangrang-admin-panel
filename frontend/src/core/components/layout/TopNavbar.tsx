@@ -107,7 +107,7 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
 
   return (
     <div className={cn(
-      "h-16 border-b flex items-center justify-between px-4 bg-background border-border relative z-40",
+      "h-16 border-b flex items-center justify-between px-4 bg-background border-border relative z-0",
       "transition-all duration-300 ease-in-out"
     )}>
       <div className="flex items-center">
