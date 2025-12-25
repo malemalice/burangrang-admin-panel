@@ -57,6 +57,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
+    mode: 'onBlur',
     defaultValues: {
       name: manHour?.name || '',
       group: manHour?.group || 'STUDENT',
@@ -121,7 +122,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name / Class</FormLabel>
+                    <FormLabel>Name / Class *</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g., Year 1-2, Kukang - KG2" {...field} />
                     </FormControl>
@@ -136,7 +137,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                 name="group"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Group</FormLabel>
+                    <FormLabel>Group *</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -159,7 +160,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                 name="qty"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Quantity (People)</FormLabel>
+                    <FormLabel>Quantity (People) *</FormLabel>
                     <FormControl>
                       <Input type="number" min="1" {...field} />
                     </FormControl>
@@ -174,7 +175,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                 name="manHourPerDay"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Hours per Day</FormLabel>
+                    <FormLabel>Hours per Day *</FormLabel>
                     <FormControl>
                       <Input type="number" step="0.5" min="0" max="24" {...field} />
                     </FormControl>
@@ -189,7 +190,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                 name="month"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Month</FormLabel>
+                    <FormLabel>Month *</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -215,7 +216,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                 name="year"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Year</FormLabel>
+                    <FormLabel>Year *</FormLabel>
                     <Select onValueChange={(val) => field.onChange(parseInt(val))} defaultValue={String(field.value)}>
                       <FormControl>
                         <SelectTrigger>
