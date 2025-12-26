@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { Clock, CheckCircle2, XCircle, AlertCircle, Circle } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { ApprovalStatusHistory } from '@/modules/master-data';
+import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 
 interface ApprovalTimelineCardProps {
   approvalHistory: ApprovalStatusHistory | null;
@@ -11,7 +12,7 @@ interface ApprovalTimelineCardProps {
 export const ApprovalTimelineCard = ({ approvalHistory, isLoading }: ApprovalTimelineCardProps) => {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-12 h-full">
         <div className="flex items-center gap-3">
           <div className="h-6 w-6 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
           <span className="text-sm text-muted-foreground">Loading approval timeline...</span>
@@ -23,7 +24,7 @@ export const ApprovalTimelineCard = ({ approvalHistory, isLoading }: ApprovalTim
   // Show empty state only if no approval lines are configured
   if (!approvalHistory || !approvalHistory.allApprovalLines || approvalHistory.allApprovalLines.length === 0) {
     return (
-      <div className="flex items-center gap-3 p-6 border rounded-md bg-muted/20">
+      <div className="flex items-center gap-3 p-6 border rounded-md bg-muted/20 h-full">
         <Clock className="h-5 w-5 text-muted-foreground flex-shrink-0" />
         <div>
           <p className="text-sm font-medium text-foreground">No approval workflow</p>
@@ -59,129 +60,149 @@ export const ApprovalTimelineCard = ({ approvalHistory, isLoading }: ApprovalTim
     }
   };
 
+  // Check if status is DONE - if so, don't show current workflow
+  const isDone = approvalHistory.currentStatus === GeneralStatusEnum.DONE;
+  
+  // Get all approvals sorted by createdAt (chronological order)
+  const allApprovals = approvalHistory.history?.slice().sort((a, b) => 
+    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  ) || [];
+
   // Find completed approvals for each line
   const getApprovalForLine = (lineNumber: number) => {
-    return approvalHistory.history?.find((item) => item.line === lineNumber);
+    return allApprovals.find((item) => item.line === lineNumber);
   };
 
   return (
-    <div className="space-y-4">
-      <div>
+    <div className="flex flex-col h-full">
+      <div className="mb-4">
         <h3 className="text-base font-semibold text-foreground mb-1">Approval Timeline</h3>
         <p className="text-xs text-muted-foreground">Track the approval progress and workflow</p>
       </div>
       
-      <div className="relative max-h-[600px] overflow-y-auto pr-2">
-        <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
-        <div className="space-y-4">
-          {approvalHistory.allApprovalLines.map((line) => {
-            const approval = getApprovalForLine(line.line);
-            const isCompleted = line.status === 'completed';
-            const isCurrent = line.status === 'current';
-            const isPending = line.status === 'pending';
+      <div className="flex-1 min-h-0 relative overflow-hidden">
+        <div className="h-full overflow-y-auto pr-2">
+          <div className="relative">
+            <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+            <div className="space-y-4">
+              {/* Show all approvals in chronological order */}
+              {allApprovals.map((approval) => {
+                const statusConfig = getStatusConfig(approval.status);
+                const StatusIcon = statusConfig.icon;
 
-            if (isCompleted && approval) {
-              // Show completed approval with details
-              const statusConfig = getStatusConfig(approval.status);
-              const StatusIcon = statusConfig.icon;
+                return (
+                  <div key={approval.id} className="relative pl-8">
+                    <div className="absolute left-0 w-8 flex items-center justify-center">
+                      <div className={`w-3 h-3 rounded-full border-2 border-background ${statusConfig.dot}`} />
+                    </div>
+                    <div className="bg-card border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2 flex-1">
+                          <StatusIcon className={`h-4 w-4 ${statusConfig.iconColor} flex-shrink-0`} />
+                          <Badge 
+                            variant="outline"
+                            className={`text-xs font-medium border ${statusConfig.badge}`}
+                          >
+                            {approval.status}
+                          </Badge>
+                        </div>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {format(new Date(approval.createdAt), 'dd MMM yyyy HH:mm')}
+                        </span>
+                      </div>
+                      
+                      {approval.notes && (
+                        <div className="mb-3">
+                          <p className="text-xs text-muted-foreground leading-relaxed">{approval.notes}</p>
+                        </div>
+                      )}
+                      
+                      <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-muted-foreground">By:</span>
+                          <span className="font-medium text-foreground">{approval.creator.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-muted-foreground">Dept:</span>
+                          <span className="font-medium text-foreground">{approval.department.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-muted-foreground">Pos:</span>
+                          <span className="font-medium text-foreground">{approval.jobPosition.name}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
 
-              return (
-                <div key={`line-${line.line}`} className="relative pl-8">
-                  <div className="absolute left-0 w-8 flex items-center justify-center">
-                    <div className={`w-3 h-3 rounded-full border-2 border-background ${statusConfig.dot}`} />
-                  </div>
-                  <div className="bg-card border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div className="flex items-center gap-2 flex-1">
-                        <StatusIcon className={`h-4 w-4 ${statusConfig.iconColor} flex-shrink-0`} />
-                        <Badge 
-                          variant="outline"
-                          className={`text-xs font-medium border ${statusConfig.badge}`}
-                        >
-                          {approval.status}
-                        </Badge>
-                      </div>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {format(new Date(approval.createdAt), 'dd MMM yyyy HH:mm')}
-                      </span>
-                    </div>
-                    
-                    {approval.notes && (
-                      <div className="mb-3">
-                        <p className="text-xs text-muted-foreground leading-relaxed">{approval.notes}</p>
-                      </div>
-                    )}
-                    
-                    <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground">By:</span>
-                        <span className="font-medium text-foreground">{approval.creator.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground">Dept:</span>
-                        <span className="font-medium text-foreground">{approval.department.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground">Pos:</span>
-                        <span className="font-medium text-foreground">{approval.jobPosition.name}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            } else if (isCurrent) {
-              // Show current approval waiting
-              return (
-                <div key={`line-${line.line}`} className="relative pl-8">
-                  <div className="absolute left-0 w-8 flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-full border-2 border-background bg-blue-500 animate-pulse" />
-                  </div>
-                  <div className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 border rounded-lg p-4 shadow-sm">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                      <p className="text-xs font-semibold text-blue-900 dark:text-blue-100">Waiting for Approval</p>
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-blue-700 dark:text-blue-300">Dept:</span>
-                        <span className="font-medium text-blue-900 dark:text-blue-100">{line.department.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-blue-700 dark:text-blue-300">Pos:</span>
-                        <span className="font-medium text-blue-900 dark:text-blue-100">{line.jobPosition.name}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            } else if (isPending) {
-              // Show pending approval (not yet reached)
-              return (
-                <div key={`line-${line.line}`} className="relative pl-8">
-                  <div className="absolute left-0 w-8 flex items-center justify-center">
-                    <Circle className="w-3 h-3 text-muted-foreground" />
-                  </div>
-                  <div className="bg-muted/20 border border-dashed rounded-lg p-4 opacity-60">
-                    <div className="flex items-center gap-2 mb-2">
-                      <p className="text-xs font-medium text-muted-foreground">Pending</p>
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <span>Dept:</span>
-                        <span className="font-medium">{line.department.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span>Pos:</span>
-                        <span className="font-medium">{line.jobPosition.name}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            }
+              {/* Show current workflow approval lines only if not DONE (only pending/current, not completed) */}
+              {!isDone && approvalHistory.allApprovalLines.map((line) => {
+                const approval = getApprovalForLine(line.line);
+                const isCompleted = line.status === 'completed';
+                const isCurrent = line.status === 'current';
+                const isPending = line.status === 'pending';
 
-            return null;
-          })}
+                // Skip completed lines - they're already shown in approvals above
+                if (isCompleted) {
+                  return null;
+                }
+
+                if (isCurrent) {
+                  // Show current approval waiting
+                  return (
+                    <div key={`line-${line.line}`} className="relative pl-8">
+                      <div className="absolute left-0 w-8 flex items-center justify-center">
+                        <div className="w-3 h-3 rounded-full border-2 border-background bg-blue-500 animate-pulse" />
+                      </div>
+                      <div className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 border rounded-lg p-4 shadow-sm">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                          <p className="text-xs font-semibold text-blue-900 dark:text-blue-100">Waiting for Approval</p>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-blue-700 dark:text-blue-300">Dept:</span>
+                            <span className="font-medium text-blue-900 dark:text-blue-100">{line.department.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-blue-700 dark:text-blue-300">Pos:</span>
+                            <span className="font-medium text-blue-900 dark:text-blue-100">{line.jobPosition.name}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                } else if (isPending) {
+                  // Show pending approval (not yet reached)
+                  return (
+                    <div key={`line-${line.line}`} className="relative pl-8">
+                      <div className="absolute left-0 w-8 flex items-center justify-center">
+                        <Circle className="w-3 h-3 text-muted-foreground" />
+                      </div>
+                      <div className="bg-muted/20 border border-dashed rounded-lg p-4 opacity-60">
+                        <div className="flex items-center gap-2 mb-2">
+                          <p className="text-xs font-medium text-muted-foreground">Pending</p>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1.5">
+                            <span>Dept:</span>
+                            <span className="font-medium">{line.department.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span>Pos:</span>
+                            <span className="font-medium">{line.jobPosition.name}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return null;
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>

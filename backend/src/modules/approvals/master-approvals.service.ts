@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Injectable,
   NotFoundException,
@@ -33,8 +30,13 @@ interface FindAllOptions {
 @Injectable()
 export class MasterApprovalsService {
   private masterApprovalMapper: (masterApproval: any) => MasterApprovalDto;
-  private masterApprovalArrayMapper: (masterApprovals: any[]) => MasterApprovalDto[];
-  private masterApprovalPaginatedMapper: (data: { data: any[]; meta: any }) => { data: MasterApprovalDto[]; meta: any };
+  private masterApprovalArrayMapper: (
+    masterApprovals: any[],
+  ) => MasterApprovalDto[];
+  private masterApprovalPaginatedMapper: (data: { data: any[]; meta: any }) => {
+    data: MasterApprovalDto[];
+    meta: any;
+  };
 
   constructor(
     private readonly prisma: PrismaService,
@@ -43,9 +45,12 @@ export class MasterApprovalsService {
     private readonly notificationsService: NotificationsService,
   ) {
     // Initialize mappers
-    this.masterApprovalMapper = this.dtoMapper.createSimpleMapper(MasterApprovalDto);
-    this.masterApprovalArrayMapper = this.dtoMapper.createSimpleArrayMapper(MasterApprovalDto);
-    this.masterApprovalPaginatedMapper = this.dtoMapper.createPaginatedMapper(MasterApprovalDto);
+    this.masterApprovalMapper =
+      this.dtoMapper.createSimpleMapper(MasterApprovalDto);
+    this.masterApprovalArrayMapper =
+      this.dtoMapper.createSimpleArrayMapper(MasterApprovalDto);
+    this.masterApprovalPaginatedMapper =
+      this.dtoMapper.createPaginatedMapper(MasterApprovalDto);
   }
 
   async create(
@@ -140,7 +145,11 @@ export class MasterApprovalsService {
       },
     });
 
-    this.errorHandler.throwIfNotFoundById('Master approval', id, masterApproval);
+    this.errorHandler.throwIfNotFoundById(
+      'Master approval',
+      id,
+      masterApproval,
+    );
 
     return this.masterApprovalMapper(masterApproval);
   }
@@ -157,7 +166,11 @@ export class MasterApprovalsService {
       where: { id },
     });
 
-    this.errorHandler.throwIfNotFoundById('Master approval', id, existingApproval);
+    this.errorHandler.throwIfNotFoundById(
+      'Master approval',
+      id,
+      existingApproval,
+    );
 
     // Update the approval
     await this.prisma.masterApproval.update({
@@ -195,7 +208,11 @@ export class MasterApprovalsService {
       where: { id },
     });
 
-    this.errorHandler.throwIfNotFoundById('Master approval', id, masterApproval);
+    this.errorHandler.throwIfNotFoundById(
+      'Master approval',
+      id,
+      masterApproval,
+    );
 
     // Delete all related items first
     await this.prisma.masterApprovalItem.deleteMany({
@@ -222,42 +239,43 @@ export class MasterApprovalsService {
       id: approval.id,
       entity: approval.entity,
       isActive: approval.isActive,
-      items: (approval.items?.map((item: any) => {
-        const itm = item as {
-          id: string;
-          mApprovalId: string;
-          order: number;
-          jobPositionId: string;
-          departmentId: string;
-          createdBy: string;
-          createdAt: Date;
-          jobPosition: { id: string; name: string };
-          department: { id: string; name: string };
-          creator: { id: string; firstName: string; lastName: string };
-        };
+      items:
+        approval.items?.map((item: any) => {
+          const itm = item as {
+            id: string;
+            mApprovalId: string;
+            order: number;
+            jobPositionId: string;
+            departmentId: string;
+            createdBy: string;
+            createdAt: Date;
+            jobPosition: { id: string; name: string };
+            department: { id: string; name: string };
+            creator: { id: string; firstName: string; lastName: string };
+          };
 
-        return {
-          id: itm.id,
-          mApprovalId: itm.mApprovalId,
-          order: itm.order,
-          jobPositionId: itm.jobPositionId,
-          departmentId: itm.departmentId,
-          createdBy: itm.createdBy,
-          createdAt: itm.createdAt,
-          jobPosition: {
-            id: itm.jobPosition.id,
-            name: itm.jobPosition.name,
-          },
-          department: {
-            id: itm.department.id,
-            name: itm.department.name,
-          },
-          creator: {
-            id: itm.creator.id,
-            name: `${itm.creator.firstName} ${itm.creator.lastName}`,
-          },
-        };
-      }) || []),
+          return {
+            id: itm.id,
+            mApprovalId: itm.mApprovalId,
+            order: itm.order,
+            jobPositionId: itm.jobPositionId,
+            departmentId: itm.departmentId,
+            createdBy: itm.createdBy,
+            createdAt: itm.createdAt,
+            jobPosition: {
+              id: itm.jobPosition.id,
+              name: itm.jobPosition.name,
+            },
+            department: {
+              id: itm.department.id,
+              name: itm.department.name,
+            },
+            creator: {
+              id: itm.creator.id,
+              name: `${itm.creator.firstName} ${itm.creator.lastName}`,
+            },
+          };
+        }) || [],
       createdAt: approval.createdAt,
       updatedAt: approval.updatedAt,
     };
@@ -313,11 +331,12 @@ export class MasterApprovalsService {
       );
     }
 
-    // Get approval history
+    // Get ALL approval history for this entity, regardless of current m_approvals configuration
+    // This ensures historical approvals are preserved even when m_approvals_item changes
     const approvalHistory = await this.prisma.approval.findMany({
       where: {
         entityId,
-        mApprovalId: masterApproval.id,
+        // Don't filter by mApprovalId to get all historical approvals
       },
       include: {
         department: true,
@@ -336,6 +355,7 @@ export class MasterApprovalsService {
     });
 
     // Map approval history with line numbers
+    // Keep createdAt order for historical accuracy
     const history = approvalHistory.map((approval, index) => {
       // Find matching master approval item to get the order/line
       const matchingItem = masterApproval.items.find(
@@ -343,12 +363,17 @@ export class MasterApprovalsService {
           item.departmentId === approval.departmentId &&
           item.jobPositionId === approval.jobPositionId,
       );
-      
+
+      // Mark as historical if it doesn't match current m_approvals configuration
+      const isHistorical = !matchingItem;
+
       return {
         id: approval.id,
         status: approval.status,
         notes: approval.notes,
         createdAt: approval.createdAt,
+        // Use matching item order if found, otherwise use sequential index
+        // This preserves historical approvals even if they don't match current config
         line: matchingItem ? matchingItem.order : index + 1,
         department: {
           id: approval.department.id,
@@ -362,6 +387,7 @@ export class MasterApprovalsService {
           id: approval.creator.id,
           name: `${approval.creator.firstName} ${approval.creator.lastName}`,
         },
+        isHistorical,
       };
     });
 
@@ -423,7 +449,7 @@ export class MasterApprovalsService {
       );
 
       let status: 'completed' | 'current' | 'pending' = 'pending';
-      
+
       if (completedApproval) {
         status = 'completed';
       } else if (nextApprover && nextApprover.line === item.order) {
