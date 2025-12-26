@@ -11,8 +11,8 @@ import { CreateNotificationDto } from '../dto/create-notification.dto';
 import { UpdateNotificationDto } from '../dto/update-notification.dto';
 import {
   PaginatedResponse,
-  FindAllQueryDto,
 } from '../../../shared/types/pagination-params';
+import { FindNotificationsDto } from '../dto/find-notifications.dto';
 
 @Injectable()
 export class NotificationsService {
@@ -99,7 +99,7 @@ export class NotificationsService {
   // Get user's notifications with pagination
   async getUserNotifications(
     userId: string,
-    params: FindAllQueryDto,
+    params: FindNotificationsDto,
   ): Promise<PaginatedResponse<NotificationDto>> {
     return this.errorHandler.safeExecute(async () => {
       const {
