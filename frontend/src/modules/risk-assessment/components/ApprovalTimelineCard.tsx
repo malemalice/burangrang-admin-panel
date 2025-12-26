@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { useState, useRef, useEffect } from 'react';
 import { Clock, CheckCircle2, XCircle, AlertCircle, Circle } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { ApprovalStatusHistory } from '@/modules/master-data';
@@ -11,6 +12,28 @@ interface ApprovalTimelineCardProps {
 }
 
 export const ApprovalTimelineCard = ({ approvalHistory, isLoading, assessmentStatus }: ApprovalTimelineCardProps) => {
+  const [scrollTop, setScrollTop] = useState(0);
+  const [scrollHeight, setScrollHeight] = useState(0);
+  const [clientHeight, setClientHeight] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Initialize scroll dimensions on mount and when content changes
+  useEffect(() => {
+    const updateScrollDimensions = () => {
+      if (scrollRef.current) {
+        setScrollHeight(scrollRef.current.scrollHeight);
+        setClientHeight(scrollRef.current.clientHeight);
+        setScrollTop(scrollRef.current.scrollTop);
+      }
+    };
+
+    updateScrollDimensions();
+    // Update dimensions when content changes
+    const timeoutId = setTimeout(updateScrollDimensions, 100);
+    
+    return () => clearTimeout(timeoutId);
+  }, [approvalHistory, isLoading]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12 h-full">
@@ -81,8 +104,27 @@ export const ApprovalTimelineCard = ({ approvalHistory, isLoading, assessmentSta
         <p className="text-xs text-muted-foreground">Track the approval progress and workflow</p>
       </div>
       
-      <div className="flex-1 min-h-0 relative">
-        <div className="absolute inset-0 overflow-y-auto pr-2">
+      <div className="flex-1 min-h-0 relative max-h-[500px]">
+        {/* Top fade gradient - visible when scrolled down */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-background via-background/80 to-transparent pointer-events-none z-10"
+          style={{
+            opacity: scrollTop > 10 ? 1 : 0,
+            transition: 'opacity 0.2s ease-in-out'
+          }}
+        />
+        
+        {/* Scrollable content */}
+        <div 
+          ref={scrollRef}
+          className="absolute inset-0 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/30"
+          onScroll={(e) => {
+            const target = e.target as HTMLElement;
+            setScrollTop(target.scrollTop);
+            setScrollHeight(target.scrollHeight);
+            setClientHeight(target.clientHeight);
+          }}
+        >
           <div className="relative min-h-full">
             <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
             <div className="space-y-4 pb-4">
@@ -205,6 +247,15 @@ export const ApprovalTimelineCard = ({ approvalHistory, isLoading, assessmentSta
               </div>
             </div>
           </div>
+        
+        {/* Bottom fade gradient - visible when more content below */}
+        <div 
+          className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none z-10"
+          style={{
+            opacity: scrollHeight - scrollTop - clientHeight > 10 ? 1 : 0,
+            transition: 'opacity 0.2s ease-in-out'
+          }}
+        />
       </div>
     </div>
   );
