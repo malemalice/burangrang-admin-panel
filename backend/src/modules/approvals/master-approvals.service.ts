@@ -241,40 +241,40 @@ export class MasterApprovalsService {
       isActive: approval.isActive,
       items:
         approval.items?.map((item: any) => {
-          const itm = item as {
-            id: string;
-            mApprovalId: string;
-            order: number;
-            jobPositionId: string;
-            departmentId: string;
-            createdBy: string;
-            createdAt: Date;
-            jobPosition: { id: string; name: string };
-            department: { id: string; name: string };
-            creator: { id: string; firstName: string; lastName: string };
-          };
+        const itm = item as {
+          id: string;
+          mApprovalId: string;
+          order: number;
+          jobPositionId: string;
+          departmentId: string;
+          createdBy: string;
+          createdAt: Date;
+          jobPosition: { id: string; name: string };
+          department: { id: string; name: string };
+          creator: { id: string; firstName: string; lastName: string };
+        };
 
-          return {
-            id: itm.id,
-            mApprovalId: itm.mApprovalId,
-            order: itm.order,
-            jobPositionId: itm.jobPositionId,
-            departmentId: itm.departmentId,
-            createdBy: itm.createdBy,
-            createdAt: itm.createdAt,
-            jobPosition: {
-              id: itm.jobPosition.id,
-              name: itm.jobPosition.name,
-            },
-            department: {
-              id: itm.department.id,
-              name: itm.department.name,
-            },
-            creator: {
-              id: itm.creator.id,
-              name: `${itm.creator.firstName} ${itm.creator.lastName}`,
-            },
-          };
+        return {
+          id: itm.id,
+          mApprovalId: itm.mApprovalId,
+          order: itm.order,
+          jobPositionId: itm.jobPositionId,
+          departmentId: itm.departmentId,
+          createdBy: itm.createdBy,
+          createdAt: itm.createdAt,
+          jobPosition: {
+            id: itm.jobPosition.id,
+            name: itm.jobPosition.name,
+          },
+          department: {
+            id: itm.department.id,
+            name: itm.department.name,
+          },
+          creator: {
+            id: itm.creator.id,
+            name: `${itm.creator.firstName} ${itm.creator.lastName}`,
+          },
+        };
         }) || [],
       createdAt: approval.createdAt,
       updatedAt: approval.updatedAt,
@@ -357,36 +357,36 @@ export class MasterApprovalsService {
     // Map approval history with line numbers
     // Keep createdAt order for historical accuracy
     const history = approvalHistory.map((approval, index) => {
-      // Find matching master approval item to get the order/line
-      const matchingItem = masterApproval.items.find(
-        (item) =>
-          item.departmentId === approval.departmentId &&
-          item.jobPositionId === approval.jobPositionId,
-      );
+        // Find matching master approval item to get the order/line
+        const matchingItem = masterApproval.items.find(
+          (item) =>
+            item.departmentId === approval.departmentId &&
+            item.jobPositionId === approval.jobPositionId,
+        );
 
       // Mark as historical if it doesn't match current m_approvals configuration
       const isHistorical = !matchingItem;
 
-      return {
-        id: approval.id,
-        status: approval.status,
-        notes: approval.notes,
-        createdAt: approval.createdAt,
+        return {
+          id: approval.id,
+          status: approval.status,
+          notes: approval.notes,
+          createdAt: approval.createdAt,
         // Use matching item order if found, otherwise use sequential index
         // This preserves historical approvals even if they don't match current config
         line: matchingItem ? matchingItem.order : index + 1,
-        department: {
-          id: approval.department.id,
-          name: approval.department.name,
-        },
-        jobPosition: {
-          id: approval.jobPosition.id,
-          name: approval.jobPosition.name,
-        },
-        creator: {
-          id: approval.creator.id,
-          name: `${approval.creator.firstName} ${approval.creator.lastName}`,
-        },
+          department: {
+            id: approval.department.id,
+            name: approval.department.name,
+          },
+          jobPosition: {
+            id: approval.jobPosition.id,
+            name: approval.jobPosition.name,
+          },
+          creator: {
+            id: approval.creator.id,
+            name: `${approval.creator.firstName} ${approval.creator.lastName}`,
+          },
         isHistorical,
       };
     });
@@ -449,7 +449,7 @@ export class MasterApprovalsService {
       );
 
       let status: 'completed' | 'current' | 'pending' = 'pending';
-
+      
       if (completedApproval) {
         status = 'completed';
       } else if (nextApprover && nextApprover.line === item.order) {

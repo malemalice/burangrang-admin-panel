@@ -7,9 +7,10 @@ import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 interface ApprovalTimelineCardProps {
   approvalHistory: ApprovalStatusHistory | null;
   isLoading: boolean;
+  assessmentStatus?: string; // Assessment status to check if DONE
 }
 
-export const ApprovalTimelineCard = ({ approvalHistory, isLoading }: ApprovalTimelineCardProps) => {
+export const ApprovalTimelineCard = ({ approvalHistory, isLoading, assessmentStatus }: ApprovalTimelineCardProps) => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12 h-full">
@@ -60,8 +61,8 @@ export const ApprovalTimelineCard = ({ approvalHistory, isLoading }: ApprovalTim
     }
   };
 
-  // Check if status is DONE - if so, don't show current workflow
-  const isDone = approvalHistory.currentStatus === GeneralStatusEnum.DONE;
+  // Check if assessment status is DONE - if so, don't show current workflow
+  const isDone = assessmentStatus === GeneralStatusEnum.DONE;
   
   // Get all approvals sorted by createdAt (chronological order)
   const allApprovals = approvalHistory.history?.slice().sort((a, b) => 
@@ -74,17 +75,17 @@ export const ApprovalTimelineCard = ({ approvalHistory, isLoading }: ApprovalTim
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="mb-4">
+    <div className="flex flex-col h-full min-h-0">
+      <div className="mb-4 flex-shrink-0">
         <h3 className="text-base font-semibold text-foreground mb-1">Approval Timeline</h3>
         <p className="text-xs text-muted-foreground">Track the approval progress and workflow</p>
       </div>
       
-      <div className="flex-1 min-h-0 relative overflow-hidden">
-        <div className="h-full overflow-y-auto pr-2">
-          <div className="relative">
+      <div className="flex-1 min-h-0 relative">
+        <div className="absolute inset-0 overflow-y-auto pr-2">
+          <div className="relative min-h-full">
             <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
-            <div className="space-y-4">
+            <div className="space-y-4 pb-4">
               {/* Show all approvals in chronological order */}
               {allApprovals.map((approval) => {
                 const statusConfig = getStatusConfig(approval.status);
@@ -200,10 +201,10 @@ export const ApprovalTimelineCard = ({ approvalHistory, isLoading }: ApprovalTim
                 }
 
                 return null;
-              })}
+               })}
+              </div>
             </div>
           </div>
-        </div>
       </div>
     </div>
   );

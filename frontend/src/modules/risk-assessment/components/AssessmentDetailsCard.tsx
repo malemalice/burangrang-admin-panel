@@ -8,7 +8,7 @@ interface AssessmentDetailsCardProps {
 
 export const AssessmentDetailsCard = ({ assessment }: AssessmentDetailsCardProps) => {
   return (
-    <div className="space-y-4 h-full">
+    <div className="space-y-4">
       <div>
         <h3 className="text-sm font-semibold mb-3">Assessment Details</h3>
       </div>
