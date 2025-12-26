@@ -29,8 +29,8 @@ import { CreateNotificationDto } from '../dto/create-notification.dto';
 import { UpdateNotificationDto } from '../dto/update-notification.dto';
 import {
   PaginatedResponse,
-  FindAllQueryDto,
 } from '../../../shared/types/pagination-params';
+import { FindNotificationsDto } from '../dto/find-notifications.dto';
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -94,7 +94,7 @@ export class NotificationsController {
   @ApiResponse({ status: 200, type: [NotificationDto] })
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async getUserNotifications(
-    @Query() query: FindAllQueryDto,
+    @Query() query: FindNotificationsDto,
     @Request() req: any,
   ): Promise<PaginatedResponse<NotificationDto>> {
     return this.notificationsService.getUserNotifications(req.user.id, query);

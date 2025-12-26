@@ -202,7 +202,7 @@ export const useRiskAssessmentDetail = (id: string | undefined) => {
   const handleApprovalSubmitted = useCallback(async () => {
     if (!id) return;
     try {
-      const [assessmentData, approvalStatus] = await Promise.all([
+      const [assessmentData, approvalStatus, approvalRights] = await Promise.all([
         riskAssessmentService.getById(id),
         approvalService.checkApprovalStatus(id).catch((error) => {
           console.error('Failed to fetch approval status after submission:', error);
@@ -213,6 +213,11 @@ export const useRiskAssessmentDetail = (id: string | undefined) => {
             allApprovalLines: [],
             currentStatus: 'UNKNOWN',
           };
+        }),
+        approvalService.checkApprovalRights(id).catch((error) => {
+          console.error('Failed to fetch approval rights after submission:', error);
+          // Return false on error - user can't approve if check fails
+          return { canApprove: false };
         }),
       ]);
       setAssessment(assessmentData);
@@ -226,6 +231,12 @@ export const useRiskAssessmentDetail = (id: string | undefined) => {
           allApprovalLines: [],
           currentStatus: 'UNKNOWN',
         });
+      }
+      // Update approval rights - user should no longer be able to approve after submitting
+      if (approvalRights && !(approvalRights as any).error) {
+        setCanApprove(approvalRights.canApprove);
+      } else {
+        setCanApprove(false);
       }
     } catch (error) {
       console.error('Failed to refresh after approval:', error);

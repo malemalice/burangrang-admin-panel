@@ -270,9 +270,13 @@ const RiskAssessmentDetailPage = () => {
             <CardDescription>Basic information and approval progress of this risk assessment</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:auto-rows-fr">
               <AssessmentDetailsCard assessment={assessment} />
-              <ApprovalTimelineCard approvalHistory={approvalHistory} isLoading={isLoadingHistory} />
+              <ApprovalTimelineCard 
+                approvalHistory={approvalHistory} 
+                isLoading={isLoadingHistory}
+                assessmentStatus={assessment?.status}
+              />
             </div>
           </CardContent>
         </Card>

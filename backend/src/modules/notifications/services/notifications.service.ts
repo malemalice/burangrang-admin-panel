@@ -9,10 +9,8 @@ import {
 } from '../dto/notification.dto';
 import { CreateNotificationDto } from '../dto/create-notification.dto';
 import { UpdateNotificationDto } from '../dto/update-notification.dto';
-import {
-  PaginatedResponse,
-  FindAllQueryDto,
-} from '../../../shared/types/pagination-params';
+import { PaginatedResponse } from '../../../shared/types/pagination-params';
+import { FindNotificationsDto } from '../dto/find-notifications.dto';
 
 @Injectable()
 export class NotificationsService {
@@ -37,6 +35,54 @@ export class NotificationsService {
     );
   }
 
+  // Helper method to build recipient where clause based on user's attributes
+  private buildRecipientWhereClause(
+    userRoleId: string,
+    userId: string,
+    userDepartmentId: string | null,
+    userJobPositionId: string | null,
+  ): any {
+    const conditions: any[] = [
+      {
+        OR: [
+          { userId: null }, // Role-based notifications
+          { userId: userId }, // User-specific notifications
+        ],
+      },
+    ];
+
+    // Add department filter condition
+    if (userDepartmentId !== null) {
+      conditions.push({
+        OR: [
+          { departmentId: null }, // No department filter in recipient
+          { departmentId: userDepartmentId }, // Matches user's department
+        ],
+      });
+    } else {
+      // User has no department, so only match recipients with no department filter
+      conditions.push({ departmentId: null });
+    }
+
+    // Add job position filter condition
+    if (userJobPositionId !== null) {
+      conditions.push({
+        OR: [
+          { jobPositionId: null }, // No job position filter in recipient
+          { jobPositionId: userJobPositionId }, // Matches user's job position
+        ],
+      });
+    } else {
+      // User has no job position, so only match recipients with no job position filter
+      conditions.push({ jobPositionId: null });
+    }
+
+    return {
+      roleId: userRoleId,
+      AND: conditions,
+    };
+  }
+
   // Create notification for specific roles and/or users
   async createNotificationForRoles(
     createDto: CreateNotificationDto,
@@ -46,27 +92,75 @@ export class NotificationsService {
       // Build recipients array
       const recipients: any[] = [];
 
-      // Add role-based recipients
-      if (createDto.roleIds && createDto.roleIds.length > 0) {
-        createDto.roleIds.forEach((roleId) => {
-          recipients.push({ roleId });
-        });
-      }
-
-      // Add user-specific recipients
+      // Add user-specific recipients (highest priority - individual targeting)
       if (createDto.userIds && createDto.userIds.length > 0) {
         // Get user roles for user-specific notifications
         const users = await this.prisma.user.findMany({
           where: { id: { in: createDto.userIds } },
-          select: { id: true, roleId: true },
+          select: {
+            id: true,
+            roleId: true,
+            departmentId: true,
+            jobPositionId: true,
+          },
         });
 
         users.forEach((user) => {
           recipients.push({
             roleId: user.roleId,
             userId: user.id,
+            departmentId: user.departmentId || null,
+            jobPositionId: user.jobPositionId || null,
           });
         });
+      }
+
+      // Handle role-based recipients with optional department and job position filters
+      if (createDto.roleIds && createDto.roleIds.length > 0) {
+        const hasDepartmentFilter =
+          createDto.departmentIds && createDto.departmentIds.length > 0;
+        const hasJobPositionFilter =
+          createDto.jobPositionIds && createDto.jobPositionIds.length > 0;
+
+        if (hasDepartmentFilter && hasJobPositionFilter) {
+          // Combination: role + department + job position
+          createDto.roleIds.forEach((roleId) => {
+            createDto.departmentIds!.forEach((departmentId) => {
+              createDto.jobPositionIds!.forEach((jobPositionId) => {
+                recipients.push({
+                  roleId,
+                  departmentId,
+                  jobPositionId,
+                });
+              });
+            });
+          });
+        } else if (hasDepartmentFilter) {
+          // Combination: role + department
+          createDto.roleIds.forEach((roleId) => {
+            createDto.departmentIds!.forEach((departmentId) => {
+              recipients.push({
+                roleId,
+                departmentId,
+              });
+            });
+          });
+        } else if (hasJobPositionFilter) {
+          // Combination: role + job position
+          createDto.roleIds.forEach((roleId) => {
+            createDto.jobPositionIds!.forEach((jobPositionId) => {
+              recipients.push({
+                roleId,
+                jobPositionId,
+              });
+            });
+          });
+        } else {
+          // Role only (broadcast to all users with that role)
+          createDto.roleIds.forEach((roleId) => {
+            recipients.push({ roleId });
+          });
+        }
       }
 
       const notification = await this.prisma.notification.create({
@@ -87,7 +181,9 @@ export class NotificationsService {
             include: {
               role: true,
               user: true,
-            },
+              department: true,
+              jobPosition: true,
+            } as any,
           },
         },
       });
@@ -96,10 +192,77 @@ export class NotificationsService {
     }, 'Creating notification for roles');
   }
 
+  // Create notification broadcast to users by department and job position (no role filtering)
+  async createNotificationByDepartmentAndJobPosition(
+    data: {
+      title: string;
+      message: string;
+      context?: string;
+      contextId?: string;
+      typeId: string;
+      departmentId: string;
+      jobPositionId: string;
+    },
+    createdBy: string,
+  ): Promise<NotificationDto> {
+    return this.errorHandler.safeExecute(async () => {
+      // Get all active users matching department and job position
+      const users = await this.prisma.user.findMany({
+        where: {
+          departmentId: data.departmentId,
+          jobPositionId: data.jobPositionId,
+          isActive: true,
+        },
+        select: {
+          id: true,
+          roleId: true,
+          departmentId: true,
+          jobPositionId: true,
+        },
+      });
+
+      // Build recipients array for each user (with their role)
+      const recipients = users.map((user) => ({
+        roleId: user.roleId,
+        userId: user.id,
+        departmentId: user.departmentId,
+        jobPositionId: user.jobPositionId,
+      }));
+
+      // Create notification with recipients
+      const notification = await this.prisma.notification.create({
+        data: {
+          title: data.title,
+          message: data.message,
+          context: data.context,
+          contextId: data.contextId,
+          typeId: data.typeId,
+          createdBy,
+          recipients: {
+            create: recipients,
+          },
+        },
+        include: {
+          type: true,
+          recipients: {
+            include: {
+              role: true,
+              user: true,
+              department: true,
+              jobPosition: true,
+            } as any,
+          },
+        },
+      });
+
+      return this.notificationMapper(notification);
+    }, 'Creating notification by department and job position');
+  }
+
   // Get user's notifications with pagination
   async getUserNotifications(
     userId: string,
-    params: FindAllQueryDto,
+    params: FindNotificationsDto,
   ): Promise<PaginatedResponse<NotificationDto>> {
     return this.errorHandler.safeExecute(async () => {
       const {
@@ -126,25 +289,31 @@ export class NotificationsService {
         ),
       );
 
-      // Get user's role
+      // Get user's role, department, and job position
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { roleId: true },
+        select: {
+          roleId: true,
+          departmentId: true,
+          jobPositionId: true,
+        },
       });
 
       this.errorHandler.throwIfNotFoundById('User', userId, user);
+
+      // Build the where clause for recipients
+      const recipientWhere = this.buildRecipientWhereClause(
+        user.roleId,
+        userId,
+        user.departmentId,
+        user.jobPositionId,
+      ) as any;
 
       // Build the where clause
       const where: any = {
         isActive: true,
         recipients: {
-          some: {
-            roleId: user.roleId,
-            OR: [
-              { userId: null }, // Role-based notifications
-              { userId: userId }, // User-specific notifications
-            ],
-          },
+          some: recipientWhere,
         },
       };
 
@@ -171,26 +340,25 @@ export class NotificationsService {
       }
 
       // Get all notifications first (we'll filter and paginate in memory)
-      const allNotifications = await this.prisma.notification.findMany({
+      const allNotifications = (await this.prisma.notification.findMany({
         where,
         include: {
           type: true,
           recipients: {
-            where: {
-              roleId: user.roleId,
-              OR: [{ userId: null }, { userId: userId }],
-            },
+            where: recipientWhere,
             include: {
               role: true,
               user: true,
+              department: true,
+              jobPosition: true,
             },
-          },
-        },
+          } as any,
+        } as any,
         orderBy: { [sortBy]: sortOrder },
-      });
+      })) as any[];
 
       // Map notifications and set isRead based on recipient's read status
-      let mappedNotifications = allNotifications.map((notification) => {
+      let mappedNotifications = allNotifications.map((notification: any) => {
         const recipient = notification.recipients?.[0]; // Get the first (and should be only) recipient for this user
         return this.notificationMapper({
           ...notification,
@@ -228,44 +396,51 @@ export class NotificationsService {
   // Get notification by ID
   async findOne(id: string, userId: string): Promise<NotificationDto> {
     return this.errorHandler.safeExecute(async () => {
-      // Get user's role
+      // Get user's role, department, and job position
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { roleId: true },
+        select: {
+          roleId: true,
+          departmentId: true,
+          jobPositionId: true,
+        },
       });
 
       this.errorHandler.throwIfNotFoundById('User', userId, user);
 
-      const notification = await this.prisma.notification.findFirst({
+      const recipientWhere = this.buildRecipientWhereClause(
+        user.roleId,
+        userId,
+        user.departmentId,
+        user.jobPositionId,
+      ) as any;
+
+      const notification = (await this.prisma.notification.findFirst({
         where: {
           id,
           isActive: true,
           recipients: {
-            some: {
-              roleId: user.roleId,
-              OR: [{ userId: null }, { userId: userId }],
-            },
+            some: recipientWhere,
           },
         },
         include: {
           type: true,
           recipients: {
-            where: {
-              roleId: user.roleId,
-              OR: [{ userId: null }, { userId: userId }],
-            },
+            where: recipientWhere,
             include: {
               role: true,
               user: true,
+              department: true,
+              jobPosition: true,
             },
-          },
-        },
-      });
+          } as any,
+        } as any,
+      })) as any;
 
       this.errorHandler.throwIfNotFoundById('Notification', id, notification);
 
       // Map notification and set isRead based on recipient's read status
-      const recipient = notification.recipients?.[0]; // Get the first (and should be only) recipient for this user
+      const recipient = notification?.recipients?.[0]; // Get the first (and should be only) recipient for this user
       return this.notificationMapper({
         ...notification,
         isRead: recipient?.isRead || false, // Use recipient's read status
@@ -277,20 +452,30 @@ export class NotificationsService {
   // Mark notification as read
   async markAsRead(notificationId: string, userId: string): Promise<void> {
     return this.errorHandler.safeExecute(async () => {
-      // Get user's role
+      // Get user's role, department, and job position
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { roleId: true },
+        select: {
+          roleId: true,
+          departmentId: true,
+          jobPositionId: true,
+        },
       });
 
       this.errorHandler.throwIfNotFoundById('User', userId, user);
+
+      const recipientWhere = this.buildRecipientWhereClause(
+        user.roleId,
+        userId,
+        user.departmentId,
+        user.jobPositionId,
+      ) as any;
 
       // Update the recipient record to mark as read
       await this.prisma.notificationRecipient.updateMany({
         where: {
           notificationId,
-          roleId: user.roleId,
-          OR: [{ userId: null }, { userId: userId }],
+          ...recipientWhere,
         },
         data: {
           isRead: true,
@@ -322,19 +507,29 @@ export class NotificationsService {
   // Mark all notifications as read for user
   async markAllAsRead(userId: string): Promise<void> {
     return this.errorHandler.safeExecute(async () => {
-      // Get user's role
+      // Get user's role, department, and job position
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { roleId: true },
+        select: {
+          roleId: true,
+          departmentId: true,
+          jobPositionId: true,
+        },
       });
 
       this.errorHandler.throwIfNotFoundById('User', userId, user);
 
+      const recipientWhere = this.buildRecipientWhereClause(
+        user.roleId,
+        userId,
+        user.departmentId,
+        user.jobPositionId,
+      ) as any;
+
       // Mark all recipient records as read
       await this.prisma.notificationRecipient.updateMany({
         where: {
-          roleId: user.roleId,
-          OR: [{ userId: null }, { userId: userId }],
+          ...recipientWhere,
           isRead: false,
         },
         data: {
@@ -376,18 +571,28 @@ export class NotificationsService {
   // Get unread count for user
   async getUnreadCount(userId: string): Promise<number> {
     return this.errorHandler.safeExecute(async () => {
-      // Get user's role
+      // Get user's role, department, and job position
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { roleId: true },
+        select: {
+          roleId: true,
+          departmentId: true,
+          jobPositionId: true,
+        },
       });
 
       this.errorHandler.throwIfNotFoundById('User', userId, user);
 
+      const recipientWhere = this.buildRecipientWhereClause(
+        user.roleId,
+        userId,
+        user.departmentId,
+        user.jobPositionId,
+      ) as any;
+
       const count = await this.prisma.notificationRecipient.count({
         where: {
-          roleId: user.roleId,
-          OR: [{ userId: null }, { userId: userId }],
+          ...recipientWhere,
           isRead: false,
         },
       });

@@ -188,37 +188,39 @@ model Office {
 }
 
 model Department {
-  id              String               @id @default(uuid())
-  name            String
-  code            String               @unique
-  description     String?              @db.Text
-  emails          Json?                // Array of email addresses for the department
-  isActive        Boolean              @default(true)
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @default(now())
-  users           User[]
-  riskAssessments RiskAssessment[]
-  approvalItems   MasterApprovalItem[]
-  approvals       Approval[]
-  ppeWithdrawals  PPEWithdrawal[]
-  certificates    Certificate[]
+  id                   String                 @id @default(uuid())
+  name                 String
+  code                 String                 @unique
+  description          String?                @db.Text
+  emails               Json?                  // Array of email addresses for the department
+  isActive             Boolean                @default(true)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @default(now())
+  users                User[]
+  riskAssessments      RiskAssessment[]
+  approvalItems        MasterApprovalItem[]
+  approvals            Approval[]
+  ppeWithdrawals       PPEWithdrawal[]
+  certificates         Certificate[]
+  notificationRecipients NotificationRecipient[]
 
   @@map("m_departments")
 }
 
 model JobPosition {
-  id             String               @id @default(uuid())
-  name           String
-  code           String               @unique
-  level          Int
-  description    String?              @db.Text
-  isActive       Boolean              @default(true)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @default(now())
-  users          User[]
-  approvalItems  MasterApprovalItem[]
-  approvals      Approval[]
-  ppeWithdrawals PPEWithdrawal[]
+  id                   String                 @id @default(uuid())
+  name                 String
+  code                 String                 @unique
+  level                Int
+  description          String?                @db.Text
+  isActive             Boolean                @default(true)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @default(now())
+  users                User[]
+  approvalItems        MasterApprovalItem[]
+  approvals            Approval[]
+  ppeWithdrawals       PPEWithdrawal[]
+  notificationRecipients NotificationRecipient[]
 
   @@map("m_job_positions")
 }
@@ -445,6 +447,8 @@ model NotificationRecipient {
   notificationId String
   roleId         String
   userId         String? // Optional: specific user if targeting individual
+  departmentId   String? // Optional: target specific department
+  jobPositionId  String? // Optional: target specific job position
   isRead         Boolean   @default(false)
   readAt         DateTime?
   createdAt      DateTime  @default(now())
@@ -453,8 +457,10 @@ model NotificationRecipient {
   notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
   role         Role         @relation(fields: [roleId], references: [id])
   user         User?        @relation("NotificationRecipient", fields: [userId], references: [id])
+  department   Department?  @relation(fields: [departmentId], references: [id])
+  jobPosition  JobPosition? @relation(fields: [jobPositionId], references: [id])
 
-  @@unique([notificationId, roleId, userId])
+  @@unique([notificationId, roleId, userId, departmentId, jobPositionId])
   @@map("t_notification_recipients")
 }
 

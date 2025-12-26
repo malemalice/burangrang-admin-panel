@@ -47,3 +47,13 @@ export {
 export { default as NotificationDropdown } from './components/NotificationDropdown';
 export { default as NotificationItem } from './components/NotificationItem';
 export { default as NotificationList } from './components/NotificationList';
+
+// Utils
+export {
+  getNotificationRoute,
+  useNotificationNavigation,
+  normalizeContext,
+} from './utils/notificationRoutes';
+
+// Constants
+export { NOTIFICATION_CONTEXTS, type NotificationContext } from './constants/notificationContexts';

@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Injectable,
   NotFoundException,
@@ -15,11 +12,11 @@ import {
 } from './dto/master-approval.dto';
 import { Prisma } from '@prisma/client';
 import { SubmitApprovalDto, ApprovalStatus } from './dto/submit-approval.dto';
-import { ConfigService } from '@nestjs/config';
 import { User } from 'src/shared/types';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
+import { APPROVAL_ENTITY_TO_TABLE } from '../../shared/constants/approval-entities';
 
 interface FindAllOptions {
   page?: number;
@@ -33,20 +30,27 @@ interface FindAllOptions {
 @Injectable()
 export class MasterApprovalsService {
   private masterApprovalMapper: (masterApproval: any) => MasterApprovalDto;
-  private masterApprovalArrayMapper: (masterApprovals: any[]) => MasterApprovalDto[];
-  private masterApprovalPaginatedMapper: (data: { data: any[]; meta: any }) => { data: MasterApprovalDto[]; meta: any };
+  private masterApprovalArrayMapper: (
+    masterApprovals: any[],
+  ) => MasterApprovalDto[];
+  private masterApprovalPaginatedMapper: (data: { data: any[]; meta: any }) => {
+    data: MasterApprovalDto[];
+    meta: any;
+  };
 
   constructor(
     private readonly prisma: PrismaService,
     private dtoMapper: DtoMapperService,
     private errorHandler: ErrorHandlingService,
-    private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
   ) {
     // Initialize mappers
-    this.masterApprovalMapper = this.dtoMapper.createSimpleMapper(MasterApprovalDto);
-    this.masterApprovalArrayMapper = this.dtoMapper.createSimpleArrayMapper(MasterApprovalDto);
-    this.masterApprovalPaginatedMapper = this.dtoMapper.createPaginatedMapper(MasterApprovalDto);
+    this.masterApprovalMapper =
+      this.dtoMapper.createSimpleMapper(MasterApprovalDto);
+    this.masterApprovalArrayMapper =
+      this.dtoMapper.createSimpleArrayMapper(MasterApprovalDto);
+    this.masterApprovalPaginatedMapper =
+      this.dtoMapper.createPaginatedMapper(MasterApprovalDto);
   }
 
   async create(
@@ -141,7 +145,11 @@ export class MasterApprovalsService {
       },
     });
 
-    this.errorHandler.throwIfNotFoundById('Master approval', id, masterApproval);
+    this.errorHandler.throwIfNotFoundById(
+      'Master approval',
+      id,
+      masterApproval,
+    );
 
     return this.masterApprovalMapper(masterApproval);
   }
@@ -158,7 +166,11 @@ export class MasterApprovalsService {
       where: { id },
     });
 
-    this.errorHandler.throwIfNotFoundById('Master approval', id, existingApproval);
+    this.errorHandler.throwIfNotFoundById(
+      'Master approval',
+      id,
+      existingApproval,
+    );
 
     // Update the approval
     await this.prisma.masterApproval.update({
@@ -196,7 +208,11 @@ export class MasterApprovalsService {
       where: { id },
     });
 
-    this.errorHandler.throwIfNotFoundById('Master approval', id, masterApproval);
+    this.errorHandler.throwIfNotFoundById(
+      'Master approval',
+      id,
+      masterApproval,
+    );
 
     // Delete all related items first
     await this.prisma.masterApprovalItem.deleteMany({
@@ -223,42 +239,43 @@ export class MasterApprovalsService {
       id: approval.id,
       entity: approval.entity,
       isActive: approval.isActive,
-      items: (approval.items?.map((item: any) => {
-        const itm = item as {
-          id: string;
-          mApprovalId: string;
-          order: number;
-          jobPositionId: string;
-          departmentId: string;
-          createdBy: string;
-          createdAt: Date;
-          jobPosition: { id: string; name: string };
-          department: { id: string; name: string };
-          creator: { id: string; firstName: string; lastName: string };
-        };
+      items:
+        approval.items?.map((item: any) => {
+          const itm = item as {
+            id: string;
+            mApprovalId: string;
+            order: number;
+            jobPositionId: string;
+            departmentId: string;
+            createdBy: string;
+            createdAt: Date;
+            jobPosition: { id: string; name: string };
+            department: { id: string; name: string };
+            creator: { id: string; firstName: string; lastName: string };
+          };
 
-        return {
-          id: itm.id,
-          mApprovalId: itm.mApprovalId,
-          order: itm.order,
-          jobPositionId: itm.jobPositionId,
-          departmentId: itm.departmentId,
-          createdBy: itm.createdBy,
-          createdAt: itm.createdAt,
-          jobPosition: {
-            id: itm.jobPosition.id,
-            name: itm.jobPosition.name,
-          },
-          department: {
-            id: itm.department.id,
-            name: itm.department.name,
-          },
-          creator: {
-            id: itm.creator.id,
-            name: `${itm.creator.firstName} ${itm.creator.lastName}`,
-          },
-        };
-      }) || []),
+          return {
+            id: itm.id,
+            mApprovalId: itm.mApprovalId,
+            order: itm.order,
+            jobPositionId: itm.jobPositionId,
+            departmentId: itm.departmentId,
+            createdBy: itm.createdBy,
+            createdAt: itm.createdAt,
+            jobPosition: {
+              id: itm.jobPosition.id,
+              name: itm.jobPosition.name,
+            },
+            department: {
+              id: itm.department.id,
+              name: itm.department.name,
+            },
+            creator: {
+              id: itm.creator.id,
+              name: `${itm.creator.firstName} ${itm.creator.lastName}`,
+            },
+          };
+        }) || [],
       createdAt: approval.createdAt,
       updatedAt: approval.updatedAt,
     };
@@ -314,11 +331,12 @@ export class MasterApprovalsService {
       );
     }
 
-    // Get approval history
+    // Get ALL approval history for this entity, regardless of current m_approvals configuration
+    // This ensures historical approvals are preserved even when m_approvals_item changes
     const approvalHistory = await this.prisma.approval.findMany({
       where: {
         entityId,
-        mApprovalId: masterApproval.id,
+        // Don't filter by mApprovalId to get all historical approvals
       },
       include: {
         department: true,
@@ -337,6 +355,7 @@ export class MasterApprovalsService {
     });
 
     // Map approval history with line numbers
+    // Keep createdAt order for historical accuracy
     const history = approvalHistory.map((approval, index) => {
       // Find matching master approval item to get the order/line
       const matchingItem = masterApproval.items.find(
@@ -344,12 +363,17 @@ export class MasterApprovalsService {
           item.departmentId === approval.departmentId &&
           item.jobPositionId === approval.jobPositionId,
       );
-      
+
+      // Mark as historical if it doesn't match current m_approvals configuration
+      const isHistorical = !matchingItem;
+
       return {
         id: approval.id,
         status: approval.status,
         notes: approval.notes,
         createdAt: approval.createdAt,
+        // Use matching item order if found, otherwise use sequential index
+        // This preserves historical approvals even if they don't match current config
         line: matchingItem ? matchingItem.order : index + 1,
         department: {
           id: approval.department.id,
@@ -363,6 +387,7 @@ export class MasterApprovalsService {
           id: approval.creator.id,
           name: `${approval.creator.firstName} ${approval.creator.lastName}`,
         },
+        isHistorical,
       };
     });
 
@@ -424,7 +449,7 @@ export class MasterApprovalsService {
       );
 
       let status: 'completed' | 'current' | 'pending' = 'pending';
-      
+
       if (completedApproval) {
         status = 'completed';
       } else if (nextApprover && nextApprover.line === item.order) {
@@ -504,8 +529,11 @@ export class MasterApprovalsService {
       submitApprovalDto.entity,
     );
 
+    // If approval is rejected, set entity status to REJECTED
     let sourceStatus = 'DONE';
-    if (checkApprovalStatus.nextApprover) {
+    if (submitApprovalDto.status === ApprovalStatus.REJECTED) {
+      sourceStatus = 'REJECTED';
+    } else if (checkApprovalStatus.nextApprover) {
       sourceStatus = 'WAITING_APPROVAL';
     }
     await this.updateSourceEntity(
@@ -529,14 +557,11 @@ export class MasterApprovalsService {
     entityName: string,
     status: string,
   ): Promise<void> {
-    // Get the source entity table name from .env
-    let approvalEntity = this.configService.get<string>('APPROVAL_ENTITY');
-
-    if (!approvalEntity) {
-      throw new BadRequestException('Source entity table name not found');
-    }
-    approvalEntity = JSON.parse(approvalEntity);
-    const tableName = approvalEntity && approvalEntity[entityName];
+    // Get the source entity table name from mapping
+    const tableName =
+      APPROVAL_ENTITY_TO_TABLE[
+        entityName as keyof typeof APPROVAL_ENTITY_TO_TABLE
+      ];
 
     if (!tableName) {
       throw new BadRequestException(
@@ -561,15 +586,11 @@ export class MasterApprovalsService {
     entityName: string,
   ): Promise<{ id: string; roleId: string } | null> {
     try {
-      // Get the source entity table name from .env
-      let approvalEntity = this.configService.get<string>('APPROVAL_ENTITY');
-
-      if (!approvalEntity) {
-        return null;
-      }
-
-      approvalEntity = JSON.parse(approvalEntity);
-      const tableName = approvalEntity && approvalEntity[entityName];
+      // Get the source entity table name from mapping
+      const tableName =
+        APPROVAL_ENTITY_TO_TABLE[
+          entityName as keyof typeof APPROVAL_ENTITY_TO_TABLE
+        ];
 
       if (!tableName) {
         return null;
@@ -599,33 +620,6 @@ export class MasterApprovalsService {
     } catch (error) {
       console.error('Failed to get requester from entity:', error);
       return null;
-    }
-  }
-
-  /**
-   * Get users with matching department and job position for next approver
-   */
-  private async getNextApproverUsers(
-    nextApprover: ApprovalStatusHistory['nextApprover'],
-  ): Promise<Array<{ id: string; roleId: string }>> {
-    if (!nextApprover) {
-      return [];
-    }
-
-    try {
-      const users = await this.prisma.user.findMany({
-        where: {
-          departmentId: nextApprover.department.id,
-          jobPositionId: nextApprover.jobPosition.id,
-          isActive: true,
-        },
-        select: { id: true, roleId: true },
-      });
-
-      return users;
-    } catch (error) {
-      console.error('Failed to get next approver users:', error);
-      return [];
     }
   }
 
@@ -668,10 +662,10 @@ export class MasterApprovalsService {
       // Get approver's name from database
       const approverUser = await this.prisma.user.findUnique({
         where: { id: approver.id },
-        select: { firstName: true, lastName: true },
+        select: { firstName: true, lastName: true, departmentId: true },
       });
 
-      // Send notification to requester
+      // Send notification to requester (by userId and departmentId)
       if (requester) {
         const statusText =
           status === ApprovalStatus.APPROVED ? 'approved' : 'rejected';
@@ -685,45 +679,58 @@ export class MasterApprovalsService {
             ? ` Notes: ${lastApproval.notes}`
             : '';
 
+        // Get requester's department for notification
+        const requesterUser = await this.prisma.user.findUnique({
+          where: { id: requester.id },
+          select: { departmentId: true },
+        });
+
         await this.notificationsService.createNotificationForRoles(
           {
             title: `${entityName} Approval ${status === ApprovalStatus.APPROVED ? 'Approved' : 'Rejected'}`,
             message: `Your ${entityName} request has been ${statusText} by ${approverName}.${notesText}`,
-            context: entityName.toLowerCase(),
+            context: entityName.toLowerCase().replace(/_/g, '-'),
             contextId: entityId,
             typeId: notificationType.id,
             roleIds: requester.roleId ? [requester.roleId] : [],
             userIds: [requester.id],
+            departmentIds: requesterUser?.departmentId
+              ? [requesterUser.departmentId]
+              : undefined,
           },
           approver.id,
         );
       }
 
       // Send notification to next approver if status is APPROVED and there's a next approver
+      // Broadcast to all users in the department and job position (no role filtering)
       if (status === ApprovalStatus.APPROVED && approvalStatus.nextApprover) {
-        const nextApproverUsers = await this.getNextApproverUsers(
-          approvalStatus.nextApprover,
-        );
+        // Get or create notification type for approval request
+        let approvalRequestType = await this.prisma.notificationType.findFirst({
+          where: { name: 'APPROVAL_REQUEST' },
+        });
 
-        if (nextApproverUsers.length > 0) {
-          const roleIds = Array.from(
-            new Set(nextApproverUsers.map((u) => u.roleId)),
-          );
-          const userIds = nextApproverUsers.map((u) => u.id);
-
-          await this.notificationsService.createNotificationForRoles(
-            {
-              title: `${entityName} Approval Request`,
-              message: `A ${entityName} request is pending your approval (Line ${approvalStatus.nextApprover.line}).`,
-              context: entityName.toLowerCase(),
-              contextId: entityId,
-              typeId: notificationType.id,
-              roleIds,
-              userIds,
+        if (!approvalRequestType) {
+          approvalRequestType = await this.prisma.notificationType.create({
+            data: {
+              name: 'APPROVAL_REQUEST',
+              description: 'Approval request pending',
             },
-            approver.id,
-          );
+          });
         }
+
+        await this.notificationsService.createNotificationByDepartmentAndJobPosition(
+          {
+            title: `${entityName} Approval Request`,
+            message: `A ${entityName} request is pending your approval (Line ${approvalStatus.nextApprover.line}).`,
+            context: entityName.toLowerCase().replace(/_/g, '-'),
+            contextId: entityId,
+            typeId: approvalRequestType.id,
+            departmentId: approvalStatus.nextApprover.department.id,
+            jobPositionId: approvalStatus.nextApprover.jobPosition.id,
+          },
+          approver.id,
+        );
       }
     } catch (error) {
       console.error('Failed to send approval notifications:', error);
