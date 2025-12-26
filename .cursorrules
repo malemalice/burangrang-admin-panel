@@ -1,0 +1,128 @@
+# HSE Dashboard Project Rules
+
+## Context-Aware Rules
+
+### Backend Development
+When working on files in `backend/` directory:
+- **Primary Reference**: Follow all patterns and guidelines in `backend/TRD.md`
+- **Architecture**: Follow NestJS patterns with TypeScript
+- **Module Structure**: Use standard module structure (controllers, services, DTOs)
+- **Database**: Use Prisma ORM with PostgreSQL
+- **Security**: Implement JWT authentication and role-based authorization
+- **Error Handling**: Use ErrorHandlingService consistently
+- **DTO Mapping**: Use DtoMapperService for all transformations
+- **API Design**: Follow RESTful conventions with proper Swagger documentation
+
+### Frontend Development
+When working on files in `frontend/` directory:
+- **Primary Reference**: Follow all patterns and guidelines in `frontend/TRD.md`
+- **Architecture**: Follow modular, feature-based architecture
+- **Module Structure**: Use standard module structure (components, pages, services, types, hooks, routes)
+- **State Management**: Use React hooks and context appropriately
+- **API Calls**: Use service layer pattern with proper error handling
+- **Forms**: Use React Hook Form with Zod validation
+- **Components**: Use shadcn/ui components from `@/core/components/ui`
+
+### UI/UX and Design System
+When working on UI/UX, styling, or design-related files in `frontend/`:
+- **Design System Reference**: Follow design system guidelines in `frontend/TRD.md` (Design System section)
+- **Color System**: Use semantic color tokens from BurangrangDesign System, never hard-coded colors
+- **Typography**: Follow typography scale (H1: 32px, H2: 24px, Body: 14-16px, etc.)
+- **Spacing**: Use Tailwind spacing scale (8px grid: 4px, 8px, 16px, 24px, 32px)
+- **Components**: Use shadcn/ui components consistently
+- **Icons**: Use Lucide React icons (16px, 20px, 24px, 32px standards)
+- **Theme**: Support light/dark mode via theme system
+- **Layout**: Follow page structure patterns (PageHeader → max-w-4xl wrapper → Form Component)
+- **Form Layout**: Use two-column grid for related fields, single column for full-width
+- **Status Colors**: Use semantic status colors (green for active/success, yellow for pending, red for error, etc.)
+
+### Entity and ERD Related Work
+When working on:
+- Database schema changes (`backend/prisma/schema.prisma`)
+- Entity relationships
+- Database migrations
+- ERD documentation
+- Data modeling
+
+**References to consult:**
+1. **Primary Schema**: `backend/prisma/schema.prisma` - Current database schema
+2. **ERD Documentation**: `backend/erd.md` - Complete entity relationship documentation
+3. **ERD Quick Reference**: `backend/erd-quick-reference.md` - Quick lookup for relationships
+4. **ERD Pre-Documentation**: `backend/erd-pre.md` - Historical/previous ERD documentation
+
+**Naming Conventions:**
+- Master Data Tables: `m_` prefix (e.g., `m_roles`, `m_offices`, `m_departments`)
+- Transactional Data Tables: `t_` prefix (e.g., `t_users`, `t_approvals`, `t_risk_assessment`)
+- Junction Tables: `_` prefix (e.g., `_PermissionToRole`, `_MenuToRole`)
+
+**Key Principles:**
+- Always check existing relationships before adding new ones
+- Maintain referential integrity
+- Follow established naming conventions
+- Update ERD documentation when schema changes
+
+## General Rules
+
+### Code Quality
+- Use TypeScript with strict mode
+- Follow established patterns from TRD documents
+- Write comprehensive error handling
+- Include proper validation
+- Document complex logic
+
+### Security
+- Never hardcode secrets or credentials
+- Use environment variables for configuration
+- Implement proper authentication and authorization
+- Validate all user inputs
+
+### Database
+- Never run migrations or seed scripts without explicit user permission
+- Always check schema.prisma before making database changes
+- Follow Prisma best practices
+
+### Testing
+- Write tests for new features
+- Maintain test coverage standards
+- Use appropriate testing patterns from TRD
+
+### Documentation
+- Update TRD.md when making significant changes
+- Keep code comments concise and meaningful
+- Document API endpoints with Swagger
+
+## File-Specific Guidelines
+
+### Backend Files
+- **Controllers**: Use `@ApiTags`, `@ApiBearerAuth`, `@UseGuards(JwtAuthGuard, RolesGuard)`
+- **Services**: Inject `PrismaService`, `ErrorHandlingService`, `DtoMapperService`
+- **DTOs**: Use `@ApiProperty()`, `@Expose()`, validation decorators
+- **Modules**: Import `PrismaModule` and `SharedModule`
+
+### Frontend Files
+- **Pages**: Use PageHeader at page level, max-w-4xl wrapper for forms
+- **Forms**: Use Card with CardHeader and CardContent, space-y-6 for spacing
+- **Tables**: Use DataTable component with consistent column structure
+- **Services**: Follow service layer pattern with DTO transformation
+- **Hooks**: Provide custom hooks for data operations
+
+### UI Components
+- **Inside Dialogs**: Use ModalCombobox instead of SearchableSelect (portal-free)
+- **Dropdown + Dialog**: Close dropdown before opening dialog to prevent focus traps
+- **Status Badges**: Use semantic colors (green-100 bg, green-800 text for active)
+- **Buttons**: Follow button hierarchy (Primary → Secondary → Ghost → Destructive)
+
+## Context Detection
+
+The AI should automatically detect:
+- **Backend context**: Files in `backend/src/`, `backend/prisma/`
+- **Frontend context**: Files in `frontend/src/`
+- **UI/UX context**: Files in `frontend/src/` with UI components, styling, or design-related code
+- **Entity/ERD context**: Files related to `schema.prisma`, migrations, or ERD documentation
+
+## Priority Order
+
+1. **Path-based rules** (backend/ vs frontend/)
+2. **File-type rules** (UI components, forms, services)
+3. **General project rules**
+4. **TRD document references** (consult when needed)

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { FileEdit, ArrowLeft, FileDown, CheckCircle2 } from 'lucide-react';
+import { FileEdit, ArrowLeft, FileDown, CheckCircle2, Send, XCircle } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
+import { toast } from 'sonner';
 
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
@@ -17,6 +18,7 @@ import {
 
 import { RiskAssessmentItem } from '@/core/lib/types';
 import { type CreateRiskAssessmentItemDTO } from '../services/riskAssessmentService';
+import riskAssessmentService from '../services/riskAssessmentService';
 import RiskAssessmentItemForm from '../components/RiskAssessmentItemForm';
 import { AssessmentDetailsCard } from '../components/AssessmentDetailsCard';
 import { ApprovalHistoryCard } from '../components/ApprovalHistoryCard';
@@ -25,6 +27,8 @@ import { ViewItemDialog } from '../components/ViewItemDialog';
 import { RiskAssessmentItemsTable } from '../components/RiskAssessmentItemsTable';
 import { useRiskAssessmentDetail } from '../hooks/useRiskAssessmentDetail';
 import { getStatusBadge } from '../utils/riskBadgeHelpers';
+import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { ApprovalStatus } from '@/core/lib/types';
 
 const RiskAssessmentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -50,10 +54,12 @@ const RiskAssessmentDetailPage = () => {
     handleUpdateItem,
     handleDeleteItem,
     handleApprovalSubmitted,
+    refreshAssessment,
   } = useRiskAssessmentDetail(id);
 
   // Dialog states
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+  const [approvalInitialStatus, setApprovalInitialStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
   const [isViewItemDialogOpen, setIsViewItemDialogOpen] = useState(false);
   const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false);
@@ -61,6 +67,43 @@ const RiskAssessmentDetailPage = () => {
   const [editingItem, setEditingItem] = useState<RiskAssessmentItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<RiskAssessmentItem | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!id || !assessment) return;
+
+    try {
+      setIsUpdatingStatus(true);
+      await riskAssessmentService.update(id, {
+        status: GeneralStatusEnum.OPEN,
+      });
+      toast.success('Risk assessment submitted successfully');
+      await refreshAssessment();
+    } catch (error) {
+      console.error('Failed to submit risk assessment:', error);
+      toast.error('Failed to submit risk assessment');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleRequestApproval = async () => {
+    if (!id || !assessment) return;
+
+    try {
+      setIsUpdatingStatus(true);
+      await riskAssessmentService.update(id, {
+        status: GeneralStatusEnum.WAITING_APPROVAL,
+      });
+      toast.success('Approval requested successfully');
+      await refreshAssessment();
+    } catch (error) {
+      console.error('Failed to request approval:', error);
+      toast.error('Failed to request approval');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
 
   const handleExportPDF = async () => {
     try {
@@ -140,7 +183,58 @@ const RiskAssessmentDetailPage = () => {
         title={`Risk Assessment: ${assessment.code}`}
         subtitle={`Created on ${format(new Date(assessment.createdAt), 'dd MMM yyyy')}`}
         actions={
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {/* Status-based action buttons */}
+            {(assessment.status === GeneralStatusEnum.SCHEDULED || 
+              assessment.status === GeneralStatusEnum.DRAFT) && (
+              <Button 
+                variant="default"
+                onClick={handleSubmit}
+                disabled={isUpdatingStatus}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                {isUpdatingStatus ? 'Submitting...' : 'Submit'}
+              </Button>
+            )}
+
+            {assessment.status === GeneralStatusEnum.OPEN && (
+              <Button 
+                variant="default"
+                onClick={handleRequestApproval}
+                disabled={isUpdatingStatus}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                {isUpdatingStatus ? 'Requesting...' : 'Request Approval'}
+              </Button>
+            )}
+
+            {assessment.status === GeneralStatusEnum.WAITING_APPROVAL && canApprove && (
+              <>
+                <Button 
+                  variant="default"
+                  onClick={() => {
+                    setApprovalInitialStatus(ApprovalStatus.APPROVED);
+                    setIsApprovalModalOpen(true);
+                  }}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Approve
+                </Button>
+                <Button 
+                  variant="destructive"
+                  onClick={() => {
+                    setApprovalInitialStatus(ApprovalStatus.REJECTED);
+                    setIsApprovalModalOpen(true);
+                  }}
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Reject
+                </Button>
+              </>
+            )}
+
+            {/* Standard action buttons */}
             <Button 
               variant="outline"
               onClick={handleExportPDF}
@@ -148,19 +242,17 @@ const RiskAssessmentDetailPage = () => {
               <FileDown className="h-4 w-4 mr-2" />
               Export PDF
             </Button>
-            {canApprove && (
+            
+            {assessment.status !== GeneralStatusEnum.DONE && 
+             assessment.status !== GeneralStatusEnum.REJECTED && (
               <Button 
-                variant="default"
-                onClick={() => setIsApprovalModalOpen(true)}
+                variant="outline"
+                onClick={() => navigate(`/risk-assessment/${id}/edit`)}
               >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Submit Approval
+                <FileEdit className="h-4 w-4 mr-2" />
+                Edit Assessment
               </Button>
             )}
-            <Button onClick={() => navigate(`/risk-assessment/${id}/edit`)}>
-              <FileEdit className="h-4 w-4 mr-2" />
-              Edit Assessment
-            </Button>
           </div>
         }
       >
@@ -277,6 +369,7 @@ const RiskAssessmentDetailPage = () => {
           onOpenChange={setIsApprovalModalOpen}
           assessmentId={id}
           onApprovalSubmitted={handleApprovalSubmitted}
+          initialStatus={approvalInitialStatus}
         />
       )}
 

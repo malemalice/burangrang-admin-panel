@@ -340,6 +340,205 @@ When designing UI/UX for **back-office systems** (ERP, Internal Dashboards), the
 - **Loading States**: Spinners, skeleton screens, progress indicators
 - **Alerts/Toasts**: Success, error, warning, info messages (using Sonner)
 
+#### Document Workflow & Status Management Patterns
+
+**Overview**: Documents and entities in back-office systems often follow defined workflow states (DRAFT → OPEN → WAITING_APPROVAL → DONE/REJECTED). Action buttons must be dynamically displayed based on current status and user permissions, providing clear workflow progression.
+
+**Core Principles**:
+
+1. **Status-Based Action Visibility**
+   - Actions appear only when relevant to current status
+   - Hide actions that are not applicable to current state
+   - Show next logical step in workflow prominently
+
+2. **Button Hierarchy for Workflow Actions**
+   - **Primary Actions** (default variant): Submit, Request Approval, Approve
+   - **Destructive Actions** (destructive variant): Reject, Cancel
+   - **Secondary Actions** (outline variant): Edit, Export, View
+   - **Status-Specific Colors**: Approve buttons may use semantic green (`bg-green-600 hover:bg-green-700`) for positive actions
+
+3. **Permission-Based Visibility**
+   - Check user permissions before showing action buttons
+   - Use `canApprove`, `canEdit`, `canSubmit` flags from hooks/services
+   - Hide actions user cannot perform
+
+4. **Workflow State Transitions**
+   - Each status transition should have a dedicated handler function
+   - Update status via service layer, not direct state manipulation
+   - Refresh data after status change to reflect new state
+
+5. **Loading States During Transitions**
+   - Disable action buttons during status updates
+   - Show loading text: "Submitting...", "Requesting...", "Approving..."
+   - Prevent multiple simultaneous status changes
+
+6. **Error Handling**
+   - Display toast notifications for success/error
+   - Handle API errors gracefully
+   - Allow retry on failure
+
+**Implementation Pattern**:
+
+```typescript
+// Status-based action buttons in PageHeader actions
+<PageHeader
+  title={`Document: ${document.code}`}
+  actions={
+    <div className="flex gap-2 flex-wrap">
+      {/* Status-based workflow actions */}
+      {(status === GeneralStatusEnum.SCHEDULED || 
+        status === GeneralStatusEnum.DRAFT) && (
+        <Button 
+          variant="default"
+          onClick={handleSubmit}
+          disabled={isUpdatingStatus}
+        >
+          <Send className="h-4 w-4 mr-2" />
+          {isUpdatingStatus ? 'Submitting...' : 'Submit'}
+        </Button>
+      )}
+
+      {status === GeneralStatusEnum.OPEN && (
+        <Button 
+          variant="default"
+          onClick={handleRequestApproval}
+          disabled={isUpdatingStatus}
+        >
+          <Send className="h-4 w-4 mr-2" />
+          {isUpdatingStatus ? 'Requesting...' : 'Request Approval'}
+        </Button>
+      )}
+
+      {status === GeneralStatusEnum.WAITING_APPROVAL && canApprove && (
+        <>
+          <Button 
+            variant="default"
+            onClick={() => {
+              setApprovalInitialStatus(ApprovalStatus.APPROVED);
+              setIsApprovalModalOpen(true);
+            }}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            <CheckCircle2 className="h-4 w-4 mr-2" />
+            Approve
+          </Button>
+          <Button 
+            variant="destructive"
+            onClick={() => {
+              setApprovalInitialStatus(ApprovalStatus.REJECTED);
+              setIsApprovalModalOpen(true);
+            }}
+          >
+            <XCircle className="h-4 w-4 mr-2" />
+            Reject
+          </Button>
+        </>
+      )}
+
+      {/* Standard actions (always visible when applicable) */}
+      <Button variant="outline" onClick={handleExportPDF}>
+        <FileDown className="h-4 w-4 mr-2" />
+        Export PDF
+      </Button>
+      
+      {/* Conditional edit based on status */}
+      {status !== GeneralStatusEnum.DONE && 
+       status !== GeneralStatusEnum.REJECTED && (
+        <Button 
+          variant="outline"
+          onClick={() => navigate(`/path/${id}/edit`)}
+        >
+          <FileEdit className="h-4 w-4 mr-2" />
+          Edit
+        </Button>
+      )}
+    </div>
+  }
+/>
+```
+
+**Status Transition Handlers**:
+
+```typescript
+// Handler for status transitions
+const handleSubmit = async () => {
+  if (!id || !document) return;
+
+  try {
+    setIsUpdatingStatus(true);
+    await documentService.update(id, {
+      status: GeneralStatusEnum.OPEN,
+    });
+    toast.success('Document submitted successfully');
+    await refreshDocument(); // Refresh to show new status
+  } catch (error) {
+    console.error('Failed to submit document:', error);
+    toast.error('Failed to submit document');
+  } finally {
+    setIsUpdatingStatus(false);
+  }
+};
+
+const handleRequestApproval = async () => {
+  if (!id || !document) return;
+
+  try {
+    setIsUpdatingStatus(true);
+    await documentService.update(id, {
+      status: GeneralStatusEnum.WAITING_APPROVAL,
+    });
+    toast.success('Approval requested successfully');
+    await refreshDocument();
+  } catch (error) {
+    console.error('Failed to request approval:', error);
+    toast.error('Failed to request approval');
+  } finally {
+    setIsUpdatingStatus(false);
+  }
+};
+```
+
+**Approval Dialog Pattern**:
+
+```typescript
+// Approval dialog with pre-selected status
+<ApprovalDialog
+  open={isApprovalModalOpen}
+  onOpenChange={setIsApprovalModalOpen}
+  documentId={id}
+  onApprovalSubmitted={handleApprovalSubmitted}
+  initialStatus={approvalInitialStatus} // Pre-select approve/reject
+/>
+
+// ApprovalDialog component accepts initialStatus prop
+interface ApprovalDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  documentId: string;
+  onApprovalSubmitted: () => void;
+  initialStatus?: ApprovalStatus; // Pre-select status
+}
+```
+
+**Key Guidelines**:
+
+1. **Status Enum Usage**: Use `GeneralStatusEnum` constants consistently across modules
+2. **Button Placement**: Place workflow actions first, then standard actions (Export, Edit)
+3. **Icon Consistency**: Use semantic icons (Send for submit/request, CheckCircle2 for approve, XCircle for reject)
+4. **Responsive Layout**: Use `flex-wrap` for button groups to handle overflow on smaller screens
+5. **State Management**: Use separate state for status updates (`isUpdatingStatus`) vs general loading
+6. **Data Refresh**: Always refresh document data after status change to reflect new state and button visibility
+7. **Permission Checks**: Verify user permissions server-side; use client-side checks for UI optimization only
+
+**Common Workflow Patterns**:
+
+- **Draft/Scheduled → Open**: "Submit" button
+- **Open → Waiting Approval**: "Request Approval" button
+- **Waiting Approval**: "Approve" and "Reject" buttons (permission-based)
+- **Done/Rejected**: Hide edit and workflow actions, show read-only actions only
+
+**Apply to**: Risk Assessments, Work Permits, Approvals, Certificates, PPE Withdrawals, and any entity with status-based workflow.
+
 #### Empty States
 - **Illustration or Icon**: Visual representation
 - **Clear Message**: "No orders found" or "No data available"

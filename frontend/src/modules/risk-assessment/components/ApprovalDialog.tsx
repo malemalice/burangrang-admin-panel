@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
@@ -21,17 +21,27 @@ interface ApprovalDialogProps {
   onOpenChange: (open: boolean) => void;
   assessmentId: string;
   onApprovalSubmitted: () => void;
+  initialStatus?: ApprovalStatus;
 }
 
 export const ApprovalDialog = ({ 
   open, 
   onOpenChange, 
   assessmentId,
-  onApprovalSubmitted 
+  onApprovalSubmitted,
+  initialStatus = ApprovalStatus.APPROVED,
 }: ApprovalDialogProps) => {
-  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
+  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(initialStatus);
   const [approvalNotes, setApprovalNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Reset form when dialog opens or initialStatus changes
+  useEffect(() => {
+    if (open) {
+      setApprovalStatus(initialStatus);
+      setApprovalNotes('');
+    }
+  }, [open, initialStatus]);
 
   const handleSubmit = async () => {
     if (!assessmentId) return;
