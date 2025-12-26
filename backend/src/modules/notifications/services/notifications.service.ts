@@ -123,79 +123,35 @@ export class NotificationsService {
     title: string,
     message: string,
     emailAddresses: string[],
+    context?: string,
+    contextId?: string,
   ): Promise<void> {
     if (emailAddresses.length === 0) {
       return;
     }
 
-    // Create simple HTML email template
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              line-height: 1.6;
-              color: #333;
-              max-width: 600px;
-              margin: 0 auto;
-              padding: 20px;
-            }
-            .header {
-              background-color: #4CAF50;
-              color: white;
-              padding: 20px;
-              text-align: center;
-              border-radius: 5px 5px 0 0;
-            }
-            .content {
-              background-color: #f9f9f9;
-              padding: 20px;
-              border: 1px solid #ddd;
-              border-top: none;
-              border-radius: 0 0 5px 5px;
-            }
-            .message {
-              white-space: pre-wrap;
-              margin: 20px 0;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>${this.escapeHtml(title)}</h1>
-          </div>
-          <div class="content">
-            <div class="message">${this.escapeHtml(message)}</div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    // Send email to each address
+    // Send email to each address using the notification template
     const emailPromises = emailAddresses.map((email) =>
-      this.mailService.sendSimpleEmail(email, title, html).catch((error) => {
-        this.logger.error(
-          `Failed to send notification email to ${email}: ${error}`,
-        );
-      }),
+      this.mailService
+        .sendTemplatedMail({
+          email,
+          template: 'notification',
+          subject: title,
+          context: {
+            title,
+            message,
+            context,
+            contextId,
+          },
+        })
+        .catch((error) => {
+          this.logger.error(
+            `Failed to send notification email to ${email}: ${error}`,
+          );
+        }),
     );
 
     await Promise.allSettled(emailPromises);
-  }
-
-  // Helper method to escape HTML
-  private escapeHtml(text: string): string {
-    const map: Record<string, string> = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;',
-    };
-    return text.replace(/[&<>"']/g, (m) => map[m]);
   }
 
   // Helper method to build recipient where clause based on user's attributes
@@ -358,6 +314,8 @@ export class NotificationsService {
             createDto.title,
             createDto.message,
             emailAddresses,
+            createDto.context,
+            createDto.contextId,
           );
         })
         .catch((error) => {
@@ -438,6 +396,8 @@ export class NotificationsService {
             data.title,
             data.message,
             emailAddresses,
+            data.context,
+            data.contextId,
           );
         })
         .catch((error) => {
