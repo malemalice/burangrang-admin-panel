@@ -665,11 +665,19 @@ export class MasterApprovalsService {
       // Get requester
       const requester = await this.getRequesterFromEntity(entityId, entityName);
 
+      // Get approver's name from database
+      const approverUser = await this.prisma.user.findUnique({
+        where: { id: approver.id },
+        select: { firstName: true, lastName: true },
+      });
+
       // Send notification to requester
       if (requester) {
         const statusText =
           status === ApprovalStatus.APPROVED ? 'approved' : 'rejected';
-        const approverName = `${approver.firstName || ''} ${approver.lastName || ''}`.trim();
+        const approverName = approverUser
+          ? `${approverUser.firstName || ''} ${approverUser.lastName || ''}`.trim()
+          : 'Unknown';
         const lastApproval =
           approvalStatus.history[approvalStatus.history.length - 1];
         const notesText =
