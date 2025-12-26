@@ -21,7 +21,7 @@ import { type CreateRiskAssessmentItemDTO } from '../services/riskAssessmentServ
 import riskAssessmentService from '../services/riskAssessmentService';
 import RiskAssessmentItemForm from '../components/RiskAssessmentItemForm';
 import { AssessmentDetailsCard } from '../components/AssessmentDetailsCard';
-import { ApprovalHistoryCard } from '../components/ApprovalHistoryCard';
+import { ApprovalTimelineCard } from '../components/ApprovalTimelineCard';
 import { ApprovalDialog } from '../components/ApprovalDialog';
 import { ViewItemDialog } from '../components/ViewItemDialog';
 import { RiskAssessmentItemsTable } from '../components/RiskAssessmentItemsTable';
@@ -261,17 +261,17 @@ const RiskAssessmentDetailPage = () => {
         </div>
       </PageHeader>
 
-      {/* Risk Assessment Details & Approval History Card - Side by Side */}
+      {/* Risk Assessment Details & Approval Timeline Card - Side by Side */}
       <div ref={targetRef}>
         <Card>
           <CardHeader>
-            <CardTitle>Assessment Details & Approval History</CardTitle>
+            <CardTitle>Assessment Details</CardTitle>
             <CardDescription>Basic information and approval progress of this risk assessment</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <AssessmentDetailsCard assessment={assessment} />
-              <ApprovalHistoryCard approvalHistory={approvalHistory} isLoading={isLoadingHistory} />
+              <ApprovalTimelineCard approvalHistory={approvalHistory} isLoading={isLoadingHistory} />
             </div>
           </CardContent>
         </Card>

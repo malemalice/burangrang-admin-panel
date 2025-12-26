@@ -26,21 +26,61 @@ export const useRiskAssessmentDetail = (id: string | undefined) => {
   // Fetch assessment details
   useEffect(() => {
     const fetchData = async () => {
+      if (!id) return;
+      
+      setIsLoading(true);
+      setIsLoadingHistory(true);
+
+      // Fetch assessment data (required)
       try {
-        if (!id) return;
-        const [assessmentData, approvalRights, approvalStatus] = await Promise.all([
-          riskAssessmentService.getById(id),
-          approvalService.checkApprovalRights(id),
-          approvalService.checkApprovalStatus(id),
-        ]);
+        const assessmentData = await riskAssessmentService.getById(id);
         setAssessment(assessmentData);
-        setCanApprove(approvalRights.canApprove);
-        setApprovalHistory(approvalStatus);
       } catch (error) {
+        console.error('Failed to fetch risk assessment:', error);
         toast.error('Failed to fetch risk assessment');
         navigate('/risk-assessment');
+        setIsLoading(false);
+        setIsLoadingHistory(false);
+        return;
       } finally {
         setIsLoading(false);
+      }
+
+      // Fetch approval rights (optional - don't block if it fails)
+      try {
+        const approvalRights = await approvalService.checkApprovalRights(id);
+        setCanApprove(approvalRights.canApprove);
+      } catch (error) {
+        console.error('Failed to fetch approval rights:', error);
+        // Don't show error toast - this is expected for users without permission
+        setCanApprove(false);
+      }
+
+      // Fetch approval status/history (always attempt, regardless of permissions)
+      try {
+        const approvalStatus = await approvalService.checkApprovalStatus(id);
+        // Handle backend error response (backend returns { error: true, message: string } on errors)
+        if (approvalStatus && !(approvalStatus as any).error) {
+          setApprovalHistory(approvalStatus);
+        } else {
+          // Backend returned an error response, but still set empty history
+          setApprovalHistory({
+            history: [],
+            nextApprover: null,
+            allApprovalLines: [],
+            currentStatus: 'UNKNOWN',
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch approval status:', error);
+        // Set empty history instead of null, so component can still render
+        setApprovalHistory({
+          history: [],
+          nextApprover: null,
+          allApprovalLines: [],
+          currentStatus: 'UNKNOWN',
+        });
+      } finally {
         setIsLoadingHistory(false);
       }
     };
@@ -164,10 +204,29 @@ export const useRiskAssessmentDetail = (id: string | undefined) => {
     try {
       const [assessmentData, approvalStatus] = await Promise.all([
         riskAssessmentService.getById(id),
-        approvalService.checkApprovalStatus(id),
+        approvalService.checkApprovalStatus(id).catch((error) => {
+          console.error('Failed to fetch approval status after submission:', error);
+          // Return empty history on error
+          return {
+            history: [],
+            nextApprover: null,
+            allApprovalLines: [],
+            currentStatus: 'UNKNOWN',
+          };
+        }),
       ]);
       setAssessment(assessmentData);
-      setApprovalHistory(approvalStatus);
+      // Handle backend error response
+      if (approvalStatus && !(approvalStatus as any).error) {
+        setApprovalHistory(approvalStatus);
+      } else {
+        setApprovalHistory({
+          history: [],
+          nextApprover: null,
+          allApprovalLines: [],
+          currentStatus: 'UNKNOWN',
+        });
+      }
     } catch (error) {
       console.error('Failed to refresh after approval:', error);
     }
