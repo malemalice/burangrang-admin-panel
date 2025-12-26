@@ -14,11 +14,12 @@ import {
   MasterApprovalDto,
 } from './dto/master-approval.dto';
 import { Prisma } from '@prisma/client';
-import { SubmitApprovalDto } from './dto/submit-approval.dto';
+import { SubmitApprovalDto, ApprovalStatus } from './dto/submit-approval.dto';
 import { ConfigService } from '@nestjs/config';
 import { User } from 'src/shared/types';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
+import { NotificationsService } from '../notifications/services/notifications.service';
 
 interface FindAllOptions {
   page?: number;
@@ -40,7 +41,7 @@ export class MasterApprovalsService {
     private dtoMapper: DtoMapperService,
     private errorHandler: ErrorHandlingService,
     private readonly configService: ConfigService,
-
+    private readonly notificationsService: NotificationsService,
   ) {
     // Initialize mappers
     this.masterApprovalMapper = this.dtoMapper.createSimpleMapper(MasterApprovalDto);
@@ -494,8 +495,8 @@ export class MasterApprovalsService {
           createdBy: user.id,
         },
       });
-    } catch (error) {
-      throw new BadRequestException('User does not have approval rights');
+    } catch {
+      throw new BadRequestException('User does not have approval rights 2');
     }
 
     const checkApprovalStatus = await this.checkApprovalStatus(
@@ -503,14 +504,26 @@ export class MasterApprovalsService {
       submitApprovalDto.entity,
     );
 
-    let sourceStatus = 'COMPLETED';
-    if (checkApprovalStatus.nextApprover) {
+    // If approval is rejected, set entity status to REJECTED
+    let sourceStatus = 'DONE';
+    if (submitApprovalDto.status === ApprovalStatus.REJECTED) {
+      sourceStatus = 'REJECTED';
+    } else if (checkApprovalStatus.nextApprover) {
       sourceStatus = 'WAITING_APPROVAL';
     }
     await this.updateSourceEntity(
       submitApprovalDto.dataId,
       submitApprovalDto.entity,
       sourceStatus,
+    );
+
+    // Send notifications
+    await this.sendApprovalNotifications(
+      submitApprovalDto.dataId,
+      submitApprovalDto.entity,
+      submitApprovalDto.status,
+      checkApprovalStatus,
+      user,
     );
   }
 
@@ -536,10 +549,180 @@ export class MasterApprovalsService {
     // Update the source entity
     await this.prisma.$executeRaw`
       UPDATE "${Prisma.raw(tableName)}"
-      SET status = ${status}
+      SET status = ${Prisma.raw(`'${status}'::"GeneralStatusEnum"`)}
       WHERE id = ${entityId}
     `;
 
     // TODO: Implement the logic to update the source entity
+  }
+
+  /**
+   * Get requester (creator) from source entity
+   */
+  private async getRequesterFromEntity(
+    entityId: string,
+    entityName: string,
+  ): Promise<{ id: string; roleId: string } | null> {
+    try {
+      // Get the source entity table name from .env
+      let approvalEntity = this.configService.get<string>('APPROVAL_ENTITY');
+
+      if (!approvalEntity) {
+        return null;
+      }
+
+      approvalEntity = JSON.parse(approvalEntity);
+      const tableName = approvalEntity && approvalEntity[entityName];
+
+      if (!tableName) {
+        return null;
+      }
+
+      // Query the source entity to get createdBy
+      const result = await this.prisma.$queryRaw<Array<{ createdBy: string }>>`
+        SELECT "createdBy"
+        FROM "${Prisma.raw(tableName)}"
+        WHERE id = ${entityId}
+        LIMIT 1
+      `;
+
+      if (!result || result.length === 0 || !result[0]?.createdBy) {
+        return null;
+      }
+
+      const requesterId = result[0].createdBy;
+
+      // Get requester user with role
+      const requester = await this.prisma.user.findUnique({
+        where: { id: requesterId },
+        select: { id: true, roleId: true },
+      });
+
+      return requester;
+    } catch (error) {
+      console.error('Failed to get requester from entity:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get users with matching department and job position for next approver
+   */
+  private async getNextApproverUsers(
+    nextApprover: ApprovalStatusHistory['nextApprover'],
+  ): Promise<Array<{ id: string; roleId: string }>> {
+    if (!nextApprover) {
+      return [];
+    }
+
+    try {
+      const users = await this.prisma.user.findMany({
+        where: {
+          departmentId: nextApprover.department.id,
+          jobPositionId: nextApprover.jobPosition.id,
+          isActive: true,
+        },
+        select: { id: true, roleId: true },
+      });
+
+      return users;
+    } catch (error) {
+      console.error('Failed to get next approver users:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Send approval notifications to requester and next approver
+   */
+  private async sendApprovalNotifications(
+    entityId: string,
+    entityName: string,
+    status: ApprovalStatus,
+    approvalStatus: ApprovalStatusHistory,
+    approver: User,
+  ): Promise<void> {
+    try {
+      // Get or create notification type
+      const notificationTypeName =
+        status === ApprovalStatus.APPROVED
+          ? 'APPROVAL_APPROVED'
+          : 'APPROVAL_REJECTED';
+
+      let notificationType = await this.prisma.notificationType.findFirst({
+        where: { name: notificationTypeName },
+      });
+
+      if (!notificationType) {
+        notificationType = await this.prisma.notificationType.create({
+          data: {
+            name: notificationTypeName,
+            description:
+              status === ApprovalStatus.APPROVED
+                ? 'Approval request approved'
+                : 'Approval request rejected',
+          },
+        });
+      }
+
+      // Get requester
+      const requester = await this.getRequesterFromEntity(entityId, entityName);
+
+      // Send notification to requester
+      if (requester) {
+        const statusText =
+          status === ApprovalStatus.APPROVED ? 'approved' : 'rejected';
+        const approverName = `${approver.firstName || ''} ${approver.lastName || ''}`.trim();
+        const lastApproval =
+          approvalStatus.history[approvalStatus.history.length - 1];
+        const notesText =
+          lastApproval && lastApproval.notes
+            ? ` Notes: ${lastApproval.notes}`
+            : '';
+
+        await this.notificationsService.createNotificationForRoles(
+          {
+            title: `${entityName} Approval ${status === ApprovalStatus.APPROVED ? 'Approved' : 'Rejected'}`,
+            message: `Your ${entityName} request has been ${statusText} by ${approverName}.${notesText}`,
+            context: entityName.toLowerCase(),
+            contextId: entityId,
+            typeId: notificationType.id,
+            roleIds: requester.roleId ? [requester.roleId] : [],
+            userIds: [requester.id],
+          },
+          approver.id,
+        );
+      }
+
+      // Send notification to next approver if status is APPROVED and there's a next approver
+      if (status === ApprovalStatus.APPROVED && approvalStatus.nextApprover) {
+        const nextApproverUsers = await this.getNextApproverUsers(
+          approvalStatus.nextApprover,
+        );
+
+        if (nextApproverUsers.length > 0) {
+          const roleIds = Array.from(
+            new Set(nextApproverUsers.map((u) => u.roleId)),
+          );
+          const userIds = nextApproverUsers.map((u) => u.id);
+
+          await this.notificationsService.createNotificationForRoles(
+            {
+              title: `${entityName} Approval Request`,
+              message: `A ${entityName} request is pending your approval (Line ${approvalStatus.nextApprover.line}).`,
+              context: entityName.toLowerCase(),
+              contextId: entityId,
+              typeId: notificationType.id,
+              roleIds,
+              userIds,
+            },
+            approver.id,
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Failed to send approval notifications:', error);
+      // Don't throw error - notifications are not critical for approval flow
+    }
   }
 }
