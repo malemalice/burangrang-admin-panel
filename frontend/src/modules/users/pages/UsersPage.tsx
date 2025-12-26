@@ -205,10 +205,7 @@ const UsersPage = () => {
 
   const handleSendResetPassword = async (user: User) => {
     // Close the dropdown menu for this user
-    setDropdownOpenStates(prev => ({
-      ...prev,
-      [user.id]: false,
-    }));
+    setOpenDropdownId(null);
 
     try {
       const result = await userService.sendResetPasswordEmail(user.email);

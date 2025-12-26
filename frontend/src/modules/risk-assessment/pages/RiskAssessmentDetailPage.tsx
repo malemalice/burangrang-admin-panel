@@ -244,7 +244,8 @@ const RiskAssessmentDetailPage = () => {
             </Button>
             
             {assessment.status !== GeneralStatusEnum.DONE && 
-             assessment.status !== GeneralStatusEnum.REJECTED && (
+             assessment.status !== GeneralStatusEnum.REJECTED &&
+             assessment.status !== GeneralStatusEnum.WAITING_APPROVAL && (
               <Button 
                 variant="outline"
                 onClick={() => navigate(`/risk-assessment/${id}/edit`)}
@@ -301,6 +302,7 @@ const RiskAssessmentDetailPage = () => {
             setItemToDelete(null);
           }
         }}
+        hideActions={assessment.status === GeneralStatusEnum.WAITING_APPROVAL || assessment.status === GeneralStatusEnum.DONE}
       />
 
 

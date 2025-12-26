@@ -504,11 +504,8 @@ export class MasterApprovalsService {
       submitApprovalDto.entity,
     );
 
-    // If approval is rejected, set entity status to REJECTED
     let sourceStatus = 'DONE';
-    if (submitApprovalDto.status === ApprovalStatus.REJECTED) {
-      sourceStatus = 'REJECTED';
-    } else if (checkApprovalStatus.nextApprover) {
+    if (checkApprovalStatus.nextApprover) {
       sourceStatus = 'WAITING_APPROVAL';
     }
     await this.updateSourceEntity(
