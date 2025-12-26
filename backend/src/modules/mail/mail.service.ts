@@ -227,6 +227,25 @@ export class MailService {
     }
   }
 
+  /**
+   * Send a simple HTML email without using a template
+   */
+  async sendSimpleEmail(
+    to: string,
+    subject: string,
+    html: string,
+  ): Promise<void> {
+    try {
+      const { transporter, from } = await this.buildTransporter();
+      await transporter.sendMail({ from, to, subject, html });
+    } catch (error) {
+      // Do not throw to avoid blocking critical flows
+      this.logger.error(
+        `Failed sending simple email to ${to}: ${String(error)}`,
+      );
+    }
+  }
+
   // Email Template Management
   async findAllTemplates(params: {
     page?: number;

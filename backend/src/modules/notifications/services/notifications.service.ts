@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
@@ -11,9 +11,12 @@ import { CreateNotificationDto } from '../dto/create-notification.dto';
 import { UpdateNotificationDto } from '../dto/update-notification.dto';
 import { PaginatedResponse } from '../../../shared/types/pagination-params';
 import { FindNotificationsDto } from '../dto/find-notifications.dto';
+import { MailService } from '../../mail/mail.service';
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   // Initialize mappers in constructor
   private notificationMapper: (entity: any) => NotificationDto;
   private notificationTypeMapper: (entity: any) => NotificationTypeDto;
@@ -25,6 +28,7 @@ export class NotificationsService {
     private readonly prisma: PrismaService,
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
+    private readonly mailService: MailService,
   ) {
     this.notificationMapper =
       this.dtoMapper.createSimpleMapper(NotificationDto);
@@ -33,6 +37,165 @@ export class NotificationsService {
     this.notificationRecipientMapper = this.dtoMapper.createSimpleMapper(
       NotificationRecipientDto,
     );
+  }
+
+  // Helper method to collect email addresses from recipients
+  private async collectEmailAddresses(
+    recipients: Array<{
+      userId?: string | null;
+      departmentId?: string | null;
+      roleId: string;
+      jobPositionId?: string | null;
+    }>,
+  ): Promise<string[]> {
+    const emailSet = new Set<string>();
+
+    // Collect unique user IDs and department IDs from recipients
+    const userIds = new Set<string>();
+    const departmentIds = new Set<string>();
+
+    recipients.forEach((recipient) => {
+      if (recipient.userId) {
+        userIds.add(recipient.userId);
+      }
+      if (recipient.departmentId) {
+        departmentIds.add(recipient.departmentId);
+      }
+    });
+
+    // Get user emails
+    if (userIds.size > 0) {
+      const users = await this.prisma.user.findMany({
+        where: {
+          id: { in: Array.from(userIds) },
+          isActive: true,
+        },
+        select: {
+          email: true,
+        },
+      });
+
+      users.forEach((user) => {
+        if (user.email) {
+          emailSet.add(user.email);
+        }
+      });
+    }
+
+    // Get department emails
+    if (departmentIds.size > 0) {
+      const departments = await this.prisma.department.findMany({
+        where: {
+          id: { in: Array.from(departmentIds) },
+          isActive: true,
+        },
+        select: {
+          emails: true,
+        },
+      });
+
+      departments.forEach((department) => {
+        if (department.emails) {
+          try {
+            // Parse JSON array of emails
+            const emails = Array.isArray(department.emails)
+              ? department.emails
+              : JSON.parse(department.emails as string);
+            if (Array.isArray(emails)) {
+              emails.forEach((email: string) => {
+                if (email && typeof email === 'string') {
+                  emailSet.add(email.trim());
+                }
+              });
+            }
+          } catch (error) {
+            this.logger.warn(`Failed to parse emails for department: ${error}`);
+          }
+        }
+      });
+    }
+
+    return Array.from(emailSet);
+  }
+
+  // Helper method to send notification emails
+  private async sendNotificationEmails(
+    title: string,
+    message: string,
+    emailAddresses: string[],
+  ): Promise<void> {
+    if (emailAddresses.length === 0) {
+      return;
+    }
+
+    // Create simple HTML email template
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              max-width: 600px;
+              margin: 0 auto;
+              padding: 20px;
+            }
+            .header {
+              background-color: #4CAF50;
+              color: white;
+              padding: 20px;
+              text-align: center;
+              border-radius: 5px 5px 0 0;
+            }
+            .content {
+              background-color: #f9f9f9;
+              padding: 20px;
+              border: 1px solid #ddd;
+              border-top: none;
+              border-radius: 0 0 5px 5px;
+            }
+            .message {
+              white-space: pre-wrap;
+              margin: 20px 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${this.escapeHtml(title)}</h1>
+          </div>
+          <div class="content">
+            <div class="message">${this.escapeHtml(message)}</div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    // Send email to each address
+    const emailPromises = emailAddresses.map((email) =>
+      this.mailService.sendSimpleEmail(email, title, html).catch((error) => {
+        this.logger.error(
+          `Failed to send notification email to ${email}: ${error}`,
+        );
+      }),
+    );
+
+    await Promise.allSettled(emailPromises);
+  }
+
+  // Helper method to escape HTML
+  private escapeHtml(text: string): string {
+    const map: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;',
+    };
+    return text.replace(/[&<>"']/g, (m) => map[m]);
   }
 
   // Helper method to build recipient where clause based on user's attributes
@@ -188,6 +351,19 @@ export class NotificationsService {
         },
       });
 
+      // Send email notifications asynchronously (don't block notification creation)
+      this.collectEmailAddresses(recipients)
+        .then((emailAddresses) => {
+          return this.sendNotificationEmails(
+            createDto.title,
+            createDto.message,
+            emailAddresses,
+          );
+        })
+        .catch((error) => {
+          this.logger.error(`Failed to send notification emails: ${error}`);
+        });
+
       return this.notificationMapper(notification);
     }, 'Creating notification for roles');
   }
@@ -254,6 +430,19 @@ export class NotificationsService {
           },
         },
       });
+
+      // Send email notifications asynchronously (don't block notification creation)
+      this.collectEmailAddresses(recipients)
+        .then((emailAddresses) => {
+          return this.sendNotificationEmails(
+            data.title,
+            data.message,
+            emailAddresses,
+          );
+        })
+        .catch((error) => {
+          this.logger.error(`Failed to send notification emails: ${error}`);
+        });
 
       return this.notificationMapper(notification);
     }, 'Creating notification by department and job position');
