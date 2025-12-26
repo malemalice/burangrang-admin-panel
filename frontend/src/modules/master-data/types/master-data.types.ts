@@ -183,8 +183,8 @@ export interface CreateMasterApprovalDTO {
   isActive?: boolean;
   items: Array<{
     order: number;
-    job_position_id: string;
-    department_id: string;
+    jobPositionId: string;
+    departmentId: string;
   }>;
 }
 
@@ -195,8 +195,8 @@ export interface UpdateMasterApprovalDTO {
   items?: Array<{
     id?: string;
     order: number;
-    job_position_id: string;
-    department_id: string;
+    jobPositionId: string;
+    departmentId: string;
   }>;
 }
 
