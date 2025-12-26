@@ -218,6 +218,7 @@ export class MasterApprovalsController {
       return {
         history: [],
         nextApprover: null,
+        allApprovalLines: [],
         currentStatus: 'ERROR',
         error: true,
         message: errorMessage,

@@ -335,25 +335,35 @@ export class MasterApprovalsService {
       },
     });
 
-    // Map approval history
-    const history = approvalHistory.map((approval) => ({
-      id: approval.id,
-      status: approval.status,
-      notes: approval.notes,
-      createdAt: approval.createdAt,
-      department: {
-        id: approval.department.id,
-        name: approval.department.name,
-      },
-      jobPosition: {
-        id: approval.jobPosition.id,
-        name: approval.jobPosition.name,
-      },
-      creator: {
-        id: approval.creator.id,
-        name: `${approval.creator.firstName} ${approval.creator.lastName}`,
-      },
-    }));
+    // Map approval history with line numbers
+    const history = approvalHistory.map((approval, index) => {
+      // Find matching master approval item to get the order/line
+      const matchingItem = masterApproval.items.find(
+        (item) =>
+          item.departmentId === approval.departmentId &&
+          item.jobPositionId === approval.jobPositionId,
+      );
+      
+      return {
+        id: approval.id,
+        status: approval.status,
+        notes: approval.notes,
+        createdAt: approval.createdAt,
+        line: matchingItem ? matchingItem.order : index + 1,
+        department: {
+          id: approval.department.id,
+          name: approval.department.name,
+        },
+        jobPosition: {
+          id: approval.jobPosition.id,
+          name: approval.jobPosition.name,
+        },
+        creator: {
+          id: approval.creator.id,
+          name: `${approval.creator.firstName} ${approval.creator.lastName}`,
+        },
+      };
+    });
 
     // Determine current status and next approver
     let currentStatus = 'PENDING';
@@ -371,6 +381,7 @@ export class MasterApprovalsService {
 
         if (nextApprovalItem) {
           nextApprover = {
+            line: nextApprovalItem.order,
             department: {
               id: nextApprovalItem.department.id,
               name: nextApprovalItem.department.name,
@@ -389,6 +400,7 @@ export class MasterApprovalsService {
       const firstApprovalItem = masterApproval.items[0];
       if (firstApprovalItem) {
         nextApprover = {
+          line: firstApprovalItem.order,
           department: {
             id: firstApprovalItem.department.id,
             name: firstApprovalItem.department.name,
@@ -401,9 +413,41 @@ export class MasterApprovalsService {
       }
     }
 
+    // Build all approval lines with their status
+    const allApprovalLines = masterApproval.items.map((item) => {
+      // Check if this line has been completed
+      const completedApproval = approvalHistory.find(
+        (approval) =>
+          approval.departmentId === item.departmentId &&
+          approval.jobPositionId === item.jobPositionId,
+      );
+
+      let status: 'completed' | 'current' | 'pending' = 'pending';
+      
+      if (completedApproval) {
+        status = 'completed';
+      } else if (nextApprover && nextApprover.line === item.order) {
+        status = 'current';
+      }
+
+      return {
+        line: item.order,
+        department: {
+          id: item.department.id,
+          name: item.department.name,
+        },
+        jobPosition: {
+          id: item.jobPosition.id,
+          name: item.jobPosition.name,
+        },
+        status,
+      };
+    });
+
     return {
       history,
       nextApprover,
+      allApprovalLines,
       currentStatus,
     };
   }

@@ -6,17 +6,27 @@ export interface ApprovalHistory {
   status: string;
   notes: string;
   createdAt: string;
+  line: number;
   department: { id: string; name: string };
   jobPosition: { id: string; name: string };
   creator: { id: string; name: string };
 }
 
+export interface ApprovalLine {
+  line: number;
+  department: { id: string; name: string };
+  jobPosition: { id: string; name: string };
+  status: 'completed' | 'current' | 'pending';
+}
+
 export interface ApprovalStatusHistory {
   history: ApprovalHistory[];
   nextApprover: {
+    line: number;
     department: { id: string; name: string };
     jobPosition: { id: string; name: string };
   } | null;
+  allApprovalLines: ApprovalLine[];
   currentStatus: string;
 }
 
