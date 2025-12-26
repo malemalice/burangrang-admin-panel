@@ -28,6 +28,7 @@ import { seedEnvironmentalMeasurements } from './seeds/environmental-measurement
 import { seedWasteManagement } from './seeds/waste-management.seed';
 import { seedManHours } from './seeds/man-hours.seed';
 import { seedMailTemplates } from './seeds/mail-templates.seed';
+import { seedMasterApprovals } from './seeds/master-approvals.seed';
 
 const prisma = new PrismaClient();
 
@@ -342,6 +343,9 @@ async function main() {
       // Seed Risk Matrix
       await seedRiskMatrix(prisma);
 
+      // Seed Master Approvals (requires users, departments, job positions)
+      await seedMasterApprovals(prisma);
+
       await seedSettings(prisma);
       await seedMenus();
       await seedNotifications();
@@ -530,6 +534,19 @@ async function main() {
         case 'man_hours':
         case 'man-hours':
           await seedManHours();
+          break;
+        case 'master_approvals':
+        case 'master-approvals':
+        case 'approvals':
+          // Ensure required dependencies exist
+          const existingUsers = await prisma.user.findMany();
+          const existingDepts = await prisma.department.findMany();
+          const existingJobs = await prisma.jobPosition.findMany();
+          if (existingUsers.length === 0 || existingDepts.length === 0 || existingJobs.length === 0) {
+            console.log('⚠️  Missing required data. Please seed users, departments, and job positions first.');
+            break;
+          }
+          await seedMasterApprovals(prisma);
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

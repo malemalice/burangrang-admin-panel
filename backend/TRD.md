@@ -1690,9 +1690,30 @@ POST /master-approvals/approval
 }
 ```
 
+### Entity Name Mapping
+
+**Constants File:** `backend/src/shared/constants/approval-entities.ts`
+- Central registry: `APPROVAL_ENTITIES` object
+- Type-safe entity names
+- Helper function: `getApprovalEntityName(moduleName)`
+
+**Module Pattern:**
+```typescript
+// Each module exports its entity constant
+import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
+export const MODULE_NAME_APPROVAL_ENTITY = APPROVAL_ENTITIES.ENTITY_NAME;
+```
+
+**Usage:**
+- Import constant from module: `import { RISK_ASSESSMENT_APPROVAL_ENTITY } from './risk-assessment.module'`
+- Use in service methods: `entity: RISK_ASSESSMENT_APPROVAL_ENTITY`
+- API endpoints accept `?entity=EntityName` query parameter
+
+**Current Entities:**
+- `RISK_ASSESSMENT` → 'RiskAssessment'
+- `WORK_PERMIT` → 'WORK_PERMIT'
+
 ### Known Limitations
-- Hardcoded "RiskAssessment" in status/rights endpoints (needs entity parameter)
-- No automatic module-to-approval mapping (manual setup)
 - Raw SQL for source entity updates (should use Prisma)
 - Sequential only (no parallel approvals)
 - No delegation or SLA tracking
