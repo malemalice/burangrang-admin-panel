@@ -253,6 +253,7 @@ Table m_departments {
   name varchar [not null]
   code varchar [unique, not null]
   description text [null]
+  emails json [null, note: 'Array of email addresses for the department']
   isActive boolean [not null, default: true]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]

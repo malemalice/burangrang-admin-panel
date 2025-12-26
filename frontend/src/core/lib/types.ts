@@ -84,6 +84,7 @@ export interface Department {
   name: string;
   code: string;
   description?: string;
+  emails?: string[] | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

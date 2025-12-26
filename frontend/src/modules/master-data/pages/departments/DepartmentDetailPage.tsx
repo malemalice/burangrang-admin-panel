@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, Trash2, Building } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Building, Mail } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
@@ -147,6 +147,28 @@ const DepartmentDetailPage = () => {
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Description</h3>
                 <p className="mt-1">{department.description || '-'}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Email Addresses</h3>
+                <div className="mt-1">
+                  {!department.emails || department.emails.length === 0 ? (
+                    <p className="text-muted-foreground">-</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {department.emails.map((email, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          <a
+                            href={`mailto:${email}`}
+                            className="text-primary hover:underline"
+                          >
+                            {email}
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Status</h3>

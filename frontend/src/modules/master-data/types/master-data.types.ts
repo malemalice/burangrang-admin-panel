@@ -82,6 +82,7 @@ export interface DepartmentDTO {
   name: string;
   code: string;
   description?: string;
+  emails?: string[] | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -92,6 +93,7 @@ export interface CreateDepartmentDTO {
   name: string;
   code: string;
   description?: string;
+  emails?: string[] | null;
   isActive?: boolean;
 }
 
@@ -100,6 +102,7 @@ export interface UpdateDepartmentDTO {
   name?: string;
   code?: string;
   description?: string;
+  emails?: string[] | null;
   isActive?: boolean;
 }
 
@@ -218,6 +221,7 @@ export interface DepartmentFormData {
   name: string;
   code: string;
   description: string;
+  emails: string[];
   isActive: boolean;
 }
 

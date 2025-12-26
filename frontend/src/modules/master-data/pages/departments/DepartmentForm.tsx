@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
@@ -17,6 +17,7 @@ import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Switch } from '@/core/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { Plus, Trash2, Mail } from 'lucide-react';
 import departmentService from '../../services/departmentService';
 import { CreateDepartmentDTO, UpdateDepartmentDTO } from '../../types/master-data.types';
 import { Department } from '@/core/lib/types';
@@ -25,6 +26,7 @@ const formSchema = z.object({
   name: z.string().min(1, 'Department name is required'),
   code: z.string().min(1, 'Department code is required'),
   description: z.string().optional(),
+  emails: z.array(z.string().email('Invalid email address')).optional(),
   isActive: z.boolean().default(true),
 });
 
@@ -47,8 +49,14 @@ const DepartmentForm = ({ department, mode }: DepartmentFormProps) => {
       name: '',
       code: '',
       description: '',
+      emails: [],
       isActive: true,
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'emails',
   });
 
   useEffect(() => {
@@ -62,6 +70,7 @@ const DepartmentForm = ({ department, mode }: DepartmentFormProps) => {
             name: department.name,
             code: department.code,
             description: department.description || '',
+            emails: department.emails && department.emails.length > 0 ? department.emails : [],
             isActive: department.isActive || true,
           });
         }
@@ -86,6 +95,7 @@ const DepartmentForm = ({ department, mode }: DepartmentFormProps) => {
           name: data.name,
           code: data.code,
           description: data.description || undefined,
+          emails: data.emails && data.emails.length > 0 ? data.emails : null,
           isActive: data.isActive,
         };
         await departmentService.createDepartment(departmentData);
@@ -95,6 +105,7 @@ const DepartmentForm = ({ department, mode }: DepartmentFormProps) => {
           name: data.name,
           code: data.code,
           description: data.description || undefined,
+          emails: data.emails && data.emails.length > 0 ? data.emails : null,
           isActive: data.isActive,
         };
 
@@ -174,6 +185,62 @@ const DepartmentForm = ({ department, mode }: DepartmentFormProps) => {
                 </FormItem>
               )}
             />
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <FormLabel>Email Addresses</FormLabel>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => append('')}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Email
+                </Button>
+              </div>
+              {fields.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-2">
+                  No email addresses added. Click "Add Email" to add one.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {fields.map((field, index) => (
+                    <FormField
+                      key={field.id}
+                      control={form.control}
+                      name={`emails.${index}`}
+                      render={({ field: emailField }) => (
+                        <FormItem>
+                          <FormControl>
+                            <div className="flex gap-2">
+                              <div className="relative flex-1">
+                                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                  type="email"
+                                  placeholder="Enter email address"
+                                  className="pl-10"
+                                  {...emailField}
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => remove(index)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
 
             <FormField
               control={form.control}
