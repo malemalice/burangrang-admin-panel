@@ -288,6 +288,7 @@ const RolesPage = () => {
           total: totalRoles
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

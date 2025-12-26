@@ -278,6 +278,7 @@ const MasterApprovalsPage = () => {
           total: totalApprovals
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

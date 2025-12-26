@@ -24,10 +24,11 @@ import { useTheme } from '@/core/lib/theme';
 interface DataTableProps<T> {
   columns: {
     id: string;
-    header: string;
+    header: string | (() => React.ReactNode);
     cell: (item: T) => React.ReactNode;
     isSortable?: boolean;
     isFilterable?: boolean;
+    headerClassName?: string;
   }[];
   data: T[];
   isLoading?: boolean;
@@ -186,8 +187,8 @@ const DataTable = <T extends Record<string, any>>({
                     )}
                     onClick={() => column.isSortable && handleSort(column.id)}
                   >
-                    <div className="flex items-center gap-2">
-                      {column.header}
+                    <div className={cn("flex items-center gap-2", column.headerClassName)}>
+                      {typeof column.header === 'function' ? column.header() : column.header}
                       {column.isSortable && sorting?.id === column.id && (
                         <span className="text-gray-500">
                           {sorting.desc ? '↓' : '↑'}

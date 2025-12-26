@@ -18,6 +18,8 @@ interface ImageUploadProps {
   entityId?: string | null;
   // Callback when file is selected (for preview mode)
   onFileSelect?: (file: File | null) => void;
+  // Media type for existing files (stored from previous upload)
+  mediaType?: string;
 }
 
 const ImageUpload = ({
@@ -31,6 +33,7 @@ const ImageUpload = ({
   disabled = false,
   entityId,
   onFileSelect,
+  mediaType,
 }: ImageUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(value || null);
@@ -138,12 +141,14 @@ const ImageUpload = ({
     <div className="space-y-2">
       {preview ? (
         <div className="relative">
-          {/* Determine media type based on URL or file extension */}
+          {/* Determine media type based on URL, file extension, or mediaType prop */}
           {(() => {
-            const isVideo = preview.includes('video') || 
+            const isVideo = mediaType?.startsWith('video/') ||
+                           preview.includes('video') || 
                            preview.match(/\.(mp4|webm|ogg|mov)($|\?)/i) ||
                            selectedFile?.type.startsWith('video/');
-            const isAudio = preview.includes('audio') || 
+            const isAudio = mediaType?.startsWith('audio/') ||
+                           preview.includes('audio') || 
                            preview.match(/\.(mp3|wav|ogg|aac|mpeg)($|\?)/i) ||
                            selectedFile?.type.startsWith('audio/');
             

@@ -96,8 +96,8 @@ export class WorkPermitsService {
       const proposedStartDate = new Date(createDto.proposedStartDate);
       const proposedEndDate = new Date(createDto.proposedEndDate);
 
-      if (proposedEndDate <= proposedStartDate) {
-        this.errorHandler.throwBadRequest('Proposed end date must be after start date');
+      if (proposedEndDate < proposedStartDate) {
+        this.errorHandler.throwBadRequest('Proposed end date cannot be before start date');
       }
 
       // Validate at least one worker

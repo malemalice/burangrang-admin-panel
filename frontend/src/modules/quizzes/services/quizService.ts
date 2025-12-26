@@ -195,6 +195,21 @@ const quizService = {
     await api.post(`/quizzes/${quizId}/assign`, assignData);
   },
 
+  // GET current in-progress attempt (for resume functionality)
+  getCurrentAttempt: async (quizId: string, enrollmentId?: string): Promise<QuizAttempt | null> => {
+    try {
+      const params = new URLSearchParams();
+      if (enrollmentId) params.append('enrollmentId', enrollmentId);
+      const response = await api.get(`/quizzes/${quizId}/attempts/current?${params.toString()}`);
+      if (response.data) {
+        return mapQuizAttemptDtoToQuizAttempt(response.data);
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
+
   // START quiz attempt
   startAttempt: async (quizId: string, attemptData: CreateQuizAttemptDTO): Promise<QuizAttempt> => {
     const response = await api.post(`/quizzes/${quizId}/attempts`, attemptData);

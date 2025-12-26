@@ -271,22 +271,22 @@ const WorkPermitDetailPage = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>Work Stages Description</Label>
+              <Label className="text-gray-500">Work Stages Description</Label>
               <p className="mt-1 whitespace-pre-wrap">{workPermit.workStagesDescription}</p>
             </div>
             <div>
-              <Label>Job Safety Analysis</Label>
+              <Label className="text-gray-500">Job Safety Analysis</Label>
               <p className="mt-1 whitespace-pre-wrap">{workPermit.jobSafetyAnalysis}</p>
             </div>
             {workPermit.workRequirements && (
               <div>
-                <Label>Work Requirements</Label>
+                <Label className="text-gray-500">Work Requirements</Label>
                 <p className="mt-1 whitespace-pre-wrap">{workPermit.workRequirements}</p>
               </div>
             )}
             {workPermit.safetyGuideline && (
               <div>
-                <Label>Safety Guideline</Label>
+                <Label className="text-gray-500">Safety Guideline</Label>
                 <p className="mt-1 whitespace-pre-wrap">{workPermit.safetyGuideline}</p>
               </div>
             )}

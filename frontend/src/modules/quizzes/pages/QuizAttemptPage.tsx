@@ -20,6 +20,7 @@ import { useQuizAttempt } from '../hooks/useQuizAttempt';
 import { useQuiz } from '../hooks/useQuizzes';
 import { SubmitAnswerDTO } from '../types/quiz.types';
 import { enrollmentService } from '@/modules/enrollments';
+import quizService from '../services/quizService';
 
 const QuizAttemptPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -28,7 +29,7 @@ const QuizAttemptPage = () => {
   const enrollmentIdFromUrl = searchParams.get('enrollmentId') || undefined;
 
   const { quiz, isLoading: quizLoading, fetchQuiz } = useQuiz(id || null);
-  const { attempt, startAttempt, submitAnswer, submitAttempt, isLoading, error } = useQuizAttempt(null);
+  const { attempt, setAttempt, startAttempt, submitAnswer, submitAttempt, isLoading, error } = useQuizAttempt(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, Partial<SubmitAnswerDTO>>>({});
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
@@ -168,10 +169,27 @@ const QuizAttemptPage = () => {
       return;
     }
 
-    // Start attempt
+    // Initialize or resume attempt
     const initializeAttempt = async () => {
       try {
-        // Only include enrollmentId if it exists (for bound quizzes)
+        // First, check if there's an existing in-progress attempt to resume
+        const existingAttempt = await quizService.getCurrentAttempt(quiz.id, enrollmentId);
+        
+        if (existingAttempt && existingAttempt.status === 'IN_PROGRESS') {
+          // Resume existing attempt
+          setAttempt(existingAttempt);
+          if (existingAttempt.quiz?.duration) {
+            // Calculate remaining time based on start time
+            const startTime = new Date(existingAttempt.startedAt).getTime();
+            const now = Date.now();
+            const elapsedSeconds = Math.floor((now - startTime) / 1000);
+            const remainingSeconds = (existingAttempt.quiz.duration * 60) - elapsedSeconds;
+            setTimeRemaining(Math.max(0, remainingSeconds));
+          }
+          return;
+        }
+
+        // No existing attempt, start a new one
         const attemptData: { enrollmentId?: string } = {};
         if (enrollmentId) {
           attemptData.enrollmentId = enrollmentId;
