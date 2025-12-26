@@ -73,6 +73,7 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
     label: dept.name,
   }));
 
+  // Fetch options (job positions and departments)
   useEffect(() => {
     const fetchOptions = async () => {
       try {
@@ -87,19 +88,7 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
         setJobPositions(positionsRes.data || []);
         setDepartments(deptsRes.data || []);
 
-        if (approval) {
-          form.reset({
-            entity: approval.entity,
-            isActive: approval.isActive,
-            items: approval.items.map(item => ({
-              jobPositionId: item.job_position_id,
-              departmentId: item.department_id,
-              order: item.order,
-            })),
-          });
-        }
-
-        // Set data ready only after everything is loaded
+        // Set data ready after options are loaded
         setDataReady(true);
       } catch (error) {
         console.error('Failed to fetch options:', error);
@@ -110,7 +99,35 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
     };
 
     fetchOptions();
-  }, [approval, form]);
+  }, []);
+
+  // Reset form when approval data is available and options are loaded
+  useEffect(() => {
+    if (approval && dataReady && jobPositions.length > 0 && departments.length > 0) {
+      if (approval.items && approval.items.length > 0) {
+        const items = approval.items.map(item => ({
+          jobPositionId: item.jobPositionId,
+          departmentId: item.departmentId,
+          order: item.order,
+        }));
+        
+        console.log('Resetting form with approval items:', items);
+        
+        form.reset({
+          entity: approval.entity,
+          isActive: approval.isActive,
+          items,
+        });
+      } else {
+        // Handle case where approval exists but has no items
+        form.reset({
+          entity: approval.entity,
+          isActive: approval.isActive,
+          items: [{ jobPositionId: '', departmentId: '', order: 1 }],
+        });
+      }
+    }
+  }, [approval, dataReady, jobPositions, departments, form]);
 
   const onSubmit = async (data: FormValues) => {
     try {

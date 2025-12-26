@@ -159,8 +159,8 @@ export interface MasterApprovalItemDTO {
   id: string;
   mApprovalId: string;
   order: number;
-  job_position_id: string;
-  department_id: string;
+  jobPositionId: string;
+  departmentId: string;
   createdBy: string;
   createdAt: string;
   jobPosition: {
@@ -240,8 +240,8 @@ export interface MasterApprovalFormData {
   isActive: boolean;
   items: Array<{
     order: number;
-    job_position_id: string;
-    department_id: string;
+    jobPositionId: string;
+    departmentId: string;
   }>;
 }
 

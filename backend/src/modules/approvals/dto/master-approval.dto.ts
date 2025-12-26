@@ -104,6 +104,7 @@ export interface ApprovalStatusHistory {
     status: string;
     notes: string;
     createdAt: Date;
+    line: number;
     department: {
       id: string;
       name: string;
@@ -118,6 +119,7 @@ export interface ApprovalStatusHistory {
     };
   }[];
   nextApprover: {
+    line: number;
     department: {
       id: string;
       name: string;
@@ -127,5 +129,17 @@ export interface ApprovalStatusHistory {
       name: string;
     };
   } | null;
+  allApprovalLines: {
+    line: number;
+    department: {
+      id: string;
+      name: string;
+    };
+    jobPosition: {
+      id: string;
+      name: string;
+    };
+    status: 'completed' | 'current' | 'pending';
+  }[];
   currentStatus: string;
 }
