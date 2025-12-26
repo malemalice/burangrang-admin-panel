@@ -61,6 +61,18 @@ export class NotificationRecipientDto {
   @IsString()
   userId?: string;
 
+  @ApiProperty({ required: false })
+  @Expose()
+  @IsOptional()
+  @IsString()
+  departmentId?: string;
+
+  @ApiProperty({ required: false })
+  @Expose()
+  @IsOptional()
+  @IsString()
+  jobPositionId?: string;
+
   @ApiProperty()
   @Expose()
   @IsBoolean()

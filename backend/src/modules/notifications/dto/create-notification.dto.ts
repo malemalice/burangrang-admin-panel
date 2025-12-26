@@ -40,4 +40,18 @@ export class CreateNotificationDto {
   @IsString({ each: true })
   @IsUUID('4', { each: true })
   userIds?: string[];
+
+  @ApiProperty({ required: false, type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @IsUUID('4', { each: true })
+  departmentIds?: string[];
+
+  @ApiProperty({ required: false, type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @IsUUID('4', { each: true })
+  jobPositionIds?: string[];
 }
