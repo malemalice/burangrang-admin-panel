@@ -21,12 +21,36 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper functions for last visited URL
+const LAST_VISITED_URL_KEY = 'last_visited_url';
+const saveLastVisitedUrl = (url: string) => {
+  // Only save if it's not a login or reset-password page
+  // Extract pathname from URL (handle both pathname and pathname+search formats)
+  const pathname = url.split('?')[0];
+  if (!['/login', '/reset-password'].includes(pathname)) {
+    localStorage.setItem(LAST_VISITED_URL_KEY, url);
+  }
+};
+const getLastVisitedUrl = (): string | null => {
+  return localStorage.getItem(LAST_VISITED_URL_KEY);
+};
+const clearLastVisitedUrl = () => {
+  localStorage.removeItem(LAST_VISITED_URL_KEY);
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Track route changes and save last visited URL for authenticated users
+  useEffect(() => {
+    if (isAuthenticated && !['/login', '/reset-password'].includes(location.pathname)) {
+      saveLastVisitedUrl(location.pathname + location.search);
+    }
+  }, [location.pathname, location.search, isAuthenticated]);
 
   // Check if user is already authenticated on mount and route changes
   useEffect(() => {
@@ -43,9 +67,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(result.user);
             setIsAuthenticated(true);
             
-            // If we were on login page, redirect to dashboard
+            // If we were on login page, redirect to last visited URL or dashboard
             if (location.pathname === '/login') {
-              navigate('/');
+              const lastUrl = getLastVisitedUrl();
+              if (lastUrl) {
+                clearLastVisitedUrl();
+                navigate(lastUrl);
+              } else {
+                navigate('/');
+              }
             }
           } else {
             // This shouldn't happen but handle it just in case
@@ -55,6 +85,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(null);
             
             if (location.pathname !== '/login') {
+              // Save current URL before redirecting
+              saveLastVisitedUrl(location.pathname + location.search);
               navigate('/login');
             }
           }
@@ -68,11 +100,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (location.pathname !== '/login') {
             console.log('[Auth] Redirecting to login page after auth failure');
+            // Save current URL before redirecting
+            saveLastVisitedUrl(location.pathname + location.search);
             navigate('/login');
           }
         }
       } else if (!['/login', '/reset-password'].includes(location.pathname)) {
         console.log('[Auth] No tokens found, redirecting to login');
+        // Save current URL before redirecting
+        saveLastVisitedUrl(location.pathname + location.search);
         // Redirect to login if not authenticated and not already on login page
         navigate('/login');
       }
@@ -90,6 +126,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticated(true);
       setUser(user);
       toast.success('Login successful!');
+      
+      // Redirect to last visited URL or dashboard
+      const lastUrl = getLastVisitedUrl();
+      if (lastUrl) {
+        clearLastVisitedUrl();
+        navigate(lastUrl);
+      } else {
+        navigate('/');
+      }
+      
       return true;
     } catch (error) {
       console.error('[Auth] Login error:', error);
@@ -100,6 +146,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
+      // Save current URL before logout
+      if (isAuthenticated && !['/login', '/reset-password'].includes(location.pathname)) {
+        saveLastVisitedUrl(location.pathname + location.search);
+      }
+      
       await authApi.logout();
       toast.info('You have been logged out.');
     } catch (error) {
@@ -137,6 +188,8 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !['/login', '/reset-password'].includes(location.pathname)) {
       console.log('[ProtectedRoute] Not authenticated, redirecting to login');
+      // Save current URL before redirecting
+      saveLastVisitedUrl(location.pathname + location.search);
       navigate('/login');
     }
   }, [isAuthenticated, isLoading, navigate, location]);

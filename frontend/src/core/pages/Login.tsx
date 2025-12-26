@@ -50,9 +50,9 @@ const Login = () => {
     setIsLoading(true);
     try {
       const success = await login(email, password);
-      if (success) {
-        navigate('/');
-      } else {
+      // Note: Navigation is handled in the login function in auth.tsx
+      // which checks for last_visited_url and redirects accordingly
+      if (!success) {
         setError('Invalid credentials');
       }
     } catch (err) {
