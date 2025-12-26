@@ -117,6 +117,7 @@ export interface ApprovalStatusHistory {
       id: string;
       name: string;
     };
+    isHistorical?: boolean; // True if approval doesn't match current m_approvals_item configuration
   }[];
   nextApprover: {
     line: number;

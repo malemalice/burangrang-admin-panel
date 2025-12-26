@@ -10,6 +10,7 @@ export interface ApprovalHistory {
   department: { id: string; name: string };
   jobPosition: { id: string; name: string };
   creator: { id: string; name: string };
+  isHistorical?: boolean; // True if approval doesn't match current m_approvals_item configuration
 }
 
 export interface ApprovalLine {
