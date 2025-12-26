@@ -35,6 +35,7 @@ import { UserInterceptor } from '../../shared/interceptors/user.interceptor';
 import { User } from '../../shared/types';
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { Role } from '../../shared/types/role.enum';
+import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
 
 @ApiTags('master-approvals')
 @ApiBearerAuth()
@@ -131,7 +132,15 @@ export class MasterApprovalsController {
 
   @Get('check-approval/:dataId')
   @ApiOperation({
-    summary: 'Check if current user has approval rights for a risk assessment',
+    summary: 'Check if current user has approval rights for an entity',
+  })
+  @ApiQuery({
+    name: 'entity',
+    required: false,
+    type: String,
+    description:
+      'Entity name (e.g., RISK_ASSESSMENT, WORK_PERMIT). Defaults to RISK_ASSESSMENT for backward compatibility.',
+    enum: Object.values(APPROVAL_ENTITIES),
   })
   @ApiResponse({
     status: 200,
@@ -148,12 +157,14 @@ export class MasterApprovalsController {
   async checkApprovalRights(
     @CurrentUser() user: User,
     @Param('dataId') dataId: string,
+    @Query('entity') entity?: string,
   ): Promise<{ canApprove: boolean; error?: boolean; message?: string }> {
     try {
+      const entityName = entity || APPROVAL_ENTITIES.RISK_ASSESSMENT;
       return await this.masterApprovalsService.checkApprovalRights(
         dataId,
         user,
-        'RiskAssessment',
+        entityName,
       );
     } catch (error) {
       let errorMessage = 'An unexpected error occurred';
@@ -176,7 +187,15 @@ export class MasterApprovalsController {
 
   @Get('check-approval-status/:dataId')
   @ApiOperation({
-    summary: 'Check approval status for a risk assessment',
+    summary: 'Check approval status for an entity',
+  })
+  @ApiQuery({
+    name: 'entity',
+    required: false,
+    type: String,
+    description:
+      'Entity name (e.g., RISK_ASSESSMENT, WORK_PERMIT). Defaults to RISK_ASSESSMENT for backward compatibility.',
+    enum: Object.values(APPROVAL_ENTITIES),
   })
   @ApiResponse({
     status: 200,
@@ -198,11 +217,13 @@ export class MasterApprovalsController {
   async checkApprovalStatus(
     @CurrentUser() user: User,
     @Param('dataId') dataId: string,
+    @Query('entity') entity?: string,
   ): Promise<ApprovalStatusHistory & { error?: boolean; message?: string }> {
     try {
+      const entityName = entity || APPROVAL_ENTITIES.RISK_ASSESSMENT;
       return await this.masterApprovalsService.checkApprovalStatus(
         dataId,
-        'RiskAssessment',
+        entityName,
       );
     } catch (error) {
       let errorMessage = 'An unexpected error occurred';
@@ -218,6 +239,7 @@ export class MasterApprovalsController {
       return {
         history: [],
         nextApprover: null,
+        allApprovalLines: [],
         currentStatus: 'ERROR',
         error: true,
         message: errorMessage,

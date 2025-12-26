@@ -116,6 +116,9 @@ export type {
 // Additional service types
 export type { ApprovalStatusHistory } from './services/approvalService';
 
+// Constants
+export { APPROVAL_ENTITIES, type ApprovalEntityName, getApprovalEntityName } from './constants/approval-entities';
+
 // Hooks
 export { 
   useOffices, 

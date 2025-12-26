@@ -13,6 +13,7 @@ import * as crypto from 'crypto';
 import { SignupDto } from '../dto/signup.dto';
 import { ForgotPasswordDto } from '../dto/forgot-password.dto';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
+import { MailService } from '../../mail/mail.service';
 
 interface AuthenticatedUser {
   id: string;
@@ -32,6 +33,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private mailService: MailService,
   ) {}
 
   async validateUser(
@@ -333,13 +335,19 @@ export class AuthService {
       },
     });
 
-    // In development, log the reset link instead of sending email
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
-    
-    this.logger.log(`Password reset requested for user: ${email}`);
-    this.logger.log(`Reset URL: ${resetUrl}`);
-    this.logger.log(`Reset token: ${resetToken}`);
-    this.logger.log(`Token expires at: ${expiresAt.toISOString()}`);
+
+    // Send password reset email (non-blocking failure)
+    try {
+      await this.mailService.sendPasswordResetEmail({
+        email: user.email,
+        name: `${user.firstName} ${user.lastName}`.trim(),
+        resetLink: resetUrl,
+      });
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.logger.error(`Failed to send reset email to ${email}: ${errorMessage}`);
+    }
 
     return {
       message: 'Password reset link sent to your email',

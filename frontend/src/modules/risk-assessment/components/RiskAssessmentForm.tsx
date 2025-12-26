@@ -35,6 +35,17 @@ import { departmentService } from '@/modules/master-data';
 import { userService } from '@/modules/users';
 import { GENERAL_STATUS_OPTIONS, GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 
+// Generate assessment code: RA + YYMMDDHHmm
+const generateAssessmentCode = (): string => {
+  const now = new Date();
+  const year = now.getFullYear().toString().slice(-2);
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const date = now.getDate().toString().padStart(2, '0');
+  const hour = now.getHours().toString().padStart(2, '0');
+  const minute = now.getMinutes().toString().padStart(2, '0');
+  return `RA${year}${month}${date}${hour}${minute}`;
+};
+
 // Form schema for validation
 const formSchema = z.object({
   code: z.string().min(1, 'Code is required'),
@@ -74,7 +85,7 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      code: '',
+      code: mode === 'create' ? generateAssessmentCode() : '',
       description: '',
       departmentId: '',
       assessmentDate: new Date().toISOString().split('T')[0],

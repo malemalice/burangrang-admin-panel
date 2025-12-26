@@ -10,7 +10,7 @@
 
 ### Organizational Structure
 - **Office** (id, name, code, parentId?) - Self-referencing hierarchy
-- **Department** (id, name, code, description)
+- **Department** (id, name, code, description, emails?) - emails is JSON array
 - **JobPosition** (id, name, code, level, description)
 
 ### Reference Data

@@ -92,6 +92,13 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         // If refresh fails, clear tokens and redirect to login
+        // Save current URL before redirecting (if we have window.location)
+        if (typeof window !== 'undefined') {
+          const currentUrl = window.location.pathname + window.location.search;
+          if (!['/login', '/reset-password'].includes(currentUrl)) {
+            localStorage.setItem('last_visited_url', currentUrl);
+          }
+        }
         clearTokens();
         // Clear theme loading flag so it can be retried on next login
         sessionStorage.removeItem('theme-loaded');

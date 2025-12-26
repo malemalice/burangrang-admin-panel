@@ -27,6 +27,8 @@ import { seedRooms } from './seeds/rooms.seed';
 import { seedEnvironmentalMeasurements } from './seeds/environmental-measurements.seed';
 import { seedWasteManagement } from './seeds/waste-management.seed';
 import { seedManHours } from './seeds/man-hours.seed';
+import { seedMailTemplates } from './seeds/mail-templates.seed';
+import { seedMasterApprovals } from './seeds/master-approvals.seed';
 
 const prisma = new PrismaClient();
 
@@ -46,6 +48,7 @@ async function main() {
       await prisma.notificationRecipient.deleteMany();
       await prisma.notification.deleteMany();
       await prisma.notificationType.deleteMany();
+      await prisma.emailTemplate.deleteMany();
       await prisma.refreshToken.deleteMany();
       // Clear PPE data first (before User deletion due to foreign keys)
       await (prisma as any).pPEWithdrawalItem.deleteMany();
@@ -153,6 +156,9 @@ async function main() {
           break;
         case 'roles':
           await prisma.role.deleteMany();
+          break;
+        case 'email_templates':
+          await prisma.emailTemplate.deleteMany();
           break;
         case 'permissions':
           await prisma.permission.deleteMany();
@@ -337,9 +343,13 @@ async function main() {
       // Seed Risk Matrix
       await seedRiskMatrix(prisma);
 
+      // Seed Master Approvals (requires users, departments, job positions)
+      await seedMasterApprovals(prisma);
+
       await seedSettings(prisma);
       await seedMenus();
       await seedNotifications();
+      await seedMailTemplates(prisma);
       await seedFileStorageProviders();
       await seedFileCategories();
       await seedSafetyEquipmentTypes();
@@ -365,6 +375,9 @@ async function main() {
         case 'roles':
           const permissions = await seedPermissions(prisma);
           await seedRoles(prisma, permissions);
+          break;
+        case 'email_templates':
+          await seedMailTemplates(prisma);
           break;
         case 'offices':
           await seedOffices(prisma);
@@ -521,6 +534,19 @@ async function main() {
         case 'man_hours':
         case 'man-hours':
           await seedManHours();
+          break;
+        case 'master_approvals':
+        case 'master-approvals':
+        case 'approvals':
+          // Ensure required dependencies exist
+          const existingUsers = await prisma.user.findMany();
+          const existingDepts = await prisma.department.findMany();
+          const existingJobs = await prisma.jobPosition.findMany();
+          if (existingUsers.length === 0 || existingDepts.length === 0 || existingJobs.length === 0) {
+            console.log('⚠️  Missing required data. Please seed users, departments, and job positions first.');
+            break;
+          }
+          await seedMasterApprovals(prisma);
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

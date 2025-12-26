@@ -312,6 +312,22 @@ export const seedMenus = async () => {
       },
     });
 
+  
+
+    await prisma.menu.create({
+      data: {
+        name: 'Email Templates',
+        path: '/mail-templates',
+        icon: 'Mail',
+        parentId: settingsMenu.id,
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+        },
+      },
+    });
+
     // Create Master Data submenus
     await prisma.menu.create({
       data: {
@@ -572,7 +588,7 @@ export const seedMenus = async () => {
     });
 
     // Create Work Permit menu - accessible to all users
-    const workPermitMenu = await prisma.menu.create({
+    await prisma.menu.create({
       data: {
         name: 'Work Permit',
         icon: 'FileText',
@@ -801,7 +817,6 @@ export const seedMenus = async () => {
       },
     });
 
-
     await prisma.menu.create({
       data: {
         name: 'Risk Matrix',
@@ -889,4 +904,3 @@ export const seedMenus = async () => {
 };
 
 export default seedMenus;
-
