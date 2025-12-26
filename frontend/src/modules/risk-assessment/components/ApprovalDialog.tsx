@@ -13,7 +13,7 @@ import { Label } from '@/core/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
 import { Textarea } from '@/core/components/ui/textarea';
 import { ApprovalStatus } from '@/core/lib/types';
-import { approvalService } from '@/modules/master-data';
+import { approvalService, APPROVAL_ENTITIES } from '@/modules/master-data';
 import { toast } from 'sonner';
 
 interface ApprovalDialogProps {
@@ -50,7 +50,7 @@ export const ApprovalDialog = ({
       setIsSubmitting(true);
       await approvalService.submitApproval({
         dataId: assessmentId,
-        entity: 'RiskAssessment',
+        entity: APPROVAL_ENTITIES.RISK_ASSESSMENT,
         status: approvalStatus,
         notes: approvalNotes,
       });

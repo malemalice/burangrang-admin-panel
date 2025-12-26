@@ -15,11 +15,11 @@ import {
 } from './dto/master-approval.dto';
 import { Prisma } from '@prisma/client';
 import { SubmitApprovalDto, ApprovalStatus } from './dto/submit-approval.dto';
-import { ConfigService } from '@nestjs/config';
 import { User } from 'src/shared/types';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
+import { APPROVAL_ENTITY_TO_TABLE } from '../../shared/constants/approval-entities';
 
 interface FindAllOptions {
   page?: number;
@@ -40,7 +40,6 @@ export class MasterApprovalsService {
     private readonly prisma: PrismaService,
     private dtoMapper: DtoMapperService,
     private errorHandler: ErrorHandlingService,
-    private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
   ) {
     // Initialize mappers
@@ -532,14 +531,11 @@ export class MasterApprovalsService {
     entityName: string,
     status: string,
   ): Promise<void> {
-    // Get the source entity table name from .env
-    let approvalEntity = this.configService.get<string>('APPROVAL_ENTITY');
-
-    if (!approvalEntity) {
-      throw new BadRequestException('Source entity table name not found');
-    }
-    approvalEntity = JSON.parse(approvalEntity);
-    const tableName = approvalEntity && approvalEntity[entityName];
+    // Get the source entity table name from mapping
+    const tableName =
+      APPROVAL_ENTITY_TO_TABLE[
+        entityName as keyof typeof APPROVAL_ENTITY_TO_TABLE
+      ];
 
     if (!tableName) {
       throw new BadRequestException(
@@ -564,15 +560,11 @@ export class MasterApprovalsService {
     entityName: string,
   ): Promise<{ id: string; roleId: string } | null> {
     try {
-      // Get the source entity table name from .env
-      let approvalEntity = this.configService.get<string>('APPROVAL_ENTITY');
-
-      if (!approvalEntity) {
-        return null;
-      }
-
-      approvalEntity = JSON.parse(approvalEntity);
-      const tableName = approvalEntity && approvalEntity[entityName];
+      // Get the source entity table name from mapping
+      const tableName =
+        APPROVAL_ENTITY_TO_TABLE[
+          entityName as keyof typeof APPROVAL_ENTITY_TO_TABLE
+        ];
 
       if (!tableName) {
         return null;
@@ -692,7 +684,7 @@ export class MasterApprovalsService {
           {
             title: `${entityName} Approval ${status === ApprovalStatus.APPROVED ? 'Approved' : 'Rejected'}`,
             message: `Your ${entityName} request has been ${statusText} by ${approverName}.${notesText}`,
-            context: entityName.toLowerCase(),
+            context: entityName.toLowerCase().replace(/_/g, '-'),
             contextId: entityId,
             typeId: notificationType.id,
             roleIds: requester.roleId ? [requester.roleId] : [],
@@ -718,7 +710,7 @@ export class MasterApprovalsService {
             {
               title: `${entityName} Approval Request`,
               message: `A ${entityName} request is pending your approval (Line ${approvalStatus.nextApprover.line}).`,
-              context: entityName.toLowerCase(),
+              context: entityName.toLowerCase().replace(/_/g, '-'),
               contextId: entityId,
               typeId: notificationType.id,
               roleIds,
