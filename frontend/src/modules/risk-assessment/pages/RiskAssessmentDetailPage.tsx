@@ -186,6 +186,7 @@ const RiskAssessmentDetailPage = () => {
           <div className="flex gap-2 flex-wrap">
             {/* Status-based action buttons */}
             {(assessment.status === GeneralStatusEnum.SCHEDULED || 
+            assessment.status === GeneralStatusEnum.REJECTED ||
               assessment.status === GeneralStatusEnum.DRAFT) && (
               <Button 
                 variant="default"
