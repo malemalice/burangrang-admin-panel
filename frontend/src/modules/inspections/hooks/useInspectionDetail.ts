@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Inspection, InspectionItem, CreateInspectionItemDTO } from '../types/inspection.types';
 import inspectionsService from '../services/inspectionsService';
-import { approvalService, type ApprovalStatusHistory } from '@/modules/master-data';
+import { approvalService, type ApprovalStatusHistory, APPROVAL_ENTITIES } from '@/modules/master-data';
 import { FilterValue } from '@/core/components/ui/filter-drawer';
 
 export const useInspectionDetail = (id: string | undefined) => {
@@ -48,7 +48,7 @@ export const useInspectionDetail = (id: string | undefined) => {
 
       // Fetch approval rights (optional - don't block if it fails)
       try {
-        const approvalRights = await approvalService.checkApprovalRights(id);
+        const approvalRights = await approvalService.checkApprovalRights(id, APPROVAL_ENTITIES.INSPECTION);
         setCanApprove(approvalRights.canApprove);
       } catch (error) {
         console.error('Failed to fetch approval rights:', error);
@@ -57,7 +57,7 @@ export const useInspectionDetail = (id: string | undefined) => {
 
       // Fetch approval status/history (always attempt, regardless of permissions)
       try {
-        const approvalStatus = await approvalService.checkApprovalStatus(id);
+        const approvalStatus = await approvalService.checkApprovalStatus(id, APPROVAL_ENTITIES.INSPECTION);
         if (approvalStatus && !(approvalStatus as any).error) {
           setApprovalHistory(approvalStatus);
         } else {
@@ -200,7 +200,7 @@ export const useInspectionDetail = (id: string | undefined) => {
     try {
       const [inspectionData, approvalStatus, approvalRights] = await Promise.all([
         inspectionsService.getById(id),
-        approvalService.checkApprovalStatus(id).catch((error) => {
+        approvalService.checkApprovalStatus(id, APPROVAL_ENTITIES.INSPECTION).catch((error) => {
           console.error('Failed to fetch approval status after submission:', error);
           return {
             history: [],
@@ -209,7 +209,7 @@ export const useInspectionDetail = (id: string | undefined) => {
             currentStatus: 'UNKNOWN',
           };
         }),
-        approvalService.checkApprovalRights(id).catch((error) => {
+        approvalService.checkApprovalRights(id, APPROVAL_ENTITIES.INSPECTION).catch((error) => {
           console.error('Failed to fetch approval rights after submission:', error);
           return { canApprove: false };
         }),
