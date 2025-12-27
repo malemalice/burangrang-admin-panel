@@ -16,6 +16,8 @@ import { CreateInspectionInspectorDto } from '../dto/create-inspection-inspector
 import { UpdateInspectionInspectorDto } from '../dto/update-inspection-inspector.dto';
 import { InspectionInspectorDto } from '../dto/inspection-inspector.dto';
 import { Prisma, GeneralStatusEnum } from '@prisma/client';
+import { RemindersService } from '../../reminders/reminders.service';
+import { ReminderRepeatTypeEnum } from '../../reminders/dto/reminder.dto';
 
 interface FindAllOptions {
   page?: number;
@@ -39,6 +41,7 @@ export class InspectionsService {
     private readonly prisma: PrismaService,
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
+    private readonly remindersService: RemindersService,
   ) {
     // Initialize image mapper first (used in item mapper)
     this.inspectionImageMapper =
@@ -155,6 +158,17 @@ export class InspectionsService {
       },
     });
 
+    // Create reminder if status is SCHEDULED
+    if (inspection.status === GeneralStatusEnum.SCHEDULED) {
+      const reminderUserId = userId; // Use creator as reminder recipient
+      await this.createReminderForInspection(
+        inspection.id,
+        inspection.inspectionDate,
+        reminderUserId,
+        inspection.code,
+      );
+    }
+
     return this.inspectionMapper(inspection);
   }
 
@@ -269,6 +283,21 @@ export class InspectionsService {
 
     this.errorHandler.throwIfNotFoundById('Inspection', id, existingInspection);
 
+    // Track status and date changes for reminder management
+    const oldStatus = existingInspection.status;
+    const newStatus = data.status;
+    const statusChangedToScheduled =
+      oldStatus !== GeneralStatusEnum.SCHEDULED &&
+      newStatus === GeneralStatusEnum.SCHEDULED;
+    const statusChangedFromScheduled =
+      oldStatus === GeneralStatusEnum.SCHEDULED &&
+      newStatus !== GeneralStatusEnum.SCHEDULED &&
+      newStatus !== undefined;
+    const inspectionDateChanged =
+      data.inspectionDate &&
+      data.inspectionDate.getTime() !==
+        existingInspection.inspectionDate.getTime();
+
     // Update the inspection and its related data
     const inspection = await this.prisma.inspection.update({
       where: { id },
@@ -315,6 +344,34 @@ export class InspectionsService {
       },
     });
 
+    // Handle reminder creation/deletion based on status changes
+    if (statusChangedFromScheduled) {
+      // Status changed from SCHEDULED to something else - delete reminders
+      await this.deleteRemindersForInspection(id);
+    } else if (statusChangedToScheduled) {
+      // Status changed to SCHEDULED - create reminder
+      const reminderUserId = inspection.createdBy;
+      await this.createReminderForInspection(
+        inspection.id,
+        inspection.inspectionDate,
+        reminderUserId,
+        inspection.code,
+      );
+    } else if (
+      inspection.status === GeneralStatusEnum.SCHEDULED &&
+      inspectionDateChanged
+    ) {
+      // Status is still SCHEDULED but inspectionDate changed - delete old and create new reminder
+      await this.deleteRemindersForInspection(id);
+      const reminderUserId = inspection.createdBy;
+      await this.createReminderForInspection(
+        inspection.id,
+        inspection.inspectionDate,
+        reminderUserId,
+        inspection.code,
+      );
+    }
+
     return this.inspectionMapper(inspection);
   }
 
@@ -333,6 +390,9 @@ export class InspectionsService {
     });
 
     this.errorHandler.throwIfNotFoundById('Inspection', id, inspection);
+
+    // Delete all reminders associated with this inspection
+    await this.deleteRemindersForInspection(id);
 
     // Delete all related items and their images first (CASCADE will handle images)
     await this.prisma.inspectionItem.deleteMany({
@@ -819,6 +879,121 @@ export class InspectionsService {
     await this.prisma.inspectionInspector.delete({
       where: { id: inspectorId },
     });
+  }
+
+  /**
+   * Convert inspection date to reminder time (09:00 AM GMT+7)
+   */
+  private convertInspectionDateToReminderTime(inspectionDate: Date): Date {
+    // Extract date components using UTC methods to avoid timezone issues
+    const year = inspectionDate.getUTCFullYear();
+    const month = inspectionDate.getUTCMonth();
+    const day = inspectionDate.getUTCDate();
+
+    // Create UTC date at 02:00 AM UTC (which is 09:00 AM GMT+7)
+    return new Date(Date.UTC(year, month, day, 2, 0, 0));
+  }
+
+  /**
+   * Get the first reminder date (today or tomorrow at 09:00 AM GMT+7)
+   * If today's 09:00 AM GMT+7 has passed, start from tomorrow
+   */
+  private getFirstReminderDate(): Date {
+    const now = new Date();
+    const todayReminder = this.convertInspectionDateToReminderTime(now);
+
+    // If today's reminder time has passed, start from tomorrow
+    if (todayReminder <= now) {
+      const tomorrow = new Date(now);
+      tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+      return this.convertInspectionDateToReminderTime(tomorrow);
+    }
+
+    return todayReminder;
+  }
+
+  /**
+   * Create reminder for inspection when status is SCHEDULED
+   * Reminder repeats daily from today/tomorrow until inspectionDate
+   */
+  private async createReminderForInspection(
+    inspectionId: string,
+    inspectionDate: Date,
+    userId: string,
+    code: string,
+  ): Promise<void> {
+    try {
+      const now = new Date();
+      const inspectionReminderTime =
+        this.convertInspectionDateToReminderTime(inspectionDate);
+
+      // Only create reminder if inspectionDate reminder time is in the future
+      if (inspectionReminderTime <= now) {
+        return;
+      }
+
+      // Get the first reminder date (today or tomorrow)
+      const firstReminderDate = this.getFirstReminderDate();
+
+      // Only create if first reminder date is before or equal to inspectionDate
+      if (firstReminderDate > inspectionReminderTime) {
+        return;
+      }
+
+      // Set repeatUntil to inspectionDate at 09:00 AM GMT+7
+      // This ensures the reminder fires on inspectionDate and stops after that
+      const repeatUntil = new Date(inspectionReminderTime);
+
+      await this.remindersService.create(
+        {
+          entity: 't_inspections',
+          entityId: inspectionId,
+          message: `Inspection ${code} is scheduled for ${inspectionDate.toLocaleDateString()}`,
+          remindAt: firstReminderDate.toISOString(),
+          repeatType: ReminderRepeatTypeEnum.DAILY,
+          repeatUntil: repeatUntil.toISOString(),
+        },
+        userId,
+      );
+    } catch (error) {
+      // Log error but don't throw to avoid breaking the main operation
+      console.error(
+        `Failed to create reminder for inspection ${inspectionId}:`,
+        error,
+      );
+    }
+  }
+
+  /**
+   * Delete all reminders associated with an inspection
+   */
+  private async deleteRemindersForInspection(
+    inspectionId: string,
+  ): Promise<void> {
+    try {
+      // Find all reminders for this inspection
+      const reminders = await this.prisma.reminder.findMany({
+        where: {
+          entity: 't_inspections',
+          entityId: inspectionId,
+          status: 'PENDING', // Only cancel pending reminders
+        },
+      });
+
+      // Cancel each reminder by updating status to CANCELLED
+      for (const reminder of reminders) {
+        await this.prisma.reminder.update({
+          where: { id: reminder.id },
+          data: { status: 'CANCELLED' },
+        });
+      }
+    } catch (error) {
+      // Log error but don't throw to avoid breaking the main operation
+      console.error(
+        `Failed to delete reminders for inspection ${inspectionId}:`,
+        error,
+      );
+    }
   }
 
 }

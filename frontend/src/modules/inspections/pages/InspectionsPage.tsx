@@ -80,11 +80,14 @@ const InspectionsPage = () => {
         params.search = searchTerm;
       }
 
-      // Add active status from filters
-      if (activeFilters.status?.value === 'active') {
-        params.isActive = true;
-      } else if (activeFilters.status?.value === 'inactive') {
-        params.isActive = false;
+      // Add isActive filter from filters (for active/inactive tabs)
+      if (activeFilters.isActive?.value !== undefined) {
+        params.isActive = activeFilters.isActive.value;
+      }
+
+      // Add status filter (for GeneralStatusEnum values)
+      if (activeFilters.status?.value) {
+        params.status = activeFilters.status.value;
       }
 
       // Add other filters
@@ -158,6 +161,15 @@ const InspectionsPage = () => {
     
     setActiveFilters(newActiveFilters);
     setPageIndex(0); // Reset to first page on new filters
+    
+    // Sync tab state with isActive filter
+    if (newActiveFilters.isActive?.value === true) {
+      setActiveTab('active');
+    } else if (newActiveFilters.isActive?.value === false) {
+      setActiveTab('inactive');
+    } else if (!newActiveFilters.isActive && Object.keys(newActiveFilters).length === 0) {
+      setActiveTab('all');
+    }
   };
 
   const handleDeleteClick = (inspection: Inspection, event?: React.MouseEvent) => {
@@ -309,7 +321,7 @@ const InspectionsPage = () => {
           </ThemeButton>
         }
       >
-        <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
+        <Tabs value={activeTab} className="w-full" onValueChange={handleTabChange}>
           <TabsList>
             <TabsTrigger value="all">All Inspections</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
