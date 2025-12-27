@@ -670,40 +670,54 @@ Table t_inspections {
   code varchar [unique, not null]
   areaId varchar [not null, ref: > m_areas.id]
   inspectionDate timestamp [not null]
-  riskCategoryId varchar [not null, ref: > m_risk_categories.id]
-  riskId varchar [not null, ref: > m_risk.id]
-  assignedDepartmentId varchar [not null, ref: > m_departments.id]
-  assigneeId varchar [null, ref: > t_users.id]
-  followUpNotes text [null]
+  description text [null]
   status GeneralStatusEnum [not null]
   isActive boolean [not null, default: true]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   createdBy varchar [not null, ref: > t_users.id]
   
-  Note: 'HSE inspection records - supports multiple inspectors via one-to-many relationship'
+  Note: 'HSE inspection header - tracks area, inspection date, status, and inspectors'
   indexes {
     code [unique]
     areaId
+    status
+  }
+}
+
+Table t_inspection_items {
+  id varchar [pk, default: `uuid()`]
+  inspectionId varchar [not null, ref: > t_inspections.id, note: 'onDelete: Cascade']
+  riskCategoryId varchar [not null, ref: > m_risk_categories.id]
+  riskId varchar [not null, ref: > m_risk.id]
+  assignedDepartmentId varchar [not null, ref: > m_departments.id]
+  assigneeId varchar [null, ref: > t_users.id]
+  followUpNotes text [null]
+  order int [not null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Individual inspection items - tracks risk findings, assignments, and follow-up notes per item'
+  indexes {
+    inspectionId
     riskCategoryId
     riskId
     assignedDepartmentId
     assigneeId
-    status
   }
 }
 
 Table t_inspection_images {
   id varchar [pk, default: `uuid()`]
-  inspectionId varchar [not null, ref: > t_inspections.id, note: 'onDelete: Cascade']
+  inspectionItemId varchar [not null, ref: > t_inspection_items.id, note: 'onDelete: Cascade']
   imageUrl varchar [not null]
   caption text [null]
   order int [not null]
   createdAt timestamp [not null, default: `now()`]
   
-  Note: 'Photos/images attached to inspections'
+  Note: 'Photos/images attached to inspection items'
   indexes {
-    inspectionId
+    inspectionItemId
     order
   }
 }
@@ -2459,6 +2473,7 @@ TableGroup inspection_system {
   m_areas
   m_rooms
   t_inspections
+  t_inspection_items
   t_inspection_images
   t_inspection_inspectors
   t_environmental_measurements
