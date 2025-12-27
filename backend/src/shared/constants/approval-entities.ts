@@ -11,6 +11,7 @@
 export const APPROVAL_ENTITIES = {
   RISK_ASSESSMENT: 'RISK_ASSESSMENT',
   WORK_PERMIT: 'WORK_PERMIT',
+  INSPECTION: 'INSPECTION',
   // Add more entities as modules are added
   // CERTIFICATE: 'CERTIFICATE',
   // PPE_WITHDRAWAL: 'PPE_WITHDRAWAL',
@@ -33,6 +34,7 @@ export type ApprovalEntityName =
 export const APPROVAL_ENTITY_TO_TABLE: Record<ApprovalEntityName, string> = {
   [APPROVAL_ENTITIES.RISK_ASSESSMENT]: 't_risk_assessment',
   [APPROVAL_ENTITIES.WORK_PERMIT]: 't_work_permits',
+  [APPROVAL_ENTITIES.INSPECTION]: 't_inspections',
   // Add more mappings as modules are added
   // [APPROVAL_ENTITIES.CERTIFICATE]: 't_certificates',
   // [APPROVAL_ENTITIES.PPE_WITHDRAWAL]: 't_ppe_withdrawals',

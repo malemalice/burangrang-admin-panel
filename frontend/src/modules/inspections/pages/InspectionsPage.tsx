@@ -261,6 +261,25 @@ const InspectionsPage = () => {
       ),
     },
     {
+      id: 'inspectors',
+      header: 'Inspectors',
+      cell: (inspection: Inspection) => (
+        <div>
+          {inspection.inspectors && inspection.inspectors.length > 0
+            ? inspection.inspectors
+                .map((inspector) => {
+                  if (inspector.inspector) {
+                    return `${inspector.inspector.firstName} ${inspector.inspector.lastName}`;
+                  }
+                  return null;
+                })
+                .filter(Boolean)
+                .join(', ') || 'N/A'
+            : 'N/A'}
+        </div>
+      ),
+    },
+    {
       id: 'status',
       header: 'Status',
       cell: (inspection: Inspection) => getStatusBadge(inspection.status),
