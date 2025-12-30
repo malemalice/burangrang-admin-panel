@@ -468,7 +468,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workRequirements: 'Plumber certification required',
       safetyGuideline: 'Follow plumbing safety standards',
       requireCourseVerification: false,
-      status: 'WAITING_APPROVAL',
+      status: 'IN_REVIEW_HSE',
       createdBy: creator.id,
       classifications: {
         create: [
@@ -501,7 +501,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       },
     },
   });
-  console.log(`✅ Created work permit: ${wp2.code} (WAITING_APPROVAL)`);
+  console.log(`✅ Created work permit: ${wp2.code} (IN_REVIEW_HSE)`);
 
   // Sample Work Permit 3: APPROVED
   const wp3 = await prisma.workPermit.create({

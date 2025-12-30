@@ -1214,7 +1214,7 @@ export class WorkPermitsService {
       const updated = await this.prisma.workPermit.update({
         where: { id },
         data: {
-          status: 'WAITING_APPROVAL',
+          status: 'IN_REVIEW_HSE',
         },
         include: {
           area: true,
