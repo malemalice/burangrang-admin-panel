@@ -61,26 +61,47 @@ const formSchema = z
     })
     .refine(
         (data) => {
-            // Either personnelId or personnelName must be provided for personnel certificates
+            // For personnel certificates: Either personnelId OR personnelName (not both)
             if (
                 data.certificateType === 'PERSONNEL_LICENSE' ||
                 data.certificateType === 'PERSONNEL_CERTIFICATE'
             ) {
-                return data.personnelId || data.personnelName;
+                // Must have one but not both
+                const hasPersonnelId = !!data.personnelId;
+                const hasPersonnelName = !!data.personnelName;
+                return (hasPersonnelId || hasPersonnelName) && !(hasPersonnelId && hasPersonnelName);
             }
-            // Either equipmentId or equipmentName must be provided for equipment certificates
+            // For equipment certificates: equipmentName is required
             if (
                 data.certificateType === 'EQUIPMENT_CALIBRATION' ||
                 data.certificateType === 'EQUIPMENT_INSTALLATION' ||
                 data.certificateType === 'EQUIPMENT_OPERATIONAL_PERMIT'
             ) {
-                return data.equipmentId || data.equipmentName;
+                return !!data.equipmentName;
             }
             return true;
         },
         {
-            message: 'Either select from list or enter name manually',
+            message: 'Either select from list OR enter name manually (not both)',
             path: ['personnelName'],
+        },
+    )
+    .refine(
+        (data) => {
+            // Validate equipment name is required for equipment certificates
+            const equipmentTypes = [
+                'EQUIPMENT_CALIBRATION',
+                'EQUIPMENT_INSTALLATION',
+                'EQUIPMENT_OPERATIONAL_PERMIT',
+            ];
+            if (equipmentTypes.includes(data.certificateType)) {
+                return !!data.equipmentName;
+            }
+            return true;
+        },
+        {
+            message: 'Equipment Name is required',
+            path: ['equipmentName'],
         },
     );
 
@@ -330,7 +351,7 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                 navigate('/certificates');
             } else if (id) {
                 await updateCertificate(id, certificateData as UpdateCertificateDTO);
-                navigate('/certificates');
+                navigate(`/certificates/${id}`);
             }
         } catch (error) {
             console.error('Error submitting form:', error);
@@ -363,228 +384,53 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
 
     return (
         <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Basic Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <FormField
-                                    control={form.control}
-                                    name="certificateNumber"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Certificate Number *</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Enter certificate number" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="certificateName"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Certificate Name *</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Enter certificate name" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="categoryId"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Category *</FormLabel>
-                                            <FormControl>
-                                                <SearchableSelect
-                                                    options={categoryOptions}
-                                                    value={field.value}
-                                                    onValueChange={field.onChange}
-                                                    placeholder="Select category"
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="certificateType"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Certificate Type *</FormLabel>
-                                            <Select
-                                                onValueChange={field.onChange}
-                                                value={field.value}
-                                            >
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select certificate type" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {certificateTypeOptions.map((option) => (
-                                                        <SelectItem key={option.value} value={option.value}>
-                                                            {option.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="issuedDate"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Issued Date *</FormLabel>
-                                            <FormControl>
-                                                <DateTimePicker
-                                                    mode="date"
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    placeholder="Select issued date"
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="validityDate"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Validity Date *</FormLabel>
-                                            <FormControl>
-                                                <DateTimePicker
-                                                    mode="date"
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    placeholder="Select validity date"
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="issuerName"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Issuer Name *</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Enter issuer name" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="documentUrl"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Document</FormLabel>
-                                            <FormControl>
-                                                <div className="space-y-2">
-                                                    <input
-                                                        type="file"
-                                                        id="document-upload"
-                                                        className="hidden"
-                                                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp"
-                                                        onChange={handleFileInputChange}
-                                                        disabled={uploadingFile}
-                                                    />
-                                                    {uploadedFileName ? (
-                                                        <div className="flex items-center gap-2 p-3 border rounded-md bg-gray-50">
-                                                            <FileText className="h-4 w-4 text-gray-500" />
-                                                            <span className="text-sm font-medium flex-1">
-                                                                {uploadedFileName}
-                                                            </span>
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={handleFileRemove}
-                                                                disabled={uploadingFile}
-                                                            >
-                                                                <X className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
-                                                    ) : (
-                                                        <label htmlFor="document-upload" className="cursor-pointer">
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                className="w-full"
-                                                                disabled={uploadingFile}
-                                                                onClick={() => {
-                                                                    document.getElementById('document-upload')?.click();
-                                                                }}
-                                                            >
-                                                                {uploadingFile ? (
-                                                                    <>
-                                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
-                                                                        Uploading...
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <Upload className="mr-2 h-4 w-4" />
-                                                                        Upload Certificate Document
-                                                                    </>
-                                                                )}
-                                                            </Button>
-                                                        </label>
-                                                    )}
-                                                    <input type="hidden" {...field} />
-                                                </div>
-                                            </FormControl>
-                                            <FormDescription>
-                                                Upload PDF, DOC, DOCX, or image files (max 50MB)
-                                            </FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Personnel / Equipment Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Basic Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <FormField
                                 control={form.control}
-                                name="departmentId"
+                                name="certificateNumber"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Department *</FormLabel>
+                                        <FormLabel>Certificate Number *</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="Enter certificate number" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="certificateName"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Certificate Name *</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="Enter certificate name" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="categoryId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Category *</FormLabel>
                                         <FormControl>
                                             <SearchableSelect
-                                                options={departmentOptions}
+                                                options={categoryOptions}
                                                 value={field.value}
                                                 onValueChange={field.onChange}
-                                                placeholder="Select department"
+                                                placeholder="Select category"
                                             />
                                         </FormControl>
                                         <FormMessage />
@@ -592,148 +438,352 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                                 )}
                             />
 
-                            {isPersonnelCertificate && (
-                                <>
-                                    <FormField
-                                        control={form.control}
-                                        name="personnelId"
-                                        render={({ field }) => (
+                            <FormField
+                                control={form.control}
+                                name="certificateType"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Certificate Type *</FormLabel>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            value={field.value}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select certificate type" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {certificateTypeOptions.map((option) => (
+                                                    <SelectItem key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="issuedDate"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Issued Date *</FormLabel>
+                                        <FormControl>
+                                            <DateTimePicker
+                                                mode="date"
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                placeholder="Select issued date"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="validityDate"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Validity Date *</FormLabel>
+                                        <FormControl>
+                                            <DateTimePicker
+                                                mode="date"
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                placeholder="Select validity date"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="issuerName"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Issuer Name *</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="Enter issuer name" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="documentUrl"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Document</FormLabel>
+                                        <FormControl>
+                                            <div className="space-y-2">
+                                                <input
+                                                    type="file"
+                                                    id="document-upload"
+                                                    className="hidden"
+                                                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp"
+                                                    onChange={handleFileInputChange}
+                                                    disabled={uploadingFile}
+                                                />
+                                                {uploadedFileName ? (
+                                                    <div className="flex items-center gap-2 p-3 border rounded-md bg-gray-50">
+                                                        <FileText className="h-4 w-4 text-gray-500" />
+                                                        <span className="text-sm font-medium flex-1">
+                                                            {uploadedFileName}
+                                                        </span>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={handleFileRemove}
+                                                            disabled={uploadingFile}
+                                                        >
+                                                            <X className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <label htmlFor="document-upload" className="cursor-pointer">
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            className="w-full"
+                                                            disabled={uploadingFile}
+                                                            onClick={() => {
+                                                                document.getElementById('document-upload')?.click();
+                                                            }}
+                                                        >
+                                                            {uploadingFile ? (
+                                                                <>
+                                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                                                                    Uploading...
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Upload className="mr-2 h-4 w-4" />
+                                                                    Upload Certificate Document
+                                                                </>
+                                                            )}
+                                                        </Button>
+                                                    </label>
+                                                )}
+                                                <input type="hidden" {...field} />
+                                            </div>
+                                        </FormControl>
+                                        <FormDescription>
+                                            Upload PDF, DOC, DOCX, or image files (max 50MB)
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Personnel / Equipment Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <FormField
+                            control={form.control}
+                            name="departmentId"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Department *</FormLabel>
+                                    <FormControl>
+                                        <SearchableSelect
+                                            options={departmentOptions}
+                                            value={field.value}
+                                            onValueChange={field.onChange}
+                                            placeholder="Select department"
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {isPersonnelCertificate && (
+                            <>
+                                <FormField
+                                    control={form.control}
+                                    name="personnelId"
+                                    render={({ field }) => {
+                                        const personnelNameValue = form.watch('personnelName');
+                                        const isDisabled = !!personnelNameValue;
+
+                                        return (
                                             <FormItem>
                                                 <FormLabel>Personnel</FormLabel>
                                                 <FormControl>
-                                                    <SearchableSelect
-                                                        options={userOptions}
-                                                        value={field.value}
-                                                        onValueChange={field.onChange}
-                                                        placeholder="Select personnel (optional)"
-                                                    />
+                                                    <div className={isDisabled ? 'opacity-50 pointer-events-none' : ''}>
+                                                        <SearchableSelect
+                                                            options={userOptions}
+                                                            value={field.value}
+                                                            onValueChange={(value) => {
+                                                                field.onChange(value);
+                                                                // Clear personnelName when selecting from list
+                                                                if (value) {
+                                                                    form.setValue('personnelName', '');
+                                                                }
+                                                            }}
+                                                            placeholder="Select personnel from list"
+                                                        />
+                                                    </div>
                                                 </FormControl>
                                                 <FormDescription>
-                                                    Select personnel from list or enter name manually below
+                                                    Select personnel from list OR enter name manually below (not both)
                                                 </FormDescription>
                                                 <FormMessage />
                                             </FormItem>
-                                        )}
-                                    />
+                                        );
+                                    }}
+                                />
 
-                                    <FormField
-                                        control={form.control}
-                                        name="personnelName"
-                                        render={({ field }) => (
+                                <FormField
+                                    control={form.control}
+                                    name="personnelName"
+                                    render={({ field }) => {
+                                        const personnelIdValue = form.watch('personnelId');
+                                        const isDisabled = !!personnelIdValue;
+
+                                        return (
                                             <FormItem>
                                                 <FormLabel>Personnel Name (if not in list)</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Enter personnel name" {...field} />
+                                                    <Input
+                                                        placeholder="Enter personnel name"
+                                                        {...field}
+                                                        disabled={isDisabled}
+                                                        onChange={(e) => {
+                                                            field.onChange(e);
+                                                            // Clear personnelId when entering name manually
+                                                            if (e.target.value) {
+                                                                form.setValue('personnelId', '');
+                                                            }
+                                                        }}
+                                                    />
                                                 </FormControl>
                                                 <FormDescription>
                                                     Enter personnel name if not available in the list above
                                                 </FormDescription>
                                                 <FormMessage />
                                             </FormItem>
-                                        )}
-                                    />
-                                </>
+                                        );
+                                    }}
+                                />
+                            </>
+                        )}
+
+                        {isEquipmentCertificate && (
+                            <>
+                                <FormField
+                                    control={form.control}
+                                    name="equipmentId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Equipment ID</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Enter equipment ID" {...field} />
+                                            </FormControl>
+                                            <FormDescription>
+                                                Equipment ID from master data (optional)
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="equipmentName"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Equipment Name *</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Enter equipment name" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Additional Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <FormField
+                            control={form.control}
+                            name="reminderDays"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Reminder Days</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="number"
+                                            min="1"
+                                            placeholder="30"
+                                            {...field}
+                                            onChange={(e) => field.onChange(parseInt(e.target.value) || 30)}
+                                        />
+                                    </FormControl>
+                                    <FormDescription>
+                                        Number of days before expiry to send reminder (default: 30)
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
                             )}
+                        />
 
-                            {isEquipmentCertificate && (
-                                <>
-                                    <FormField
-                                        control={form.control}
-                                        name="equipmentId"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Equipment ID</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="Enter equipment ID" {...field} />
-                                                </FormControl>
-                                                <FormDescription>
-                                                    Equipment ID from master data (optional)
-                                                </FormDescription>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-
-                                    <FormField
-                                        control={form.control}
-                                        name="equipmentName"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Equipment Name *</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="Enter equipment name" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </>
+                        <FormField
+                            control={form.control}
+                            name="notes"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Notes</FormLabel>
+                                    <FormControl>
+                                        <Textarea
+                                            placeholder="Enter any additional notes"
+                                            rows={4}
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
                             )}
-                        </CardContent>
-                    </Card>
+                        />
+                    </CardContent>
+                </Card>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Additional Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <FormField
-                                control={form.control}
-                                name="reminderDays"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Reminder Days</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                type="number"
-                                                min="1"
-                                                placeholder="30"
-                                                {...field}
-                                                onChange={(e) => field.onChange(parseInt(e.target.value) || 30)}
-                                            />
-                                        </FormControl>
-                                        <FormDescription>
-                                            Number of days before expiry to send reminder (default: 30)
-                                        </FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-
-                            <FormField
-                                control={form.control}
-                                name="notes"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Notes</FormLabel>
-                                        <FormControl>
-                                            <Textarea
-                                                placeholder="Enter any additional notes"
-                                                rows={4}
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </CardContent>
-                    </Card>
-
-                    <div className="flex justify-end gap-4">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => navigate('/certificates')}
-                        >
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={isLoading}>
-                            {isLoading ? 'Saving...' : mode === 'create' ? 'Create Certificate' : 'Update Certificate'}
-                        </Button>
-                    </div>
-                </form>
-            </Form>
+                <div className="flex justify-end gap-4">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => navigate('/certificates')}
+                    >
+                        Cancel
+                    </Button>
+                    <Button type="submit" disabled={isLoading}>
+                        {isLoading ? 'Saving...' : mode === 'create' ? 'Create Certificate' : 'Update Certificate'}
+                    </Button>
+                </div>
+            </form>
+        </Form>
     );
 };
 

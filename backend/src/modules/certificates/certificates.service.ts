@@ -267,6 +267,18 @@ export class CertificatesService {
                 department,
             );
 
+            // Validate equipment name for equipment certificates
+            const equipmentTypes = [
+                'EQUIPMENT_CALIBRATION',
+                'EQUIPMENT_INSTALLATION',
+                'EQUIPMENT_OPERATIONAL_PERMIT',
+            ];
+            if (equipmentTypes.includes(createCertificateDto.certificateType)) {
+                if (!createCertificateDto.equipmentName && !createCertificateDto.equipmentId) {
+                    this.errorHandler.throwBadRequest('Equipment Name is required for equipment certificates');
+                }
+            }
+
             // Validate personnel if provided
             if (createCertificateDto.personnelId) {
                 const personnel = await this.prisma.user.findUnique({
@@ -295,6 +307,24 @@ export class CertificatesService {
                     creator: true,
                 },
             });
+
+            // Create reminder for certificate expiry
+            const reminderDays = createCertificateDto.reminderDays || 30;
+            const validityDate = new Date(createCertificateDto.validityDate);
+            const reminderDate = new Date(validityDate);
+            reminderDate.setDate(validityDate.getDate() - reminderDays);
+
+            // Only create reminder if reminder date is in the future
+            if (reminderDate > new Date()) {
+                await this.prisma.certificateReminder.create({
+                    data: {
+                        certificateId: certificate.id,
+                        reminderDate: reminderDate,
+                        recipientId: createdBy,
+                        isSent: false,
+                    },
+                });
+            }
 
             return this.certificateMapper(certificate);
         }, 'create certificate');
