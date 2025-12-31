@@ -57,7 +57,8 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    mode: 'onBlur',
+    mode: 'all',
+    criteriaMode: 'all',
     defaultValues: {
       name: manHour?.name || '',
       group: manHour?.group || 'STUDENT',

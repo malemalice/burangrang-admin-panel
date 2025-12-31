@@ -3,6 +3,7 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
+import { MailService } from '../mail/mail.service';
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { AssignEnrollmentDto } from './dto/assign-enrollment.dto';
 import { UpdateEnrollmentDto } from './dto/update-enrollment.dto';
@@ -21,6 +22,7 @@ export class EnrollmentsService {
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
     private readonly notificationsService: NotificationsService,
+    private readonly mailService: MailService,
   ) {
     // Initialize mappers with relations
     this.enrollmentMapper = this.dtoMapper.createRelationMapper(EnrollmentDto, {
@@ -223,22 +225,20 @@ export class EnrollmentsService {
             assignedBy,
           );
 
-          // Send email notification
-          // TODO: Integrate with email service when available
-          // Email service should be injected and used here
-          // Example implementation:
-          // await this.emailService.sendCourseAssignmentEmail({
-          //   to: user.email,
-          //   userName: `${user.firstName} ${user.lastName}`,
-          //   courseTitle: course.title,
-          //   courseSlug: course.slug,
-          //   dueDate: dueDate ? new Date(dueDate).toLocaleDateString() : null,
-          //   notes: notes || null,
-          //   enrollmentId: enrollment.id,
-          // });
-
-          // Placeholder: Log email sending intent for development/debugging
-          console.log(`[Email] Would send course assignment email to ${user.email} for course "${course.title}"`);
+          // Send email notification using MailService
+          await this.mailService.sendTemplatedMail({
+            template: 'course-assignment',
+            email: user.email,
+            context: {
+              userName: `${user.firstName} ${user.lastName}`,
+              courseTitle: course.title,
+              courseSlug: course.slug,
+              dueDate: dueDate ? new Date(dueDate).toLocaleDateString() : null,
+              notes: notes || null,
+              enrollmentId: enrollment.id,
+              isRequired: isRequired ? 'Yes' : 'No',
+            },
+          });
         } catch (error) {
           // Log error but don't fail enrollment creation
           console.error('Failed to send notification:', error);
@@ -295,13 +295,14 @@ export class EnrollmentsService {
         where.assignedBy = assignedBy;
       }
 
-      // Search functionality
+      // Search functionality - improved to match full words or exact substrings
       if (search) {
+        const searchTerm = search.trim();
         where.OR = [
           {
             course: {
               title: {
-                contains: search,
+                contains: searchTerm,
                 mode: 'insensitive',
               },
             },
@@ -311,19 +312,19 @@ export class EnrollmentsService {
               OR: [
                 {
                   firstName: {
-                    contains: search,
+                    startsWith: searchTerm,
                     mode: 'insensitive',
                   },
                 },
                 {
                   lastName: {
-                    contains: search,
+                    startsWith: searchTerm,
                     mode: 'insensitive',
                   },
                 },
                 {
                   email: {
-                    contains: search,
+                    startsWith: searchTerm,
                     mode: 'insensitive',
                   },
                 },

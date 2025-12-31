@@ -881,7 +881,7 @@ export class PPEService {
                             withdrawalId: withdrawal.id,
                             stockItemId: item.stockItemId,
                             requestedQuantity: item.requestedQuantity,
-                            order: item.order || index + 1,
+                            order: item.order !== undefined ? item.order : index + 1,
                             notes: item.notes || null,
                         },
                     });
@@ -1432,7 +1432,7 @@ export class PPEService {
                             withdrawalId: id,
                             stockItemId: item.stockItemId,
                             requestedQuantity: item.requestedQuantity,
-                            order: item.order || index + 1,
+                            order: item.order !== undefined ? item.order : index + 1,
                             notes: item.notes || null,
                         },
                     });

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, CertificateTypeEnum } from '@prisma/client';
 import { CreateCertificateCategoryDto } from './dto/create-certificate-category.dto';
 import { UpdateCertificateCategoryDto } from './dto/update-certificate-category.dto';
 import { CertificateCategoryDto } from './dto/certificate-category.dto';
@@ -116,6 +116,7 @@ export class CertificatesService {
         sortOrder?: 'asc' | 'desc';
         isActive?: boolean;
         search?: string;
+        certificateType?: CertificateTypeEnum;
     }): Promise<{
         data: CertificateCategoryDto[];
         meta: { total: number; page: number; limit: number };
@@ -127,6 +128,7 @@ export class CertificatesService {
             sortOrder = 'asc',
             isActive,
             search,
+            certificateType,
         } = options || {};
 
         const where: Prisma.CertificateCategoryWhereInput = {
@@ -145,6 +147,10 @@ export class CertificatesService {
 
         if (isActive !== undefined) {
             where.isActive = isActive;
+        }
+
+        if (certificateType) {
+            where.certificateType = certificateType;
         }
 
         const [categories, total] = await Promise.all([
@@ -267,6 +273,18 @@ export class CertificatesService {
                 department,
             );
 
+            // Validate equipment name for equipment certificates
+            const equipmentTypes = [
+                'EQUIPMENT_CALIBRATION',
+                'EQUIPMENT_INSTALLATION',
+                'EQUIPMENT_OPERATIONAL_PERMIT',
+            ];
+            if (equipmentTypes.includes(createCertificateDto.certificateType)) {
+                if (!createCertificateDto.equipmentName && !createCertificateDto.equipmentId) {
+                    this.errorHandler.throwBadRequest('Equipment Name is required for equipment certificates');
+                }
+            }
+
             // Validate personnel if provided
             if (createCertificateDto.personnelId) {
                 const personnel = await this.prisma.user.findUnique({
@@ -295,6 +313,24 @@ export class CertificatesService {
                     creator: true,
                 },
             });
+
+            // Create reminder for certificate expiry
+            const reminderDays = createCertificateDto.reminderDays || 30;
+            const validityDate = new Date(createCertificateDto.validityDate);
+            const reminderDate = new Date(validityDate);
+            reminderDate.setDate(validityDate.getDate() - reminderDays);
+
+            // Only create reminder if reminder date is in the future
+            if (reminderDate > new Date()) {
+                await this.prisma.certificateReminder.create({
+                    data: {
+                        certificateId: certificate.id,
+                        reminderDate: reminderDate,
+                        recipientId: createdBy,
+                        isSent: false,
+                    },
+                });
+            }
 
             return this.certificateMapper(certificate);
         }, 'create certificate');

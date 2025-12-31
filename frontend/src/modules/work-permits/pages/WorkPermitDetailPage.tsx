@@ -116,7 +116,7 @@ const WorkPermitDetailPage = () => {
       toast.error('Extension date and reason are required');
       return;
     }
-    
+
     // Validate that new end date is after existing end date (WP-053)
     if (workPermit) {
       const existingEndDate = new Date(workPermit.proposedEndDate);
@@ -126,7 +126,7 @@ const WorkPermitDetailPage = () => {
         return;
       }
     }
-    
+
     try {
       await extend(id, extendDate, extendReason);
       setExtendDialogOpen(false);
@@ -152,9 +152,9 @@ const WorkPermitDetailPage = () => {
 
   const canEdit = workPermit?.status === 'DRAFT' || workPermit?.status === 'NEED_INFO';
   const canSubmit = workPermit?.status === 'DRAFT';
-  const canApprove = ['WAITING_APPROVAL', 'IN_REVIEW_HSE', 'IN_REVIEW_SECURITY'].includes(workPermit?.status || '');
-  const canReject = ['WAITING_APPROVAL', 'IN_REVIEW_HSE', 'IN_REVIEW_SECURITY'].includes(workPermit?.status || '');
-  const canRequestInfo = ['WAITING_APPROVAL', 'IN_REVIEW_HSE'].includes(workPermit?.status || '');
+  const canApprove = ['IN_REVIEW_HSE', 'IN_REVIEW_SECURITY'].includes(workPermit?.status || '');
+  const canReject = ['IN_REVIEW_HSE', 'IN_REVIEW_SECURITY'].includes(workPermit?.status || '');
+  const canRequestInfo = ['IN_REVIEW_HSE'].includes(workPermit?.status || '');
   const canExtend = workPermit?.status === 'APPROVED';
   const canClose = ['APPROVED', 'EXTENDED'].includes(workPermit?.status || '');
 

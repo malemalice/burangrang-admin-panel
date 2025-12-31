@@ -58,7 +58,7 @@ export class CreateCertificateDto {
   @IsOptional()
   equipmentId?: string;
 
-  @ApiProperty({ description: 'Equipment name (if equipmentId is not provided)', required: false })
+  @ApiProperty({ description: 'Equipment name (required for equipment certificates)', required: false })
   @IsString()
   @IsOptional()
   equipmentName?: string;
