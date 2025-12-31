@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, CertificateTypeEnum } from '@prisma/client';
 import { CreateCertificateCategoryDto } from './dto/create-certificate-category.dto';
 import { UpdateCertificateCategoryDto } from './dto/update-certificate-category.dto';
 import { CertificateCategoryDto } from './dto/certificate-category.dto';
@@ -116,6 +116,7 @@ export class CertificatesService {
         sortOrder?: 'asc' | 'desc';
         isActive?: boolean;
         search?: string;
+        certificateType?: CertificateTypeEnum;
     }): Promise<{
         data: CertificateCategoryDto[];
         meta: { total: number; page: number; limit: number };
@@ -127,6 +128,7 @@ export class CertificatesService {
             sortOrder = 'asc',
             isActive,
             search,
+            certificateType,
         } = options || {};
 
         const where: Prisma.CertificateCategoryWhereInput = {
@@ -145,6 +147,10 @@ export class CertificatesService {
 
         if (isActive !== undefined) {
             where.isActive = isActive;
+        }
+
+        if (certificateType) {
+            where.certificateType = certificateType;
         }
 
         const [categories, total] = await Promise.all([
