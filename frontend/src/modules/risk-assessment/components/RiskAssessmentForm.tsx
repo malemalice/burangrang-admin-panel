@@ -35,7 +35,7 @@ import { departmentService } from '@/modules/master-data';
 import { userService } from '@/modules/users';
 import { GENERAL_STATUS_OPTIONS, GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 
-// Generate assessment code: RA + YYMMDDHHmm
+// Generate assessment code: RA + YYMMDDHHmmss (includes seconds for uniqueness)
 const generateAssessmentCode = (): string => {
   const now = new Date();
   const year = now.getFullYear().toString().slice(-2);
@@ -43,7 +43,8 @@ const generateAssessmentCode = (): string => {
   const date = now.getDate().toString().padStart(2, '0');
   const hour = now.getHours().toString().padStart(2, '0');
   const minute = now.getMinutes().toString().padStart(2, '0');
-  return `RA${year}${month}${date}${hour}${minute}`;
+  const second = now.getSeconds().toString().padStart(2, '0');
+  return `RA${year}${month}${date}${hour}${minute}${second}`;
 };
 
 // Form schema for validation
@@ -51,7 +52,7 @@ const formSchema = z.object({
   code: z.string().min(1, 'Code is required'),
   description: z.string().optional(),
   departmentId: z.string().min(1, 'Department is required'),
-  assessmentDate: z.string().optional(),
+  assessmentDate: z.string().min(1, 'Assessment Date is required'),
   status: z.nativeEnum(GeneralStatusEnum),
   isActive: z.boolean().default(true),
   assigneeId: z.string().optional(),
@@ -159,8 +160,15 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
         toast.success('Risk assessment updated successfully');
       }
       navigate('/risk-assessment');
-    } catch (error) {
-      toast.error(`Failed to ${mode} risk assessment`);
+    } catch (error: any) {
+      // Extract error message from API response
+      let errorMessage = `Failed to ${mode} risk assessment`;
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      toast.error(errorMessage);
     }
   };
 
@@ -246,7 +254,9 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
                   name="assessmentDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Assessment Date</FormLabel>
+                      <FormLabel>
+                        Assessment Date <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
                         <DateTimePicker mode="date" {...field} />
                       </FormControl>

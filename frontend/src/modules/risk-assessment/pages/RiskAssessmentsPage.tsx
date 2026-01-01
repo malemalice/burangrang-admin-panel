@@ -281,10 +281,14 @@ const RiskAssessmentsPage = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/risk-assessment/${assessment.id}/edit`)}>
-                <FileEdit className="mr-2 h-4 w-4" /> Edit
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              {assessment.status !== GeneralStatusEnum.WAITING_APPROVAL && (
+                <>
+                  <DropdownMenuItem onClick={() => navigate(`/risk-assessment/${assessment.id}/edit`)}>
+                    <FileEdit className="mr-2 h-4 w-4" /> Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem
                 onClick={(e) => handleDeleteClick(assessment, e)}
                 className="text-red-600 focus:text-red-600"
