@@ -43,8 +43,8 @@ const formSchema = z.object({
   riskId: z.string().min(1, 'Risk is required'),
   assignedDepartmentId: z.string().min(1, 'Assigned Department is required'),
   assigneeId: z.string().optional(),
+  description: z.string().optional(),
   followUpNotes: z.string().optional(),
-  order: z.coerce.number().min(0, 'Order must be 0 or greater').default(0),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -100,8 +100,8 @@ const InspectionItemForm = ({ inspectionId, initialItem, onSubmit, onCancel, sho
       riskId: initialItem?.riskId || '',
       assignedDepartmentId: initialItem?.assignedDepartmentId || '',
       assigneeId: initialItem?.assigneeId || '',
+      description: initialItem?.description || '',
       followUpNotes: initialItem?.followUpNotes || '',
-      order: initialItem?.order || 0,
     },
   });
 
@@ -140,6 +140,24 @@ const InspectionItemForm = ({ inspectionId, initialItem, onSubmit, onCancel, sho
 
     fetchData();
   }, []);
+
+  // Initialize images from initialItem when editing
+  useEffect(() => {
+    if (initialItem?.images && initialItem.images.length > 0) {
+      // Sort images by order to preserve sequence
+      const sortedImages = [...initialItem.images].sort((a, b) => (a.order || 0) - (b.order || 0));
+      const initialImages: ImageUpload[] = sortedImages.map((img) => ({
+        id: `existing-${img.imageUrl}-${Date.now()}`,
+        url: img.imageUrl,
+        caption: img.caption || '',
+        isNew: false,
+      }));
+      setImages(initialImages);
+    } else if (initialItem && (!initialItem.images || initialItem.images.length === 0)) {
+      // Clear images when editing an item without images
+      setImages([]);
+    }
+  }, [initialItem?.images]);
 
   // Filter risks based on selected risk category
   const selectedRiskCategoryId = form.watch('riskCategoryId');
@@ -270,8 +288,9 @@ const InspectionItemForm = ({ inspectionId, initialItem, onSubmit, onCancel, sho
         riskId: data.riskId,
         assignedDepartmentId: data.assignedDepartmentId,
         assigneeId: data.assigneeId || undefined,
+        description: data.description || undefined,
         followUpNotes: data.followUpNotes || undefined,
-        order: data.order,
+        order: 0, // Default order value (backend may handle this)
         images: uploadedImages, // Add images to DTO
       };
       
@@ -402,14 +421,14 @@ const InspectionItemForm = ({ inspectionId, initialItem, onSubmit, onCancel, sho
 
         <FormField
           control={form.control}
-          name="followUpNotes"
+          name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Follow-up Notes</FormLabel>
+              <FormLabel>Description</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Enter follow-up notes (optional)"
-                  rows={4}
+                  placeholder="Enter inspection item description (optional)"
+                  rows={3}
                   {...field}
                 />
               </FormControl>
@@ -420,17 +439,15 @@ const InspectionItemForm = ({ inspectionId, initialItem, onSubmit, onCancel, sho
 
         <FormField
           control={form.control}
-          name="order"
+          name="followUpNotes"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Order</FormLabel>
+              <FormLabel>Follow-up Notes</FormLabel>
               <FormControl>
-                <input
-                  type="number"
-                  min="0"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                <Textarea
+                  placeholder="Enter follow-up notes (optional)"
+                  rows={4}
                   {...field}
-                  onChange={(e) => field.onChange(Number(e.target.value))}
                 />
               </FormControl>
               <FormMessage />

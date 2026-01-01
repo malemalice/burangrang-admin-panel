@@ -29,6 +29,7 @@ export interface InspectionItem {
   assignedDepartment?: Department;
   assigneeId?: string;
   assignee?: User;
+  description?: string;
   followUpNotes?: string;
   order: number;
   createdAt: Date;
@@ -51,7 +52,6 @@ export interface Inspection {
   areaId: string;
   area?: AreaDTO;
   inspectionDate: Date;
-  description?: string;
   status: GeneralStatusEnum;
   isActive: boolean;
   createdAt: Date;
@@ -67,6 +67,7 @@ export interface CreateInspectionItemDTO {
   riskId: string;
   assignedDepartmentId: string;
   assigneeId?: string;
+  description?: string;
   followUpNotes?: string;
   order: number;
   images?: CreateInspectionImageDTO[];
@@ -93,7 +94,6 @@ export interface CreateInspectionDTO {
   code: string;
   areaId: string;
   inspectionDate: Date;
-  description?: string;
   status: GeneralStatusEnum;
   isActive?: boolean;
   items?: CreateInspectionItemDTO[];

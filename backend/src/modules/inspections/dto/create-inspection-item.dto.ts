@@ -36,6 +36,11 @@ export class CreateInspectionItemDto {
   @IsOptional()
   @IsString()
   @ApiProperty({ required: false })
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false })
   followUpNotes?: string;
 
   @IsInt()

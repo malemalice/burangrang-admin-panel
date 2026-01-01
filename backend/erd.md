@@ -670,7 +670,6 @@ Table t_inspections {
   code varchar [unique, not null]
   areaId varchar [not null, ref: > m_areas.id]
   inspectionDate timestamp [not null]
-  description text [null]
   status GeneralStatusEnum [not null]
   isActive boolean [not null, default: true]
   createdAt timestamp [not null, default: `now()`]
@@ -692,12 +691,13 @@ Table t_inspection_items {
   riskId varchar [not null, ref: > m_risk.id]
   assignedDepartmentId varchar [not null, ref: > m_departments.id]
   assigneeId varchar [null, ref: > t_users.id]
+  description text [null]
   followUpNotes text [null]
   order int [not null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
-  Note: 'Individual inspection items - tracks risk findings, assignments, and follow-up notes per item'
+  Note: 'Individual inspection items - tracks risk findings, assignments, description, and follow-up notes per item'
   indexes {
     inspectionId
     riskCategoryId

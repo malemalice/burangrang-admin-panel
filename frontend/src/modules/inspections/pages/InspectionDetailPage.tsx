@@ -351,7 +351,11 @@ const InspectionDetailPage = () => {
                 assignedDepartmentId: editingItem.assignedDepartmentId,
                 assigneeId: editingItem.assigneeId,
                 followUpNotes: editingItem.followUpNotes,
-                order: editingItem.order,
+                images: editingItem.images?.map(img => ({
+                  imageUrl: img.imageUrl,
+                  caption: img.caption,
+                  order: img.order,
+                })),
               }}
               onSubmit={handleUpdateItemSubmit}
               onCancel={() => {

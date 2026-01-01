@@ -27,10 +27,6 @@ export class InspectionDto {
   @Expose()
   inspectionDate: Date;
 
-  @ApiProperty()
-  @Expose()
-  description?: string;
-
   @ApiProperty({ enum: GeneralStatusEnum })
   @Expose()
   status: GeneralStatusEnum;

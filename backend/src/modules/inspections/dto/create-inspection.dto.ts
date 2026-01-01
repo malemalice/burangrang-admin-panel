@@ -32,11 +32,6 @@ export class CreateInspectionDto {
   @ApiProperty()
   inspectionDate: Date;
 
-  @IsOptional()
-  @IsString()
-  @ApiProperty({ required: false })
-  description?: string;
-
   @IsNotEmpty()
   @IsEnum(GeneralStatusEnum)
   @ApiProperty({ enum: GeneralStatusEnum })

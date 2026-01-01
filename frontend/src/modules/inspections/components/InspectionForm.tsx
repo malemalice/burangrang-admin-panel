@@ -52,7 +52,6 @@ const formSchema = z.object({
   code: z.string().min(1, 'Code is required'),
   areaId: z.string().min(1, 'Area is required'),
   inspectionDate: z.string().min(1, 'Inspection date is required'),
-  description: z.string().optional(),
   status: z.nativeEnum(GeneralStatusEnum),
   isActive: z.boolean().default(true),
   inspectorIds: z.array(z.string()).optional(),
@@ -89,7 +88,6 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
       code: mode === 'create' ? generateInspectionCode() : '',
       areaId: '',
       inspectionDate: new Date().toISOString().split('T')[0],
-      description: '',
       status: GeneralStatusEnum.DRAFT,
       isActive: true,
       inspectorIds: [],
@@ -132,7 +130,6 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
         inspectionDate: inspection.inspectionDate
           ? new Date(inspection.inspectionDate).toISOString().split('T')[0]
           : new Date().toISOString().split('T')[0],
-        description: inspection.description || '',
         status: inspection.status,
         isActive: inspection.isActive,
         inspectorIds,
@@ -147,7 +144,6 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
         code: data.code as string,
         areaId: data.areaId as string,
         inspectionDate: new Date(data.inspectionDate),
-        description: data.description,
         status: data.status,
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.inspectorIds && data.inspectorIds.length > 0 && {
@@ -227,24 +223,6 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
                   )}
                 />
               </div>
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Enter inspection description" 
-                        rows={3}
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField

@@ -11,13 +11,6 @@ export const InspectionDetailsCard = ({ inspection }: InspectionDetailsCardProps
       <div>
         <h3 className="text-sm font-semibold mb-3">Inspection Details</h3>
       </div>
-      
-      {inspection.description && (
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Description</p>
-          <p className="text-sm">{inspection.description}</p>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">

@@ -66,10 +66,12 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
                     : item.assigneeId || 'N/A'}
                 </p>
               </div>
-              <div className="space-y-1.5">
-                <p className="text-sm font-medium text-muted-foreground">Order</p>
-                <p className="text-sm">{item.order}</p>
-              </div>
+              {item.description && (
+                <div className="space-y-1.5 md:col-span-2">
+                  <p className="text-sm font-medium text-muted-foreground">Description</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.description}</p>
+                </div>
+              )}
             </div>
           </div>
 

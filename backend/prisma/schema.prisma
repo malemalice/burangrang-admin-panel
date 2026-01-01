@@ -1341,7 +1341,6 @@ model Inspection {
   code           String                 @unique
   areaId         String
   inspectionDate DateTime
-  description    String?                @db.Text
   status         GeneralStatusEnum
   isActive       Boolean                @default(true)
   createdAt      DateTime               @default(now())
@@ -1367,6 +1366,7 @@ model InspectionItem {
   riskId              String
   assignedDepartmentId String
   assigneeId          String?
+  description         String?  @db.Text
   followUpNotes       String?  @db.Text
   order               Int
   createdAt           DateTime @default(now())

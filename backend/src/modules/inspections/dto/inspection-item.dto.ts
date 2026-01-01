@@ -49,6 +49,10 @@ export class InspectionItemDto {
 
   @ApiProperty()
   @Expose()
+  description?: string;
+
+  @ApiProperty()
+  @Expose()
   followUpNotes?: string;
 
   @ApiProperty()
