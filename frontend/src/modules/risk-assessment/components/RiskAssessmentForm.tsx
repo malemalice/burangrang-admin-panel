@@ -155,11 +155,12 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
       if (mode === 'create') {
         await riskAssessmentService.create(assessmentData);
         toast.success('Risk assessment created successfully');
+        navigate('/risk-assessment');
       } else if (assessment) {
         await riskAssessmentService.update(assessment.id, assessmentData);
         toast.success('Risk assessment updated successfully');
+        navigate(`/risk-assessment/${assessment.id}`);
       }
-      navigate('/risk-assessment');
     } catch (error: any) {
       // Extract error message from API response
       let errorMessage = `Failed to ${mode} risk assessment`;
