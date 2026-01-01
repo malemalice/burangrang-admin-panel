@@ -13,9 +13,9 @@ export class CreateInspectionImageDto {
   caption?: string;
 
   @IsInt()
-  @Min(1)
+  @Min(0)
   @IsNotEmpty()
-  @ApiProperty({ minimum: 1 })
+  @ApiProperty({ minimum: 0 })
   order: number;
 }
 

@@ -69,6 +69,7 @@ export interface CreateInspectionItemDTO {
   assigneeId?: string;
   followUpNotes?: string;
   order: number;
+  images?: CreateInspectionImageDTO[];
 }
 
 export interface UpdateInspectionItemDTO extends Partial<CreateInspectionItemDTO> {}

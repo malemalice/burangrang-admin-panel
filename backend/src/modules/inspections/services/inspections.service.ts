@@ -121,9 +121,20 @@ export class InspectionsService {
         createdBy: userId,
         ...(items && items.length > 0 && {
           items: {
-            create: items.map((item) => ({
-              ...item,
-            })),
+            create: items.map((item) => {
+              const { images, ...itemData } = item;
+              const createData: any = { ...itemData };
+              if (images && images.length > 0) {
+                createData.images = {
+                  create: images.map((img) => ({
+                    imageUrl: img.imageUrl,
+                    caption: img.caption || null,
+                    order: img.order,
+                  })),
+                };
+              }
+              return createData;
+            }),
           },
         }),
         ...(inspectors && inspectors.length > 0 && {
@@ -306,9 +317,20 @@ export class InspectionsService {
         ...(items !== undefined && {
           items: {
             deleteMany: {},
-            create: items.map((item) => ({
-              ...item,
-            })),
+            create: items.map((item) => {
+              const { images, ...itemData } = item;
+              const createData: any = { ...itemData };
+              if (images && images.length > 0) {
+                createData.images = {
+                  create: images.map((img) => ({
+                    imageUrl: img.imageUrl,
+                    caption: img.caption || null,
+                    order: img.order,
+                  })),
+                };
+              }
+              return createData;
+            }),
           },
         }),
         ...(inspectors !== undefined && {
@@ -426,11 +448,28 @@ export class InspectionsService {
       inspection,
     );
 
+    // Extract images from DTO
+    const { images, ...itemData } = createItemDto;
+
+    // Prepare data for creation
+    const createData: any = {
+      ...itemData,
+      inspectionId,
+    };
+
+    // Handle images with nested create if provided
+    if (images && images.length > 0) {
+      createData.images = {
+        create: images.map((img) => ({
+          imageUrl: img.imageUrl,
+          caption: img.caption || null,
+          order: img.order,
+        })),
+      };
+    }
+
     const item = await this.prisma.inspectionItem.create({
-      data: {
-        ...createItemDto,
-        inspectionId,
-      },
+      data: createData,
       include: {
         riskCategory: true,
         risk: true,
@@ -596,9 +635,30 @@ export class InspectionsService {
       existingItem,
     );
 
+    // Extract images from DTO
+    const { images, ...itemData } = updateItemDto;
+
+    // Prepare data for update
+    const updateData: any = {
+      ...itemData,
+    };
+
+    // Handle images: delete all existing and create new ones
+    // This is necessary since frontend doesn't send image IDs
+    if (images !== undefined) {
+      updateData.images = {
+        deleteMany: {}, // Delete all existing images
+        create: images.map((img) => ({
+          imageUrl: img.imageUrl,
+          caption: img.caption || null,
+          order: img.order,
+        })),
+      };
+    }
+
     const item = await this.prisma.inspectionItem.update({
       where: { id: itemId },
-      data: updateItemDto,
+      data: updateData,
       include: {
         riskCategory: true,
         risk: true,

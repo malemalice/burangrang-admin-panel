@@ -5,8 +5,12 @@ import {
   IsInt,
   IsNotEmpty,
   Min,
+  IsArray,
+  ValidateNested,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { CreateInspectionImageDto } from './create-inspection-image.dto';
 
 export class CreateInspectionItemDto {
   @IsNotEmpty()
@@ -35,9 +39,16 @@ export class CreateInspectionItemDto {
   followUpNotes?: string;
 
   @IsInt()
-  @Min(1)
+  @Min(0)
   @IsNotEmpty()
-  @ApiProperty({ minimum: 1 })
+  @ApiProperty({ minimum: 0 })
   order: number;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateInspectionImageDto)
+  @ApiProperty({ type: [CreateInspectionImageDto], required: false })
+  images?: CreateInspectionImageDto[];
 }
 

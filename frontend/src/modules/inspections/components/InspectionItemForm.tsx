@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X, Upload, Image as ImageIcon } from 'lucide-react';
 
 import { Button } from '@/core/components/ui/button';
 import {
@@ -15,6 +15,7 @@ import {
   FormMessage,
 } from '@/core/components/ui/form';
 import { Textarea } from '@/core/components/ui/textarea';
+import { Input } from '@/core/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { ModalCombobox, ModalComboboxOption } from '@/core/components/ui/modal-combobox';
 
@@ -25,6 +26,16 @@ import { userService } from '@/modules/users';
 import { User } from '@/core/lib/types';
 import departmentService from '@/modules/master-data/services/departmentService';
 import { Department } from '@/core/lib/types';
+import uploadService, { FileCategory } from '@/modules/uploads/services/uploadService';
+
+// Image upload interface
+interface ImageUpload {
+  id: string;
+  url: string;
+  caption: string;
+  file?: File; // For new uploads
+  isNew?: boolean; // Flag for new uploads
+}
 
 // Form schema for validation
 const formSchema = z.object({
@@ -55,6 +66,11 @@ const InspectionItemForm = ({ inspectionId, initialItem, onSubmit, onCancel, sho
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingRisks, setIsLoadingRisks] = useState(false);
   const [isLoadingRiskCategories, setIsLoadingRiskCategories] = useState(false);
+  
+  // Image upload states
+  const [images, setImages] = useState<ImageUpload[]>([]);
+  const [fileCategory, setFileCategory] = useState<FileCategory | null>(null);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
 
   // Convert data to ModalComboboxOption format
   const riskOptions: ModalComboboxOption[] = risks.map(risk => ({
@@ -108,6 +124,12 @@ const InspectionItemForm = ({ inspectionId, initialItem, onSubmit, onCancel, sho
         setRisks(risksResponse.data);
         setDepartments(departmentsResponse.data);
         setUsers(usersResponse.data);
+        
+        // Load file category for inspection images
+        const category = await uploadService.getCategoryByName('course-materials');
+        if (category) {
+          setFileCategory(category);
+        }
       } catch (error) {
         console.error('Failed to fetch reference data:', error);
         toast.error('Failed to load reference data');
@@ -128,11 +150,121 @@ const InspectionItemForm = ({ inspectionId, initialItem, onSubmit, onCancel, sho
       })
     : riskOptions;
 
+  // Handle image file selection
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const newImages: ImageUpload[] = [];
+    
+    Array.from(files).forEach((file) => {
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error(`Invalid file type for ${file.name}. Only JPEG, PNG, GIF, and WebP images are allowed.`);
+        return;
+      }
+
+      // Validate file size (5MB max)
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        toast.error(`File ${file.name} exceeds maximum size of 5MB`);
+        return;
+      }
+
+      // Create preview URL
+      const previewUrl = URL.createObjectURL(file);
+      newImages.push({
+        id: `temp-${Date.now()}-${Math.random()}`,
+        url: previewUrl,
+        caption: '',
+        file: file,
+        isNew: true,
+      });
+    });
+
+    if (newImages.length > 0) {
+      setImages(prev => [...prev, ...newImages]);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
+
+  // Remove image
+  const handleRemoveImage = (imageId: string) => {
+    setImages(prev => {
+      const image = prev.find(img => img.id === imageId);
+      // Revoke object URL to free memory
+      if (image?.url.startsWith('blob:')) {
+        URL.revokeObjectURL(image.url);
+      }
+      return prev.filter(img => img.id !== imageId);
+    });
+  };
+
+  // Update image caption
+  const handleCaptionChange = (imageId: string, caption: string) => {
+    setImages(prev => prev.map(img => 
+      img.id === imageId ? { ...img, caption } : img
+    ));
+  };
+
+  // Upload images to server
+  const uploadImages = async (): Promise<{ imageUrl: string; caption: string; order: number }[]> => {
+    if (!fileCategory) {
+      throw new Error('File category not loaded');
+    }
+
+    const uploadedImages: { imageUrl: string; caption: string; order: number }[] = [];
+    
+    for (let i = 0; i < images.length; i++) {
+      const image = images[i];
+      
+      if (image.isNew && image.file) {
+        try {
+          setIsUploadingImages(true);
+          const response = await uploadService.uploadFile(
+            image.file,
+            fileCategory.id,
+            true, // isPublic
+          );
+          
+          const imageUrl = uploadService.getPublicFileUrl(response.id);
+          uploadedImages.push({
+            imageUrl,
+            caption: image.caption || '',
+            order: i,
+          });
+        } catch (error) {
+          console.error(`Failed to upload image ${image.file.name}:`, error);
+          throw new Error(`Failed to upload image ${image.file.name}`);
+        }
+      } else {
+        // Existing image, keep the URL
+        uploadedImages.push({
+          imageUrl: image.url,
+          caption: image.caption || '',
+          order: i,
+        });
+      }
+    }
+    
+    setIsUploadingImages(false);
+    return uploadedImages;
+  };
+
   const handleSubmit = async (data: FormValues) => {
     if (!onSubmit) return;
 
     try {
       setIsSubmitting(true);
+      
+      // Upload images first if any
+      let uploadedImages: { imageUrl: string; caption: string; order: number }[] = [];
+      if (images.length > 0) {
+        uploadedImages = await uploadImages();
+      }
+      
       const itemData: CreateInspectionItemDTO = {
         riskCategoryId: data.riskCategoryId,
         riskId: data.riskId,
@@ -140,10 +272,20 @@ const InspectionItemForm = ({ inspectionId, initialItem, onSubmit, onCancel, sho
         assigneeId: data.assigneeId || undefined,
         followUpNotes: data.followUpNotes || undefined,
         order: data.order,
+        images: uploadedImages, // Add images to DTO
       };
+      
       await onSubmit(itemData);
+      
+      // Clean up blob URLs
+      images.forEach(img => {
+        if (img.url.startsWith('blob:')) {
+          URL.revokeObjectURL(img.url);
+        }
+      });
     } catch (error) {
       console.error('Failed to submit inspection item:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to submit inspection item');
     } finally {
       setIsSubmitting(false);
     }
@@ -296,17 +438,107 @@ const InspectionItemForm = ({ inspectionId, initialItem, onSubmit, onCancel, sho
           )}
         />
 
+        {/* Image Upload Section */}
+        <div className="space-y-4">
+          <div>
+            <FormLabel>Inspection Images</FormLabel>
+            <p className="text-sm text-muted-foreground">Upload photos related to this inspection item (max 5MB per image)</p>
+          </div>
+
+          {/* Upload Button */}
+          <div className="flex items-center gap-2">
+            <Input
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              multiple
+              onChange={handleImageSelect}
+              className="hidden"
+              id="inspection-image-upload"
+              disabled={isSubmitting || isUploadingImages}
+            />
+            <label htmlFor="inspection-image-upload">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSubmitting || isUploadingImages}
+                className="cursor-pointer"
+                asChild
+              >
+                <span>
+                  <Upload className="mr-2 h-4 w-4" />
+                  {isUploadingImages ? 'Uploading...' : 'Add Images'}
+                </span>
+              </Button>
+            </label>
+            {images.length > 0 && (
+              <span className="text-sm text-muted-foreground">
+                {images.length} image{images.length !== 1 ? 's' : ''} selected
+              </span>
+            )}
+          </div>
+
+          {/* Image Preview Grid */}
+          {images.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {images.map((image) => (
+                <div key={image.id} className="relative border rounded-lg overflow-hidden bg-gray-50">
+                  <div className="aspect-video relative">
+                    <img
+                      src={image.url}
+                      alt={image.caption || 'Inspection image'}
+                      className="w-full h-full object-cover"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 h-8 w-8"
+                      onClick={() => handleRemoveImage(image.id)}
+                      disabled={isSubmitting || isUploadingImages}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                    {image.isNew && (
+                      <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                        New
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <Input
+                      type="text"
+                      placeholder="Add caption (optional)"
+                      value={image.caption}
+                      onChange={(e) => handleCaptionChange(image.id, e.target.value)}
+                      disabled={isSubmitting || isUploadingImages}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {images.length === 0 && (
+            <div className="border-2 border-dashed rounded-lg p-8 text-center bg-gray-50">
+              <ImageIcon className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+              <p className="text-sm text-muted-foreground">No images uploaded yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Click "Add Images" to upload inspection photos</p>
+            </div>
+          )}
+        </div>
+
         <div className="flex justify-end gap-2">
           {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting || isUploadingImages}>
               Cancel
             </Button>
           )}
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
+          <Button type="submit" disabled={isSubmitting || isUploadingImages}>
+            {isSubmitting || isUploadingImages ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Submitting...
+                {isUploadingImages ? 'Uploading Images...' : 'Submitting...'}
               </>
             ) : (
               'Submit'
