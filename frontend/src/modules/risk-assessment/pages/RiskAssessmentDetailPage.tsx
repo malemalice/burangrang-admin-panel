@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { FileEdit, ArrowLeft, FileDown, CheckCircle2, Send, XCircle } from 'lucide-react';
@@ -25,6 +25,7 @@ import { ApprovalTimelineCard } from '../components/ApprovalTimelineCard';
 import { ApprovalDialog } from '../components/ApprovalDialog';
 import { ViewItemDialog } from '../components/ViewItemDialog';
 import { RiskAssessmentItemsTable } from '../components/RiskAssessmentItemsTable';
+import { RiskAssessmentPDFTemplate } from '../components/RiskAssessmentPDFTemplate';
 import { useRiskAssessmentDetail } from '../hooks/useRiskAssessmentDetail';
 import { getStatusBadge } from '../utils/riskBadgeHelpers';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
@@ -33,7 +34,8 @@ import { ApprovalStatus } from '@/core/lib/types';
 const RiskAssessmentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { toPDF, targetRef } = usePDF({ filename: 'risk-assessment.pdf' });
+  const [allItemsForPDF, setAllItemsForPDF] = useState<RiskAssessmentItem[]>([]);
+  const [isLoadingAllItems, setIsLoadingAllItems] = useState(false);
   
   const {
     assessment,
@@ -56,6 +58,17 @@ const RiskAssessmentDetailPage = () => {
     handleApprovalSubmitted,
     refreshAssessment,
   } = useRiskAssessmentDetail(id);
+
+  // Generate base filename - will use code with timestamp generated at export time
+  const baseFilename = useMemo(() => {
+    if (!assessment) return 'risk-assessment';
+    return assessment.code;
+  }, [assessment?.code]);
+
+  // Initialize with a placeholder - we'll generate the actual filename at export time
+  const { toPDF, targetRef } = usePDF({ 
+    filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf` 
+  });
 
   // Dialog states
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
@@ -106,10 +119,33 @@ const RiskAssessmentDetailPage = () => {
   };
 
   const handleExportPDF = async () => {
+    if (!id || !assessment) return;
+
     try {
+      setIsLoadingAllItems(true);
+      
+      // Fetch all items (not paginated) for PDF
+      const response = await riskAssessmentService.getItems(id, {
+        page: 1,
+        limit: 10000, // Large limit to get all items
+      });
+      
+      setAllItemsForPDF(response.data);
+      
+      // Wait for React to re-render with new data
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Generate filename with current timestamp at export time
+      // Note: react-to-pdf uses the filename from usePDF initialization,
+      // so the timestamp will be from when the component rendered, not export time
+      // This is a limitation of the library - filename will still include code and timestamp
       await toPDF();
+      toast.success('PDF exported successfully');
     } catch (error) {
       console.error('Failed to export PDF:', error);
+      toast.error('Failed to export PDF');
+    } finally {
+      setIsLoadingAllItems(false);
     }
   };
 
@@ -239,9 +275,10 @@ const RiskAssessmentDetailPage = () => {
             <Button 
               variant="outline"
               onClick={handleExportPDF}
+              disabled={isLoadingAllItems}
             >
               <FileDown className="h-4 w-4 mr-2" />
-              Export PDF
+              {isLoadingAllItems ? 'Preparing PDF...' : 'Export PDF'}
             </Button>
             
             {assessment.status !== GeneralStatusEnum.DONE && 
@@ -263,25 +300,38 @@ const RiskAssessmentDetailPage = () => {
         </div>
       </PageHeader>
 
+      {/* PDF Template - Hidden from screen, only used for PDF export */}
+      {assessment && (
+        <div 
+          ref={targetRef} 
+          style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+          aria-hidden="true"
+        >
+          <RiskAssessmentPDFTemplate
+            assessment={assessment}
+            items={allItemsForPDF.length > 0 ? allItemsForPDF : items}
+            approvalHistory={approvalHistory}
+          />
+        </div>
+      )}
+
       {/* Risk Assessment Details & Approval Timeline Card - Side by Side */}
-      <div ref={targetRef}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Assessment Details</CardTitle>
-            <CardDescription>Basic information and approval progress of this risk assessment</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:auto-rows-fr">
-              <AssessmentDetailsCard assessment={assessment} />
-              <ApprovalTimelineCard 
-                approvalHistory={approvalHistory} 
-                isLoading={isLoadingHistory}
-                assessmentStatus={assessment?.status}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Assessment Details</CardTitle>
+          <CardDescription>Basic information and approval progress of this risk assessment</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:auto-rows-fr">
+            <AssessmentDetailsCard assessment={assessment} />
+            <ApprovalTimelineCard 
+              approvalHistory={approvalHistory} 
+              isLoading={isLoadingHistory}
+              assessmentStatus={assessment?.status}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Risk Assessment Items Section */}
       <RiskAssessmentItemsTable
