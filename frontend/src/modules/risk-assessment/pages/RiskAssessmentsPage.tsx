@@ -331,6 +331,7 @@ const RiskAssessmentsPage = () => {
           total: totalAssessments
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

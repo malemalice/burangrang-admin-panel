@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsBoolean,
+  IsArray,
+  IsEmail,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class CreateDepartmentDto {
@@ -20,6 +27,18 @@ export class CreateDepartmentDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    description: 'Array of email addresses for the department',
+    type: [String],
+    example: ['dept@example.com', 'contact@example.com'],
+  })
+  @IsArray()
+  @IsOptional()
+  @IsEmail({}, { each: true })
+  emails?: string[] | null;
 
   @ApiProperty({
     default: true,

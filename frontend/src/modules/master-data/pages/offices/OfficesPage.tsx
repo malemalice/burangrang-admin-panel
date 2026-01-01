@@ -316,6 +316,7 @@ const OfficesPage = () => {
           total: totalOffices
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

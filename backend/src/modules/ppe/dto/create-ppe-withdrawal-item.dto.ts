@@ -12,10 +12,11 @@ export class CreatePPEWithdrawalItemDto {
     @Min(1)
     requestedQuantity: number;
 
-    @ApiProperty({ description: 'Display order within withdrawal' })
+    @ApiProperty({ description: 'Display order within withdrawal', required: false })
     @IsInt()
     @Min(0)
-    order: number;
+    @IsOptional()
+    order?: number;
 
     @ApiProperty({ required: false, description: 'Optional notes for this item' })
     @IsString()

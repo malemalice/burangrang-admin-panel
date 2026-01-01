@@ -36,8 +36,21 @@ export class DepartmentsService {
   async create(
     createDepartmentDto: CreateDepartmentDto,
   ): Promise<DepartmentDto> {
+    // Prepare data for Prisma, handling JSON field properly
+    const data: Prisma.DepartmentCreateInput = {
+      name: createDepartmentDto.name,
+      code: createDepartmentDto.code,
+      description: createDepartmentDto.description,
+      isActive: createDepartmentDto.isActive ?? true,
+    };
+
+    // Handle emails JSON field - Prisma accepts arrays directly for JSON
+    if (createDepartmentDto.emails !== undefined) {
+      data.emails = createDepartmentDto.emails as any;
+    }
+
     const department = await this.prisma.department.create({
-      data: createDepartmentDto,
+      data,
     });
 
     return this.departmentMapper(department);
@@ -116,9 +129,30 @@ export class DepartmentsService {
 
     this.errorHandler.throwIfNotFoundById('Department', id, existingDepartment);
 
+    // Prepare data for Prisma, handling JSON field properly
+    const updateData: Prisma.DepartmentUpdateInput = {};
+
+    if (updateDepartmentDto.name !== undefined) {
+      updateData.name = updateDepartmentDto.name;
+    }
+    if (updateDepartmentDto.code !== undefined) {
+      updateData.code = updateDepartmentDto.code;
+    }
+    if (updateDepartmentDto.description !== undefined) {
+      updateData.description = updateDepartmentDto.description;
+    }
+    if (updateDepartmentDto.isActive !== undefined) {
+      updateData.isActive = updateDepartmentDto.isActive;
+    }
+
+    // Handle emails JSON field - Prisma accepts arrays directly for JSON
+    if ('emails' in updateDepartmentDto) {
+      updateData.emails = updateDepartmentDto.emails as any;
+    }
+
     const department = await this.prisma.department.update({
       where: { id },
-      data: updateDepartmentDto,
+      data: updateData,
     });
 
     return this.departmentMapper(department);

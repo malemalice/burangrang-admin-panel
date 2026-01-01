@@ -598,29 +598,40 @@ Table t_inspections {
   code varchar [unique, not null]
   areaId varchar [not null, ref: > m_areas.id]
   inspectionDate timestamp [not null]
-  hseCategoryId varchar [not null, ref: > m_hse_categories.id]
-  riskId varchar [unique, not null, ref: > m_risks.id]
-  assignedDepartmentId varchar [not null, ref: > m_departments.id]
-  assigneeId varchar [ref: > t_users.id]
-  followUpNotes text
+  description text [null]
   status GeneralStatusEnum [not null]
   isActive boolean [default: true, not null]
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
   createdBy varchar [not null, ref: > t_users.id]
 
-  Note: 'HSE inspection records - supports multiple inspectors via one-to-many relationship, one-to-one relation to m_risks'
+  Note: 'HSE inspection header - tracks area, inspection date, status, and inspectors'
+}
+
+Table t_inspection_items {
+  id varchar [pk, default: `uuid()`]
+  inspectionId varchar [not null, ref: > t_inspections.id]
+  hseCategoryId varchar [not null, ref: > m_hse_categories.id]
+  riskId varchar [not null, ref: > m_risks.id]
+  assignedDepartmentId varchar [not null, ref: > m_departments.id]
+  assigneeId varchar [ref: > t_users.id]
+  followUpNotes text
+  order int [not null]
+  createdAt timestamp [default: `now()`, not null]
+  updatedAt timestamp [default: `now()`, not null]
+
+  Note: 'Individual inspection items - tracks risk findings, assignments, and follow-up notes per item'
 }
 
 Table t_inspection_images {
   id varchar [pk, default: `uuid()`]
-  inspectionId varchar [not null, ref: > t_inspections.id]
+  inspectionItemId varchar [not null, ref: > t_inspection_items.id]
   imageUrl varchar [not null]
   caption text
   order int [not null]
   createdAt timestamp [default: `now()`, not null]
 
-  Note: 'Photos/images attached to inspections'
+  Note: 'Photos/images attached to inspection items'
 }
 
 Table t_inspection_inspectors {
@@ -1468,6 +1479,7 @@ TableGroup inspection_system {
   m_areas
   m_rooms
   t_inspections
+  t_inspection_items
   t_inspection_images
   t_inspection_inspectors
   t_environmental_measurements

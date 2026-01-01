@@ -299,7 +299,7 @@ const CertificateCategoriesPage = () => {
                                     handleDeleteClick(category, e as any);
                                 }}
                             >
-                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                <Trash2 className="mr-2 h-4 w-4 text-red-600" /> Delete
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

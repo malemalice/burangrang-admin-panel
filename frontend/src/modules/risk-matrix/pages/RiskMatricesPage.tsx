@@ -251,6 +251,7 @@ const RiskMatricesPage = () => {
           total: totalRiskMatrices,
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

@@ -26,6 +26,7 @@ interface RiskAssessmentItemsTableProps {
   itemToDelete: RiskAssessmentItem | null;
   deleteDialogOpen: boolean;
   onDeleteDialogChange: (open: boolean) => void;
+  hideActions?: boolean;
 }
 
 export const RiskAssessmentItemsTable = ({
@@ -46,6 +47,7 @@ export const RiskAssessmentItemsTable = ({
   itemToDelete,
   deleteDialogOpen,
   onDeleteDialogChange,
+  hideActions = false,
 }: RiskAssessmentItemsTableProps) => {
   const filterFields: FilterField[] = [];
 
@@ -129,35 +131,39 @@ export const RiskAssessmentItemsTable = ({
               <p>View</p>
             </TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onEditItem(item)}
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Edit</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                onClick={(e) => onDeleteItem(item, e)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Delete</p>
-            </TooltipContent>
-          </Tooltip>
+          {!hideActions && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onEditItem(item)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Edit</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={(e) => onDeleteItem(item, e)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Delete</p>
+                </TooltipContent>
+              </Tooltip>
+            </>
+          )}
         </div>
       ),
       isSortable: false,
@@ -168,9 +174,11 @@ export const RiskAssessmentItemsTable = ({
     <>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">Risk Assessment Items</h2>
-        <ThemeButton onClick={onAddItem}>
-          <Plus className="mr-2 h-4 w-4" /> Add Item
-        </ThemeButton>
+        {!hideActions && (
+          <ThemeButton onClick={onAddItem}>
+            <Plus className="mr-2 h-4 w-4" /> Add Item
+          </ThemeButton>
+        )}
       </div>
 
       <DataTable

@@ -276,6 +276,7 @@ export default function AreasPage() {
           total: totalAreas
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

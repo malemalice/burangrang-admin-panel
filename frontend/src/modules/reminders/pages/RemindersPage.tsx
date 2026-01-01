@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, BellPlus, Eye, MoreHorizontal, Calendar, Clock, Repeat } from 'lucide-react';
+import { Edit, Trash2, BellPlus, Eye, MoreHorizontal, Calendar, Clock, Repeat, Bell } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import {
@@ -133,6 +133,22 @@ const RemindersPage = () => {
     setDeleteDialogOpen(false);
     setReminderToDelete(null);
     setOpenDropdownId(null); // Ensure dropdown is closed
+  }, []);
+
+  const handleTriggerNotification = useCallback(async (reminder: Reminder, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null); // Close dropdown
+
+    try {
+      await reminderService.triggerNotification(reminder.id);
+      toast.success('Notification triggered successfully');
+      // Optionally refresh the list to show updated data
+      // fetchReminders();
+    } catch (error: any) {
+      console.error('Error triggering notification:', error);
+      const errorMessage = error.message || 'Failed to trigger notification';
+      toast.error(errorMessage);
+    }
   }, []);
 
   const handleSearch = useCallback((term: string) => {
@@ -299,6 +315,11 @@ const RemindersPage = () => {
             <DropdownMenuItem onClick={() => navigate(`/reminders/${reminder.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => handleTriggerNotification(reminder, e)}
+            >
+              <Bell className="mr-2 h-4 w-4" /> Trigger notification
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={(e) => handleDeleteClick(reminder, e)}
@@ -311,7 +332,7 @@ const RemindersPage = () => {
       ),
       isSortable: false,
     },
-  ], [openDropdownId, navigate, handleDeleteClick, getStatusBadgeVariant, formatDate]);
+  ], [openDropdownId, navigate, handleDeleteClick, handleTriggerNotification, getStatusBadgeVariant, formatDate]);
 
   return (
     <>

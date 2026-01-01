@@ -38,6 +38,14 @@ export async function seedFileCategories() {
         'image/png',
         'image/gif',
         'image/webp',
+        // Video formats for quiz questions
+        'video/mp4',
+        'video/webm',
+        // Audio formats for quiz questions
+        'audio/mpeg',
+        'audio/mp3',
+        'audio/wav',
+        'audio/ogg',
       ],
       maxSize: 100 * 1024 * 1024, // 100MB
     },

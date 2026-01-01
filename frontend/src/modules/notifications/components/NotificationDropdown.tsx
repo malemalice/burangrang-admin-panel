@@ -75,7 +75,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ className }
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-xs text-white flex items-center justify-center min-w-[16px]">
-              {unreadCount > 9 ? '9+' : unreadCount}
+              {unreadCount > 9 ? ' 9+ ' : unreadCount}
             </span>
           )}
         </Button>

@@ -265,6 +265,7 @@ const RiskCategoriesPage = () => {
           total: totalRiskCategories
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
         sorting={sorting}

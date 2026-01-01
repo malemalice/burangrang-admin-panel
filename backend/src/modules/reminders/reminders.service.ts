@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
@@ -8,6 +9,7 @@ import { UpdateReminderDto } from './dto/update-reminder.dto';
 import { FindRemindersDto } from './dto/find-reminders.dto';
 import { PaginatedResponse } from '../../shared/types/pagination-params';
 import { Prisma } from '@prisma/client';
+import { NotificationsService } from '../notifications/services/notifications.service';
 
 @Injectable()
 export class RemindersService {
@@ -19,6 +21,7 @@ export class RemindersService {
     private readonly prisma: PrismaService,
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
+    private readonly notificationsService: NotificationsService,
   ) {
     this.reminderMapper = this.dtoMapper.createSimpleMapper(ReminderDto);
     this.reminderLogMapper = this.dtoMapper.createSimpleMapper(ReminderLogDto);
@@ -27,7 +30,10 @@ export class RemindersService {
   /**
    * Create a new reminder
    */
-  async create(createDto: CreateReminderDto, userId: string): Promise<ReminderDto> {
+  async create(
+    createDto: CreateReminderDto,
+    userId: string,
+  ): Promise<ReminderDto> {
     return this.errorHandler.safeExecute(async () => {
       // Validate user exists
       const user = await this.prisma.user.findUnique({
@@ -37,7 +43,9 @@ export class RemindersService {
 
       // Convert string dates to Date objects
       const remindAt = new Date(createDto.remindAt);
-      const repeatUntil = createDto.repeatUntil ? new Date(createDto.repeatUntil) : undefined;
+      const repeatUntil = createDto.repeatUntil
+        ? new Date(createDto.repeatUntil)
+        : undefined;
 
       // Validate dates
       const now = new Date();
@@ -89,8 +97,17 @@ export class RemindersService {
       } = params;
 
       // Ensure limit and page are numbers with proper validation
-      const pageNum = Math.max(1, typeof page === 'string' ? parseInt(page, 10) || 1 : page || 1);
-      const limitNum = Math.max(1, Math.min(100, typeof limit === 'string' ? parseInt(limit, 10) || 10 : limit || 10));
+      const pageNum = Math.max(
+        1,
+        typeof page === 'string' ? parseInt(page, 10) || 1 : page || 1,
+      );
+      const limitNum = Math.max(
+        1,
+        Math.min(
+          100,
+          typeof limit === 'string' ? parseInt(limit, 10) || 10 : limit || 10,
+        ),
+      );
 
       // Build where clause
       const where: Prisma.ReminderWhereInput = {
@@ -175,7 +192,11 @@ export class RemindersService {
   /**
    * Update a reminder
    */
-  async update(id: string, userId: string, updateDto: UpdateReminderDto): Promise<ReminderDto> {
+  async update(
+    id: string,
+    userId: string,
+    updateDto: UpdateReminderDto,
+  ): Promise<ReminderDto> {
     return this.errorHandler.safeExecute(async () => {
       // Verify reminder exists and belongs to user
       const existing = await this.prisma.reminder.findFirst({
@@ -191,8 +212,10 @@ export class RemindersService {
       const updateData: any = {};
 
       if (updateDto.entity !== undefined) updateData.entity = updateDto.entity;
-      if (updateDto.entityId !== undefined) updateData.entityId = updateDto.entityId;
-      if (updateDto.message !== undefined) updateData.message = updateDto.message;
+      if (updateDto.entityId !== undefined)
+        updateData.entityId = updateDto.entityId;
+      if (updateDto.message !== undefined)
+        updateData.message = updateDto.message;
       if (updateDto.remindAt !== undefined) {
         updateData.remindAt = new Date(updateDto.remindAt);
 
@@ -201,7 +224,8 @@ export class RemindersService {
           throw new Error('Remind at date must be in the future');
         }
       }
-      if (updateDto.repeatType !== undefined) updateData.repeatType = updateDto.repeatType;
+      if (updateDto.repeatType !== undefined)
+        updateData.repeatType = updateDto.repeatType;
       if (updateDto.repeatUntil !== undefined) {
         updateData.repeatUntil = new Date(updateDto.repeatUntil);
       }
@@ -334,7 +358,10 @@ export class RemindersService {
         // Recurring reminder, calculate next execution
         // Check if repeatType is a valid recurring type
         const validRepeatTypes = ['DAILY', 'WEEKLY', 'MONTHLY'];
-        if (reminder.repeatType && validRepeatTypes.includes(reminder.repeatType)) {
+        if (
+          reminder.repeatType &&
+          validRepeatTypes.includes(reminder.repeatType)
+        ) {
           const nextRemindAt = this.calculateNextRemindAt(
             reminder.remindAt,
             reminder.repeatType,
@@ -363,7 +390,10 @@ export class RemindersService {
   /**
    * Calculate next remind at date for recurring reminders
    */
-  private calculateNextRemindAt(currentRemindAt: Date, repeatType: string): Date {
+  private calculateNextRemindAt(
+    currentRemindAt: Date,
+    repeatType: string,
+  ): Date {
     const next = new Date(currentRemindAt);
 
     if (repeatType === 'DAILY') {
@@ -376,5 +406,84 @@ export class RemindersService {
 
     return next;
   }
-}
 
+  /**
+   * Get or create the reminder notification type
+   * This is a helper method for manual trigger
+   */
+  async getOrCreateReminderNotificationType(): Promise<string> {
+    const typeName = 'REMINDER';
+
+    let notificationType = await this.prisma.notificationType.findFirst({
+      where: { name: typeName },
+    });
+
+    if (!notificationType) {
+      notificationType = await this.prisma.notificationType.create({
+        data: {
+          name: typeName,
+          description: 'Scheduled reminder notifications',
+        },
+      });
+    }
+
+    return notificationType.id;
+  }
+
+  /**
+   * Manually trigger a notification for a reminder
+   * This creates a notification without updating the reminder data
+   * Can be triggered at any time regardless of reminder status or due date
+   */
+  async triggerNotification(
+    id: string,
+    userId: string,
+  ): Promise<{ success: boolean; message: string; notificationId?: string }> {
+    return this.errorHandler.safeExecute(async () => {
+      // Verify reminder exists and belongs to user
+      const reminder = await this.prisma.reminder.findFirst({
+        where: {
+          id,
+          userId,
+        },
+        include: {
+          user: {
+            include: {
+              role: true,
+            },
+          },
+        },
+      });
+
+      this.errorHandler.throwIfNotFoundById('Reminder', id, reminder);
+
+      // Get user details
+      if (!reminder.user) {
+        throw new Error(`User ${reminder.userId} not found`);
+      }
+
+      // Get or create notification type
+      const typeId = await this.getOrCreateReminderNotificationType();
+
+      // Create notification
+      const notification =
+        await this.notificationsService.createNotificationForRoles(
+          {
+            title: 'Reminder',
+            message: reminder.message,
+            context: reminder.entity ?? undefined,
+            contextId: reminder.entityId ?? undefined,
+            typeId,
+            roleIds: [reminder.user.roleId],
+          },
+          userId, // Created by the current user
+        );
+
+      return {
+        success: true,
+        message: 'Notification triggered successfully',
+        notificationId: notification.id,
+      };
+    }, 'Triggering reminder notification');
+  }
+}

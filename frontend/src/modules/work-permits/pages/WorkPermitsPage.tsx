@@ -76,7 +76,6 @@ const WorkPermitsPage = () => {
       options: [
         { label: 'Draft', value: 'DRAFT' },
         { label: 'Open', value: 'OPEN' },
-        { label: 'Waiting Approval', value: 'WAITING_APPROVAL' },
         { label: 'In Review HSE', value: 'IN_REVIEW_HSE' },
         { label: 'In Review Security', value: 'IN_REVIEW_SECURITY' },
         { label: 'Need Info', value: 'NEED_INFO' },
@@ -215,7 +214,7 @@ const WorkPermitsPage = () => {
       case 'WAITING_APPROVAL':
       case 'IN_REVIEW_HSE':
       case 'IN_REVIEW_SECURITY':
-        return 'default';
+        return 'secondary';
       case 'NEED_INFO':
         return 'outline';
       default:
@@ -331,8 +330,8 @@ const WorkPermitsPage = () => {
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="DRAFT">Draft</TabsTrigger>
-            <TabsTrigger value="OPEN">Open</TabsTrigger>
-            <TabsTrigger value="WAITING_APPROVAL">Waiting</TabsTrigger>
+            <TabsTrigger value="IN_REVIEW_HSE">In Review HSE</TabsTrigger>
+            <TabsTrigger value="IN_REVIEW_SECURITY">In Review Security</TabsTrigger>
             <TabsTrigger value="APPROVED">Approved</TabsTrigger>
             <TabsTrigger value="CLOSED">Closed</TabsTrigger>
           </TabsList>

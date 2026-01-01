@@ -8,6 +8,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Email Templates - Master Data
+model EmailTemplate {
+  id               String   @id @default(uuid())
+  code             String   @unique         // unique code, e.g. "verification"
+  name             String                      // Human readable name
+  subjectTemplate  String                      // Handlebars template for subject
+  bodyTemplate     String   @db.Text           // Handlebars template for HTML body
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("m_email_templates")
+}
+
 model User {
   id                           String                     @id @default(uuid())
   email                        String                     @unique
@@ -61,6 +75,9 @@ model User {
   workPermitEmployees          WorkPermitEmployee[]       @relation("WorkPermitEmployee")
   workPermitHseOfficers        WorkPermitToUser[]         @relation("WorkPermitHseOfficer")
   environmentalMeasurements    EnvironmentalMeasurement[] @relation("EnvironmentalMeasurementCreator")
+  inspectionsCreated           Inspection[]               @relation("InspectionCreator")
+  inspectionItemsAssigned      InspectionItem[]           @relation("InspectionItemAssignee")
+  inspectionInspectors         InspectionInspector[]      @relation("InspectionInspectorUser")
 
   // Waste Management Relations
   treatmentPlantsCreated          TreatmentPlant[]        @relation("TreatmentPlantCreator")
@@ -77,6 +94,9 @@ model User {
   weightReportsReviewed           WeightReport[]          @relation("WeightReportReviewer")
   dispatchOrdersOrdered           DispatchOrder[]         @relation("DispatchOrderOrderer")
   dispatchOrdersCreated           DispatchOrder[]         @relation("DispatchOrderCreator")
+
+  // Man Hour Relations
+  manHoursCreated                 ManHour[]               @relation("ManHourCreator")
 
   @@map("t_users")
 }
@@ -171,36 +191,40 @@ model Office {
 }
 
 model Department {
-  id              String               @id @default(uuid())
-  name            String
-  code            String               @unique
-  description     String?              @db.Text
-  isActive        Boolean              @default(true)
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @default(now())
-  users           User[]
-  riskAssessments RiskAssessment[]
-  approvalItems   MasterApprovalItem[]
-  approvals       Approval[]
-  ppeWithdrawals  PPEWithdrawal[]
-  certificates    Certificate[]
+  id                   String                 @id @default(uuid())
+  name                 String
+  code                 String                 @unique
+  description          String?                @db.Text
+  emails               Json?                  // Array of email addresses for the department
+  isActive             Boolean                @default(true)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @default(now())
+  users                User[]
+  riskAssessments      RiskAssessment[]
+  approvalItems        MasterApprovalItem[]
+  approvals            Approval[]
+  ppeWithdrawals       PPEWithdrawal[]
+  certificates         Certificate[]
+  notificationRecipients NotificationRecipient[]
+  inspectionItems      InspectionItem[]
 
   @@map("m_departments")
 }
 
 model JobPosition {
-  id             String               @id @default(uuid())
-  name           String
-  code           String               @unique
-  level          Int
-  description    String?              @db.Text
-  isActive       Boolean              @default(true)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @default(now())
-  users          User[]
-  approvalItems  MasterApprovalItem[]
-  approvals      Approval[]
-  ppeWithdrawals PPEWithdrawal[]
+  id                   String                 @id @default(uuid())
+  name                 String
+  code                 String                 @unique
+  level                Int
+  description          String?                @db.Text
+  isActive             Boolean                @default(true)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @default(now())
+  users                User[]
+  approvalItems        MasterApprovalItem[]
+  approvals            Approval[]
+  ppeWithdrawals       PPEWithdrawal[]
+  notificationRecipients NotificationRecipient[]
 
   @@map("m_job_positions")
 }
@@ -215,6 +239,7 @@ model RiskCategory {
   updatedAt           DateTime             @updatedAt
   risks               Risk[]
   riskAssessmentItems RiskAssessmentItem[]
+  inspectionItems     InspectionItem[]
 
   @@map("m_risk_categories")
 }
@@ -232,6 +257,7 @@ model Risk {
   mitigations         RiskMitigation[]
   riskAssessmentItems RiskAssessmentItem[]
   workPermitHazards   WorkPermitHazard[]
+  inspectionItems     InspectionItem[]
 
   @@map("m_risk")
 }
@@ -427,6 +453,8 @@ model NotificationRecipient {
   notificationId String
   roleId         String
   userId         String? // Optional: specific user if targeting individual
+  departmentId   String? // Optional: target specific department
+  jobPositionId  String? // Optional: target specific job position
   isRead         Boolean   @default(false)
   readAt         DateTime?
   createdAt      DateTime  @default(now())
@@ -435,8 +463,10 @@ model NotificationRecipient {
   notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
   role         Role         @relation(fields: [roleId], references: [id])
   user         User?        @relation("NotificationRecipient", fields: [userId], references: [id])
+  department   Department?  @relation(fields: [departmentId], references: [id])
+  jobPosition  JobPosition? @relation(fields: [jobPositionId], references: [id])
 
-  @@unique([notificationId, roleId, userId])
+  @@unique([notificationId, roleId, userId, departmentId, jobPositionId])
   @@map("t_notification_recipients")
 }
 
@@ -1296,8 +1326,100 @@ model Area {
   workPermits      WorkPermit[]
   rooms            Room[]
   storageLocations StorageLocation[]
+  inspections      Inspection[]
 
   @@map("m_areas")
+}
+
+// ============================================================
+// INSPECTION SYSTEM
+// ============================================================
+
+// Inspection - Transactional Data
+model Inspection {
+  id             String                 @id @default(uuid())
+  code           String                 @unique
+  areaId         String
+  inspectionDate DateTime
+  status         GeneralStatusEnum
+  isActive       Boolean                @default(true)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  createdBy      String
+
+  // Relations
+  area       Area                   @relation(fields: [areaId], references: [id])
+  creator    User                   @relation("InspectionCreator", fields: [createdBy], references: [id])
+  items      InspectionItem[]
+  inspectors InspectionInspector[]
+
+  @@index([areaId])
+  @@index([status])
+  @@map("t_inspections")
+}
+
+// Inspection Item - Transactional Data
+model InspectionItem {
+  id                  String   @id @default(uuid())
+  inspectionId        String
+  riskCategoryId      String
+  riskId              String
+  assignedDepartmentId String
+  assigneeId          String?
+  description         String?  @db.Text
+  followUpNotes       String?  @db.Text
+  order               Int
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  inspection          Inspection     @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  riskCategory        RiskCategory   @relation(fields: [riskCategoryId], references: [id])
+  risk                Risk           @relation(fields: [riskId], references: [id])
+  assignedDepartment  Department     @relation(fields: [assignedDepartmentId], references: [id])
+  assignee            User?          @relation("InspectionItemAssignee", fields: [assigneeId], references: [id])
+  images              InspectionImage[]
+
+  @@index([inspectionId])
+  @@index([riskCategoryId])
+  @@index([riskId])
+  @@index([assignedDepartmentId])
+  @@index([assigneeId])
+  @@map("t_inspection_items")
+}
+
+// Inspection Image - Transactional Data
+model InspectionImage {
+  id               String   @id @default(uuid())
+  inspectionItemId String
+  imageUrl         String
+  caption          String?  @db.Text
+  order            Int
+  createdAt        DateTime @default(now())
+
+  // Relations
+  inspectionItem InspectionItem @relation(fields: [inspectionItemId], references: [id], onDelete: Cascade)
+
+  @@index([inspectionItemId])
+  @@index([order])
+  @@map("t_inspection_images")
+}
+
+// Inspection Inspector - Transactional Data
+model InspectionInspector {
+  id           String   @id @default(uuid())
+  inspectionId String
+  inspectorId  String
+  order        Int
+  createdAt    DateTime @default(now())
+
+  // Relations
+  inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  inspector  User       @relation("InspectionInspectorUser", fields: [inspectorId], references: [id])
+
+  @@index([inspectionId])
+  @@index([inspectorId])
+  @@map("t_inspection_inspectors")
 }
 
 model Room {
@@ -1643,6 +1765,11 @@ enum MonthEnum {
   DEC
 }
 
+enum ManHourGroupEnum {
+  STUDENT
+  NON_STUDENT
+}
+
 enum GeneralStatusEnum {
   SCHEDULED
   DRAFT
@@ -1923,4 +2050,33 @@ model DispatchOrder {
   @@index([orderedBy])
   @@index([status])
   @@map("t_dispatch_orders")
+}
+
+// ============================================================
+// MAN HOUR MANAGEMENT
+// ============================================================
+
+// Man Hour - Transactional Data
+model ManHour {
+  id            String           @id @default(uuid())
+  name          String
+  group         ManHourGroupEnum
+  qty           Int
+  manHourPerDay Decimal          @db.Decimal(4, 2)
+  month         MonthEnum
+  year          Int
+  total         Decimal          @db.Decimal(10, 2)
+  notes         String?          @db.Text
+  isActive      Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  createdBy     String
+
+  // Relations
+  creator User @relation("ManHourCreator", fields: [createdBy], references: [id])
+
+  @@unique([name, group, month, year])
+  @@index([month, year])
+  @@index([group])
+  @@map("t_man_hours")
 }

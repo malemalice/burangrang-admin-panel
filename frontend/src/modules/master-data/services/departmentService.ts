@@ -15,6 +15,7 @@ const mapDepartmentDtoToDepartment = (departmentDto: DepartmentDTO): Department 
     name: departmentDto.name,
     code: departmentDto.code,
     description: departmentDto.description || '',
+    emails: departmentDto.emails || null,
     isActive: departmentDto.isActive,
     createdAt: departmentDto.createdAt,
     updatedAt: departmentDto.updatedAt

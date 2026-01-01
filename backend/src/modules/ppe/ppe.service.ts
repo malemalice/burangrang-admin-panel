@@ -881,7 +881,7 @@ export class PPEService {
                             withdrawalId: withdrawal.id,
                             stockItemId: item.stockItemId,
                             requestedQuantity: item.requestedQuantity,
-                            order: item.order || index + 1,
+                            order: item.order !== undefined ? item.order : index + 1,
                             notes: item.notes || null,
                         },
                     });
@@ -1432,7 +1432,7 @@ export class PPEService {
                             withdrawalId: id,
                             stockItemId: item.stockItemId,
                             requestedQuantity: item.requestedQuantity,
-                            order: item.order || index + 1,
+                            order: item.order !== undefined ? item.order : index + 1,
                             notes: item.notes || null,
                         },
                     });
@@ -1839,8 +1839,6 @@ export class PPEService {
             code,
         } = options || {};
 
-        console.log('DEBUG options:', JSON.stringify(options));
-
         // Build where clause
         const where: Prisma.SafetyEquipmentWhereInput = {
             deletedAt: null, // Only get non-deleted records
@@ -1856,16 +1854,16 @@ export class PPEService {
             where.code = { contains: code, mode: 'insensitive' };
         }
 
-        // Handle search filter (OR logic for name, code, description)
+        // Handle search filter (OR logic for name, code, size)
         // Only apply search if name and code filters are not provided
-        // Use startsWith for name and code to be more strict (only match at the beginning)
-        // Use contains for description to allow searching within longer text
+        // Use contains for name, code, and size to allow partial keyword matching
+        // Note: description is excluded from search to avoid false positives from long text
         if (search && !name && !code) {
             const searchLower = search.toLowerCase().trim();
             where.OR = [
-                { name: { startsWith: searchLower, mode: 'insensitive' } },
-                { code: { startsWith: searchLower, mode: 'insensitive' } },
-                { description: { contains: searchLower, mode: 'insensitive' } },
+                { name: { contains: searchLower, mode: 'insensitive' } },
+                { code: { contains: searchLower, mode: 'insensitive' } },
+                { size: { contains: searchLower, mode: 'insensitive' } },
             ];
         }
 

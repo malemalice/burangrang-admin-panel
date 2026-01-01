@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Calendar, Check, Filter, Search, ChevronDown } from 'lucide-react';
 import { Button, ThemeButton } from './button';
 import { Input } from './input';
@@ -9,6 +9,7 @@ import { useTheme } from '@/core/lib/theme';
 
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { SearchableSelect, SearchableSelectOption } from './searchable-select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { DateTimePicker } from './datetime-picker';
 
 export type FilterField = {
@@ -44,30 +45,36 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
 }) => {
   const [filterValues, setFilterValues] = useState<FilterValue[]>(initialValues);
   const { isDark } = useTheme();
+  const prevIsOpenRef = useRef(false);
 
-  // Sync initialValues prop with filterValues state only when drawer opens
+  // Sync initialValues only when drawer opens (transition from closed to open)
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevIsOpenRef.current) {
+      // Drawer just opened - sync with initialValues
       setFilterValues(initialValues || []);
     }
+    prevIsOpenRef.current = isOpen;
   }, [isOpen, initialValues]);
 
   const updateFilterValue = (id: string, value: string | string[] | { from?: Date; to?: Date } | boolean) => {
-    console.warn(`[FilterDrawer] updateFilterValue START: id=${id}, value=${JSON.stringify(value)}`);
-    console.warn(`[FilterDrawer] Current State:`, filterValues);
+    // Use functional update to avoid stale closure issues
+    setFilterValues(prevFilters => {
+      console.warn(`[FilterDrawer] updateFilterValue: id=${id}, value=${JSON.stringify(value)}`);
+      console.warn(`[FilterDrawer] Previous State:`, prevFilters);
 
-    const existingFilterIndex = filterValues.findIndex(filter => filter.id === id);
+      const existingFilterIndex = prevFilters.findIndex(filter => filter.id === id);
 
-    if (existingFilterIndex >= 0) {
-      const updatedFilters = [...filterValues];
-      updatedFilters[existingFilterIndex] = { id, value };
-      console.warn(`[FilterDrawer] Updating Existing:`, updatedFilters);
-      setFilterValues(updatedFilters);
-    } else {
-      const newFilters = [...filterValues, { id, value }];
-      console.warn(`[FilterDrawer] Adding New:`, newFilters);
-      setFilterValues(newFilters);
-    }
+      if (existingFilterIndex >= 0) {
+        const updatedFilters = [...prevFilters];
+        updatedFilters[existingFilterIndex] = { id, value };
+        console.warn(`[FilterDrawer] Updating Existing:`, updatedFilters);
+        return updatedFilters;
+      } else {
+        const newFilters = [...prevFilters, { id, value }];
+        console.warn(`[FilterDrawer] Adding New:`, newFilters);
+        return newFilters;
+      }
+    });
   };
 
   const getFilterValue = (id: string) => {
@@ -201,25 +208,26 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
 
               {field.type === 'searchableSelect' && field.options && (
                 <div className="relative w-full">
-                  <SearchableSelect
-                    options={field.options.map(option => ({
-                      value: typeof option.value === 'boolean' ? option.value.toString() : String(option.value),
-                      label: option.label
-                    }))}
+                  <Select
                     value={String(getFilterValue(field.id) || '')}
                     onValueChange={(value) => {
-                      // Convert back to boolean if needed
-                      const option = field.options?.find(opt =>
-                        typeof opt.value === 'boolean'
-                          ? opt.value.toString() === value
-                          : String(opt.value) === value
-                      );
-                      updateFilterValue(field.id, option?.value || value);
+                      updateFilterValue(field.id, value);
                     }}
-                    placeholder={`Select ${field.label}...`}
-                    searchPlaceholder={`Search ${field.label}...`}
-                    emptyText={`No ${field.label.toLowerCase()} found.`}
-                  />
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={`Select ${field.label}...`} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {field.options.map((option) => (
+                        <SelectItem
+                          key={String(option.value)}
+                          value={typeof option.value === 'boolean' ? option.value.toString() : String(option.value)}
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 

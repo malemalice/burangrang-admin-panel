@@ -346,6 +346,7 @@ const RiskMitigationsPage = () => {
           total: totalMitigations
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
         sorting={sorting}

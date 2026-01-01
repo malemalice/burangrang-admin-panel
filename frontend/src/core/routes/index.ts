@@ -14,6 +14,8 @@ import { enrollmentRoutes } from '@/modules/enrollments';
 import { quizRoutes } from '@/modules/quizzes';
 import certificateRoutes from '@/modules/certificates/routes/certificateRoutes';
 import { riskMatrixRoutes } from '@/modules/risk-matrix';
+import { manHourRoutes } from '@/modules/man-hours';
+import { emailTemplateRoutes } from '@/modules/mail-templates';
 
 /**
  * Application routes registry
@@ -34,12 +36,15 @@ const routes: RouteConfig[] = [
   ...quizRoutes,
   ...certificateRoutes,
   ...riskMatrixRoutes,
+  ...manHourRoutes,
   ...moduleRoutes,
+  ...emailTemplateRoutes,
 ];
 
 // Public routes that don't require authentication
 export const publicRoutes: RouteConfig[] = [
   coreRoutes.find(route => route.path === '/login')!,
+  coreRoutes.find(route => route.path === '/reset-password')!,
 ];
 
 // Not Found route

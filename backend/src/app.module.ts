@@ -39,6 +39,8 @@ import { EnvironmentalMeasurementsModule } from './modules/environmental-measure
 import { AreasModule } from './modules/areas/areas.module';
 
 import { WasteManagementModule } from './modules/waste-management/waste-management.module';
+import { ManHoursModule } from './modules/man-hours/man-hours.module';
+import { InspectionsModule } from './modules/inspections/inspections.module';
 
 @Module({
   imports: [
@@ -80,6 +82,10 @@ import { WasteManagementModule } from './modules/waste-management/waste-manageme
     AreasModule,
     // Waste Management Module (consolidated - includes all waste-related features)
     WasteManagementModule,
+    // Man Hours Module
+    ManHoursModule,
+    // Inspections Module
+    InspectionsModule,
   ],
   providers: [
     Reflector,

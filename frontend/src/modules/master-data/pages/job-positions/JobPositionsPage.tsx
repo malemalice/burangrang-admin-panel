@@ -255,7 +255,7 @@ const JobPositionsPage = () => {
           </ThemeButton>
         }
       >
-        <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
+        <Tabs defaultValue="all" className="w-full sm:w-auto" onValueChange={handleTabChange}>
           <TabsList>
             <TabsTrigger value="all">All Positions</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
@@ -277,6 +277,7 @@ const JobPositionsPage = () => {
           total: totalJobPositions
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
         sorting={sorting}

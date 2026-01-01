@@ -128,7 +128,7 @@ export function SearchableSelect({
         style={{ zIndex: 99999 }}
         sideOffset={4}
         align="start"
-        onOpenAutoFocus={(e) => {
+        onCloseAutoFocus={(e) => {
           e.preventDefault();
         }}
       >
@@ -167,7 +167,8 @@ export function SearchableSelect({
               // Handle Enter key to create new option when no results
               if (e.key === 'Enter' && shouldShowCreateNew && onCreateNew) {
                 e.preventDefault();
-                onCreateNew(searchQuery).then((newValue) => {
+                // Wrap with Promise.resolve to handle both sync and async returns
+                Promise.resolve(onCreateNew(searchQuery)).then((newValue) => {
                   if (newValue && onValueChange) {
                     onValueChange(newValue);
                   }
@@ -321,7 +322,7 @@ export function MultiSelectSearchable({
           style={{ zIndex: 99999 }}
           sideOffset={4}
           align="start"
-          onOpenAutoFocus={(e) => {
+          onCloseAutoFocus={(e) => {
             e.preventDefault();
           }}
         >

@@ -82,6 +82,7 @@ export interface DepartmentDTO {
   name: string;
   code: string;
   description?: string;
+  emails?: string[] | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -92,6 +93,7 @@ export interface CreateDepartmentDTO {
   name: string;
   code: string;
   description?: string;
+  emails?: string[] | null;
   isActive?: boolean;
 }
 
@@ -100,6 +102,7 @@ export interface UpdateDepartmentDTO {
   name?: string;
   code?: string;
   description?: string;
+  emails?: string[] | null;
   isActive?: boolean;
 }
 
@@ -156,8 +159,8 @@ export interface MasterApprovalItemDTO {
   id: string;
   mApprovalId: string;
   order: number;
-  job_position_id: string;
-  department_id: string;
+  jobPositionId: string;
+  departmentId: string;
   createdBy: string;
   createdAt: string;
   jobPosition: {
@@ -180,8 +183,8 @@ export interface CreateMasterApprovalDTO {
   isActive?: boolean;
   items: Array<{
     order: number;
-    job_position_id: string;
-    department_id: string;
+    jobPositionId: string;
+    departmentId: string;
   }>;
 }
 
@@ -192,8 +195,8 @@ export interface UpdateMasterApprovalDTO {
   items?: Array<{
     id?: string;
     order: number;
-    job_position_id: string;
-    department_id: string;
+    jobPositionId: string;
+    departmentId: string;
   }>;
 }
 
@@ -218,6 +221,7 @@ export interface DepartmentFormData {
   name: string;
   code: string;
   description: string;
+  emails: string[];
   isActive: boolean;
 }
 
@@ -236,8 +240,8 @@ export interface MasterApprovalFormData {
   isActive: boolean;
   items: Array<{
     order: number;
-    job_position_id: string;
-    department_id: string;
+    jobPositionId: string;
+    departmentId: string;
   }>;
 }
 

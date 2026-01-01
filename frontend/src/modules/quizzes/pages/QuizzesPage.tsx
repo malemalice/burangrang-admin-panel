@@ -48,7 +48,7 @@ const QuizzesPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null);
   const [activeTab, setActiveTab] = useState('all');
-  const [activeStatusTab, setActiveStatusTab] = useState<string>('all');
+  const [activeStatusTab, setActiveStatusTab] = useState<string>('active');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: string | number | boolean; label: string }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
@@ -65,9 +65,9 @@ const QuizzesPage = () => {
       label: 'Entity Type',
       type: 'select',
       options: [
+        { label: 'Standalone', value: 'STANDALONE' },
         { label: 'Course', value: 'COURSE' },
         { label: 'Chapter', value: 'CHAPTER' },
-        { label: 'Standalone', value: '' },
       ],
     },
     {
@@ -130,6 +130,9 @@ const QuizzesPage = () => {
         }
         if (key === 'isPublished' || key === 'isActive') {
           (params as Record<string, any>)[key] = filter.value === 'true' || filter.value === true;
+        } else if (key === 'entity') {
+          // Send STANDALONE as filter value for standalone quizzes
+          (params as Record<string, any>)[key] = filter.value;
         } else {
           (params as Record<string, any>)[key] = filter.value;
         }

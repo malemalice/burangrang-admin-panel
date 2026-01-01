@@ -223,26 +223,40 @@ const CertificatesPage = () => {
         setActiveTab(value);
         setPageIndex(0);
 
+        // Keep other filters when changing tabs
+        const newFilters: Record<string, { value: any; label: string }> = {};
+
+        // Preserve non-status filters
+        Object.entries(activeFilters).forEach(([key, item]) => {
+            if (key !== 'status' && key !== 'expired' && key !== 'expiringSoon') {
+                newFilters[key] = item;
+            }
+        });
+
         if (value === 'all') {
-            setActiveFilters({});
+            setActiveFilters(newFilters);
         } else if (value === 'active') {
             setActiveFilters({
+                ...newFilters,
                 status: { value: 'active', label: 'Active' },
             });
         } else if (value === 'inactive') {
             setActiveFilters({
+                ...newFilters,
                 status: { value: 'inactive', label: 'Inactive' },
             });
         } else if (value === 'expired') {
             setActiveFilters({
+                ...newFilters,
                 expired: { value: 'true', label: 'Expired' },
             });
         } else if (value === 'expiringSoon') {
             setActiveFilters({
+                ...newFilters,
                 expiringSoon: { value: 'true', label: 'Expiring Soon' },
             });
         }
-    }, []);
+    }, [activeFilters]);
 
     const handleApplyFilters = useCallback((filters: FilterValue[]) => {
         const newActiveFilters: Record<string, { value: any; label: string }> = {};
@@ -369,7 +383,10 @@ const CertificatesPage = () => {
                             </Badge>
                         )}
                         {certificate.isExpiringSoon && !certificate.isExpired && (
-                            <Badge variant="outline" className="mt-1 border-yellow-500 text-yellow-600">
+                            <Badge
+                                variant="outline"
+                                className="mt-1 border-yellow-500 text-yellow-700 bg-yellow-50 font-medium"
+                            >
                                 <AlertTriangle className="h-3 w-3 mr-1" />
                                 Expiring Soon
                             </Badge>
@@ -444,8 +461,9 @@ const CertificatesPage = () => {
                                     e.preventDefault();
                                     handleDeleteClick(certificate, e as any);
                                 }}
+                                className="text-red-600 focus:text-red-600 focus:bg-red-50"
                             >
-                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                <Trash2 className="mr-2 h-4 w-4 text-red-600" /> Delete
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

@@ -1,0 +1,260 @@
+name: Deploy to Development
+
+on:
+  # Allow manual trigger from GitHub UI
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy'
+        required: false
+        default: 'development'
+
+jobs:
+  deploy:
+    name: Deploy Backend and Frontend to Development
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Get branch name
+        id: get_branch
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "branch=${{ github.event.inputs.branch || 'development' }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "branch=${{ github.head_ref || github.base_ref }}" >> $GITHUB_OUTPUT
+          else
+            echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.get_branch.outputs.branch }}
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Add VPS to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy Backend to VPS
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          DEPLOYMENT_PATH: ${{ secrets.DEPLOYMENT_PATH }}
+          PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
+          BRANCH: ${{ steps.get_branch.outputs.branch }}
+        run: |
+          ssh $VPS_USER@$VPS_HOST << ENDSSH
+            set -e
+            
+            echo "==================================="
+            echo "🚀 Starting Backend deployment (Development)"
+            echo "Branch: $BRANCH"
+            echo "==================================="
+            
+            # Navigate to project repository
+            cd $PROJECT_PATH
+            
+            echo "📥 Fetching latest changes..."
+            git fetch --all
+            
+            echo "🔄 Checking out branch: $BRANCH"
+            git checkout $BRANCH
+            
+            echo "📦 Pulling latest changes..."
+            git pull origin $BRANCH || true
+            
+            # Navigate to deployment directory
+            cd $DEPLOYMENT_PATH
+            
+            echo "🛑 Stopping backend container..."
+            docker compose stop backend || true
+            
+            echo "🗑️  Removing old backend container..."
+            docker compose rm -f backend || true
+            
+            echo "🏗️  Building backend image on VPS..."
+            docker compose build --no-cache backend
+            
+            echo "🚀 Starting backend container..."
+            docker compose up -d backend
+            
+            echo "⏳ Waiting for container to be healthy..."
+            sleep 15
+            
+            echo "🔍 Checking container status..."
+            docker compose ps backend
+            
+            echo "📋 Recent container logs:"
+            docker compose logs --tail=50 backend
+            
+            echo "✅ Backend deployment completed!"
+            echo "==================================="
+          ENDSSH
+
+      - name: Verify Backend Deployment
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          echo "Waiting 30 seconds for backend to fully start..."
+          sleep 30
+          
+          echo "Checking if backend is responding..."
+          ssh $VPS_USER@$VPS_HOST << ENDSSH
+            # Check if container is running
+            if docker ps | grep -q burangrang-backend; then
+              echo "✅ Backend container is running"
+              
+              # Check container health
+              health=\$(docker inspect --format='{{.State.Health.Status}}' burangrang-backend 2>/dev/null || echo "no-health-check")
+              echo "Health status: \$health"
+              
+              # Try to check PM2 status
+              if docker exec burangrang-backend pm2 ping 2>/dev/null; then
+                echo "✅ PM2 is responding"
+              else
+                echo "⚠️  PM2 might not be ready yet"
+              fi
+              
+              # Try to curl the health endpoint
+              if docker exec burangrang-backend wget -q -O- http://localhost:3000/health 2>/dev/null; then
+                echo "✅ Health endpoint is responding"
+              else
+                echo "⚠️  Health endpoint might not be ready yet, but container is running"
+              fi
+            else
+              echo "❌ Backend container is not running!"
+              exit 1
+            fi
+          ENDSSH
+
+      - name: Deploy Frontend to VPS
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          DEPLOYMENT_PATH: ${{ secrets.DEPLOYMENT_PATH }}
+          PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
+          BRANCH: ${{ steps.get_branch.outputs.branch }}
+        run: |
+          ssh $VPS_USER@$VPS_HOST << ENDSSH
+            set -e
+            
+            echo "==================================="
+            echo "🚀 Starting Frontend deployment (Development)"
+            echo "Branch: $BRANCH"
+            echo "==================================="
+            
+            # Navigate to project repository
+            cd $PROJECT_PATH
+            
+            echo "📥 Fetching latest changes..."
+            git fetch --all
+            
+            echo "🔄 Checking out branch: $BRANCH"
+            git checkout $BRANCH
+            
+            echo "📦 Pulling latest changes..."
+            git pull origin $BRANCH || true
+            
+            # Navigate to deployment directory
+            cd $DEPLOYMENT_PATH
+            
+            echo "🛑 Stopping frontend container..."
+            docker compose stop frontend || true
+            
+            echo "🗑️  Removing old frontend container..."
+            docker compose rm -f frontend || true
+            
+            echo "🏗️  Building frontend image on VPS..."
+            docker compose build --no-cache frontend
+            
+            echo "🚀 Starting frontend container..."
+            docker compose up -d frontend
+            
+            echo "⏳ Waiting for container to be healthy..."
+            sleep 10
+            
+            echo "🔍 Checking container status..."
+            docker compose ps frontend
+            
+            echo "📋 Recent container logs:"
+            docker compose logs --tail=50 frontend
+            
+            echo "✅ Frontend deployment completed!"
+            echo "==================================="
+          ENDSSH
+
+      - name: Verify Frontend Deployment
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          echo "Waiting 30 seconds for frontend to fully start..."
+          sleep 30
+          
+          echo "Checking if frontend is responding..."
+          ssh $VPS_USER@$VPS_HOST << ENDSSH
+            # Check if container is running
+            if docker ps | grep -q burangrang-frontend; then
+              echo "✅ Frontend container is running"
+              
+              # Check container health
+              health=\$(docker inspect --format='{{.State.Health.Status}}' burangrang-frontend 2>/dev/null || echo "no-health-check")
+              echo "Health status: \$health"
+              
+              # Try to curl the health endpoint
+              if docker exec burangrang-frontend curl -f http://localhost:8080/health >/dev/null 2>&1; then
+                echo "✅ Health endpoint is responding"
+              else
+                echo "⚠️  Health endpoint might not be ready yet, but container is running"
+              fi
+              
+              # Try to curl the main application
+              if docker exec burangrang-frontend curl -f http://localhost:8080/ >/dev/null 2>&1; then
+                echo "✅ Application is responding"
+              else
+                echo "⚠️  Application might not be ready yet, but container is running"
+              fi
+            else
+              echo "❌ Frontend container is not running!"
+              exit 1
+            fi
+          ENDSSH
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deployment successful!"
+            echo "🌐 Backend API is now live at https://bsj-api.benwara.com"
+            echo "🌐 Frontend is now live at https://bsj.benwara.com"
+          else
+            echo "❌ Deployment failed!"
+            echo "Please check the logs above for details."
+          fi
+
+      - name: Create deployment summary
+        if: always()
+        run: |
+          echo "## 🚀 Development Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ steps.get_branch.outputs.branch }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deployment completed successfully!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🌐 **Backend URL:** https://bsj-api.benwara.com" >> $GITHUB_STEP_SUMMARY
+            echo "🌐 **Frontend URL:** https://bsj.benwara.com" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️  **Note:** Database migrations must be run manually if needed." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Deployment failed. Please check the logs." >> $GITHUB_STEP_SUMMARY
+          fi

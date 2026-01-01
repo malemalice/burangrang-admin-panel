@@ -25,6 +25,7 @@ import {
   MasterApprovalsPage,
   CreateMasterApprovalPage,
   EditMasterApprovalPage,
+  MasterApprovalDetailPage,
   RoomsPage,
   CreateRoomPage,
   EditRoomPage,
@@ -132,6 +133,10 @@ const masterDataRoutes: RouteConfig[] = [
   {
     path: '/master/approvals/new',
     component: CreateMasterApprovalPage,
+  },
+  {
+    path: '/master/approvals/:id',
+    component: MasterApprovalDetailPage,
   },
   {
     path: '/master/approvals/:id/edit',
