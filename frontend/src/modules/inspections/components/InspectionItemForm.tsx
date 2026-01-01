@@ -27,6 +27,7 @@ import { User } from '@/core/lib/types';
 import departmentService from '@/modules/master-data/services/departmentService';
 import { Department } from '@/core/lib/types';
 import uploadService, { FileCategory } from '@/modules/uploads/services/uploadService';
+import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 
 // Image upload interface
 interface ImageUpload {
@@ -55,9 +56,19 @@ interface InspectionItemFormProps {
   onSubmit?: (item: CreateInspectionItemDTO) => void;
   onCancel?: () => void;
   showCard?: boolean;
+  inspectionStatus?: GeneralStatusEnum;
+  canApprove?: boolean;
 }
 
-const InspectionItemForm = ({ inspectionId, initialItem, onSubmit, onCancel, showCard = true }: InspectionItemFormProps) => {
+const InspectionItemForm = ({ 
+  inspectionId, 
+  initialItem, 
+  onSubmit, 
+  onCancel, 
+  showCard = true,
+  inspectionStatus,
+  canApprove = false,
+}: InspectionItemFormProps) => {
   const [risks, setRisks] = useState<Risk[]>([]);
   const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -157,7 +168,7 @@ const InspectionItemForm = ({ inspectionId, initialItem, onSubmit, onCancel, sho
       // Clear images when editing an item without images
       setImages([]);
     }
-  }, [initialItem?.images]);
+  }, [initialItem]);
 
   // Filter risks based on selected risk category
   const selectedRiskCategoryId = form.watch('riskCategoryId');
@@ -167,6 +178,9 @@ const InspectionItemForm = ({ inspectionId, initialItem, onSubmit, onCancel, sho
         return risk?.riskCategoryId === selectedRiskCategoryId;
       })
     : riskOptions;
+
+  // Check if follow-up notes can be edited (only during approval workflow when user can approve)
+  const canEditFollowUpNotes = inspectionStatus === GeneralStatusEnum.WAITING_APPROVAL && canApprove;
 
   // Handle image file selection
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -283,13 +297,19 @@ const InspectionItemForm = ({ inspectionId, initialItem, onSubmit, onCancel, sho
         uploadedImages = await uploadImages();
       }
       
+      // Only include follow-up notes if user has permission to edit them
+      // Otherwise, preserve existing value if editing, or set to undefined if creating new
+      const followUpNotes = canEditFollowUpNotes 
+        ? (data.followUpNotes || undefined)
+        : (initialItem?.followUpNotes || undefined);
+
       const itemData: CreateInspectionItemDTO = {
         riskCategoryId: data.riskCategoryId,
         riskId: data.riskId,
         assignedDepartmentId: data.assignedDepartmentId,
         assigneeId: data.assigneeId || undefined,
         description: data.description || undefined,
-        followUpNotes: data.followUpNotes || undefined,
+        followUpNotes: followUpNotes,
         order: 0, // Default order value (backend may handle this)
         images: uploadedImages, // Add images to DTO
       };
@@ -445,11 +465,21 @@ const InspectionItemForm = ({ inspectionId, initialItem, onSubmit, onCancel, sho
               <FormLabel>Follow-up Notes</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Enter follow-up notes (optional)"
+                  placeholder={
+                    canEditFollowUpNotes
+                      ? "Enter follow-up notes (optional)"
+                      : "Follow-up notes can only be filled during approval workflow by authorized approvers"
+                  }
                   rows={4}
+                  disabled={!canEditFollowUpNotes || isSubmitting || isUploadingImages}
                   {...field}
                 />
               </FormControl>
+              {!canEditFollowUpNotes && (
+                <p className="text-sm text-muted-foreground">
+                  Only available when inspection status is "Waiting for Approval" and you have approval rights
+                </p>
+              )}
               <FormMessage />
             </FormItem>
           )}

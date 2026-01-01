@@ -36,7 +36,8 @@ import { userService } from '@/modules/users';
 import { User } from '@/core/lib/types';
 import { GENERAL_STATUS_OPTIONS, GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 
-// Generate inspection code: INS + YYMMDDHHmm
+// Generate inspection code: INS + YYMMDDHHmmss
+// Includes seconds to reduce collision probability
 const generateInspectionCode = (): string => {
   const now = new Date();
   const year = now.getFullYear().toString().slice(-2);
@@ -44,7 +45,8 @@ const generateInspectionCode = (): string => {
   const date = now.getDate().toString().padStart(2, '0');
   const hour = now.getHours().toString().padStart(2, '0');
   const minute = now.getMinutes().toString().padStart(2, '0');
-  return `INS${year}${month}${date}${hour}${minute}`;
+  const second = now.getSeconds().toString().padStart(2, '0');
+  return `INS${year}${month}${date}${hour}${minute}${second}`;
 };
 
 // Form schema for validation
@@ -140,7 +142,7 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
   const onSubmit = async (data: FormValues) => {
     try {
       // Transform the date if provided
-      const inspectionData: CreateInspectionDTO = {
+      let inspectionData: CreateInspectionDTO = {
         code: data.code as string,
         areaId: data.areaId as string,
         inspectionDate: new Date(data.inspectionDate),
@@ -155,8 +157,25 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
       };
 
       if (mode === 'create') {
-        await inspectionsService.create(inspectionData);
-        toast.success('Inspection created successfully');
+        try {
+          await inspectionsService.create(inspectionData);
+          toast.success('Inspection created successfully');
+        } catch (error: any) {
+          // Handle code conflict - regenerate code and retry once
+          if (
+            error?.response?.status === 409 ||
+            error?.message?.toLowerCase().includes('code') ||
+            error?.message?.toLowerCase().includes('already exists')
+          ) {
+            const newCode = generateInspectionCode();
+            inspectionData.code = newCode;
+            form.setValue('code', newCode);
+            await inspectionsService.create(inspectionData);
+            toast.success('Inspection created successfully (code regenerated)');
+          } else {
+            throw error;
+          }
+        }
       } else if (inspection) {
         await inspectionsService.update(inspection.id, inspectionData);
         toast.success('Inspection updated successfully');

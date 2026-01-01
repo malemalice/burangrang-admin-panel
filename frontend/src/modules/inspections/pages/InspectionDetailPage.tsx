@@ -324,6 +324,8 @@ const InspectionDetailPage = () => {
             onSubmit={handleAddItemSubmit}
             onCancel={() => setIsAddItemDialogOpen(false)}
             showCard={false}
+            inspectionStatus={inspection?.status}
+            canApprove={canApprove}
           />
         </DialogContent>
       </Dialog>
@@ -350,6 +352,7 @@ const InspectionDetailPage = () => {
                 riskId: editingItem.riskId,
                 assignedDepartmentId: editingItem.assignedDepartmentId,
                 assigneeId: editingItem.assigneeId,
+                description: editingItem.description,
                 followUpNotes: editingItem.followUpNotes,
                 images: editingItem.images?.map(img => ({
                   imageUrl: img.imageUrl,
@@ -363,6 +366,8 @@ const InspectionDetailPage = () => {
                 setEditingItem(null);
               }}
               showCard={false}
+              inspectionStatus={inspection?.status}
+              canApprove={canApprove}
             />
           )}
         </DialogContent>
