@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Lock, Check, X, MoreHorizontal, ShieldCheck } from 'lucide-react';
+import { Edit, Trash2, Plus, Lock, Check, X, MoreHorizontal, Eye } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import {
@@ -237,7 +237,7 @@ const RolesPage = () => {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => navigate(`/roles/${role.id}`)}>
-              <ShieldCheck className="mr-2 h-4 w-4" /> View details
+              <Eye className="mr-2 h-4 w-4" /> View details
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/roles/${role.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit

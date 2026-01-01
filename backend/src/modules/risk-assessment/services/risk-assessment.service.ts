@@ -25,6 +25,7 @@ interface FindAllOptions {
   isActive?: boolean;
   departmentId?: string;
   status?: GeneralStatusEnum;
+  search?: string;
 }
 
 @Injectable()
@@ -121,9 +122,21 @@ export class RiskAssessmentService {
       isActive,
       departmentId,
       status,
+      search,
     } = options || {};
 
     const where: Prisma.RiskAssessmentWhereInput = {};
+
+    // Handle search - only search if search term is not empty after trimming
+    if (search) {
+      const searchTerm = search.trim();
+      if (searchTerm.length > 0) {
+        where.OR = [
+          { code: { contains: searchTerm, mode: 'insensitive' } },
+          { description: { contains: searchTerm, mode: 'insensitive' } },
+        ];
+      }
+    }
 
     if (isActive !== undefined) {
       where.isActive = isActive;
