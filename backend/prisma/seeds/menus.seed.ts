@@ -72,13 +72,32 @@ export const seedMenus = async () => {
       },
     });
 
+    // Inspections menu
+    await prisma.menu.create({
+      data: {
+        name: 'Inspections',
+        path: '/inspections',
+        icon: 'Search',
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     // Environmental Measurements menu
     await prisma.menu.create({
       data: {
         name: 'Environmental Measurements',
         path: '/environmental-measurements',
         icon: 'Thermometer',
-        order: 3,
+        order: 4,
         isActive: true,
         roles: {
           connect: [
@@ -311,8 +330,6 @@ export const seedMenus = async () => {
         },
       },
     });
-
-  
 
     await prisma.menu.create({
       data: {
@@ -630,7 +647,7 @@ export const seedMenus = async () => {
       data: {
         name: 'General Settings',
         path: '/settings',
-        icon: 'Gear',
+        icon: 'Cog',
         parentId: settingsMenu.id,
         order: 11,
         isActive: true,
@@ -644,7 +661,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Application Settings',
         path: '/settings/application',
-        icon: 'Gear',
+        icon: 'Cog',
         parentId: settingsMenu.id,
         order: 10,
         isActive: true,
@@ -659,7 +676,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Waste Management',
         icon: 'Recycle',
-        order: 4,
+        order: 5,
         isActive: true,
         roles: {
           connect: [
@@ -841,7 +858,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Man Hour',
         icon: 'Clock',
-        order: 5,
+        order: 6,
         isActive: true,
         roles: {
           connect: [
@@ -890,7 +907,7 @@ export const seedMenus = async () => {
     });
 
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
-    console.log(`   - Top-level menus: 10`);
+    console.log(`   - Top-level menus: 11`);
     console.log(`   - Master Data submenus: 9`);
     console.log(`   - User Management submenus: 3`);
     console.log(`   - PPE Management submenus: 2`);

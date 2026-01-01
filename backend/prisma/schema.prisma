@@ -75,6 +75,9 @@ model User {
   workPermitEmployees          WorkPermitEmployee[]       @relation("WorkPermitEmployee")
   workPermitHseOfficers        WorkPermitToUser[]         @relation("WorkPermitHseOfficer")
   environmentalMeasurements    EnvironmentalMeasurement[] @relation("EnvironmentalMeasurementCreator")
+  inspectionsCreated           Inspection[]               @relation("InspectionCreator")
+  inspectionItemsAssigned      InspectionItem[]           @relation("InspectionItemAssignee")
+  inspectionInspectors         InspectionInspector[]      @relation("InspectionInspectorUser")
 
   // Waste Management Relations
   treatmentPlantsCreated          TreatmentPlant[]        @relation("TreatmentPlantCreator")
@@ -203,6 +206,7 @@ model Department {
   ppeWithdrawals       PPEWithdrawal[]
   certificates         Certificate[]
   notificationRecipients NotificationRecipient[]
+  inspectionItems      InspectionItem[]
 
   @@map("m_departments")
 }
@@ -235,6 +239,7 @@ model RiskCategory {
   updatedAt           DateTime             @updatedAt
   risks               Risk[]
   riskAssessmentItems RiskAssessmentItem[]
+  inspectionItems     InspectionItem[]
 
   @@map("m_risk_categories")
 }
@@ -252,6 +257,7 @@ model Risk {
   mitigations         RiskMitigation[]
   riskAssessmentItems RiskAssessmentItem[]
   workPermitHazards   WorkPermitHazard[]
+  inspectionItems     InspectionItem[]
 
   @@map("m_risk")
 }
@@ -1320,8 +1326,100 @@ model Area {
   workPermits      WorkPermit[]
   rooms            Room[]
   storageLocations StorageLocation[]
+  inspections      Inspection[]
 
   @@map("m_areas")
+}
+
+// ============================================================
+// INSPECTION SYSTEM
+// ============================================================
+
+// Inspection - Transactional Data
+model Inspection {
+  id             String                 @id @default(uuid())
+  code           String                 @unique
+  areaId         String
+  inspectionDate DateTime
+  status         GeneralStatusEnum
+  isActive       Boolean                @default(true)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  createdBy      String
+
+  // Relations
+  area       Area                   @relation(fields: [areaId], references: [id])
+  creator    User                   @relation("InspectionCreator", fields: [createdBy], references: [id])
+  items      InspectionItem[]
+  inspectors InspectionInspector[]
+
+  @@index([areaId])
+  @@index([status])
+  @@map("t_inspections")
+}
+
+// Inspection Item - Transactional Data
+model InspectionItem {
+  id                  String   @id @default(uuid())
+  inspectionId        String
+  riskCategoryId      String
+  riskId              String
+  assignedDepartmentId String
+  assigneeId          String?
+  description         String?  @db.Text
+  followUpNotes       String?  @db.Text
+  order               Int
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  inspection          Inspection     @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  riskCategory        RiskCategory   @relation(fields: [riskCategoryId], references: [id])
+  risk                Risk           @relation(fields: [riskId], references: [id])
+  assignedDepartment  Department     @relation(fields: [assignedDepartmentId], references: [id])
+  assignee            User?          @relation("InspectionItemAssignee", fields: [assigneeId], references: [id])
+  images              InspectionImage[]
+
+  @@index([inspectionId])
+  @@index([riskCategoryId])
+  @@index([riskId])
+  @@index([assignedDepartmentId])
+  @@index([assigneeId])
+  @@map("t_inspection_items")
+}
+
+// Inspection Image - Transactional Data
+model InspectionImage {
+  id               String   @id @default(uuid())
+  inspectionItemId String
+  imageUrl         String
+  caption          String?  @db.Text
+  order            Int
+  createdAt        DateTime @default(now())
+
+  // Relations
+  inspectionItem InspectionItem @relation(fields: [inspectionItemId], references: [id], onDelete: Cascade)
+
+  @@index([inspectionItemId])
+  @@index([order])
+  @@map("t_inspection_images")
+}
+
+// Inspection Inspector - Transactional Data
+model InspectionInspector {
+  id           String   @id @default(uuid())
+  inspectionId String
+  inspectorId  String
+  order        Int
+  createdAt    DateTime @default(now())
+
+  // Relations
+  inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  inspector  User       @relation("InspectionInspectorUser", fields: [inspectorId], references: [id])
+
+  @@index([inspectionId])
+  @@index([inspectorId])
+  @@map("t_inspection_inspectors")
 }
 
 model Room {

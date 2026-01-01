@@ -401,8 +401,25 @@ export class MasterApprovalsService {
 
       // If last approval was approved, find next approver
       if (lastApproval.status === 'APPROVED') {
+        // Find the highest approved line number to determine next approver
+        const approvedLines = approvalHistory
+          .filter((a) => a.status === 'APPROVED')
+          .map((a) => {
+            const matchingItem = masterApproval.items.find(
+              (item) =>
+                item.departmentId === a.departmentId &&
+                item.jobPositionId === a.jobPositionId,
+            );
+            return matchingItem?.order ?? -1;
+          });
+
+        const maxApprovedLine = approvedLines.length > 0 
+          ? Math.max(...approvedLines) 
+          : -1;
+
+        // Find next approver after the last approved line
         const nextApprovalItem = masterApproval.items.find(
-          (item) => item.order > approvalHistory.length,
+          (item) => item.order > maxApprovedLine,
         );
 
         if (nextApprovalItem) {
@@ -419,6 +436,26 @@ export class MasterApprovalsService {
           };
         } else {
           currentStatus = 'COMPLETED';
+        }
+      } else if (lastApproval.status === 'REJECTED') {
+        // Handle resubmission: continue from the rejected line
+        const rejectedLine = lastApproval.line;
+        const rejectedItem = masterApproval.items.find(
+          (item) => item.order === rejectedLine,
+        );
+
+        if (rejectedItem) {
+          nextApprover = {
+            line: rejectedItem.order, // Continue from rejected line
+            department: {
+              id: rejectedItem.department.id,
+              name: rejectedItem.department.name,
+            },
+            jobPosition: {
+              id: rejectedItem.jobPosition.id,
+              name: rejectedItem.jobPosition.name,
+            },
+          };
         }
       }
     } else {
@@ -441,9 +478,10 @@ export class MasterApprovalsService {
 
     // Build all approval lines with their status
     const allApprovalLines = masterApproval.items.map((item) => {
-      // Check if this line has been completed
+      // Check if this line has been completed (only APPROVED, not REJECTED)
       const completedApproval = approvalHistory.find(
         (approval) =>
+          approval.status === 'APPROVED' &&
           approval.departmentId === item.departmentId &&
           approval.jobPositionId === item.jobPositionId,
       );

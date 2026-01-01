@@ -16,27 +16,27 @@ import {
   DialogTitle,
 } from '@/core/components/ui/dialog';
 
-import { RiskAssessmentItem } from '@/core/lib/types';
-import { type CreateRiskAssessmentItemDTO } from '../services/riskAssessmentService';
-import riskAssessmentService from '../services/riskAssessmentService';
-import RiskAssessmentItemForm from '../components/RiskAssessmentItemForm';
-import { AssessmentDetailsCard } from '../components/AssessmentDetailsCard';
-import { ApprovalTimelineCard } from '../components/ApprovalTimelineCard';
+import { InspectionItem } from '../types/inspection.types';
+import { type CreateInspectionItemDTO } from '../types/inspection.types';
+import inspectionsService from '../services/inspectionsService';
+import InspectionItemForm from '../components/InspectionItemForm';
+import { InspectionDetailsCard } from '../components/InspectionDetailsCard';
+import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
 import { ApprovalDialog } from '../components/ApprovalDialog';
 import { ViewItemDialog } from '../components/ViewItemDialog';
-import { RiskAssessmentItemsTable } from '../components/RiskAssessmentItemsTable';
-import { useRiskAssessmentDetail } from '../hooks/useRiskAssessmentDetail';
-import { getStatusBadge } from '../utils/riskBadgeHelpers';
+import { InspectionItemsTable } from '../components/InspectionItemsTable';
+import { useInspectionDetail } from '../hooks/useInspectionDetail';
+import { getStatusBadge } from '../utils/inspectionBadgeHelpers';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import { ApprovalStatus } from '@/core/lib/types';
 
-const RiskAssessmentDetailPage = () => {
+const InspectionDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { toPDF, targetRef } = usePDF({ filename: 'risk-assessment.pdf' });
+  const { toPDF, targetRef } = usePDF({ filename: 'inspection.pdf' });
   
   const {
-    assessment,
+    inspection,
     items,
     isLoading,
     isLoadingItems,
@@ -54,8 +54,8 @@ const RiskAssessmentDetailPage = () => {
     handleUpdateItem,
     handleDeleteItem,
     handleApprovalSubmitted,
-    refreshAssessment,
-  } = useRiskAssessmentDetail(id);
+    refreshInspection,
+  } = useInspectionDetail(id);
 
   // Dialog states
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
@@ -63,40 +63,40 @@ const RiskAssessmentDetailPage = () => {
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
   const [isViewItemDialogOpen, setIsViewItemDialogOpen] = useState(false);
   const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false);
-  const [viewingItem, setViewingItem] = useState<RiskAssessmentItem | null>(null);
-  const [editingItem, setEditingItem] = useState<RiskAssessmentItem | null>(null);
-  const [itemToDelete, setItemToDelete] = useState<RiskAssessmentItem | null>(null);
+  const [viewingItem, setViewingItem] = useState<InspectionItem | null>(null);
+  const [editingItem, setEditingItem] = useState<InspectionItem | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<InspectionItem | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const handleSubmit = async () => {
-    if (!id || !assessment) return;
+    if (!id || !inspection) return;
 
     try {
       setIsUpdatingStatus(true);
-      await riskAssessmentService.update(id, {
+      await inspectionsService.update(id, {
         status: GeneralStatusEnum.OPEN,
       });
-      toast.success('Risk assessment submitted successfully');
-      await refreshAssessment();
+      toast.success('Inspection submitted successfully');
+      await refreshInspection();
     } catch (error) {
-      console.error('Failed to submit risk assessment:', error);
-      toast.error('Failed to submit risk assessment');
+      console.error('Failed to submit inspection:', error);
+      toast.error('Failed to submit inspection');
     } finally {
       setIsUpdatingStatus(false);
     }
   };
 
   const handleRequestApproval = async () => {
-    if (!id || !assessment) return;
+    if (!id || !inspection) return;
 
     try {
       setIsUpdatingStatus(true);
-      await riskAssessmentService.update(id, {
+      await inspectionsService.update(id, {
         status: GeneralStatusEnum.WAITING_APPROVAL,
       });
       toast.success('Approval requested successfully');
-      await refreshAssessment();
+      await refreshInspection();
     } catch (error) {
       console.error('Failed to request approval:', error);
       toast.error('Failed to request approval');
@@ -113,19 +113,19 @@ const RiskAssessmentDetailPage = () => {
     }
   };
 
-  const handleAddItemSubmit = async (itemData: CreateRiskAssessmentItemDTO) => {
+  const handleAddItemSubmit = async (itemData: CreateInspectionItemDTO) => {
     const success = await handleAddItem(itemData);
     if (success) {
       setIsAddItemDialogOpen(false);
     }
   };
 
-  const handleEditItem = (item: RiskAssessmentItem) => {
+  const handleEditItem = (item: InspectionItem) => {
     setEditingItem(item);
     setIsEditItemDialogOpen(true);
   };
 
-  const handleUpdateItemSubmit = async (itemData: CreateRiskAssessmentItemDTO) => {
+  const handleUpdateItemSubmit = async (itemData: CreateInspectionItemDTO) => {
     if (!editingItem) return;
     const success = await handleUpdateItem(editingItem.id, itemData);
     if (success) {
@@ -134,12 +134,12 @@ const RiskAssessmentDetailPage = () => {
     }
   };
 
-  const handleViewItem = (item: RiskAssessmentItem) => {
+  const handleViewItem = (item: InspectionItem) => {
     setViewingItem(item);
     setIsViewItemDialogOpen(true);
   };
 
-  const handleDeleteItemClick = (item: RiskAssessmentItem, event?: React.MouseEvent) => {
+  const handleDeleteItemClick = (item: InspectionItem, event?: React.MouseEvent) => {
     event?.stopPropagation();
     setItemToDelete(item);
     setDeleteDialogOpen(true);
@@ -159,19 +159,19 @@ const RiskAssessmentDetailPage = () => {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
-          <span>Loading risk assessment details...</span>
+          <span>Loading inspection details...</span>
         </div>
       </div>
     );
   }
 
-  if (!assessment) {
+  if (!inspection) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Risk Assessment not found</h2>
-        <p className="text-gray-600 mb-4">The risk assessment you're looking for doesn't exist or has been deleted.</p>
-        <Button onClick={() => navigate('/risk-assessment')}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Risk Assessments
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Inspection not found</h2>
+        <p className="text-gray-600 mb-4">The inspection you're looking for doesn't exist or has been deleted.</p>
+        <Button onClick={() => navigate('/inspections')}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Inspections
         </Button>
       </div>
     );
@@ -180,14 +180,14 @@ const RiskAssessmentDetailPage = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Risk Assessment: ${assessment.code}`}
-        subtitle={`Created on ${format(new Date(assessment.createdAt), 'dd MMM yyyy')}`}
+        title={`Inspection: ${inspection.code}`}
+        subtitle={`Created on ${format(new Date(inspection.createdAt), 'dd MMM yyyy')}`}
         actions={
           <div className="flex gap-2 flex-wrap">
             {/* Status-based action buttons */}
-            {(assessment.status === GeneralStatusEnum.SCHEDULED || 
-            assessment.status === GeneralStatusEnum.REJECTED ||
-              assessment.status === GeneralStatusEnum.DRAFT) && (
+            {(inspection.status === GeneralStatusEnum.SCHEDULED || 
+            inspection.status === GeneralStatusEnum.REJECTED ||
+              inspection.status === GeneralStatusEnum.DRAFT) && (
               <Button 
                 variant="default"
                 onClick={handleSubmit}
@@ -198,7 +198,7 @@ const RiskAssessmentDetailPage = () => {
               </Button>
             )}
 
-            {assessment.status === GeneralStatusEnum.OPEN && (
+            {inspection.status === GeneralStatusEnum.OPEN && (
               <Button 
                 variant="default"
                 onClick={handleRequestApproval}
@@ -209,7 +209,7 @@ const RiskAssessmentDetailPage = () => {
               </Button>
             )}
 
-            {assessment.status === GeneralStatusEnum.WAITING_APPROVAL && canApprove && (
+            {inspection.status === GeneralStatusEnum.WAITING_APPROVAL && canApprove && (
               <>
                 <Button 
                   variant="default"
@@ -244,47 +244,47 @@ const RiskAssessmentDetailPage = () => {
               Export PDF
             </Button>
             
-            {assessment.status !== GeneralStatusEnum.DONE && 
-             assessment.status !== GeneralStatusEnum.REJECTED &&
-             assessment.status !== GeneralStatusEnum.WAITING_APPROVAL && (
+            {inspection.status !== GeneralStatusEnum.DONE && 
+             inspection.status !== GeneralStatusEnum.REJECTED &&
+             inspection.status !== GeneralStatusEnum.WAITING_APPROVAL && (
               <Button 
                 variant="outline"
-                onClick={() => navigate(`/risk-assessment/${id}/edit`)}
+                onClick={() => navigate(`/inspections/${id}/edit`)}
               >
                 <FileEdit className="h-4 w-4 mr-2" />
-                Edit Assessment
+                Edit Inspection
               </Button>
             )}
           </div>
         }
       >
         <div className="flex items-center gap-3">
-          {getStatusBadge(assessment.status)}
+          {getStatusBadge(inspection.status)}
         </div>
       </PageHeader>
 
-      {/* Risk Assessment Details & Approval Timeline Card - Side by Side */}
+      {/* Inspection Details & Approval Timeline Card - Side by Side */}
       <div ref={targetRef}>
         <Card>
           <CardHeader>
-            <CardTitle>Assessment Details</CardTitle>
-            <CardDescription>Basic information and approval progress of this risk assessment</CardDescription>
+            <CardTitle>Inspection Details</CardTitle>
+            <CardDescription>Basic information and approval progress of this inspection</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:auto-rows-fr">
-              <AssessmentDetailsCard assessment={assessment} />
+              <InspectionDetailsCard inspection={inspection} />
               <ApprovalTimelineCard 
                 approvalHistory={approvalHistory} 
                 isLoading={isLoadingHistory}
-                assessmentStatus={assessment?.status}
+                assessmentStatus={inspection?.status}
               />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Risk Assessment Items Section */}
-      <RiskAssessmentItemsTable
+      {/* Inspection Items Section */}
+      <InspectionItemsTable
         items={items}
         isLoading={isLoadingItems}
         pageIndex={pageIndex}
@@ -307,24 +307,25 @@ const RiskAssessmentDetailPage = () => {
             setItemToDelete(null);
           }
         }}
-        hideActions={assessment.status === GeneralStatusEnum.WAITING_APPROVAL || assessment.status === GeneralStatusEnum.DONE}
+        hideActions={inspection.status === GeneralStatusEnum.WAITING_APPROVAL || inspection.status === GeneralStatusEnum.DONE}
       />
-
 
       {/* Add Item Dialog */}
       <Dialog open={isAddItemDialogOpen} onOpenChange={setIsAddItemDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add Risk Assessment Item</DialogTitle>
+            <DialogTitle>Add Inspection Item</DialogTitle>
             <DialogDescription>
-              Add a new risk assessment item to this assessment.
+              Add a new inspection item to this inspection.
             </DialogDescription>
           </DialogHeader>
-          <RiskAssessmentItemForm
-            assessmentId={id}
+          <InspectionItemForm
+            inspectionId={id}
             onSubmit={handleAddItemSubmit}
             onCancel={() => setIsAddItemDialogOpen(false)}
             showCard={false}
+            inspectionStatus={inspection?.status}
+            canApprove={canApprove}
           />
         </DialogContent>
       </Dialog>
@@ -338,25 +339,26 @@ const RiskAssessmentDetailPage = () => {
       }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Risk Assessment Item</DialogTitle>
+            <DialogTitle>Edit Inspection Item</DialogTitle>
             <DialogDescription>
-              Update the risk assessment item details.
+              Update the inspection item details.
             </DialogDescription>
           </DialogHeader>
           {editingItem && (
-            <RiskAssessmentItemForm
-              assessmentId={id}
+            <InspectionItemForm
+              inspectionId={id}
               initialItem={{
-                mRiskId: editingItem.mRiskId,
-                mRiskCategoryId: editingItem.mRiskCategoryId,
-                likelihoodLevel: editingItem.likelihoodLevel,
-                consequenceLevel: editingItem.consequenceLevel,
-                riskMatrixRating: editingItem.riskMatrixRating,
-                interpretation: editingItem.interpretation,
-                postLikelihoodLevel: editingItem.postLikelihoodLevel,
-                postConsequenceLevel: editingItem.postConsequenceLevel,
-                postRiskMatrixRating: editingItem.postRiskMatrixRating,
-                postInterpretation: editingItem.postInterpretation,
+                riskCategoryId: editingItem.riskCategoryId,
+                riskId: editingItem.riskId,
+                assignedDepartmentId: editingItem.assignedDepartmentId,
+                assigneeId: editingItem.assigneeId,
+                description: editingItem.description,
+                followUpNotes: editingItem.followUpNotes,
+                images: editingItem.images?.map(img => ({
+                  imageUrl: img.imageUrl,
+                  caption: img.caption,
+                  order: img.order,
+                })),
               }}
               onSubmit={handleUpdateItemSubmit}
               onCancel={() => {
@@ -364,6 +366,8 @@ const RiskAssessmentDetailPage = () => {
                 setEditingItem(null);
               }}
               showCard={false}
+              inspectionStatus={inspection?.status}
+              canApprove={canApprove}
             />
           )}
         </DialogContent>
@@ -374,7 +378,7 @@ const RiskAssessmentDetailPage = () => {
         <ApprovalDialog
           open={isApprovalModalOpen}
           onOpenChange={setIsApprovalModalOpen}
-          assessmentId={id}
+          inspectionId={id}
           onApprovalSubmitted={handleApprovalSubmitted}
           initialStatus={approvalInitialStatus}
         />
@@ -390,4 +394,5 @@ const RiskAssessmentDetailPage = () => {
   );
 };
 
-export default RiskAssessmentDetailPage;
+export default InspectionDetailPage;
+

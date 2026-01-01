@@ -25,11 +25,55 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '@/core/lib/theme';
 import { NotificationDropdown } from '@/modules/notifications';
 import routes from '@/core/routes';
+import { useEntityDisplayName, isUUID } from '@/core/hooks/useEntityDisplayName';
 
 interface TopNavbarProps {
   toggleSidebar: () => void;
   sidebarOpen: boolean;
 }
+
+// Component to render breadcrumb item with entity display name
+const BreadcrumbItem = ({ 
+  item, 
+  isLast, 
+  paths 
+}: { 
+  item: { name: string; path: string; clickable: boolean; isUUID?: boolean; pathIndex?: number }; 
+  isLast: boolean; 
+  paths: string[];
+}) => {
+  const location = useLocation();
+  const entityDisplayName = useEntityDisplayName(
+    paths,
+    item.pathIndex ?? -1,
+    location.state
+  );
+
+  // Use entity display name if available and item is a UUID, otherwise use formatted name
+  const displayName = item.isUUID && entityDisplayName 
+    ? entityDisplayName 
+    : item.name;
+
+  return (
+    <li className="inline-flex items-center gap-1.5">
+      {isLast || !item.clickable ? (
+        <span
+          className={isLast ? "text-foreground font-medium" : "text-muted-foreground"}
+          aria-current={isLast ? "page" : undefined}
+        >
+          {displayName}
+        </span>
+      ) : (
+        <Link
+          to={item.path}
+          className="text-muted-foreground hover:text-primary transition-colors"
+        >
+          {displayName}
+        </Link>
+      )}
+    </li>
+  );
+};
 
 const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
   const { logout, user } = useAuth();
@@ -66,7 +110,7 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
         const formattedName = nameMapping[path] || path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, ' ');
         const clickable = routeExists(url);
 
-        return { name: formattedName, path: url, clickable };
+        return { name: formattedName, path: url, clickable, isUUID: isUUID(path), pathIndex: index };
       })
     ];
   };
@@ -127,6 +171,7 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
             <ol className="flex flex-wrap items-center gap-1.5 break-words text-sm text-muted-foreground sm:gap-2.5">
               {items.map((item, index) => {
                 const isLast = index === items.length - 1;
+                const paths = location.pathname.split('/').filter(Boolean);
 
                 // Only add separator if not the last item
                 const separator = !isLast ? (
@@ -140,27 +185,14 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
                 ) : null;
 
                 return (
-                  <li
-                    key={item.path}
-                    className="inline-flex items-center gap-1.5"
-                  >
-                    {isLast || !item.clickable ? (
-                      <span
-                        className={isLast ? "text-foreground font-medium" : "text-muted-foreground"}
-                        aria-current={isLast ? "page" : undefined}
-                      >
-                        {item.name}
-                      </span>
-                    ) : (
-                      <Link
-                        to={item.path}
-                        className="text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        {item.name}
-                      </Link>
-                    )}
+                  <React.Fragment key={item.path}>
+                    <BreadcrumbItem 
+                      item={item} 
+                      isLast={isLast} 
+                      paths={paths}
+                    />
                     {separator}
-                  </li>
+                  </React.Fragment>
                 );
               })}
             </ol>

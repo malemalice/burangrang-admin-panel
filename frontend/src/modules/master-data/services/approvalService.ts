@@ -32,8 +32,9 @@ export interface ApprovalStatusHistory {
 }
 
 const approvalService = {
-  async checkApprovalRights(dataId: string) {
-    const response = await api.get(`/master-approvals/check-approval/${dataId}`);
+  async checkApprovalRights(dataId: string, entity?: string) {
+    const params = entity ? { entity } : {};
+    const response = await api.get(`/master-approvals/check-approval/${dataId}`, { params });
     return response.data;
   },
 
@@ -42,8 +43,9 @@ const approvalService = {
     return response.data;
   },
 
-  async checkApprovalStatus(dataId: string): Promise<ApprovalStatusHistory> {
-    const response = await api.get(`/master-approvals/check-approval-status/${dataId}`);
+  async checkApprovalStatus(dataId: string, entity?: string): Promise<ApprovalStatusHistory> {
+    const params = entity ? { entity } : {};
+    const response = await api.get(`/master-approvals/check-approval-status/${dataId}`, { params });
     return response.data;
   },
 };
