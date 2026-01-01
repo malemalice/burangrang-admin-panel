@@ -31,12 +31,12 @@ import { createRiskFromQuery } from '@/modules/master-data/pages/risks';
 const formSchema = z.object({
   mRiskId: z.string().min(1, 'Risk is required'),
   mRiskCategoryId: z.string().min(1, 'Risk Category is required'),
-  likelihoodLevel: z.coerce.number().min(1, 'Minimum level is 1').max(5, 'Maximum level is 5'),
-  consequenceLevel: z.coerce.number().min(1, 'Minimum level is 1').max(5, 'Maximum level is 5'),
+  likelihoodLevel: z.coerce.number({ required_error: 'Likelihood level is required', invalid_type_error: 'Likelihood level is required' }),
+  consequenceLevel: z.coerce.number({ required_error: 'Consequence level is required', invalid_type_error: 'Consequence level is required' }),
   riskMatrixRating: z.string().min(1, 'Risk rating is required'),
   interpretation: z.string().min(1, 'Interpretation is required'),
-  postLikelihoodLevel: z.coerce.number().min(1, 'Minimum level is 1').max(5, 'Maximum level is 5'),
-  postConsequenceLevel: z.coerce.number().min(1, 'Minimum level is 1').max(5, 'Maximum level is 5'),
+  postLikelihoodLevel: z.coerce.number({ required_error: 'Post likelihood level is required', invalid_type_error: 'Post likelihood level is required' }),
+  postConsequenceLevel: z.coerce.number({ required_error: 'Post consequence level is required', invalid_type_error: 'Post consequence level is required' }),
   postRiskMatrixRating: z.string().min(1, 'Post risk rating is required'),
   postInterpretation: z.string().min(1, 'Post interpretation is required'),
 });

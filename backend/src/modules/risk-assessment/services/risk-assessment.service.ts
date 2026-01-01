@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { CreateRiskAssessmentDto } from '../dto/create-risk-assessment.dto';
 import { UpdateRiskAssessmentDto } from '../dto/update-risk-assessment.dto';
@@ -25,6 +25,7 @@ interface FindAllOptions {
   isActive?: boolean;
   departmentId?: string;
   status?: GeneralStatusEnum;
+  search?: string;
 }
 
 @Injectable()
@@ -41,32 +42,17 @@ export class RiskAssessmentService {
   ): Promise<RiskAssessmentDto> {
     const { items, createdBy, ...data } = createRiskAssessmentDto;
 
-    const assessment = await this.prisma.riskAssessment.create({
-      data: {
-        ...data,
-        createdBy: userId, // Use authenticated user ID from request
-        ...(items && items.length > 0 && {
-          items: {
-            create: items, // Prisma will automatically map mRiskId to mriskid column via @map
-          },
-        }),
-      },
-      include: {
-        items: {
-          include: {
-            mRisk: true,
-            mRiskCategory: true,
-          },
+    try {
+      const assessment = await this.prisma.riskAssessment.create({
+        data: {
+          ...data,
+          createdBy: userId, // Use authenticated user ID from request
+          ...(items && items.length > 0 && {
+            items: {
+              create: items, // Prisma will automatically map mRiskId to mriskid column via @map
+            },
+          }),
         },
-        department: true,
-        creator: true,
-        assignee: true,
-      },
-    });
-
-    const assessmentWithRelations = await this.prisma.riskAssessment.findUnique(
-      {
-        where: { id: assessment.id },
         include: {
           items: {
             include: {
@@ -78,14 +64,30 @@ export class RiskAssessmentService {
           creator: true,
           assignee: true,
         },
-      },
-    );
+      });
 
-    if (!assessmentWithRelations) {
-      throw new NotFoundException(
-        `Risk assessment with ID ${assessment.id} not found`,
+      const assessmentWithRelations = await this.prisma.riskAssessment.findUnique(
+        {
+          where: { id: assessment.id },
+          include: {
+            items: {
+              include: {
+                mRisk: true,
+                mRiskCategory: true,
+              },
+            },
+            department: true,
+            creator: true,
+            assignee: true,
+          },
+        },
       );
-    }
+
+      if (!assessmentWithRelations) {
+        throw new NotFoundException(
+          `Risk assessment with ID ${assessment.id} not found`,
+        );
+      }
 
     // Create reminder if status is SCHEDULED
     if (assessmentWithRelations.status === GeneralStatusEnum.SCHEDULED) {
@@ -98,7 +100,14 @@ export class RiskAssessmentService {
       );
     }
 
-    return this.mapToDto(assessmentWithRelations);
+      return this.mapToDto(assessmentWithRelations);
+    } catch (error: any) {
+      // Handle Prisma unique constraint error for code
+      if (error.code === 'P2002' && error.meta?.target?.includes('code')) {
+        throw new ConflictException('Code already exists');
+      }
+      throw error;
+    }
   }
 
   async findAll(options?: FindAllOptions): Promise<{
@@ -113,9 +122,21 @@ export class RiskAssessmentService {
       isActive,
       departmentId,
       status,
+      search,
     } = options || {};
 
     const where: Prisma.RiskAssessmentWhereInput = {};
+
+    // Handle search - only search if search term is not empty after trimming
+    if (search) {
+      const searchTerm = search.trim();
+      if (searchTerm.length > 0) {
+        where.OR = [
+          { code: { contains: searchTerm, mode: 'insensitive' } },
+          { description: { contains: searchTerm, mode: 'insensitive' } },
+        ];
+      }
+    }
 
     if (isActive !== undefined) {
       where.isActive = isActive;
