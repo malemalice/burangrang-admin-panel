@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, FileEdit, Plus, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, FileEdit, Plus, Edit, Trash2, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/core/components/ui/button';
@@ -16,7 +16,7 @@ import {
 } from '@/core/components/ui/dialog';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Badge } from '@/core/components/ui/badge';
-import { Separator } from '@/core/components/ui/separator';
+import { cn } from '@/core/lib/utils';
 
 import auditPolicyService from '../services/auditPolicyService';
 import { AuditElement, AuditClause, AuditCriteria, CreateAuditClauseDTO, CreateAuditCriteriaDTO, TransitionTypeEnum } from '../types/audit-policy.types';
@@ -56,6 +56,12 @@ const AuditPolicyDetailPage = () => {
   // Clauses with criteria
   const [clausesWithCriteria, setClausesWithCriteria] = useState<ClauseWithCriteria[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  
+  // Drag and drop state
+  const [draggedClauseIndex, setDraggedClauseIndex] = useState<number | null>(null);
+  const [draggedCriterionIndex, setDraggedCriterionIndex] = useState<{ clauseIndex: number; criterionIndex: number } | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [dragOverCriterionIndex, setDragOverCriterionIndex] = useState<{ clauseIndex: number; criterionIndex: number } | null>(null);
   
   // Dialog states
   const [isAddClauseDialogOpen, setIsAddClauseDialogOpen] = useState(false);
@@ -135,12 +141,135 @@ const AuditPolicyDetailPage = () => {
     fetchAllData();
   }, [fetchAllData]);
 
+  // Drag and drop handlers for clauses
+  const handleClauseDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedClauseIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', '');
+  };
+
+  const handleClauseDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const handleClauseDragEnd = () => {
+    setDraggedClauseIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleClauseDrop = async (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    
+    if (draggedClauseIndex === null || draggedClauseIndex === targetIndex) {
+      setDraggedClauseIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const newClauses = [...clausesWithCriteria];
+    const draggedClause = newClauses[draggedClauseIndex];
+    newClauses.splice(draggedClauseIndex, 1);
+    newClauses.splice(targetIndex, 0, draggedClause);
+
+    // Update orders
+    setIsSubmitting(true);
+    try {
+      await Promise.all(
+        newClauses.map((clause, index) => 
+          auditPolicyService.updateClause(clause.id, { order: index })
+        )
+      );
+      
+      setClausesWithCriteria(newClauses);
+      toast.success('Clauses reordered successfully');
+    } catch (error) {
+      console.error('Failed to reorder clauses:', error);
+      toast.error('Failed to reorder clauses');
+      fetchAllData(); // Revert on error
+    } finally {
+      setIsSubmitting(false);
+      setDraggedClauseIndex(null);
+      setDragOverIndex(null);
+    }
+  };
+
+  // Drag and drop handlers for criteria
+  const handleCriterionDragStart = (e: React.DragEvent, clauseIndex: number, criterionIndex: number) => {
+    setDraggedCriterionIndex({ clauseIndex, criterionIndex });
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', '');
+  };
+
+  const handleCriterionDragOver = (e: React.DragEvent, clauseIndex: number, criterionIndex: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverCriterionIndex({ clauseIndex, criterionIndex });
+  };
+
+  const handleCriterionDragEnd = () => {
+    setDraggedCriterionIndex(null);
+    setDragOverCriterionIndex(null);
+  };
+
+  const handleCriterionDrop = async (e: React.DragEvent, clauseIndex: number, targetCriterionIndex: number) => {
+    e.preventDefault();
+    
+    if (!draggedCriterionIndex || 
+        draggedCriterionIndex.clauseIndex !== clauseIndex ||
+        draggedCriterionIndex.criterionIndex === targetCriterionIndex) {
+      setDraggedCriterionIndex(null);
+      setDragOverCriterionIndex(null);
+      return;
+    }
+
+    const newClauses = [...clausesWithCriteria];
+    const clause = newClauses[clauseIndex];
+    const newCriteria = [...clause.criteria];
+    const draggedCriterion = newCriteria[draggedCriterionIndex.criterionIndex];
+    
+    newCriteria.splice(draggedCriterionIndex.criterionIndex, 1);
+    newCriteria.splice(targetCriterionIndex, 0, draggedCriterion);
+
+    newClauses[clauseIndex] = { ...clause, criteria: newCriteria };
+
+    // Update orders
+    setIsSubmitting(true);
+    try {
+      await Promise.all(
+        newCriteria.map((criterion, index) => 
+          auditPolicyService.updateCriterion(criterion.id, { order: index })
+        )
+      );
+      
+      setClausesWithCriteria(newClauses);
+      toast.success('Criteria reordered successfully');
+    } catch (error) {
+      console.error('Failed to reorder criteria:', error);
+      toast.error('Failed to reorder criteria');
+      fetchAllData(); // Revert on error
+    } finally {
+      setIsSubmitting(false);
+      setDraggedCriterionIndex(null);
+      setDragOverCriterionIndex(null);
+    }
+  };
+
   const handleAddClause = async (clauseData: CreateAuditClauseDTO) => {
     if (!id) return;
     
     setIsSubmitting(true);
     try {
-      await auditPolicyService.createClause(clauseData);
+      // Calculate next order
+      const maxOrder = clausesWithCriteria.length > 0 
+        ? Math.max(...clausesWithCriteria.map(c => c.order))
+        : -1;
+      
+      await auditPolicyService.createClause({
+        ...clauseData,
+        order: maxOrder + 1,
+      });
       toast.success('Clause created successfully');
       setIsAddClauseDialogOpen(false);
       fetchAllData();
@@ -204,9 +333,20 @@ const AuditPolicyDetailPage = () => {
   };
 
   const handleAddCriterion = async (criterionData: CreateAuditCriteriaDTO) => {
+    if (!clauseForNewCriteria) return;
+    
     setIsSubmitting(true);
     try {
-      await auditPolicyService.createCriterion(criterionData);
+      // Find the clause in current state to get criteria count
+      const clause = clausesWithCriteria.find(c => c.id === clauseForNewCriteria.id);
+      const maxOrder = clause && clause.criteria.length > 0
+        ? Math.max(...clause.criteria.map(c => c.order))
+        : -1;
+      
+      await auditPolicyService.createCriterion({
+        ...criterionData,
+        order: maxOrder + 1,
+      });
       toast.success('Criteria created successfully');
       setIsAddCriteriaDialogOpen(false);
       setClauseForNewCriteria(null);
@@ -310,7 +450,7 @@ const AuditPolicyDetailPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Clauses and Criteria</CardTitle>
-              <CardDescription>Manage clauses and their criteria for this audit element</CardDescription>
+              <CardDescription>Manage clauses and their criteria for this audit element. Drag to reorder.</CardDescription>
             </div>
             <Button onClick={() => setIsAddClauseDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -332,20 +472,39 @@ const AuditPolicyDetailPage = () => {
             </div>
           ) : (
             <div className="space-y-8">
-              {clausesWithCriteria.map((clause) => (
-                <div key={clause.id} className="space-y-4">
+              {clausesWithCriteria.map((clause, clauseIndex) => (
+                <div 
+                  key={clause.id} 
+                  className={cn(
+                    "space-y-4 transition-all",
+                    dragOverIndex === clauseIndex && "opacity-50"
+                  )}
+                  draggable
+                  onDragStart={(e) => handleClauseDragStart(e, clauseIndex)}
+                  onDragOver={(e) => handleClauseDragOver(e, clauseIndex)}
+                  onDragEnd={handleClauseDragEnd}
+                  onDrop={(e) => handleClauseDrop(e, clauseIndex)}
+                >
                   {/* Clause Header */}
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className={cn(
+                    "bg-gray-50 rounded-lg p-4 border border-gray-200 cursor-move",
+                    draggedClauseIndex === clauseIndex && "opacity-50"
+                  )}>
                     <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">
-                            {clause.code} {clause.name}
-                          </h3>
+                      <div className="flex items-start gap-3 flex-1">
+                        <div className="mt-1 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing">
+                          <GripVertical className="h-5 w-5" />
                         </div>
-                        {clause.description && (
-                          <p className="text-sm text-gray-600 mt-1">{clause.description}</p>
-                        )}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="text-lg font-semibold text-gray-900">
+                              {clause.code} {clause.name}
+                            </h3>
+                          </div>
+                          {clause.description && (
+                            <p className="text-sm text-gray-600 mt-1">{clause.description}</p>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 ml-4">
                         <Button
@@ -359,7 +518,10 @@ const AuditPolicyDetailPage = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleEditClause(clause)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditClause(clause);
+                          }}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -367,7 +529,10 @@ const AuditPolicyDetailPage = () => {
                           variant="ghost"
                           size="sm"
                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleDeleteClauseClick(clause)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteClauseClick(clause);
+                          }}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -382,6 +547,7 @@ const AuditPolicyDetailPage = () => {
                         <table className="w-full border-collapse">
                           <thead>
                             <tr className="bg-gray-50 border-b-2 border-gray-200">
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12"></th>
                               <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">
                                 No
                               </th>
@@ -400,13 +566,41 @@ const AuditPolicyDetailPage = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {clause.criteria.map((criterion, index) => (
+                            {clause.criteria.map((criterion, criterionIndex) => (
                               <tr
                                 key={criterion.id}
-                                className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                                className={cn(
+                                  "border-b border-gray-100 hover:bg-gray-50 transition-colors",
+                                  dragOverCriterionIndex?.clauseIndex === clauseIndex && 
+                                  dragOverCriterionIndex?.criterionIndex === criterionIndex && "opacity-50"
+                                )}
+                                draggable
+                                onDragStart={(e) => {
+                                  e.stopPropagation();
+                                  handleCriterionDragStart(e, clauseIndex, criterionIndex);
+                                }}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleCriterionDragOver(e, clauseIndex, criterionIndex);
+                                }}
+                                onDragEnd={(e) => {
+                                  e.stopPropagation();
+                                  handleCriterionDragEnd();
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleCriterionDrop(e, clauseIndex, criterionIndex);
+                                }}
                               >
+                                <td className="py-3 px-4">
+                                  <div className="text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing">
+                                    <GripVertical className="h-4 w-4" />
+                                  </div>
+                                </td>
                                 <td className="py-3 px-4 text-sm font-medium text-gray-900">
-                                  {clause.code}.{criterion.order}
+                                  {clause.code}.{criterion.order + 1}
                                 </td>
                                 <td className="py-3 px-4 text-sm text-gray-900">
                                   {criterion.name}
@@ -422,7 +616,10 @@ const AuditPolicyDetailPage = () => {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      onClick={() => handleEditCriterion(criterion)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEditCriterion(criterion);
+                                      }}
                                     >
                                       <Edit className="h-4 w-4" />
                                     </Button>
@@ -430,7 +627,10 @@ const AuditPolicyDetailPage = () => {
                                       variant="ghost"
                                       size="sm"
                                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                      onClick={() => handleDeleteCriterionClick(criterion)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteCriterionClick(criterion);
+                                      }}
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -496,7 +696,6 @@ const AuditPolicyDetailPage = () => {
                 name: editingClause.name,
                 code: editingClause.code,
                 description: editingClause.description || undefined,
-                order: editingClause.order,
                 isActive: editingClause.isActive,
               }}
               onSubmit={handleUpdateClause}
@@ -562,7 +761,6 @@ const AuditPolicyDetailPage = () => {
                 code: editingCriterion.code,
                 description: editingCriterion.description || undefined,
                 transitionType: editingCriterion.transitionType,
-                order: editingCriterion.order,
                 isActive: editingCriterion.isActive,
               }}
               onSubmit={handleUpdateCriterion}

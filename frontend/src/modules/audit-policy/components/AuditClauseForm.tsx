@@ -20,7 +20,6 @@ const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   code: z.string().min(1, 'Code is required'),
   description: z.string().optional(),
-  order: z.coerce.number().min(0, 'Order must be 0 or greater'),
   isActive: z.boolean().default(true),
 });
 
@@ -49,7 +48,6 @@ export const AuditClauseForm = ({
       name: initialClause?.name || '',
       code: initialClause?.code || '',
       description: initialClause?.description || '',
-      order: initialClause?.order ?? 0,
       isActive: initialClause?.isActive ?? true,
     },
   });
@@ -118,24 +116,6 @@ export const AuditClauseForm = ({
             </FormItem>
           )}
         />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="order"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Order <span className="text-destructive">*</span>
-                </FormLabel>
-                <FormControl>
-                  <Input type="number" placeholder="0" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
 
         <div className="flex justify-end gap-4">
           {onCancel && (

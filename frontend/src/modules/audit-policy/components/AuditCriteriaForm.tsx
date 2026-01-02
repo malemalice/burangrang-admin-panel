@@ -28,7 +28,6 @@ const formSchema = z.object({
   code: z.string().min(1, 'Code is required'),
   description: z.string().optional(),
   transitionType: z.nativeEnum(TransitionTypeEnum),
-  order: z.coerce.number().min(0, 'Order must be 0 or greater'),
   isActive: z.boolean().default(true),
 });
 
@@ -58,7 +57,6 @@ export const AuditCriteriaForm = ({
       code: initialCriterion?.code || '',
       description: initialCriterion?.description || '',
       transitionType: initialCriterion?.transitionType || TransitionTypeEnum.INITIAL,
-      order: initialCriterion?.order ?? 0,
       isActive: initialCriterion?.isActive ?? true,
     },
   });
@@ -128,47 +126,30 @@ export const AuditCriteriaForm = ({
           )}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="transitionType"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Transition Type <span className="text-destructive">*</span>
-                </FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select transition type" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value={TransitionTypeEnum.INITIAL}>Initial</SelectItem>
-                    <SelectItem value={TransitionTypeEnum.TRANSITION_LEVEL}>Transition Level</SelectItem>
-                    <SelectItem value={TransitionTypeEnum.ADVANCE_LEVEL}>Advance Level</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="order"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Order <span className="text-destructive">*</span>
-                </FormLabel>
+        <FormField
+          control={form.control}
+          name="transitionType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>
+                Transition Type <span className="text-destructive">*</span>
+              </FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
-                  <Input type="number" placeholder="0" {...field} />
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select transition type" />
+                  </SelectTrigger>
                 </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+                <SelectContent>
+                  <SelectItem value={TransitionTypeEnum.INITIAL}>Initial</SelectItem>
+                  <SelectItem value={TransitionTypeEnum.TRANSITION_LEVEL}>Transition Level</SelectItem>
+                  <SelectItem value={TransitionTypeEnum.ADVANCE_LEVEL}>Advance Level</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <div className="flex justify-end gap-4">
           {onCancel && (
