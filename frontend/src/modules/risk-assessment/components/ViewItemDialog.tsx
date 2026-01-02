@@ -24,6 +24,12 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
   const [riskMitigations, setRiskMitigations] = useState<RiskMitigation[]>([]);
   const [isLoadingRiskMitigations, setIsLoadingRiskMitigations] = useState(false);
 
+  // Convert likelihood numeric to alphabet (1 -> A, 2 -> B, 3 -> C, etc.)
+  const getLikelihoodLetter = (level: number): string => {
+    if (!level || level < 1) return 'N/A';
+    return String.fromCharCode(64 + level); // 1 -> A, 2 -> B, 3 -> C, etc.
+  };
+
   useEffect(() => {
     if (open && item?.mRiskId) {
       setIsLoadingRiskMitigations(true);
@@ -87,7 +93,7 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Likelihood</p>
-                <p className="text-sm">{item.likelihoodLevel}</p>
+                <p className="text-sm">{getLikelihoodLetter(item.likelihoodLevel)}</p>
               </div>
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Consequence</p>
@@ -173,7 +179,7 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Post Likelihood</p>
-                <p className="text-sm">{item.postLikelihoodLevel}</p>
+                <p className="text-sm">{getLikelihoodLetter(item.postLikelihoodLevel)}</p>
               </div>
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Post Consequence</p>
