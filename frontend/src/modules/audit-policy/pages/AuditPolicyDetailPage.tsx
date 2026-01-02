@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, FileEdit } from 'lucide-react';
+import { ArrowLeft, FileEdit, Plus, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/core/components/ui/button';
@@ -14,14 +14,38 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/core/components/ui/dialog';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
+import { Badge } from '@/core/components/ui/badge';
+import { Separator } from '@/core/components/ui/separator';
 
 import auditPolicyService from '../services/auditPolicyService';
-import { AuditElement, AuditClause, AuditCriteria, CreateAuditClauseDTO, CreateAuditCriteriaDTO } from '../types/audit-policy.types';
-import { AuditClausesTable } from '../components/AuditClausesTable';
-import { AuditCriteriaTable } from '../components/AuditCriteriaTable';
+import { AuditElement, AuditClause, AuditCriteria, CreateAuditClauseDTO, CreateAuditCriteriaDTO, TransitionTypeEnum } from '../types/audit-policy.types';
 import { AuditClauseForm } from '../components/AuditClauseForm';
 import { AuditCriteriaForm } from '../components/AuditCriteriaForm';
-import { FilterValue } from '@/core/components/ui/filter-drawer';
+
+interface ClauseWithCriteria extends AuditClause {
+  criteria: AuditCriteria[];
+}
+
+const getTransitionTypeBadge = (type: TransitionTypeEnum) => {
+  const variants: Record<TransitionTypeEnum, 'default' | 'secondary' | 'outline'> = {
+    [TransitionTypeEnum.INITIAL]: 'default',
+    [TransitionTypeEnum.TRANSITION_LEVEL]: 'secondary',
+    [TransitionTypeEnum.ADVANCE_LEVEL]: 'outline',
+  };
+
+  const labels: Record<TransitionTypeEnum, string> = {
+    [TransitionTypeEnum.INITIAL]: 'Initial',
+    [TransitionTypeEnum.TRANSITION_LEVEL]: 'Transition',
+    [TransitionTypeEnum.ADVANCE_LEVEL]: 'Advance',
+  };
+
+  return (
+    <Badge variant={variants[type]}>
+      {labels[type]}
+    </Badge>
+  );
+};
 
 const AuditPolicyDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -29,29 +53,18 @@ const AuditPolicyDetailPage = () => {
   const [element, setElement] = useState<AuditElement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Clauses state
-  const [clauses, setClauses] = useState<AuditClause[]>([]);
-  const [isLoadingClauses, setIsLoadingClauses] = useState(false);
-  const [clausePageIndex, setClausePageIndex] = useState(0);
-  const [clauseLimit, setClauseLimit] = useState(10);
-  const [totalClauses, setTotalClauses] = useState(0);
-  
-  // Criteria state
-  const [criteria, setCriteria] = useState<AuditCriteria[]>([]);
-  const [isLoadingCriteria, setIsLoadingCriteria] = useState(false);
-  const [criteriaPageIndex, setCriteriaPageIndex] = useState(0);
-  const [criteriaLimit, setCriteriaLimit] = useState(10);
-  const [totalCriteria, setTotalCriteria] = useState(0);
-  const [selectedClause, setSelectedClause] = useState<AuditClause | null>(null);
+  // Clauses with criteria
+  const [clausesWithCriteria, setClausesWithCriteria] = useState<ClauseWithCriteria[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(false);
   
   // Dialog states
   const [isAddClauseDialogOpen, setIsAddClauseDialogOpen] = useState(false);
   const [isEditClauseDialogOpen, setIsEditClauseDialogOpen] = useState(false);
-  const [isViewCriteriaDialogOpen, setIsViewCriteriaDialogOpen] = useState(false);
   const [isAddCriteriaDialogOpen, setIsAddCriteriaDialogOpen] = useState(false);
   const [isEditCriteriaDialogOpen, setIsEditCriteriaDialogOpen] = useState(false);
   const [editingClause, setEditingClause] = useState<AuditClause | null>(null);
   const [editingCriterion, setEditingCriterion] = useState<AuditCriteria | null>(null);
+  const [clauseForNewCriteria, setClauseForNewCriteria] = useState<AuditClause | null>(null);
   const [clauseToDelete, setClauseToDelete] = useState<AuditClause | null>(null);
   const [criterionToDelete, setCriterionToDelete] = useState<AuditCriteria | null>(null);
   const [deleteClauseDialogOpen, setDeleteClauseDialogOpen] = useState(false);
@@ -79,61 +92,48 @@ const AuditPolicyDetailPage = () => {
     fetchElement();
   }, [id, navigate]);
 
-  // Fetch clauses
-  const fetchClauses = useCallback(async () => {
+  // Fetch all clauses and their criteria
+  const fetchAllData = useCallback(async () => {
     if (!id) return;
     
-    setIsLoadingClauses(true);
+    setIsLoadingData(true);
     try {
-      const params: any = {
-        page: clausePageIndex + 1,
-        limit: clauseLimit,
+      // Fetch all clauses
+      const clausesResponse = await auditPolicyService.getClauses({
         auditElementId: id,
-      };
+        page: 1,
+        limit: 10000, // Large limit to get all
+      });
 
-      const response = await auditPolicyService.getClauses(params);
-      setClauses(response.data);
-      setTotalClauses(response.meta.total);
+      // Fetch criteria for each clause
+      const clausesWithCriteriaData: ClauseWithCriteria[] = await Promise.all(
+        clausesResponse.data.map(async (clause) => {
+          const criteriaResponse = await auditPolicyService.getCriteria({
+            auditClauseId: clause.id,
+            page: 1,
+            limit: 10000, // Large limit to get all
+          });
+          return {
+            ...clause,
+            criteria: criteriaResponse.data.sort((a, b) => a.order - b.order),
+          };
+        })
+      );
+
+      // Sort clauses by order
+      clausesWithCriteriaData.sort((a, b) => a.order - b.order);
+      setClausesWithCriteria(clausesWithCriteriaData);
     } catch (error) {
-      console.error('Failed to fetch clauses:', error);
-      toast.error('Failed to fetch clauses');
+      console.error('Failed to fetch clauses and criteria:', error);
+      toast.error('Failed to fetch clauses and criteria');
     } finally {
-      setIsLoadingClauses(false);
+      setIsLoadingData(false);
     }
-  }, [id, clausePageIndex, clauseLimit]);
+  }, [id]);
 
   useEffect(() => {
-    fetchClauses();
-  }, [fetchClauses]);
-
-  // Fetch criteria
-  const fetchCriteria = useCallback(async () => {
-    if (!selectedClause) return;
-    
-    setIsLoadingCriteria(true);
-    try {
-      const params: any = {
-        page: criteriaPageIndex + 1,
-        limit: criteriaLimit,
-        auditClauseId: selectedClause.id,
-      };
-
-      const response = await auditPolicyService.getCriteria(params);
-      setCriteria(response.data);
-      setTotalCriteria(response.meta.total);
-    } catch (error) {
-      console.error('Failed to fetch criteria:', error);
-      toast.error('Failed to fetch criteria');
-    } finally {
-      setIsLoadingCriteria(false);
-    }
-  }, [selectedClause, criteriaPageIndex, criteriaLimit]);
-
-  useEffect(() => {
-    if (selectedClause && isViewCriteriaDialogOpen) {
-      fetchCriteria();
-    }
-  }, [selectedClause, isViewCriteriaDialogOpen, fetchCriteria]);
+    fetchAllData();
+  }, [fetchAllData]);
 
   const handleAddClause = async (clauseData: CreateAuditClauseDTO) => {
     if (!id) return;
@@ -143,7 +143,7 @@ const AuditPolicyDetailPage = () => {
       await auditPolicyService.createClause(clauseData);
       toast.success('Clause created successfully');
       setIsAddClauseDialogOpen(false);
-      fetchClauses();
+      fetchAllData();
     } catch (error) {
       console.error('Failed to create clause:', error);
       toast.error('Failed to create clause');
@@ -166,7 +166,7 @@ const AuditPolicyDetailPage = () => {
       toast.success('Clause updated successfully');
       setIsEditClauseDialogOpen(false);
       setEditingClause(null);
-      fetchClauses();
+      fetchAllData();
     } catch (error) {
       console.error('Failed to update clause:', error);
       toast.error('Failed to update clause');
@@ -175,8 +175,7 @@ const AuditPolicyDetailPage = () => {
     }
   };
 
-  const handleDeleteClauseClick = (clause: AuditClause, event?: React.MouseEvent) => {
-    event?.stopPropagation();
+  const handleDeleteClauseClick = (clause: AuditClause) => {
     setClauseToDelete(clause);
     setDeleteClauseDialogOpen(true);
   };
@@ -190,7 +189,7 @@ const AuditPolicyDetailPage = () => {
       toast.success('Clause deleted successfully');
       setDeleteClauseDialogOpen(false);
       setClauseToDelete(null);
-      fetchClauses();
+      fetchAllData();
     } catch (error) {
       console.error('Failed to delete clause:', error);
       toast.error('Failed to delete clause');
@@ -199,21 +198,19 @@ const AuditPolicyDetailPage = () => {
     }
   };
 
-  const handleViewClause = (clause: AuditClause) => {
-    setSelectedClause(clause);
-    setCriteriaPageIndex(0);
-    setIsViewCriteriaDialogOpen(true);
+  const handleAddCriteriaClick = (clause: AuditClause) => {
+    setClauseForNewCriteria(clause);
+    setIsAddCriteriaDialogOpen(true);
   };
 
   const handleAddCriterion = async (criterionData: CreateAuditCriteriaDTO) => {
-    if (!selectedClause) return;
-    
     setIsSubmitting(true);
     try {
       await auditPolicyService.createCriterion(criterionData);
       toast.success('Criteria created successfully');
       setIsAddCriteriaDialogOpen(false);
-      fetchCriteria();
+      setClauseForNewCriteria(null);
+      fetchAllData();
     } catch (error) {
       console.error('Failed to create criteria:', error);
       toast.error('Failed to create criteria');
@@ -236,7 +233,7 @@ const AuditPolicyDetailPage = () => {
       toast.success('Criteria updated successfully');
       setIsEditCriteriaDialogOpen(false);
       setEditingCriterion(null);
-      fetchCriteria();
+      fetchAllData();
     } catch (error) {
       console.error('Failed to update criteria:', error);
       toast.error('Failed to update criteria');
@@ -245,8 +242,7 @@ const AuditPolicyDetailPage = () => {
     }
   };
 
-  const handleDeleteCriterionClick = (criterion: AuditCriteria, event?: React.MouseEvent) => {
-    event?.stopPropagation();
+  const handleDeleteCriterionClick = (criterion: AuditCriteria) => {
     setCriterionToDelete(criterion);
     setDeleteCriteriaDialogOpen(true);
   };
@@ -260,7 +256,7 @@ const AuditPolicyDetailPage = () => {
       toast.success('Criteria deleted successfully');
       setDeleteCriteriaDialogOpen(false);
       setCriterionToDelete(null);
-      fetchCriteria();
+      fetchAllData();
     } catch (error) {
       console.error('Failed to delete criteria:', error);
       toast.error('Failed to delete criteria');
@@ -295,8 +291,8 @@ const AuditPolicyDetailPage = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Audit Policy: ${element.name}`}
-        subtitle={`Code: ${element.code} | Created on ${format(new Date(element.createdAt), 'dd MMM yyyy')}`}
+        title={`${element.code} - ${element.name}`}
+        subtitle={element.description || `Created on ${format(new Date(element.createdAt), 'dd MMM yyyy')}`}
         actions={
           <Button 
             variant="outline"
@@ -308,59 +304,155 @@ const AuditPolicyDetailPage = () => {
         }
       />
 
-      {/* Element Details */}
+      {/* Clauses and Criteria Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Element Details</CardTitle>
-          <CardDescription>Basic information about this audit policy element</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Clauses and Criteria</CardTitle>
+              <CardDescription>Manage clauses and their criteria for this audit element</CardDescription>
+            </div>
+            <Button onClick={() => setIsAddClauseDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Clause
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="text-sm font-medium text-gray-500">Code</label>
-              <p className="mt-1 text-sm text-gray-900">{element.code}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500">Name</label>
-              <p className="mt-1 text-sm text-gray-900">{element.name}</p>
-            </div>
-            {element.description && (
-              <div className="md:col-span-2">
-                <label className="text-sm font-medium text-gray-500">Description</label>
-                <p className="mt-1 text-sm text-gray-900">{element.description}</p>
+          {isLoadingData ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="flex items-center gap-2">
+                <div className="h-6 w-6 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+                <span>Loading clauses and criteria...</span>
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+          ) : clausesWithCriteria.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <p>No clauses yet. Click "Add Clause" to get started.</p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {clausesWithCriteria.map((clause) => (
+                <div key={clause.id} className="space-y-4">
+                  {/* Clause Header */}
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {clause.code} {clause.name}
+                          </h3>
+                        </div>
+                        {clause.description && (
+                          <p className="text-sm text-gray-600 mt-1">{clause.description}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleAddCriteriaClick(clause)}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add Criteria
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditClause(clause)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDeleteClauseClick(clause)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
 
-      {/* Clauses Table */}
-      <Card>
-        <CardContent className="pt-6">
-          <AuditClausesTable
-            clauses={clauses}
-            isLoading={isLoadingClauses}
-            pageIndex={clausePageIndex}
-            limit={clauseLimit}
-            totalItems={totalClauses}
-            onPageChange={setClausePageIndex}
-            onPageSizeChange={setClauseLimit}
-            onSearch={() => {}}
-            onApplyFilters={() => {}}
-            onAddClause={() => setIsAddClauseDialogOpen(true)}
-            onViewClause={handleViewClause}
-            onEditClause={handleEditClause}
-            onDeleteClause={handleDeleteClauseClick}
-            onDeleteConfirm={handleDeleteClauseConfirm}
-            clauseToDelete={clauseToDelete}
-            deleteDialogOpen={deleteClauseDialogOpen}
-            onDeleteDialogChange={(open) => {
-              if (!open) {
-                setDeleteClauseDialogOpen(false);
-                setClauseToDelete(null);
-              }
-            }}
-          />
+                  {/* Criteria Table */}
+                  {clause.criteria.length > 0 ? (
+                    <div className="ml-4 border-l-2 border-gray-200 pl-6">
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                          <thead>
+                            <tr className="bg-gray-50 border-b-2 border-gray-200">
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-24">
+                                No
+                              </th>
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                                Criteria
+                              </th>
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                                Interpretation
+                              </th>
+                              <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-32">
+                                Type
+                              </th>
+                              <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700 w-32">
+                                Actions
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {clause.criteria.map((criterion, index) => (
+                              <tr
+                                key={criterion.id}
+                                className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                              >
+                                <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                                  {clause.code}.{criterion.order}
+                                </td>
+                                <td className="py-3 px-4 text-sm text-gray-900">
+                                  {criterion.name}
+                                </td>
+                                <td className="py-3 px-4 text-sm text-gray-600">
+                                  {criterion.description || '-'}
+                                </td>
+                                <td className="py-3 px-4">
+                                  {getTransitionTypeBadge(criterion.transitionType)}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleEditCriterion(criterion)}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      onClick={() => handleDeleteCriterionClick(criterion)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="ml-4 border-l-2 border-gray-200 pl-6">
+                      <div className="py-4 text-center text-sm text-gray-500">
+                        No criteria yet. Click "Add Criteria" to add one.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -419,66 +511,28 @@ const AuditPolicyDetailPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* View Criteria Dialog */}
-      <Dialog open={isViewCriteriaDialogOpen} onOpenChange={(open) => {
-        setIsViewCriteriaDialogOpen(open);
+      {/* Add Criteria Dialog */}
+      <Dialog open={isAddCriteriaDialogOpen} onOpenChange={(open) => {
+        setIsAddCriteriaDialogOpen(open);
         if (!open) {
-          setSelectedClause(null);
-          setCriteriaPageIndex(0);
+          setClauseForNewCriteria(null);
         }
       }}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Criteria: {selectedClause?.name}</DialogTitle>
-            <DialogDescription>
-              Manage criteria for clause {selectedClause?.code}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedClause && (
-            <div className="space-y-4">
-              <AuditCriteriaTable
-                criteria={criteria}
-                isLoading={isLoadingCriteria}
-                pageIndex={criteriaPageIndex}
-                limit={criteriaLimit}
-                totalItems={totalCriteria}
-                onPageChange={setCriteriaPageIndex}
-                onPageSizeChange={setCriteriaLimit}
-                onSearch={() => {}}
-                onApplyFilters={() => {}}
-                onAddCriterion={() => setIsAddCriteriaDialogOpen(true)}
-                onEditCriterion={handleEditCriterion}
-                onDeleteCriterion={handleDeleteCriterionClick}
-                onDeleteConfirm={handleDeleteCriterionConfirm}
-                criterionToDelete={criterionToDelete}
-                deleteDialogOpen={deleteCriteriaDialogOpen}
-                onDeleteDialogChange={(open) => {
-                  if (!open) {
-                    setDeleteCriteriaDialogOpen(false);
-                    setCriterionToDelete(null);
-                  }
-                }}
-                clauseCode={selectedClause.code}
-              />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Criteria Dialog */}
-      <Dialog open={isAddCriteriaDialogOpen} onOpenChange={setIsAddCriteriaDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Criteria</DialogTitle>
             <DialogDescription>
-              Add a new criteria to clause {selectedClause?.code}
+              Add a new criteria to clause {clauseForNewCriteria?.code}
             </DialogDescription>
           </DialogHeader>
-          {selectedClause && (
+          {clauseForNewCriteria && (
             <AuditCriteriaForm
-              auditClauseId={selectedClause.id}
+              auditClauseId={clauseForNewCriteria.id}
               onSubmit={handleAddCriterion}
-              onCancel={() => setIsAddCriteriaDialogOpen(false)}
+              onCancel={() => {
+                setIsAddCriteriaDialogOpen(false);
+                setClauseForNewCriteria(null);
+              }}
               showCard={false}
               isSubmitting={isSubmitting}
             />
@@ -522,6 +576,36 @@ const AuditPolicyDetailPage = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Clause Confirmation */}
+      <ConfirmDialog
+        open={deleteClauseDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteClauseDialogOpen(false);
+            setClauseToDelete(null);
+          }
+        }}
+        title="Delete Clause"
+        description={`Are you sure you want to delete "${clauseToDelete?.name}"? This action cannot be undone and will also delete all associated criteria.`}
+        onConfirm={handleDeleteClauseConfirm}
+        variant="destructive"
+      />
+
+      {/* Delete Criteria Confirmation */}
+      <ConfirmDialog
+        open={deleteCriteriaDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteCriteriaDialogOpen(false);
+            setCriterionToDelete(null);
+          }
+        }}
+        title="Delete Criteria"
+        description={`Are you sure you want to delete "${criterionToDelete?.name}"? This action cannot be undone.`}
+        onConfirm={handleDeleteCriterionConfirm}
+        variant="destructive"
+      />
     </div>
   );
 };
