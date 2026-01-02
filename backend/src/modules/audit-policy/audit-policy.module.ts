@@ -25,4 +25,4 @@ import { AuditCriteriaService } from './services/audit-criteria.service';
     AuditCriteriaService,
   ],
 })
-export class MasterAuditPolicyModule {}
+export class AuditPolicyModule {}
