@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Eye, MoreHorizontal, FileText, Layers, FileCheck } from 'lucide-react';
+import { Edit, Trash2, Eye, MoreHorizontal, FileText, Layers, FileCheck, Plus } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
-import { Button } from '@/core/components/ui/button';
+import { Button, ThemeButton } from '@/core/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +16,7 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import auditCriteriaService from '../services/auditCriteriaService';
+import { TRANSITION_TYPE_OPTIONS, TRANSITION_TYPE_LABELS } from '../constants/audit-criteria.constants';
 import api from '@/core/lib/api';
 import { AuditCriteria } from '../types/audit-criteria.types';
 
@@ -61,11 +62,7 @@ const AuditCriteriaPage = () => {
       id: 'transitionType',
       label: 'Transition Level',
       type: 'select',
-      options: [
-        { label: 'Initial', value: 'INITIAL' },
-        { label: 'Transition Level', value: 'TRANSITION_LEVEL' },
-        { label: 'Advance Level', value: 'ADVANCE_LEVEL' },
-      ],
+      options: TRANSITION_TYPE_OPTIONS,
     },
     {
       id: 'auditClauseId',
@@ -246,14 +243,9 @@ const AuditCriteriaPage = () => {
           label: element?.name || '',
         };
       } else if (filter.id === 'transitionType') {
-        const transitionLabels: Record<string, string> = {
-          INITIAL: 'Initial',
-          TRANSITION_LEVEL: 'Transition Level',
-          ADVANCE_LEVEL: 'Advance Level',
-        };
         newActiveFilters[filter.id] = {
           value: filter.value,
-          label: transitionLabels[filter.value as string] || String(filter.value),
+          label: TRANSITION_TYPE_LABELS[filter.value as keyof typeof TRANSITION_TYPE_LABELS] || String(filter.value),
         };
       } else {
         newActiveFilters[filter.id] = {
@@ -274,29 +266,27 @@ const AuditCriteriaPage = () => {
   };
 
   const getTransitionTypeBadge = (transitionType: string) => {
-    const variants: Record<string, { className: string; label: string }> = {
+    const variants: Record<string, { className: string }> = {
       INITIAL: {
         className: 'bg-blue-100 text-blue-800',
-        label: 'Initial',
       },
       TRANSITION_LEVEL: {
         className: 'bg-yellow-100 text-yellow-800',
-        label: 'Transition Level',
       },
       ADVANCE_LEVEL: {
         className: 'bg-green-100 text-green-800',
-        label: 'Advance Level',
       },
     };
 
     const variant = variants[transitionType] || {
       className: 'bg-gray-100 text-gray-800',
-      label: transitionType,
     };
+
+    const label = TRANSITION_TYPE_LABELS[transitionType as keyof typeof TRANSITION_TYPE_LABELS] || transitionType;
 
     return (
       <Badge variant="outline" className={`${variant.className} border-0`}>
-        {variant.label}
+        {label}
       </Badge>
     );
   };
@@ -405,6 +395,11 @@ const AuditCriteriaPage = () => {
       <PageHeader
         title="Audit Criteria"
         subtitle="Manage audit criteria for audit policies"
+        actions={
+          <ThemeButton onClick={() => navigate('/audit-criteria/new')}>
+            <Plus className="mr-2 h-4 w-4" /> Add Criteria
+          </ThemeButton>
+        }
       />
 
       <DataTable
