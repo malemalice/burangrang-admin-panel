@@ -182,7 +182,11 @@ const AuditPolicyDetailPage = () => {
         )
       );
       
-      setClausesWithCriteria(newClauses);
+      // Regenerate all clause codes (which will also regenerate criteria codes)
+      await auditPolicyService.regenerateClauseCodes(id!);
+      
+      // Refresh data to get updated codes
+      await fetchAllData();
       toast.success('Clauses reordered successfully');
     } catch (error) {
       console.error('Failed to reorder clauses:', error);
@@ -243,7 +247,11 @@ const AuditPolicyDetailPage = () => {
         )
       );
       
-      setClausesWithCriteria(newClauses);
+      // Regenerate criteria codes for this clause
+      await auditPolicyService.regenerateCriteriaCodes(clause.id);
+      
+      // Refresh data to get updated codes
+      await fetchAllData();
       toast.success('Criteria reordered successfully');
     } catch (error) {
       console.error('Failed to reorder criteria:', error);
@@ -272,7 +280,8 @@ const AuditPolicyDetailPage = () => {
       });
       toast.success('Clause created successfully');
       setIsAddClauseDialogOpen(false);
-      fetchAllData();
+      // Refresh to get auto-generated codes
+      await fetchAllData();
     } catch (error) {
       console.error('Failed to create clause:', error);
       toast.error('Failed to create clause');
@@ -310,15 +319,17 @@ const AuditPolicyDetailPage = () => {
   };
 
   const handleDeleteClauseConfirm = async () => {
-    if (!clauseToDelete) return;
+    if (!clauseToDelete || !id) return;
     
     setIsSubmitting(true);
     try {
       await auditPolicyService.deleteClause(clauseToDelete.id);
+      // Regenerate codes after deletion to maintain sequential numbering
+      await auditPolicyService.regenerateClauseCodes(id);
       toast.success('Clause deleted successfully');
       setDeleteClauseDialogOpen(false);
       setClauseToDelete(null);
-      fetchAllData();
+      await fetchAllData();
     } catch (error) {
       console.error('Failed to delete clause:', error);
       toast.error('Failed to delete clause');
@@ -350,7 +361,8 @@ const AuditPolicyDetailPage = () => {
       toast.success('Criteria created successfully');
       setIsAddCriteriaDialogOpen(false);
       setClauseForNewCriteria(null);
-      fetchAllData();
+      // Refresh to get auto-generated codes
+      await fetchAllData();
     } catch (error) {
       console.error('Failed to create criteria:', error);
       toast.error('Failed to create criteria');
@@ -392,11 +404,14 @@ const AuditPolicyDetailPage = () => {
     
     setIsSubmitting(true);
     try {
+      const clauseId = criterionToDelete.auditClauseId;
       await auditPolicyService.deleteCriterion(criterionToDelete.id);
+      // Regenerate codes after deletion to maintain sequential numbering
+      await auditPolicyService.regenerateCriteriaCodes(clauseId);
       toast.success('Criteria deleted successfully');
       setDeleteCriteriaDialogOpen(false);
       setCriterionToDelete(null);
-      fetchAllData();
+      await fetchAllData();
     } catch (error) {
       console.error('Failed to delete criteria:', error);
       toast.error('Failed to delete criteria');
@@ -498,7 +513,7 @@ const AuditPolicyDetailPage = () => {
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <h3 className="text-lg font-semibold text-gray-900">
-                              {clause.code} {clause.name}
+                              {element.code}.{clauseIndex + 1} {clause.name}
                             </h3>
                           </div>
                           {clause.description && (
@@ -600,7 +615,7 @@ const AuditPolicyDetailPage = () => {
                                   </div>
                                 </td>
                                 <td className="py-3 px-4 text-sm font-medium text-gray-900">
-                                  {clause.code}.{criterion.order + 1}
+                                  {element.code}.{clauseIndex + 1}.{criterionIndex + 1}
                                 </td>
                                 <td className="py-3 px-4 text-sm text-gray-900">
                                   {criterion.name}
@@ -694,7 +709,6 @@ const AuditPolicyDetailPage = () => {
               auditElementId={id!}
               initialClause={{
                 name: editingClause.name,
-                code: editingClause.code,
                 description: editingClause.description || undefined,
                 isActive: editingClause.isActive,
               }}
@@ -758,7 +772,6 @@ const AuditPolicyDetailPage = () => {
               auditClauseId={editingCriterion.auditClauseId}
               initialCriterion={{
                 name: editingCriterion.name,
-                code: editingCriterion.code,
                 description: editingCriterion.description || undefined,
                 transitionType: editingCriterion.transitionType,
                 isActive: editingCriterion.isActive,

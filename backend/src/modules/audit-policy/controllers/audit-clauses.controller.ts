@@ -127,4 +127,17 @@ export class AuditClausesController {
   findByCode(@Param('code') code: string): Promise<AuditClauseDto> {
     return this.auditClausesService.findByCode(code);
   }
+
+  @Post('regenerate-codes/:auditElementId')
+  @ApiOperation({ summary: 'Regenerate codes for all clauses in an audit element' })
+  @ApiResponse({
+    status: 200,
+    description: 'Codes have been successfully regenerated.',
+  })
+  @ApiResponse({ status: 404, description: 'Audit element not found.' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  async regenerateCodes(@Param('auditElementId') auditElementId: string): Promise<{ message: string }> {
+    await this.auditClausesService.regenerateClauseCodes(auditElementId);
+    return { message: 'Codes regenerated successfully' };
+  }
 }

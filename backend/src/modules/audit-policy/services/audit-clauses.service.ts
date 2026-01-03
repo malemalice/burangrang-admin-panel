@@ -36,6 +36,58 @@ export class AuditClausesService {
     this.auditClausePaginatedMapper = this.dtoMapper.createPaginatedMapper(AuditClauseDto);
   }
 
+  /**
+   * Generate clause code based on element code and clause order
+   */
+  private generateClauseCode(elementCode: string, order: number): string {
+    return `${elementCode}.${order + 1}`;
+  }
+
+  /**
+   * Regenerate codes for all clauses in an audit element
+   */
+  async regenerateClauseCodes(auditElementId: string): Promise<void> {
+    // Get the audit element to get its code
+    const auditElement = await this.prisma.auditElement.findUnique({
+      where: { id: auditElementId },
+    });
+
+    this.errorHandler.throwIfNotFoundById('AuditElement', auditElementId, auditElement);
+
+    // Get all clauses ordered by order field
+    const clauses = await this.prisma.auditClause.findMany({
+      where: { auditElementId },
+      orderBy: { order: 'asc' },
+      include: {
+        criteria: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    // Update clause codes and criteria codes
+    for (let i = 0; i < clauses.length; i++) {
+      const clause = clauses[i];
+      const newClauseCode = this.generateClauseCode(auditElement!.code, i);
+
+      // Update clause code
+      await this.prisma.auditClause.update({
+        where: { id: clause.id },
+        data: { code: newClauseCode },
+      });
+
+      // Update all criteria codes in this clause
+      for (let j = 0; j < clause.criteria.length; j++) {
+        const criterion = clause.criteria[j];
+        const newCriteriaCode = `${newClauseCode}.${j + 1}`;
+        await this.prisma.auditCriteria.update({
+          where: { id: criterion.id },
+          data: { code: newCriteriaCode },
+        });
+      }
+    }
+  }
+
   async create(
     createAuditClauseDto: CreateAuditClauseDto,
   ): Promise<AuditClauseDto> {
@@ -50,9 +102,15 @@ export class AuditClausesService {
       auditElement,
     );
 
+    // Auto-generate code if not provided
+    const code = createAuditClauseDto.code || this.generateClauseCode(
+      auditElement.code,
+      createAuditClauseDto.order,
+    );
+
     const data: Prisma.AuditClauseCreateInput = {
       name: createAuditClauseDto.name,
-      code: createAuditClauseDto.code,
+      code,
       description: createAuditClauseDto.description,
       order: createAuditClauseDto.order,
       isActive: createAuditClauseDto.isActive ?? true,
@@ -65,7 +123,15 @@ export class AuditClausesService {
       data,
     });
 
-    return this.auditClauseMapper(clause);
+    // Regenerate all clause codes to ensure consistency
+    await this.regenerateClauseCodes(auditElement.id);
+
+    // Return the updated clause
+    const updatedClause = await this.prisma.auditClause.findUnique({
+      where: { id: clause.id },
+    });
+
+    return this.auditClauseMapper(updatedClause);
   }
 
   async findAll(options?: FindAllOptions): Promise<{
@@ -138,11 +204,15 @@ export class AuditClausesService {
   ): Promise<AuditClauseDto> {
     const existingClause = await this.prisma.auditClause.findUnique({
       where: { id },
+      include: {
+        auditElement: true,
+      },
     });
 
     this.errorHandler.throwIfNotFoundById('AuditClause', id, existingClause);
 
     // If auditElementId is being updated, verify it exists
+    let auditElementId = existingClause.auditElementId;
     if (updateAuditClauseDto.auditElementId !== undefined) {
       const auditElement = await this.prisma.auditElement.findUnique({
         where: { id: updateAuditClauseDto.auditElementId },
@@ -153,6 +223,7 @@ export class AuditClausesService {
         updateAuditClauseDto.auditElementId,
         auditElement,
       );
+      auditElementId = updateAuditClauseDto.auditElementId;
     }
 
     const updateData: Prisma.AuditClauseUpdateInput = {};
@@ -160,9 +231,7 @@ export class AuditClausesService {
     if (updateAuditClauseDto.name !== undefined) {
       updateData.name = updateAuditClauseDto.name;
     }
-    if (updateAuditClauseDto.code !== undefined) {
-      updateData.code = updateAuditClauseDto.code;
-    }
+    // Don't allow manual code updates - it will be auto-generated
     if (updateAuditClauseDto.description !== undefined) {
       updateData.description = updateAuditClauseDto.description;
     }
@@ -182,6 +251,16 @@ export class AuditClausesService {
       where: { id },
       data: updateData,
     });
+
+    // Regenerate all clause codes if order or element changed
+    if (updateAuditClauseDto.order !== undefined || updateAuditClauseDto.auditElementId !== undefined) {
+      await this.regenerateClauseCodes(auditElementId);
+      // Return updated clause
+      const updatedClause = await this.prisma.auditClause.findUnique({
+        where: { id },
+      });
+      return this.auditClauseMapper(updatedClause);
+    }
 
     return this.auditClauseMapper(clause);
   }

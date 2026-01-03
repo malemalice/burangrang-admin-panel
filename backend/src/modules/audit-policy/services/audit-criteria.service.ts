@@ -37,12 +37,53 @@ export class AuditCriteriaService {
     this.auditCriteriaPaginatedMapper = this.dtoMapper.createPaginatedMapper(AuditCriteriaDto);
   }
 
+  /**
+   * Generate criteria code based on clause code and criteria order
+   */
+  private generateCriteriaCode(clauseCode: string, order: number): string {
+    return `${clauseCode}.${order + 1}`;
+  }
+
+  /**
+   * Regenerate codes for all criteria in an audit clause
+   */
+  async regenerateCriteriaCodes(auditClauseId: string): Promise<void> {
+    // Get the audit clause with its element to get the full code path
+    const auditClause = await this.prisma.auditClause.findUnique({
+      where: { id: auditClauseId },
+      include: {
+        auditElement: true,
+      },
+    });
+
+    this.errorHandler.throwIfNotFoundById('AuditClause', auditClauseId, auditClause);
+
+    // Get all criteria ordered by order field
+    const criteria = await this.prisma.auditCriteria.findMany({
+      where: { auditClauseId },
+      orderBy: { order: 'asc' },
+    });
+
+    // Update criteria codes
+    for (let i = 0; i < criteria.length; i++) {
+      const criterion = criteria[i];
+      const newCriteriaCode = this.generateCriteriaCode(auditClause!.code, i);
+      await this.prisma.auditCriteria.update({
+        where: { id: criterion.id },
+        data: { code: newCriteriaCode },
+      });
+    }
+  }
+
   async create(
     createAuditCriteriaDto: CreateAuditCriteriaDto,
   ): Promise<AuditCriteriaDto> {
     // Verify audit clause exists
     const auditClause = await this.prisma.auditClause.findUnique({
       where: { id: createAuditCriteriaDto.auditClauseId },
+      include: {
+        auditElement: true,
+      },
     });
 
     this.errorHandler.throwIfNotFoundById(
@@ -51,9 +92,15 @@ export class AuditCriteriaService {
       auditClause,
     );
 
+    // Auto-generate code if not provided
+    const code = createAuditCriteriaDto.code || this.generateCriteriaCode(
+      auditClause.code,
+      createAuditCriteriaDto.order,
+    );
+
     const data: Prisma.AuditCriteriaCreateInput = {
       name: createAuditCriteriaDto.name,
-      code: createAuditCriteriaDto.code,
+      code,
       description: createAuditCriteriaDto.description,
       transitionType: createAuditCriteriaDto.transitionType,
       order: createAuditCriteriaDto.order,
@@ -67,7 +114,15 @@ export class AuditCriteriaService {
       data,
     });
 
-    return this.auditCriteriaMapper(criteria);
+    // Regenerate all criteria codes to ensure consistency
+    await this.regenerateCriteriaCodes(auditClause.id);
+
+    // Return the updated criteria
+    const updatedCriteria = await this.prisma.auditCriteria.findUnique({
+      where: { id: criteria.id },
+    });
+
+    return this.auditCriteriaMapper(updatedCriteria);
   }
 
   async findAll(options?: FindAllOptions): Promise<{
@@ -145,14 +200,25 @@ export class AuditCriteriaService {
   ): Promise<AuditCriteriaDto> {
     const existingCriteria = await this.prisma.auditCriteria.findUnique({
       where: { id },
+      include: {
+        auditClause: {
+          include: {
+            auditElement: true,
+          },
+        },
+      },
     });
 
     this.errorHandler.throwIfNotFoundById('AuditCriteria', id, existingCriteria);
 
     // If auditClauseId is being updated, verify it exists
+    let auditClauseId = existingCriteria.auditClauseId;
     if (updateAuditCriteriaDto.auditClauseId !== undefined) {
       const auditClause = await this.prisma.auditClause.findUnique({
         where: { id: updateAuditCriteriaDto.auditClauseId },
+        include: {
+          auditElement: true,
+        },
       });
 
       this.errorHandler.throwIfNotFoundById(
@@ -160,6 +226,7 @@ export class AuditCriteriaService {
         updateAuditCriteriaDto.auditClauseId,
         auditClause,
       );
+      auditClauseId = updateAuditCriteriaDto.auditClauseId;
     }
 
     const updateData: Prisma.AuditCriteriaUpdateInput = {};
@@ -167,9 +234,7 @@ export class AuditCriteriaService {
     if (updateAuditCriteriaDto.name !== undefined) {
       updateData.name = updateAuditCriteriaDto.name;
     }
-    if (updateAuditCriteriaDto.code !== undefined) {
-      updateData.code = updateAuditCriteriaDto.code;
-    }
+    // Don't allow manual code updates - it will be auto-generated
     if (updateAuditCriteriaDto.description !== undefined) {
       updateData.description = updateAuditCriteriaDto.description;
     }
@@ -192,6 +257,16 @@ export class AuditCriteriaService {
       where: { id },
       data: updateData,
     });
+
+    // Regenerate all criteria codes if order or clause changed
+    if (updateAuditCriteriaDto.order !== undefined || updateAuditCriteriaDto.auditClauseId !== undefined) {
+      await this.regenerateCriteriaCodes(auditClauseId);
+      // Return updated criteria
+      const updatedCriteria = await this.prisma.auditCriteria.findUnique({
+        where: { id },
+      });
+      return this.auditCriteriaMapper(updatedCriteria);
+    }
 
     return this.auditCriteriaMapper(criteria);
   }

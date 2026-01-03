@@ -106,6 +106,15 @@ const auditPolicyService = {
   deleteCriterion: async (id: string): Promise<void> => {
     await api.delete(`/audit-criteria/${id}`);
   },
+
+  // Code Regeneration
+  regenerateClauseCodes: async (auditElementId: string): Promise<void> => {
+    await api.post(`/audit-clauses/regenerate-codes/${auditElementId}`);
+  },
+
+  regenerateCriteriaCodes: async (auditClauseId: string): Promise<void> => {
+    await api.post(`/audit-criteria/regenerate-codes/${auditClauseId}`);
+  },
 };
 
 export default auditPolicyService;

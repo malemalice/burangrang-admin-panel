@@ -22,10 +22,17 @@ export class CreateAuditCriteriaDto {
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ description: 'The unique code of the audit criteria' })
-  @IsString()
-  @IsNotEmpty()
-  code: string;
+  @ApiProperty({ 
+    required: false,
+    description: 'The unique code of the audit criteria (auto-generated if not provided)' 
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    // Convert empty string or null to undefined
+    if (value === '' || value === null || value === undefined) return undefined;
+    return value;
+  })
+  code?: string;
 
   @ApiProperty({
     required: false,

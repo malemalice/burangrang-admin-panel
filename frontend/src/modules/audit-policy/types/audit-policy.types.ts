@@ -56,7 +56,7 @@ export interface UpdateAuditElementDTO extends Partial<CreateAuditElementDTO> {}
 
 export interface CreateAuditClauseDTO {
   name: string;
-  code: string;
+  code?: string; // Auto-generated if not provided
   description?: string;
   auditElementId: string;
   order: number;
@@ -67,7 +67,7 @@ export interface UpdateAuditClauseDTO extends Partial<CreateAuditClauseDTO> {}
 
 export interface CreateAuditCriteriaDTO {
   name: string;
-  code: string;
+  code?: string; // Auto-generated if not provided
   description?: string;
   auditClauseId: string;
   transitionType: TransitionTypeEnum;
