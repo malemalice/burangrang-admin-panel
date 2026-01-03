@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
+import { AuditClauseDto } from './audit-clause.dto';
+import { AuditElementDto } from './audit-element.dto';
 
 export class AuditCriteriaDto {
   @ApiProperty()
@@ -41,6 +43,12 @@ export class AuditCriteriaDto {
   @ApiProperty()
   @Expose()
   updatedAt: Date;
+
+  @ApiProperty({ required: false, type: AuditClauseDto })
+  @Expose()
+  auditClause?: AuditClauseDto & {
+    auditElement?: AuditElementDto;
+  };
 
   constructor(partial: Partial<AuditCriteriaDto>) {
     Object.assign(this, partial);

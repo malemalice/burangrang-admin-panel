@@ -16,6 +16,7 @@ import certificateRoutes from '@/modules/certificates/routes/certificateRoutes';
 import { riskMatrixRoutes } from '@/modules/risk-matrix';
 import { manHourRoutes } from '@/modules/man-hours';
 import { emailTemplateRoutes } from '@/modules/mail-templates';
+import { auditCriteriaRoutes } from '@/modules/audit-criteria';
 
 /**
  * Application routes registry
@@ -39,6 +40,7 @@ const routes: RouteConfig[] = [
   ...manHourRoutes,
   ...moduleRoutes,
   ...emailTemplateRoutes,
+  ...auditCriteriaRoutes,
 ];
 
 // Public routes that don't require authentication

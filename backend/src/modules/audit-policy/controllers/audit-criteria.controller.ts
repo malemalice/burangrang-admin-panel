@@ -58,6 +58,7 @@ export class AuditCriteriaController {
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
     @Query('auditClauseId') auditClauseId?: string,
+    @Query('auditElementId') auditElementId?: string,
     @Query('transitionType') transitionType?: string,
   ): Promise<{ data: AuditCriteriaDto[]; meta: { total: number } }> {
     const pageNumber = page ? parseInt(page, 10) : undefined;
@@ -76,6 +77,7 @@ export class AuditCriteriaController {
       isActive: isActiveBoolean,
       search,
       auditClauseId,
+      auditElementId,
       transitionType: transitionTypeEnum,
     });
   }

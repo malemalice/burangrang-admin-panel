@@ -30,6 +30,7 @@ ehthumbs.db
 *.tmp
 *.bak
 *.swp
+refs/*
 
 # Database
 *.sqlite

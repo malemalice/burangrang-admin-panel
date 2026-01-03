@@ -15,6 +15,7 @@ interface FindAllOptions {
   isActive?: boolean;
   search?: string;
   auditClauseId?: string;
+  auditElementId?: string;
   transitionType?: TransitionTypeEnum;
 }
 
@@ -137,6 +138,7 @@ export class AuditCriteriaService {
       isActive,
       search,
       auditClauseId,
+      auditElementId,
       transitionType,
     } = options || {};
 
@@ -158,6 +160,12 @@ export class AuditCriteriaService {
       where.auditClauseId = auditClauseId;
     }
 
+    if (auditElementId) {
+      where.auditClause = {
+        auditElementId: auditElementId,
+      };
+    }
+
     if (transitionType) {
       where.transitionType = transitionType;
     }
@@ -176,6 +184,13 @@ export class AuditCriteriaService {
       orderBy,
       skip: (page - 1) * limit,
       take: limit,
+      include: {
+        auditClause: {
+          include: {
+            auditElement: true,
+          },
+        },
+      },
     });
 
     return this.auditCriteriaPaginatedMapper({
