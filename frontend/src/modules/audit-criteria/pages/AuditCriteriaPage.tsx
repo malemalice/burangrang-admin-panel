@@ -47,6 +47,7 @@ const AuditCriteriaPage = () => {
   const [activeFilters, setActiveFilters] = useState<
     Record<string, { value: string | string[] | { from?: Date; to?: Date } | boolean; label: string }>
   >({});
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields for audit criteria
@@ -109,18 +110,50 @@ const AuditCriteriaPage = () => {
   const fetchCriteria = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Only include search if it's not empty or only spaces
-      const trimmedSearch = searchTerm.trim();
-      const finalSearch = trimmedSearch.length > 0 ? trimmedSearch : undefined;
+      // Check if criteriaName filter is set, use it as search parameter
+      // Otherwise use the searchTerm from the search input
+      const criteriaNameFilter = activeFilters.criteriaName?.value;
+      let finalSearch: string | undefined;
+      
+      if (criteriaNameFilter && typeof criteriaNameFilter === 'string') {
+        const trimmedFilter = criteriaNameFilter.trim();
+        finalSearch = trimmedFilter.length > 0 ? trimmedFilter : undefined;
+      } else {
+        const trimmedSearch = searchTerm.trim();
+        finalSearch = trimmedSearch.length > 0 ? trimmedSearch : undefined;
+      }
 
-      const params = {
+      // Map column IDs to backend field names for sorting
+      const sortFieldMap: Record<string, string> = {
+        code: 'code',
+        name: 'name',
+        clause: 'auditClauseId', // Sort by clause ID (backend will handle relation sorting)
+        element: 'auditClauseId', // Sort by clause ID since element is nested
+        transitionType: 'transitionType',
+        status: 'isActive',
+        order: 'order',
+      };
+
+      const sortBy = sorting?.id ? sortFieldMap[sorting.id] || sorting.id : undefined;
+      const sortOrder: 'asc' | 'desc' | undefined = sorting ? (sorting.desc ? 'desc' : 'asc') : undefined;
+
+      const params: {
+        page: number;
+        limit: number;
+        search?: string;
+        sortBy?: string;
+        sortOrder?: 'asc' | 'desc';
+        filters: Record<string, any>;
+      } = {
         page: pageIndex + 1,
         limit,
         search: finalSearch,
+        sortBy,
+        sortOrder,
         filters: {
           ...Object.entries(activeFilters).reduce((acc, [key, item]) => {
             if (key === 'criteriaName') {
-              // criteriaName is handled via search parameter
+              // criteriaName is handled via search parameter above
               return acc;
             }
             // Map auditElementId to the correct filter key
@@ -148,7 +181,7 @@ const AuditCriteriaPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, searchTerm, activeFilters]);
+  }, [pageIndex, limit, searchTerm, activeFilters, sorting]);
 
   // Fetch criteria when dependencies change
   useEffect(() => {
@@ -234,6 +267,12 @@ const AuditCriteriaPage = () => {
     setPageIndex(0);
   };
 
+  // Handle sorting change
+  const handleSortingChange = (newSorting: { id: string; desc: boolean } | null) => {
+    setSorting(newSorting);
+    setPageIndex(0); // Reset to first page when sorting changes
+  };
+
   const getTransitionTypeBadge = (transitionType: string) => {
     const variants: Record<string, { className: string; label: string }> = {
       INITIAL: {
@@ -264,11 +303,18 @@ const AuditCriteriaPage = () => {
 
   const columns = [
     {
+      id: 'code',
+      header: 'Code',
+      cell: (criterion: AuditCriteria) => (
+        <span className="text-sm text-gray-500 font-mono">{criterion.code}</span>
+      ),
+      isSortable: true,
+    },
+    {
       id: 'name',
       header: 'Criteria Name',
       cell: (criterion: AuditCriteria) => (
         <div className="flex items-center gap-2">
-          <FileCheck className="h-4 w-4 text-gray-500" />
           <span className="font-medium">{criterion.name}</span>
         </div>
       ),
@@ -300,14 +346,6 @@ const AuditCriteriaPage = () => {
       id: 'transitionType',
       header: 'Transition Level',
       cell: (criterion: AuditCriteria) => getTransitionTypeBadge(criterion.transitionType),
-      isSortable: true,
-    },
-    {
-      id: 'code',
-      header: 'Code',
-      cell: (criterion: AuditCriteria) => (
-        <span className="text-sm text-gray-500 font-mono">{criterion.code}</span>
-      ),
       isSortable: true,
     },
     {
@@ -385,6 +423,8 @@ const AuditCriteriaPage = () => {
         activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+        sorting={sorting}
+        onSortingChange={handleSortingChange}
       />
 
       <ConfirmDialog
