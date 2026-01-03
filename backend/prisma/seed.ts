@@ -29,6 +29,7 @@ import { seedWasteManagement } from './seeds/waste-management.seed';
 import { seedManHours } from './seeds/man-hours.seed';
 import { seedMailTemplates } from './seeds/mail-templates.seed';
 import { seedMasterApprovals } from './seeds/master-approvals.seed';
+import { seedAuditPolicy } from './seeds/audit-policy.seed';
 
 const prisma = new PrismaClient();
 
@@ -147,6 +148,10 @@ async function main() {
       await prisma.setting.deleteMany();
       await prisma.fileCategory.deleteMany();
       await prisma.fileStorageProvider.deleteMany();
+      // Clear audit policy data
+      await prisma.auditCriteria.deleteMany();
+      await prisma.auditClause.deleteMany();
+      await prisma.auditElement.deleteMany();
       console.log('All existing data cleared successfully');
     } else {
       // Clear only the specified table
@@ -309,10 +314,16 @@ async function main() {
         case 'man-hours':
           await prisma.manHour.deleteMany();
           break;
+        case 'audit_policy':
+        case 'audit-policy':
+          await prisma.auditCriteria.deleteMany();
+          await prisma.auditClause.deleteMany();
+          await prisma.auditElement.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
           console.log(
-            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours',
+            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, audit-policy',
           );
           process.exit(1);
       }
@@ -547,6 +558,13 @@ async function main() {
             break;
           }
           await seedMasterApprovals(prisma);
+          break;
+        case 'audit_policy':
+        case 'audit-policy':
+          await prisma.auditCriteria.deleteMany();
+          await prisma.auditClause.deleteMany();
+          await prisma.auditElement.deleteMany();
+          await seedAuditPolicy(prisma);
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);
