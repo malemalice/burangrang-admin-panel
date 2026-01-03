@@ -202,6 +202,13 @@ export class AuditCriteriaService {
   async findOne(id: string): Promise<AuditCriteriaDto> {
     const criteria = await this.prisma.auditCriteria.findUnique({
       where: { id },
+      include: {
+        auditClause: {
+          include: {
+            auditElement: true,
+          },
+        },
+      },
     });
 
     this.errorHandler.throwIfNotFoundById('AuditCriteria', id, criteria);
