@@ -336,6 +336,209 @@ const auditCriteria = [
   { code: '12.5.1', clauseCode: '12.5', name: 'The company has a system that ensures compliance with licensing or qualification requirements in accordance with laws and regulations to carry out special tasks, carry out work or operate equipment.', description: 'The company identifies training needs that are indeed required in the legislation. Look at the existing TNA or training matrices. Some of the trainings are; General K3 Expert: Permenaker 02/MEN/1992, Company doctor : Permenaker 01/MEN/1976, Paramedic : Permenaker No.Per. 01/MEN/1979, Welder : Permenaker No. Per.02/MEN/1982, Steam Operator : Permenaker 01/MEN/1988, Fire Team : Kepmenaker 186/MEN/1999, Chemical K3 Expert and Chemical K3 Officer : Kepmenaker No. Kep. 187/MEN/1999, First Aid Officer : Permenakertrans No.Per.15/VII/2008, Lifting and hauling operators : Permenaker 09/MEN/2010', order: 1 },
 ];
 
+// Transition type mapping based on Grouping CSV
+const transitionTypeMap: Record<string, TransitionTypeEnum> = {
+  // Element 1 - INITIAL
+  '1.1.1': TransitionTypeEnum.INITIAL,
+  '1.1.3': TransitionTypeEnum.INITIAL,
+  '1.2.2': TransitionTypeEnum.INITIAL,
+  '1.2.4': TransitionTypeEnum.INITIAL,
+  '1.2.5': TransitionTypeEnum.INITIAL,
+  '1.2.6': TransitionTypeEnum.INITIAL,
+  '1.3.3': TransitionTypeEnum.INITIAL,
+  '1.4.1': TransitionTypeEnum.INITIAL,
+  '1.4.3': TransitionTypeEnum.INITIAL,
+  '1.4.4': TransitionTypeEnum.INITIAL,
+  '1.4.5': TransitionTypeEnum.INITIAL,
+  '1.4.6': TransitionTypeEnum.INITIAL,
+  '1.4.7': TransitionTypeEnum.INITIAL,
+  '1.4.8': TransitionTypeEnum.INITIAL,
+  '1.4.9': TransitionTypeEnum.INITIAL,
+  // Element 1 - TRANSITION_LEVEL
+  '1.1.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '1.2.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '1.2.3': TransitionTypeEnum.TRANSITION_LEVEL,
+  '1.3.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '1.4.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 1 - ADVANCE_LEVEL
+  '1.1.4': TransitionTypeEnum.ADVANCE_LEVEL,
+  '1.1.5': TransitionTypeEnum.ADVANCE_LEVEL,
+  '1.2.7': TransitionTypeEnum.ADVANCE_LEVEL,
+  '1.3.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  '1.4.10': TransitionTypeEnum.ADVANCE_LEVEL,
+  '1.4.11': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 2 - INITIAL
+  '2.1.1': TransitionTypeEnum.INITIAL,
+  '2.4.1': TransitionTypeEnum.INITIAL,
+  // Element 2 - TRANSITION_LEVEL
+  '2.1.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '2.1.3': TransitionTypeEnum.TRANSITION_LEVEL,
+  '2.1.4': TransitionTypeEnum.TRANSITION_LEVEL,
+  '2.2.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '2.3.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '2.3.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '2.3.4': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 2 - ADVANCE_LEVEL
+  '2.1.5': TransitionTypeEnum.ADVANCE_LEVEL,
+  '2.1.6': TransitionTypeEnum.ADVANCE_LEVEL,
+  '2.2.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  '2.2.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  '2.3.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 3 - INITIAL
+  '3.1.1': TransitionTypeEnum.INITIAL,
+  '3.2.2': TransitionTypeEnum.INITIAL,
+  // Element 3 - TRANSITION_LEVEL
+  '3.1.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '3.1.3': TransitionTypeEnum.TRANSITION_LEVEL,
+  '3.1.4': TransitionTypeEnum.TRANSITION_LEVEL,
+  '3.2.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 3 - ADVANCE_LEVEL
+  '3.2.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  '3.2.4': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 4 - INITIAL
+  '4.1.1': TransitionTypeEnum.INITIAL,
+  // Element 4 - TRANSITION_LEVEL
+  '4.1.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '4.2.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '4.2.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 4 - ADVANCE_LEVEL
+  '4.1.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  '4.1.4': TransitionTypeEnum.ADVANCE_LEVEL,
+  '4.2.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 5 - INITIAL
+  '5.1.1': TransitionTypeEnum.INITIAL,
+  '5.1.2': TransitionTypeEnum.INITIAL,
+  '5.2.1': TransitionTypeEnum.INITIAL,
+  // Element 5 - TRANSITION_LEVEL
+  '5.1.3': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 5 - ADVANCE_LEVEL
+  '5.1.4': TransitionTypeEnum.ADVANCE_LEVEL,
+  '5.1.5': TransitionTypeEnum.ADVANCE_LEVEL,
+  '5.3.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  '5.4.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  '5.4.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 6 - INITIAL
+  '6.1.1': TransitionTypeEnum.INITIAL,
+  '6.1.5': TransitionTypeEnum.INITIAL,
+  '6.1.6': TransitionTypeEnum.INITIAL,
+  '6.1.7': TransitionTypeEnum.INITIAL,
+  '6.2.1': TransitionTypeEnum.INITIAL,
+  '6.3.1': TransitionTypeEnum.INITIAL,
+  '6.3.2': TransitionTypeEnum.INITIAL,
+  '6.4.1': TransitionTypeEnum.INITIAL,
+  '6.4.2': TransitionTypeEnum.INITIAL,
+  '6.4.3': TransitionTypeEnum.INITIAL,
+  '6.4.4': TransitionTypeEnum.INITIAL,
+  '6.5.2': TransitionTypeEnum.INITIAL,
+  '6.5.3': TransitionTypeEnum.INITIAL,
+  '6.5.4': TransitionTypeEnum.INITIAL,
+  '6.5.7': TransitionTypeEnum.INITIAL,
+  '6.5.8': TransitionTypeEnum.INITIAL,
+  '6.5.9': TransitionTypeEnum.INITIAL,
+  '6.7.4': TransitionTypeEnum.INITIAL,
+  '6.7.6': TransitionTypeEnum.INITIAL,
+  '6.8.1': TransitionTypeEnum.INITIAL,
+  '6.8.2': TransitionTypeEnum.INITIAL,
+  // Element 6 - TRANSITION_LEVEL
+  '6.1.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.1.3': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.1.4': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.2.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.2.3': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.2.4': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.2.5': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.5.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.5.5': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.5.6': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.5.10': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 6 - ADVANCE_LEVEL
+  '6.1.8': TransitionTypeEnum.ADVANCE_LEVEL,
+  '6.6.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  '6.6.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  '6.7.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  '6.7.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  '6.7.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  '6.7.5': TransitionTypeEnum.ADVANCE_LEVEL,
+  '6.7.7': TransitionTypeEnum.ADVANCE_LEVEL,
+  '6.9.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 7 - INITIAL
+  '7.1.1': TransitionTypeEnum.INITIAL,
+  '7.2.1': TransitionTypeEnum.INITIAL,
+  '7.2.2': TransitionTypeEnum.INITIAL,
+  '7.2.3': TransitionTypeEnum.INITIAL,
+  '7.4.1': TransitionTypeEnum.INITIAL,
+  '7.4.3': TransitionTypeEnum.INITIAL,
+  '7.4.4': TransitionTypeEnum.INITIAL,
+  '7.4.5': TransitionTypeEnum.INITIAL,
+  // Element 7 - TRANSITION_LEVEL
+  '7.1.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '7.1.3': TransitionTypeEnum.TRANSITION_LEVEL,
+  '7.1.4': TransitionTypeEnum.TRANSITION_LEVEL,
+  '7.1.5': TransitionTypeEnum.TRANSITION_LEVEL,
+  '7.1.6': TransitionTypeEnum.TRANSITION_LEVEL,
+  '7.1.7': TransitionTypeEnum.TRANSITION_LEVEL,
+  '7.4.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 7 - ADVANCE_LEVEL
+  '7.3.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  '7.3.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 8 - INITIAL
+  '8.3.1': TransitionTypeEnum.INITIAL,
+  // Element 8 - TRANSITION_LEVEL
+  '8.1.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '8.2.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '8.3.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 8 - ADVANCE_LEVEL
+  '8.3.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  '8.3.4': TransitionTypeEnum.ADVANCE_LEVEL,
+  '8.3.5': TransitionTypeEnum.ADVANCE_LEVEL,
+  '8.3.6': TransitionTypeEnum.ADVANCE_LEVEL,
+  '8.4.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 9 - INITIAL
+  '9.1.1': TransitionTypeEnum.INITIAL,
+  '9.1.2': TransitionTypeEnum.INITIAL,
+  '9.2.1': TransitionTypeEnum.INITIAL,
+  '9.2.3': TransitionTypeEnum.INITIAL,
+  '9.3.1': TransitionTypeEnum.INITIAL,
+  '9.3.3': TransitionTypeEnum.INITIAL,
+  '9.3.4': TransitionTypeEnum.INITIAL,
+  // Element 9 - TRANSITION_LEVEL
+  '9.1.3': TransitionTypeEnum.TRANSITION_LEVEL,
+  '9.1.4': TransitionTypeEnum.TRANSITION_LEVEL,
+  '9.3.5': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 9 - ADVANCE_LEVEL
+  '9.2.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  '9.3.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 10 - TRANSITION_LEVEL
+  '10.1.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '10.1.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '10.2.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '10.2.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 10 - ADVANCE_LEVEL
+  '10.1.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  '10.1.4': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 11 - ADVANCE_LEVEL
+  '11.1.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  '11.1.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  '11.1.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 12 - INITIAL
+  '12.2.1': TransitionTypeEnum.INITIAL,
+  '12.2.2': TransitionTypeEnum.INITIAL,
+  '12.3.1': TransitionTypeEnum.INITIAL,
+  '12.5.1': TransitionTypeEnum.INITIAL,
+  // Element 12 - TRANSITION_LEVEL
+  '12.1.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '12.1.4': TransitionTypeEnum.TRANSITION_LEVEL,
+  '12.1.5': TransitionTypeEnum.TRANSITION_LEVEL,
+  '12.1.6': TransitionTypeEnum.TRANSITION_LEVEL,
+  '12.3.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '12.4.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 12 - ADVANCE_LEVEL
+  '12.1.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  '12.1.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  '12.1.7': TransitionTypeEnum.ADVANCE_LEVEL,
+  '12.3.3': TransitionTypeEnum.ADVANCE_LEVEL,
+};
+
 export async function seedAuditPolicy(prisma: PrismaClient) {
   console.log('Creating audit policy data...');
 
@@ -397,7 +600,7 @@ export async function seedAuditPolicy(prisma: PrismaClient) {
           name: criterion.name,
           description: criterion.description,
           auditClauseId: clauseMap.get(criterion.clauseCode)!,
-          transitionType: TransitionTypeEnum.INITIAL,
+          transitionType: transitionTypeMap[criterion.code] || TransitionTypeEnum.INITIAL,
           order: criterion.order,
           isActive: true,
         },
