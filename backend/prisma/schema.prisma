@@ -1779,6 +1779,75 @@ enum GeneralStatusEnum {
   REJECTED
 }
 
+enum TransitionTypeEnum {
+  INITIAL
+  TRANSITION_LEVEL
+  ADVANCE_LEVEL
+}
+
+// ============================================================
+// AUDIT SYSTEM - Master Data
+// ============================================================
+
+// Audit Element - Master Data
+model AuditElement {
+  id          String        @id @default(uuid())
+  name        String
+  code        String        @unique
+  description String?      @db.Text
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  clauses AuditClause[]
+
+  @@map("m_audit_element")
+}
+
+// Audit Clause - Master Data
+model AuditClause {
+  id             String        @id @default(uuid())
+  name           String
+  code           String        @unique
+  description    String?      @db.Text
+  auditElementId String
+  order          Int
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  auditElement AuditElement  @relation(fields: [auditElementId], references: [id])
+  criteria     AuditCriteria[]
+
+  @@index([auditElementId])
+  @@index([order])
+  @@map("m_audit_clause")
+}
+
+// Audit Criteria - Master Data
+model AuditCriteria {
+  id             String            @id @default(uuid())
+  name           String
+  code           String            @unique
+  description    String?           @db.Text
+  auditClauseId  String
+  transitionType TransitionTypeEnum
+  order          Int
+  isActive       Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  // Relations
+  auditClause AuditClause @relation(fields: [auditClauseId], references: [id])
+  // auditItems  AuditItem[] // Will be added when AuditItem model is created
+
+  @@index([auditClauseId])
+  @@index([order])
+  @@map("m_audit_criteria")
+}
+
 // ============================================================
 // WASTEWATER MANAGEMENT - Master Data
 // ============================================================

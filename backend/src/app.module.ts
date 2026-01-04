@@ -41,6 +41,7 @@ import { AreasModule } from './modules/areas/areas.module';
 import { WasteManagementModule } from './modules/waste-management/waste-management.module';
 import { ManHoursModule } from './modules/man-hours/man-hours.module';
 import { InspectionsModule } from './modules/inspections/inspections.module';
+import { AuditPolicyModule } from './modules/audit-policy/audit-policy.module';
 
 @Module({
   imports: [
@@ -86,6 +87,8 @@ import { InspectionsModule } from './modules/inspections/inspections.module';
     ManHoursModule,
     // Inspections Module
     InspectionsModule,
+    // Audit Policy Module
+    AuditPolicyModule,
   ],
   providers: [
     Reflector,

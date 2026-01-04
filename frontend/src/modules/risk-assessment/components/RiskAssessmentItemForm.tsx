@@ -53,10 +53,10 @@ interface RiskAssessmentItemFormProps {
 
 interface RiskMatrixEntry {
   id: string;
-  likelihoodLevel: number;
+  likelihoodLevel: number; // Stored as Int in DB, but represents A=1, B=2, C=3, etc.
   likelihoodName: string;
   likelihoodDesc: string;
-  consequenceLevel: string; // A, B, C, D, E, etc. (dynamic)
+  consequenceLevel: string; // Stored as String in DB (A, B, C, D, E, etc.)
   consequenceName: string;
   consequenceDesc: string;
   risk_rating: string;
@@ -88,6 +88,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
   }));
 
   // Generate likelihood level options from risk matrix data
+  // Likelihood should be displayed as alphabet (A, B, C, etc.) where A=1, B=2, C=3, etc.
   const likelihoodOptions = useMemo(() => {
     if (!riskMatrixData || riskMatrixData.length === 0) return [];
     
@@ -107,14 +108,21 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
       ).values()
     ).sort((a, b) => a.level - b.level);
 
-    return uniqueLikelihoods.map(likelihood => ({
-      value: likelihood.level.toString(),
-      label: `${likelihood.level} - ${likelihood.name}`,
-      description: likelihood.desc,
-    }));
+    // Convert numeric level to alphabet (1=A, 2=B, 3=C, etc.)
+    return uniqueLikelihoods.map(likelihood => {
+      const letter = String.fromCharCode(64 + likelihood.level); // 1->A, 2->B, 3->C, etc.
+      return {
+        value: likelihood.level.toString(), // Store as number for DB
+        label: `${letter} - ${likelihood.name}`,
+        description: likelihood.desc,
+        letter: letter, // Store the letter for display
+      };
+    });
   }, [riskMatrixData]);
 
-  // Generate consequence level options from risk matrix data, sorted alphabetically
+  // Generate consequence level options from risk matrix data
+  // Consequence should be displayed as numeric (1, 2, 3, etc.)
+  // Note: In DB, consequenceLevel is stored as String (A, B, C, etc.), but we need to convert to numeric for display
   const consequenceOptions = useMemo(() => {
     if (!riskMatrixData || riskMatrixData.length === 0) return [];
     
@@ -134,23 +142,36 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
       ).values()
     ).sort((a, b) => a.level.localeCompare(b.level)); // Sort alphabetically
 
-    // Map consequence letters to numbers (A=1, B=2, C=3, D=4, E=5, etc.)
-    return uniqueConsequences.map((consequence, index) => ({
-      value: (index + 1).toString(), // Use index+1 as the numeric value (1, 2, 3, 4, 5, etc.)
-      label: `${consequence.level} - ${consequence.name}`,
-      description: consequence.desc,
-      letter: consequence.level, // Store the letter for mapping
-    }));
+    // Convert consequence letters to numbers (A=1, B=2, C=3, D=4, E=5, etc.)
+    return uniqueConsequences.map((consequence, index) => {
+      const numericValue = index + 1; // 1, 2, 3, 4, 5, etc.
+      return {
+        value: numericValue.toString(), // Store as number for DB
+        label: `${numericValue} - ${consequence.name}`,
+        description: consequence.desc,
+        letter: consequence.level, // Store the letter for DB lookup
+        numericValue: numericValue,
+      };
+    });
   }, [riskMatrixData]);
 
-  // Create mapping from consequence number (1-N) to letter (A-Z)
+  // Create mapping from consequence number (1-N) to letter (A-Z) for DB lookup
   const consequenceNumberToLetter = useMemo(() => {
     const mapping: Record<number, string> = {};
-    consequenceOptions.forEach((option, index) => {
-      mapping[index + 1] = option.letter;
+    consequenceOptions.forEach((option) => {
+      mapping[option.numericValue] = option.letter;
     });
     return mapping;
   }, [consequenceOptions]);
+
+  // Create mapping from likelihood number (1-N) to letter (A-Z) for display
+  const likelihoodNumberToLetter = useMemo(() => {
+    const mapping: Record<number, string> = {};
+    likelihoodOptions.forEach((option) => {
+      mapping[parseInt(option.value, 10)] = option.letter;
+    });
+    return mapping;
+  }, [likelihoodOptions]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -439,19 +460,20 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
 
     if (!likelihoodLevel || !consequenceLevel) return;
 
-    // Convert consequence level number (1-N) to uppercase letter (A-Z) using dynamic mapping
-    const consequenceLetter = consequenceNumberToLetter[consequenceLevel];
-    if (!consequenceLetter) {
-      toast.error('Invalid consequence level');
+    // Convert likelihood level number (1-N) to uppercase letter (A-Z) using dynamic mapping
+    const likelihoodLetter = likelihoodNumberToLetter[likelihoodLevel];
+    if (!likelihoodLetter) {
+      toast.error('Invalid likelihood level');
       return;
     }
 
     try {
-      const response = await riskAssessmentService.calculateRiskRating(likelihoodLevel, consequenceLetter.toUpperCase());
+      // Pass likelihood as string (A, B, C, etc.) and consequence as number (1, 2, 3, etc.)
+      const response = await riskAssessmentService.calculateRiskRating(likelihoodLetter.toUpperCase(), consequenceLevel);
       const interpretation = response.interpretation || response.riskLevel?.description?.split(' ')[0].toUpperCase();
       
-      // Generate the combination code (e.g., A1, B2, B4)
-      const riskMatrixCode = getRiskRatingCode(consequenceLevel, likelihoodLevel);
+      // Generate the combination code (e.g., A3, B2, B4) - format: {likelihoodLetter}{consequenceNumber}
+      const riskMatrixCode = getRiskRatingCode(likelihoodLevel, consequenceLevel);
       
       if (isPostControl) {
         form.setValue('postRiskMatrixRating', riskMatrixCode);
@@ -505,28 +527,34 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
   };
 
   // Get risk rating code from backend risk matrix data
-  const getRiskRatingCode = useCallback((consequenceLevel: number, likelihoodLevel: number): string => {
-    if (!riskMatrixData || riskMatrixData.length === 0 || !consequenceNumberToLetter) return '';
+  // Format: {likelihoodLetter}{consequenceNumber} e.g., "A3" means likelihood A (level 1) and consequence 3
+  const getRiskRatingCode = useCallback((likelihoodLevel: number, consequenceLevel: number): string => {
+    if (!riskMatrixData || riskMatrixData.length === 0 || !likelihoodNumberToLetter || !consequenceNumberToLetter) return '';
     
-    // Convert consequence level number (1-N) to letter code (A-Z) using dynamic mapping
-    const consequenceCode = consequenceNumberToLetter[consequenceLevel];
-    if (!consequenceCode) return '';
+    // Convert likelihood level number (1-N) to letter code (A-Z) using dynamic mapping
+    const likelihoodLetter = likelihoodNumberToLetter[likelihoodLevel];
+    if (!likelihoodLetter) return '';
     
-    // Find matching entry in risk matrix
+    // Consequence is already numeric, but we need to convert to letter for DB lookup
+    const consequenceLetter = consequenceNumberToLetter[consequenceLevel];
+    if (!consequenceLetter) return '';
+    
+    // Find matching entry in risk matrix (DB stores likelihoodLevel as Int, consequenceLevel as String)
     const matrixEntry = riskMatrixData.find(
-      (entry) => entry.likelihoodLevel === likelihoodLevel && entry.consequenceLevel === consequenceCode
+      (entry) => entry.likelihoodLevel === likelihoodLevel && entry.consequenceLevel === consequenceLetter
     );
     
-    if (!matrixEntry) return `${consequenceCode}${likelihoodLevel}`;
+    // Format: {likelihoodLetter}{consequenceNumber} e.g., "A3"
+    if (!matrixEntry) return `${likelihoodLetter}${consequenceLevel}`;
     
-    return `${matrixEntry.consequenceLevel}${matrixEntry.likelihoodLevel}`;
-  }, [riskMatrixData, consequenceNumberToLetter]);
+    return `${likelihoodLetter}${consequenceLevel}`;
+  }, [riskMatrixData, likelihoodNumberToLetter, consequenceNumberToLetter]);
 
   // Sync risk rating when likelihood or consequence changes (pre-control)
   useEffect(() => {
     if (!likelihoodLevel || !consequenceLevel) return;
     
-    const riskCode = getRiskRatingCode(consequenceLevel, likelihoodLevel);
+    const riskCode = getRiskRatingCode(likelihoodLevel, consequenceLevel);
     const currentValue = form.getValues('riskMatrixRating');
     
     if (riskCode && currentValue !== riskCode) {
@@ -538,7 +566,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
   useEffect(() => {
     if (!postLikelihoodLevel || !postConsequenceLevel) return;
     
-    const postRiskCode = getRiskRatingCode(postConsequenceLevel, postLikelihoodLevel);
+    const postRiskCode = getRiskRatingCode(postLikelihoodLevel, postConsequenceLevel);
     const currentValue = form.getValues('postRiskMatrixRating');
     
     if (postRiskCode && currentValue !== postRiskCode) {
@@ -720,7 +748,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
             control={form.control}
             name="riskMatrixRating"
             render={({ field }) => {
-              const riskCode = getRiskRatingCode(consequenceLevel, likelihoodLevel);
+              const riskCode = getRiskRatingCode(likelihoodLevel, consequenceLevel);
               
               return (
                 <FormItem>
@@ -877,7 +905,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
               control={form.control}
               name="postRiskMatrixRating"
               render={({ field }) => {
-                const postRiskCode = getRiskRatingCode(postConsequenceLevel, postLikelihoodLevel);
+                const postRiskCode = getRiskRatingCode(postLikelihoodLevel, postConsequenceLevel);
                 
                 return (
                   <FormItem>
