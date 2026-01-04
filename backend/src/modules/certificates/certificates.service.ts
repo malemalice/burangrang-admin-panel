@@ -14,6 +14,8 @@ import { CreateCertificateRenewalDto } from './dto/create-certificate-renewal.dt
 import { UpdateCertificateRenewalDto } from './dto/update-certificate-renewal.dto';
 import { CertificateRenewalDto } from './dto/certificate-renewal.dto';
 import { CertificateReminderDto } from './dto/certificate-reminder.dto';
+import { RemindersService } from '../reminders/reminders.service';
+import { ReminderRepeatTypeEnum } from '../reminders/dto/reminder.dto';
 
 @Injectable()
 export class CertificatesService {
@@ -41,6 +43,7 @@ export class CertificatesService {
         private prisma: PrismaService,
         private errorHandler: ErrorHandlingService,
         private dtoMapper: DtoMapperService,
+        private remindersService: RemindersService,
     ) {
         // Initialize mappers
         this.categoryMapper = this.dtoMapper.createSimpleMapper(CertificateCategoryDto);
@@ -314,26 +317,90 @@ export class CertificatesService {
                 },
             });
 
-            // Create reminder for certificate expiry
-            const reminderDays = createCertificateDto.reminderDays || 30;
-            const validityDate = new Date(createCertificateDto.validityDate);
-            const reminderDate = new Date(validityDate);
-            reminderDate.setDate(validityDate.getDate() - reminderDays);
-
-            // Only create reminder if reminder date is in the future
-            if (reminderDate > new Date()) {
-                await this.prisma.certificateReminder.create({
-                    data: {
-                        certificateId: certificate.id,
-                        reminderDate: reminderDate,
-                        recipientId: createdBy,
-                        isSent: false,
-                    },
-                });
-            }
+            // Create chained reminders using General Reminder System
+            await this.createChainedReminders(certificate, createdBy);
 
             return this.certificateMapper(certificate);
         }, 'create certificate');
+    }
+
+    private async createChainedReminders(certificate: any, userId: string) {
+        const validityDate = new Date(certificate.validityDate);
+        const now = new Date();
+        const certificateTitle = certificate.certificateName || certificate.certificateNumber;
+
+        // Calculate thresholds
+        const oneMonthBefore = new Date(validityDate);
+        oneMonthBefore.setMonth(validityDate.getMonth() - 1);
+
+        const oneDayBefore = new Date(validityDate);
+        oneDayBefore.setDate(validityDate.getDate() - 1);
+
+        // 1. Monthly Reminder: > 1 month remaining
+        // Repeats monthly until 1 month before expiry
+        if (oneMonthBefore > now) {
+            // Ensure remindAt is in future (e.g., +1 hour from now for safety, or tomorrow)
+            // Strategy: Start reminder cycle soon, repeat monthly
+            const startMonthly = new Date(now);
+            startMonthly.setHours(startMonthly.getHours() + 1);
+
+            await this.remindersService.create({
+                message: `Certificate "${certificateTitle}" will expire on ${validityDate.toLocaleDateString()} (Monthly Check)`,
+                remindAt: startMonthly.toISOString(),
+                repeatType: ReminderRepeatTypeEnum.MONTHLY,
+                repeatUntil: oneMonthBefore.toISOString(),
+                entity: 't_certificates',
+                entityId: certificate.id,
+            }, userId);
+        }
+
+        // 2. Weekly Reminder: < 1 month remaining
+        // Repeats weekly from (Validity - 1 Month) until (Validity - 1 Day)
+        if (oneDayBefore > now) {
+            let startWeekly = new Date(oneMonthBefore);
+
+            // If we are already past the 1-month mark, start weekly reminder soon
+            if (startWeekly <= now) {
+                startWeekly = new Date(now);
+                startWeekly.setHours(startWeekly.getHours() + 1);
+            }
+
+            // Only create if repeatUntil (oneDayBefore) is after startWeekly
+            if (oneDayBefore > startWeekly) {
+                await this.remindersService.create({
+                    message: `Certificate "${certificateTitle}" expires soon! Due: ${validityDate.toLocaleDateString()} (Weekly Warning)`,
+                    remindAt: startWeekly.toISOString(),
+                    repeatType: ReminderRepeatTypeEnum.WEEKLY,
+                    repeatUntil: oneDayBefore.toISOString(),
+                    entity: 't_certificates',
+                    entityId: certificate.id,
+                }, userId);
+            }
+        }
+
+        // 3. Daily Reminder: < 1 day remaining
+        // Repeats daily from (Validity - 1 Day) until Validity
+        if (validityDate > now) {
+            let startDaily = new Date(oneDayBefore);
+
+            // If we are already past the 1-day mark, start daily reminder soon
+            if (startDaily <= now) {
+                startDaily = new Date(now);
+                startDaily.setHours(startDaily.getHours() + 1);
+            }
+
+            // Only create if validityDate is after startDaily
+            if (validityDate > startDaily) {
+                await this.remindersService.create({
+                    message: `URGENT: Certificate "${certificateTitle}" expires on ${validityDate.toLocaleDateString()} (Daily Alert)`,
+                    remindAt: startDaily.toISOString(),
+                    repeatType: ReminderRepeatTypeEnum.DAILY,
+                    repeatUntil: validityDate.toISOString(),
+                    entity: 't_certificates',
+                    entityId: certificate.id,
+                }, userId);
+            }
+        }
     }
 
     async findAll(options?: FindCertificatesOptions): Promise<{

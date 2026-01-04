@@ -1308,19 +1308,29 @@ export class PPEService {
 
             this.errorHandler.throwIfNotFoundById('PPEStockItem', item.stockItemId, stockItem);
 
-            // Allow AVAILABLE and EXPIRED status for withdrawal (EXPIRED for disposal)
-            if (stockItem.status !== 'AVAILABLE' && stockItem.status !== 'EXPIRED') {
-                this.errorHandler.throwBadRequest(
-                    `Stock item ${item.stockItemId} is not available for withdrawal. Current status: ${stockItem.status}`,
-                );
-            }
-
             // Calculate available quantity (considering current reserved quantity from this withdrawal)
             const currentReservedFromThis = withdrawal.items
                 .filter((wi: any) => wi.stockItemId === item.stockItemId)
                 .reduce((sum: number, wi: any) => sum + wi.requestedQuantity, 0);
 
             const availableQuantity = stockItem.currentQuantity - (stockItem.reservedQuantity - currentReservedFromThis);
+
+            // Allow AVAILABLE and EXPIRED status for withdrawal (EXPIRED for disposal)
+            // Also allow RESERVED status if the item is reserved by this withdrawal (partially or fully)
+            // We verify this by checking if we have any reservation from this withdrawal (currentReservedFromThis > 0)
+            const isReservedByThisWithdrawal = currentReservedFromThis > 0;
+
+            if (stockItem.status !== 'AVAILABLE' && stockItem.status !== 'EXPIRED') {
+                // If status is RESERVED, it's only valid if it's reserved by THIS withdrawal
+                if (stockItem.status === 'RESERVED' && isReservedByThisWithdrawal) {
+                    // Valid case: The item is RESERVED, but because we (this withdrawal) hold some reservation
+                    // We can proceed to check quantity
+                } else {
+                    this.errorHandler.throwBadRequest(
+                        `Stock item ${item.stockItemId} is not available for withdrawal. Current status: ${stockItem.status}`,
+                    );
+                }
+            }
 
             if (item.requestedQuantity > availableQuantity) {
                 this.errorHandler.throwBadRequest(

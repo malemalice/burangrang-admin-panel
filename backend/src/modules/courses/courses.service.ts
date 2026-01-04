@@ -40,6 +40,15 @@ export class CoursesService {
         }),
         isArray: true,
       },
+      studentCount: {
+        mapper: (course: any) => {
+          if (course._count && typeof course._count.enrollments === 'number') {
+            return course._count.enrollments;
+          }
+          return course.studentCount || 0;
+        },
+        isArray: false,
+      },
       chapters: {
         mapper: (chapter: any) => ({
           id: chapter.id,
@@ -136,13 +145,8 @@ export class CoursesService {
           { title: { contains: searchTerm, mode: 'insensitive' } },
           { description: { contains: searchTerm, mode: 'insensitive' } },
           { shortDescription: { contains: searchTerm, mode: 'insensitive' } },
-          { instructor: { 
-            OR: [
-              { firstName: { contains: searchTerm, mode: 'insensitive' } },
-              { lastName: { contains: searchTerm, mode: 'insensitive' } },
-              { email: { contains: searchTerm, mode: 'insensitive' } },
-            ]
-          }},
+          // Removed instructor search to prevent irrelevant matches and performance issues
+          // Only search within course content
         ];
       }
     }
@@ -213,6 +217,11 @@ export class CoursesService {
         chapters: {
           orderBy: { order: 'asc' }
         },
+        _count: {
+          select: {
+            enrollments: true,
+          },
+        },
       },
     });
 
@@ -243,7 +252,7 @@ export class CoursesService {
     const existingCourse = await this.prisma.course.findUnique({
       where: { id },
     });
-    
+
     this.errorHandler.throwIfNotFoundById('Course', id, existingCourse);
 
     // Handle slug update
@@ -366,11 +375,11 @@ export class CoursesService {
       published,
       draft,
       byDifficulty: { beginner, intermediate, advanced },
-      byStatus: { 
-        draft: statusDraft, 
-        review: statusReview, 
-        published: statusPublished, 
-        archived: statusArchived 
+      byStatus: {
+        draft: statusDraft,
+        review: statusReview,
+        published: statusPublished,
+        archived: statusArchived
       },
     };
   }

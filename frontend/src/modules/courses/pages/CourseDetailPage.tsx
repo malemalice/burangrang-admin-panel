@@ -230,7 +230,7 @@ const CourseDetailPage = () => {
             <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit Course
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}/chapters`)}>
+            <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}?tab=chapters`)}>
               <BookOpen className="mr-2 h-4 w-4" /> Manage Chapters
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -242,7 +242,7 @@ const CourseDetailPage = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="chapters">Chapters ({totalChapters})</TabsTrigger>
-          <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
+          <TabsTrigger value="quizzes">Quizzes ({quizzes.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
