@@ -571,6 +571,7 @@ const QuizDetailPage = () => {
         onConfirm={handleDeleteConfirm}
         title="Delete Quiz"
         description={`Are you sure you want to delete "${quiz.title}"? This action cannot be undone.`}
+        variant="destructive"
       />
     </div>
   );

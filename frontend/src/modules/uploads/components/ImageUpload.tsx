@@ -20,6 +20,8 @@ interface ImageUploadProps {
   onFileSelect?: (file: File | null) => void;
   // Media type for existing files (stored from previous upload)
   mediaType?: string;
+  // Unique ID for the file input (required when multiple instances exist on same page)
+  id?: string;
 }
 
 const ImageUpload = ({
@@ -34,6 +36,7 @@ const ImageUpload = ({
   entityId,
   onFileSelect,
   mediaType,
+  id,
 }: ImageUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(value || null);
@@ -144,14 +147,14 @@ const ImageUpload = ({
           {/* Determine media type based on URL, file extension, or mediaType prop */}
           {(() => {
             const isVideo = mediaType?.startsWith('video/') ||
-                           preview.includes('video') || 
-                           preview.match(/\.(mp4|webm|ogg|mov)($|\?)/i) ||
-                           selectedFile?.type.startsWith('video/');
+              preview.includes('video') ||
+              preview.match(/\.(mp4|webm|ogg|mov)($|\?)/i) ||
+              selectedFile?.type.startsWith('video/');
             const isAudio = mediaType?.startsWith('audio/') ||
-                           preview.includes('audio') || 
-                           preview.match(/\.(mp3|wav|ogg|aac|mpeg)($|\?)/i) ||
-                           selectedFile?.type.startsWith('audio/');
-            
+              preview.includes('audio') ||
+              preview.match(/\.(mp3|wav|ogg|aac|mpeg)($|\?)/i) ||
+              selectedFile?.type.startsWith('audio/');
+
             if (isVideo) {
               return (
                 <video
@@ -206,9 +209,9 @@ const ImageUpload = ({
             onChange={handleFileSelect}
             disabled={disabled || isUploading}
             className="hidden"
-            id={`file-upload-${categoryName}`}
+            id={id || `file-upload-${categoryName}`}
           />
-          <label htmlFor={`file-upload-${categoryName}`}>
+          <label htmlFor={id || `file-upload-${categoryName}`}>
             <Button
               type="button"
               variant="outline"
