@@ -96,6 +96,11 @@ async function main() {
       await prisma.workPermitSupervisorToGuest.deleteMany();
       await prisma.workPermit.deleteMany();
       await prisma.guest.deleteMany();
+      // Clear Inspection data (before User deletion)
+      await prisma.inspectionImage.deleteMany();
+      await prisma.inspectionInspector.deleteMany();
+      await prisma.inspectionItem.deleteMany();
+      await prisma.inspection.deleteMany();
       // Clear Environmental Measurements and Rooms
       await prisma.environmentalMeasurement.deleteMany();
       await prisma.room.deleteMany();
@@ -118,6 +123,12 @@ async function main() {
       await prisma.masterApproval.deleteMany();
       await prisma.fileAccessLog.deleteMany();
       await prisma.fileUpload.deleteMany();
+      // Clear RiskAssessment data (before User deletion)
+      await prisma.riskAssessmentItem.deleteMany();
+      await prisma.riskAssessment.deleteMany();
+      // Clear Reminder data (before User deletion)
+      await prisma.reminderLog.deleteMany();
+      await prisma.reminder.deleteMany();
       await prisma.user.deleteMany();
       await prisma.menu.deleteMany();
       await prisma.role.deleteMany();

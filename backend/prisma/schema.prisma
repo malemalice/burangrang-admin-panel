@@ -412,6 +412,24 @@ model Setting {
   @@map("m_settings")
 }
 
+// Zoho Webhook Logs - Transactional Data
+model TZohoWebhookLogs {
+  id          String   @id @default(uuid())
+  requestId   String   @unique // X-Zoho-Request-Id header for idempotency
+  eventType   String   // Event type (e.g., contact.created, lead.updated)
+  status      String   // processed | failed | duplicate
+  payload     Json     // Full webhook payload
+  errorMessage String? @db.Text // Error message if status is failed
+  processedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([requestId])
+  @@index([eventType])
+  @@index([status])
+  @@index([processedAt])
+  @@map("t_zoho_webhook_logs")
+}
+
 // Notification System Models
 model NotificationType {
   id            String         @id @default(uuid())
