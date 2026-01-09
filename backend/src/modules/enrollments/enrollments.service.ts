@@ -226,7 +226,7 @@ export class EnrollmentsService {
           );
 
           // Send email notification using MailService
-          await this.mailService.sendTemplatedMail({
+          const emailResult = await this.mailService.sendTemplatedMailWithResult({
             template: 'course-assignment',
             email: user.email,
             context: {
@@ -239,6 +239,26 @@ export class EnrollmentsService {
               isRequired: isRequired ? 'Yes' : 'No',
             },
           });
+
+          if (!emailResult.success) {
+            if (emailResult.skipped) {
+              console.warn(
+                `Email notification skipped for ${user.email}: ${emailResult.error}`,
+              );
+            } else {
+              console.error(
+                `Failed to send email to ${user.email}: ${emailResult.error}`,
+              );
+            }
+          } else if (emailResult.skipped) {
+            console.warn(
+              `Email notification SKIPPED for ${user.email} (SMTP not configured) - Check server logs for details`,
+            );
+          } else {
+            console.log(
+              `Email notification sent successfully to ${user.email} for course "${course.title}"`,
+            );
+          }
         } catch (error) {
           // Log error but don't fail enrollment creation
           console.error('Failed to send notification:', error);

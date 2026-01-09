@@ -29,11 +29,11 @@ import manHourService from '../services/manHourService';
 
 // Form validation schema
 const formSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
+  name: z.string().min(1, 'Name / Class is required'),
   group: z.enum(['STUDENT', 'NON_STUDENT'], {
     required_error: 'Group is required',
   }),
-  qty: z.coerce.number().min(1, 'Quantity must be at least 1'),
+  qty: z.coerce.number().min(1, 'Value must be greater or equal to 1'),
   manHourPerDay: z.coerce.number().min(0, 'Hours per day must be positive').max(24, 'Hours per day cannot exceed 24'),
   month: z.enum(['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'], {
     required_error: 'Month is required',
@@ -57,8 +57,6 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    mode: 'all',
-    criteriaMode: 'all',
     defaultValues: {
       name: manHour?.name || '',
       group: manHour?.group || 'STUDENT',
