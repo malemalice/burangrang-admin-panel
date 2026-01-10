@@ -47,6 +47,14 @@ const mapCertificateDtoToCertificate = (
         documentUrl: certificateDto.documentUrl || undefined,
         personnelId: certificateDto.personnelId || undefined,
         personnelName: certificateDto.personnelName || undefined,
+        personnel: certificateDto.personnel
+            ? {
+                id: certificateDto.personnel.id,
+                firstName: certificateDto.personnel.firstName,
+                lastName: certificateDto.personnel.lastName,
+                email: certificateDto.personnel.email,
+            }
+            : undefined,
         equipmentId: certificateDto.equipmentId || undefined,
         equipmentName: certificateDto.equipmentName || undefined,
         departmentId: certificateDto.departmentId,
