@@ -22,11 +22,11 @@ export class FindCoursesOptions {
   @IsString()
   sortBy?: string = 'createdAt';
 
-  @ApiProperty({ 
-    description: 'Sort order', 
-    required: false, 
-    enum: ['asc', 'desc'], 
-    default: 'desc' 
+  @ApiProperty({
+    description: 'Sort order',
+    required: false,
+    enum: ['asc', 'desc'],
+    default: 'desc'
   })
   @IsOptional()
   @IsEnum(['asc', 'desc'])
@@ -36,6 +36,11 @@ export class FindCoursesOptions {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiProperty({ description: 'Filter by title', required: false })
+  @IsOptional()
+  @IsString()
+  title?: string;
 
   @ApiProperty({ description: 'Filter by active status', required: false })
   @IsOptional()
@@ -57,8 +62,8 @@ export class FindCoursesOptions {
   @IsBoolean()
   isPublished?: boolean;
 
-  @ApiProperty({ 
-    description: 'Filter by course status', 
+  @ApiProperty({
+    description: 'Filter by course status',
     required: false,
     enum: ['draft', 'review', 'published', 'archived']
   })
@@ -66,8 +71,8 @@ export class FindCoursesOptions {
   @IsEnum(['draft', 'review', 'published', 'archived'])
   status?: string;
 
-  @ApiProperty({ 
-    description: 'Filter by difficulty level', 
+  @ApiProperty({
+    description: 'Filter by difficulty level',
     required: false,
     enum: ['beginner', 'intermediate', 'advanced']
   })
