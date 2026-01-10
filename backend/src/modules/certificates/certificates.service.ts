@@ -15,7 +15,10 @@ import { UpdateCertificateRenewalDto } from './dto/update-certificate-renewal.dt
 import { CertificateRenewalDto } from './dto/certificate-renewal.dto';
 import { CertificateReminderDto } from './dto/certificate-reminder.dto';
 import { RemindersService } from '../reminders/reminders.service';
-import { ReminderRepeatTypeEnum } from '../reminders/dto/reminder.dto';
+import {
+  ReminderRepeatTypeEnum,
+  ReminderTargetTypeEnum,
+} from '../reminders/dto/reminder.dto';
 
 @Injectable()
 export class CertificatesService {
@@ -344,14 +347,19 @@ export class CertificatesService {
             const startMonthly = new Date(now);
             startMonthly.setHours(startMonthly.getHours() + 1);
 
-            await this.remindersService.create({
-                message: `Certificate "${certificateTitle}" will expire on ${validityDate.toLocaleDateString()} (Monthly Check)`,
-                remindAt: startMonthly.toISOString(),
-                repeatType: ReminderRepeatTypeEnum.MONTHLY,
-                repeatUntil: oneMonthBefore.toISOString(),
-                entity: 't_certificates',
-                entityId: certificate.id,
-            }, userId);
+            await this.remindersService.create(
+                {
+                    targetType: ReminderTargetTypeEnum.USER,
+                    targetId: userId,
+                    message: `Certificate "${certificateTitle}" will expire on ${validityDate.toLocaleDateString()} (Monthly Check)`,
+                    remindAt: startMonthly.toISOString(),
+                    repeatType: ReminderRepeatTypeEnum.MONTHLY,
+                    repeatUntil: oneMonthBefore.toISOString(),
+                    entity: 't_certificates',
+                    entityId: certificate.id,
+                },
+                userId,
+            );
         }
 
         // 2. Weekly Reminder: < 1 month remaining
@@ -367,14 +375,19 @@ export class CertificatesService {
 
             // Only create if repeatUntil (oneDayBefore) is after startWeekly
             if (oneDayBefore > startWeekly) {
-                await this.remindersService.create({
-                    message: `Certificate "${certificateTitle}" expires soon! Due: ${validityDate.toLocaleDateString()} (Weekly Warning)`,
-                    remindAt: startWeekly.toISOString(),
-                    repeatType: ReminderRepeatTypeEnum.WEEKLY,
-                    repeatUntil: oneDayBefore.toISOString(),
-                    entity: 't_certificates',
-                    entityId: certificate.id,
-                }, userId);
+                await this.remindersService.create(
+                    {
+                        targetType: ReminderTargetTypeEnum.USER,
+                        targetId: userId,
+                        message: `Certificate "${certificateTitle}" expires soon! Due: ${validityDate.toLocaleDateString()} (Weekly Warning)`,
+                        remindAt: startWeekly.toISOString(),
+                        repeatType: ReminderRepeatTypeEnum.WEEKLY,
+                        repeatUntil: oneDayBefore.toISOString(),
+                        entity: 't_certificates',
+                        entityId: certificate.id,
+                    },
+                    userId,
+                );
             }
         }
 
@@ -391,14 +404,19 @@ export class CertificatesService {
 
             // Only create if validityDate is after startDaily
             if (validityDate > startDaily) {
-                await this.remindersService.create({
-                    message: `URGENT: Certificate "${certificateTitle}" expires on ${validityDate.toLocaleDateString()} (Daily Alert)`,
-                    remindAt: startDaily.toISOString(),
-                    repeatType: ReminderRepeatTypeEnum.DAILY,
-                    repeatUntil: validityDate.toISOString(),
-                    entity: 't_certificates',
-                    entityId: certificate.id,
-                }, userId);
+                await this.remindersService.create(
+                    {
+                        targetType: ReminderTargetTypeEnum.USER,
+                        targetId: userId,
+                        message: `URGENT: Certificate "${certificateTitle}" expires on ${validityDate.toLocaleDateString()} (Daily Alert)`,
+                        remindAt: startDaily.toISOString(),
+                        repeatType: ReminderRepeatTypeEnum.DAILY,
+                        repeatUntil: validityDate.toISOString(),
+                        entity: 't_certificates',
+                        entityId: certificate.id,
+                    },
+                    userId,
+                );
             }
         }
     }

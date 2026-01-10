@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsEnum, IsString, IsDateString } from 'class-validator';
 import { FindAllQueryDto } from '../../../shared/types/pagination-params';
-import { ReminderStatusEnum } from './reminder.dto';
+import { ReminderStatusEnum, ReminderTargetTypeEnum } from './reminder.dto';
 
 export class FindRemindersDto extends FindAllQueryDto {
   @ApiProperty({ 
@@ -12,6 +12,24 @@ export class FindRemindersDto extends FindAllQueryDto {
   @IsOptional()
   @IsEnum(ReminderStatusEnum)
   status?: ReminderStatusEnum;
+
+  @ApiProperty({ 
+    description: 'Filter by target type',
+    enum: ReminderTargetTypeEnum,
+    required: false 
+  })
+  @IsOptional()
+  @IsEnum(ReminderTargetTypeEnum)
+  targetType?: ReminderTargetTypeEnum;
+
+  @ApiProperty({ 
+    description: 'Filter by target ID',
+    example: 'uuid-of-target',
+    required: false 
+  })
+  @IsOptional()
+  @IsString()
+  targetId?: string;
 
   @ApiProperty({ 
     description: 'Filter by entity/context',

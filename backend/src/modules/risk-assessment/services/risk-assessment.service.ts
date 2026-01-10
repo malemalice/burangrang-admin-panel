@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { CreateRiskAssessmentDto } from '../dto/create-risk-assessment.dto';
 import { UpdateRiskAssessmentDto } from '../dto/update-risk-assessment.dto';
@@ -15,7 +19,10 @@ import {
 } from '@prisma/client';
 import { ApprovalsService } from '../../approvals/approvals.service';
 import { RemindersService } from '../../reminders/reminders.service';
-import { ReminderRepeatTypeEnum } from '../../reminders/dto/reminder.dto';
+import {
+  ReminderRepeatTypeEnum,
+  ReminderTargetTypeEnum,
+} from '../../reminders/dto/reminder.dto';
 
 interface FindAllOptions {
   page?: number;
@@ -47,11 +54,12 @@ export class RiskAssessmentService {
         data: {
           ...data,
           createdBy: userId, // Use authenticated user ID from request
-          ...(items && items.length > 0 && {
-            items: {
-              create: items, // Prisma will automatically map mRiskId to mriskid column via @map
-            },
-          }),
+          ...(items &&
+            items.length > 0 && {
+              items: {
+                create: items, // Prisma will automatically map mRiskId to mriskid column via @map
+              },
+            }),
         },
         include: {
           items: {
@@ -66,8 +74,8 @@ export class RiskAssessmentService {
         },
       });
 
-      const assessmentWithRelations = await this.prisma.riskAssessment.findUnique(
-        {
+      const assessmentWithRelations =
+        await this.prisma.riskAssessment.findUnique({
           where: { id: assessment.id },
           include: {
             items: {
@@ -80,8 +88,7 @@ export class RiskAssessmentService {
             creator: true,
             assignee: true,
           },
-        },
-      );
+        });
 
       if (!assessmentWithRelations) {
         throw new NotFoundException(
@@ -89,25 +96,25 @@ export class RiskAssessmentService {
         );
       }
 
-    // Create reminder if status is SCHEDULED
-    if (assessmentWithRelations.status === GeneralStatusEnum.SCHEDULED) {
-      const reminderUserId = assessmentWithRelations.assigneeId || userId;
-      try {
-        await this.createReminderForRiskAssessment(
-          assessmentWithRelations.id,
-          assessmentWithRelations.assessmentDate,
-          reminderUserId,
-          assessmentWithRelations.code,
-        );
-      } catch (error) {
-        // Log error but don't fail the entire create operation
-        // The reminder creation failure should not prevent risk assessment creation
-        console.error(
-          `[RiskAssessment] Reminder creation failed for assessment ${assessmentWithRelations.id}, but assessment was created successfully:`,
-          error,
-        );
+      // Create reminder if status is SCHEDULED
+      if (assessmentWithRelations.status === GeneralStatusEnum.SCHEDULED) {
+        const reminderUserId = assessmentWithRelations.assigneeId || userId;
+        try {
+          await this.createReminderForRiskAssessment(
+            assessmentWithRelations.id,
+            assessmentWithRelations.assessmentDate,
+            reminderUserId,
+            assessmentWithRelations.code,
+          );
+        } catch (error) {
+          // Log error but don't fail the entire create operation
+          // The reminder creation failure should not prevent risk assessment creation
+          console.error(
+            `[RiskAssessment] Reminder creation failed for assessment ${assessmentWithRelations.id}, but assessment was created successfully:`,
+            error,
+          );
+        }
       }
-    }
 
       return this.mapToDto(assessmentWithRelations);
     } catch (error: any) {
@@ -421,7 +428,7 @@ export class RiskAssessmentService {
       // Validate that remindAt is in the future with buffer (add 1 second buffer to account for timing)
       const remindAtWithBuffer = new Date(firstReminderDate);
       remindAtWithBuffer.setSeconds(remindAtWithBuffer.getSeconds() + 1);
-      
+
       if (remindAtWithBuffer <= now) {
         console.log(
           `[RiskAssessment] Skipping reminder creation for ${assessmentId}: remindAt date (${remindAtWithBuffer.toISOString()}) is not in the future (now: ${now.toISOString()})`,
@@ -439,6 +446,8 @@ export class RiskAssessmentService {
 
       const reminder = await this.remindersService.create(
         {
+          targetType: ReminderTargetTypeEnum.USER,
+          targetId: userId,
           entity: 't_risk_assessment',
           entityId: assessmentId,
           message: `Risk Assessment ${code} is scheduled for ${assessmentDate.toLocaleDateString()}`,

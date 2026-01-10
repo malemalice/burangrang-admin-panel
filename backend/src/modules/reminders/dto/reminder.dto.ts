@@ -17,16 +17,36 @@ export enum ReminderRepeatTypeEnum {
   MONTHLY = 'MONTHLY',
 }
 
+export enum ReminderTargetTypeEnum {
+  USER = 'USER',
+  ROLE = 'ROLE',
+  DEPARTMENT = 'DEPARTMENT',
+  OFFICE = 'OFFICE',
+}
+
 export class ReminderDto {
   @ApiProperty({ description: 'Reminder unique identifier' })
   @Expose()
   @IsString()
   id: string;
 
-  @ApiProperty({ description: 'User ID who owns this reminder' })
+  @ApiProperty({ 
+    description: 'Target type - who receives this reminder',
+    enum: ReminderTargetTypeEnum
+  })
+  @Expose()
+  @IsEnum(ReminderTargetTypeEnum)
+  targetType: ReminderTargetTypeEnum;
+
+  @ApiProperty({ description: 'Target ID - userId, roleId, departmentId, or officeId' })
   @Expose()
   @IsString()
-  userId: string;
+  targetId: string;
+
+  @ApiProperty({ description: 'User ID who created this reminder' })
+  @Expose()
+  @IsString()
+  createdBy: string;
 
   @ApiProperty({ description: 'Context/module name (e.g., t_incidents, t_audits)', required: false })
   @Expose()
@@ -90,8 +110,19 @@ export class ReminderDto {
   @IsDate()
   updatedAt: Date;
 
+  // Legacy field for backward compatibility (will be removed in future)
+  @ApiProperty({ description: 'Legacy userId field - use targetId when targetType is USER', required: false })
+  @Expose()
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
   constructor(partial: Partial<ReminderDto>) {
     Object.assign(this, partial);
+    // Backward compatibility: set userId from targetId when targetType is USER
+    if (this.targetType === ReminderTargetTypeEnum.USER && this.targetId && !this.userId) {
+      this.userId = this.targetId;
+    }
   }
 }
 
