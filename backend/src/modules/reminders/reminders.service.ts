@@ -47,15 +47,44 @@ export class RemindersService {
         ? new Date(createDto.repeatUntil)
         : undefined;
 
-      // Validate dates
-      const now = new Date();
-      if (remindAt <= now) {
-        throw new Error('Remind at date must be in the future');
+      // Validate remindAt is a valid date
+      if (isNaN(remindAt.getTime())) {
+        throw new Error('Invalid remindAt date');
       }
 
-      if (repeatUntil && repeatUntil <= remindAt) {
-        throw new Error('Repeat until date must be after remind at date');
+      // Validate dates with a small buffer (1 second) to account for timing differences
+      // This helps with production timezone issues and slight timing differences
+      const now = new Date();
+      const bufferTime = new Date(now.getTime() + 1000); // Add 1 second buffer
+
+      if (remindAt <= bufferTime) {
+        console.error(
+          `[RemindersService] Validation failed: remindAt (${remindAt.toISOString()}) is not in the future. Now: ${now.toISOString()}, Buffer: ${bufferTime.toISOString()}`,
+        );
+        throw new Error(
+          `Remind at date must be in the future. Provided: ${remindAt.toISOString()}, Current: ${now.toISOString()}`,
+        );
       }
+
+      if (repeatUntil) {
+        // Validate repeatUntil is a valid date
+        if (isNaN(repeatUntil.getTime())) {
+          throw new Error('Invalid repeatUntil date');
+        }
+
+        if (repeatUntil <= remindAt) {
+          console.error(
+            `[RemindersService] Validation failed: repeatUntil (${repeatUntil.toISOString()}) must be after remindAt (${remindAt.toISOString()})`,
+          );
+          throw new Error(
+            `Repeat until date must be after remind at date. remindAt: ${remindAt.toISOString()}, repeatUntil: ${repeatUntil.toISOString()}`,
+          );
+        }
+      }
+
+      console.log(
+        `[RemindersService] Creating reminder: userId=${userId}, entity=${createDto.entity}, entityId=${createDto.entityId}, remindAt=${remindAt.toISOString()}, repeatUntil=${repeatUntil?.toISOString() || 'null'}`,
+      );
 
       const reminder = await this.prisma.reminder.create({
         data: {
@@ -70,6 +99,10 @@ export class RemindersService {
           status: 'PENDING',
         },
       });
+
+      console.log(
+        `[RemindersService] Successfully created reminder ${reminder.id} for user ${userId}`,
+      );
 
       return this.reminderMapper(reminder);
     }, 'Creating reminder');
@@ -148,8 +181,18 @@ export class RemindersService {
         ];
       }
 
+      // Debug logging for production troubleshooting
+      console.log(
+        `[RemindersService] Finding reminders for userId=${userId}, filters:`,
+        JSON.stringify(where, null, 2),
+      );
+
       // Get total count
       const total = await this.prisma.reminder.count({ where });
+
+      console.log(
+        `[RemindersService] Found ${total} total reminders for userId=${userId}`,
+      );
 
       // Get paginated data
       const reminders = await this.prisma.reminder.findMany({
@@ -158,6 +201,10 @@ export class RemindersService {
         skip: (pageNum - 1) * limitNum,
         take: limitNum,
       });
+
+      console.log(
+        `[RemindersService] Returning ${reminders.length} reminders (page ${pageNum}, limit ${limitNum})`,
+      );
 
       return {
         data: reminders.map(this.reminderMapper),

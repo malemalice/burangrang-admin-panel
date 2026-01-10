@@ -3,17 +3,20 @@ import { PrismaClient, Permission } from '@prisma/client';
 export const roles = [
   {
     name: 'Super Admin',
+    code: 'SUPER_ADMIN',
     description: 'Has full access to all system features and settings',
     permissions: (permissions: Permission[]) => permissions.map((p) => p.id),
   },
   {
     name: 'Administrator',
+    code: 'ADMIN',
     description: 'Has access to manage users, roles, and basic system settings',
     permissions: (permissions: Permission[]) =>
       permissions.filter((p) => !p.name.startsWith('system:')).map((p) => p.id),
   },
   {
     name: 'Manager',
+    code: 'MANAGER',
     description: 'Can manage users and view reports',
     permissions: (permissions: Permission[]) =>
       permissions
@@ -28,6 +31,7 @@ export const roles = [
   },
   {
     name: 'User',
+    code: 'USER',
     description: 'Basic user with limited access',
     permissions: (permissions: Permission[]) =>
       permissions
@@ -47,6 +51,7 @@ export const roles = [
   },
   {
     name: 'Guest',
+    code: 'GUEST',
     description: 'Limited access for external users',
     permissions: (permissions: Permission[]) =>
       permissions
@@ -62,6 +67,7 @@ export async function seedRoles(prisma: PrismaClient, permissions: Permission[])
       prisma.role.upsert({
         where: { name: role.name },
         update: {
+          code: role.code,
           description: role.description,
           isActive: true,
           permissions: {
@@ -70,6 +76,7 @@ export async function seedRoles(prisma: PrismaClient, permissions: Permission[])
         },
         create: {
           name: role.name,
+          code: role.code,
           description: role.description,
           isActive: true,
           permissions: {

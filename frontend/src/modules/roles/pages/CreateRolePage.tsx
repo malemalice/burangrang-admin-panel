@@ -36,6 +36,7 @@ const CreateRolePage = () => {
   const [isLoadingPermissions, setIsLoadingPermissions] = useState(true);
   const [formData, setFormData] = useState<CreateRoleDTO>({
     name: '',
+    code: '',
     description: '',
     permissions: [],
     isActive: true,
@@ -105,6 +106,11 @@ const CreateRolePage = () => {
     // Basic form validation
     if (!formData.name.trim()) {
       setError('Role name is required');
+      return false;
+    }
+    
+    if (!formData.code.trim()) {
+      setError('Role code is required');
       return false;
     }
     
@@ -188,6 +194,19 @@ const CreateRolePage = () => {
                 placeholder="Admin"
                 required
               />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="code">Role Code</Label>
+              <Input
+                id="code"
+                name="code"
+                value={formData.code}
+                onChange={handleChange}
+                placeholder="ADMIN"
+                required
+              />
+              <p className="text-xs text-gray-500">Unique code identifier for the role (e.g., ADMIN, USER)</p>
             </div>
             
             <div className="space-y-2">
