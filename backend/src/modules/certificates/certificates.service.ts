@@ -794,20 +794,36 @@ export class CertificatesService {
 
         this.errorHandler.throwIfNotFoundById('Certificate', certificateId, certificate);
 
-        const reminders = await this.prisma.certificateReminder.findMany({
+        // Fetch from general Reminder system instead of deprecated CertificateReminder
+        const reminders = await this.prisma.reminder.findMany({
             where: {
-                certificateId,
+                entity: 't_certificates',
+                entityId: certificateId,
             },
             include: {
-                certificate: true,
-                recipient: true,
+                user: true, // recipient/owner
             },
             orderBy: {
-                reminderDate: 'desc',
+                remindAt: 'desc',
             },
         });
 
-        return this.reminderArrayMapper(reminders);
+        // Map general Reminder to CertificateReminderDto structure to maintain frontend compatibility
+        return reminders.map(reminder => {
+            const certReminder = new CertificateReminderDto({
+                id: reminder.id,
+                certificateId: reminder.entityId ?? '',
+                reminderDate: reminder.remindAt,
+                isSent: reminder.status === 'SENT',
+                sentAt: reminder.lastSentAt,
+                recipientId: reminder.userId,
+                recipient: reminder.user,
+                createdAt: reminder.createdAt,
+            });
+            // Attach certificate object as it's expected by DTO but not strictly required by frontend list
+            certReminder.certificate = certificate;
+            return certReminder;
+        });
     }
 }
 

@@ -79,6 +79,12 @@ export interface CertificateDTO {
     documentUrl?: string | null;
     personnelId?: string | null;
     personnelName?: string | null;
+    personnel?: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+    };
     equipmentId?: string | null;
     equipmentName?: string | null;
     departmentId: string;
@@ -114,6 +120,12 @@ export interface Certificate {
     documentUrl?: string;
     personnelId?: string;
     personnelName?: string;
+    personnel?: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+    };
     equipmentId?: string;
     equipmentName?: string;
     departmentId: string;
@@ -160,6 +172,12 @@ export interface UpdateCertificateDTO {
     documentUrl?: string;
     personnelId?: string;
     personnelName?: string;
+    personnel?: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+    };
     equipmentId?: string;
     equipmentName?: string;
     departmentId?: string;
@@ -304,4 +322,3 @@ export interface CertificateSearchParams {
     expired?: boolean;
     expiringSoon?: boolean;
 }
-
