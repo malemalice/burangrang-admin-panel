@@ -540,14 +540,7 @@ export class CertificatesService {
                         createdAt: 'desc',
                     },
                 },
-                reminders: {
-                    include: {
-                        recipient: true,
-                    },
-                    orderBy: {
-                        reminderDate: 'desc',
-                    },
-                },
+                // Removed reminders include - use findRemindersByCertificateId() instead for general Reminder system
             },
         });
 
@@ -800,24 +793,40 @@ export class CertificatesService {
                 entity: 't_certificates',
                 entityId: certificateId,
             },
-            include: {
-                user: true, // recipient/owner
-            },
             orderBy: {
                 remindAt: 'desc',
             },
         });
 
+        // Fetch recipients for USER type reminders
+        const recipientIds = reminders
+            .filter((r: any) => r.targetType === 'USER')
+            .map((r: any) => r.targetId);
+
+        const recipients = recipientIds.length > 0
+            ? await this.prisma.user.findMany({
+                where: {
+                    id: { in: recipientIds },
+                },
+            })
+            : [];
+
+        const recipientMap = new Map(recipients.map((u: any) => [u.id, u]));
+
         // Map general Reminder to CertificateReminderDto structure to maintain frontend compatibility
-        return reminders.map(reminder => {
+        return reminders.map((reminder: any) => {
+            // For USER type, use targetId as recipientId, otherwise use targetId (for future support of ROLE/DEPARTMENT)
+            const recipientId = reminder.targetType === 'USER' ? reminder.targetId : reminder.targetId;
+            const recipient = reminder.targetType === 'USER' ? recipientMap.get(reminder.targetId) : null;
+
             const certReminder = new CertificateReminderDto({
                 id: reminder.id,
                 certificateId: reminder.entityId ?? '',
                 reminderDate: reminder.remindAt,
                 isSent: reminder.status === 'SENT',
                 sentAt: reminder.lastSentAt,
-                recipientId: reminder.userId,
-                recipient: reminder.user,
+                recipientId,
+                recipient,
                 createdAt: reminder.createdAt,
             });
             // Attach certificate object as it's expected by DTO but not strictly required by frontend list
