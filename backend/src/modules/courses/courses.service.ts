@@ -133,11 +133,16 @@ export class CoursesService {
       categoryId,
       language,
       search,
+      title,
     } = options || {};
 
     const where: Prisma.CourseWhereInput = {};
 
     // Apply filters
+    if (title) {
+      where.title = { contains: title, mode: 'insensitive' };
+    }
+
     if (search) {
       const searchTerm = search.trim();
       if (searchTerm.length > 0) {
