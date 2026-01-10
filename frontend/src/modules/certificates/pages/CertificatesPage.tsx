@@ -360,6 +360,10 @@ const CertificatesPage = () => {
                 <div>
                     {certificate.personnelName ? (
                         <div className="font-medium">{certificate.personnelName}</div>
+                    ) : certificate.personnel ? (
+                        <div className="font-medium">
+                            {certificate.personnel.firstName} {certificate.personnel.lastName}
+                        </div>
                     ) : certificate.equipmentName ? (
                         <div className="font-medium">{certificate.equipmentName}</div>
                     ) : (
