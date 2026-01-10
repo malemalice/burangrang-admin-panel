@@ -60,7 +60,7 @@ model User {
   instructorCourses            Course[]                   @relation("CourseInstructor")
   enrollments                  Enrollment[]
   enrollmentsAssigned          Enrollment[]               @relation("EnrollmentAssigner")
-  reminders                    Reminder[]                 @relation("UserReminders")
+  createdReminders             Reminder[]                 @relation("CreatedReminders")
   quizzesCreated               Quiz[]                     @relation("QuizCreator")
   quizAssignments              QuizAssignment[]           @relation("QuizAssignmentUser")
   quizAssignmentsAssigned      QuizAssignment[]           @relation("QuizAssignmentAssigner")
@@ -128,6 +128,7 @@ model PasswordResetToken {
 model Role {
   id                     String                  @id @default(uuid())
   name                   String                  @unique
+  code                   String                  @unique
   description            String?
   isActive               Boolean                 @default(true)
   createdAt              DateTime                @default(now())
@@ -581,27 +582,45 @@ enum ReminderRepeatTypeEnum {
   MONTHLY
 }
 
+enum ReminderTargetTypeEnum {
+  USER
+  ROLE
+  DEPARTMENT
+  OFFICE
+}
+
 // Reminder - Scheduled task that triggers at specific time
 model Reminder {
-  id          String                  @id @default(uuid())
-  userId      String
-  entity      String? // Context/module name (e.g., "t_incidents", "t_audits")
-  entityId    String? // Entity primary key
+  id          String                    @id @default(uuid())
+  
+  // Polymorphic target - determines who receives the reminder
+  targetType  ReminderTargetTypeEnum    @default(USER)
+  targetId    String                    // userId, roleId, departmentId, or officeId
+  
+  // Context linking (polymorphic entity)
+  entity      String?                   // Context/module name (e.g., "t_incidents", "t_audits")
+  entityId    String?                   // Entity primary key
+  
+  // Reminder content and scheduling
   message     String
   remindAt    DateTime
-  repeatType  ReminderRepeatTypeEnum? // NONE, WEEKLY, MONTHLY
+  repeatType  ReminderRepeatTypeEnum?
   repeatUntil DateTime?
-  status      ReminderStatusEnum      @default(PENDING)
+  status      ReminderStatusEnum        @default(PENDING)
   lastSentAt  DateTime?
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
+  
+  // Metadata
+  createdBy   String                    // User who created this reminder
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
 
   // Relations
-  user User          @relation("UserReminders", fields: [userId], references: [id])
-  logs ReminderLog[]
+  createdByUser User                    @relation("CreatedReminders", fields: [createdBy], references: [id])
+  logs          ReminderLog[]
 
   @@index([status, remindAt])
-  @@index([userId])
+  @@index([targetType, targetId])
+  @@index([createdBy])
   @@index([entity, entityId])
   @@map("t_reminders")
 }

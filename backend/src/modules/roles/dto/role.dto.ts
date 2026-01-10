@@ -3,6 +3,7 @@ import { PermissionDto } from '../../../modules/permissions/dto/permission.dto';
 export class RoleDto {
   id: string;
   name: string;
+  code: string;
   description?: string | null;
   isActive: boolean;
   permissions?: PermissionDto[];

@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { CreateRiskAssessmentDto } from '../dto/create-risk-assessment.dto';
 import { UpdateRiskAssessmentDto } from '../dto/update-risk-assessment.dto';
@@ -15,7 +19,10 @@ import {
 } from '@prisma/client';
 import { ApprovalsService } from '../../approvals/approvals.service';
 import { RemindersService } from '../../reminders/reminders.service';
-import { ReminderRepeatTypeEnum } from '../../reminders/dto/reminder.dto';
+import {
+  ReminderRepeatTypeEnum,
+  ReminderTargetTypeEnum,
+} from '../../reminders/dto/reminder.dto';
 
 interface FindAllOptions {
   page?: number;
@@ -47,11 +54,12 @@ export class RiskAssessmentService {
         data: {
           ...data,
           createdBy: userId, // Use authenticated user ID from request
-          ...(items && items.length > 0 && {
-            items: {
-              create: items, // Prisma will automatically map mRiskId to mriskid column via @map
-            },
-          }),
+          ...(items &&
+            items.length > 0 && {
+              items: {
+                create: items, // Prisma will automatically map mRiskId to mriskid column via @map
+              },
+            }),
         },
         include: {
           items: {
@@ -66,8 +74,8 @@ export class RiskAssessmentService {
         },
       });
 
-      const assessmentWithRelations = await this.prisma.riskAssessment.findUnique(
-        {
+      const assessmentWithRelations =
+        await this.prisma.riskAssessment.findUnique({
           where: { id: assessment.id },
           include: {
             items: {
@@ -80,8 +88,7 @@ export class RiskAssessmentService {
             creator: true,
             assignee: true,
           },
-        },
-      );
+        });
 
       if (!assessmentWithRelations) {
         throw new NotFoundException(
@@ -89,16 +96,25 @@ export class RiskAssessmentService {
         );
       }
 
-    // Create reminder if status is SCHEDULED
-    if (assessmentWithRelations.status === GeneralStatusEnum.SCHEDULED) {
-      const reminderUserId = assessmentWithRelations.assigneeId || userId;
-      await this.createReminderForRiskAssessment(
-        assessmentWithRelations.id,
-        assessmentWithRelations.assessmentDate,
-        reminderUserId,
-        assessmentWithRelations.code,
-      );
-    }
+      // Create reminder if status is SCHEDULED
+      if (assessmentWithRelations.status === GeneralStatusEnum.SCHEDULED) {
+        const reminderUserId = assessmentWithRelations.assigneeId || userId;
+        try {
+          await this.createReminderForRiskAssessment(
+            assessmentWithRelations.id,
+            assessmentWithRelations.assessmentDate,
+            reminderUserId,
+            assessmentWithRelations.code,
+          );
+        } catch (error) {
+          // Log error but don't fail the entire create operation
+          // The reminder creation failure should not prevent risk assessment creation
+          console.error(
+            `[RiskAssessment] Reminder creation failed for assessment ${assessmentWithRelations.id}, but assessment was created successfully:`,
+            error,
+          );
+        }
+      }
 
       return this.mapToDto(assessmentWithRelations);
     } catch (error: any) {
@@ -259,29 +275,57 @@ export class RiskAssessmentService {
     // Handle reminder creation/deletion based on status changes
     if (statusChangedFromScheduled) {
       // Status changed from SCHEDULED to something else - delete reminders
-      await this.deleteRemindersForRiskAssessment(id);
+      try {
+        await this.deleteRemindersForRiskAssessment(id);
+      } catch (error) {
+        console.error(
+          `[RiskAssessment] Failed to delete reminders for assessment ${id}:`,
+          error,
+        );
+      }
     } else if (statusChangedToScheduled) {
       // Status changed to SCHEDULED - create reminder
       const reminderUserId = assessment.assigneeId || assessment.createdBy;
-      await this.createReminderForRiskAssessment(
-        assessment.id,
-        assessment.assessmentDate,
-        reminderUserId,
-        assessment.code,
-      );
+      try {
+        await this.createReminderForRiskAssessment(
+          assessment.id,
+          assessment.assessmentDate,
+          reminderUserId,
+          assessment.code,
+        );
+      } catch (error) {
+        console.error(
+          `[RiskAssessment] Reminder creation failed for assessment ${assessment.id}, but assessment was updated successfully:`,
+          error,
+        );
+      }
     } else if (
       assessment.status === GeneralStatusEnum.SCHEDULED &&
       assessmentDateChanged
     ) {
       // Status is still SCHEDULED but assessmentDate changed - delete old and create new reminder
-      await this.deleteRemindersForRiskAssessment(id);
+      try {
+        await this.deleteRemindersForRiskAssessment(id);
+      } catch (error) {
+        console.error(
+          `[RiskAssessment] Failed to delete old reminders for assessment ${id}:`,
+          error,
+        );
+      }
       const reminderUserId = assessment.assigneeId || assessment.createdBy;
-      await this.createReminderForRiskAssessment(
-        assessment.id,
-        assessment.assessmentDate,
-        reminderUserId,
-        assessment.code,
-      );
+      try {
+        await this.createReminderForRiskAssessment(
+          assessment.id,
+          assessment.assessmentDate,
+          reminderUserId,
+          assessment.code,
+        );
+      } catch (error) {
+        console.error(
+          `[RiskAssessment] Reminder creation failed for assessment ${assessment.id}, but assessment was updated successfully:`,
+          error,
+        );
+      }
     }
 
     return this.mapToDto(assessment);
@@ -364,6 +408,9 @@ export class RiskAssessmentService {
 
       // Only create reminder if assessmentDate reminder time is in the future
       if (assessmentReminderTime <= now) {
+        console.log(
+          `[RiskAssessment] Skipping reminder creation for ${assessmentId}: assessmentDate reminder time (${assessmentReminderTime.toISOString()}) is not in the future (now: ${now.toISOString()})`,
+        );
         return;
       }
 
@@ -372,6 +419,20 @@ export class RiskAssessmentService {
 
       // Only create if first reminder date is before or equal to assessmentDate
       if (firstReminderDate > assessmentReminderTime) {
+        console.log(
+          `[RiskAssessment] Skipping reminder creation for ${assessmentId}: first reminder date (${firstReminderDate.toISOString()}) is after assessment date (${assessmentReminderTime.toISOString()})`,
+        );
+        return;
+      }
+
+      // Validate that remindAt is in the future with buffer (add 1 second buffer to account for timing)
+      const remindAtWithBuffer = new Date(firstReminderDate);
+      remindAtWithBuffer.setSeconds(remindAtWithBuffer.getSeconds() + 1);
+
+      if (remindAtWithBuffer <= now) {
+        console.log(
+          `[RiskAssessment] Skipping reminder creation for ${assessmentId}: remindAt date (${remindAtWithBuffer.toISOString()}) is not in the future (now: ${now.toISOString()})`,
+        );
         return;
       }
 
@@ -379,8 +440,14 @@ export class RiskAssessmentService {
       // This ensures the reminder fires on assessmentDate and stops after that
       const repeatUntil = new Date(assessmentReminderTime);
 
-      await this.remindersService.create(
+      console.log(
+        `[RiskAssessment] Creating reminder for assessment ${assessmentId}: userId=${userId}, remindAt=${firstReminderDate.toISOString()}, repeatUntil=${repeatUntil.toISOString()}`,
+      );
+
+      const reminder = await this.remindersService.create(
         {
+          targetType: ReminderTargetTypeEnum.USER,
+          targetId: userId,
           entity: 't_risk_assessment',
           entityId: assessmentId,
           message: `Risk Assessment ${code} is scheduled for ${assessmentDate.toLocaleDateString()}`,
@@ -390,12 +457,26 @@ export class RiskAssessmentService {
         },
         userId,
       );
-    } catch (error) {
-      // Log error but don't throw to avoid breaking the main operation
-      console.error(
-        `Failed to create reminder for risk assessment ${assessmentId}:`,
-        error,
+
+      console.log(
+        `[RiskAssessment] Successfully created reminder ${reminder.id} for assessment ${assessmentId}`,
       );
+    } catch (error) {
+      // Log detailed error information for debugging
+      console.error(
+        `[RiskAssessment] Failed to create reminder for risk assessment ${assessmentId}:`,
+        {
+          error: error?.message || error,
+          stack: error?.stack,
+          userId,
+          assessmentDate: assessmentDate?.toISOString(),
+          code,
+          assessmentId,
+        },
+      );
+      // Re-throw to allow proper error tracking, but wrap in try-catch at call site
+      // This helps identify the issue in production logs
+      throw error;
     }
   }
 

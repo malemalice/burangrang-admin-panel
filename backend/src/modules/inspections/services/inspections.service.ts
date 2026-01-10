@@ -17,7 +17,10 @@ import { UpdateInspectionInspectorDto } from '../dto/update-inspection-inspector
 import { InspectionInspectorDto } from '../dto/inspection-inspector.dto';
 import { Prisma, GeneralStatusEnum } from '@prisma/client';
 import { RemindersService } from '../../reminders/reminders.service';
-import { ReminderRepeatTypeEnum } from '../../reminders/dto/reminder.dto';
+import {
+  ReminderRepeatTypeEnum,
+  ReminderTargetTypeEnum,
+} from '../../reminders/dto/reminder.dto';
 
 interface FindAllOptions {
   page?: number;
@@ -1006,6 +1009,8 @@ export class InspectionsService {
 
       await this.remindersService.create(
         {
+          targetType: ReminderTargetTypeEnum.USER,
+          targetId: userId,
           entity: 't_inspections',
           entityId: inspectionId,
           message: `Inspection ${code} is scheduled for ${inspectionDate.toLocaleDateString()}`,
