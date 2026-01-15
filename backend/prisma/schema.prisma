@@ -372,7 +372,7 @@ model RiskAssessmentItem {
   consequenceLevel    Int
   riskMatrixRating    String
   interpretation      RiskRatingEnum
-  postLikelihoodLevel Int
+  postLikelihoodLevel String
   postConsequenceLevel Int
   postRiskMatrixRating String
   postInterpretation   RiskRatingEnum

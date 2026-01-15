@@ -49,6 +49,24 @@ const formSchema = z.object({
   postRiskMatrixRating: z.string().min(1, 'Post risk rating is required'),
   postInterpretation: z.string().min(1, 'Post interpretation is required'),
   mitigation: mitigationSchema.optional(),
+}).superRefine((data, ctx) => {
+  // If a risk is selected, at least one mitigation field must be filled
+  if (data.mRiskId && data.mitigation) {
+    const hasMitigation = !!(
+      (data.mitigation.eliminate && data.mitigation.eliminate.trim()) ||
+      (data.mitigation.transfer && data.mitigation.transfer.trim()) ||
+      (data.mitigation.reduce && data.mitigation.reduce.trim()) ||
+      (data.mitigation.accept && data.mitigation.accept.trim())
+    );
+    
+    if (!hasMitigation) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'At least one risk mitigation field must be filled',
+        path: ['mitigation'],
+      });
+    }
+  }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -800,6 +818,19 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
         {/* Risk Mitigation Section - Editable */}
         <div>
           <h3 className="text-lg font-medium mb-4">Risk Mitigation</h3>
+          {form.formState.errors.mitigation && (
+            <p className="text-sm font-medium text-destructive mb-4">
+              {(() => {
+                const error = form.formState.errors.mitigation;
+                const message = error && typeof error === 'object' && 'message' in error 
+                  ? String(error.message) 
+                  : null;
+                return message && message !== 'undefined' && message.trim() 
+                  ? message 
+                  : 'At least one risk mitigation field must be filled';
+              })()}
+            </p>
+          )}
           {isLoadingRiskMitigations ? (
             <div className="flex items-center justify-center py-8">
               <div className="flex items-center gap-2">
@@ -905,9 +936,9 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                   <FormControl>
                     <ModalCombobox
                       options={likelihoodOptions}
-                      value={field.value.toString()}
+                      value={field.value}
                       onValueChange={(value) => {
-                        field.onChange(parseInt(value, 10));
+                        field.onChange(value);
                         calculateRiskRating(true);
                       }}
                       placeholder="Select level"
