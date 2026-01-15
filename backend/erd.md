@@ -577,6 +577,25 @@ Table t_risk_control {
   }
 }
 
+Table t_risk_mitigation {
+  id varchar [pk, default: `uuid()`]
+  eliminate text [null]
+  transfer text [null]
+  reduce text [null]
+  accept text [null]
+  isActive boolean [not null, default: true]
+  entity varchar [not null, note: 'Entity type identifier (RISK_ASSESSMENT_ITEM, INSPECTION_ITEM)']
+  entityId varchar [not null, note: 'Entity ID - references t_risk_assessment_item.id or t_inspection_items.id']
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Risk mitigation strategies with control measures - polymorphic relation to risk assessment items and inspection items'
+  indexes {
+    (entity, entityId)
+    isActive
+  }
+}
+
 Table t_hse_targets {
   id varchar [pk, default: `uuid()`]
   month MonthEnum [not null]
@@ -655,7 +674,7 @@ Table t_risk_assessment_item {
   postRiskMatrixRating text [not null]
   postInterpretation RiskRatingEnum [not null]
   
-  Note: 'Individual risk assessment entries'
+  Note: 'Individual risk assessment entries - can have multiple risk mitigations via t_risk_mitigation (entity='RISK_ASSESSMENT_ITEM', entityId=id)'
   indexes {
     riskAssessmentId
     mRiskId
@@ -697,7 +716,7 @@ Table t_inspection_items {
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
-  Note: 'Individual inspection items - tracks risk findings, assignments, description, and follow-up notes per item'
+  Note: 'Individual inspection items - tracks risk findings, assignments, description, and follow-up notes per item. Can have multiple risk mitigations via t_risk_mitigation (entity='INSPECTION_ITEM', entityId=id)'
   indexes {
     inspectionId
     riskCategoryId
@@ -2460,6 +2479,7 @@ TableGroup risk_management {
   m_risk
   m_risk_mitigations
   t_risk_control
+  t_risk_mitigation
   t_hse_targets
 }
 

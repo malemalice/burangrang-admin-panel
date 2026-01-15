@@ -1,5 +1,3 @@
-import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
   Dialog,
@@ -12,7 +10,6 @@ import {
 import { Separator } from '@/core/components/ui/separator';
 import { RiskAssessmentItem } from '@/core/lib/types';
 import { getRiskBadge } from '../utils/riskBadgeHelpers';
-import riskMitigationService, { type RiskMitigation } from '../services/riskMitigationService';
 
 interface ViewItemDialogProps {
   open: boolean;
@@ -21,33 +18,11 @@ interface ViewItemDialogProps {
 }
 
 export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps) => {
-  const [riskMitigations, setRiskMitigations] = useState<RiskMitigation[]>([]);
-  const [isLoadingRiskMitigations, setIsLoadingRiskMitigations] = useState(false);
-
   // Convert likelihood numeric to alphabet (1 -> A, 2 -> B, 3 -> C, etc.)
   const getLikelihoodLetter = (level: number): string => {
     if (!level || level < 1) return 'N/A';
     return String.fromCharCode(64 + level); // 1 -> A, 2 -> B, 3 -> C, etc.
   };
-
-  useEffect(() => {
-    if (open && item?.mRiskId) {
-      setIsLoadingRiskMitigations(true);
-      riskMitigationService.getByRiskId(item.mRiskId)
-        .then((mitigations) => {
-          setRiskMitigations(mitigations);
-        })
-        .catch((error) => {
-          console.error('Failed to fetch risk mitigations:', error);
-          setRiskMitigations([]);
-        })
-        .finally(() => {
-          setIsLoadingRiskMitigations(false);
-        });
-    } else {
-      setRiskMitigations([]);
-    }
-  }, [open, item?.mRiskId]);
 
   if (!item) return null;
 
@@ -110,63 +85,54 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
             </div>
           </div>
 
-          {/* Risk Mitigation Options */}
-          {item.mRiskId && (
+          {/* Risk Mitigation - Show stored mitigation data */}
+          {item.mitigation && (
             <>
               <Separator />
               <div>
-                <h3 className="text-lg font-medium mb-4">Risk Mitigation Options</h3>
-                {isLoadingRiskMitigations ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm text-muted-foreground">Loading risk mitigation options...</span>
-                    </div>
-                  </div>
-                ) : riskMitigations.length > 0 ? (
-                  <div className="space-y-4">
-                    {riskMitigations.map((mitigation) => (
-                      <div key={mitigation.id} className="space-y-4">
-                        {mitigation.eliminate && (
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground mb-1">Eliminate</p>
-                            <div className="p-3 rounded-md border bg-card text-card-foreground">
-                              <p className="text-sm">{mitigation.eliminate}</p>
-                            </div>
-                          </div>
-                        )}
-                        {mitigation.transfer && (
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground mb-1">Transfer</p>
-                            <div className="p-3 rounded-md border bg-card text-card-foreground">
-                              <p className="text-sm">{mitigation.transfer}</p>
-                            </div>
-                          </div>
-                        )}
-                        {mitigation.reduce && (
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground mb-1">Reduce</p>
-                            <div className="p-3 rounded-md border bg-card text-card-foreground">
-                              <p className="text-sm">{mitigation.reduce}</p>
-                            </div>
-                          </div>
-                        )}
-                        {mitigation.accept && (
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground mb-1">Accept</p>
-                            <div className="p-3 rounded-md border bg-card text-card-foreground">
-                              <p className="text-sm">{mitigation.accept}</p>
-                            </div>
-                          </div>
-                        )}
+                <h3 className="text-lg font-medium mb-4">Risk Mitigation</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {item.mitigation.eliminate && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Eliminate</p>
+                      <div className="p-3 rounded-md border bg-card text-card-foreground">
+                        <p className="text-sm whitespace-pre-wrap">{item.mitigation.eliminate}</p>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-sm text-muted-foreground">
-                    No risk mitigation options available for the selected risk.
-                  </div>
-                )}
+                    </div>
+                  )}
+                  {item.mitigation.transfer && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Transfer</p>
+                      <div className="p-3 rounded-md border bg-card text-card-foreground">
+                        <p className="text-sm whitespace-pre-wrap">{item.mitigation.transfer}</p>
+                      </div>
+                    </div>
+                  )}
+                  {item.mitigation.reduce && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Reduce</p>
+                      <div className="p-3 rounded-md border bg-card text-card-foreground">
+                        <p className="text-sm whitespace-pre-wrap">{item.mitigation.reduce}</p>
+                      </div>
+                    </div>
+                  )}
+                  {item.mitigation.accept && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Accept</p>
+                      <div className="p-3 rounded-md border bg-card text-card-foreground">
+                        <p className="text-sm whitespace-pre-wrap">{item.mitigation.accept}</p>
+                      </div>
+                    </div>
+                  )}
+                  {!item.mitigation.eliminate && 
+                   !item.mitigation.transfer && 
+                   !item.mitigation.reduce && 
+                   !item.mitigation.accept && (
+                    <div className="text-center py-8 text-sm text-muted-foreground col-span-2">
+                      No risk mitigation data available for this item.
+                    </div>
+                  )}
+                </div>
               </div>
             </>
           )}

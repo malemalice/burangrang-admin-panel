@@ -19,6 +19,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { Separator } from '@/core/components/ui/separator';
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
 import { ModalCombobox, ModalComboboxOption } from '@/core/components/ui/modal-combobox';
+import { Textarea } from '@/core/components/ui/textarea';
 
 import { RiskRatingEnum, Risk, RiskCategory } from '@/core/lib/types';
 import riskAssessmentService, { type CreateRiskAssessmentItemDTO } from '../services/riskAssessmentService';
@@ -26,6 +27,14 @@ import riskMitigationService, { type RiskMitigation } from '../services/riskMiti
 import { riskCategoryService, riskService } from '@/modules/master-data';
 import { createRiskCategoryFromQuery } from '@/modules/master-data/pages/risk-categories';
 import { createRiskFromQuery } from '@/modules/master-data/pages/risks';
+
+// Mitigation schema for validation
+const mitigationSchema = z.object({
+  eliminate: z.string().optional(),
+  transfer: z.string().optional(),
+  reduce: z.string().optional(),
+  accept: z.string().optional(),
+});
 
 // Form schema for validation - single item
 const formSchema = z.object({
@@ -39,6 +48,7 @@ const formSchema = z.object({
   postConsequenceLevel: z.coerce.number({ required_error: 'Post consequence level is required', invalid_type_error: 'Post consequence level is required' }),
   postRiskMatrixRating: z.string().min(1, 'Post risk rating is required'),
   postInterpretation: z.string().min(1, 'Post interpretation is required'),
+  mitigation: mitigationSchema.optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -186,6 +196,12 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
       postConsequenceLevel: initialItem?.postConsequenceLevel || initialItem?.consequenceLevel || 1,
       postRiskMatrixRating: initialItem?.postRiskMatrixRating || initialItem?.riskMatrixRating || '',
       postInterpretation: initialItem?.postInterpretation || initialItem?.interpretation || RiskRatingEnum.LOW,
+      mitigation: initialItem?.mitigation || {
+        eliminate: '',
+        transfer: '',
+        reduce: '',
+        accept: '',
+      },
     },
   });
 
@@ -203,6 +219,12 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
         postConsequenceLevel: initialItem.postConsequenceLevel || initialItem.consequenceLevel || 1,
         postRiskMatrixRating: initialItem.postRiskMatrixRating || initialItem.riskMatrixRating || '',
         postInterpretation: initialItem.postInterpretation || initialItem.interpretation || RiskRatingEnum.LOW,
+        mitigation: initialItem.mitigation || {
+          eliminate: '',
+          transfer: '',
+          reduce: '',
+          accept: '',
+        },
       });
       // Reset initial mount flag when switching items
       isInitialMount.current = true;
@@ -492,6 +514,14 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
     
     setIsSubmitting(true);
     try {
+      // Only include mitigation if at least one field has content
+      const hasMitigation = data.mitigation && (
+        data.mitigation.eliminate ||
+        data.mitigation.transfer ||
+        data.mitigation.reduce ||
+        data.mitigation.accept
+      );
+      
       await onSubmit({
         mRiskId: data.mRiskId,
         mRiskCategoryId: data.mRiskCategoryId,
@@ -503,6 +533,12 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
         postConsequenceLevel: data.postConsequenceLevel,
         postRiskMatrixRating: data.postRiskMatrixRating,
         postInterpretation: data.postInterpretation,
+        mitigation: hasMitigation ? {
+          eliminate: data.mitigation?.eliminate || undefined,
+          transfer: data.mitigation?.transfer || undefined,
+          reduce: data.mitigation?.reduce || undefined,
+          accept: data.mitigation?.accept || undefined,
+        } : undefined,
       });
     } finally {
       setIsSubmitting(false);
@@ -574,7 +610,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
     }
   }, [postLikelihoodLevel, postConsequenceLevel, form, getRiskRatingCode]);
 
-  // Fetch risk mitigations when risk is selected
+  // Fetch risk mitigations when risk is selected and populate form fields for new items
   useEffect(() => {
     const fetchRiskMitigations = async () => {
       if (!selectedRiskId) {
@@ -586,6 +622,27 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
       try {
         const mitigations = await riskMitigationService.getByRiskId(selectedRiskId);
         setRiskMitigations(mitigations);
+        
+        // When creating new items (no initialItem.mitigation), pre-populate form with default mitigations
+        // Only do this if the risk has changed (not on initial load with existing data)
+        const hasExistingMitigation = initialItem?.mitigation && (
+          initialItem.mitigation.eliminate ||
+          initialItem.mitigation.transfer ||
+          initialItem.mitigation.reduce ||
+          initialItem.mitigation.accept
+        );
+        
+        if (!hasExistingMitigation && mitigations.length > 0 && !isInitialMount.current) {
+          // Combine all mitigations into a single object (in case there are multiple)
+          const combinedMitigation = {
+            eliminate: mitigations.map(m => m.eliminate).filter(Boolean).join('\n') || '',
+            transfer: mitigations.map(m => m.transfer).filter(Boolean).join('\n') || '',
+            reduce: mitigations.map(m => m.reduce).filter(Boolean).join('\n') || '',
+            accept: mitigations.map(m => m.accept).filter(Boolean).join('\n') || '',
+          };
+          
+          form.setValue('mitigation', combinedMitigation);
+        }
       } catch (error) {
         console.error('Failed to fetch risk mitigations:', error);
         toast.error('Failed to load risk mitigation options');
@@ -596,7 +653,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
     };
 
     fetchRiskMitigations();
-  }, [selectedRiskId]);
+  }, [selectedRiskId, initialItem?.mitigation, form]);
 
   if (isLoading) {
     return (
@@ -786,62 +843,94 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
 
         <Separator />
 
-        {/* Risk Mitigation Options Section */}
+        {/* Risk Mitigation Section - Editable */}
         <div>
-          <h3 className="text-lg font-medium mb-4">Risk Mitigation Options</h3>
+          <h3 className="text-lg font-medium mb-4">Risk Mitigation</h3>
           {isLoadingRiskMitigations ? (
             <div className="flex items-center justify-center py-8">
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm text-muted-foreground">Loading risk mitigation options...</span>
+                <span className="text-sm text-muted-foreground">Loading risk mitigation template...</span>
               </div>
             </div>
-          ) : selectedRiskId && riskMitigations.length > 0 ? (
-            <div className="space-y-4">
-              {riskMitigations.map((mitigation) => (
-                <div key={mitigation.id} className="space-y-4">
-                  {mitigation.eliminate && (
-                    <div>
-                      <FormLabel className="text-sm font-medium text-muted-foreground">Eliminate</FormLabel>
-                      <div className="mt-1 p-3 rounded-md border bg-card text-card-foreground">
-                        <p className="text-sm">{mitigation.eliminate}</p>
-                      </div>
-                    </div>
-                  )}
-                  {mitigation.transfer && (
-                    <div>
-                      <FormLabel className="text-sm font-medium text-muted-foreground">Transfer</FormLabel>
-                      <div className="mt-1 p-3 rounded-md border bg-card text-card-foreground">
-                        <p className="text-sm">{mitigation.transfer}</p>
-                      </div>
-                    </div>
-                  )}
-                  {mitigation.reduce && (
-                    <div>
-                      <FormLabel className="text-sm font-medium text-muted-foreground">Reduce</FormLabel>
-                      <div className="mt-1 p-3 rounded-md border bg-card text-card-foreground">
-                        <p className="text-sm">{mitigation.reduce}</p>
-                      </div>
-                    </div>
-                  )}
-                  {mitigation.accept && (
-                    <div>
-                      <FormLabel className="text-sm font-medium text-muted-foreground">Accept</FormLabel>
-                      <div className="mt-1 p-3 rounded-md border bg-card text-card-foreground">
-                        <p className="text-sm">{mitigation.accept}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
           ) : selectedRiskId ? (
-            <div className="text-center py-8 text-sm text-muted-foreground">
-              No risk mitigation options available for the selected risk.
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="mitigation.eliminate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Eliminate</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Describe elimination strategy..."
+                        className="min-h-[100px] resize-y"
+                        {...field}
+                        value={field.value || ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="mitigation.transfer"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Transfer</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Describe transfer strategy..."
+                        className="min-h-[100px] resize-y"
+                        {...field}
+                        value={field.value || ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="mitigation.reduce"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Reduce</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Describe reduction strategy..."
+                        className="min-h-[100px] resize-y"
+                        {...field}
+                        value={field.value || ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="mitigation.accept"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Accept</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Describe acceptance strategy..."
+                        className="min-h-[100px] resize-y"
+                        {...field}
+                        value={field.value || ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
           ) : (
             <div className="text-center py-8 text-sm text-muted-foreground">
-              Please select a risk to view mitigation options.
+              Please select a risk to enter mitigation strategies.
             </div>
           )}
         </div>

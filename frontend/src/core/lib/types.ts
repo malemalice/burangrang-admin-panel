@@ -217,6 +217,18 @@ export interface RiskAssessmentItem {
   postConsequenceLevel: number;
   postRiskMatrixRating: RiskRatingEnum;
   postInterpretation: RiskRatingEnum;
+  mitigation?: {
+    id: string;
+    entity: string;
+    entityId: string;
+    eliminate?: string;
+    transfer?: string;
+    reduce?: string;
+    accept?: string;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  };
 }
 
 export interface RiskControl {
