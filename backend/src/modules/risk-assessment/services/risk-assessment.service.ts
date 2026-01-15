@@ -66,10 +66,10 @@ export class RiskAssessmentService {
           ...(itemsWithoutMitigation &&
             itemsWithoutMitigation.length > 0 && {
               items: {
-                create: itemsWithoutMitigation, // Prisma will automatically map mRiskId to mriskid column via @map
+                create: itemsWithoutMitigation as any, // Prisma will automatically map mRiskId to mriskid column via @map
               },
             }),
-        },
+        } as any,
         include: {
           items: {
             include: {
@@ -84,11 +84,18 @@ export class RiskAssessmentService {
       });
 
       // Create mitigation records for items
-      if (assessment.items.length > 0 && itemMitigations) {
-        for (let i = 0; i < assessment.items.length; i++) {
+      const assessmentWithItems = assessment as any as RiskAssessment & {
+        items: (RiskAssessmentItem & {
+          mRisk: any;
+          mRiskCategory: any;
+        })[];
+      };
+      
+      if (assessmentWithItems.items?.length > 0 && itemMitigations) {
+        for (let i = 0; i < assessmentWithItems.items.length; i++) {
           const mitigation = itemMitigations[i];
           if (mitigation) {
-            await this.createMitigationRecord(assessment.items[i].id, mitigation);
+            await this.createMitigationRecord(assessmentWithItems.items[i].id, mitigation);
           }
         }
       }
@@ -250,7 +257,7 @@ export class RiskAssessmentService {
       throw new NotFoundException(`Risk Assessment with ID ${id} not found`);
     }
 
-    return this.mapToDtoWithMitigations(assessment);
+    return this.mapToDtoWithMitigations(assessment as any);
   }
 
   async update(
@@ -307,10 +314,10 @@ export class RiskAssessmentService {
         ...(itemsWithoutMitigation && {
           items: {
             deleteMany: {},
-            create: itemsWithoutMitigation, // Prisma will automatically map mRiskId to mriskid column via @map
+            create: itemsWithoutMitigation as any, // Prisma will automatically map mRiskId to mriskid column via @map
           },
         }),
-      },
+      } as any,
       include: {
         items: {
           include: {
@@ -325,11 +332,18 @@ export class RiskAssessmentService {
     });
 
     // Create mitigation records for new items
-    if (assessment.items.length > 0 && itemMitigations) {
-      for (let i = 0; i < assessment.items.length; i++) {
+    const assessmentWithItems = assessment as any as RiskAssessment & {
+      items: (RiskAssessmentItem & {
+        mRisk: any;
+        mRiskCategory: any;
+      })[];
+    };
+    
+    if (assessmentWithItems.items?.length > 0 && itemMitigations) {
+      for (let i = 0; i < assessmentWithItems.items.length; i++) {
         const mitigation = itemMitigations[i];
         if (mitigation) {
-          await this.createMitigationRecord(assessment.items[i].id, mitigation);
+          await this.createMitigationRecord(assessmentWithItems.items[i].id, mitigation);
         }
       }
     }
@@ -390,7 +404,7 @@ export class RiskAssessmentService {
       }
     }
 
-    return this.mapToDtoWithMitigations(assessment);
+    return this.mapToDtoWithMitigations(assessment as any);
   }
 
   async remove(id: string): Promise<void> {
@@ -605,11 +619,11 @@ export class RiskAssessmentService {
         mRisk: (item as any).mRisk,
         mRiskCategoryId: item.mRiskCategoryId,
         mRiskCategory: item.mRiskCategory,
-        likelihoodLevel: item.likelihoodLevel,
+        likelihoodLevel: item.likelihoodLevel as any as string,
         consequenceLevel: item.consequenceLevel,
         riskMatrixRating: item.riskMatrixRating,
         interpretation: item.interpretation,
-        postLikelihoodLevel: item.postLikelihoodLevel,
+        postLikelihoodLevel: item.postLikelihoodLevel as any as string,
         postConsequenceLevel: item.postConsequenceLevel,
         postRiskMatrixRating: item.postRiskMatrixRating,
         postInterpretation: item.postInterpretation,
@@ -694,7 +708,7 @@ export class RiskAssessmentService {
           consequenceLevel: item.consequenceLevel,
           riskMatrixRating: item.riskMatrixRating,
           interpretation: item.interpretation,
-          postLikelihoodLevel: item.postLikelihoodLevel,
+          postLikelihoodLevel: item.postLikelihoodLevel as any as string,
           postConsequenceLevel: item.postConsequenceLevel,
           postRiskMatrixRating: item.postRiskMatrixRating,
           postInterpretation: item.postInterpretation,
@@ -732,7 +746,7 @@ export class RiskAssessmentService {
       data: {
         ...itemData,
         riskAssessmentId,
-      },
+      } as any,
       include: {
         mRisk: true,
         mRiskCategory: true,
@@ -745,7 +759,10 @@ export class RiskAssessmentService {
       mitigationRecord = await this.createMitigationRecord(item.id, mitigation);
     }
 
-    return this.mapItemToDto(item, mitigationRecord);
+    return this.mapItemToDto(item as any as RiskAssessmentItem & {
+      mRisk: any;
+      mRiskCategory: any;
+    }, mitigationRecord);
   }
 
   async findAllItems(
@@ -887,7 +904,10 @@ export class RiskAssessmentService {
     // Fetch mitigation record for the item
     const mitigationRecord = await this.getMitigationRecord(itemId);
 
-    return this.mapItemToDto(item, mitigationRecord);
+    return this.mapItemToDto(item as any as RiskAssessmentItem & {
+      mRisk: any;
+      mRiskCategory: any;
+    }, mitigationRecord);
   }
 
   async updateItem(
@@ -914,7 +934,7 @@ export class RiskAssessmentService {
 
     const item = await this.prisma.riskAssessmentItem.update({
       where: { id: itemId },
-      data: itemData,
+      data: itemData as any,
       include: {
         mRisk: true,
         mRiskCategory: true,
@@ -930,7 +950,10 @@ export class RiskAssessmentService {
       mitigationRecord = await this.getMitigationRecord(itemId);
     }
 
-    return this.mapItemToDto(item, mitigationRecord);
+    return this.mapItemToDto(item as any as RiskAssessmentItem & {
+      mRisk: any;
+      mRiskCategory: any;
+    }, mitigationRecord);
   }
 
   async removeItem(riskAssessmentId: string, itemId: string): Promise<void> {
@@ -974,8 +997,8 @@ export class RiskAssessmentService {
       consequenceLevel: item.consequenceLevel,
       riskMatrixRating: item.riskMatrixRating,
       interpretation: item.interpretation,
-      postLikelihoodLevel: item.postLikelihoodLevel,
-      postConsequenceLevel: item.postConsequenceLevel,
+        postLikelihoodLevel: item.postLikelihoodLevel as any as string,
+        postConsequenceLevel: item.postConsequenceLevel,
       postRiskMatrixRating: item.postRiskMatrixRating,
       postInterpretation: item.postInterpretation,
       mitigation: mitigationRecord

@@ -18,12 +18,6 @@ interface ViewItemDialogProps {
 }
 
 export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps) => {
-  // Convert likelihood numeric to alphabet (1 -> A, 2 -> B, 3 -> C, etc.)
-  const getLikelihoodLetter = (level: number): string => {
-    if (!level || level < 1) return 'N/A';
-    return String.fromCharCode(64 + level); // 1 -> A, 2 -> B, 3 -> C, etc.
-  };
-
   if (!item) return null;
 
   return (
@@ -68,7 +62,7 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Likelihood</p>
-                <p className="text-sm">{getLikelihoodLetter(item.likelihoodLevel)}</p>
+                <p className="text-sm">{item.likelihoodLevel || 'N/A'}</p>
               </div>
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Consequence</p>
@@ -91,7 +85,7 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
               <Separator />
               <div>
                 <h3 className="text-lg font-medium mb-4">Risk Mitigation</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
                   {item.mitigation.eliminate && (
                     <div>
                       <p className="text-sm font-medium text-muted-foreground mb-1">Eliminate</p>
@@ -128,7 +122,7 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
                    !item.mitigation.transfer && 
                    !item.mitigation.reduce && 
                    !item.mitigation.accept && (
-                    <div className="text-center py-8 text-sm text-muted-foreground col-span-2">
+                    <div className="text-center py-8 text-sm text-muted-foreground">
                       No risk mitigation data available for this item.
                     </div>
                   )}
@@ -145,7 +139,7 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Post Likelihood</p>
-                <p className="text-sm">{getLikelihoodLetter(item.postLikelihoodLevel)}</p>
+                <p className="text-sm">{item.postLikelihoodLevel || 'N/A'}</p>
               </div>
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Post Consequence</p>

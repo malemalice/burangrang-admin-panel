@@ -209,11 +209,11 @@ export interface RiskAssessmentItem {
   mRisk?: Risk;
   mRiskCategoryId: string;
   mRiskCategory?: RiskCategory;
-  likelihoodLevel: number;
+  likelihoodLevel: string;
   consequenceLevel: number;
   riskMatrixRating: RiskRatingEnum;
   interpretation: RiskRatingEnum;
-  postLikelihoodLevel: number;
+  postLikelihoodLevel: string;
   postConsequenceLevel: number;
   postRiskMatrixRating: RiskRatingEnum;
   postInterpretation: RiskRatingEnum;

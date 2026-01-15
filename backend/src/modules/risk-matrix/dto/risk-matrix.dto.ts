@@ -9,7 +9,7 @@ export class RiskMatrixDto {
 
   @ApiProperty()
   @Expose()
-  likelihoodLevel: number;
+  likelihoodLevel: string;
 
   @ApiProperty()
   @Expose()
@@ -21,7 +21,7 @@ export class RiskMatrixDto {
 
   @ApiProperty()
   @Expose()
-  consequenceLevel: string;
+  consequenceLevel: number;
 
   @ApiProperty()
   @Expose()

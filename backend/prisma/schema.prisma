@@ -325,10 +325,10 @@ enum RiskRatingEnum {
 
 model RiskMatrix {
   id               String         @id @default(uuid())
-  likelihoodLevel  Int
+  likelihoodLevel  String
   likelihoodName   String         @default("")
   likelihoodDesc   String         @default("") @db.Text
-  consequenceLevel String
+  consequenceLevel Int
   consequenceName  String         @default("")
   consequenceDesc  String         @default("") @db.Text
   risk_rating      RiskRatingEnum
@@ -368,7 +368,7 @@ model RiskAssessmentItem {
   mRisk               Risk           @relation(fields: [mRiskId], references: [id])
   mRiskCategoryId     String
   mRiskCategory       RiskCategory         @relation(fields: [mRiskCategoryId], references: [id])
-  likelihoodLevel     Int
+  likelihoodLevel     String
   consequenceLevel    Int
   riskMatrixRating    String
   interpretation      RiskRatingEnum

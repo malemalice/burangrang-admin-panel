@@ -20,11 +20,11 @@ export interface RiskMitigationRecord extends RiskMitigationData {
 export interface CreateRiskAssessmentItemDTO {
   mRiskId: string;
   mRiskCategoryId: string;
-  likelihoodLevel: number;
+  likelihoodLevel: string;
   consequenceLevel: number;
   riskMatrixRating: string;
   interpretation: string;
-  postLikelihoodLevel: number;
+  postLikelihoodLevel: string;
   postConsequenceLevel: number;
   postRiskMatrixRating: string;
   postInterpretation: string;

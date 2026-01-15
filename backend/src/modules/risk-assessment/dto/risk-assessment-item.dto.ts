@@ -32,7 +32,7 @@ export class RiskAssessmentItemDto {
 
   @ApiProperty()
   @Expose()
-  likelihoodLevel: number;
+  likelihoodLevel: string;
 
   @ApiProperty()
   @Expose()
@@ -48,7 +48,7 @@ export class RiskAssessmentItemDto {
 
   @ApiProperty()
   @Expose()
-  postLikelihoodLevel: number;
+  postLikelihoodLevel: string;
 
   @ApiProperty()
   @Expose()

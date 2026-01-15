@@ -13,11 +13,9 @@ export class CreateRiskAssessmentItemDto {
   @ApiProperty()
   mRiskCategoryId: string;
 
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  @ApiProperty({ minimum: 1, maximum: 5 })
-  likelihoodLevel: number;
+  @IsString()
+  @ApiProperty({ description: 'Likelihood level as uppercase alphabet (A, B, C, D, E, etc.)', example: 'A' })
+  likelihoodLevel: string;
 
   @IsInt()
   @Min(1)
@@ -33,11 +31,9 @@ export class CreateRiskAssessmentItemDto {
   @ApiProperty({ enum: RiskRatingEnum })
   interpretation: RiskRatingEnum;
 
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  @ApiProperty({ minimum: 1, maximum: 5 })
-  postLikelihoodLevel: number;
+  @IsString()
+  @ApiProperty({ description: 'Post-control likelihood level as uppercase alphabet (A, B, C, D, E, etc.)', example: 'A' })
+  postLikelihoodLevel: string;
 
   @IsInt()
   @Min(1)
