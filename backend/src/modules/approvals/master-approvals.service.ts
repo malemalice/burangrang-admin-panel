@@ -68,12 +68,21 @@ export class MasterApprovalsService {
       data,
     });
 
-    // Then create each item separately
-    for (const item of items) {
+    // Sort items by order and ensure unique orders (use index as fallback)
+    const sortedItems = [...items].sort((a, b) => (a.order || 0) - (b.order || 0));
+    
+    // Then create each item with explicit order
+    for (let i = 0; i < sortedItems.length; i++) {
+      const item = sortedItems[i];
+      // Use item.order if valid, otherwise fallback to index + 1
+      const order = item.order && item.order > 0 ? item.order : i + 1;
+      
+      console.log(`[create] Creating item ${i + 1}: order=${order}, dept=${item.departmentId}, job=${item.jobPositionId}`);
+      
       await this.prisma.masterApprovalItem.create({
         data: {
           mApprovalId: masterApproval.id,
-          order: item.order || 0,
+          order,
           jobPositionId: item.jobPositionId,
           departmentId: item.departmentId,
           createdBy: userId,
@@ -207,12 +216,21 @@ export class MasterApprovalsService {
         where: { mApprovalId: id },
       });
 
-      // Create new items
-      for (const item of items) {
+      // Sort items by order and ensure unique orders (use index as fallback)
+      const sortedItems = [...items].sort((a, b) => (a.order || 0) - (b.order || 0));
+      
+      // Create new items with explicit order
+      for (let i = 0; i < sortedItems.length; i++) {
+        const item = sortedItems[i];
+        // Use item.order if valid, otherwise fallback to index + 1
+        const order = item.order && item.order > 0 ? item.order : i + 1;
+        
+        console.log(`[update] Creating item ${i + 1}: order=${order}, dept=${item.departmentId}, job=${item.jobPositionId}`);
+        
         await this.prisma.masterApprovalItem.create({
           data: {
             mApprovalId: id,
-            order: item.order || 0,
+            order,
             jobPositionId: item.jobPositionId,
             departmentId: item.departmentId,
             createdBy: userId,
@@ -438,26 +456,26 @@ export class MasterApprovalsService {
         ];
 
       if (!tableName) {
+        console.warn(`[getEntityData] No table mapping found for entity: ${entityName}`);
         return null;
       }
 
       // Query the source entity to get departmentId
+      // Note: Use Prisma.raw() correctly for table name injection
       const result = await this.prisma.$queryRaw<
         Array<{ departmentId: string }>
-      >`
-        SELECT "departmentId"
-        FROM "${Prisma.raw(tableName)}"
-        WHERE id = ${entityId}
-        LIMIT 1
-      `;
+      >(
+        Prisma.sql`SELECT "departmentId" FROM ${Prisma.raw(`"${tableName}"`)} WHERE id = ${entityId} LIMIT 1`
+      );
 
       if (!result || result.length === 0) {
+        console.warn(`[getEntityData] No entity found for id: ${entityId} in table: ${tableName}`);
         return null;
       }
 
       return result[0];
     } catch (error) {
-      console.error('Failed to get entity data:', error);
+      console.error('[getEntityData] Failed to get entity data:', error);
       return null;
     }
   }
@@ -606,8 +624,17 @@ export class MasterApprovalsService {
     // Get approval status and next approver
     const approvalStatus = await this.checkApprovalStatus(dataId, entityName);
 
+    console.log('[checkApprovalRights] User:', {
+      id: user.id,
+      departmentId: user.departmentId,
+      jobPositionId: user.jobPositionId,
+    });
+    console.log('[checkApprovalRights] nextApprover:', approvalStatus.nextApprover);
+    console.log('[checkApprovalRights] currentStatus:', approvalStatus.currentStatus);
+
     // If there's no next approver, user cannot approve
     if (!approvalStatus.nextApprover) {
+      console.log('[checkApprovalRights] No next approver, canApprove = false');
       return { canApprove: false };
     }
 
@@ -615,6 +642,16 @@ export class MasterApprovalsService {
     const canApprove =
       approvalStatus.nextApprover.department.id === user.departmentId &&
       approvalStatus.nextApprover.jobPosition.id === user.jobPositionId;
+
+    console.log('[checkApprovalRights] Comparison:', {
+      userDeptId: user.departmentId,
+      nextApproverDeptId: approvalStatus.nextApprover.department.id,
+      deptMatch: approvalStatus.nextApprover.department.id === user.departmentId,
+      userJobPosId: user.jobPositionId,
+      nextApproverJobPosId: approvalStatus.nextApprover.jobPosition.id,
+      jobPosMatch: approvalStatus.nextApprover.jobPosition.id === user.jobPositionId,
+      canApprove,
+    });
 
     return { canApprove };
   }
@@ -658,10 +695,24 @@ export class MasterApprovalsService {
       entityId,
       entityName,
     );
+    
+    // Sort items by order to ensure correct sequence
+    const sortedItems = [...itemsWithRelations].sort((a, b) => a.order - b.order);
+    
     const masterApproval = {
       ...masterApprovalRaw,
-      items: itemsWithRelations,
+      items: sortedItems,
     };
+    
+    // Debug logging
+    console.log('[checkApprovalStatus] Entity:', entityName, 'EntityId:', entityId);
+    console.log('[checkApprovalStatus] Items:', sortedItems.map(item => ({
+      order: item.order,
+      deptId: item.department?.id || item.departmentId,
+      jobPosId: item.jobPosition?.id || item.jobPositionId,
+      deptName: item.department?.name,
+      jobPosName: item.jobPosition?.name,
+    })));
 
     // Get ALL approval history for this entity, regardless of current m_approvals configuration
     // This ensures historical approvals are preserved even when m_approvals_item changes
@@ -686,18 +737,38 @@ export class MasterApprovalsService {
       },
     });
 
+    // Debug logging for approval history
+    console.log('[checkApprovalStatus] ApprovalHistory:', approvalHistory.map(a => ({
+      id: a.id,
+      status: a.status,
+      deptId: a.departmentId,
+      jobPosId: a.jobPositionId,
+    })));
+
     // Map approval history with line numbers
     // Keep createdAt order for historical accuracy
     const history = approvalHistory.map((approval, index) => {
       // Find matching master approval item to get the order/line
-      const matchingItem = masterApproval.items.find(
-        (item) =>
-          item.departmentId === approval.departmentId &&
-          item.jobPositionId === approval.jobPositionId,
-      );
+      // Match by resolved department/jobPosition IDs (not sentinel values)
+      const matchingItem = masterApproval.items.find((item) => {
+        // Compare resolved department and jobPosition IDs from the items
+        const itemDeptId = item.department?.id || item.departmentId;
+        const itemJobPosId = item.jobPosition?.id || item.jobPositionId;
+        const isMatch = itemDeptId === approval.departmentId && itemJobPosId === approval.jobPositionId;
+        console.log('[checkApprovalStatus] Matching approval to item:', {
+          itemOrder: item.order,
+          itemDeptId,
+          itemJobPosId,
+          approvalDeptId: approval.departmentId,
+          approvalJobPosId: approval.jobPositionId,
+          isMatch,
+        });
+        return isMatch;
+      });
 
       // Mark as historical if it doesn't match current m_approvals configuration
       const isHistorical = !matchingItem;
+      console.log('[checkApprovalStatus] Approval matched:', { matchingItemOrder: matchingItem?.order, isHistorical });
 
       return {
         id: approval.id,
@@ -731,17 +802,21 @@ export class MasterApprovalsService {
       const lastApproval = history[history.length - 1];
       currentStatus = lastApproval.status;
 
-      // If last approval was approved, find next approver
+        // If last approval was approved, find next approver
       if (lastApproval.status === 'APPROVED') {
         // Find the highest approved line number to determine next approver
         const approvedLines = approvalHistory
           .filter((a) => a.status === 'APPROVED')
           .map((a) => {
-            const matchingItem = masterApproval.items.find(
-              (item) =>
-                item.departmentId === a.departmentId &&
-                item.jobPositionId === a.jobPositionId,
-            );
+            // Match by resolved department/jobPosition IDs
+            const matchingItem = masterApproval.items.find((item) => {
+              const itemDeptId = item.department?.id || item.departmentId;
+              const itemJobPosId = item.jobPosition?.id || item.jobPositionId;
+              return (
+                itemDeptId === a.departmentId &&
+                itemJobPosId === a.jobPositionId
+              );
+            });
             return matchingItem?.order ?? -1;
           });
 
@@ -749,10 +824,14 @@ export class MasterApprovalsService {
           ? Math.max(...approvedLines) 
           : -1;
 
+        console.log('[checkApprovalStatus] approvedLines:', approvedLines, 'maxApprovedLine:', maxApprovedLine);
+
         // Find next approver after the last approved line
         const nextApprovalItem = masterApproval.items.find(
           (item) => item.order > maxApprovedLine,
         );
+
+        console.log('[checkApprovalStatus] nextApprovalItem:', nextApprovalItem ? { order: nextApprovalItem.order, deptId: nextApprovalItem.department?.id, jobPosId: nextApprovalItem.jobPosition?.id } : null);
 
         if (nextApprovalItem) {
           nextApprover = {
@@ -810,12 +889,17 @@ export class MasterApprovalsService {
 
     // Build all approval lines with their status
     const allApprovalLines = masterApproval.items.map((item) => {
+      // Get resolved department and jobPosition IDs (handle sentinel values)
+      const itemDeptId = item.department?.id || item.departmentId;
+      const itemJobPosId = item.jobPosition?.id || item.jobPositionId;
+
       // Check if this line has been completed (only APPROVED, not REJECTED)
+      // Match by resolved IDs
       const completedApproval = approvalHistory.find(
         (approval) =>
           approval.status === 'APPROVED' &&
-          approval.departmentId === item.departmentId &&
-          approval.jobPositionId === item.jobPositionId,
+          approval.departmentId === itemDeptId &&
+          approval.jobPositionId === itemJobPosId,
       );
 
       let status: 'completed' | 'current' | 'pending' = 'pending';

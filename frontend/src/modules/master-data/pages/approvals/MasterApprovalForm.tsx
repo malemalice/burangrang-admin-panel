@@ -150,15 +150,22 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
   const onSubmit = async (data: FormValues) => {
     try {
       setIsLoading(true);
+      
+      // Always use index + 1 as order since the visual position in the form IS the approval sequence
+      // This ensures proper ordering regardless of how items were added or reordered
+      const itemsWithOrder = data.items.map((item, index) => ({
+        order: index + 1, // Always use 1-based index as order
+        jobPositionId: item.jobPositionId,
+        departmentId: item.departmentId,
+      }));
+      
+      console.log('[MasterApprovalForm] Submitting items with orders:', itemsWithOrder);
+      
       if (mode === 'create') {
         const createData: CreateMasterApprovalDTO = {
           entity: data.entity,
           isActive: data.isActive,
-          items: data.items.map((item, index) => ({
-            order: item.order || index + 1,
-            jobPositionId: item.jobPositionId,
-            departmentId: item.departmentId,
-          })),
+          items: itemsWithOrder,
         };
         await masterApprovalService.create(createData);
         toast.success('Master approval created successfully');
@@ -166,11 +173,7 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
         const updateData: UpdateMasterApprovalDTO = {
           entity: data.entity,
           isActive: data.isActive,
-          items: data.items.map((item, index) => ({
-            order: item.order || index + 1,
-            jobPositionId: item.jobPositionId,
-            departmentId: item.departmentId,
-          })),
+          items: itemsWithOrder,
         };
         await masterApprovalService.update(approval.id, updateData);
         toast.success('Master approval updated successfully');
