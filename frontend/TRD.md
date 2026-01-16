@@ -377,6 +377,12 @@ When designing UI/UX for **back-office systems** (ERP, Internal Dashboards), the
    - Handle API errors gracefully
    - Allow retry on failure
 
+7. **Dynamic Approval Options**
+   - Master approval items can use sentinel values (`@ENTITY_DEPARTMENT`, `@ENTITY_JOB_POSITION`) for dynamic resolution
+   - Display sentinel values with human-readable labels: "Dynamic: From Entity Data" / "Dynamic: From Entity Data (Department Head)"
+   - Form selects include sentinel options alongside regular department/job position options
+   - Approval timeline displays resolved approver info (sentinel values resolved by backend before approval record creation)
+
 **Implementation Pattern**:
 
 ```typescript

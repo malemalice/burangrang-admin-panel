@@ -34,6 +34,7 @@ This Technical Reference Document (TRD) provides comprehensive guidance for the 
 - **Consistency**: Standardized patterns across all modules
 - **Security First**: Comprehensive authentication and authorization
 - **Maintainability**: Clear separation of concerns and modular architecture
+- **Dynamic Resolution**: Use sentinel values for entity-based field resolution; resolve at runtime, never store sentinels in transactional data
 
 ## Architecture
 
@@ -1464,9 +1465,27 @@ Multi-level sequential approval workflow system using template-based configurati
 - Template-based workflows per entity type
 - Sequential approval steps (order 0, 1, 2...)
 - Department + Job Position matching for authorization
+- **Dynamic field resolution** via sentinel values for entity-based approvals
 - Status flow: PENDING → WAITING_APPROVAL → COMPLETED/REJECTED
 - Complete approval history tracking
 - Automatic source entity status updates
+
+### Dynamic Approval Options Principles
+
+**Sentinel Values Approach**: Use special string constants (`@ENTITY_DEPARTMENT`, `@ENTITY_JOB_POSITION`) instead of fixed IDs to enable dynamic field resolution from entity data at approval creation time.
+
+**Core Principles**:
+1. **Sentinel Values**: Store sentinel strings in `m_approval_item.departmentId`/`jobPositionId` to indicate dynamic lookup
+2. **Resolution at Creation**: Resolve sentinel values to actual UUIDs when creating `t_approvals` records (never store sentinels in transactional data)
+3. **Backward Compatibility**: Fixed UUIDs continue to work unchanged; sentinel detection via `isApprovalFieldMarker()`
+4. **Schema Handling**: Foreign key constraints removed from `m_approval_item` (via migration) to allow sentinel storage; `t_approvals` keeps constraints
+5. **Relation Loading**: Load `department`/`jobPosition` relations separately, skip when sentinel detected, use display labels ("Dynamic: From Entity Data")
+6. **Entity Resolution**: `ApprovalResolverService.getEntityData()` reads entity `departmentId`; `findDepartmentHead()` resolves job position via department head lookup
+
+**Implementation**:
+- Constants: `APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT`, `FROM_ENTITY_JOB_POSITION`
+- Service: `ApprovalResolverService.resolveApprovalItem()` - resolves sentinels before creating approval records
+- Usage: Master approval items can mix fixed IDs and sentinels (e.g., first step dynamic, second step fixed)
 
 ### Module Structure
 ```
