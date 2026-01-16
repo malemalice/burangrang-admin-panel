@@ -202,7 +202,6 @@ model Department {
   updatedAt            DateTime               @default(now())
   users                User[]
   riskAssessments      RiskAssessment[]
-  approvalItems        MasterApprovalItem[]
   approvals            Approval[]
   ppeWithdrawals       PPEWithdrawal[]
   certificates         Certificate[]
@@ -222,7 +221,6 @@ model JobPosition {
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @default(now())
   users                User[]
-  approvalItems        MasterApprovalItem[]
   approvals            Approval[]
   ppeWithdrawals       PPEWithdrawal[]
   notificationRecipients NotificationRecipient[]
@@ -299,6 +297,7 @@ model RiskControl {
 // Risk Mitigation - Transactional Data (Polymorphic)
 // Supports RISK_ASSESSMENT_ITEM and INSPECTION_ITEM entity types
 // Related to RiskAssessmentItem (entity='RISK_ASSESSMENT_ITEM') and InspectionItem (entity='INSPECTION_ITEM')
+// 1-to-1 relationship: Each RiskAssessmentItem or InspectionItem can have one RiskMitigationRecord
 model RiskMitigationRecord {
   id           String   @id @default(uuid())
   eliminate    String?  @db.Text
@@ -399,10 +398,9 @@ model MasterApprovalItem {
   departmentId  String
   createdBy     String
   createdAt     DateTime       @default(now())
-  // Relations are optional to support sentinel values (@ENTITY_DEPARTMENT, @ENTITY_JOB_POSITION)
-  // Foreign key constraints are removed via migration to allow sentinel values
-  jobPosition   JobPosition?   @relation(fields: [jobPositionId], references: [id])
-  department    Department?    @relation(fields: [departmentId], references: [id])
+  // Relations removed to support sentinel values (@ENTITY_DEPARTMENT, @ENTITY_JOB_POSITION)
+  // Relations are loaded manually via loadItemRelations() to handle sentinel values
+  // No foreign key constraints - jobPositionId and departmentId are plain String fields
   creator       User           @relation("CreatedApprovalItems", fields: [createdBy], references: [id])
 
   @@map("m_approval_item")
@@ -1406,6 +1404,7 @@ model Inspection {
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt
   createdBy      String
+  doneAt         DateTime?
 
   // Relations
   area       Area                   @relation(fields: [areaId], references: [id])
@@ -1419,6 +1418,7 @@ model Inspection {
 }
 
 // Inspection Item - Transactional Data
+// Has 1-to-1 polymorphic relation with RiskMitigationRecord (entity='INSPECTION_ITEM', entityId=id)
 model InspectionItem {
   id                  String   @id @default(uuid())
   inspectionId        String
@@ -1426,12 +1426,14 @@ model InspectionItem {
   riskId              String
   assignedDepartmentId String
   assigneeId          String?
+  findings            String?  @db.Text
   description         String?  @db.Text
   followUpNotes       String?  @db.Text
   status              GeneralStatusEnum @default(DRAFT)
   order               Int
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+  dueDateAt           DateTime?
 
   // Relations
   inspection          Inspection     @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
@@ -1451,18 +1453,21 @@ model InspectionItem {
 }
 
 // Inspection Image - Transactional Data
+// Supports before/after fix action plan tracking
 model InspectionImage {
-  id               String   @id @default(uuid())
+  id               String                  @id @default(uuid())
   inspectionItemId String
   imageUrl         String
-  caption          String?  @db.Text
+  caption          String?                 @db.Text
+  type             InspectionImageTypeEnum @default(GENERAL) // BEFORE: before fix action plan, AFTER: after fix action plan, GENERAL: general inspection image
   order            Int
-  createdAt        DateTime @default(now())
+  createdAt        DateTime                 @default(now())
 
   // Relations
   inspectionItem InspectionItem @relation(fields: [inspectionItemId], references: [id], onDelete: Cascade)
 
   @@index([inspectionItemId])
+  @@index([inspectionItemId, type])
   @@index([order])
   @@map("t_inspection_images")
 }
@@ -1845,6 +1850,12 @@ enum TransitionTypeEnum {
   INITIAL
   TRANSITION_LEVEL
   ADVANCE_LEVEL
+}
+
+enum InspectionImageTypeEnum {
+  BEFORE  // Image taken before fix/action plan
+  AFTER   // Image taken after fix/action plan
+  GENERAL // General inspection image
 }
 
 // ============================================================
