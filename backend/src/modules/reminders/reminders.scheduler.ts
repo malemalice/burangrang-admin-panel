@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { RemindersService } from './reminders.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { ReminderTargetTypeEnum } from './dto/reminder.dto';
 
 /**
  * ReminderScheduler handles automatic execution of due reminders
@@ -63,45 +64,62 @@ export class RemindersScheduler {
 
   /**
    * Process a single reminder
-   * Creates notification, sends email, and updates reminder status
+   * Creates notifications for all recipients based on target type, sends emails, and updates reminder status
    */
   private async processReminder(reminder: any): Promise<void> {
     const startTime = Date.now();
     let notificationId: string | undefined;
     let emailSent = false;
+    let emailSentCount = 0;
     let error: string | undefined;
 
     try {
-      this.logger.debug(`Processing reminder ${reminder.id} for user ${reminder.userId}`);
+      this.logger.debug(
+        `Processing reminder ${reminder.id} with targetType=${reminder.targetType}, targetId=${reminder.targetId}`,
+      );
 
-      // Get user details
-      const user = await this.prisma.user.findUnique({
-        where: { id: reminder.userId },
-        include: {
-          role: true,
-        },
-      });
+      // Get recipients based on target type
+      // @ts-ignore - Prisma types will be updated after running npx prisma generate
+      const recipients = await this.getRecipients(
+        reminder.targetType as ReminderTargetTypeEnum,
+        reminder.targetId,
+      );
 
-      if (!user) {
-        throw new Error(`User ${reminder.userId} not found`);
+      if (recipients.length === 0) {
+        throw new Error(
+          `No recipients found for reminder ${reminder.id} with targetType=${reminder.targetType}, targetId=${reminder.targetId}`,
+        );
       }
 
-      // Create notification
-      try {
-        const notification = await this.notificationsService.createNotificationForRoles(
-          {
-            title: 'Reminder',
-            message: reminder.message,
-            context: reminder.entity,
-            contextId: reminder.entityId,
-            typeId: await this.getOrCreateReminderNotificationType(),
-            roleIds: [user.roleId],
-          },
-          reminder.userId, // Created by the reminder owner
-        );
+      this.logger.debug(
+        `Found ${recipients.length} recipient(s) for reminder ${reminder.id}`,
+      );
 
-        notificationId = notification.id;
-        this.logger.debug(`Created notification ${notificationId} for reminder ${reminder.id}`);
+      // Create notification for all recipients (group by role for efficiency)
+      try {
+        const roleIds = [
+          ...new Set(recipients.map((r: any) => r.roleId).filter(Boolean)),
+        ];
+
+        if (roleIds.length > 0) {
+          const notification =
+            await this.notificationsService.createNotificationForRoles(
+              {
+                title: 'Reminder',
+                message: reminder.message,
+                context: reminder.entity ?? undefined,
+                contextId: reminder.entityId ?? undefined,
+                typeId: await this.getOrCreateReminderNotificationType(),
+                roleIds,
+              },
+              reminder.createdBy, // Created by the reminder creator
+            );
+
+          notificationId = notification.id;
+          this.logger.debug(
+            `Created notification ${notificationId} for reminder ${reminder.id} with ${roleIds.length} role(s)`,
+          );
+        }
       } catch (notificationError) {
         this.logger.error(
           `Failed to create notification for reminder ${reminder.id}`,
@@ -110,19 +128,28 @@ export class RemindersScheduler {
         error = `Notification creation failed: ${notificationError.message}`;
       }
 
-      // Send email (optional based on requirements)
-      try {
-        await this.sendReminderEmail(user, reminder);
-        emailSent = true;
-        this.logger.debug(`Sent email for reminder ${reminder.id}`);
-      } catch (emailError) {
-        this.logger.warn(
-          `Failed to send email for reminder ${reminder.id}: ${emailError.message}`,
-        );
-        // Don't mark as failed if only email failed
-        if (!error) {
-          error = `Email sending failed: ${emailError.message}`;
+      // Send email to all recipients (optional based on requirements)
+      for (const recipient of recipients) {
+        try {
+          await this.sendReminderEmail(recipient, reminder);
+          emailSentCount++;
+        } catch (emailError) {
+          this.logger.warn(
+            `Failed to send email to ${recipient.email} for reminder ${reminder.id}: ${emailError.message}`,
+          );
+          // Don't mark as failed if only email failed
+          if (!error) {
+            error = `Email sending failed for some recipients: ${emailError.message}`;
+          }
         }
+      }
+
+      emailSent = emailSentCount > 0;
+
+      if (emailSent) {
+        this.logger.debug(
+          `Sent ${emailSentCount}/${recipients.length} emails for reminder ${reminder.id}`,
+        );
       }
 
       // Update reminder status and create log
@@ -136,7 +163,7 @@ export class RemindersScheduler {
 
       const duration = Date.now() - startTime;
       this.logger.log(
-        `Successfully processed reminder ${reminder.id} in ${duration}ms (notification: ${!!notificationId}, email: ${emailSent})`,
+        `Successfully processed reminder ${reminder.id} in ${duration}ms (recipients: ${recipients.length}, notification: ${!!notificationId}, emails: ${emailSentCount}/${recipients.length})`,
       );
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -160,6 +187,58 @@ export class RemindersScheduler {
           updateError.stack,
         );
       }
+    }
+  }
+
+  /**
+   * Get recipients based on target type and target ID
+   */
+  private async getRecipients(
+    targetType: ReminderTargetTypeEnum,
+    targetId: string,
+  ): Promise<any[]> {
+    switch (targetType) {
+      case ReminderTargetTypeEnum.USER: {
+        const user = await this.prisma.user.findUnique({
+          where: { id: targetId },
+          include: { role: true },
+        });
+        return user ? [user] : [];
+      }
+
+      case ReminderTargetTypeEnum.ROLE: {
+        return await this.prisma.user.findMany({
+          where: {
+            roleId: targetId,
+            isActive: true,
+          },
+          include: { role: true },
+        });
+      }
+
+      case ReminderTargetTypeEnum.DEPARTMENT: {
+        return await this.prisma.user.findMany({
+          where: {
+            departmentId: targetId,
+            isActive: true,
+          },
+          include: { role: true },
+        });
+      }
+
+      case ReminderTargetTypeEnum.OFFICE: {
+        return await this.prisma.user.findMany({
+          where: {
+            officeId: targetId,
+            isActive: true,
+          },
+          include: { role: true },
+        });
+      }
+
+      default:
+        this.logger.warn(`Unknown target type: ${targetType}`);
+        return [];
     }
   }
 

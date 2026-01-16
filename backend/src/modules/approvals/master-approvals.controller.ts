@@ -221,10 +221,11 @@ export class MasterApprovalsController {
   ): Promise<ApprovalStatusHistory & { error?: boolean; message?: string }> {
     try {
       const entityName = entity || APPROVAL_ENTITIES.RISK_ASSESSMENT;
-      return await this.masterApprovalsService.checkApprovalStatus(
+      const result = await this.masterApprovalsService.checkApprovalStatus(
         dataId,
         entityName,
       );
+      return result;
     } catch (error) {
       let errorMessage = 'An unexpected error occurred';
       if (error instanceof HttpException) {

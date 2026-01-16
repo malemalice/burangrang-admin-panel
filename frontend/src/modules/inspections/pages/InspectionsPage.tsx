@@ -6,7 +6,7 @@ import {
   Eye,
   Plus, 
   MoreHorizontal, 
-  FileEdit, 
+  Edit, 
   Trash2,
 } from 'lucide-react';
 
@@ -313,7 +313,7 @@ const InspectionsPage = () => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => navigate(`/inspections/${inspection.id}/edit`)}>
-                <FileEdit className="mr-2 h-4 w-4" /> Edit
+                <Edit className="mr-2 h-4 w-4" /> Edit
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

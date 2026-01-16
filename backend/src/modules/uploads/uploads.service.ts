@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateFileUploadDto } from './dto/create-file-upload.dto';
 import { UpdateFileUploadDto } from './dto/update-file-upload.dto';
@@ -446,7 +446,7 @@ export class UploadsService {
   private validateFile(file: any, category: any): void {
     // Check file size
     if (file.size > category.maxSize) {
-      throw new Error(
+      throw new BadRequestException(
         `File size exceeds maximum allowed size of ${category.maxSize} bytes`,
       );
     }
@@ -454,7 +454,7 @@ export class UploadsService {
     // Check file type
     const allowedTypes = category.allowedTypes as string[];
     if (!allowedTypes.includes(file.mimetype)) {
-      throw new Error(
+      throw new BadRequestException(
         `File type ${file.mimetype} is not allowed for this category`,
       );
     }

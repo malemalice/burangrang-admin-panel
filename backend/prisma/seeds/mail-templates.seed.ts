@@ -56,6 +56,12 @@ export async function seedMailTemplates(prisma: PrismaClient): Promise<void> {
       subjectTemplate: '{{title}}',
       bodyTemplate: readTemplate('notification'),
     },
+    {
+      code: 'course-assignment',
+      name: 'Course Assignment',
+      subjectTemplate: 'New Course Assignment: {{courseTitle}}',
+      bodyTemplate: readTemplate('course-assignment'),
+    },
   ];
 
   for (const tpl of templates) {

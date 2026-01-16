@@ -1,6 +1,8 @@
-import { IsString, IsUUID, IsInt, IsEnum, Min, Max, IsNotEmpty } from 'class-validator';
+import { IsString, IsUUID, IsInt, IsEnum, Min, Max, IsNotEmpty, IsOptional, ValidateNested } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { RiskRatingEnum } from '@prisma/client';
+import { RiskMitigationDataDto } from './risk-mitigation-data.dto';
 
 export class CreateRiskAssessmentItemDto {
   @IsUUID()
@@ -11,11 +13,9 @@ export class CreateRiskAssessmentItemDto {
   @ApiProperty()
   mRiskCategoryId: string;
 
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  @ApiProperty({ minimum: 1, maximum: 5 })
-  likelihoodLevel: number;
+  @IsString()
+  @ApiProperty({ description: 'Likelihood level as uppercase alphabet (A, B, C, D, E, etc.)', example: 'A' })
+  likelihoodLevel: string;
 
   @IsInt()
   @Min(1)
@@ -31,11 +31,9 @@ export class CreateRiskAssessmentItemDto {
   @ApiProperty({ enum: RiskRatingEnum })
   interpretation: RiskRatingEnum;
 
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  @ApiProperty({ minimum: 1, maximum: 5 })
-  postLikelihoodLevel: number;
+  @IsString()
+  @ApiProperty({ description: 'Post-control likelihood level as uppercase alphabet (A, B, C, D, E, etc.)', example: 'A' })
+  postLikelihoodLevel: string;
 
   @IsInt()
   @Min(1)
@@ -50,4 +48,10 @@ export class CreateRiskAssessmentItemDto {
   @IsEnum(RiskRatingEnum)
   @ApiProperty({ enum: RiskRatingEnum })
   postInterpretation: RiskRatingEnum;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RiskMitigationDataDto)
+  @ApiProperty({ type: RiskMitigationDataDto, required: false, description: 'Risk mitigation data' })
+  mitigation?: RiskMitigationDataDto;
 } 

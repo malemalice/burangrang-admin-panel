@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -6,7 +6,7 @@ import {
   Eye,
   Plus, 
   MoreHorizontal, 
-  FileEdit, 
+  Edit, 
   Trash2,
 } from 'lucide-react';
 
@@ -28,6 +28,8 @@ import { Badge } from '@/core/components/ui/badge';
 import { RiskAssessment } from '@/core/lib/types';
 import riskAssessmentService from '../services/riskAssessmentService';
 import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
+import { departmentService } from '@/modules/master-data';
+import { Department } from '@/modules/master-data/types/master-data.types';
 
 const RiskAssessmentsPage = () => {
   const navigate = useNavigate();
@@ -42,9 +44,23 @@ const RiskAssessmentsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [departments, setDepartments] = useState<Department[]>([]);
+
+  // Fetch departments for filter dropdown
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await departmentService.getDepartments({ page: 1, limit: 100 });
+        setDepartments(response.data);
+      } catch (error) {
+        console.error('Failed to fetch departments:', error);
+      }
+    };
+    fetchDepartments();
+  }, []);
 
   // Define filter fields
-  const filterFields: FilterField[] = [
+  const filterFields: FilterField[] = useMemo(() => [
     {
       id: 'code',
       label: 'Assessment Code',
@@ -54,7 +70,10 @@ const RiskAssessmentsPage = () => {
       id: 'departmentId',
       label: 'Department',
       type: 'select',
-      options: [], // This should be populated from an API call
+      options: departments.map(dept => ({
+        label: dept.name,
+        value: dept.id,
+      })),
     },
     {
       id: 'status',
@@ -64,8 +83,17 @@ const RiskAssessmentsPage = () => {
         label: option.label,
         value: option.value,
       })),
+    },
+    {
+      id: 'isActive',
+      label: 'Active Status',
+      type: 'select',
+      options: [
+        { label: 'Active', value: 'active' },
+        { label: 'Inactive', value: 'inactive' },
+      ],
     }
-  ];
+  ], [departments]);
 
   const fetchAssessments = useCallback(async () => {
     setIsLoading(true);
@@ -80,16 +108,21 @@ const RiskAssessmentsPage = () => {
         params.search = searchTerm;
       }
 
-      // Add active status from filters
-      if (activeFilters.status?.value === 'active') {
+      // Add isActive filter (Active/Inactive status)
+      if (activeFilters.isActive?.value === 'active') {
         params.isActive = true;
-      } else if (activeFilters.status?.value === 'inactive') {
+      } else if (activeFilters.isActive?.value === 'inactive') {
         params.isActive = false;
       }
 
-      // Add other filters
+      // Add status filter (GeneralStatusEnum: SCHEDULED, DRAFT, OPEN, etc.)
+      if (activeFilters.status?.value) {
+        params.status = activeFilters.status.value;
+      }
+
+      // Add other filters (code, departmentId, etc.)
       Object.entries(activeFilters).forEach(([key, filter]) => {
-        if (key !== 'status') {
+        if (key !== 'isActive' && key !== 'status') {
           params[key] = filter.value;
         }
       });
@@ -124,16 +157,16 @@ const RiskAssessmentsPage = () => {
     setActiveTab(value);
     setPageIndex(0);
     
-    // Update filters based on tab
+    // Update filters based on tab (use isActive filter, not status)
     if (value === 'all') {
       setActiveFilters({});
     } else if (value === 'active') {
       setActiveFilters({
-        status: { value: 'active', label: 'Active' }
+        isActive: { value: 'active', label: 'Active' }
       });
     } else if (value === 'inactive') {
       setActiveFilters({
-        status: { value: 'inactive', label: 'Inactive' }
+        isActive: { value: 'inactive', label: 'Inactive' }
       });
     }
   };
@@ -143,10 +176,25 @@ const RiskAssessmentsPage = () => {
     
     filters.forEach(filter => {
       if (filter.id === 'status') {
+        // Handle GeneralStatusEnum status filter
         const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === filter.value);
         newActiveFilters[filter.id] = {
           value: filter.value,
           label: statusOption?.label || String(filter.value)
+        };
+      } else if (filter.id === 'isActive') {
+        // Handle Active/Inactive status filter
+        const isActiveLabel = filter.value === 'active' ? 'Active' : 'Inactive';
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: isActiveLabel
+        };
+      } else if (filter.id === 'departmentId') {
+        // Handle department filter with proper label
+        const department = departments.find(dept => dept.id === filter.value);
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: department?.name || String(filter.value)
         };
       } else {
         newActiveFilters[filter.id] = {
@@ -281,10 +329,14 @@ const RiskAssessmentsPage = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/risk-assessment/${assessment.id}/edit`)}>
-                <FileEdit className="mr-2 h-4 w-4" /> Edit
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              {assessment.status !== GeneralStatusEnum.WAITING_APPROVAL && (
+                <>
+                  <DropdownMenuItem onClick={() => navigate(`/risk-assessment/${assessment.id}/edit`)}>
+                    <Edit className="mr-2 h-4 w-4" /> Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem
                 onClick={(e) => handleDeleteClick(assessment, e)}
                 className="text-red-600 focus:text-red-600"

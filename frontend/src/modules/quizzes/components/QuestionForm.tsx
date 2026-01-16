@@ -128,6 +128,7 @@ const QuestionForm = ({ questionIndex, onRemove, onMediaFileSelect }: QuestionFo
                       }
                     }}
                     categoryName="course-materials"
+                    id={`file-upload-question-${questionIndex}`}
                     allowedTypes={[
                       'image/jpeg',
                       'image/png',

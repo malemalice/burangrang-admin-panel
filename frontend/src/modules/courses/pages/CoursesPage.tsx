@@ -70,7 +70,7 @@ const CoursesPage = () => {
     {
       id: 'instructorId',
       label: 'Instructor',
-      type: 'searchableSelect',
+      type: 'select',
       options: instructors.map(instructor => ({
         label: instructor.name,
         value: instructor.id

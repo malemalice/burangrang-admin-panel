@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/core/components/ui/select';
+import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { CreateWorkPermitDTO, UpdateWorkPermitDTO, WorkPermit, MasterDataOption, GuestOption } from '../types/work-permit.types';
 import { toast } from 'sonner';
 import uploadService from '@/modules/uploads/services/uploadService';
@@ -168,6 +169,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [companies, setCompanies] = useState<MasterDataOption[]>([]);
   const [workClassifications, setWorkClassifications] = useState<MasterDataOption[]>([]);
   const [guests, setGuests] = useState<GuestOption[]>([]);
+
   const [users, setUsers] = useState<User[]>([]);
   const [heavyEquipment, setHeavyEquipment] = useState<MasterDataOption[]>([]);
   const [tools, setTools] = useState<MasterDataOption[]>([]);
@@ -180,6 +182,11 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [workPermitDocumentsCategoryId, setWorkPermitDocumentsCategoryId] = useState<string | null>(null);
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
   const [uploadedFileNames, setUploadedFileNames] = useState<Record<string, string>>({});
+
+  // Memoized options for SearchableSelect
+  const areaOptions = useMemo(() => areas.map((a) => ({ value: a.id, label: a.name })), [areas]);
+  const companyOptions = useMemo(() => companies.map((c) => ({ value: c.id, label: c.name })), [companies]);
+  const guestOptions = useMemo(() => guests.map((g) => ({ value: g.id, label: g.name })), [guests]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -558,20 +565,15 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Area *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select area" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {areas.map((area) => (
-                          <SelectItem key={area.id} value={area.id}>
-                            {area.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <SearchableSelect
+                        options={areaOptions}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        placeholder="Select area"
+                        searchPlaceholder="Search area..."
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -582,20 +584,15 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Company *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select company" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {companies.map((company) => (
-                          <SelectItem key={company.id} value={company.id}>
-                            {company.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <SearchableSelect
+                        options={companyOptions}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        placeholder="Select company"
+                        searchPlaceholder="Search company..."
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -706,13 +703,13 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               {classificationFields.map((field, index) => {
                 // Get all classification values from form for reactive updates
                 const allClassificationValues = form.watch('classifications') || [];
-                
+
                 // Get already selected classification IDs (excluding current field)
                 const selectedIds = allClassificationValues
                   .filter((_, i) => i !== index)
                   .map((c) => c?.workClassificationId)
                   .filter(Boolean);
-                
+
                 return (
                   <div key={field.id} className="flex gap-2 items-end">
                     <FormField
@@ -803,20 +800,15 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Worker *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select worker" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {guests.map((guest) => (
-                              <SelectItem key={guest.id} value={guest.id}>
-                                {guest.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            options={guestOptions}
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            placeholder="Select worker"
+                            searchPlaceholder="Search worker..."
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}

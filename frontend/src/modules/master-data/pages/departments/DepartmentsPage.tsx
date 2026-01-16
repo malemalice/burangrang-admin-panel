@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Building, MoreHorizontal, Mail } from 'lucide-react';
+import { Edit, Trash2, Plus, MoreHorizontal, Mail, Eye } from 'lucide-react';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import {
   DropdownMenu,
@@ -243,7 +243,7 @@ export default function DepartmentsPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => navigate(`/master/departments/${department.id}`)}>
-              <Building className="mr-2 h-4 w-4" /> View details
+              <Eye className="mr-2 h-4 w-4" /> View details
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/master/departments/${department.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit

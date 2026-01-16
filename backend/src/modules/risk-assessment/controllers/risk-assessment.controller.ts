@@ -54,6 +54,7 @@ export class RiskAssessmentController {
     @Query('isActive') isActive?: boolean,
     @Query('departmentId') departmentId?: string,
     @Query('status') status?: GeneralStatusEnum,
+    @Query('search') search?: string,
   ) {
     return this.riskAssessmentService.findAll({
       page: page ? +page : undefined,
@@ -63,6 +64,7 @@ export class RiskAssessmentController {
       isActive,
       departmentId,
       status,
+      search,
     });
   }
 
