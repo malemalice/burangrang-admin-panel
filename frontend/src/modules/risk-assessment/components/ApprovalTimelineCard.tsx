@@ -5,6 +5,23 @@ import { Badge } from '@/core/components/ui/badge';
 import { ApprovalStatusHistory } from '@/modules/master-data';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 
+// Sentinel values for dynamic approval fields
+const APPROVAL_FIELD_MARKERS = {
+  FROM_ENTITY_DEPARTMENT: '@ENTITY_DEPARTMENT',
+  FROM_ENTITY_JOB_POSITION: '@ENTITY_JOB_POSITION',
+} as const;
+
+// Helper function to get display label (handles sentinel values - backend should already return labels, but this is a fallback)
+const getDisplayLabel = (value: string, fallback: string): string => {
+  if (value === APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT) {
+    return 'Dynamic: From Entity Data';
+  }
+  if (value === APPROVAL_FIELD_MARKERS.FROM_ENTITY_JOB_POSITION) {
+    return 'Dynamic: From Entity Data (Department Head)';
+  }
+  return fallback;
+};
+
 interface ApprovalTimelineCardProps {
   approvalHistory: ApprovalStatusHistory | null;
   isLoading: boolean;

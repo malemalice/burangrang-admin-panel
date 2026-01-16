@@ -25,6 +25,7 @@ import {
   ReminderRepeatTypeEnum,
   ReminderTargetTypeEnum,
 } from '../../reminders/dto/reminder.dto';
+import { APPROVAL_ENTITIES } from '../../../shared/constants/approval-entities';
 
 // Entity type constant for risk assessment items
 const RISK_ASSESSMENT_ITEM_ENTITY = 'RISK_ASSESSMENT_ITEM';
@@ -286,6 +287,9 @@ export class RiskAssessmentService {
       oldStatus === GeneralStatusEnum.SCHEDULED &&
       newStatus !== GeneralStatusEnum.SCHEDULED &&
       newStatus !== undefined;
+    const statusChangedToWaitingApproval =
+      oldStatus !== GeneralStatusEnum.WAITING_APPROVAL &&
+      newStatus === GeneralStatusEnum.WAITING_APPROVAL;
     const assessmentDateChanged =
       data.assessmentDate &&
       data.assessmentDate.getTime() !==
@@ -345,6 +349,24 @@ export class RiskAssessmentService {
         if (mitigation) {
           await this.createMitigationRecord(assessmentWithItems.items[i].id, mitigation);
         }
+      }
+    }
+
+    // Handle approval creation when status changes to WAITING_APPROVAL
+    if (statusChangedToWaitingApproval) {
+      try {
+        await this.approvalsService.createApproval(
+          APPROVAL_ENTITIES.RISK_ASSESSMENT,
+          id,
+          existingAssessment.createdBy,
+        );
+      } catch (error) {
+        console.error(
+          `[RiskAssessment] Failed to create approval records for assessment ${id}:`,
+          error,
+        );
+        // Don't throw - allow status update to succeed even if approval creation fails
+        // Error will be logged for investigation
       }
     }
 

@@ -24,6 +24,12 @@ import { MasterApproval } from '@/core/lib/types';
 import jobPositionService from '../../services/jobPositionService';
 import departmentService from '../../services/departmentService';
 
+// Sentinel values for dynamic approval fields
+const APPROVAL_FIELD_MARKERS = {
+  FROM_ENTITY_DEPARTMENT: '@ENTITY_DEPARTMENT',
+  FROM_ENTITY_JOB_POSITION: '@ENTITY_JOB_POSITION',
+} as const;
+
 const formSchema = z.object({
   entity: z.string().min(1, 'Entity is required'),
   isActive: z.boolean().default(true),
@@ -63,15 +69,27 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
   });
 
   // Convert data to SearchableSelectOption format
-  const jobPositionOptions: SearchableSelectOption[] = jobPositions.map(position => ({
-    value: position.id,
-    label: position.name,
-  }));
+  const jobPositionOptions: SearchableSelectOption[] = [
+    ...jobPositions.map(position => ({
+      value: position.id,
+      label: position.name,
+    })),
+    {
+      value: APPROVAL_FIELD_MARKERS.FROM_ENTITY_JOB_POSITION,
+      label: 'Dynamic: From Entity Data (Department Head)',
+    },
+  ];
 
-  const departmentOptions: SearchableSelectOption[] = departments.map(dept => ({
-    value: dept.id,
-    label: dept.name,
-  }));
+  const departmentOptions: SearchableSelectOption[] = [
+    ...departments.map(dept => ({
+      value: dept.id,
+      label: dept.name,
+    })),
+    {
+      value: APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT,
+      label: 'Dynamic: From Entity Data',
+    },
+  ];
 
   // Fetch options (job positions and departments)
   useEffect(() => {

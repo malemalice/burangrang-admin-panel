@@ -398,8 +398,10 @@ model MasterApprovalItem {
   departmentId  String
   createdBy     String
   createdAt     DateTime       @default(now())
-  jobPosition   JobPosition    @relation(fields: [jobPositionId], references: [id])
-  department    Department     @relation(fields: [departmentId], references: [id])
+  // Relations are optional to support sentinel values (@ENTITY_DEPARTMENT, @ENTITY_JOB_POSITION)
+  // Foreign key constraints are removed via migration to allow sentinel values
+  jobPosition   JobPosition?   @relation(fields: [jobPositionId], references: [id])
+  department    Department?    @relation(fields: [departmentId], references: [id])
   creator       User           @relation("CreatedApprovalItems", fields: [createdBy], references: [id])
 
   @@map("m_approval_item")

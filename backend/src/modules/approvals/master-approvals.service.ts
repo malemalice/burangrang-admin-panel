@@ -17,6 +17,10 @@ import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
 import { APPROVAL_ENTITY_TO_TABLE } from '../../shared/constants/approval-entities';
+import {
+  APPROVAL_FIELD_MARKERS,
+  isApprovalFieldMarker,
+} from './constants/approval-field-markers';
 
 interface FindAllOptions {
   page?: number;
@@ -104,15 +108,14 @@ export class MasterApprovalsService {
       where.isActive = isActive;
     }
 
-    const [masterApprovals, total] = await Promise.all([
+    const [masterApprovalsRaw, total] = await Promise.all([
       this.prisma.masterApproval.findMany({
         where,
         include: {
           items: {
-            include: {
-              jobPosition: true,
-              department: true,
-              creator: true,
+            // Don't include relations here - we'll load them separately to handle sentinel values
+            orderBy: {
+              order: 'asc',
             },
           },
         },
@@ -125,6 +128,17 @@ export class MasterApprovalsService {
       this.prisma.masterApproval.count({ where }),
     ]);
 
+    // Load relations for items, handling sentinel values
+    const masterApprovals = await Promise.all(
+      masterApprovalsRaw.map(async (approval) => {
+        const itemsWithRelations = await this.loadItemRelations(approval.items);
+        return {
+          ...approval,
+          items: itemsWithRelations,
+        };
+      }),
+    );
+
     return {
       data: this.masterApprovalArrayMapper(masterApprovals),
       meta: { total, page, limit },
@@ -132,14 +146,13 @@ export class MasterApprovalsService {
   }
 
   async findOne(id: string): Promise<MasterApprovalDto> {
-    const masterApproval = await this.prisma.masterApproval.findUnique({
+    const masterApprovalRaw = await this.prisma.masterApproval.findUnique({
       where: { id },
       include: {
         items: {
-          include: {
-            jobPosition: true,
-            department: true,
-            creator: true,
+          // Don't include relations here - we'll load them separately to handle sentinel values
+          orderBy: {
+            order: 'asc',
           },
         },
       },
@@ -148,8 +161,17 @@ export class MasterApprovalsService {
     this.errorHandler.throwIfNotFoundById(
       'Master approval',
       id,
-      masterApproval,
+      masterApprovalRaw,
     );
+
+    // Load relations for items, handling sentinel values
+    const itemsWithRelations = await this.loadItemRelations(
+      masterApprovalRaw.items,
+    );
+    const masterApproval = {
+      ...masterApprovalRaw,
+      items: itemsWithRelations,
+    };
 
     return this.masterApprovalMapper(masterApproval);
   }
@@ -223,6 +245,95 @@ export class MasterApprovalsService {
     await this.prisma.masterApproval.delete({
       where: { id },
     });
+  }
+
+  /**
+   * Get display label for sentinel value
+   */
+  private getSentinelDisplayLabel(value: string): string {
+    if (value === APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT) {
+      return 'Dynamic: From Entity Data';
+    }
+    if (value === APPROVAL_FIELD_MARKERS.FROM_ENTITY_JOB_POSITION) {
+      return 'Dynamic: From Entity Data (Department Head)';
+    }
+    return value;
+  }
+
+  /**
+   * Load relation data for master approval items, handling sentinel values
+   */
+  private async loadItemRelations(items: any[]): Promise<any[]> {
+    const itemsWithRelations = await Promise.all(
+      items.map(async (item) => {
+        const result: any = { ...item };
+
+        // Handle department relation
+        if (isApprovalFieldMarker(item.departmentId)) {
+          // Sentinel value - use placeholder
+          result.department = {
+            id: item.departmentId,
+            name: this.getSentinelDisplayLabel(item.departmentId),
+          };
+        } else {
+          // Load actual relation if not already loaded
+          if (!item.department) {
+            const department = await this.prisma.department.findUnique({
+              where: { id: item.departmentId },
+              select: { id: true, name: true },
+            });
+            result.department = department || {
+              id: item.departmentId,
+              name: 'Unknown Department',
+            };
+          } else {
+            result.department = item.department;
+          }
+        }
+
+        // Handle job position relation
+        if (isApprovalFieldMarker(item.jobPositionId)) {
+          // Sentinel value - use placeholder
+          result.jobPosition = {
+            id: item.jobPositionId,
+            name: this.getSentinelDisplayLabel(item.jobPositionId),
+          };
+        } else {
+          // Load actual relation if not already loaded
+          if (!item.jobPosition) {
+            const jobPosition = await this.prisma.jobPosition.findUnique({
+              where: { id: item.jobPositionId },
+              select: { id: true, name: true },
+            });
+            result.jobPosition = jobPosition || {
+              id: item.jobPositionId,
+              name: 'Unknown Job Position',
+            };
+          } else {
+            result.jobPosition = item.jobPosition;
+          }
+        }
+
+        // Handle creator relation (should always be valid)
+        if (!item.creator) {
+          const creator = await this.prisma.user.findUnique({
+            where: { id: item.createdBy },
+            select: { id: true, firstName: true, lastName: true },
+          });
+          result.creator = creator || {
+            id: item.createdBy,
+            firstName: 'Unknown',
+            lastName: 'User',
+          };
+        } else {
+          result.creator = item.creator;
+        }
+
+        return result;
+      }),
+    );
+
+    return itemsWithRelations;
   }
 
   private mapToDto(data: any): MasterApprovalDto {
@@ -307,7 +418,7 @@ export class MasterApprovalsService {
     entityName: string,
   ): Promise<ApprovalStatusHistory> {
     // Get master approval configuration
-    const masterApproval = await this.prisma.masterApproval.findFirst({
+    const masterApprovalRaw = await this.prisma.masterApproval.findFirst({
       where: {
         entity: entityName,
         isActive: true,
@@ -317,19 +428,31 @@ export class MasterApprovalsService {
           orderBy: {
             order: 'asc',
           },
-          include: {
-            department: true,
-            jobPosition: true,
-          },
+          // Don't include relations here - we'll load them separately to handle sentinel values
         },
       },
     });
 
-    if (!masterApproval) {
+    if (!masterApprovalRaw) {
       throw new NotFoundException(
         `No active approval configuration found for ${entityName}`,
       );
     }
+
+    if (!masterApprovalRaw.items || masterApprovalRaw.items.length === 0) {
+      throw new NotFoundException(
+        `Master approval configuration for ${entityName} exists but has no approval items configured. Please add approval items to the configuration.`,
+      );
+    }
+
+    // Load relations for items, handling sentinel values
+    const itemsWithRelations = await this.loadItemRelations(
+      masterApprovalRaw.items,
+    );
+    const masterApproval = {
+      ...masterApprovalRaw,
+      items: itemsWithRelations,
+    };
 
     // Get ALL approval history for this entity, regardless of current m_approvals configuration
     // This ensures historical approvals are preserved even when m_approvals_item changes
