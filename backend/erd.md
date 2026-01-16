@@ -287,6 +287,12 @@ Enum ManHourGroupEnum {
   NON_STUDENT [note: 'Non-student group']
 }
 
+Enum InspectionImageTypeEnum {
+  BEFORE [note: 'Image taken before fix/action plan']
+  AFTER [note: 'Image taken after fix/action plan']
+  GENERAL [note: 'General inspection image']
+}
+
 //// -- CORE USER MANAGEMENT --
 
 Table t_users {
@@ -682,13 +688,15 @@ Table t_risk_assessment_item {
   postRiskMatrixRating varchar [not null, note: 'String type to match Schema']
   postInterpretation RiskRatingEnum [not null]
   
-  Note: 'Individual risk assessment entries - can have multiple risk mitigations via t_risk_mitigation (entity='RISK_ASSESSMENT_ITEM', entityId=id). Note: riskDescription field removed to match Schema.'
+  Note: 'Individual risk assessment entries - has 1-to-1 polymorphic relation with t_risk_mitigation (entity='RISK_ASSESSMENT_ITEM', entityId=id). Note: riskDescription field removed to match Schema.'
   indexes {
     riskAssessmentId
     mRiskId
     mRiskCategoryId
   }
 }
+
+Ref: t_risk_mitigation.entityId > t_risk_assessment_item.id [delete: cascade, note: 'Polymorphic relation: when entity='RISK_ASSESSMENT_ITEM'']
 
 //// -- INSPECTION SYSTEM --
 
@@ -719,13 +727,15 @@ Table t_inspection_items {
   riskId varchar [not null, ref: > m_risk.id]
   assignedDepartmentId varchar [not null, ref: > m_departments.id]
   assigneeId varchar [null, ref: > t_users.id]
+  findings text [null]
   description text [null]
   followUpNotes text [null]
   order int [not null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
+  dueDateAt timestamp [null]
   
-  Note: 'Individual inspection items - tracks risk findings, assignments, description, and follow-up notes per item. Can have multiple risk mitigations via t_risk_mitigation (entity='INSPECTION_ITEM', entityId=id)'
+  Note: 'Individual inspection items - tracks risk findings, assignments, description, and follow-up notes per item. Has 1-to-1 polymorphic relation with t_risk_mitigation (entity='INSPECTION_ITEM', entityId=id)'
   indexes {
     inspectionId
     riskCategoryId
@@ -735,17 +745,21 @@ Table t_inspection_items {
   }
 }
 
+Ref: t_risk_mitigation.entityId > t_inspection_items.id [delete: cascade, note: 'Polymorphic relation: when entity='INSPECTION_ITEM'']
+
 Table t_inspection_images {
   id varchar [pk, default: `uuid()`]
   inspectionItemId varchar [not null, ref: > t_inspection_items.id, note: 'onDelete: Cascade']
   imageUrl varchar [not null]
   caption text [null]
+  type InspectionImageTypeEnum [not null, default: 'GENERAL', note: 'BEFORE: before fix action plan, AFTER: after fix action plan, GENERAL: general inspection image']
   order int [not null]
   createdAt timestamp [not null, default: `now()`]
   
-  Note: 'Photos/images attached to inspection items'
+  Note: 'Photos/images attached to inspection items - supports before/after fix action plan tracking'
   indexes {
     inspectionItemId
+    (inspectionItemId, type)
     order
   }
 }
