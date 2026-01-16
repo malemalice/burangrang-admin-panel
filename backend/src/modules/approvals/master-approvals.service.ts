@@ -624,17 +624,8 @@ export class MasterApprovalsService {
     // Get approval status and next approver
     const approvalStatus = await this.checkApprovalStatus(dataId, entityName);
 
-    console.log('[checkApprovalRights] User:', {
-      id: user.id,
-      departmentId: user.departmentId,
-      jobPositionId: user.jobPositionId,
-    });
-    console.log('[checkApprovalRights] nextApprover:', approvalStatus.nextApprover);
-    console.log('[checkApprovalRights] currentStatus:', approvalStatus.currentStatus);
-
     // If there's no next approver, user cannot approve
     if (!approvalStatus.nextApprover) {
-      console.log('[checkApprovalRights] No next approver, canApprove = false');
       return { canApprove: false };
     }
 
@@ -642,16 +633,6 @@ export class MasterApprovalsService {
     const canApprove =
       approvalStatus.nextApprover.department.id === user.departmentId &&
       approvalStatus.nextApprover.jobPosition.id === user.jobPositionId;
-
-    console.log('[checkApprovalRights] Comparison:', {
-      userDeptId: user.departmentId,
-      nextApproverDeptId: approvalStatus.nextApprover.department.id,
-      deptMatch: approvalStatus.nextApprover.department.id === user.departmentId,
-      userJobPosId: user.jobPositionId,
-      nextApproverJobPosId: approvalStatus.nextApprover.jobPosition.id,
-      jobPosMatch: approvalStatus.nextApprover.jobPosition.id === user.jobPositionId,
-      canApprove,
-    });
 
     return { canApprove };
   }
@@ -703,16 +684,6 @@ export class MasterApprovalsService {
       ...masterApprovalRaw,
       items: sortedItems,
     };
-    
-    // Debug logging
-    console.log('[checkApprovalStatus] Entity:', entityName, 'EntityId:', entityId);
-    console.log('[checkApprovalStatus] Items:', sortedItems.map(item => ({
-      order: item.order,
-      deptId: item.department?.id || item.departmentId,
-      jobPosId: item.jobPosition?.id || item.jobPositionId,
-      deptName: item.department?.name,
-      jobPosName: item.jobPosition?.name,
-    })));
 
     // Get ALL approval history for this entity, regardless of current m_approvals configuration
     // This ensures historical approvals are preserved even when m_approvals_item changes
@@ -737,14 +708,6 @@ export class MasterApprovalsService {
       },
     });
 
-    // Debug logging for approval history
-    console.log('[checkApprovalStatus] ApprovalHistory:', approvalHistory.map(a => ({
-      id: a.id,
-      status: a.status,
-      deptId: a.departmentId,
-      jobPosId: a.jobPositionId,
-    })));
-
     // Map approval history with line numbers
     // Keep createdAt order for historical accuracy
     const history = approvalHistory.map((approval, index) => {
@@ -755,20 +718,11 @@ export class MasterApprovalsService {
         const itemDeptId = item.department?.id || item.departmentId;
         const itemJobPosId = item.jobPosition?.id || item.jobPositionId;
         const isMatch = itemDeptId === approval.departmentId && itemJobPosId === approval.jobPositionId;
-        console.log('[checkApprovalStatus] Matching approval to item:', {
-          itemOrder: item.order,
-          itemDeptId,
-          itemJobPosId,
-          approvalDeptId: approval.departmentId,
-          approvalJobPosId: approval.jobPositionId,
-          isMatch,
-        });
         return isMatch;
       });
 
       // Mark as historical if it doesn't match current m_approvals configuration
       const isHistorical = !matchingItem;
-      console.log('[checkApprovalStatus] Approval matched:', { matchingItemOrder: matchingItem?.order, isHistorical });
 
       return {
         id: approval.id,
@@ -824,14 +778,10 @@ export class MasterApprovalsService {
           ? Math.max(...approvedLines) 
           : -1;
 
-        console.log('[checkApprovalStatus] approvedLines:', approvedLines, 'maxApprovedLine:', maxApprovedLine);
-
         // Find next approver after the last approved line
         const nextApprovalItem = masterApproval.items.find(
           (item) => item.order > maxApprovedLine,
         );
-
-        console.log('[checkApprovalStatus] nextApprovalItem:', nextApprovalItem ? { order: nextApprovalItem.order, deptId: nextApprovalItem.department?.id, jobPosId: nextApprovalItem.jobPosition?.id } : null);
 
         if (nextApprovalItem) {
           nextApprover = {
