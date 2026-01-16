@@ -75,7 +75,7 @@ export const seedMenus = async () => {
     // Inspections menu
     await prisma.menu.create({
       data: {
-        name: 'Inspections',
+        name: 'Inspections Schedules',
         path: '/inspections',
         icon: 'Search',
         order: 3,

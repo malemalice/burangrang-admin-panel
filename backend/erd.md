@@ -702,6 +702,7 @@ Table t_inspections {
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   createdBy varchar [not null, ref: > t_users.id]
+  doneAt timestamp [null]
   
   Note: 'HSE inspection header - tracks area, inspection date, status, and inspectors'
   indexes {

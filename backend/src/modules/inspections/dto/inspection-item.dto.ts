@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
+import { GeneralStatusEnum } from '@prisma/client';
 import { RiskCategoryDto } from 'src/modules/risk-categories/dto/risk-category.dto';
 import { RiskDto } from 'src/modules/risks/dto/risk.dto';
 import { DepartmentDto } from 'src/modules/departments/dto/department.dto';
@@ -14,6 +15,13 @@ export class InspectionItemDto {
   @ApiProperty()
   @Expose()
   inspectionId: string;
+
+  @ApiProperty({ required: false })
+  @Expose()
+  inspection?: {
+    id: string;
+    code: string;
+  };
 
   @ApiProperty()
   @Expose()
@@ -54,6 +62,10 @@ export class InspectionItemDto {
   @ApiProperty()
   @Expose()
   followUpNotes?: string;
+
+  @ApiProperty({ enum: GeneralStatusEnum })
+  @Expose()
+  status: GeneralStatusEnum;
 
   @ApiProperty()
   @Expose()

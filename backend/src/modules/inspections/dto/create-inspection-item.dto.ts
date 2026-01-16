@@ -7,9 +7,11 @@ import {
   Min,
   IsArray,
   ValidateNested,
+  IsEnum,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+import { GeneralStatusEnum } from '@prisma/client';
 import { CreateInspectionImageDto } from './create-inspection-image.dto';
 
 export class CreateInspectionItemDto {
@@ -42,6 +44,11 @@ export class CreateInspectionItemDto {
   @IsString()
   @ApiProperty({ required: false })
   followUpNotes?: string;
+
+  @IsOptional()
+  @IsEnum(GeneralStatusEnum)
+  @ApiProperty({ enum: GeneralStatusEnum, required: false })
+  status?: GeneralStatusEnum;
 
   @IsInt()
   @Min(0)

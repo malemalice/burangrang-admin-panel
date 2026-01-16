@@ -32,6 +32,20 @@ interface FindAllOptions {
   status?: GeneralStatusEnum;
 }
 
+interface FindAllItemsOptions {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  status?: GeneralStatusEnum;
+  assignedDepartmentId?: string;
+  assigneeId?: string;
+  riskId?: string;
+  riskCategoryId?: string;
+  inspectionCode?: string;
+  search?: string;
+}
+
 @Injectable()
 export class InspectionsService {
   // Initialize mappers in constructor
@@ -54,6 +68,10 @@ export class InspectionsService {
     this.inspectionItemMapper = this.dtoMapper.createRelationMapper(
       InspectionItemDto,
       {
+        inspection: {
+          mapper: (inspection: any) => inspection,
+          isArray: false,
+        },
         riskCategory: {
           mapper: (riskCategory: any) => riskCategory,
           isArray: false,
@@ -1059,6 +1077,218 @@ export class InspectionsService {
         error,
       );
     }
+  }
+
+  // Standalone inspection items operations (not nested under inspection)
+  async findAllItemsStandalone(
+    options?: FindAllItemsOptions,
+  ): Promise<{
+    data: InspectionItemDto[];
+    meta: { total: number; page: number; limit: number };
+  }> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      status,
+      assignedDepartmentId,
+      assigneeId,
+      riskId,
+      riskCategoryId,
+      inspectionCode,
+      search,
+    } = options || {};
+
+    // Valid sortable fields for InspectionItem
+    const validSortFields = [
+      'id',
+      'inspectionId',
+      'riskCategoryId',
+      'riskId',
+      'assignedDepartmentId',
+      'assigneeId',
+      'status',
+      'order',
+      'createdAt',
+      'updatedAt',
+    ];
+
+    // Validate and sanitize sortBy
+    const validatedSortBy = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+
+    const where: Prisma.InspectionItemWhereInput = {
+      ...(status && { status }),
+      ...(assignedDepartmentId && { assignedDepartmentId }),
+      ...(assigneeId && { assigneeId }),
+      ...(riskId && { riskId }),
+      ...(riskCategoryId && { riskCategoryId }),
+      ...(inspectionCode && {
+        inspection: {
+          code: {
+            contains: inspectionCode,
+            mode: 'insensitive',
+          },
+        },
+      }),
+      ...(search && {
+        OR: [
+          {
+            risk: {
+              OR: [
+                { name: { contains: search, mode: 'insensitive' } },
+                { code: { contains: search, mode: 'insensitive' } },
+              ],
+            },
+          },
+          {
+            riskCategory: {
+              OR: [
+                { name: { contains: search, mode: 'insensitive' } },
+                { code: { contains: search, mode: 'insensitive' } },
+              ],
+            },
+          },
+          {
+            inspection: {
+              code: { contains: search, mode: 'insensitive' },
+            },
+          },
+          {
+            description: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+          {
+            followUpNotes: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+        ],
+      }),
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.inspectionItem.findMany({
+        where,
+        include: {
+          inspection: {
+            select: {
+              id: true,
+              code: true,
+            },
+          },
+          riskCategory: true,
+          risk: true,
+          assignedDepartment: true,
+          assignee: true,
+          images: {
+            orderBy: { order: 'asc' },
+          },
+        },
+        orderBy: {
+          [validatedSortBy]: sortOrder,
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.inspectionItem.count({ where }),
+    ]);
+
+    return {
+      data: items.map((item) => this.inspectionItemMapper(item)),
+      meta: { total, page, limit },
+    };
+  }
+
+  async findOneItemStandalone(itemId: string): Promise<InspectionItemDto> {
+    const item = await this.prisma.inspectionItem.findUnique({
+      where: { id: itemId },
+      include: {
+        inspection: {
+          select: {
+            id: true,
+            code: true,
+          },
+        },
+        riskCategory: true,
+        risk: true,
+        assignedDepartment: true,
+        assignee: true,
+        images: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    this.errorHandler.throwIfNotFoundById('InspectionItem', itemId, item);
+
+    return this.inspectionItemMapper(item);
+  }
+
+  async updateItemStandalone(
+    itemId: string,
+    updateItemDto: UpdateInspectionItemDto,
+  ): Promise<InspectionItemDto> {
+    // Verify item exists
+    const existingItem = await this.prisma.inspectionItem.findUnique({
+      where: { id: itemId },
+    });
+
+    this.errorHandler.throwIfNotFoundById(
+      'InspectionItem',
+      itemId,
+      existingItem,
+    );
+
+    // Extract images from DTO
+    const { images, ...itemData } = updateItemDto;
+
+    // Prepare update data
+    const updateData: any = { ...itemData };
+
+    // Handle images update if provided
+    if (images !== undefined) {
+      // Delete existing images
+      await this.prisma.inspectionImage.deleteMany({
+        where: { inspectionItemId: itemId },
+      });
+
+      // Create new images if provided
+      if (images.length > 0) {
+        updateData.images = {
+          create: images.map((img) => ({
+            imageUrl: img.imageUrl,
+            caption: img.caption || null,
+            order: img.order,
+          })),
+        };
+      }
+    }
+
+    const item = await this.prisma.inspectionItem.update({
+      where: { id: itemId },
+      data: updateData,
+      include: {
+        inspection: {
+          select: {
+            id: true,
+            code: true,
+          },
+        },
+        riskCategory: true,
+        risk: true,
+        assignedDepartment: true,
+        assignee: true,
+        images: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    return this.inspectionItemMapper(item);
   }
 
 }
