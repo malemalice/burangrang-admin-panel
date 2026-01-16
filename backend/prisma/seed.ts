@@ -460,6 +460,7 @@ async function main() {
       await seedEnvironmentalMeasurements();
       await seedWasteManagement();
       await seedManHours();
+      await seedAuditPolicy(prisma);
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table

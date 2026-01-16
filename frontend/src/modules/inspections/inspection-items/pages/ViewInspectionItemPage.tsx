@@ -10,7 +10,7 @@ import { Separator } from '@/core/components/ui/separator';
 import { Badge } from '@/core/components/ui/badge';
 import PageHeader from '@/core/components/ui/PageHeader';
 
-import { InspectionItem } from '../types/inspection-item.types';
+import { InspectionItem, InspectionImageTypeEnum } from '../types/inspection-item.types';
 import inspectionItemsService from '../services/inspectionItemsService';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 
@@ -185,27 +185,88 @@ const ViewInspectionItemPage = () => {
         )}
 
         {item.images && item.images.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Images ({item.images.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {item.images.map((image) => (
-                  <div key={image.id} className="space-y-2">
-                    <img
-                      src={image.imageUrl}
-                      alt={image.caption || 'Inspection image'}
-                      className="w-full h-32 object-cover rounded-md border"
-                    />
-                    {image.caption && (
-                      <p className="text-xs text-muted-foreground">{image.caption}</p>
-                    )}
+          <>
+            {/* Before Images */}
+            {item.images.filter(img => img.type === InspectionImageTypeEnum.BEFORE).length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Before Images (Current Condition) ({item.images.filter(img => img.type === InspectionImageTypeEnum.BEFORE).length})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {item.images
+                      .filter(img => img.type === InspectionImageTypeEnum.BEFORE)
+                      .map((image) => (
+                        <div key={image.id} className="space-y-2">
+                          <img
+                            src={image.imageUrl}
+                            alt={image.caption || 'Before inspection image'}
+                            className="w-full h-32 object-cover rounded-md border"
+                          />
+                          {image.caption && (
+                            <p className="text-xs text-muted-foreground">{image.caption}</p>
+                          )}
+                        </div>
+                      ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* After Images */}
+            {item.images.filter(img => img.type === InspectionImageTypeEnum.AFTER).length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>After Images (After Fix/Action Plan) ({item.images.filter(img => img.type === InspectionImageTypeEnum.AFTER).length})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {item.images
+                      .filter(img => img.type === InspectionImageTypeEnum.AFTER)
+                      .map((image) => (
+                        <div key={image.id} className="space-y-2">
+                          <img
+                            src={image.imageUrl}
+                            alt={image.caption || 'After inspection image'}
+                            className="w-full h-32 object-cover rounded-md border"
+                          />
+                          {image.caption && (
+                            <p className="text-xs text-muted-foreground">{image.caption}</p>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* General Images (if any) */}
+            {item.images.filter(img => img.type === InspectionImageTypeEnum.GENERAL || !img.type).length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>General Images ({item.images.filter(img => img.type === InspectionImageTypeEnum.GENERAL || !img.type).length})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {item.images
+                      .filter(img => img.type === InspectionImageTypeEnum.GENERAL || !img.type)
+                      .map((image) => (
+                        <div key={image.id} className="space-y-2">
+                          <img
+                            src={image.imageUrl}
+                            alt={image.caption || 'Inspection image'}
+                            className="w-full h-32 object-cover rounded-md border"
+                          />
+                          {image.caption && (
+                            <p className="text-xs text-muted-foreground">{image.caption}</p>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
       </div>
     </>

@@ -51,11 +51,18 @@ export interface InspectionItem {
   mitigation?: RiskMitigationRecord;
 }
 
+export enum InspectionImageTypeEnum {
+  BEFORE = 'BEFORE',
+  AFTER = 'AFTER',
+  GENERAL = 'GENERAL',
+}
+
 export interface InspectionItemImage {
   id: string;
   inspectionItemId: string;
   imageUrl: string;
   caption?: string;
+  type: InspectionImageTypeEnum;
   order: number;
   createdAt: Date;
 }
@@ -78,6 +85,7 @@ export interface UpdateInspectionItemDTO {
 export interface CreateInspectionItemImageDTO {
   imageUrl: string;
   caption?: string;
+  type?: InspectionImageTypeEnum;
   order: number;
 }
 

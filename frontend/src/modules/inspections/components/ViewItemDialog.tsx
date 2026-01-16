@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from '@/core/components/ui/dialog';
 import { Separator } from '@/core/components/ui/separator';
-import { InspectionItem } from '../types/inspection.types';
+import { InspectionItem, InspectionImageTypeEnum } from '../types/inspection.types';
 
 interface ViewItemDialogProps {
   open: boolean;
@@ -90,22 +90,81 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
           {item.images && item.images.length > 0 && (
             <>
               <Separator />
-              <div>
-                <h3 className="text-lg font-medium mb-4">Images ({item.images.length})</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {item.images.map((image) => (
-                    <div key={image.id} className="space-y-2">
-                      <img
-                        src={image.imageUrl}
-                        alt={image.caption || 'Inspection image'}
-                        className="w-full h-32 object-cover rounded-md border"
-                      />
-                      {image.caption && (
-                        <p className="text-xs text-muted-foreground">{image.caption}</p>
-                      )}
+              <div className="space-y-6">
+                {/* Before Images */}
+                {item.images.filter(img => img.type === InspectionImageTypeEnum.BEFORE).length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">
+                      Before Images (Current Condition) ({item.images.filter(img => img.type === InspectionImageTypeEnum.BEFORE).length})
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {item.images
+                        .filter(img => img.type === InspectionImageTypeEnum.BEFORE)
+                        .map((image) => (
+                          <div key={image.id} className="space-y-2">
+                            <img
+                              src={image.imageUrl}
+                              alt={image.caption || 'Before inspection image'}
+                              className="w-full h-32 object-cover rounded-md border"
+                            />
+                            {image.caption && (
+                              <p className="text-xs text-muted-foreground">{image.caption}</p>
+                            )}
+                          </div>
+                        ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
+
+                {/* After Images */}
+                {item.images.filter(img => img.type === InspectionImageTypeEnum.AFTER).length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">
+                      After Images (After Fix/Action Plan) ({item.images.filter(img => img.type === InspectionImageTypeEnum.AFTER).length})
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {item.images
+                        .filter(img => img.type === InspectionImageTypeEnum.AFTER)
+                        .map((image) => (
+                          <div key={image.id} className="space-y-2">
+                            <img
+                              src={image.imageUrl}
+                              alt={image.caption || 'After inspection image'}
+                              className="w-full h-32 object-cover rounded-md border"
+                            />
+                            {image.caption && (
+                              <p className="text-xs text-muted-foreground">{image.caption}</p>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* General Images (if any) */}
+                {item.images.filter(img => img.type === InspectionImageTypeEnum.GENERAL || !img.type).length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">
+                      General Images ({item.images.filter(img => img.type === InspectionImageTypeEnum.GENERAL || !img.type).length})
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {item.images
+                        .filter(img => img.type === InspectionImageTypeEnum.GENERAL || !img.type)
+                        .map((image) => (
+                          <div key={image.id} className="space-y-2">
+                            <img
+                              src={image.imageUrl}
+                              alt={image.caption || 'Inspection image'}
+                              className="w-full h-32 object-cover rounded-md border"
+                            />
+                            {image.caption && (
+                              <p className="text-xs text-muted-foreground">{image.caption}</p>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}

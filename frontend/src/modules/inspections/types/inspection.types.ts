@@ -9,11 +9,18 @@ import { User } from '@/core/lib/types';
 import { RiskCategory, Risk } from '@/core/lib/types';
 import { Department } from '@/core/lib/types';
 
+export enum InspectionImageTypeEnum {
+  BEFORE = 'BEFORE',
+  AFTER = 'AFTER',
+  GENERAL = 'GENERAL',
+}
+
 export interface InspectionImage {
   id: string;
   inspectionItemId: string;
   imageUrl: string;
   caption?: string;
+  type: InspectionImageTypeEnum;
   order: number;
   createdAt: Date;
 }
@@ -101,6 +108,7 @@ export interface UpdateInspectionItemDTO extends Partial<CreateInspectionItemDTO
 export interface CreateInspectionImageDTO {
   imageUrl: string;
   caption?: string;
+  type?: InspectionImageTypeEnum;
   order: number;
 }
 

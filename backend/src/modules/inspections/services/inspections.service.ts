@@ -154,6 +154,7 @@ export class InspectionsService {
                   create: images.map((img) => ({
                     imageUrl: img.imageUrl,
                     caption: img.caption || null,
+                    type: img.type || 'GENERAL',
                     order: img.order,
                   })),
                 };
@@ -350,6 +351,7 @@ export class InspectionsService {
                   create: images.map((img) => ({
                     imageUrl: img.imageUrl,
                     caption: img.caption || null,
+                    type: img.type || 'GENERAL',
                     order: img.order,
                   })),
                 };
@@ -489,6 +491,7 @@ export class InspectionsService {
         create: images.map((img) => ({
           imageUrl: img.imageUrl,
           caption: img.caption || null,
+          type: img.type || 'GENERAL',
           order: img.order,
         })),
       };
@@ -703,6 +706,7 @@ export class InspectionsService {
         create: images.map((img) => ({
           imageUrl: img.imageUrl,
           caption: img.caption || null,
+          type: img.type || 'GENERAL',
           order: img.order,
         })),
       };
@@ -1333,6 +1337,7 @@ export class InspectionsService {
           create: images.map((img) => ({
             imageUrl: img.imageUrl,
             caption: img.caption || null,
+            type: img.type || 'GENERAL',
             order: img.order,
           })),
         };

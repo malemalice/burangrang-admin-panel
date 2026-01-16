@@ -20,7 +20,7 @@ import { Input } from '@/core/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { ModalCombobox, ModalComboboxOption } from '@/core/components/ui/modal-combobox';
 
-import { CreateInspectionItemDTO } from '../types/inspection.types';
+import { CreateInspectionItemDTO, InspectionImageTypeEnum } from '../types/inspection.types';
 import { riskCategoryService, riskService } from '@/modules/master-data';
 import { RiskCategory, Risk } from '@/core/lib/types';
 import { userService } from '@/modules/users';
@@ -36,6 +36,7 @@ interface ImageUpload {
   id: string;
   url: string;
   caption: string;
+  type: InspectionImageTypeEnum;
   file?: File; // For new uploads
   isNew?: boolean; // Flag for new uploads
 }
@@ -113,8 +114,9 @@ const InspectionItemForm = ({
   const [riskMitigations, setRiskMitigations] = useState<RiskMitigation[]>([]);
   const isInitialMount = useRef(true);
   
-  // Image upload states
-  const [images, setImages] = useState<ImageUpload[]>([]);
+  // Image upload states - separate before and after images
+  const [beforeImages, setBeforeImages] = useState<ImageUpload[]>([]);
+  const [afterImages, setAfterImages] = useState<ImageUpload[]>([]);
   const [fileCategory, setFileCategory] = useState<FileCategory | null>(null);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
 
@@ -204,16 +206,36 @@ const InspectionItemForm = ({
     if (initialItem?.images && initialItem.images.length > 0) {
       // Sort images by order to preserve sequence
       const sortedImages = [...initialItem.images].sort((a, b) => (a.order || 0) - (b.order || 0));
-      const initialImages: ImageUpload[] = sortedImages.map((img) => ({
-        id: `existing-${img.imageUrl}-${Date.now()}`,
-        url: img.imageUrl,
-        caption: img.caption || '',
-        isNew: false,
-      }));
-      setImages(initialImages);
+      
+      // Separate images by type
+      const beforeImgs: ImageUpload[] = [];
+      const afterImgs: ImageUpload[] = [];
+      
+      sortedImages.forEach((img) => {
+        const imageUpload: ImageUpload = {
+          id: `existing-${img.imageUrl}-${Date.now()}-${Math.random()}`,
+          url: img.imageUrl,
+          caption: img.caption || '',
+          type: img.type || InspectionImageTypeEnum.GENERAL,
+          isNew: false,
+        };
+        
+        if (img.type === InspectionImageTypeEnum.BEFORE) {
+          beforeImgs.push(imageUpload);
+        } else if (img.type === InspectionImageTypeEnum.AFTER) {
+          afterImgs.push(imageUpload);
+        } else {
+          // For GENERAL or undefined, treat as BEFORE (current condition)
+          beforeImgs.push({ ...imageUpload, type: InspectionImageTypeEnum.BEFORE });
+        }
+      });
+      
+      setBeforeImages(beforeImgs);
+      setAfterImages(afterImgs);
     } else if (initialItem && (!initialItem.images || initialItem.images.length === 0)) {
       // Clear images when editing an item without images
-      setImages([]);
+      setBeforeImages([]);
+      setAfterImages([]);
     }
   }, [initialItem]);
 
@@ -281,8 +303,8 @@ const InspectionItemForm = ({
   // Check if follow-up notes can be edited (only during approval workflow when user can approve)
   const canEditFollowUpNotes = inspectionStatus === GeneralStatusEnum.WAITING_APPROVAL && canApprove;
 
-  // Handle image file selection
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle image file selection for before images
+  const handleBeforeImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
@@ -309,21 +331,63 @@ const InspectionItemForm = ({
         id: `temp-${Date.now()}-${Math.random()}`,
         url: previewUrl,
         caption: '',
+        type: InspectionImageTypeEnum.BEFORE,
         file: file,
         isNew: true,
       });
     });
 
     if (newImages.length > 0) {
-      setImages(prev => [...prev, ...newImages]);
+      setBeforeImages(prev => [...prev, ...newImages]);
       // Reset file input
       event.target.value = '';
     }
   };
 
-  // Remove image
-  const handleRemoveImage = (imageId: string) => {
-    setImages(prev => {
+  // Handle image file selection for after images
+  const handleAfterImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const newImages: ImageUpload[] = [];
+    
+    Array.from(files).forEach((file) => {
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error(`Invalid file type for ${file.name}. Only JPEG, PNG, GIF, and WebP images are allowed.`);
+        return;
+      }
+
+      // Validate file size (5MB max)
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        toast.error(`File ${file.name} exceeds maximum size of 5MB`);
+        return;
+      }
+
+      // Create preview URL
+      const previewUrl = URL.createObjectURL(file);
+      newImages.push({
+        id: `temp-${Date.now()}-${Math.random()}`,
+        url: previewUrl,
+        caption: '',
+        type: InspectionImageTypeEnum.AFTER,
+        file: file,
+        isNew: true,
+      });
+    });
+
+    if (newImages.length > 0) {
+      setAfterImages(prev => [...prev, ...newImages]);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
+
+  // Remove before image
+  const handleRemoveBeforeImage = (imageId: string) => {
+    setBeforeImages(prev => {
       const image = prev.find(img => img.id === imageId);
       // Revoke object URL to free memory
       if (image?.url.startsWith('blob:')) {
@@ -333,23 +397,44 @@ const InspectionItemForm = ({
     });
   };
 
-  // Update image caption
-  const handleCaptionChange = (imageId: string, caption: string) => {
-    setImages(prev => prev.map(img => 
+  // Remove after image
+  const handleRemoveAfterImage = (imageId: string) => {
+    setAfterImages(prev => {
+      const image = prev.find(img => img.id === imageId);
+      // Revoke object URL to free memory
+      if (image?.url.startsWith('blob:')) {
+        URL.revokeObjectURL(image.url);
+      }
+      return prev.filter(img => img.id !== imageId);
+    });
+  };
+
+  // Update before image caption
+  const handleBeforeCaptionChange = (imageId: string, caption: string) => {
+    setBeforeImages(prev => prev.map(img => 
+      img.id === imageId ? { ...img, caption } : img
+    ));
+  };
+
+  // Update after image caption
+  const handleAfterCaptionChange = (imageId: string, caption: string) => {
+    setAfterImages(prev => prev.map(img => 
       img.id === imageId ? { ...img, caption } : img
     ));
   };
 
   // Upload images to server
-  const uploadImages = async (): Promise<{ imageUrl: string; caption: string; order: number }[]> => {
+  const uploadImages = async (): Promise<{ imageUrl: string; caption: string; type: InspectionImageTypeEnum; order: number }[]> => {
     if (!fileCategory) {
       throw new Error('File category not loaded');
     }
 
-    const uploadedImages: { imageUrl: string; caption: string; order: number }[] = [];
+    const uploadedImages: { imageUrl: string; caption: string; type: InspectionImageTypeEnum; order: number }[] = [];
+    let orderCounter = 0;
     
-    for (let i = 0; i < images.length; i++) {
-      const image = images[i];
+    // Upload before images first
+    for (let i = 0; i < beforeImages.length; i++) {
+      const image = beforeImages[i];
       
       if (image.isNew && image.file) {
         try {
@@ -364,7 +449,8 @@ const InspectionItemForm = ({
           uploadedImages.push({
             imageUrl,
             caption: image.caption || '',
-            order: i,
+            type: InspectionImageTypeEnum.BEFORE,
+            order: orderCounter++,
           });
         } catch (error) {
           console.error(`Failed to upload image ${image.file.name}:`, error);
@@ -375,7 +461,43 @@ const InspectionItemForm = ({
         uploadedImages.push({
           imageUrl: image.url,
           caption: image.caption || '',
-          order: i,
+          type: InspectionImageTypeEnum.BEFORE,
+          order: orderCounter++,
+        });
+      }
+    }
+    
+    // Upload after images
+    for (let i = 0; i < afterImages.length; i++) {
+      const image = afterImages[i];
+      
+      if (image.isNew && image.file) {
+        try {
+          setIsUploadingImages(true);
+          const response = await uploadService.uploadFile(
+            image.file,
+            fileCategory.id,
+            true, // isPublic
+          );
+          
+          const imageUrl = uploadService.getPublicFileUrl(response.id);
+          uploadedImages.push({
+            imageUrl,
+            caption: image.caption || '',
+            type: InspectionImageTypeEnum.AFTER,
+            order: orderCounter++,
+          });
+        } catch (error) {
+          console.error(`Failed to upload image ${image.file.name}:`, error);
+          throw new Error(`Failed to upload image ${image.file.name}`);
+        }
+      } else {
+        // Existing image, keep the URL
+        uploadedImages.push({
+          imageUrl: image.url,
+          caption: image.caption || '',
+          type: InspectionImageTypeEnum.AFTER,
+          order: orderCounter++,
         });
       }
     }
@@ -391,8 +513,8 @@ const InspectionItemForm = ({
       setIsSubmitting(true);
       
       // Upload images first if any
-      let uploadedImages: { imageUrl: string; caption: string; order: number }[] = [];
-      if (images.length > 0) {
+      let uploadedImages: { imageUrl: string; caption: string; type: InspectionImageTypeEnum; order: number }[] = [];
+      if (beforeImages.length > 0 || afterImages.length > 0) {
         uploadedImages = await uploadImages();
       }
       
@@ -434,7 +556,7 @@ const InspectionItemForm = ({
       await onSubmit(itemData);
       
       // Clean up blob URLs
-      images.forEach(img => {
+      [...beforeImages, ...afterImages].forEach(img => {
         if (img.url.startsWith('blob:')) {
           URL.revokeObjectURL(img.url);
         }
@@ -768,93 +890,189 @@ const InspectionItemForm = ({
         <Separator />
 
         {/* Image Upload Section */}
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div>
-            <FormLabel>Inspection Images</FormLabel>
+            <FormLabel className="text-lg font-semibold">Inspection Images</FormLabel>
             <p className="text-sm text-muted-foreground">Upload photos related to this inspection item (max 5MB per image)</p>
           </div>
 
-          {/* Upload Button */}
-          <div className="flex items-center gap-2">
-            <Input
-              type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              multiple
-              onChange={handleImageSelect}
-              className="hidden"
-              id="inspection-image-upload"
-              disabled={isSubmitting || isUploadingImages}
-            />
-            <label htmlFor="inspection-image-upload">
-              <Button
-                type="button"
-                variant="outline"
+          {/* Before Images Section (Current Condition) */}
+          <div className="space-y-4">
+            <div>
+              <FormLabel className="text-base font-medium">Before (Current Condition)</FormLabel>
+              <p className="text-sm text-muted-foreground">Upload images showing the current condition before any fix/action plan</p>
+            </div>
+
+            {/* Upload Button for Before Images */}
+            <div className="flex items-center gap-2">
+              <Input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                multiple
+                onChange={handleBeforeImageSelect}
+                className="hidden"
+                id="inspection-before-image-upload"
                 disabled={isSubmitting || isUploadingImages}
-                className="cursor-pointer"
-                asChild
-              >
-                <span>
-                  <Upload className="mr-2 h-4 w-4" />
-                  {isUploadingImages ? 'Uploading...' : 'Add Images'}
+              />
+              <label htmlFor="inspection-before-image-upload">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSubmitting || isUploadingImages}
+                  className="cursor-pointer"
+                  asChild
+                >
+                  <span>
+                    <Upload className="mr-2 h-4 w-4" />
+                    {isUploadingImages ? 'Uploading...' : 'Add Before Images'}
+                  </span>
+                </Button>
+              </label>
+              {beforeImages.length > 0 && (
+                <span className="text-sm text-muted-foreground">
+                  {beforeImages.length} image{beforeImages.length !== 1 ? 's' : ''} selected
                 </span>
-              </Button>
-            </label>
-            {images.length > 0 && (
-              <span className="text-sm text-muted-foreground">
-                {images.length} image{images.length !== 1 ? 's' : ''} selected
-              </span>
+              )}
+            </div>
+
+            {/* Before Image Preview Grid */}
+            {beforeImages.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {beforeImages.map((image) => (
+                  <div key={image.id} className="relative border rounded-lg overflow-hidden bg-gray-50">
+                    <div className="aspect-video relative">
+                      <img
+                        src={image.url}
+                        alt={image.caption || 'Before inspection image'}
+                        className="w-full h-full object-cover"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-8 w-8"
+                        onClick={() => handleRemoveBeforeImage(image.id)}
+                        disabled={isSubmitting || isUploadingImages}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                      {image.isNew && (
+                        <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                          New
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <Input
+                        type="text"
+                        placeholder="Add caption (optional)"
+                        value={image.caption}
+                        onChange={(e) => handleBeforeCaptionChange(image.id, e.target.value)}
+                        disabled={isSubmitting || isUploadingImages}
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {beforeImages.length === 0 && (
+              <div className="border-2 border-dashed rounded-lg p-6 text-center bg-gray-50">
+                <ImageIcon className="h-10 w-10 mx-auto text-gray-400 mb-2" />
+                <p className="text-sm text-muted-foreground">No before images uploaded yet</p>
+              </div>
             )}
           </div>
 
-          {/* Image Preview Grid */}
-          {images.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {images.map((image) => (
-                <div key={image.id} className="relative border rounded-lg overflow-hidden bg-gray-50">
-                  <div className="aspect-video relative">
-                    <img
-                      src={image.url}
-                      alt={image.caption || 'Inspection image'}
-                      className="w-full h-full object-cover"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 right-2 h-8 w-8"
-                      onClick={() => handleRemoveImage(image.id)}
-                      disabled={isSubmitting || isUploadingImages}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                    {image.isNew && (
-                      <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                        New
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-3">
-                    <Input
-                      type="text"
-                      placeholder="Add caption (optional)"
-                      value={image.caption}
-                      onChange={(e) => handleCaptionChange(image.id, e.target.value)}
-                      disabled={isSubmitting || isUploadingImages}
-                      className="text-sm"
-                    />
-                  </div>
-                </div>
-              ))}
+          {/* After Images Section */}
+          <div className="space-y-4">
+            <div>
+              <FormLabel className="text-base font-medium">After (After Fix/Action Plan)</FormLabel>
+              <p className="text-sm text-muted-foreground">Upload images showing the condition after fix/action plan has been implemented</p>
             </div>
-          )}
 
-          {images.length === 0 && (
-            <div className="border-2 border-dashed rounded-lg p-8 text-center bg-gray-50">
-              <ImageIcon className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-              <p className="text-sm text-muted-foreground">No images uploaded yet</p>
-              <p className="text-xs text-muted-foreground mt-1">Click "Add Images" to upload inspection photos</p>
+            {/* Upload Button for After Images */}
+            <div className="flex items-center gap-2">
+              <Input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                multiple
+                onChange={handleAfterImageSelect}
+                className="hidden"
+                id="inspection-after-image-upload"
+                disabled={isSubmitting || isUploadingImages}
+              />
+              <label htmlFor="inspection-after-image-upload">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSubmitting || isUploadingImages}
+                  className="cursor-pointer"
+                  asChild
+                >
+                  <span>
+                    <Upload className="mr-2 h-4 w-4" />
+                    {isUploadingImages ? 'Uploading...' : 'Add After Images'}
+                  </span>
+                </Button>
+              </label>
+              {afterImages.length > 0 && (
+                <span className="text-sm text-muted-foreground">
+                  {afterImages.length} image{afterImages.length !== 1 ? 's' : ''} selected
+                </span>
+              )}
             </div>
-          )}
+
+            {/* After Image Preview Grid */}
+            {afterImages.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {afterImages.map((image) => (
+                  <div key={image.id} className="relative border rounded-lg overflow-hidden bg-gray-50">
+                    <div className="aspect-video relative">
+                      <img
+                        src={image.url}
+                        alt={image.caption || 'After inspection image'}
+                        className="w-full h-full object-cover"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-8 w-8"
+                        onClick={() => handleRemoveAfterImage(image.id)}
+                        disabled={isSubmitting || isUploadingImages}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                      {image.isNew && (
+                        <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                          New
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <Input
+                        type="text"
+                        placeholder="Add caption (optional)"
+                        value={image.caption}
+                        onChange={(e) => handleAfterCaptionChange(image.id, e.target.value)}
+                        disabled={isSubmitting || isUploadingImages}
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {afterImages.length === 0 && (
+              <div className="border-2 border-dashed rounded-lg p-6 text-center bg-gray-50">
+                <ImageIcon className="h-10 w-10 mx-auto text-gray-400 mb-2" />
+                <p className="text-sm text-muted-foreground">No after images uploaded yet</p>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex justify-end gap-2">
