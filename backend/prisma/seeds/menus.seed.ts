@@ -72,13 +72,52 @@ export const seedMenus = async () => {
       },
     });
 
-    // Inspections menu
-    await prisma.menu.create({
+    // Inspection menu group
+    const inspectionMenu = await prisma.menu.create({
       data: {
-        name: 'Inspections Schedules',
-        path: '/inspections',
+        name: 'Inspection',
         icon: 'Search',
         order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Inspection Schedules submenu
+    await prisma.menu.create({
+      data: {
+        name: 'Inspection Schedules',
+        path: '/inspections',
+        icon: 'Calendar',
+        parentId: inspectionMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Inspection Items submenu
+    await prisma.menu.create({
+      data: {
+        name: 'Inspection Items',
+        path: '/inspections/items',
+        icon: 'ClipboardList',
+        parentId: inspectionMenu.id,
+        order: 2,
         isActive: true,
         roles: {
           connect: [
