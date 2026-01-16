@@ -300,16 +300,17 @@ model RiskControl {
 // Supports RISK_ASSESSMENT_ITEM and INSPECTION_ITEM entity types
 // Related to RiskAssessmentItem (entity='RISK_ASSESSMENT_ITEM') and InspectionItem (entity='INSPECTION_ITEM')
 model RiskMitigationRecord {
-  id        String   @id @default(uuid())
-  eliminate String?  @db.Text
-  transfer  String?  @db.Text
-  reduce    String?  @db.Text
-  accept    String?  @db.Text
-  isActive  Boolean  @default(true)
-  entity    String   // Entity type identifier (RISK_ASSESSMENT_ITEM, INSPECTION_ITEM)
-  entityId  String   // Entity ID - references t_risk_assessment_item.id or t_inspection_items.id
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(uuid())
+  eliminate    String?  @db.Text
+  transfer     String?  @db.Text
+  reduce       String?  @db.Text
+  accept       String?  @db.Text
+  legalAspect  String?  @db.Text
+  isActive     Boolean  @default(true)
+  entity       String   // Entity type identifier (RISK_ASSESSMENT_ITEM, INSPECTION_ITEM)
+  entityId     String   // Entity ID - references t_risk_assessment_item.id or t_inspection_items.id
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("t_risk_mitigation")
   @@index([entity, entityId])

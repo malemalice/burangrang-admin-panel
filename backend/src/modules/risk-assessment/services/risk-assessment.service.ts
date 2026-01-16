@@ -1029,6 +1029,7 @@ export class RiskAssessmentService {
         transfer: mitigation.transfer || null,
         reduce: mitigation.reduce || null,
         accept: mitigation.accept || null,
+        legalAspect: mitigation.legalAspect || null,
         isActive: true,
       },
     });
@@ -1066,6 +1067,7 @@ export class RiskAssessmentService {
           transfer: mitigation.transfer || null,
           reduce: mitigation.reduce || null,
           accept: mitigation.accept || null,
+          legalAspect: mitigation.legalAspect || null,
         },
       });
     }
@@ -1099,6 +1101,7 @@ export class RiskAssessmentService {
       transfer: record.transfer || undefined,
       reduce: record.reduce || undefined,
       accept: record.accept || undefined,
+      legalAspect: record.legalAspect || undefined,
       isActive: record.isActive,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,

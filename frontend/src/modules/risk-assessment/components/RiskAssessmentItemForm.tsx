@@ -34,6 +34,7 @@ const mitigationSchema = z.object({
   transfer: z.string().optional(),
   reduce: z.string().optional(),
   accept: z.string().optional(),
+  legalAspect: z.string().optional(),
 });
 
 // Form schema for validation - single item
@@ -213,6 +214,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
           transfer: '',
           reduce: '',
           accept: '',
+          legalAspect: '',
         },
       });
       // Reset initial mount flag when switching items
@@ -501,7 +503,8 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
         data.mitigation.eliminate ||
         data.mitigation.transfer ||
         data.mitigation.reduce ||
-        data.mitigation.accept
+        data.mitigation.accept ||
+        data.mitigation.legalAspect
       );
       
       await onSubmit({
@@ -520,6 +523,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
           transfer: data.mitigation?.transfer || undefined,
           reduce: data.mitigation?.reduce || undefined,
           accept: data.mitigation?.accept || undefined,
+          legalAspect: data.mitigation?.legalAspect || undefined,
         } : undefined,
       });
     } finally {
@@ -903,6 +907,24 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                     <FormControl>
                       <Textarea
                         placeholder="Describe acceptance strategy..."
+                        className="min-h-[120px] resize-y"
+                        {...field}
+                        value={field.value || ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="mitigation.legalAspect"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Legal Aspect</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Enter legal aspect (filled by approver)..."
                         className="min-h-[120px] resize-y"
                         {...field}
                         value={field.value || ''}

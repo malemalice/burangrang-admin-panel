@@ -225,6 +225,7 @@ export interface RiskAssessmentItem {
     transfer?: string;
     reduce?: string;
     accept?: string;
+    legalAspect?: string;
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;

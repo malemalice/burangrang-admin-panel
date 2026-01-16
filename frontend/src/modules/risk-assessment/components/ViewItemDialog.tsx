@@ -116,6 +116,14 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
                   </p>
                 </div>
               </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Legal Aspect</p>
+                <div className="p-3 rounded-md border bg-card text-card-foreground">
+                  <p className="text-sm whitespace-pre-wrap">
+                    {item.mitigation?.legalAspect || 'N/A'}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

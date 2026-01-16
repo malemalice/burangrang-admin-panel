@@ -590,6 +590,7 @@ Table t_risk_mitigation {
   transfer text [null]
   reduce text [null]
   accept text [null]
+  legalAspect text [null]
   isActive boolean [not null, default: true]
   entity varchar [not null, note: 'Entity type identifier (RISK_ASSESSMENT_ITEM, INSPECTION_ITEM)']
   entityId varchar [not null, note: 'Entity ID - references t_risk_assessment_item.id or t_inspection_items.id']
@@ -656,6 +657,7 @@ Table t_risk_assessment {
   actionPlan text [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
+  dueDateAt timestamp [null]
   
   Note: 'Risk assessment records'
   indexes {

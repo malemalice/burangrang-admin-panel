@@ -29,6 +29,12 @@ export class RiskMitigationDataDto {
   @ApiProperty({ required: false, description: 'Acceptance strategy' })
   @Expose()
   accept?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false, description: 'Legal aspect - filled by approver' })
+  @Expose()
+  legalAspect?: string;
 }
 
 /**

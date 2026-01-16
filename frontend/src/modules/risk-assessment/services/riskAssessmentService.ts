@@ -6,6 +6,7 @@ export interface RiskMitigationData {
   transfer?: string;
   reduce?: string;
   accept?: string;
+  legalAspect?: string;
 }
 
 export interface RiskMitigationRecord extends RiskMitigationData {
