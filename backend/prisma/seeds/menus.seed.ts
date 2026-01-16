@@ -130,11 +130,10 @@ export const seedMenus = async () => {
       },
     });
 
-    // Audit Policy menu
-    await prisma.menu.create({
+    // Audit menu group
+    const auditMenu = await prisma.menu.create({
       data: {
-        name: 'Audit Policy',
-        path: '/audit-policy',
+        name: 'Audit',
         icon: 'FileCheck',
         order: 4,
         isActive: true,
@@ -149,13 +148,34 @@ export const seedMenus = async () => {
       },
     });
 
-    // Audit Criteria menu
+    // Audit Policy submenu
+    await prisma.menu.create({
+      data: {
+        name: 'Audit Policy',
+        path: '/audit-policy',
+        icon: 'FileCheck',
+        parentId: auditMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Audit Criteria submenu
     await prisma.menu.create({
       data: {
         name: 'Audit Criteria',
         path: '/audit-criteria',
         icon: 'ClipboardList',
-        order: 5,
+        parentId: auditMenu.id,
+        order: 2,
         isActive: true,
         roles: {
           connect: [
@@ -174,7 +194,7 @@ export const seedMenus = async () => {
         name: 'Environmental Measurements',
         path: '/environmental-measurements',
         icon: 'Thermometer',
-        order: 6,
+        order: 5,
         isActive: true,
         roles: {
           connect: [
@@ -987,6 +1007,7 @@ export const seedMenus = async () => {
     console.log(`   - Top-level menus: 13`);
     console.log(`   - Master Data submenus: 9`);
     console.log(`   - User Management submenus: 3`);
+    console.log(`   - Audit submenus: 2`);
     console.log(`   - PPE Management submenus: 2`);
     console.log(`   - Certificate Management submenus: 2`);
     console.log(`   - Work Permit submenus: 2`);

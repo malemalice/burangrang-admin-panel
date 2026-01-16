@@ -168,6 +168,79 @@ async function main() {
       // Clear only the specified table
       switch (tableToSeed) {
         case 'users':
+          // Delete records that reference users before deleting users (in dependency order)
+          await prisma.notificationRecipient.deleteMany();
+          await prisma.notification.deleteMany();
+          await prisma.refreshToken.deleteMany();
+          // Clear PPE data
+          await (prisma as any).pPEWithdrawalItem.deleteMany();
+          await (prisma as any).pPEWithdrawal.deleteMany();
+          await (prisma as any).pPEStockAdjustment.deleteMany();
+          await (prisma as any).pPEExpiryAlert.deleteMany();
+          await (prisma as any).pPEStockItem.deleteMany();
+          await (prisma as any).pPEStock.deleteMany();
+          // Clear Certificate data
+          await prisma.certificateReminder.deleteMany();
+          await prisma.certificateRenewal.deleteMany();
+          await prisma.certificate.deleteMany();
+          // Clear Course data
+          await prisma.progress.deleteMany();
+          await prisma.enrollment.deleteMany();
+          await prisma.chapter.deleteMany();
+          await prisma.course.deleteMany();
+          // Clear Quiz data
+          await prisma.quizAnswer.deleteMany();
+          await prisma.quizAttempt.deleteMany();
+          await prisma.quizAssignment.deleteMany();
+          await prisma.quizQuestionOption.deleteMany();
+          await prisma.quizQuestion.deleteMany();
+          await prisma.quiz.deleteMany();
+          // Clear Work Permit data
+          await prisma.workPermitAttachment.deleteMany();
+          await prisma.workPermitHazard.deleteMany();
+          await prisma.workPermitRequiredCourse.deleteMany();
+          await prisma.workPermitProfession.deleteMany();
+          await prisma.workPermitMachine.deleteMany();
+          await prisma.workPermitMaterial.deleteMany();
+          await prisma.workPermitTool.deleteMany();
+          await prisma.workPermitHeavyEquipment.deleteMany();
+          await prisma.workPermitWorker.deleteMany();
+          await prisma.workPermitEmployee.deleteMany();
+          await prisma.workPermitClassification.deleteMany();
+          await prisma.workPermitToSafetyEquipment.deleteMany();
+          await prisma.workPermitToUser.deleteMany();
+          await prisma.workPermitSupervisorToGuest.deleteMany();
+          await prisma.workPermit.deleteMany();
+          // Clear Inspection data
+          await prisma.inspectionImage.deleteMany();
+          await prisma.inspectionInspector.deleteMany();
+          await prisma.inspectionItem.deleteMany();
+          await prisma.inspection.deleteMany();
+          // Clear Environmental Measurements
+          await prisma.environmentalMeasurement.deleteMany();
+          // Clear Waste Management data
+          await prisma.weightReportItem.deleteMany();
+          await prisma.dispatchOrder.deleteMany();
+          await prisma.weightReport.deleteMany();
+          await prisma.waterQualityLabReport.deleteMany();
+          await prisma.monthlyFlowReport.deleteMany();
+          await prisma.storageLocation.deleteMany();
+          await prisma.treatmentPlant.deleteMany();
+          // Clear Man Hours data
+          await prisma.manHour.deleteMany();
+          // Clear Approval data
+          await prisma.masterApprovalItem.deleteMany();
+          await prisma.approval.deleteMany();
+          // Clear RiskAssessment data
+          await prisma.riskAssessmentItem.deleteMany();
+          await prisma.riskAssessment.deleteMany();
+          // Clear Reminder data
+          await prisma.reminderLog.deleteMany();
+          await prisma.reminder.deleteMany();
+          // Clear File data
+          await prisma.fileAccessLog.deleteMany();
+          await prisma.fileUpload.deleteMany();
+          // Finally delete users
           await prisma.user.deleteMany();
           break;
         case 'roles':

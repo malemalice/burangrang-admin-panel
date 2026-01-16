@@ -8,11 +8,13 @@ import {
   IsArray,
   ValidateNested,
   IsEnum,
+  IsDateString,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { GeneralStatusEnum } from '@prisma/client';
 import { CreateInspectionImageDto } from './create-inspection-image.dto';
+import { RiskMitigationDataDto } from '../../risk-assessment/dto/risk-mitigation-data.dto';
 
 export class CreateInspectionItemDto {
   @IsNotEmpty()
@@ -46,6 +48,16 @@ export class CreateInspectionItemDto {
   followUpNotes?: string;
 
   @IsOptional()
+  @IsString()
+  @ApiProperty({ required: false, description: 'Findings from the inspection' })
+  findings?: string;
+
+  @IsOptional()
+  @IsDateString()
+  @ApiProperty({ required: false, description: 'Due date for the inspection item' })
+  dueDateAt?: string;
+
+  @IsOptional()
   @IsEnum(GeneralStatusEnum)
   @ApiProperty({ enum: GeneralStatusEnum, required: false })
   status?: GeneralStatusEnum;
@@ -62,5 +74,11 @@ export class CreateInspectionItemDto {
   @Type(() => CreateInspectionImageDto)
   @ApiProperty({ type: [CreateInspectionImageDto], required: false })
   images?: CreateInspectionImageDto[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RiskMitigationDataDto)
+  @ApiProperty({ type: RiskMitigationDataDto, required: false, description: 'Risk mitigation record' })
+  mitigation?: RiskMitigationDataDto;
 }
 

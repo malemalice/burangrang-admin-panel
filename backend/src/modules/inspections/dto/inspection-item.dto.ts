@@ -6,6 +6,7 @@ import { RiskDto } from 'src/modules/risks/dto/risk.dto';
 import { DepartmentDto } from 'src/modules/departments/dto/department.dto';
 import { UserDto } from 'src/modules/users/dto/user.dto';
 import { InspectionImageDto } from './inspection-image.dto';
+import { RiskMitigationRecordDto } from '../../risk-assessment/dto/risk-mitigation-data.dto';
 
 export class InspectionItemDto {
   @ApiProperty()
@@ -63,6 +64,14 @@ export class InspectionItemDto {
   @Expose()
   followUpNotes?: string;
 
+  @ApiProperty()
+  @Expose()
+  findings?: string;
+
+  @ApiProperty()
+  @Expose()
+  dueDateAt?: Date;
+
   @ApiProperty({ enum: GeneralStatusEnum })
   @Expose()
   status: GeneralStatusEnum;
@@ -82,6 +91,10 @@ export class InspectionItemDto {
   @ApiProperty({ type: () => InspectionImageDto, isArray: true })
   @Expose()
   images: InspectionImageDto[];
+
+  @ApiProperty({ type: RiskMitigationRecordDto, required: false, description: 'Risk mitigation record' })
+  @Expose()
+  mitigation?: RiskMitigationRecordDto;
 
   constructor(partial: Partial<InspectionItemDto>) {
     Object.assign(this, partial);

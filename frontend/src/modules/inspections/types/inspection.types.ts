@@ -18,6 +18,23 @@ export interface InspectionImage {
   createdAt: Date;
 }
 
+export interface RiskMitigationData {
+  eliminate?: string;
+  transfer?: string;
+  reduce?: string;
+  accept?: string;
+  legalAspect?: string;
+}
+
+export interface RiskMitigationRecord extends RiskMitigationData {
+  id: string;
+  entity: string;
+  entityId: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface InspectionItem {
   id: string;
   inspectionId: string;
@@ -31,10 +48,13 @@ export interface InspectionItem {
   assignee?: User;
   description?: string;
   followUpNotes?: string;
+  findings?: string;
+  dueDateAt?: Date;
   order: number;
   createdAt: Date;
   updatedAt: Date;
   images?: InspectionImage[];
+  mitigation?: RiskMitigationRecord;
 }
 
 export interface InspectionInspector {
@@ -69,8 +89,11 @@ export interface CreateInspectionItemDTO {
   assigneeId?: string;
   description?: string;
   followUpNotes?: string;
+  findings?: string;
+  dueDateAt?: string;
   order: number;
   images?: CreateInspectionImageDTO[];
+  mitigation?: RiskMitigationData;
 }
 
 export interface UpdateInspectionItemDTO extends Partial<CreateInspectionItemDTO> {}

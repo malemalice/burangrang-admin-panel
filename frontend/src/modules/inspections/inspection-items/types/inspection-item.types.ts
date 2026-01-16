@@ -7,6 +7,23 @@ import { RiskCategory, Risk } from '@/core/lib/types';
 import { Department } from '@/core/lib/types';
 import { User } from '@/core/lib/types';
 
+export interface RiskMitigationData {
+  eliminate?: string;
+  transfer?: string;
+  reduce?: string;
+  accept?: string;
+  legalAspect?: string;
+}
+
+export interface RiskMitigationRecord extends RiskMitigationData {
+  id: string;
+  entity: string;
+  entityId: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface InspectionItem {
   id: string;
   inspectionId: string;
@@ -24,11 +41,14 @@ export interface InspectionItem {
   assignee?: User;
   description?: string;
   followUpNotes?: string;
+  findings?: string;
+  dueDateAt?: Date;
   status: GeneralStatusEnum;
   order: number;
   createdAt: Date;
   updatedAt: Date;
   images?: InspectionItemImage[];
+  mitigation?: RiskMitigationRecord;
 }
 
 export interface InspectionItemImage {
@@ -47,9 +67,12 @@ export interface UpdateInspectionItemDTO {
   assigneeId?: string;
   description?: string;
   followUpNotes?: string;
+  findings?: string;
+  dueDateAt?: string;
   status?: GeneralStatusEnum;
   order?: number;
   images?: CreateInspectionItemImageDTO[];
+  mitigation?: RiskMitigationData | null;
 }
 
 export interface CreateInspectionItemImageDTO {
