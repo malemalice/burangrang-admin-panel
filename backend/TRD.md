@@ -1487,6 +1487,41 @@ Multi-level sequential approval workflow system using template-based configurati
 - Service: `ApprovalResolverService.resolveApprovalItem()` - resolves sentinels before creating approval records
 - Usage: Master approval items can mix fixed IDs and sentinels (e.g., first step dynamic, second step fixed)
 
+### Approval Record Creation Principles
+
+**Separation of Workflow Definition and Execution Records**:
+- **`m_approvals` / `m_approval_item`**: Define the approval workflow configuration (source of truth for pending/current lines)
+- **`t_approvals`**: Record actual approval actions taken by approvers (execution history)
+
+**Core Principles**:
+
+1. **`t_approvals` Records Only After Approver Action**:
+   - `t_approvals` should **ONLY** contain records AFTER an approver takes action (approves/rejects)
+   - `t_approvals` should **NOT** be created when status changes to `WAITING_APPROVAL`
+   - Records are created via `POST /master-approvals/approval` when approver submits their decision
+
+2. **Workflow Definition vs. Execution**:
+   - `m_approvals` defines the workflow (shown via `allApprovalLines` in API responses)
+   - `t_approvals` records the execution history (shown via `history` in API responses)
+   - These serve different purposes and should not duplicate each other
+
+3. **Status Change to WAITING_APPROVAL**:
+   - When entity status changes to `WAITING_APPROVAL`, do **NOT** call `createApproval()` service
+   - The workflow is already defined in `m_approvals` and shown via `allApprovalLines`
+   - Creating `t_approvals` records at this point causes duplication in the approval timeline
+
+4. **Avoiding Duplication**:
+   - The API response from `GET /master-approvals/check-approval-status/:dataId` includes:
+     - `history[]`: Actual approval actions from `t_approvals` (after approvers act)
+     - `allApprovalLines[]`: Workflow configuration from `m_approvals` (pending/current lines)
+   - Frontend should render both separately, avoiding duplication by checking if a specific department/job position combination already exists in history before showing from `allApprovalLines`
+
+**Implementation Guidelines**:
+- **DO NOT** create `t_approvals` records when entity status changes to `WAITING_APPROVAL`
+- **DO** create `t_approvals` records when approver submits via `POST /master-approvals/approval`
+- **DO** rely on `m_approvals` configuration for showing pending/current approval lines
+- **DO** use `t_approvals` records for showing completed approval history
+
 ### Module Structure
 ```
 backend/src/modules/approvals/

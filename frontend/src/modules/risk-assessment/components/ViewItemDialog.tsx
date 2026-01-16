@@ -79,57 +79,45 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
             </div>
           </div>
 
-          {/* Risk Mitigation - Show stored mitigation data */}
-          {item.mitigation && (
-            <>
-              <Separator />
+          {/* Risk Mitigation - Show all fields even if null */}
+          <Separator />
+          <div>
+            <h3 className="text-lg font-medium mb-4">Risk Mitigation</h3>
+            <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-medium mb-4">Risk Mitigation</h3>
-                <div className="space-y-4">
-                  {item.mitigation.eliminate && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-1">Eliminate</p>
-                      <div className="p-3 rounded-md border bg-card text-card-foreground">
-                        <p className="text-sm whitespace-pre-wrap">{item.mitigation.eliminate}</p>
-                      </div>
-                    </div>
-                  )}
-                  {item.mitigation.transfer && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-1">Transfer</p>
-                      <div className="p-3 rounded-md border bg-card text-card-foreground">
-                        <p className="text-sm whitespace-pre-wrap">{item.mitigation.transfer}</p>
-                      </div>
-                    </div>
-                  )}
-                  {item.mitigation.reduce && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-1">Reduce</p>
-                      <div className="p-3 rounded-md border bg-card text-card-foreground">
-                        <p className="text-sm whitespace-pre-wrap">{item.mitigation.reduce}</p>
-                      </div>
-                    </div>
-                  )}
-                  {item.mitigation.accept && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-1">Accept</p>
-                      <div className="p-3 rounded-md border bg-card text-card-foreground">
-                        <p className="text-sm whitespace-pre-wrap">{item.mitigation.accept}</p>
-                      </div>
-                    </div>
-                  )}
-                  {!item.mitigation.eliminate && 
-                   !item.mitigation.transfer && 
-                   !item.mitigation.reduce && 
-                   !item.mitigation.accept && (
-                    <div className="text-center py-8 text-sm text-muted-foreground">
-                      No risk mitigation data available for this item.
-                    </div>
-                  )}
+                <p className="text-sm font-medium text-muted-foreground mb-1">Eliminate</p>
+                <div className="p-3 rounded-md border bg-card text-card-foreground">
+                  <p className="text-sm whitespace-pre-wrap">
+                    {item.mitigation?.eliminate || 'N/A'}
+                  </p>
                 </div>
               </div>
-            </>
-          )}
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Transfer</p>
+                <div className="p-3 rounded-md border bg-card text-card-foreground">
+                  <p className="text-sm whitespace-pre-wrap">
+                    {item.mitigation?.transfer || 'N/A'}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Reduce</p>
+                <div className="p-3 rounded-md border bg-card text-card-foreground">
+                  <p className="text-sm whitespace-pre-wrap">
+                    {item.mitigation?.reduce || 'N/A'}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Accept</p>
+                <div className="p-3 rounded-md border bg-card text-card-foreground">
+                  <p className="text-sm whitespace-pre-wrap">
+                    {item.mitigation?.accept || 'N/A'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <Separator />
 

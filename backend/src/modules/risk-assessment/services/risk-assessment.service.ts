@@ -287,9 +287,6 @@ export class RiskAssessmentService {
       oldStatus === GeneralStatusEnum.SCHEDULED &&
       newStatus !== GeneralStatusEnum.SCHEDULED &&
       newStatus !== undefined;
-    const statusChangedToWaitingApproval =
-      oldStatus !== GeneralStatusEnum.WAITING_APPROVAL &&
-      newStatus === GeneralStatusEnum.WAITING_APPROVAL;
     const assessmentDateChanged =
       data.assessmentDate &&
       data.assessmentDate.getTime() !==
@@ -352,23 +349,9 @@ export class RiskAssessmentService {
       }
     }
 
-    // Handle approval creation when status changes to WAITING_APPROVAL
-    if (statusChangedToWaitingApproval) {
-      try {
-        await this.approvalsService.createApproval(
-          APPROVAL_ENTITIES.RISK_ASSESSMENT,
-          id,
-          existingAssessment.createdBy,
-        );
-      } catch (error) {
-        console.error(
-          `[RiskAssessment] Failed to create approval records for assessment ${id}:`,
-          error,
-        );
-        // Don't throw - allow status update to succeed even if approval creation fails
-        // Error will be logged for investigation
-      }
-    }
+    // Note: Approval records (t_approvals) should only be created when an approver
+    // actually submits their approval/rejection action, not when status changes to WAITING_APPROVAL.
+    // The approval workflow is defined in m_approvals and shown in allApprovalLines.
 
     // Handle reminder creation/deletion based on status changes
     if (statusChangedFromScheduled) {

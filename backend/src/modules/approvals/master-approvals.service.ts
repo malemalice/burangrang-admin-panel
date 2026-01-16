@@ -336,6 +336,212 @@ export class MasterApprovalsService {
     return itemsWithRelations;
   }
 
+  /**
+   * Load relation data for master approval items with entity resolution for sentinel values
+   * This resolves sentinel markers to actual entity data (e.g., department from risk assessment)
+   */
+  private async loadItemRelationsWithEntityResolution(
+    items: any[],
+    entityId: string,
+    entityName: string,
+  ): Promise<any[]> {
+    // Get entity data if needed for sentinel resolution
+    const entityData = await this.getEntityData(entityId, entityName);
+
+    const itemsWithRelations = await Promise.all(
+      items.map(async (item) => {
+        const result: any = { ...item };
+
+        // Handle department relation
+        if (isApprovalFieldMarker(item.departmentId)) {
+          // Resolve sentinel value from entity data
+          const resolvedDepartment = await this.resolveSentinelDepartment(
+            item.departmentId,
+            entityData,
+          );
+          result.department = resolvedDepartment;
+        } else {
+          // Load actual relation if not already loaded
+          if (!item.department) {
+            const department = await this.prisma.department.findUnique({
+              where: { id: item.departmentId },
+              select: { id: true, name: true },
+            });
+            result.department = department || {
+              id: item.departmentId,
+              name: 'Unknown Department',
+            };
+          } else {
+            result.department = item.department;
+          }
+        }
+
+        // Handle job position relation
+        if (isApprovalFieldMarker(item.jobPositionId)) {
+          // Resolve sentinel value from entity data
+          const resolvedJobPosition = await this.resolveSentinelJobPosition(
+            item.jobPositionId,
+            entityData,
+            result.department, // Pass resolved department for context
+          );
+          result.jobPosition = resolvedJobPosition;
+        } else {
+          // Load actual relation if not already loaded
+          if (!item.jobPosition) {
+            const jobPosition = await this.prisma.jobPosition.findUnique({
+              where: { id: item.jobPositionId },
+              select: { id: true, name: true },
+            });
+            result.jobPosition = jobPosition || {
+              id: item.jobPositionId,
+              name: 'Unknown Job Position',
+            };
+          } else {
+            result.jobPosition = item.jobPosition;
+          }
+        }
+
+        // Handle creator relation (should always be valid)
+        if (!item.creator) {
+          const creator = await this.prisma.user.findUnique({
+            where: { id: item.createdBy },
+            select: { id: true, firstName: true, lastName: true },
+          });
+          result.creator = creator || {
+            id: item.createdBy,
+            firstName: 'Unknown',
+            lastName: 'User',
+          };
+        } else {
+          result.creator = item.creator;
+        }
+
+        return result;
+      }),
+    );
+
+    return itemsWithRelations;
+  }
+
+  /**
+   * Get entity data for sentinel resolution
+   */
+  private async getEntityData(
+    entityId: string,
+    entityName: string,
+  ): Promise<any> {
+    try {
+      // Get the source entity table name from mapping
+      const tableName =
+        APPROVAL_ENTITY_TO_TABLE[
+          entityName as keyof typeof APPROVAL_ENTITY_TO_TABLE
+        ];
+
+      if (!tableName) {
+        return null;
+      }
+
+      // Query the source entity to get departmentId
+      const result = await this.prisma.$queryRaw<
+        Array<{ departmentId: string }>
+      >`
+        SELECT "departmentId"
+        FROM "${Prisma.raw(tableName)}"
+        WHERE id = ${entityId}
+        LIMIT 1
+      `;
+
+      if (!result || result.length === 0) {
+        return null;
+      }
+
+      return result[0];
+    } catch (error) {
+      console.error('Failed to get entity data:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Resolve sentinel department marker to actual department
+   */
+  private async resolveSentinelDepartment(
+    sentinelValue: string,
+    entityData: any,
+  ): Promise<{ id: string; name: string }> {
+    if (
+      sentinelValue === APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT &&
+      entityData?.departmentId
+    ) {
+      // Fetch actual department from entity data
+      const department = await this.prisma.department.findUnique({
+        where: { id: entityData.departmentId },
+        select: { id: true, name: true },
+      });
+
+      if (department) {
+        return department;
+      }
+    }
+
+    // Fallback to sentinel display label
+    return {
+      id: sentinelValue,
+      name: this.getSentinelDisplayLabel(sentinelValue),
+    };
+  }
+
+  /**
+   * Resolve sentinel job position marker to actual job position
+   */
+  private async resolveSentinelJobPosition(
+    sentinelValue: string,
+    entityData: any,
+    resolvedDepartment: { id: string; name: string },
+  ): Promise<{ id: string; name: string }> {
+    if (
+      sentinelValue === APPROVAL_FIELD_MARKERS.FROM_ENTITY_JOB_POSITION &&
+      entityData?.departmentId
+    ) {
+      // First, try to find job position with code 'HEAD' (default for department head)
+      const defaultHeadPosition = await this.prisma.jobPosition.findFirst({
+        where: {
+          code: 'HEAD',
+          isActive: true,
+        },
+        select: { id: true, name: true },
+      });
+
+      if (defaultHeadPosition) {
+        return defaultHeadPosition;
+      }
+
+      // Fallback: Find department head job position by name patterns
+      // Look for a job position with "head" or "manager" in the name
+      const departmentHeadPosition = await this.prisma.jobPosition.findFirst({
+        where: {
+          isActive: true,
+          OR: [
+            { name: { contains: 'Head', mode: 'insensitive' } },
+            { name: { contains: 'Manager', mode: 'insensitive' } },
+            { name: { contains: 'Lead', mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true, name: true },
+      });
+
+      if (departmentHeadPosition) {
+        return departmentHeadPosition;
+      }
+    }
+
+    // Fallback to sentinel display label
+    return {
+      id: sentinelValue,
+      name: this.getSentinelDisplayLabel(sentinelValue),
+    };
+  }
+
   private mapToDto(data: any): MasterApprovalDto {
     const approval = data as {
       id: string;
@@ -446,8 +652,11 @@ export class MasterApprovalsService {
     }
 
     // Load relations for items, handling sentinel values
-    const itemsWithRelations = await this.loadItemRelations(
+    // For checkApprovalStatus, we need to resolve sentinel values to actual entity data
+    const itemsWithRelations = await this.loadItemRelationsWithEntityResolution(
       masterApprovalRaw.items,
+      entityId,
+      entityName,
     );
     const masterApproval = {
       ...masterApprovalRaw,
