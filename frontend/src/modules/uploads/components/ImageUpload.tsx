@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/core/components/ui/button';
 import { Input } from '@/core/components/ui/input';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import uploadService, { FileCategory } from '../services/uploadService';
 
@@ -154,6 +154,10 @@ const ImageUpload = ({
               preview.includes('audio') ||
               preview.match(/\.(mp3|wav|ogg|aac|mpeg)($|\?)/i) ||
               selectedFile?.type.startsWith('audio/');
+            const isPdf = mediaType === 'application/pdf' ||
+              preview.includes('pdf') ||
+              preview.match(/\.pdf($|\?)/i) ||
+              selectedFile?.type === 'application/pdf';
 
             if (isVideo) {
               return (
@@ -167,10 +171,30 @@ const ImageUpload = ({
               );
             } else if (isAudio) {
               return (
-                <div className="w-full h-48 flex items-center justify-center rounded-lg border bg-gray-100">
-                  <audio src={preview} controls className="w-full px-4">
+                <div className="w-full h-48 flex items-center justify-center rounded-lg border bg-gray-100 flex-col gap-2">
+                  <div className="p-4 bg-white rounded-full shadow-sm">
+                    <ImageIcon className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <audio src={preview} controls className="w-full px-4 max-w-md">
                     Your browser does not support the audio tag.
                   </audio>
+                </div>
+              );
+            } else if (isPdf) {
+              return (
+                <div className="w-full h-48 flex items-center justify-center rounded-lg border bg-gray-100">
+                  <div className="text-center">
+                    <FileText className="h-12 w-12 text-red-500 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-gray-700">PDF Document</p>
+                    <a 
+                      href={preview} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline mt-1 block"
+                    >
+                      View PDF
+                    </a>
+                  </div>
                 </div>
               );
             } else {

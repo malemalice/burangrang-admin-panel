@@ -50,7 +50,7 @@ export interface Chapter {
   description?: string;
   order: number;
   duration: number;
-  contentType: 'video' | 'pdf' | 'text' | 'youtube';
+  contentType: 'video' | 'pdf' | 'text' | 'youtube' | 'image' | 'audio';
   contentUrl?: string;
   youtubeVideoId?: string;
   content?: string;
@@ -161,7 +161,7 @@ export interface CreateChapterDTO {
   description?: string;
   order: number;
   duration?: number;
-  contentType: 'video' | 'pdf' | 'text' | 'youtube';
+  contentType: 'video' | 'pdf' | 'text' | 'youtube' | 'image' | 'audio';
   contentUrl?: string;
   youtubeVideoId?: string;
   content?: string;
@@ -254,7 +254,7 @@ export interface ChapterFormData {
   description: string;
   order: number;
   duration: number;
-  contentType: 'video' | 'pdf' | 'text' | 'youtube';
+  contentType: 'video' | 'pdf' | 'text' | 'youtube' | 'image' | 'audio';
   contentUrl: string;
   youtubeVideoId: string;
   content: string;
