@@ -118,6 +118,22 @@ export class EnrollmentsController {
     return this.enrollmentsService.findAll(query, userId, userRole);
   }
 
+  @Get(':id/learning-context')
+  @ApiOperation({ summary: 'Get enrollment learning context (course, chapters, progress)' })
+  @ApiParam({ name: 'id', type: String, description: 'Enrollment ID' })
+  @ApiResponse({ status: 200, description: 'Learning context retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Enrollment not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @Roles(Role.USER, Role.ADMIN, Role.SUPER_ADMIN)
+  async getLearningContext(
+    @Param('id') id: string,
+    @Request() req: any,
+  ): Promise<any> {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    return this.enrollmentsService.getLearningContext(id, userId, userRole);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get enrollment by ID' })
   @ApiParam({ name: 'id', type: String, description: 'Enrollment ID' })

@@ -33,13 +33,7 @@ export interface Course {
     name: string;
     slug: string;
   }[];
-  chapters?: {
-    id: string;
-    title: string;
-    order: number;
-    duration: number;
-    isPublished: boolean;
-  }[];
+  chapters?: Chapter[];
 }
 
 // Chapter entity types
@@ -50,7 +44,7 @@ export interface Chapter {
   description?: string;
   order: number;
   duration: number;
-  contentType: 'video' | 'pdf' | 'text' | 'youtube';
+  contentType: 'video' | 'pdf' | 'text' | 'youtube' | 'image' | 'audio';
   contentUrl?: string;
   youtubeVideoId?: string;
   content?: string;
@@ -161,7 +155,7 @@ export interface CreateChapterDTO {
   description?: string;
   order: number;
   duration?: number;
-  contentType: 'video' | 'pdf' | 'text' | 'youtube';
+  contentType: 'video' | 'pdf' | 'text' | 'youtube' | 'image' | 'audio';
   contentUrl?: string;
   youtubeVideoId?: string;
   content?: string;
@@ -254,7 +248,7 @@ export interface ChapterFormData {
   description: string;
   order: number;
   duration: number;
-  contentType: 'video' | 'pdf' | 'text' | 'youtube';
+  contentType: 'video' | 'pdf' | 'text' | 'youtube' | 'image' | 'audio';
   contentUrl: string;
   youtubeVideoId: string;
   content: string;
@@ -277,4 +271,48 @@ export interface ChapterFilters {
   isPublished?: boolean;
   isFree?: boolean;
   courseId?: string;
+}
+
+// Progress types
+export enum ProgressStatus {
+  NOT_STARTED = 'NOT_STARTED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+}
+
+export interface Progress {
+  id: string;
+  enrollmentId: string;
+  chapterId: string;
+  status: ProgressStatus;
+  timeSpent: number;
+  progress: number;
+  startedAt?: string;
+  completedAt?: string;
+  lastAccessedAt?: string;
+}
+
+export interface UpdateProgressDTO {
+  status?: ProgressStatus;
+  timeSpent?: number;
+  progress?: number;
+}
+
+export interface Quiz {
+  id: string;
+  title: string;
+  description?: string;
+  duration?: number;
+  passingScore: number;
+  entity: 'COURSE' | 'CHAPTER';
+  entityId: string;
+  isPublished: boolean;
+  isActive: boolean;
+}
+
+export interface LearningContext {
+  enrollment: any; // Using any for now to avoid circular dependency issues
+  course: Course;
+  quizzes: Quiz[];
+  progress: Progress[];
 }

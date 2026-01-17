@@ -42,10 +42,10 @@ export class CreateCourseDto {
   @IsOptional()
   language?: string = 'en';
 
-  @ApiProperty({ description: 'Instructor ID' })
+  @ApiProperty({ description: 'Instructor ID', required: false })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  instructorId: string;
+  instructorId?: string;
 
   @ApiProperty({ 
     description: 'Course status', 
