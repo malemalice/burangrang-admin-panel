@@ -30,8 +30,14 @@ import { Department } from '@/core/lib/types';
 import areaService from '@/modules/master-data/services/areaService';
 import { AreaDTO } from '@/modules/master-data/types/master-data.types';
 import uploadService, { FileCategory } from '@/modules/uploads/services/uploadService';
-import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
+import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import riskMitigationService, { type RiskMitigation } from '@/modules/risk-assessment/services/riskMitigationService';
+
+// Inspection item status options (only OPEN and DONE/CLOSE)
+const INSPECTION_ITEM_STATUS_OPTIONS = [
+  { value: GeneralStatusEnum.OPEN, label: 'Open' },
+  { value: GeneralStatusEnum.DONE, label: 'Close' },
+] as const;
 
 // Image upload interface
 interface ImageUpload {
@@ -66,6 +72,15 @@ const formSchema = z.object({
   dueDateAt: z.string().optional(),
   mitigation: mitigationSchema.optional(),
 }).superRefine((data, ctx) => {
+  // Status validation: inspection items can only be OPEN or DONE (Close)
+  if (data.status !== GeneralStatusEnum.OPEN && data.status !== GeneralStatusEnum.DONE) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Status must be either Open or Close',
+      path: ['status'],
+    });
+  }
+  
   // If a risk is selected, at least one mitigation field must be filled
   if (data.riskId && data.mitigation) {
     const hasMitigation = !!(
@@ -87,6 +102,8 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+type FormMode = 'creator' | 'updater' | 'verifier';
+
 interface InspectionItemFormProps {
   inspectionId?: string;
   initialItem?: Partial<CreateInspectionItemDTO>;
@@ -94,6 +111,7 @@ interface InspectionItemFormProps {
   onCancel?: () => void;
   showCard?: boolean;
   inspectionStatus?: GeneralStatusEnum;
+  formMode?: FormMode; // 'creator' | 'updater' | 'verifier'
 }
 
 const InspectionItemForm = ({ 
@@ -103,6 +121,7 @@ const InspectionItemForm = ({
   onCancel, 
   showCard = true,
   inspectionStatus,
+  formMode = 'creator',
 }: InspectionItemFormProps) => {
   const [risks, setRisks] = useState<Risk[]>([]);
   const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
@@ -554,7 +573,6 @@ const InspectionItemForm = ({
         followUpNotes: followUpNotes,
         findings: data.findings || undefined,
         dueDateAt: data.dueDateAt || undefined,
-        order: 0, // Default order value (backend may handle this)
         images: uploadedImages, // Add images to DTO
         mitigation: hasMitigation ? {
           eliminate: data.mitigation?.eliminate || undefined,
@@ -592,541 +610,604 @@ const InspectionItemForm = ({
     );
   }
 
+  // Determine which sections to show based on formMode
+  const showCreatorSection = formMode === 'creator' || formMode === 'verifier';
+  const showUpdaterSection = formMode === 'updater' || formMode === 'verifier';
+  const showVerifierSection = formMode === 'verifier';
+
   const formContent = (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="areaId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Area <span className="text-destructive">*</span>
-                </FormLabel>
-                <FormControl>
-                  <ModalCombobox
-                    options={areaOptions}
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    placeholder="Select area"
-                    searchPlaceholder="Search area..."
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Status <span className="text-destructive">*</span>
-                </FormLabel>
-                <FormControl>
-                  <ModalCombobox
-                    options={GENERAL_STATUS_OPTIONS.map(opt => ({
-                      value: opt.value,
-                      label: opt.label
-                    }))}
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    placeholder="Select status"
-                    searchPlaceholder="Search status..."
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="riskCategoryId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Risk Category <span className="text-destructive">*</span>
-                </FormLabel>
-                <FormControl>
-                  <ModalCombobox
-                    options={riskCategoryOptions}
-                    value={field.value}
-                    onValueChange={(value) => {
-                      field.onChange(value);
-                      // Clear risk when category changes
-                      form.setValue('riskId', '');
-                    }}
-                    placeholder="Select risk category"
-                    searchPlaceholder="Search risk category..."
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="riskId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Risk <span className="text-destructive">*</span>
-                </FormLabel>
-                <FormControl>
-                  <ModalCombobox
-                    options={filteredRiskOptions}
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    placeholder={selectedRiskCategoryId ? "Select risk" : "Select risk category first"}
-                    searchPlaceholder="Search risk..."
-                    emptyText={selectedRiskCategoryId ? "No risks found" : "Please select a risk category first"}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="assignedDepartmentId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Assigned Department <span className="text-destructive">*</span>
-                </FormLabel>
-                <FormControl>
-                  <ModalCombobox
-                    options={departmentOptions}
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    placeholder="Select department"
-                    searchPlaceholder="Search department..."
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="assigneeId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Assignee</FormLabel>
-                <FormControl>
-                  <ModalCombobox
-                    options={userOptions}
-                    value={field.value || ''}
-                    onValueChange={(value) => field.onChange(value || undefined)}
-                    placeholder="Select assignee (optional)"
-                    searchPlaceholder="Search user..."
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Enter inspection item description (optional)"
-                  rows={3}
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="followUpNotes"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Follow-up Notes</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Enter follow-up notes (optional)"
-                  rows={4}
-                  disabled={isSubmitting || isUploadingImages}
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="findings"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Findings</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Enter findings from the inspection (optional)"
-                    rows={4}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="dueDateAt"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Due Date</FormLabel>
-                <FormControl>
-                  <Input
-                    type="date"
-                    {...field}
-                    value={field.value || ''}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <Separator />
-
-        {/* Risk Mitigation Section */}
-        <div>
-          <h3 className="text-lg font-medium mb-4">Risk Mitigation</h3>
-          {form.formState.errors.mitigation && (
-            <p className="text-sm font-medium text-destructive mb-4">
-              {(() => {
-                const error = form.formState.errors.mitigation;
-                const message = error && typeof error === 'object' && 'message' in error 
-                  ? String(error.message) 
-                  : null;
-                return message && message !== 'undefined' && message.trim() 
-                  ? message 
-                  : 'At least one risk mitigation field must be filled';
-              })()}
-            </p>
-          )}
-          {isLoadingRiskMitigations ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm text-muted-foreground">Loading risk mitigation template...</span>
-              </div>
-            </div>
-          ) : selectedRiskId ? (
+        {/* Section 1: Creator Section - Area, Risk, Risk Category, Findings, Description, Due Date, Risk Mitigation */}
+        {showCreatorSection && (
+          <>
             <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="mitigation.eliminate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium">Eliminate</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Describe elimination strategy..."
-                        className="min-h-[120px] resize-y"
-                        {...field}
-                        value={field.value || ''}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="mitigation.transfer"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium">Transfer</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Describe transfer strategy..."
-                        className="min-h-[120px] resize-y"
-                        {...field}
-                        value={field.value || ''}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="mitigation.reduce"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium">Reduce</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Describe reduction strategy..."
-                        className="min-h-[120px] resize-y"
-                        {...field}
-                        value={field.value || ''}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="mitigation.accept"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium">Accept</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Describe acceptance strategy..."
-                        className="min-h-[120px] resize-y"
-                        {...field}
-                        value={field.value || ''}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="mitigation.legalAspect"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium">Legal Aspect</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Enter legal aspect (filled by approver)..."
-                        className="min-h-[120px] resize-y"
-                        {...field}
-                        value={field.value || ''}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          ) : (
-            <div className="text-center py-8 text-sm text-muted-foreground">
-              Please select a risk to enter mitigation strategies.
-            </div>
-          )}
-        </div>
+              <div>
+                <h3 className="text-lg font-semibold">
+                  {formMode === 'verifier' ? 'Section 1: Creator Information' : 'Inspection Item Details'}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {formMode === 'creator' && 'Fill in the inspection item details'}
+                  {formMode === 'verifier' && 'Information filled by the creator'}
+                </p>
+              </div>
 
-        <Separator />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="areaId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Area <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <ModalCombobox
+                          options={areaOptions}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder="Select area"
+                          searchPlaceholder="Search area..."
+                          disabled={formMode === 'verifier' && !showVerifierSection}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-        {/* Image Upload Section */}
-        <div className="space-y-6">
-          <div>
-            <FormLabel className="text-lg font-semibold">Inspection Images</FormLabel>
-            <p className="text-sm text-muted-foreground">Upload photos related to this inspection item (max 5MB per image)</p>
-          </div>
+                {showVerifierSection && (
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Status <span className="text-destructive">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <ModalCombobox
+                            options={INSPECTION_ITEM_STATUS_OPTIONS.map(opt => ({
+                              value: opt.value,
+                              label: opt.label
+                            }))}
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            placeholder="Select status"
+                            searchPlaceholder="Search status..."
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
 
-          {/* Before Images Section (Current Condition) */}
-          <div className="space-y-4">
-            <div>
-              <FormLabel className="text-base font-medium">Before (Current Condition)</FormLabel>
-              <p className="text-sm text-muted-foreground">Upload images showing the current condition before any fix/action plan</p>
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="riskCategoryId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Risk Category <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <ModalCombobox
+                          options={riskCategoryOptions}
+                          value={field.value}
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            // Clear risk when category changes
+                            form.setValue('riskId', '');
+                          }}
+                          placeholder="Select risk category"
+                          searchPlaceholder="Search risk category..."
+                          disabled={formMode === 'verifier' && !showVerifierSection}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            {/* Upload Button for Before Images */}
-            <div className="flex items-center gap-2">
-              <Input
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                multiple
-                onChange={handleBeforeImageSelect}
-                className="hidden"
-                id="inspection-before-image-upload"
-                disabled={isSubmitting || isUploadingImages}
-              />
-              <label htmlFor="inspection-before-image-upload">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isSubmitting || isUploadingImages}
-                  className="cursor-pointer"
-                  asChild
-                >
-                  <span>
-                    <Upload className="mr-2 h-4 w-4" />
-                    {isUploadingImages ? 'Uploading...' : 'Add Before Images'}
-                  </span>
-                </Button>
-              </label>
-              {beforeImages.length > 0 && (
-                <span className="text-sm text-muted-foreground">
-                  {beforeImages.length} image{beforeImages.length !== 1 ? 's' : ''} selected
-                </span>
+                <FormField
+                  control={form.control}
+                  name="riskId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Risk <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <ModalCombobox
+                          options={filteredRiskOptions}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder={selectedRiskCategoryId ? "Select risk" : "Select risk category first"}
+                          searchPlaceholder="Search risk..."
+                          emptyText={selectedRiskCategoryId ? "No risks found" : "Please select a risk category first"}
+                          disabled={formMode === 'verifier' && !showVerifierSection}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {showVerifierSection && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="assignedDepartmentId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Assigned Department <span className="text-destructive">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <ModalCombobox
+                            options={departmentOptions}
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            placeholder="Select department"
+                            searchPlaceholder="Search department..."
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="assigneeId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Assignee</FormLabel>
+                        <FormControl>
+                          <ModalCombobox
+                            options={userOptions}
+                            value={field.value || ''}
+                            onValueChange={(value) => field.onChange(value || undefined)}
+                            placeholder="Select assignee (optional)"
+                            searchPlaceholder="Search user..."
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               )}
-            </div>
 
-            {/* Before Image Preview Grid */}
-            {beforeImages.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {beforeImages.map((image) => (
-                  <div key={image.id} className="relative border rounded-lg overflow-hidden bg-gray-50">
-                    <div className="aspect-video relative">
-                      <img
-                        src={image.url}
-                        alt={image.caption || 'Before inspection image'}
-                        className="w-full h-full object-cover"
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Enter inspection item description (optional)"
+                        rows={3}
+                        {...field}
+                        disabled={formMode === 'verifier' && !showVerifierSection}
                       />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-2 right-2 h-8 w-8"
-                        onClick={() => handleRemoveBeforeImage(image.id)}
-                        disabled={isSubmitting || isUploadingImages}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                      {image.isNew && (
-                        <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                          New
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-3">
-                      <Input
-                        type="text"
-                        placeholder="Add caption (optional)"
-                        value={image.caption}
-                        onChange={(e) => handleBeforeCaptionChange(image.id, e.target.value)}
-                        disabled={isSubmitting || isUploadingImages}
-                        className="text-sm"
-                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="findings"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Findings</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter findings from the inspection (optional)"
+                          rows={4}
+                          {...field}
+                          disabled={formMode === 'verifier' && !showVerifierSection}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="dueDateAt"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Due Date</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          {...field}
+                          value={field.value || ''}
+                          disabled={formMode === 'verifier' && !showVerifierSection}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <Separator />
+
+              {/* Risk Mitigation Section - only for creator and verifier */}
+              <div>
+                <h3 className="text-lg font-medium mb-4">Risk Mitigation</h3>
+                {form.formState.errors.mitigation && (
+                  <p className="text-sm font-medium text-destructive mb-4">
+                    {(() => {
+                      const error = form.formState.errors.mitigation;
+                      const message = error && typeof error === 'object' && 'message' in error 
+                        ? String(error.message) 
+                        : null;
+                      return message && message !== 'undefined' && message.trim() 
+                        ? message 
+                        : 'At least one risk mitigation field must be filled';
+                    })()}
+                  </p>
+                )}
+                {isLoadingRiskMitigations ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Loading risk mitigation template...</span>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-
-            {beforeImages.length === 0 && (
-              <div className="border-2 border-dashed rounded-lg p-6 text-center bg-gray-50">
-                <ImageIcon className="h-10 w-10 mx-auto text-gray-400 mb-2" />
-                <p className="text-sm text-muted-foreground">No before images uploaded yet</p>
-              </div>
-            )}
-          </div>
-
-          {/* After Images Section */}
-          <div className="space-y-4">
-            <div>
-              <FormLabel className="text-base font-medium">After (After Fix/Action Plan)</FormLabel>
-              <p className="text-sm text-muted-foreground">Upload images showing the condition after fix/action plan has been implemented</p>
-            </div>
-
-            {/* Upload Button for After Images */}
-            <div className="flex items-center gap-2">
-              <Input
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                multiple
-                onChange={handleAfterImageSelect}
-                className="hidden"
-                id="inspection-after-image-upload"
-                disabled={isSubmitting || isUploadingImages}
-              />
-              <label htmlFor="inspection-after-image-upload">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isSubmitting || isUploadingImages}
-                  className="cursor-pointer"
-                  asChild
-                >
-                  <span>
-                    <Upload className="mr-2 h-4 w-4" />
-                    {isUploadingImages ? 'Uploading...' : 'Add After Images'}
-                  </span>
-                </Button>
-              </label>
-              {afterImages.length > 0 && (
-                <span className="text-sm text-muted-foreground">
-                  {afterImages.length} image{afterImages.length !== 1 ? 's' : ''} selected
-                </span>
-              )}
-            </div>
-
-            {/* After Image Preview Grid */}
-            {afterImages.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {afterImages.map((image) => (
-                  <div key={image.id} className="relative border rounded-lg overflow-hidden bg-gray-50">
-                    <div className="aspect-video relative">
-                      <img
-                        src={image.url}
-                        alt={image.caption || 'After inspection image'}
-                        className="w-full h-full object-cover"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-2 right-2 h-8 w-8"
-                        onClick={() => handleRemoveAfterImage(image.id)}
-                        disabled={isSubmitting || isUploadingImages}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                      {image.isNew && (
-                        <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                          New
-                        </div>
+                ) : selectedRiskId ? (
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="mitigation.eliminate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium">Eliminate</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Describe elimination strategy..."
+                              className="min-h-[120px] resize-y"
+                              {...field}
+                              value={field.value || ''}
+                              disabled={formMode === 'verifier' && !showVerifierSection}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
                       )}
-                    </div>
-                    <div className="p-3">
-                      <Input
-                        type="text"
-                        placeholder="Add caption (optional)"
-                        value={image.caption}
-                        onChange={(e) => handleAfterCaptionChange(image.id, e.target.value)}
-                        disabled={isSubmitting || isUploadingImages}
-                        className="text-sm"
-                      />
-                    </div>
+                    />
+                    <FormField
+                      control={form.control}
+                      name="mitigation.transfer"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium">Transfer</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Describe transfer strategy..."
+                              className="min-h-[120px] resize-y"
+                              {...field}
+                              value={field.value || ''}
+                              disabled={formMode === 'verifier' && !showVerifierSection}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="mitigation.reduce"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium">Reduce</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Describe reduction strategy..."
+                              className="min-h-[120px] resize-y"
+                              {...field}
+                              value={field.value || ''}
+                              disabled={formMode === 'verifier' && !showVerifierSection}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="mitigation.accept"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium">Accept</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Describe acceptance strategy..."
+                              className="min-h-[120px] resize-y"
+                              {...field}
+                              value={field.value || ''}
+                              disabled={formMode === 'verifier' && !showVerifierSection}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="mitigation.legalAspect"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium">Legal Aspect</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Enter legal aspect (filled by approver)..."
+                              className="min-h-[120px] resize-y"
+                              {...field}
+                              value={field.value || ''}
+                              disabled={formMode === 'verifier' && !showVerifierSection}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                ))}
+                ) : (
+                  <div className="text-center py-8 text-sm text-muted-foreground">
+                    Please select a risk to enter mitigation strategies.
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
-            {afterImages.length === 0 && (
-              <div className="border-2 border-dashed rounded-lg p-6 text-center bg-gray-50">
-                <ImageIcon className="h-10 w-10 mx-auto text-gray-400 mb-2" />
-                <p className="text-sm text-muted-foreground">No after images uploaded yet</p>
+            <Separator />
+          </>
+        )}
+
+        {/* Section 2: Updater Section - Image After and Follow-up Notes */}
+        {showUpdaterSection && (
+          <>
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold">
+                  {formMode === 'verifier' ? 'Section 2: Action Item Updates' : 'Update Action Item'}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {formMode === 'updater' && 'Update the action item with progress and images'}
+                  {formMode === 'verifier' && 'Information filled by the action item updater'}
+                </p>
               </div>
-            )}
-          </div>
-        </div>
 
+              <FormField
+                control={form.control}
+                name="followUpNotes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Follow-up Notes</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Enter follow-up notes (optional)"
+                        rows={4}
+                        disabled={isSubmitting || isUploadingImages || (formMode === 'verifier' && !showVerifierSection)}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* After Images Section */}
+              <div className="space-y-4">
+                <div>
+                  <FormLabel className="text-base font-medium">After (After Fix/Action Plan)</FormLabel>
+                  <p className="text-sm text-muted-foreground">Upload images showing the condition after fix/action plan has been implemented</p>
+                </div>
+
+                {/* Upload Button for After Images */}
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    multiple
+                    onChange={handleAfterImageSelect}
+                    className="hidden"
+                    id="inspection-after-image-upload"
+                    disabled={isSubmitting || isUploadingImages || (formMode === 'verifier' && !showVerifierSection)}
+                  />
+                  <label htmlFor="inspection-after-image-upload">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isSubmitting || isUploadingImages || (formMode === 'verifier' && !showVerifierSection)}
+                      className="cursor-pointer"
+                      asChild
+                    >
+                      <span>
+                        <Upload className="mr-2 h-4 w-4" />
+                        {isUploadingImages ? 'Uploading...' : 'Add After Images'}
+                      </span>
+                    </Button>
+                  </label>
+                  {afterImages.length > 0 && (
+                    <span className="text-sm text-muted-foreground">
+                      {afterImages.length} image{afterImages.length !== 1 ? 's' : ''} selected
+                    </span>
+                  )}
+                </div>
+
+                {/* After Image Preview Grid */}
+                {afterImages.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {afterImages.map((image) => (
+                      <div key={image.id} className="relative border rounded-lg overflow-hidden bg-gray-50">
+                        <div className="aspect-video relative">
+                          <img
+                            src={image.url}
+                            alt={image.caption || 'After inspection image'}
+                            className="w-full h-full object-cover"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-2 right-2 h-8 w-8"
+                            onClick={() => handleRemoveAfterImage(image.id)}
+                            disabled={isSubmitting || isUploadingImages || (formMode === 'verifier' && !showVerifierSection)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                          {image.isNew && (
+                            <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                              New
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <Input
+                            type="text"
+                            placeholder="Add caption (optional)"
+                            value={image.caption}
+                            onChange={(e) => handleAfterCaptionChange(image.id, e.target.value)}
+                            disabled={isSubmitting || isUploadingImages || (formMode === 'verifier' && !showVerifierSection)}
+                            className="text-sm"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {afterImages.length === 0 && (
+                  <div className="border-2 border-dashed rounded-lg p-6 text-center bg-gray-50">
+                    <ImageIcon className="h-10 w-10 mx-auto text-gray-400 mb-2" />
+                    <p className="text-sm text-muted-foreground">No after images uploaded yet</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <Separator />
+          </>
+        )}
+
+        {/* Section 3: Verifier Section - All fields editable */}
+        {showVerifierSection && (
+          <>
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold">Section 3: Verification</h3>
+                <p className="text-sm text-muted-foreground">Verifier can adjust all fields</p>
+              </div>
+
+              {/* Before Images Section - only visible to verifier */}
+              <div className="space-y-4">
+                <div>
+                  <FormLabel className="text-base font-medium">Before (Current Condition)</FormLabel>
+                  <p className="text-sm text-muted-foreground">Upload images showing the current condition before any fix/action plan</p>
+                </div>
+
+                {/* Upload Button for Before Images */}
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    multiple
+                    onChange={handleBeforeImageSelect}
+                    className="hidden"
+                    id="inspection-before-image-upload"
+                    disabled={isSubmitting || isUploadingImages}
+                  />
+                  <label htmlFor="inspection-before-image-upload">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isSubmitting || isUploadingImages}
+                      className="cursor-pointer"
+                      asChild
+                    >
+                      <span>
+                        <Upload className="mr-2 h-4 w-4" />
+                        {isUploadingImages ? 'Uploading...' : 'Add Before Images'}
+                      </span>
+                    </Button>
+                  </label>
+                  {beforeImages.length > 0 && (
+                    <span className="text-sm text-muted-foreground">
+                      {beforeImages.length} image{beforeImages.length !== 1 ? 's' : ''} selected
+                    </span>
+                  )}
+                </div>
+
+                {/* Before Image Preview Grid */}
+                {beforeImages.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {beforeImages.map((image) => (
+                      <div key={image.id} className="relative border rounded-lg overflow-hidden bg-gray-50">
+                        <div className="aspect-video relative">
+                          <img
+                            src={image.url}
+                            alt={image.caption || 'Before inspection image'}
+                            className="w-full h-full object-cover"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-2 right-2 h-8 w-8"
+                            onClick={() => handleRemoveBeforeImage(image.id)}
+                            disabled={isSubmitting || isUploadingImages}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                          {image.isNew && (
+                            <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                              New
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <Input
+                            type="text"
+                            placeholder="Add caption (optional)"
+                            value={image.caption}
+                            onChange={(e) => handleBeforeCaptionChange(image.id, e.target.value)}
+                            disabled={isSubmitting || isUploadingImages}
+                            className="text-sm"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {beforeImages.length === 0 && (
+                  <div className="border-2 border-dashed rounded-lg p-6 text-center bg-gray-50">
+                    <ImageIcon className="h-10 w-10 mx-auto text-gray-400 mb-2" />
+                    <p className="text-sm text-muted-foreground">No before images uploaded yet</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <Separator />
+          </>
+        )}
+
+        {/* Submit Buttons */}
         <div className="flex justify-end gap-2">
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting || isUploadingImages}>

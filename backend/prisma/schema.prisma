@@ -1430,7 +1430,6 @@ model InspectionItem {
   findings            String?  @db.Text
   description         String?  @db.Text
   followUpNotes       String?  @db.Text
-  order               Int
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   dueDateAt           DateTime?

@@ -46,6 +46,7 @@ interface DataTableProps<T> {
   onApplyFilters?: (filters: FilterValue[]) => void;
   sorting?: { id: string; desc: boolean } | null;
   onSortingChange?: (sorting: { id: string; desc: boolean } | null) => void;
+  hideSearch?: boolean;
 }
 
 const DataTable = <T extends Record<string, any>>({
@@ -59,6 +60,7 @@ const DataTable = <T extends Record<string, any>>({
   onApplyFilters,
   sorting,
   onSortingChange,
+  hideSearch = false,
 }: DataTableProps<T>) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -136,25 +138,27 @@ const DataTable = <T extends Record<string, any>>({
 
   return (
     <div className="rounded-md border bg-card">
-      <div className="flex items-center justify-between p-4 border-b">
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-          <Input
-            placeholder="Search..."
-            value={searchTerm}
-            onChange={handleSearch}
-            className="pl-10 pr-4"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          {filterFields.length > 0 && (
-            <FilterButton 
-              onClick={() => setIsFilterOpen(true)} 
-              filterCount={localActiveFilters.length}
+      {!hideSearch && (
+        <div className="flex items-center justify-between p-4 border-b">
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+            <Input
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={handleSearch}
+              className="pl-10 pr-4"
             />
-          )}
+          </div>
+          <div className="flex items-center gap-2">
+            {filterFields.length > 0 && (
+              <FilterButton 
+                onClick={() => setIsFilterOpen(true)} 
+                filterCount={localActiveFilters.length}
+              />
+            )}
+          </div>
         </div>
-      </div>
+      )}
       
       {/* Display filter badges if there are active filters */}
       {localActiveFilters.length > 0 && (

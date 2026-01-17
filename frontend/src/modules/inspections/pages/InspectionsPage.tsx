@@ -271,9 +271,26 @@ const InspectionsPage = () => {
     {
       id: 'itemCount',
       header: 'Items Count',
-      cell: (inspection: Inspection) => (
-        <div className="text-center">{inspection.items?.length || 0}</div>
-      ),
+      cell: (inspection: Inspection) => {
+        const items = inspection.items || [];
+        const openCount = items.filter(item => item.status === GeneralStatusEnum.OPEN).length;
+        const closedCount = items.filter(item => item.status === GeneralStatusEnum.DONE).length;
+        const totalCount = items.length;
+
+        return (
+          <div className="flex items-center gap-3">
+            <div className="text-lg font-bold">{totalCount}</div>
+            <div className="flex flex-col gap-0.5">
+              <div className={`text-xs whitespace-nowrap ${openCount > 0 ? 'text-yellow-800 dark:text-yellow-400' : 'text-muted-foreground'}`}>
+                {openCount} Open
+              </div>
+              <div className={`text-xs whitespace-nowrap ${closedCount > 0 ? 'text-green-800 dark:text-green-400' : 'text-muted-foreground'}`}>
+                {closedCount} Closed
+              </div>
+            </div>
+          </div>
+        );
+      },
     },
     {
       id: 'inspectors',

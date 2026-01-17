@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Eye, Edit, Trash2 } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, FileText, Wrench, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/tooltip';
@@ -22,12 +22,17 @@ interface InspectionItemsTableProps {
   onAddItem: () => void;
   onViewItem: (item: InspectionItem) => void;
   onEditItem: (item: InspectionItem) => void;
+  onEditItemAsCreator?: (item: InspectionItem) => void;
+  onEditItemAsUpdater?: (item: InspectionItem) => void;
+  onEditItemAsVerifier?: (item: InspectionItem) => void;
   onDeleteItem: (item: InspectionItem, event?: React.MouseEvent) => void;
   onDeleteConfirm: () => void;
   itemToDelete: InspectionItem | null;
   deleteDialogOpen: boolean;
   onDeleteDialogChange: (open: boolean) => void;
   hideActions?: boolean;
+  hideHeader?: boolean;
+  hidePagination?: boolean;
 }
 
 export const InspectionItemsTable = ({
@@ -43,12 +48,17 @@ export const InspectionItemsTable = ({
   onAddItem,
   onViewItem,
   onEditItem,
+  onEditItemAsCreator,
+  onEditItemAsUpdater,
+  onEditItemAsVerifier,
   onDeleteItem,
   onDeleteConfirm,
   itemToDelete,
   deleteDialogOpen,
   onDeleteDialogChange,
   hideActions = false,
+  hideHeader = false,
+  hidePagination = false,
 }: InspectionItemsTableProps) => {
   const filterFields: FilterField[] = [];
 
@@ -140,6 +150,57 @@ export const InspectionItemsTable = ({
           </Tooltip>
           {!hideActions && (
             <>
+              {onEditItemAsCreator && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onEditItemAsCreator(item)}
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    >
+                      <FileText className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Edit as Creator</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {onEditItemAsUpdater && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onEditItemAsUpdater(item)}
+                      className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                    >
+                      <Wrench className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Update Action Item</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {onEditItemAsVerifier && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onEditItemAsVerifier(item)}
+                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Verify</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -179,30 +240,37 @@ export const InspectionItemsTable = ({
 
   return (
     <>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold">Inspection Items</h2>
-        {!hideActions && (
-          <ThemeButton onClick={onAddItem}>
-            <Plus className="mr-2 h-4 w-4" /> Add Item
-          </ThemeButton>
-        )}
-      </div>
+      {!hideHeader && (
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold">Inspection Items</h2>
+          {!hideActions && (
+            <ThemeButton onClick={onAddItem}>
+              <Plus className="mr-2 h-4 w-4" /> Add Item
+            </ThemeButton>
+          )}
+        </div>
+      )}
 
       <DataTable
         columns={columns}
         data={items}
         isLoading={isLoading}
-        pagination={{
-          pageIndex,
-          limit,
-          pageCount: Math.ceil(totalItems / limit),
-          onPageChange,
-          onPageSizeChange,
-          total: totalItems,
-        }}
-        filterFields={filterFields}
-        onSearch={onSearch}
-        onApplyFilters={onApplyFilters}
+        pagination={
+          hidePagination
+            ? undefined
+            : {
+                pageIndex,
+                limit,
+                pageCount: Math.ceil(totalItems / limit),
+                onPageChange,
+                onPageSizeChange,
+                total: totalItems,
+              }
+        }
+        filterFields={hideHeader ? [] : filterFields}
+        onSearch={hideHeader ? undefined : onSearch}
+        onApplyFilters={hideHeader ? undefined : onApplyFilters}
+        hideSearch={hideHeader}
       />
 
       <ConfirmDialog

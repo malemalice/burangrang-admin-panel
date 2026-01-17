@@ -69,7 +69,6 @@ export interface InspectionItem {
   followUpNotes?: string;
   findings?: string;
   dueDateAt?: Date;
-  order: number;
   createdAt: Date;
   updatedAt: Date;
   images?: InspectionImage[];
@@ -114,7 +113,6 @@ export interface CreateInspectionItemDTO {
   followUpNotes?: string;
   findings?: string;
   dueDateAt?: string;
-  order: number;
   images?: CreateInspectionImageDTO[];
   mitigation?: RiskMitigationData;
 }

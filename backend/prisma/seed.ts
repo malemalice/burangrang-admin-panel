@@ -30,6 +30,7 @@ import { seedManHours } from './seeds/man-hours.seed';
 import { seedMailTemplates } from './seeds/mail-templates.seed';
 import { seedMasterApprovals } from './seeds/master-approvals.seed';
 import { seedAuditPolicy } from './seeds/audit-policy.seed';
+import { seedRiskAssessmentsAndInspections } from './seeds/risk-assessments-inspections.seed';
 
 const prisma = new PrismaClient();
 
@@ -404,10 +405,24 @@ async function main() {
           await prisma.auditClause.deleteMany();
           await prisma.auditElement.deleteMany();
           break;
+        case 'risk_assessments':
+        case 'risk-assessments':
+        case 'inspections':
+        case 'risk_assessments_inspections':
+        case 'risk-assessments-inspections':
+          // Clear inspection data first (foreign key dependencies)
+          await prisma.inspectionImage.deleteMany();
+          await prisma.inspectionInspector.deleteMany();
+          await prisma.inspectionItem.deleteMany();
+          await prisma.inspection.deleteMany();
+          // Clear risk assessment data
+          await prisma.riskAssessmentItem.deleteMany();
+          await prisma.riskAssessment.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
           console.log(
-            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, audit-policy',
+            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, audit-policy, risk-assessments, inspections, risk-assessments-inspections',
           );
           process.exit(1);
       }
@@ -461,6 +476,7 @@ async function main() {
       await seedWasteManagement();
       await seedManHours();
       await seedAuditPolicy(prisma);
+      await seedRiskAssessmentsAndInspections(prisma);
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -650,6 +666,21 @@ async function main() {
           await prisma.auditClause.deleteMany();
           await prisma.auditElement.deleteMany();
           await seedAuditPolicy(prisma);
+          break;
+        case 'risk_assessments':
+        case 'risk-assessments':
+        case 'inspections':
+        case 'risk_assessments_inspections':
+        case 'risk-assessments-inspections':
+          // Clear inspection data first (foreign key dependencies)
+          await prisma.inspectionImage.deleteMany();
+          await prisma.inspectionInspector.deleteMany();
+          await prisma.inspectionItem.deleteMany();
+          await prisma.inspection.deleteMany();
+          // Clear risk assessment data
+          await prisma.riskAssessmentItem.deleteMany();
+          await prisma.riskAssessment.deleteMany();
+          await seedRiskAssessmentsAndInspections(prisma);
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

@@ -6,22 +6,35 @@ import {
   Eye,
   MoreHorizontal, 
   Edit,
+  FileText,
+  Wrench,
+  CheckCircle2,
 } from 'lucide-react';
 
 import { Button } from '@/core/components/ui/button';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/core/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/core/components/ui/dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Badge } from '@/core/components/ui/badge';
 
 import { InspectionItem, InspectionItemSearchParams } from '../types/inspection-item.types';
+import { CreateInspectionItemDTO } from '../../types/inspection.types';
 import inspectionItemsService from '../services/inspectionItemsService';
+import InspectionItemForm from '../../components/InspectionItemForm';
 import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
 import { departmentService, riskService, riskCategoryService } from '@/modules/master-data';
 import { Department } from '@/modules/master-data/types/master-data.types';
@@ -42,6 +55,9 @@ const InspectionItemsPage = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [risks, setRisks] = useState<Risk[]>([]);
   const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
+  const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<InspectionItem | null>(null);
+  const [editingFormMode, setEditingFormMode] = useState<'creator' | 'updater' | 'verifier' | null>(null);
 
   // Fetch filter options
   useEffect(() => {
@@ -201,6 +217,22 @@ const InspectionItemsPage = () => {
     setPageIndex(0);
   };
 
+  const handleUpdateItemSubmit = async (itemData: CreateInspectionItemDTO) => {
+    if (!editingItem) return;
+    
+    try {
+      await inspectionItemsService.update(editingItem.id, itemData);
+      toast.success('Inspection item updated successfully');
+      setIsEditItemDialogOpen(false);
+      setEditingItem(null);
+      setEditingFormMode(null);
+      await fetchItems();
+    } catch (error) {
+      console.error('Failed to update inspection item:', error);
+      toast.error('Failed to update inspection item');
+    }
+  };
+
   const getStatusBadge = (status: GeneralStatusEnum) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
       [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
@@ -305,6 +337,63 @@ const InspectionItemsPage = () => {
             <Eye className="mr-2 h-4 w-4" />
             View
           </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setEditingItem(item);
+                  setEditingFormMode('creator');
+                  setIsEditItemDialogOpen(true);
+                }}
+                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              >
+                <FileText className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Edit as Creator</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setEditingItem(item);
+                  setEditingFormMode('updater');
+                  setIsEditItemDialogOpen(true);
+                }}
+                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+              >
+                <Wrench className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Update Action Item</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setEditingItem(item);
+                  setEditingFormMode('verifier');
+                  setIsEditItemDialogOpen(true);
+                }}
+                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Verify</p>
+            </TooltipContent>
+          </Tooltip>
           <DropdownMenu
             open={openDropdownId === item.id}
             onOpenChange={(open) => {
@@ -351,6 +440,69 @@ const InspectionItemsPage = () => {
         activeFilters={activeFilters}
         onApplyFilters={handleApplyFilters}
       />
+
+      {/* Edit Item Dialog */}
+      <Dialog open={isEditItemDialogOpen} onOpenChange={(open) => {
+        setIsEditItemDialogOpen(open);
+        if (!open) {
+          setEditingItem(null);
+          setEditingFormMode(null);
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingFormMode === 'creator' && 'Edit as Creator'}
+              {editingFormMode === 'updater' && 'Update Action Item'}
+              {editingFormMode === 'verifier' && 'Verify Inspection Item'}
+              {!editingFormMode && 'Edit Inspection Item'}
+            </DialogTitle>
+            <DialogDescription>
+              {editingFormMode === 'creator' && 'Edit inspection item details (Area, Risk, Findings, Description, Due Date, Risk Mitigation)'}
+              {editingFormMode === 'updater' && 'Update action item progress (After Images, Follow-up Notes)'}
+              {editingFormMode === 'verifier' && 'Verify and adjust all inspection item fields'}
+              {!editingFormMode && 'Update the inspection item details.'}
+            </DialogDescription>
+          </DialogHeader>
+          {editingItem && (
+            <InspectionItemForm
+              inspectionId={editingItem.inspectionId}
+              initialItem={{
+                areaId: editingItem.areaId,
+                status: editingItem.status,
+                riskCategoryId: editingItem.riskCategoryId,
+                riskId: editingItem.riskId,
+                assignedDepartmentId: editingItem.assignedDepartmentId,
+                assigneeId: editingItem.assigneeId,
+                description: editingItem.description,
+                followUpNotes: editingItem.followUpNotes,
+                findings: editingItem.findings,
+                dueDateAt: editingItem.dueDateAt ? new Date(editingItem.dueDateAt).toISOString().split('T')[0] : undefined,
+                images: editingItem.images?.map(img => ({
+                  imageUrl: img.imageUrl,
+                  caption: img.caption,
+                  order: img.order,
+                })),
+                mitigation: editingItem.mitigation ? {
+                  eliminate: editingItem.mitigation.eliminate,
+                  transfer: editingItem.mitigation.transfer,
+                  reduce: editingItem.mitigation.reduce,
+                  accept: editingItem.mitigation.accept,
+                  legalAspect: editingItem.mitigation.legalAspect,
+                } : undefined,
+              }}
+              onSubmit={handleUpdateItemSubmit}
+              onCancel={() => {
+                setIsEditItemDialogOpen(false);
+                setEditingItem(null);
+                setEditingFormMode(null);
+              }}
+              showCard={false}
+              formMode={editingFormMode || 'creator'}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

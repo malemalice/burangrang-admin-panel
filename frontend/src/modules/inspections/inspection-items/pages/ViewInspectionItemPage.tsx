@@ -77,23 +77,23 @@ const ViewInspectionItemPage = () => {
         title="Inspection Item Details"
         subtitle="View detailed information about this inspection item"
         actions={
-          <Button onClick={() => navigate(`/inspections/items/${id}/edit`)}>
-            <Edit className="mr-2 h-4 w-4" />
-            Edit
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/inspections/items')}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Inspection Items
+            </Button>
+            <Button onClick={() => navigate(`/inspections/items/${id}/edit`)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit
+            </Button>
+          </div>
         }
-      >
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/inspections/items')}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Inspection Items
-        </Button>
-      </PageHeader>
+      />
 
-      <div className="max-w-4xl space-y-6">
+      <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
@@ -174,47 +174,41 @@ const ViewInspectionItemPage = () => {
           </CardContent>
         </Card>
 
-        {item.description && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Description</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm whitespace-pre-wrap">{item.description}</p>
-            </CardContent>
-          </Card>
-        )}
+        <Card>
+          <CardHeader>
+            <CardTitle>Description</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm whitespace-pre-wrap">{item.description || 'N/A'}</p>
+          </CardContent>
+        </Card>
 
-        {item.findings && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Findings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm whitespace-pre-wrap">{item.findings}</p>
-            </CardContent>
-          </Card>
-        )}
+        <Card>
+          <CardHeader>
+            <CardTitle>Findings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm whitespace-pre-wrap">{item.findings || 'N/A'}</p>
+          </CardContent>
+        </Card>
 
-        {item.followUpNotes && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Follow-up Notes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="p-3 rounded-md border bg-card text-card-foreground">
-                <p className="text-sm whitespace-pre-wrap">{item.followUpNotes}</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <Card>
+          <CardHeader>
+            <CardTitle>Follow-up Notes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="p-3 rounded-md border bg-card text-card-foreground">
+              <p className="text-sm whitespace-pre-wrap">{item.followUpNotes || 'N/A'}</p>
+            </div>
+          </CardContent>
+        </Card>
 
-        {item.mitigation && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Risk Mitigation</CardTitle>
-            </CardHeader>
-            <CardContent>
+        <Card>
+          <CardHeader>
+            <CardTitle>Risk Mitigation</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {item.mitigation ? (
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <p className="text-sm font-medium text-muted-foreground">Eliminate</p>
@@ -237,19 +231,24 @@ const ViewInspectionItemPage = () => {
                   <p className="text-sm whitespace-pre-wrap">{item.mitigation.legalAspect || 'N/A'}</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            ) : (
+              <p className="text-sm text-muted-foreground">N/A</p>
+            )}
+          </CardContent>
+        </Card>
 
-        {item.images && item.images.length > 0 && (
-          <>
-            {/* Before Images */}
-            {item.images.filter(img => img.type === InspectionImageTypeEnum.BEFORE).length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Before Images (Current Condition) ({item.images.filter(img => img.type === InspectionImageTypeEnum.BEFORE).length})</CardTitle>
-                </CardHeader>
-                <CardContent>
+        <Card>
+          <CardHeader>
+            <CardTitle>Images</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {/* Before Images */}
+              <div>
+                <h4 className="text-sm font-medium mb-3">
+                  Before Images (Current Condition) ({item.images?.filter(img => img.type === InspectionImageTypeEnum.BEFORE).length || 0})
+                </h4>
+                {item.images && item.images.filter(img => img.type === InspectionImageTypeEnum.BEFORE).length > 0 ? (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {item.images
                       .filter(img => img.type === InspectionImageTypeEnum.BEFORE)
@@ -266,17 +265,17 @@ const ViewInspectionItemPage = () => {
                         </div>
                       ))}
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                ) : (
+                  <p className="text-sm text-muted-foreground">No before images</p>
+                )}
+              </div>
 
-            {/* After Images */}
-            {item.images.filter(img => img.type === InspectionImageTypeEnum.AFTER).length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>After Images (After Fix/Action Plan) ({item.images.filter(img => img.type === InspectionImageTypeEnum.AFTER).length})</CardTitle>
-                </CardHeader>
-                <CardContent>
+              {/* After Images */}
+              <div>
+                <h4 className="text-sm font-medium mb-3">
+                  After Images (After Fix/Action Plan) ({item.images?.filter(img => img.type === InspectionImageTypeEnum.AFTER).length || 0})
+                </h4>
+                {item.images && item.images.filter(img => img.type === InspectionImageTypeEnum.AFTER).length > 0 ? (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {item.images
                       .filter(img => img.type === InspectionImageTypeEnum.AFTER)
@@ -293,38 +292,13 @@ const ViewInspectionItemPage = () => {
                         </div>
                       ))}
                   </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* General Images (if any) */}
-            {item.images.filter(img => img.type === InspectionImageTypeEnum.GENERAL || !img.type).length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>General Images ({item.images.filter(img => img.type === InspectionImageTypeEnum.GENERAL || !img.type).length})</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {item.images
-                      .filter(img => img.type === InspectionImageTypeEnum.GENERAL || !img.type)
-                      .map((image) => (
-                        <div key={image.id} className="space-y-2">
-                          <img
-                            src={image.imageUrl}
-                            alt={image.caption || 'Inspection image'}
-                            className="w-full h-32 object-cover rounded-md border"
-                          />
-                          {image.caption && (
-                            <p className="text-xs text-muted-foreground">{image.caption}</p>
-                          )}
-                        </div>
-                      ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </>
-        )}
+                ) : (
+                  <p className="text-sm text-muted-foreground">No after images</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </>
   );

@@ -106,149 +106,117 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
                     : 'N/A'}
                 </p>
               </div>
-              {item.description && (
-                <div className="space-y-1.5 md:col-span-2">
-                  <p className="text-sm font-medium text-muted-foreground">Description</p>
-                  <p className="text-sm whitespace-pre-wrap">{item.description}</p>
-                </div>
-              )}
+              <div className="space-y-1.5 md:col-span-2">
+                <p className="text-sm font-medium text-muted-foreground">Description</p>
+                <p className="text-sm whitespace-pre-wrap">{item.description || 'N/A'}</p>
+              </div>
             </div>
           </div>
 
-          {item.findings && (
-            <>
-              <Separator />
-              <div>
-                <h3 className="text-lg font-medium mb-4">Findings</h3>
-                <p className="text-sm whitespace-pre-wrap">{item.findings}</p>
-              </div>
-            </>
-          )}
+          <Separator />
+          <div>
+            <h3 className="text-lg font-medium mb-4">Findings</h3>
+            <p className="text-sm whitespace-pre-wrap">{item.findings || 'N/A'}</p>
+          </div>
 
-          {item.followUpNotes && (
-            <>
-              <Separator />
+          <Separator />
+          <div>
+            <h3 className="text-lg font-medium mb-4">Follow-up Notes</h3>
+            <div className="p-3 rounded-md border bg-card text-card-foreground">
+              <p className="text-sm whitespace-pre-wrap">{item.followUpNotes || 'N/A'}</p>
+            </div>
+          </div>
+
+          <Separator />
+          <div>
+            <h3 className="text-lg font-medium mb-4">Images</h3>
+            <div className="space-y-6">
+              {/* Before Images */}
               <div>
-                <h3 className="text-lg font-medium mb-4">Follow-up Notes</h3>
-                <div className="p-3 rounded-md border bg-card text-card-foreground">
-                  <p className="text-sm whitespace-pre-wrap">{item.followUpNotes}</p>
+                <h4 className="text-sm font-medium mb-3">
+                  Before Images (Current Condition) ({item.images?.filter(img => img.type === InspectionImageTypeEnum.BEFORE).length || 0})
+                </h4>
+                {item.images && item.images.filter(img => img.type === InspectionImageTypeEnum.BEFORE).length > 0 ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {item.images
+                      .filter(img => img.type === InspectionImageTypeEnum.BEFORE)
+                      .map((image) => (
+                        <div key={image.id} className="space-y-2">
+                          <img
+                            src={image.imageUrl}
+                            alt={image.caption || 'Before inspection image'}
+                            className="w-full h-32 object-cover rounded-md border"
+                          />
+                          {image.caption && (
+                            <p className="text-xs text-muted-foreground">{image.caption}</p>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No before images</p>
+                )}
+              </div>
+
+              {/* After Images */}
+              <div>
+                <h4 className="text-sm font-medium mb-3">
+                  After Images (After Fix/Action Plan) ({item.images?.filter(img => img.type === InspectionImageTypeEnum.AFTER).length || 0})
+                </h4>
+                {item.images && item.images.filter(img => img.type === InspectionImageTypeEnum.AFTER).length > 0 ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {item.images
+                      .filter(img => img.type === InspectionImageTypeEnum.AFTER)
+                      .map((image) => (
+                        <div key={image.id} className="space-y-2">
+                          <img
+                            src={image.imageUrl}
+                            alt={image.caption || 'After inspection image'}
+                            className="w-full h-32 object-cover rounded-md border"
+                          />
+                          {image.caption && (
+                            <p className="text-xs text-muted-foreground">{image.caption}</p>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No after images</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+          <div>
+            <h3 className="text-lg font-medium mb-4">Risk Mitigation</h3>
+            {item.mitigation ? (
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-muted-foreground">Eliminate</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.eliminate || 'N/A'}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-muted-foreground">Transfer</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.transfer || 'N/A'}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-muted-foreground">Reduce</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.reduce || 'N/A'}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-muted-foreground">Accept</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.accept || 'N/A'}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-muted-foreground">Legal Aspect</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.legalAspect || 'N/A'}</p>
                 </div>
               </div>
-            </>
-          )}
-
-          {item.images && item.images.length > 0 && (
-            <>
-              <Separator />
-              <div className="space-y-6">
-                {/* Before Images */}
-                {item.images.filter(img => img.type === InspectionImageTypeEnum.BEFORE).length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">
-                      Before Images (Current Condition) ({item.images.filter(img => img.type === InspectionImageTypeEnum.BEFORE).length})
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {item.images
-                        .filter(img => img.type === InspectionImageTypeEnum.BEFORE)
-                        .map((image) => (
-                          <div key={image.id} className="space-y-2">
-                            <img
-                              src={image.imageUrl}
-                              alt={image.caption || 'Before inspection image'}
-                              className="w-full h-32 object-cover rounded-md border"
-                            />
-                            {image.caption && (
-                              <p className="text-xs text-muted-foreground">{image.caption}</p>
-                            )}
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* After Images */}
-                {item.images.filter(img => img.type === InspectionImageTypeEnum.AFTER).length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">
-                      After Images (After Fix/Action Plan) ({item.images.filter(img => img.type === InspectionImageTypeEnum.AFTER).length})
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {item.images
-                        .filter(img => img.type === InspectionImageTypeEnum.AFTER)
-                        .map((image) => (
-                          <div key={image.id} className="space-y-2">
-                            <img
-                              src={image.imageUrl}
-                              alt={image.caption || 'After inspection image'}
-                              className="w-full h-32 object-cover rounded-md border"
-                            />
-                            {image.caption && (
-                              <p className="text-xs text-muted-foreground">{image.caption}</p>
-                            )}
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* General Images (if any) */}
-                {item.images.filter(img => img.type === InspectionImageTypeEnum.GENERAL || !img.type).length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">
-                      General Images ({item.images.filter(img => img.type === InspectionImageTypeEnum.GENERAL || !img.type).length})
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {item.images
-                        .filter(img => img.type === InspectionImageTypeEnum.GENERAL || !img.type)
-                        .map((image) => (
-                          <div key={image.id} className="space-y-2">
-                            <img
-                              src={image.imageUrl}
-                              alt={image.caption || 'Inspection image'}
-                              className="w-full h-32 object-cover rounded-md border"
-                            />
-                            {image.caption && (
-                              <p className="text-xs text-muted-foreground">{image.caption}</p>
-                            )}
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          {item.mitigation && (
-            <>
-              <Separator />
-              <div>
-                <h3 className="text-lg font-medium mb-4">Risk Mitigation</h3>
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-medium text-muted-foreground">Eliminate</p>
-                    <p className="text-sm whitespace-pre-wrap">{item.mitigation.eliminate || 'N/A'}</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-medium text-muted-foreground">Transfer</p>
-                    <p className="text-sm whitespace-pre-wrap">{item.mitigation.transfer || 'N/A'}</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-medium text-muted-foreground">Reduce</p>
-                    <p className="text-sm whitespace-pre-wrap">{item.mitigation.reduce || 'N/A'}</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-medium text-muted-foreground">Accept</p>
-                    <p className="text-sm whitespace-pre-wrap">{item.mitigation.accept || 'N/A'}</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-medium text-muted-foreground">Legal Aspect</p>
-                    <p className="text-sm whitespace-pre-wrap">{item.mitigation.legalAspect || 'N/A'}</p>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
+            ) : (
+              <p className="text-sm text-muted-foreground">N/A</p>
+            )}
+          </div>
         </div>
 
         <DialogFooter>

@@ -52,6 +52,7 @@ const InspectionDetailPage = () => {
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
   const [isViewItemDialogOpen, setIsViewItemDialogOpen] = useState(false);
   const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false);
+  const [editingFormMode, setEditingFormMode] = useState<'creator' | 'updater' | 'verifier' | null>(null);
   const [viewingItem, setViewingItem] = useState<InspectionItem | null>(null);
   const [editingItem, setEditingItem] = useState<InspectionItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<InspectionItem | null>(null);
@@ -93,6 +94,25 @@ const InspectionDetailPage = () => {
 
   const handleEditItem = (item: InspectionItem) => {
     setEditingItem(item);
+    setEditingFormMode(null);
+    setIsEditItemDialogOpen(true);
+  };
+
+  const handleEditItemAsCreator = (item: InspectionItem) => {
+    setEditingItem(item);
+    setEditingFormMode('creator');
+    setIsEditItemDialogOpen(true);
+  };
+
+  const handleEditItemAsUpdater = (item: InspectionItem) => {
+    setEditingItem(item);
+    setEditingFormMode('updater');
+    setIsEditItemDialogOpen(true);
+  };
+
+  const handleEditItemAsVerifier = (item: InspectionItem) => {
+    setEditingItem(item);
+    setEditingFormMode('verifier');
     setIsEditItemDialogOpen(true);
   };
 
@@ -102,6 +122,7 @@ const InspectionDetailPage = () => {
     if (success) {
       setIsEditItemDialogOpen(false);
       setEditingItem(null);
+      setEditingFormMode(null);
     }
   };
 
@@ -210,31 +231,130 @@ const InspectionDetailPage = () => {
       </div>
 
       {/* Inspection Items Section */}
-      <InspectionItemsTable
-        items={items}
-        isLoading={isLoadingItems}
-        pageIndex={pageIndex}
-        limit={limit}
-        totalItems={totalItems}
-        onPageChange={setPageIndex}
-        onPageSizeChange={setLimit}
-        onSearch={handleSearch}
-        onApplyFilters={handleApplyFilters}
-        onAddItem={() => setIsAddItemDialogOpen(true)}
-        onViewItem={handleViewItem}
-        onEditItem={handleEditItem}
-        onDeleteItem={handleDeleteItemClick}
-        onDeleteConfirm={handleDeleteItemConfirm}
-        itemToDelete={itemToDelete}
-        deleteDialogOpen={deleteDialogOpen}
-        onDeleteDialogChange={(open) => {
-          if (!open) {
-            setDeleteDialogOpen(false);
-            setItemToDelete(null);
-          }
-        }}
-        hideActions={inspection.status === GeneralStatusEnum.DONE}
-      />
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Inspection Items</CardTitle>
+              <CardDescription>Manage inspection items by status</CardDescription>
+            </div>
+            {inspection.status !== GeneralStatusEnum.DONE && (
+              <Button onClick={() => setIsAddItemDialogOpen(true)}>
+                Add Item
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Column 1: Total Items Summary */}
+            <div className="space-y-4">
+              <div className="p-4 border rounded-lg bg-muted/50">
+                <h3 className="text-lg font-semibold mb-2">Total Items</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Total:</span>
+                    <span className="text-2xl font-bold">{totalItems}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Open:</span>
+                    <span className="text-lg font-semibold text-blue-600">
+                      {items.filter(item => item.status === GeneralStatusEnum.OPEN).length}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Closed:</span>
+                    <span className="text-lg font-semibold text-green-600">
+                      {items.filter(item => item.status === GeneralStatusEnum.DONE).length}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Column 2: Items by Status */}
+            <div className="space-y-6">
+              {/* Open Items Row */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">
+                    Open Items ({items.filter(item => item.status === GeneralStatusEnum.OPEN).length})
+                  </h3>
+                </div>
+                <InspectionItemsTable
+                  items={items.filter(item => item.status === GeneralStatusEnum.OPEN)}
+                  isLoading={isLoadingItems}
+                  pageIndex={0}
+                  limit={1000}
+                  totalItems={items.filter(item => item.status === GeneralStatusEnum.OPEN).length}
+                  onPageChange={() => {}}
+                  onPageSizeChange={() => {}}
+                  onSearch={() => {}}
+                  onApplyFilters={() => {}}
+                  onAddItem={() => setIsAddItemDialogOpen(true)}
+                  onViewItem={handleViewItem}
+                  onEditItem={handleEditItem}
+                  onEditItemAsCreator={handleEditItemAsCreator}
+                  onEditItemAsUpdater={handleEditItemAsUpdater}
+                  onEditItemAsVerifier={handleEditItemAsVerifier}
+                  onDeleteItem={handleDeleteItemClick}
+                  onDeleteConfirm={handleDeleteItemConfirm}
+                  itemToDelete={itemToDelete}
+                  deleteDialogOpen={deleteDialogOpen}
+                  onDeleteDialogChange={(open) => {
+                    if (!open) {
+                      setDeleteDialogOpen(false);
+                      setItemToDelete(null);
+                    }
+                  }}
+                  hideActions={inspection.status === GeneralStatusEnum.DONE}
+                  hideHeader={true}
+                  hidePagination={true}
+                />
+              </div>
+
+              {/* Closed Items Row */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">
+                    Closed Items ({items.filter(item => item.status === GeneralStatusEnum.DONE).length})
+                  </h3>
+                </div>
+                <InspectionItemsTable
+                  items={items.filter(item => item.status === GeneralStatusEnum.DONE)}
+                  isLoading={isLoadingItems}
+                  pageIndex={0}
+                  limit={1000}
+                  totalItems={items.filter(item => item.status === GeneralStatusEnum.DONE).length}
+                  onPageChange={() => {}}
+                  onPageSizeChange={() => {}}
+                  onSearch={() => {}}
+                  onApplyFilters={() => {}}
+                  onAddItem={() => setIsAddItemDialogOpen(true)}
+                  onViewItem={handleViewItem}
+                  onEditItem={handleEditItem}
+                  onEditItemAsCreator={handleEditItemAsCreator}
+                  onEditItemAsUpdater={handleEditItemAsUpdater}
+                  onEditItemAsVerifier={handleEditItemAsVerifier}
+                  onDeleteItem={handleDeleteItemClick}
+                  onDeleteConfirm={handleDeleteItemConfirm}
+                  itemToDelete={itemToDelete}
+                  deleteDialogOpen={deleteDialogOpen}
+                  onDeleteDialogChange={(open) => {
+                    if (!open) {
+                      setDeleteDialogOpen(false);
+                      setItemToDelete(null);
+                    }
+                  }}
+                  hideActions={inspection.status === GeneralStatusEnum.DONE}
+                  hideHeader={true}
+                  hidePagination={true}
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Add Item Dialog */}
       <Dialog open={isAddItemDialogOpen} onOpenChange={setIsAddItemDialogOpen}>
@@ -260,38 +380,60 @@ const InspectionDetailPage = () => {
         setIsEditItemDialogOpen(open);
         if (!open) {
           setEditingItem(null);
+          setEditingFormMode(null);
         }
       }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Inspection Item</DialogTitle>
+            <DialogTitle>
+              {editingFormMode === 'creator' && 'Edit as Creator'}
+              {editingFormMode === 'updater' && 'Update Action Item'}
+              {editingFormMode === 'verifier' && 'Verify Inspection Item'}
+              {!editingFormMode && 'Edit Inspection Item'}
+            </DialogTitle>
             <DialogDescription>
-              Update the inspection item details.
+              {editingFormMode === 'creator' && 'Edit inspection item details (Area, Risk, Findings, Description, Due Date, Risk Mitigation)'}
+              {editingFormMode === 'updater' && 'Update action item progress (After Images, Follow-up Notes)'}
+              {editingFormMode === 'verifier' && 'Verify and adjust all inspection item fields'}
+              {!editingFormMode && 'Update the inspection item details.'}
             </DialogDescription>
           </DialogHeader>
           {editingItem && (
             <InspectionItemForm
               inspectionId={id}
               initialItem={{
+                areaId: editingItem.areaId,
+                status: editingItem.status,
                 riskCategoryId: editingItem.riskCategoryId,
                 riskId: editingItem.riskId,
                 assignedDepartmentId: editingItem.assignedDepartmentId,
                 assigneeId: editingItem.assigneeId,
                 description: editingItem.description,
                 followUpNotes: editingItem.followUpNotes,
+                findings: editingItem.findings,
+                dueDateAt: editingItem.dueDateAt ? new Date(editingItem.dueDateAt).toISOString().split('T')[0] : undefined,
                 images: editingItem.images?.map(img => ({
                   imageUrl: img.imageUrl,
                   caption: img.caption,
                   order: img.order,
                 })),
+                mitigation: editingItem.mitigation ? {
+                  eliminate: editingItem.mitigation.eliminate,
+                  transfer: editingItem.mitigation.transfer,
+                  reduce: editingItem.mitigation.reduce,
+                  accept: editingItem.mitigation.accept,
+                  legalAspect: editingItem.mitigation.legalAspect,
+                } : undefined,
               }}
               onSubmit={handleUpdateItemSubmit}
               onCancel={() => {
                 setIsEditItemDialogOpen(false);
                 setEditingItem(null);
+                setEditingFormMode(null);
               }}
               showCard={false}
               inspectionStatus={inspection?.status}
+              formMode={editingFormMode || 'creator'}
             />
           )}
         </DialogContent>

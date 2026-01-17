@@ -67,12 +67,6 @@ export class CreateInspectionItemDto {
   @ApiProperty({ enum: GeneralStatusEnum })
   status: GeneralStatusEnum;
 
-  @IsInt()
-  @Min(0)
-  @IsNotEmpty()
-  @ApiProperty({ minimum: 0 })
-  order: number;
-
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
