@@ -910,7 +910,7 @@ model Course {
   rating           Decimal   @default(0) @db.Decimal(3, 2)
   reviewCount      Int       @default(0)
   studentCount     Int       @default(0)
-  instructorId     String
+  instructorId     String?
   status           String    @default("draft") // draft, review, published, archived
   isPublished      Boolean   @default(false)
   publishedAt      DateTime?
@@ -919,7 +919,7 @@ model Course {
   updatedAt        DateTime  @updatedAt
 
   // Relations
-  instructor                User                       @relation("CourseInstructor", fields: [instructorId], references: [id])
+  instructor                User?                      @relation("CourseInstructor", fields: [instructorId], references: [id])
   chapters                  Chapter[]
   categories                CourseCategory[]           @relation("CourseToCategory")
   enrollments               Enrollment[]

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, Calendar, User, BookOpen, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Edit, Calendar, User, BookOpen, CheckCircle, XCircle, PlayCircle } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
@@ -92,6 +92,14 @@ const EnrollmentDetailPage = () => {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
+            {(enrollment.status === 'INVITED' || enrollment.status === 'ACTIVE' || enrollment.status === 'COMPLETED') && enrollment.course?.id && (
+              <Button
+                onClick={() => navigate(`/courses/${enrollment.course?.id}/learn`)}
+              >
+                <PlayCircle className="mr-2 h-4 w-4" />
+                Take Course
+              </Button>
+            )}
             {(enrollment.status === 'INVITED' || enrollment.status === 'ACTIVE') && (
               <Button
                 onClick={() => navigate(`/enrollments/${enrollment.id}/edit`)}

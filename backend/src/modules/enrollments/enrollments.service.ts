@@ -550,4 +550,81 @@ export class EnrollmentsService {
       return this.enrollmentMapper(enrollment);
     }, 'Finding enrollment');
   }
+
+  async getLearningContext(id: string, userId: string, userRole: string): Promise<any> {
+    return this.errorHandler.safeExecute(async () => {
+      // Get enrollment with basic course info (no chapters yet)
+      const enrollment = await this.prisma.enrollment.findUnique({
+        where: { id },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          course: true, // Get course to check instructor
+          progressRecords: true,
+        },
+      });
+
+      this.errorHandler.throwIfNotFoundById('Enrollment', id, enrollment);
+
+      // Access control
+      if (userRole !== Role.ADMIN && userRole !== Role.SUPER_ADMIN && enrollment.userId !== userId) {
+        this.errorHandler.throwForbidden('You can only access your own learning context');
+      }
+
+      // Fetch chapters separately
+      // Based on feedback: if course is published, all active chapters should be visible.
+      // We rely on 'isActive' status and remove 'isPublished' filter for chapters.
+      const chapters = await this.prisma.chapter.findMany({
+        where: {
+          courseId: enrollment.courseId,
+          isActive: true,
+        },
+        orderBy: {
+          order: 'asc',
+        },
+      });
+
+      // Attach chapters to course object
+      const courseWithChapters = {
+        ...enrollment.course,
+        chapters,
+      };
+
+      // Determine visibility for quizzes
+      const canViewDrafts =
+        userRole === Role.ADMIN ||
+        userRole === Role.SUPER_ADMIN ||
+        enrollment.course.instructorId === userId;
+
+      // Fetch quizzes (both course-level and chapter-level)
+      const chapterIds = courseWithChapters.chapters.map(ch => ch.id);
+      
+      const quizzes = await this.prisma.quiz.findMany({
+        where: {
+          OR: [
+            { entity: 'COURSE', entityId: enrollment.courseId },
+            { entity: 'CHAPTER', entityId: { in: chapterIds } }
+          ],
+          isActive: true,
+          ...(canViewDrafts ? {} : { isPublished: true }),
+        },
+        orderBy: {
+          createdAt: 'asc', // Or order if available
+        },
+      });
+
+      return {
+        enrollment: this.enrollmentMapper(enrollment),
+        course: courseWithChapters,
+        quizzes,
+        progress: enrollment.progressRecords,
+      };
+    }, 'Getting learning context');
+  }
 }
