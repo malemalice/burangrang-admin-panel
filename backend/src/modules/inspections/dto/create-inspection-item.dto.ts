@@ -20,6 +20,11 @@ export class CreateInspectionItemDto {
   @IsNotEmpty()
   @IsUUID()
   @ApiProperty()
+  areaId: string;
+
+  @IsNotEmpty()
+  @IsUUID()
+  @ApiProperty()
   riskCategoryId: string;
 
   @IsNotEmpty()
@@ -57,10 +62,10 @@ export class CreateInspectionItemDto {
   @ApiProperty({ required: false, description: 'Due date for the inspection item' })
   dueDateAt?: string;
 
-  @IsOptional()
+  @IsNotEmpty()
   @IsEnum(GeneralStatusEnum)
-  @ApiProperty({ enum: GeneralStatusEnum, required: false })
-  status?: GeneralStatusEnum;
+  @ApiProperty({ enum: GeneralStatusEnum })
+  status: GeneralStatusEnum;
 
   @IsInt()
   @Min(0)

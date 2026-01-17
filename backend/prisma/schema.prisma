@@ -1384,7 +1384,8 @@ model Area {
   workPermits      WorkPermit[]
   rooms            Room[]
   storageLocations StorageLocation[]
-  inspections      Inspection[]
+  inspectionItems  InspectionItem[]
+  inspections      InspectionToArea[]
 
   @@map("m_areas")
 }
@@ -1397,7 +1398,6 @@ model Area {
 model Inspection {
   id             String                 @id @default(uuid())
   code           String                 @unique
-  areaId         String
   inspectionDate DateTime
   status         GeneralStatusEnum
   isActive       Boolean                @default(true)
@@ -1407,12 +1407,11 @@ model Inspection {
   doneAt         DateTime?
 
   // Relations
-  area       Area                   @relation(fields: [areaId], references: [id])
   creator    User                   @relation("InspectionCreator", fields: [createdBy], references: [id])
   items      InspectionItem[]
   inspectors InspectionInspector[]
+  areas      InspectionToArea[]
 
-  @@index([areaId])
   @@index([status])
   @@map("t_inspections")
 }
@@ -1422,14 +1421,15 @@ model Inspection {
 model InspectionItem {
   id                  String   @id @default(uuid())
   inspectionId        String
+  areaId              String
   riskCategoryId      String
   riskId              String
   assignedDepartmentId String
   assigneeId          String?
+  status              GeneralStatusEnum @default(DRAFT)
   findings            String?  @db.Text
   description         String?  @db.Text
   followUpNotes       String?  @db.Text
-  status              GeneralStatusEnum @default(DRAFT)
   order               Int
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -1437,6 +1437,7 @@ model InspectionItem {
 
   // Relations
   inspection          Inspection     @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  area                Area           @relation(fields: [areaId], references: [id])
   riskCategory        RiskCategory   @relation(fields: [riskCategoryId], references: [id])
   risk                Risk           @relation(fields: [riskId], references: [id])
   assignedDepartment  Department     @relation(fields: [assignedDepartmentId], references: [id])
@@ -1444,6 +1445,7 @@ model InspectionItem {
   images              InspectionImage[]
 
   @@index([inspectionId])
+  @@index([areaId])
   @@index([riskCategoryId])
   @@index([riskId])
   @@index([assignedDepartmentId])
@@ -1487,6 +1489,23 @@ model InspectionInspector {
   @@index([inspectionId])
   @@index([inspectorId])
   @@map("t_inspection_inspectors")
+}
+
+// Inspection to Area - Many-to-Many Junction Table
+model InspectionToArea {
+  id           String   @id @default(uuid())
+  inspectionId String
+  areaId       String
+  createdAt    DateTime @default(now())
+
+  // Relations
+  inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  area       Area       @relation(fields: [areaId], references: [id])
+
+  @@unique([inspectionId, areaId])
+  @@index([inspectionId])
+  @@index([areaId])
+  @@map("_InspectionToArea")
 }
 
 model Room {

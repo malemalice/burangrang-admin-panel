@@ -76,6 +76,10 @@ export class InspectionsService {
           mapper: (inspection: any) => inspection,
           isArray: false,
         },
+        area: {
+          mapper: (area: any) => area,
+          isArray: false,
+        },
         riskCategory: {
           mapper: (riskCategory: any) => riskCategory,
           isArray: false,
@@ -114,9 +118,9 @@ export class InspectionsService {
     this.inspectionMapper = this.dtoMapper.createRelationMapper(
       InspectionDto,
       {
-        area: {
+        areas: {
           mapper: (area: any) => area,
-          isArray: false,
+          isArray: true,
         },
         creator: {
           mapper: (creator: any) => creator,
@@ -138,12 +142,19 @@ export class InspectionsService {
     createInspectionDto: CreateInspectionDto,
     userId: string,
   ): Promise<InspectionDto> {
-    const { items, inspectors, ...data } = createInspectionDto;
+    const { items, inspectors, areaIds, ...data } = createInspectionDto;
 
     const inspection = await this.prisma.inspection.create({
       data: {
         ...data,
         createdBy: userId,
+        ...(areaIds && areaIds.length > 0 && {
+          areas: {
+            create: areaIds.map((areaId) => ({
+              areaId,
+            })),
+          },
+        }),
         ...(items && items.length > 0 && {
           items: {
             create: items.map((item) => {
@@ -174,6 +185,7 @@ export class InspectionsService {
       include: {
         items: {
           include: {
+            area: true,
             riskCategory: true,
             risk: true,
             assignedDepartment: true,
@@ -190,7 +202,11 @@ export class InspectionsService {
           },
           orderBy: { order: 'asc' },
         },
-        area: true,
+        areas: {
+          include: {
+            area: true,
+          },
+        },
         creator: true,
       },
     });
@@ -206,7 +222,12 @@ export class InspectionsService {
       );
     }
 
-    return this.inspectionMapper(inspection);
+    const mapped = this.inspectionMapper(inspection);
+    // Transform areas to areaIds
+    return {
+      ...mapped,
+      areaIds: inspection.areas.map((ia: any) => ia.area.id),
+    };
   }
 
   async findAll(options?: FindAllOptions): Promise<{
@@ -229,7 +250,11 @@ export class InspectionsService {
       where.isActive = isActive;
     }
     if (areaId) {
-      where.areaId = areaId;
+      where.areas = {
+        some: {
+          areaId: areaId,
+        },
+      };
     }
     if (status) {
       where.status = status;
@@ -257,7 +282,11 @@ export class InspectionsService {
             },
             orderBy: { order: 'asc' },
           },
-          area: true,
+          areas: {
+            include: {
+              area: true,
+            },
+          },
           creator: true,
         },
         orderBy: {
@@ -270,7 +299,14 @@ export class InspectionsService {
     ]);
 
     return {
-      data: inspections.map((inspection) => this.inspectionMapper(inspection)),
+      data: inspections.map((inspection) => {
+        const mapped = this.inspectionMapper(inspection);
+        return {
+          ...mapped,
+          areaIds: inspection.areas.map((ia: any) => ia.area.id),
+          areas: inspection.areas.map((ia: any) => ia.area), // Flatten the areas array
+        };
+      }),
       meta: { total, page, limit },
     };
   }
@@ -297,21 +333,31 @@ export class InspectionsService {
           },
           orderBy: { order: 'asc' },
         },
-        area: true,
+        areas: {
+          include: {
+            area: true,
+          },
+        },
         creator: true,
       },
     });
 
     this.errorHandler.throwIfNotFoundById('Inspection', id, inspection);
 
-    return this.inspectionMapper(inspection);
+    const mapped = this.inspectionMapper(inspection);
+    // Transform areas to areaIds and flatten areas array
+    return {
+      ...mapped,
+      areaIds: inspection.areas.map((ia: any) => ia.area.id),
+      areas: inspection.areas.map((ia: any) => ia.area), // Flatten the areas array
+    };
   }
 
   async update(
     id: string,
     updateInspectionDto: UpdateInspectionDto,
   ): Promise<InspectionDto> {
-    const { items, inspectors, ...data } = updateInspectionDto;
+    const { items, inspectors, areaIds, ...data } = updateInspectionDto;
 
     // First, find the inspection to update
     const existingInspection = await this.prisma.inspection.findUnique({
@@ -340,6 +386,14 @@ export class InspectionsService {
       where: { id },
       data: {
         ...data,
+        ...(areaIds !== undefined && {
+          areas: {
+            deleteMany: {},
+            create: areaIds.map((areaId) => ({
+              areaId,
+            })),
+          },
+        }),
         ...(items !== undefined && {
           items: {
             deleteMany: {},
@@ -388,7 +442,11 @@ export class InspectionsService {
           },
           orderBy: { order: 'asc' },
         },
-        area: true,
+        areas: {
+          include: {
+            area: true,
+          },
+        },
         creator: true,
       },
     });
@@ -421,7 +479,13 @@ export class InspectionsService {
       );
     }
 
-    return this.inspectionMapper(inspection);
+    const mapped = this.inspectionMapper(inspection);
+    // Transform areas to areaIds and flatten areas array
+    return {
+      ...mapped,
+      areaIds: inspection.areas.map((ia: any) => ia.area.id),
+      areas: inspection.areas.map((ia: any) => ia.area), // Flatten the areas array
+    };
   }
 
   async remove(id: string): Promise<void> {
@@ -450,6 +514,11 @@ export class InspectionsService {
 
     // Delete all related inspectors
     await this.prisma.inspectionInspector.deleteMany({
+      where: { inspectionId: id },
+    });
+
+    // Delete all related areas (junction table)
+    await this.prisma.inspectionToArea.deleteMany({
       where: { inspectionId: id },
     });
 
@@ -500,6 +569,7 @@ export class InspectionsService {
     const item = await this.prisma.inspectionItem.create({
       data: createData,
       include: {
+        area: true,
         riskCategory: true,
         risk: true,
         assignedDepartment: true,
@@ -599,6 +669,7 @@ export class InspectionsService {
       this.prisma.inspectionItem.findMany({
         where,
         include: {
+          area: true,
           riskCategory: true,
           risk: true,
           assignedDepartment: true,
@@ -648,6 +719,7 @@ export class InspectionsService {
         inspectionId,
       },
       include: {
+        area: true,
         riskCategory: true,
         risk: true,
         assignedDepartment: true,
@@ -716,6 +788,7 @@ export class InspectionsService {
       where: { id: itemId },
       data: updateData,
       include: {
+        area: true,
         riskCategory: true,
         risk: true,
         assignedDepartment: true,
@@ -1233,6 +1306,7 @@ export class InspectionsService {
               code: true,
             },
           },
+          area: true,
           riskCategory: true,
           risk: true,
           assignedDepartment: true,
@@ -1282,6 +1356,7 @@ export class InspectionsService {
             code: true,
           },
         },
+        area: true,
         riskCategory: true,
         risk: true,
         assignedDepartment: true,

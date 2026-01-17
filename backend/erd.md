@@ -703,7 +703,6 @@ Ref: t_risk_mitigation.entityId > t_risk_assessment_item.id [delete: cascade, no
 Table t_inspections {
   id varchar [pk, default: `uuid()`]
   code varchar [unique, not null]
-  areaId varchar [not null, ref: > m_areas.id]
   inspectionDate timestamp [not null]
   status GeneralStatusEnum [not null]
   isActive boolean [not null, default: true]
@@ -712,10 +711,9 @@ Table t_inspections {
   createdBy varchar [not null, ref: > t_users.id]
   doneAt timestamp [null]
   
-  Note: 'HSE inspection header - tracks area, inspection date, status, and inspectors'
+  Note: 'HSE inspection header - tracks inspection date, status, and inspectors. Many-to-many relationship with m_areas via _InspectionToArea junction table'
   indexes {
     code [unique]
-    areaId
     status
   }
 }
@@ -723,10 +721,12 @@ Table t_inspections {
 Table t_inspection_items {
   id varchar [pk, default: `uuid()`]
   inspectionId varchar [not null, ref: > t_inspections.id, note: 'onDelete: Cascade']
+  areaId varchar [not null, ref: > m_areas.id]
   riskCategoryId varchar [not null, ref: > m_risk_categories.id]
   riskId varchar [not null, ref: > m_risk.id]
   assignedDepartmentId varchar [not null, ref: > m_departments.id]
   assigneeId varchar [null, ref: > t_users.id]
+  status GeneralStatusEnum [not null]
   findings text [null]
   description text [null]
   followUpNotes text [null]
@@ -738,10 +738,12 @@ Table t_inspection_items {
   Note: 'Individual inspection items - tracks risk findings, assignments, description, and follow-up notes per item. Has 1-to-1 polymorphic relation with t_risk_mitigation (entity='INSPECTION_ITEM', entityId=id)'
   indexes {
     inspectionId
+    areaId
     riskCategoryId
     riskId
     assignedDepartmentId
     assigneeId
+    status
   }
 }
 
@@ -2510,6 +2512,16 @@ Table _AuditToUser {
   B varchar [ref: > t_users.id]
   
   Note: 'Many-to-many: Audits and Auditors (Users)'
+  indexes {
+    (A, B) [pk]
+  }
+}
+
+Table _InspectionToArea {
+  A varchar [ref: > t_inspections.id]
+  B varchar [ref: > m_areas.id]
+  
+  Note: 'Many-to-many: Inspections and Areas'
   indexes {
     (A, B) [pk]
   }

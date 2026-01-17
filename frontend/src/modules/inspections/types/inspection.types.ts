@@ -45,6 +45,8 @@ export interface RiskMitigationRecord extends RiskMitigationData {
 export interface InspectionItem {
   id: string;
   inspectionId: string;
+  areaId: string;
+  area?: AreaDTO;
   riskCategoryId: string;
   riskCategory?: RiskCategory;
   riskId: string;
@@ -53,6 +55,7 @@ export interface InspectionItem {
   assignedDepartment?: Department;
   assigneeId?: string;
   assignee?: User;
+  status: GeneralStatusEnum;
   description?: string;
   followUpNotes?: string;
   findings?: string;
@@ -76,8 +79,10 @@ export interface InspectionInspector {
 export interface Inspection {
   id: string;
   code: string;
-  areaId: string;
-  area?: AreaDTO;
+  areaIds?: string[];
+  areas?: AreaDTO[];
+  areaId?: string; // Deprecated: kept for backward compatibility
+  area?: AreaDTO; // Deprecated: kept for backward compatibility
   inspectionDate: Date;
   status: GeneralStatusEnum;
   isActive: boolean;
@@ -90,10 +95,12 @@ export interface Inspection {
 }
 
 export interface CreateInspectionItemDTO {
+  areaId: string;
   riskCategoryId: string;
   riskId: string;
   assignedDepartmentId: string;
   assigneeId?: string;
+  status: GeneralStatusEnum;
   description?: string;
   followUpNotes?: string;
   findings?: string;
@@ -123,7 +130,7 @@ export interface UpdateInspectionInspectorDTO extends Partial<CreateInspectionIn
 
 export interface CreateInspectionDTO {
   code: string;
-  areaId: string;
+  areaIds: string[];
   inspectionDate: Date;
   status: GeneralStatusEnum;
   isActive?: boolean;

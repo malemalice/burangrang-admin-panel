@@ -5,6 +5,7 @@ import { RiskCategoryDto } from 'src/modules/risk-categories/dto/risk-category.d
 import { RiskDto } from 'src/modules/risks/dto/risk.dto';
 import { DepartmentDto } from 'src/modules/departments/dto/department.dto';
 import { UserDto } from 'src/modules/users/dto/user.dto';
+import { AreaDto } from 'src/modules/areas/dto/area.dto';
 import { InspectionImageDto } from './inspection-image.dto';
 import { RiskMitigationRecordDto } from '../../risk-assessment/dto/risk-mitigation-data.dto';
 
@@ -23,6 +24,14 @@ export class InspectionItemDto {
     id: string;
     code: string;
   };
+
+  @ApiProperty()
+  @Expose()
+  areaId: string;
+
+  @ApiProperty({ type: AreaDto })
+  @Expose()
+  area: AreaDto;
 
   @ApiProperty()
   @Expose()

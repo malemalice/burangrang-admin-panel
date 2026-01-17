@@ -21,10 +21,11 @@ export class CreateInspectionDto {
   @ApiProperty()
   code: string;
 
+  @IsArray()
+  @IsUUID(undefined, { each: true })
   @IsNotEmpty()
-  @IsUUID()
-  @ApiProperty()
-  areaId: string;
+  @ApiProperty({ type: [String], description: 'Array of area IDs' })
+  areaIds: string[];
 
   @IsDate()
   @Type(() => Date)

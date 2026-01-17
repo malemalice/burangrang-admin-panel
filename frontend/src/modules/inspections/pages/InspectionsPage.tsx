@@ -250,8 +250,23 @@ const InspectionsPage = () => {
     },
     {
       id: 'area',
-      header: 'Area',
-      cell: (inspection: Inspection) => <div>{inspection.area?.name || 'N/A'}</div>,
+      header: 'Areas',
+      cell: (inspection: Inspection) => {
+        const areaNames = inspection.areas
+          ?.map(a => a?.name)
+          .filter((name): name is string => Boolean(name)) || [];
+        
+        if (areaNames.length > 0) {
+          return <div>{areaNames.join(', ')}</div>;
+        }
+        
+        // Fallback to deprecated area field for backward compatibility
+        if (inspection.area?.name) {
+          return <div>{inspection.area.name}</div>;
+        }
+        
+        return <div>N/A</div>;
+      },
     },
     {
       id: 'itemCount',

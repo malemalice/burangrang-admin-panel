@@ -27,8 +27,10 @@ import { userService } from '@/modules/users';
 import { User } from '@/core/lib/types';
 import departmentService from '@/modules/master-data/services/departmentService';
 import { Department } from '@/core/lib/types';
+import areaService from '@/modules/master-data/services/areaService';
+import { AreaDTO } from '@/modules/master-data/types/master-data.types';
 import uploadService, { FileCategory } from '@/modules/uploads/services/uploadService';
-import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
 import riskMitigationService, { type RiskMitigation } from '@/modules/risk-assessment/services/riskMitigationService';
 
 // Image upload interface
@@ -52,6 +54,8 @@ const mitigationSchema = z.object({
 
 // Form schema for validation
 const formSchema = z.object({
+  areaId: z.string().min(1, 'Area is required'),
+  status: z.nativeEnum(GeneralStatusEnum),
   riskCategoryId: z.string().min(1, 'Risk Category is required'),
   riskId: z.string().min(1, 'Risk is required'),
   assignedDepartmentId: z.string().min(1, 'Assigned Department is required'),
@@ -105,6 +109,7 @@ const InspectionItemForm = ({
   const [risks, setRisks] = useState<Risk[]>([]);
   const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [areas, setAreas] = useState<AreaDTO[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -136,6 +141,11 @@ const InspectionItemForm = ({
     label: dept.name
   }));
 
+  const areaOptions: ModalComboboxOption[] = areas.map(area => ({
+    value: area.id,
+    label: `${area.name} (${area.code})`
+  }));
+
   const userOptions: ModalComboboxOption[] = users.map(user => ({
     value: user.id,
     label: `${user.firstName} ${user.lastName}`
@@ -144,6 +154,8 @@ const InspectionItemForm = ({
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      areaId: initialItem?.areaId || '',
+      status: initialItem?.status || GeneralStatusEnum.DRAFT,
       riskCategoryId: initialItem?.riskCategoryId || '',
       riskId: initialItem?.riskId || '',
       assignedDepartmentId: initialItem?.assignedDepartmentId || '',
@@ -170,7 +182,7 @@ const InspectionItemForm = ({
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [riskCategoriesResponse, risksResponse, departmentsResponse, usersResponse] = await Promise.all([
+        const [riskCategoriesResponse, risksResponse, departmentsResponse, areasResponse, usersResponse] = await Promise.all([
           riskCategoryService.getAll({ page: 1, limit: 1000, isActive: true }),
           riskService.getAll({ page: 1, limit: 1000, isActive: true }),
           departmentService.getDepartments({ 
@@ -178,11 +190,17 @@ const InspectionItemForm = ({
             limit: 1000,
             filters: { isActive: 'true' }
           }),
+          areaService.getAreas({ 
+            page: 1, 
+            limit: 1000,
+            filters: { isActive: true }
+          }),
           userService.getAll({ page: 1, limit: 1000 }),
         ]);
         setRiskCategories(riskCategoriesResponse.data);
         setRisks(risksResponse.data);
         setDepartments(departmentsResponse.data);
+        setAreas(areasResponse.data);
         setUsers(usersResponse.data);
         
         // Load file category for inspection images
@@ -534,6 +552,8 @@ const InspectionItemForm = ({
       );
 
       const itemData: CreateInspectionItemDTO = {
+        areaId: data.areaId,
+        status: data.status,
         riskCategoryId: data.riskCategoryId,
         riskId: data.riskId,
         assignedDepartmentId: data.assignedDepartmentId,
@@ -583,6 +603,55 @@ const InspectionItemForm = ({
   const formContent = (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="areaId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  Area <span className="text-destructive">*</span>
+                </FormLabel>
+                <FormControl>
+                  <ModalCombobox
+                    options={areaOptions}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    placeholder="Select area"
+                    searchPlaceholder="Search area..."
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  Status <span className="text-destructive">*</span>
+                </FormLabel>
+                <FormControl>
+                  <ModalCombobox
+                    options={GENERAL_STATUS_OPTIONS.map(opt => ({
+                      value: opt.value,
+                      label: opt.label
+                    }))}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    placeholder="Select status"
+                    searchPlaceholder="Search status..."
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}

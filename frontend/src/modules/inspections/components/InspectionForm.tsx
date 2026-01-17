@@ -52,7 +52,7 @@ const generateInspectionCode = (): string => {
 // Form schema for validation
 const formSchema = z.object({
   code: z.string().min(1, 'Code is required'),
-  areaId: z.string().min(1, 'Area is required'),
+  areaIds: z.array(z.string()).min(1, 'At least one area is required'),
   inspectionDate: z.string().min(1, 'Inspection date is required'),
   status: z.nativeEnum(GeneralStatusEnum),
   isActive: z.boolean().default(true),
@@ -88,7 +88,7 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       code: mode === 'create' ? generateInspectionCode() : '',
-      areaId: '',
+      areaIds: [],
       inspectionDate: new Date().toISOString().split('T')[0],
       status: GeneralStatusEnum.DRAFT,
       isActive: true,
@@ -126,9 +126,10 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
   useEffect(() => {
     if (inspection && mode === 'edit' && dataReady) {
       const inspectorIds = inspection.inspectors?.map(inspector => inspector.inspectorId) || [];
+      const areaIds = inspection.areaIds || (inspection.areaId ? [inspection.areaId] : []);
       form.reset({
         code: inspection.code,
-        areaId: inspection.areaId,
+        areaIds,
         inspectionDate: inspection.inspectionDate
           ? new Date(inspection.inspectionDate).toISOString().split('T')[0]
           : new Date().toISOString().split('T')[0],
@@ -144,7 +145,7 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
       // Transform the date if provided
       let inspectionData: CreateInspectionDTO = {
         code: data.code as string,
-        areaId: data.areaId as string,
+        areaIds: data.areaIds as string[],
         inspectionDate: new Date(data.inspectionDate),
         status: data.status,
         ...(data.isActive !== undefined && { isActive: data.isActive }),
@@ -222,19 +223,19 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
 
                 <FormField
                   control={form.control}
-                  name="areaId"
+                  name="areaIds"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Area <span className="text-destructive">*</span>
+                        Areas <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
-                        <SearchableSelect
+                        <MultiSelectSearchable
                           options={areaOptions}
-                          value={field.value}
+                          value={field.value || []}
                           onValueChange={field.onChange}
-                          placeholder="Select an area"
-                          searchPlaceholder="Search area..."
+                          placeholder="Select areas"
+                          searchPlaceholder="Search areas..."
                         />
                       </FormControl>
                       <FormMessage />
