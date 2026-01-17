@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Inspection, InspectionItem, CreateInspectionItemDTO } from '../types/inspection.types';
 import inspectionsService from '../services/inspectionsService';
-import { approvalService, type ApprovalStatusHistory, APPROVAL_ENTITIES } from '@/modules/master-data';
 import { FilterValue } from '@/core/components/ui/filter-drawer';
 
 export const useInspectionDetail = (id: string | undefined) => {
@@ -12,9 +11,6 @@ export const useInspectionDetail = (id: string | undefined) => {
   const [items, setItems] = useState<InspectionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
-  const [canApprove, setCanApprove] = useState(false);
-  const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   
   // Items table state
   const [pageIndex, setPageIndex] = useState(0);
@@ -29,7 +25,6 @@ export const useInspectionDetail = (id: string | undefined) => {
       if (!id) return;
       
       setIsLoading(true);
-      setIsLoadingHistory(true);
 
       // Fetch inspection data (required)
       try {
@@ -40,44 +35,9 @@ export const useInspectionDetail = (id: string | undefined) => {
         toast.error('Failed to fetch inspection');
         navigate('/inspections');
         setIsLoading(false);
-        setIsLoadingHistory(false);
         return;
       } finally {
         setIsLoading(false);
-      }
-
-      // Fetch approval rights (optional - don't block if it fails)
-      try {
-        const approvalRights = await approvalService.checkApprovalRights(id, APPROVAL_ENTITIES.INSPECTION);
-        setCanApprove(approvalRights.canApprove);
-      } catch (error) {
-        console.error('Failed to fetch approval rights:', error);
-        setCanApprove(false);
-      }
-
-      // Fetch approval status/history (always attempt, regardless of permissions)
-      try {
-        const approvalStatus = await approvalService.checkApprovalStatus(id, APPROVAL_ENTITIES.INSPECTION);
-        if (approvalStatus && !(approvalStatus as any).error) {
-          setApprovalHistory(approvalStatus);
-        } else {
-          setApprovalHistory({
-            history: [],
-            nextApprover: null,
-            allApprovalLines: [],
-            currentStatus: 'UNKNOWN',
-          });
-        }
-      } catch (error) {
-        console.error('Failed to fetch approval status:', error);
-        setApprovalHistory({
-          history: [],
-          nextApprover: null,
-          allApprovalLines: [],
-          currentStatus: 'UNKNOWN',
-        });
-      } finally {
-        setIsLoadingHistory(false);
       }
     };
 
@@ -195,54 +155,11 @@ export const useInspectionDetail = (id: string | undefined) => {
     setPageIndex(0);
   }, []);
 
-  const handleApprovalSubmitted = useCallback(async () => {
-    if (!id) return;
-    try {
-      const [inspectionData, approvalStatus, approvalRights] = await Promise.all([
-        inspectionsService.getById(id),
-        approvalService.checkApprovalStatus(id, APPROVAL_ENTITIES.INSPECTION).catch((error) => {
-          console.error('Failed to fetch approval status after submission:', error);
-          return {
-            history: [],
-            nextApprover: null,
-            allApprovalLines: [],
-            currentStatus: 'UNKNOWN',
-          };
-        }),
-        approvalService.checkApprovalRights(id, APPROVAL_ENTITIES.INSPECTION).catch((error) => {
-          console.error('Failed to fetch approval rights after submission:', error);
-          return { canApprove: false };
-        }),
-      ]);
-      setInspection(inspectionData);
-      if (approvalStatus && !(approvalStatus as any).error) {
-        setApprovalHistory(approvalStatus);
-      } else {
-        setApprovalHistory({
-          history: [],
-          nextApprover: null,
-          allApprovalLines: [],
-          currentStatus: 'UNKNOWN',
-        });
-      }
-      if (approvalRights && !(approvalRights as any).error) {
-        setCanApprove(approvalRights.canApprove);
-      } else {
-        setCanApprove(false);
-      }
-    } catch (error) {
-      console.error('Failed to refresh after approval:', error);
-    }
-  }, [id]);
-
   return {
     inspection,
     items,
     isLoading,
     isLoadingItems,
-    isLoadingHistory,
-    canApprove,
-    approvalHistory,
     pageIndex,
     limit,
     totalItems,
@@ -253,7 +170,6 @@ export const useInspectionDetail = (id: string | undefined) => {
     handleAddItem,
     handleUpdateItem,
     handleDeleteItem,
-    handleApprovalSubmitted,
     refreshInspection,
   };
 };

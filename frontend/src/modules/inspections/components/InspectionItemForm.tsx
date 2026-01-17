@@ -94,7 +94,6 @@ interface InspectionItemFormProps {
   onCancel?: () => void;
   showCard?: boolean;
   inspectionStatus?: GeneralStatusEnum;
-  canApprove?: boolean;
 }
 
 const InspectionItemForm = ({ 
@@ -104,7 +103,6 @@ const InspectionItemForm = ({
   onCancel, 
   showCard = true,
   inspectionStatus,
-  canApprove = false,
 }: InspectionItemFormProps) => {
   const [risks, setRisks] = useState<Risk[]>([]);
   const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
@@ -155,7 +153,7 @@ const InspectionItemForm = ({
     resolver: zodResolver(formSchema),
     defaultValues: {
       areaId: initialItem?.areaId || '',
-      status: initialItem?.status || GeneralStatusEnum.DRAFT,
+      status: initialItem?.status || GeneralStatusEnum.OPEN,
       riskCategoryId: initialItem?.riskCategoryId || '',
       riskId: initialItem?.riskId || '',
       assignedDepartmentId: initialItem?.assignedDepartmentId || '',
@@ -318,8 +316,6 @@ const InspectionItemForm = ({
     }
   }, [isLoading, risks.length, riskCategories.length]);
 
-  // Check if follow-up notes can be edited (only during approval workflow when user can approve)
-  const canEditFollowUpNotes = inspectionStatus === GeneralStatusEnum.WAITING_APPROVAL && canApprove;
 
   // Handle image file selection for before images
   const handleBeforeImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -536,11 +532,7 @@ const InspectionItemForm = ({
         uploadedImages = await uploadImages();
       }
       
-      // Only include follow-up notes if user has permission to edit them
-      // Otherwise, preserve existing value if editing, or set to undefined if creating new
-      const followUpNotes = canEditFollowUpNotes 
-        ? (data.followUpNotes || undefined)
-        : (initialItem?.followUpNotes || undefined);
+      const followUpNotes = data.followUpNotes || undefined;
 
       // Only include mitigation if at least one field has content
       const hasMitigation = data.mitigation && (
@@ -773,21 +765,12 @@ const InspectionItemForm = ({
               <FormLabel>Follow-up Notes</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder={
-                    canEditFollowUpNotes
-                      ? "Enter follow-up notes (optional)"
-                      : "Follow-up notes can only be filled during approval workflow by authorized approvers"
-                  }
+                  placeholder="Enter follow-up notes (optional)"
                   rows={4}
-                  disabled={!canEditFollowUpNotes || isSubmitting || isUploadingImages}
+                  disabled={isSubmitting || isUploadingImages}
                   {...field}
                 />
               </FormControl>
-              {!canEditFollowUpNotes && (
-                <p className="text-sm text-muted-foreground">
-                  Only available when inspection status is "Waiting for Approval" and you have approval rights
-                </p>
-              )}
               <FormMessage />
             </FormItem>
           )}

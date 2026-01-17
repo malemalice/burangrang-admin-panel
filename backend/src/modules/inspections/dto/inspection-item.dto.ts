@@ -23,6 +23,11 @@ export class InspectionItemDto {
   inspection?: {
     id: string;
     code: string;
+    creator?: {
+      id: string;
+      firstName: string;
+      lastName: string;
+    };
   };
 
   @ApiProperty()

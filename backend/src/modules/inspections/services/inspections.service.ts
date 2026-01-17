@@ -669,6 +669,19 @@ export class InspectionsService {
       this.prisma.inspectionItem.findMany({
         where,
         include: {
+          inspection: {
+            select: {
+              id: true,
+              code: true,
+              creator: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
+            },
+          },
           area: true,
           riskCategory: true,
           risk: true,
@@ -1304,6 +1317,13 @@ export class InspectionsService {
             select: {
               id: true,
               code: true,
+              creator: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
             },
           },
           area: true,
@@ -1354,6 +1374,13 @@ export class InspectionsService {
           select: {
             id: true,
             code: true,
+            creator: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
           },
         },
         area: true,

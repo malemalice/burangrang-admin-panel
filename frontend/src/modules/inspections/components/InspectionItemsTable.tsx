@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Plus, Eye, Edit, Trash2 } from 'lucide-react';
+import { format } from 'date-fns';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/tooltip';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { InspectionItem } from '../types/inspection.types';
+import { getStatusBadge } from '../utils/inspectionBadgeHelpers';
 
 interface InspectionItemsTableProps {
   items: InspectionItem[];
@@ -52,12 +54,22 @@ export const InspectionItemsTable = ({
 
   const columns = [
     {
-      id: 'category',
-      header: 'Risk Category',
+      id: 'area',
+      header: 'Area',
       cell: (item: InspectionItem) => (
         <div className="font-medium">
-          {item.riskCategory
-            ? `${item.riskCategory.name || item.riskCategoryId}` 
+          {item.area?.name || item.areaId || 'N/A'}
+        </div>
+      ),
+      isSortable: true,
+    },
+    {
+      id: 'createdBy',
+      header: 'Created By',
+      cell: (item: InspectionItem) => (
+        <div>
+          {item.inspection?.creator
+            ? `${item.inspection.creator.firstName} ${item.inspection.creator.lastName}`
             : 'N/A'}
         </div>
       ),
@@ -67,49 +79,45 @@ export const InspectionItemsTable = ({
       id: 'risk',
       header: 'Risk',
       cell: (item: InspectionItem) => (
+        <div className="space-y-0.5">
+          <div className="text-sm font-medium">{item.riskCategory?.name || 'N/A'}</div>
+          <div className="text-xs text-muted-foreground">{item.risk?.name || 'N/A'}</div>
+        </div>
+      ),
+      isSortable: true,
+    },
+    {
+      id: 'assignment',
+      header: 'Assignment',
+      cell: (item: InspectionItem) => (
+        <div className="space-y-0.5">
+          <div className="text-sm font-medium">{item.assignedDepartment?.name || 'N/A'}</div>
+          <div className="text-xs text-muted-foreground">
+            {item.assignee 
+              ? `${item.assignee.firstName} ${item.assignee.lastName}` 
+              : 'N/A'}
+          </div>
+        </div>
+      ),
+      isSortable: true,
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (item: InspectionItem) => getStatusBadge(item.status),
+      isSortable: true,
+    },
+    {
+      id: 'createdAt',
+      header: 'Created At',
+      cell: (item: InspectionItem) => (
         <div>
-          {item.risk 
-            ? `${item.risk.name || item.riskId}` 
+          {item.createdAt 
+            ? format(new Date(item.createdAt), 'dd MMM yyyy') 
             : 'N/A'}
         </div>
       ),
       isSortable: true,
-    },
-    {
-      id: 'department',
-      header: 'Assigned Department',
-      cell: (item: InspectionItem) => (
-        <div className="font-medium">
-          {item.assignedDepartment
-            ? item.assignedDepartment.name 
-            : 'N/A'}
-        </div>
-      ),
-      isSortable: true,
-    },
-    {
-      id: 'assignee',
-      header: 'Assignee',
-      cell: (item: InspectionItem) => (
-        <div>
-          {item.assignee 
-            ? `${item.assignee.firstName} ${item.assignee.lastName}` 
-            : 'N/A'}
-        </div>
-      ),
-      isSortable: true,
-    },
-    {
-      id: 'images',
-      header: 'Images',
-      cell: (item: InspectionItem) => (
-        <div className="font-medium">
-          {item.images && item.images.length > 0 
-            ? `${item.images.length} image(s)` 
-            : 'No images'}
-        </div>
-      ),
-      isSortable: false,
     },
     {
       id: 'actions',

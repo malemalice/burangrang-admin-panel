@@ -231,34 +231,46 @@ const InspectionItemsPage = () => {
       ),
     },
     {
-      id: 'riskCategory',
-      header: 'Risk Category',
+      id: 'area',
+      header: 'Area',
       cell: (item: InspectionItem) => (
-        <div>{item.riskCategory?.name || 'N/A'}</div>
+        <div className="font-medium">
+          {item.area?.name || item.areaId || 'N/A'}
+        </div>
+      ),
+    },
+    {
+      id: 'createdBy',
+      header: 'Created By',
+      cell: (item: InspectionItem) => (
+        <div>
+          {item.inspection?.creator
+            ? `${item.inspection.creator.firstName} ${item.inspection.creator.lastName}`
+            : 'N/A'}
+        </div>
       ),
     },
     {
       id: 'risk',
       header: 'Risk',
       cell: (item: InspectionItem) => (
-        <div>{item.risk?.name || 'N/A'}</div>
+        <div className="space-y-0.5">
+          <div className="text-sm font-medium">{item.riskCategory?.name || 'N/A'}</div>
+          <div className="text-xs text-muted-foreground">{item.risk?.name || 'N/A'}</div>
+        </div>
       ),
     },
     {
-      id: 'assignedDepartment',
-      header: 'Assigned Department',
+      id: 'assignment',
+      header: 'Assignment',
       cell: (item: InspectionItem) => (
-        <div>{item.assignedDepartment?.name || 'N/A'}</div>
-      ),
-    },
-    {
-      id: 'assignee',
-      header: 'Assigned User',
-      cell: (item: InspectionItem) => (
-        <div>
-          {item.assignee 
-            ? `${item.assignee.firstName} ${item.assignee.lastName}` 
-            : 'N/A'}
+        <div className="space-y-0.5">
+          <div className="text-sm font-medium">{item.assignedDepartment?.name || 'N/A'}</div>
+          <div className="text-xs text-muted-foreground">
+            {item.assignee 
+              ? `${item.assignee.firstName} ${item.assignee.lastName}` 
+              : 'N/A'}
+          </div>
         </div>
       ),
     },

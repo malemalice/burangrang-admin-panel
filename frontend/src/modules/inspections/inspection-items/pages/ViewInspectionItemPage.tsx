@@ -111,6 +111,12 @@ const ViewInspectionItemPage = () => {
                 <div>{getStatusBadge(item.status)}</div>
               </div>
               <div className="space-y-1.5">
+                <p className="text-sm font-medium text-muted-foreground">Area</p>
+                <p className="text-sm">
+                  {item.area?.name || item.areaId || 'N/A'}
+                </p>
+              </div>
+              <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Risk Category</p>
                 <p className="text-sm">
                   {item.riskCategory?.name || item.riskCategoryId || 'N/A'}
@@ -134,6 +140,14 @@ const ViewInspectionItemPage = () => {
                   {item.assignee
                     ? `${item.assignee.firstName} ${item.assignee.lastName}`
                     : item.assigneeId || 'N/A'}
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-muted-foreground">Due Date</p>
+                <p className="text-sm">
+                  {item.dueDateAt
+                    ? format(new Date(item.dueDateAt), 'dd MMM yyyy HH:mm')
+                    : 'N/A'}
                 </p>
               </div>
               <div className="space-y-1.5">
@@ -171,6 +185,17 @@ const ViewInspectionItemPage = () => {
           </Card>
         )}
 
+        {item.findings && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Findings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm whitespace-pre-wrap">{item.findings}</p>
+            </CardContent>
+          </Card>
+        )}
+
         {item.followUpNotes && (
           <Card>
             <CardHeader>
@@ -179,6 +204,38 @@ const ViewInspectionItemPage = () => {
             <CardContent>
               <div className="p-3 rounded-md border bg-card text-card-foreground">
                 <p className="text-sm whitespace-pre-wrap">{item.followUpNotes}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {item.mitigation && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Risk Mitigation</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-muted-foreground">Eliminate</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.eliminate || 'N/A'}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-muted-foreground">Transfer</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.transfer || 'N/A'}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-muted-foreground">Reduce</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.reduce || 'N/A'}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-muted-foreground">Accept</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.accept || 'N/A'}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-muted-foreground">Legal Aspect</p>
+                  <p className="text-sm whitespace-pre-wrap">{item.mitigation.legalAspect || 'N/A'}</p>
+                </div>
               </div>
             </CardContent>
           </Card>

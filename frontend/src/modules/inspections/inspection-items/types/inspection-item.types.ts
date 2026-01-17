@@ -30,6 +30,27 @@ export interface InspectionItem {
   inspection?: {
     id: string;
     code: string;
+    creator?: {
+      id: string;
+      firstName: string;
+      lastName: string;
+    };
+  };
+  areaId: string;
+  area?: {
+    id: string;
+    name: string;
+    code: string;
+    description?: string;
+    officeId?: string;
+    isActive: boolean;
+    createdAt?: Date;
+    updatedAt?: Date;
+    office?: {
+      id: string;
+      name: string;
+      code: string;
+    };
   };
   riskCategoryId: string;
   riskCategory?: RiskCategory;

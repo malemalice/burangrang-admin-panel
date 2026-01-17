@@ -45,6 +45,15 @@ export interface RiskMitigationRecord extends RiskMitigationData {
 export interface InspectionItem {
   id: string;
   inspectionId: string;
+  inspection?: {
+    id: string;
+    code: string;
+    creator?: {
+      id: string;
+      firstName: string;
+      lastName: string;
+    };
+  };
   areaId: string;
   area?: AreaDTO;
   riskCategoryId: string;

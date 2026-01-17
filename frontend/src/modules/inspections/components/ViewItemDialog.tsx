@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { Button } from '@/core/components/ui/button';
 import {
   Dialog,
@@ -9,6 +10,7 @@ import {
 } from '@/core/components/ui/dialog';
 import { Separator } from '@/core/components/ui/separator';
 import { InspectionItem, InspectionImageTypeEnum } from '../types/inspection.types';
+import { getStatusBadge } from '../utils/inspectionBadgeHelpers';
 
 interface ViewItemDialogProps {
   open: boolean;
@@ -34,6 +36,16 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
           <div>
             <h3 className="text-lg font-medium mb-4">Basic Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-muted-foreground">Status</p>
+                <div>{getStatusBadge(item.status)}</div>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-muted-foreground">Area</p>
+                <p className="text-sm">
+                  {item.area?.name || item.areaId || 'N/A'}
+                </p>
+              </div>
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Risk Category</p>
                 <p className="text-sm">
@@ -66,6 +78,34 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
                     : item.assigneeId || 'N/A'}
                 </p>
               </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-muted-foreground">Due Date</p>
+                <p className="text-sm">
+                  {item.dueDateAt
+                    ? format(new Date(item.dueDateAt), 'dd MMM yyyy HH:mm')
+                    : 'N/A'}
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-muted-foreground">Order</p>
+                <p className="text-sm">{item.order}</p>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-muted-foreground">Created At</p>
+                <p className="text-sm">
+                  {item.createdAt
+                    ? format(new Date(item.createdAt), 'dd MMM yyyy HH:mm')
+                    : 'N/A'}
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-muted-foreground">Updated At</p>
+                <p className="text-sm">
+                  {item.updatedAt
+                    ? format(new Date(item.updatedAt), 'dd MMM yyyy HH:mm')
+                    : 'N/A'}
+                </p>
+              </div>
               {item.description && (
                 <div className="space-y-1.5 md:col-span-2">
                   <p className="text-sm font-medium text-muted-foreground">Description</p>
@@ -74,6 +114,16 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
               )}
             </div>
           </div>
+
+          {item.findings && (
+            <>
+              <Separator />
+              <div>
+                <h3 className="text-lg font-medium mb-4">Findings</h3>
+                <p className="text-sm whitespace-pre-wrap">{item.findings}</p>
+              </div>
+            </>
+          )}
 
           {item.followUpNotes && (
             <>
@@ -165,6 +215,37 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
                     </div>
                   </div>
                 )}
+              </div>
+            </>
+          )}
+
+          {item.mitigation && (
+            <>
+              <Separator />
+              <div>
+                <h3 className="text-lg font-medium mb-4">Risk Mitigation</h3>
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-muted-foreground">Eliminate</p>
+                    <p className="text-sm whitespace-pre-wrap">{item.mitigation.eliminate || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-muted-foreground">Transfer</p>
+                    <p className="text-sm whitespace-pre-wrap">{item.mitigation.transfer || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-muted-foreground">Reduce</p>
+                    <p className="text-sm whitespace-pre-wrap">{item.mitigation.reduce || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-muted-foreground">Accept</p>
+                    <p className="text-sm whitespace-pre-wrap">{item.mitigation.accept || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-muted-foreground">Legal Aspect</p>
+                    <p className="text-sm whitespace-pre-wrap">{item.mitigation.legalAspect || 'N/A'}</p>
+                  </div>
+                </div>
               </div>
             </>
           )}
