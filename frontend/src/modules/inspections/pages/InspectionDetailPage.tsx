@@ -217,144 +217,76 @@ const InspectionDetailPage = () => {
         </div>
       </PageHeader>
 
-      {/* Inspection Details Card */}
+      {/* Inspection Details & Items Summary Card - Side by Side */}
       <div ref={targetRef}>
         <Card>
           <CardHeader>
             <CardTitle>Inspection Details</CardTitle>
-            <CardDescription>Basic information of this inspection</CardDescription>
+            <CardDescription>Basic information and summary of this inspection</CardDescription>
           </CardHeader>
           <CardContent>
-            <InspectionDetailsCard inspection={inspection} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:auto-rows-fr">
+              <InspectionDetailsCard inspection={inspection} />
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Items Summary</h3>
+                </div>
+                <div className="p-4 border rounded-lg bg-muted/50">
+                  <h3 className="text-lg font-semibold mb-2">Total Items</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Total:</span>
+                      <span className="text-2xl font-bold">{totalItems}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Open:</span>
+                      <span className="text-lg font-semibold text-blue-600">
+                        {items.filter(item => item.status === GeneralStatusEnum.OPEN).length}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Closed:</span>
+                      <span className="text-lg font-semibold text-green-600">
+                        {items.filter(item => item.status === GeneralStatusEnum.DONE).length}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Inspection Items Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Inspection Items</CardTitle>
-              <CardDescription>Manage inspection items by status</CardDescription>
-            </div>
-            {inspection.status !== GeneralStatusEnum.DONE && (
-              <Button onClick={() => setIsAddItemDialogOpen(true)}>
-                Add Item
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Column 1: Total Items Summary */}
-            <div className="space-y-4">
-              <div className="p-4 border rounded-lg bg-muted/50">
-                <h3 className="text-lg font-semibold mb-2">Total Items</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Total:</span>
-                    <span className="text-2xl font-bold">{totalItems}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Open:</span>
-                    <span className="text-lg font-semibold text-blue-600">
-                      {items.filter(item => item.status === GeneralStatusEnum.OPEN).length}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Closed:</span>
-                    <span className="text-lg font-semibold text-green-600">
-                      {items.filter(item => item.status === GeneralStatusEnum.DONE).length}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Column 2: Items by Status */}
-            <div className="space-y-6">
-              {/* Open Items Row */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">
-                    Open Items ({items.filter(item => item.status === GeneralStatusEnum.OPEN).length})
-                  </h3>
-                </div>
-                <InspectionItemsTable
-                  items={items.filter(item => item.status === GeneralStatusEnum.OPEN)}
-                  isLoading={isLoadingItems}
-                  pageIndex={0}
-                  limit={1000}
-                  totalItems={items.filter(item => item.status === GeneralStatusEnum.OPEN).length}
-                  onPageChange={() => {}}
-                  onPageSizeChange={() => {}}
-                  onSearch={() => {}}
-                  onApplyFilters={() => {}}
-                  onAddItem={() => setIsAddItemDialogOpen(true)}
-                  onViewItem={handleViewItem}
-                  onEditItem={handleEditItem}
-                  onEditItemAsCreator={handleEditItemAsCreator}
-                  onEditItemAsUpdater={handleEditItemAsUpdater}
-                  onEditItemAsVerifier={handleEditItemAsVerifier}
-                  onDeleteItem={handleDeleteItemClick}
-                  onDeleteConfirm={handleDeleteItemConfirm}
-                  itemToDelete={itemToDelete}
-                  deleteDialogOpen={deleteDialogOpen}
-                  onDeleteDialogChange={(open) => {
-                    if (!open) {
-                      setDeleteDialogOpen(false);
-                      setItemToDelete(null);
-                    }
-                  }}
-                  hideActions={inspection.status === GeneralStatusEnum.DONE}
-                  hideHeader={true}
-                  hidePagination={true}
-                />
-              </div>
-
-              {/* Closed Items Row */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">
-                    Closed Items ({items.filter(item => item.status === GeneralStatusEnum.DONE).length})
-                  </h3>
-                </div>
-                <InspectionItemsTable
-                  items={items.filter(item => item.status === GeneralStatusEnum.DONE)}
-                  isLoading={isLoadingItems}
-                  pageIndex={0}
-                  limit={1000}
-                  totalItems={items.filter(item => item.status === GeneralStatusEnum.DONE).length}
-                  onPageChange={() => {}}
-                  onPageSizeChange={() => {}}
-                  onSearch={() => {}}
-                  onApplyFilters={() => {}}
-                  onAddItem={() => setIsAddItemDialogOpen(true)}
-                  onViewItem={handleViewItem}
-                  onEditItem={handleEditItem}
-                  onEditItemAsCreator={handleEditItemAsCreator}
-                  onEditItemAsUpdater={handleEditItemAsUpdater}
-                  onEditItemAsVerifier={handleEditItemAsVerifier}
-                  onDeleteItem={handleDeleteItemClick}
-                  onDeleteConfirm={handleDeleteItemConfirm}
-                  itemToDelete={itemToDelete}
-                  deleteDialogOpen={deleteDialogOpen}
-                  onDeleteDialogChange={(open) => {
-                    if (!open) {
-                      setDeleteDialogOpen(false);
-                      setItemToDelete(null);
-                    }
-                  }}
-                  hideActions={inspection.status === GeneralStatusEnum.DONE}
-                  hideHeader={true}
-                  hidePagination={true}
-                />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <InspectionItemsTable
+        items={items}
+        isLoading={isLoadingItems}
+        pageIndex={pageIndex}
+        limit={limit}
+        totalItems={totalItems}
+        onPageChange={setPageIndex}
+        onPageSizeChange={setLimit}
+        onSearch={handleSearch}
+        onApplyFilters={handleApplyFilters}
+        onAddItem={() => setIsAddItemDialogOpen(true)}
+        onViewItem={handleViewItem}
+        onEditItem={handleEditItem}
+        onEditItemAsCreator={handleEditItemAsCreator}
+        onEditItemAsUpdater={handleEditItemAsUpdater}
+        onEditItemAsVerifier={handleEditItemAsVerifier}
+        onDeleteItem={handleDeleteItemClick}
+        onDeleteConfirm={handleDeleteItemConfirm}
+        itemToDelete={itemToDelete}
+        deleteDialogOpen={deleteDialogOpen}
+        onDeleteDialogChange={(open) => {
+          if (!open) {
+            setDeleteDialogOpen(false);
+            setItemToDelete(null);
+          }
+        }}
+        hideActions={inspection.status === GeneralStatusEnum.DONE}
+      />
 
       {/* Add Item Dialog */}
       <Dialog open={isAddItemDialogOpen} onOpenChange={setIsAddItemDialogOpen}>
