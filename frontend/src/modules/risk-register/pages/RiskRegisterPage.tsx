@@ -1,0 +1,209 @@
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import PageHeader from '@/core/components/ui/PageHeader';
+import { RiskRegisterTable } from '../components/RiskRegisterTable';
+import { useRiskRegister } from '../hooks/useRiskRegister';
+import { FindRiskRegisterParams } from '../types/risk-register.types';
+import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
+import { departmentService, riskService, riskCategoryService } from '@/modules/master-data';
+
+const RiskRegisterPage = () => {
+  const navigate = useNavigate();
+  const [pageIndex, setPageIndex] = useState(0);
+  const [limit, setLimit] = useState(10);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+
+  // Build query params from state
+  const queryParams: FindRiskRegisterParams = useMemo(() => {
+    const params: FindRiskRegisterParams = {
+      page: pageIndex + 1,
+      limit,
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+    };
+
+    if (searchTerm) {
+      params.search = searchTerm;
+    }
+
+    Object.entries(activeFilters).forEach(([key, filter]) => {
+      params[key as keyof FindRiskRegisterParams] = filter.value;
+    });
+
+    return params;
+  }, [pageIndex, limit, searchTerm, activeFilters]);
+
+  const { data, isLoading, meta } = useRiskRegister(queryParams);
+
+  const [filterFields, setFilterFields] = useState<FilterField[]>([
+    {
+      id: 'entityType',
+      label: 'Source Type',
+      type: 'select',
+      options: [
+        { label: 'All', value: '' },
+        { label: 'Risk Assessment', value: 'RISK_ASSESSMENT_ITEM' },
+        { label: 'Inspection', value: 'INSPECTION_ITEM' },
+      ],
+    },
+    {
+      id: 'departmentId',
+      label: 'Department',
+      type: 'searchableSelect',
+      options: [],
+    },
+    {
+      id: 'riskId',
+      label: 'Risk',
+      type: 'searchableSelect',
+      options: [],
+    },
+    {
+      id: 'riskCategoryId',
+      label: 'Risk Category',
+      type: 'searchableSelect',
+      options: [],
+    },
+    {
+      id: 'status',
+      label: 'Status',
+      type: 'select',
+      options: GENERAL_STATUS_OPTIONS.map(option => ({
+        label: option.label,
+        value: option.value,
+      })),
+    },
+  ]);
+
+  // Load filter options
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      try {
+        const [departmentsResponse, risksResponse, riskCategoriesResponse] = await Promise.all([
+          departmentService.getDepartments({ page: 1, limit: 100 }),
+          riskService.getAll({ page: 1, limit: 100, isActive: true }),
+          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true }),
+        ]);
+
+        setFilterFields(prev => prev.map(field => {
+          if (field.id === 'departmentId') {
+            return {
+              ...field,
+              options: departmentsResponse.data.map(dept => ({
+                label: dept.name,
+                value: dept.id,
+              })),
+            };
+          }
+          if (field.id === 'riskId') {
+            return {
+              ...field,
+              options: risksResponse.data.map(risk => ({
+                label: risk.name,
+                value: risk.id,
+              })),
+            };
+          }
+          if (field.id === 'riskCategoryId') {
+            return {
+              ...field,
+              options: riskCategoriesResponse.data.map(cat => ({
+                label: cat.name,
+                value: cat.id,
+              })),
+            };
+          }
+          return field;
+        }));
+      } catch (error) {
+        console.error('Failed to load filter options:', error);
+      }
+    };
+
+    loadFilterOptions();
+  }, []);
+
+  const handlePageChange = (page: number) => {
+    setPageIndex(page);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setLimit(size);
+    setPageIndex(0);
+  };
+
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    setPageIndex(0);
+  };
+
+  const handleApplyFilters = (filters: FilterValue[]) => {
+    const newActiveFilters: Record<string, { value: any; label: string }> = {};
+
+    filters.forEach(filter => {
+      if (filter.id === 'status') {
+        const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === filter.value);
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: statusOption?.label || filter.value,
+        };
+      } else if (filter.id === 'entityType') {
+        const entityTypeLabel =
+          filter.value === 'RISK_ASSESSMENT_ITEM'
+            ? 'Risk Assessment'
+            : filter.value === 'INSPECTION_ITEM'
+            ? 'Inspection'
+            : filter.value;
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: entityTypeLabel,
+        };
+      } else {
+        // For other filters, find label from options
+        const field = filterFields.find(f => f.id === filter.id);
+        const option = field?.options?.find(opt => opt.value === filter.value);
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: option?.label || filter.value,
+        };
+      }
+    });
+
+    setActiveFilters(newActiveFilters);
+    setPageIndex(0);
+  };
+
+  const handleView = (item: any) => {
+    navigate(`/risk-register/${item.id}`);
+  };
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Risk Register"
+        description="Unified view of all risk mitigation records from Risk Assessments and Inspections"
+      />
+
+      <div className="max-w-7xl">
+        <RiskRegisterTable
+          data={data}
+          isLoading={isLoading}
+          pageIndex={pageIndex}
+          limit={limit}
+          totalItems={meta.total}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+          onSearch={handleSearch}
+          onView={handleView}
+          filterFields={filterFields}
+          activeFilters={activeFilters}
+          onApplyFilters={handleApplyFilters}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default RiskRegisterPage;

@@ -72,12 +72,30 @@ export const seedMenus = async () => {
       },
     });
 
+    await prisma.menu.create({
+      data: {
+        name: 'Risk Register',
+        path: '/risk-register',
+        icon: 'ShieldAlert',
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     // Inspection menu group
     const inspectionMenu = await prisma.menu.create({
       data: {
         name: 'Inspection',
         icon: 'Search',
-        order: 3,
+        order: 4,
         isActive: true,
         roles: {
           connect: [
@@ -135,7 +153,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Audit',
         icon: 'FileCheck',
-        order: 4,
+        order: 5,
         isActive: true,
         roles: {
           connect: [
@@ -194,7 +212,7 @@ export const seedMenus = async () => {
         name: 'Environmental Measurements',
         path: '/environmental-measurements',
         icon: 'Thermometer',
-        order: 5,
+        order: 6,
         isActive: true,
         roles: {
           connect: [
@@ -1004,7 +1022,7 @@ export const seedMenus = async () => {
     });
 
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
-    console.log(`   - Top-level menus: 13`);
+    console.log(`   - Top-level menus: 14`);
     console.log(`   - Master Data submenus: 9`);
     console.log(`   - User Management submenus: 3`);
     console.log(`   - Audit submenus: 2`);
