@@ -327,16 +327,22 @@ const InspectionItemsPage = () => {
       header: 'Actions',
       cell: (item: InspectionItem) => (
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/inspections/items/${item.id}`)}
-            className="text-primary hover:text-primary hover:bg-primary/10"
-            aria-label={`View inspection item ${item.id}`}
-          >
-            <Eye className="mr-2 h-4 w-4" />
-            View
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(`/inspections/items/${item.id}`)}
+                className="text-primary hover:text-primary hover:bg-primary/10"
+                aria-label={`View inspection item ${item.id}`}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>View</p>
+            </TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

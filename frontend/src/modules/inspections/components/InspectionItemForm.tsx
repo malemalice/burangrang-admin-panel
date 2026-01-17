@@ -104,6 +104,57 @@ type FormValues = z.infer<typeof formSchema>;
 
 type FormMode = 'creator' | 'updater' | 'verifier';
 
+type FieldPermission = 'editable' | 'readonly' | 'hidden';
+
+// Field permissions configuration - centralized control over field visibility and editability
+const FIELD_PERMISSIONS: Record<FormMode, Record<string, FieldPermission>> = {
+  creator: {
+    areaId: 'editable',
+    status: 'hidden',
+    riskCategoryId: 'editable',
+    riskId: 'editable',
+    assignedDepartmentId: 'hidden',
+    assigneeId: 'hidden',
+    description: 'editable',
+    findings: 'editable',
+    dueDateAt: 'editable',
+    mitigation: 'editable',
+    followUpNotes: 'hidden',
+    afterImages: 'hidden',
+    beforeImages: 'hidden',
+  },
+  updater: {
+    areaId: 'readonly',
+    status: 'hidden',
+    riskCategoryId: 'readonly',
+    riskId: 'readonly',
+    assignedDepartmentId: 'readonly',
+    assigneeId: 'readonly',
+    description: 'readonly',
+    findings: 'readonly',
+    dueDateAt: 'readonly',
+    mitigation: 'readonly',
+    followUpNotes: 'editable',
+    afterImages: 'editable',
+    beforeImages: 'hidden',
+  },
+  verifier: {
+    areaId: 'editable',
+    status: 'editable',
+    riskCategoryId: 'editable',
+    riskId: 'editable',
+    assignedDepartmentId: 'editable',
+    assigneeId: 'editable',
+    description: 'editable',
+    findings: 'editable',
+    dueDateAt: 'editable',
+    mitigation: 'editable',
+    followUpNotes: 'editable',
+    afterImages: 'editable',
+    beforeImages: 'editable',
+  },
+};
+
 interface InspectionItemFormProps {
   inspectionId?: string;
   initialItem?: Partial<CreateInspectionItemDTO>;
@@ -113,6 +164,49 @@ interface InspectionItemFormProps {
   inspectionStatus?: GeneralStatusEnum;
   formMode?: FormMode; // 'creator' | 'updater' | 'verifier'
 }
+
+// Read-only field display component
+interface ReadOnlyFieldProps {
+  label: string;
+  value: string | number | null | undefined;
+  format?: (value: string | number | null | undefined) => string;
+  required?: boolean;
+  multiline?: boolean;
+}
+
+const ReadOnlyField = ({ label, value, format, required, multiline }: ReadOnlyFieldProps) => {
+  const displayValue = format ? format(value) : value || 'N/A';
+  const hasContent = value && String(value).trim() !== '';
+  
+  return (
+    <div className="space-y-1.5">
+      <FormLabel>
+        {label} {required && <span className="text-destructive">*</span>}
+      </FormLabel>
+      <div 
+        className={`px-3 py-2 bg-muted rounded-md text-sm ${multiline ? 'min-h-[120px] whitespace-pre-wrap' : 'min-h-[40px] flex items-center'}`}
+      >
+        {hasContent ? displayValue : 'N/A'}
+      </div>
+    </div>
+  );
+};
+
+// Conditional field wrapper component
+interface ConditionalFieldProps {
+  fieldName: string;
+  formMode: FormMode;
+  children: React.ReactNode;
+  readOnlyComponent?: React.ReactNode;
+}
+
+const ConditionalField = ({ fieldName, formMode, children, readOnlyComponent }: ConditionalFieldProps) => {
+  const permission = FIELD_PERMISSIONS[formMode]?.[fieldName] || 'hidden';
+
+  if (permission === 'hidden') return null;
+  if (permission === 'readonly' && readOnlyComponent) return <>{readOnlyComponent}</>;
+  return <>{children}</>;
+};
 
 const InspectionItemForm = ({ 
   inspectionId, 
@@ -599,6 +693,36 @@ const InspectionItemForm = ({
     }
   };
 
+  // Determine which sections to show based on formMode
+  const showCreatorSection = formMode === 'creator' || formMode === 'updater' || formMode === 'verifier';
+  const showUpdaterSection = formMode === 'updater' || formMode === 'verifier';
+  const showVerifierSection = formMode === 'verifier';
+  
+  // Helper to get field permission
+  const getFieldPermission = (fieldName: string): FieldPermission => {
+    return FIELD_PERMISSIONS[formMode]?.[fieldName] || 'hidden';
+  };
+
+  // Helper to get display values for read-only fields
+  const getDisplayValue = useCallback((fieldName: string, fieldValue: string | null | undefined) => {
+    switch (fieldName) {
+      case 'areaId':
+        return areaOptions.find(opt => opt.value === fieldValue)?.label || fieldValue || 'N/A';
+      case 'riskCategoryId':
+        return riskCategoryOptions.find(opt => opt.value === fieldValue)?.label || fieldValue || 'N/A';
+      case 'riskId':
+        return riskOptions.find(opt => opt.value === fieldValue)?.label || fieldValue || 'N/A';
+      case 'assignedDepartmentId':
+        return departmentOptions.find(opt => opt.value === fieldValue)?.label || fieldValue || 'N/A';
+      case 'assigneeId':
+        return userOptions.find(opt => opt.value === fieldValue)?.label || fieldValue || 'N/A';
+      case 'dueDateAt':
+        return fieldValue ? new Date(fieldValue).toLocaleDateString() : 'N/A';
+      default:
+        return fieldValue || 'N/A';
+    }
+  }, [areaOptions, riskCategoryOptions, riskOptions, departmentOptions, userOptions]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -610,11 +734,6 @@ const InspectionItemForm = ({
     );
   }
 
-  // Determine which sections to show based on formMode
-  const showCreatorSection = formMode === 'creator' || formMode === 'verifier';
-  const showUpdaterSection = formMode === 'updater' || formMode === 'verifier';
-  const showVerifierSection = formMode === 'verifier';
-
   const formContent = (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
@@ -624,37 +743,49 @@ const InspectionItemForm = ({
             <div className="space-y-4">
               <div>
                 <h3 className="text-lg font-semibold">
-                  {formMode === 'verifier' ? 'Section 1: Creator Information' : 'Inspection Item Details'}
+                  {formMode === 'verifier' ? 'Section 1: Creator Information' : formMode === 'updater' ? 'Section 1: Inspection Item Details (Read Only)' : 'Inspection Item Details'}
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   {formMode === 'creator' && 'Fill in the inspection item details'}
+                  {formMode === 'updater' && 'Inspection item details (read-only)'}
                   {formMode === 'verifier' && 'Information filled by the creator'}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="areaId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Area <span className="text-destructive">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <ModalCombobox
-                          options={areaOptions}
-                          value={field.value}
-                          onValueChange={field.onChange}
-                          placeholder="Select area"
-                          searchPlaceholder="Search area..."
-                          disabled={formMode === 'verifier' && !showVerifierSection}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <ConditionalField
+                  fieldName="areaId"
+                  formMode={formMode}
+                  readOnlyComponent={
+                    <ReadOnlyField
+                      label="Area"
+                      value={getDisplayValue('areaId', form.watch('areaId'))}
+                      required
+                    />
+                  }
+                >
+                  <FormField
+                    control={form.control}
+                    name="areaId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Area <span className="text-destructive">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <ModalCombobox
+                            options={areaOptions}
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            placeholder="Select area"
+                            searchPlaceholder="Search area..."
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </ConditionalField>
 
                 {showVerifierSection && (
                   <FormField
@@ -685,134 +816,170 @@ const InspectionItemForm = ({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="riskCategoryId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Risk Category <span className="text-destructive">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <ModalCombobox
-                          options={riskCategoryOptions}
-                          value={field.value}
-                          onValueChange={(value) => {
-                            field.onChange(value);
-                            // Clear risk when category changes
-                            form.setValue('riskId', '');
-                          }}
-                          placeholder="Select risk category"
-                          searchPlaceholder="Search risk category..."
-                          disabled={formMode === 'verifier' && !showVerifierSection}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="riskId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Risk <span className="text-destructive">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <ModalCombobox
-                          options={filteredRiskOptions}
-                          value={field.value}
-                          onValueChange={field.onChange}
-                          placeholder={selectedRiskCategoryId ? "Select risk" : "Select risk category first"}
-                          searchPlaceholder="Search risk..."
-                          emptyText={selectedRiskCategoryId ? "No risks found" : "Please select a risk category first"}
-                          disabled={formMode === 'verifier' && !showVerifierSection}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {showVerifierSection && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <ConditionalField
+                  fieldName="riskCategoryId"
+                  formMode={formMode}
+                  readOnlyComponent={
+                    <ReadOnlyField
+                      label="Risk Category"
+                      value={getDisplayValue('riskCategoryId', form.watch('riskCategoryId'))}
+                      required
+                    />
+                  }
+                >
                   <FormField
                     control={form.control}
-                    name="assignedDepartmentId"
+                    name="riskCategoryId"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Assigned Department <span className="text-destructive">*</span>
+                          Risk Category <span className="text-destructive">*</span>
                         </FormLabel>
                         <FormControl>
                           <ModalCombobox
-                            options={departmentOptions}
+                            options={riskCategoryOptions}
                             value={field.value}
-                            onValueChange={field.onChange}
-                            placeholder="Select department"
-                            searchPlaceholder="Search department..."
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              // Clear risk when category changes
+                              form.setValue('riskId', '');
+                            }}
+                            placeholder="Select risk category"
+                            searchPlaceholder="Search risk category..."
                           />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                </ConditionalField>
 
+                <ConditionalField
+                  fieldName="riskId"
+                  formMode={formMode}
+                  readOnlyComponent={
+                    <ReadOnlyField
+                      label="Risk"
+                      value={getDisplayValue('riskId', form.watch('riskId'))}
+                      required
+                    />
+                  }
+                >
                   <FormField
                     control={form.control}
-                    name="assigneeId"
+                    name="riskId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Assignee</FormLabel>
+                        <FormLabel>
+                          Risk <span className="text-destructive">*</span>
+                        </FormLabel>
                         <FormControl>
                           <ModalCombobox
-                            options={userOptions}
-                            value={field.value || ''}
-                            onValueChange={(value) => field.onChange(value || undefined)}
-                            placeholder="Select assignee (optional)"
-                            searchPlaceholder="Search user..."
+                            options={filteredRiskOptions}
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            placeholder={selectedRiskCategoryId ? "Select risk" : "Select risk category first"}
+                            searchPlaceholder="Search risk..."
+                            emptyText={selectedRiskCategoryId ? "No risks found" : "Please select a risk category first"}
                           />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                </ConditionalField>
+              </div>
+
+              {(showVerifierSection || formMode === 'updater') && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <ConditionalField
+                    fieldName="assignedDepartmentId"
+                    formMode={formMode}
+                    readOnlyComponent={
+                      <ReadOnlyField
+                        label="Assigned Department"
+                        value={getDisplayValue('assignedDepartmentId', form.watch('assignedDepartmentId'))}
+                        required
+                      />
+                    }
+                  >
+                    <FormField
+                      control={form.control}
+                      name="assignedDepartmentId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Assigned Department <span className="text-destructive">*</span>
+                          </FormLabel>
+                          <FormControl>
+                            <ModalCombobox
+                              options={departmentOptions}
+                              value={field.value}
+                              onValueChange={field.onChange}
+                              placeholder="Select department"
+                              searchPlaceholder="Search department..."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </ConditionalField>
+
+                  <ConditionalField
+                    fieldName="assigneeId"
+                    formMode={formMode}
+                    readOnlyComponent={
+                      <ReadOnlyField
+                        label="Assignee"
+                        value={getDisplayValue('assigneeId', form.watch('assigneeId'))}
+                      />
+                    }
+                  >
+                    <FormField
+                      control={form.control}
+                      name="assigneeId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Assignee</FormLabel>
+                          <FormControl>
+                            <ModalCombobox
+                              options={userOptions}
+                              value={field.value || ''}
+                              onValueChange={(value) => field.onChange(value || undefined)}
+                              placeholder="Select assignee (optional)"
+                              searchPlaceholder="Search user..."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </ConditionalField>
                 </div>
               )}
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Enter inspection item description (optional)"
-                        rows={3}
-                        {...field}
-                        disabled={formMode === 'verifier' && !showVerifierSection}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <ConditionalField
+                fieldName="description"
+                formMode={formMode}
+                readOnlyComponent={
+                  <ReadOnlyField
+                    label="Description"
+                    value={form.watch('description')}
+                    multiline
+                  />
+                }
+              >
                 <FormField
                   control={form.control}
-                  name="findings"
+                  name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Findings</FormLabel>
+                      <FormLabel>Description</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Enter findings from the inspection (optional)"
-                          rows={4}
+                          placeholder="Enter inspection item description (optional)"
+                          rows={3}
                           {...field}
                           disabled={formMode === 'verifier' && !showVerifierSection}
                         />
@@ -821,25 +988,69 @@ const InspectionItemForm = ({
                     </FormItem>
                   )}
                 />
+              </ConditionalField>
 
-                <FormField
-                  control={form.control}
-                  name="dueDateAt"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Due Date</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="date"
-                          {...field}
-                          value={field.value || ''}
-                          disabled={formMode === 'verifier' && !showVerifierSection}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <ConditionalField
+                  fieldName="findings"
+                  formMode={formMode}
+                  readOnlyComponent={
+                    <ReadOnlyField
+                      label="Findings"
+                      value={form.watch('findings')}
+                      multiline
+                    />
+                  }
+                >
+                  <FormField
+                    control={form.control}
+                    name="findings"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Findings</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Enter findings from the inspection (optional)"
+                            rows={4}
+                            {...field}
+                            disabled={formMode === 'verifier' && !showVerifierSection}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </ConditionalField>
+
+                <ConditionalField
+                  fieldName="dueDateAt"
+                  formMode={formMode}
+                  readOnlyComponent={
+                    <ReadOnlyField
+                      label="Due Date"
+                      value={getDisplayValue('dueDateAt', form.watch('dueDateAt'))}
+                    />
+                  }
+                >
+                  <FormField
+                    control={form.control}
+                    name="dueDateAt"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Due Date</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            {...field}
+                            value={field.value || ''}
+                            disabled={formMode === 'verifier' && !showVerifierSection}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </ConditionalField>
               </div>
 
               <Separator />
@@ -869,101 +1080,137 @@ const InspectionItemForm = ({
                   </div>
                 ) : selectedRiskId ? (
                   <div className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="mitigation.eliminate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-medium">Eliminate</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Describe elimination strategy..."
-                              className="min-h-[120px] resize-y"
-                              {...field}
-                              value={field.value || ''}
-                              disabled={formMode === 'verifier' && !showVerifierSection}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="mitigation.transfer"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-medium">Transfer</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Describe transfer strategy..."
-                              className="min-h-[120px] resize-y"
-                              {...field}
-                              value={field.value || ''}
-                              disabled={formMode === 'verifier' && !showVerifierSection}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="mitigation.reduce"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-medium">Reduce</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Describe reduction strategy..."
-                              className="min-h-[120px] resize-y"
-                              {...field}
-                              value={field.value || ''}
-                              disabled={formMode === 'verifier' && !showVerifierSection}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="mitigation.accept"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-medium">Accept</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Describe acceptance strategy..."
-                              className="min-h-[120px] resize-y"
-                              {...field}
-                              value={field.value || ''}
-                              disabled={formMode === 'verifier' && !showVerifierSection}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="mitigation.legalAspect"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-medium">Legal Aspect</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Enter legal aspect (filled by approver)..."
-                              className="min-h-[120px] resize-y"
-                              {...field}
-                              value={field.value || ''}
-                              disabled={formMode === 'verifier' && !showVerifierSection}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <ConditionalField
+                      fieldName="mitigation"
+                      formMode={formMode}
+                      readOnlyComponent={
+                        <div className="space-y-4">
+                          <ReadOnlyField
+                            label="Eliminate"
+                            value={form.watch('mitigation.eliminate')}
+                            multiline
+                          />
+                          <ReadOnlyField
+                            label="Transfer"
+                            value={form.watch('mitigation.transfer')}
+                            multiline
+                          />
+                          <ReadOnlyField
+                            label="Reduce"
+                            value={form.watch('mitigation.reduce')}
+                            multiline
+                          />
+                          <ReadOnlyField
+                            label="Accept"
+                            value={form.watch('mitigation.accept')}
+                            multiline
+                          />
+                          <ReadOnlyField
+                            label="Legal Aspect"
+                            value={form.watch('mitigation.legalAspect')}
+                            multiline
+                          />
+                        </div>
+                      }
+                    >
+                      <>
+                        <FormField
+                          control={form.control}
+                          name="mitigation.eliminate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">Eliminate</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Describe elimination strategy..."
+                                  className="min-h-[120px] resize-y"
+                                  {...field}
+                                  value={field.value || ''}
+                                  disabled={formMode === 'verifier' && !showVerifierSection}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="mitigation.transfer"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">Transfer</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Describe transfer strategy..."
+                                  className="min-h-[120px] resize-y"
+                                  {...field}
+                                  value={field.value || ''}
+                                  disabled={formMode === 'verifier' && !showVerifierSection}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="mitigation.reduce"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">Reduce</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Describe reduction strategy..."
+                                  className="min-h-[120px] resize-y"
+                                  {...field}
+                                  value={field.value || ''}
+                                  disabled={formMode === 'verifier' && !showVerifierSection}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="mitigation.accept"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">Accept</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Describe acceptance strategy..."
+                                  className="min-h-[120px] resize-y"
+                                  {...field}
+                                  value={field.value || ''}
+                                  disabled={formMode === 'verifier' && !showVerifierSection}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="mitigation.legalAspect"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">Legal Aspect</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Enter legal aspect (filled by approver)..."
+                                  className="min-h-[120px] resize-y"
+                                  {...field}
+                                  value={field.value || ''}
+                                  disabled={formMode === 'verifier' && !showVerifierSection}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </>
+                    </ConditionalField>
                   </div>
                 ) : (
                   <div className="text-center py-8 text-sm text-muted-foreground">

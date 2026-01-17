@@ -133,6 +133,12 @@ export const seedRiskAssessmentsAndInspections = async (
     console.log('Clearing existing risk assessments and inspections...');
     await client.inspectionImage.deleteMany();
     await client.inspectionInspector.deleteMany();
+    // Clear mitigation records before items (foreign key dependency)
+    await client.riskMitigationRecord.deleteMany({
+      where: {
+        entity: { in: ['RISK_ASSESSMENT_ITEM', 'INSPECTION_ITEM'] },
+      },
+    });
     await client.inspectionItem.deleteMany();
     await client.inspection.deleteMany();
     await client.riskAssessmentItem.deleteMany();
@@ -251,6 +257,55 @@ export const seedRiskAssessmentsAndInspections = async (
             postConsequenceLevel,
             postRiskMatrixRating,
             postInterpretation,
+          },
+        });
+
+        // Create risk mitigation record for this item (at least one field filled)
+        const mitigationOptions = [
+          {
+            eliminate: `Eliminate risk by removing the hazard source: ${risk.name}`,
+            transfer: null,
+            reduce: null,
+            accept: null,
+            legalAspect: null,
+          },
+          {
+            eliminate: null,
+            transfer: `Transfer risk through insurance or outsourcing: ${risk.name}`,
+            reduce: null,
+            accept: null,
+            legalAspect: null,
+          },
+          {
+            eliminate: null,
+            transfer: null,
+            reduce: `Reduce risk through engineering controls and safety measures for ${risk.name}`,
+            accept: null,
+            legalAspect: null,
+          },
+          {
+            eliminate: null,
+            transfer: null,
+            reduce: null,
+            accept: `Accept residual risk after implementing controls for ${risk.name}`,
+            legalAspect: null,
+          },
+          {
+            eliminate: `Implement engineering controls to eliminate ${risk.name}`,
+            transfer: null,
+            reduce: `Apply administrative controls to reduce exposure`,
+            accept: null,
+            legalAspect: `Comply with local safety regulations and standards`,
+          },
+        ];
+        const mitigation = mitigationOptions[j % mitigationOptions.length];
+
+        await client.riskMitigationRecord.create({
+          data: {
+            entity: 'RISK_ASSESSMENT_ITEM',
+            entityId: item.id,
+            ...mitigation,
+            isActive: true,
           },
         });
 
@@ -378,6 +433,62 @@ export const seedRiskAssessmentsAndInspections = async (
           } as any, // Type assertion to bypass Prisma client type mismatch
         });
 
+        // Create risk mitigation record for this inspection item (at least one field filled)
+        const mitigationOptions = [
+          {
+            eliminate: `Eliminate the identified hazard: ${findings || risk.name}`,
+            transfer: null,
+            reduce: null,
+            accept: null,
+            legalAspect: null,
+          },
+          {
+            eliminate: null,
+            transfer: `Transfer risk responsibility to external contractor for ${risk.name}`,
+            reduce: null,
+            accept: null,
+            legalAspect: null,
+          },
+          {
+            eliminate: null,
+            transfer: null,
+            reduce: `Reduce risk through immediate corrective actions: ${findings || 'Hazard mitigation'}`,
+            accept: null,
+            legalAspect: null,
+          },
+          {
+            eliminate: null,
+            transfer: null,
+            reduce: null,
+            accept: `Accept residual risk level after implementing safety controls for ${risk.name}`,
+            legalAspect: null,
+          },
+          {
+            eliminate: `Remove hazard source: ${risk.name}`,
+            transfer: null,
+            reduce: `Implement safety protocols to minimize exposure`,
+            accept: null,
+            legalAspect: `Ensure compliance with workplace safety regulations`,
+          },
+          {
+            eliminate: null,
+            transfer: `Outsource high-risk activities to specialized contractor`,
+            reduce: `Apply PPE and training requirements`,
+            accept: null,
+            legalAspect: `Meet OSH standards and regulatory requirements`,
+          },
+        ];
+        const mitigation = mitigationOptions[j % mitigationOptions.length];
+
+        await client.riskMitigationRecord.create({
+          data: {
+            entity: 'INSPECTION_ITEM',
+            entityId: item.id,
+            ...mitigation,
+            isActive: true,
+          },
+        });
+
         inspectionItems.push(item);
       }
 
@@ -398,12 +509,20 @@ export const seedRiskAssessmentsAndInspections = async (
       0,
     );
 
+    // Count mitigation records
+    const mitigationRecords = await client.riskMitigationRecord.findMany({
+      where: {
+        entity: { in: ['RISK_ASSESSMENT_ITEM', 'INSPECTION_ITEM'] },
+      },
+    });
+
     console.log('\n📋 Summary:');
     console.log(`   - Risk Assessments: ${riskAssessments.length}`);
     console.log(`   - Risk Assessment Items: ${totalRiskItems}`);
     console.log(`   - Inspections: ${inspections.length}`);
     console.log(`   - Inspection Items: ${totalInspectionItems}`);
     console.log(`   - Total Items: ${totalRiskItems + totalInspectionItems}`);
+    console.log(`   - Risk Mitigation Records: ${mitigationRecords.length} (one per item)`);
 
     if (totalRiskItems >= 20 && totalInspectionItems >= 20) {
       console.log('✅ Minimum requirements met (20+ items each)');
