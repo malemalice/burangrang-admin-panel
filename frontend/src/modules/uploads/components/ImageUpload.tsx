@@ -146,17 +146,22 @@ const ImageUpload = ({
         <div className="relative">
           {/* Determine media type based on URL, file extension, or mediaType prop */}
           {(() => {
+            const isDataUrl = preview.startsWith('data:');
+            const dataMimeType = isDataUrl ? preview.split(';')[0].split(':')[1] : '';
+
             const isVideo = mediaType?.startsWith('video/') ||
-              preview.includes('video') ||
-              preview.match(/\.(mp4|webm|ogg|mov)($|\?)/i) ||
+              (isDataUrl && dataMimeType.startsWith('video/')) ||
+              (!isDataUrl && preview.match(/\.(mp4|webm|ogg|mov)($|\?)/i)) ||
               selectedFile?.type.startsWith('video/');
+
             const isAudio = mediaType?.startsWith('audio/') ||
-              preview.includes('audio') ||
-              preview.match(/\.(mp3|wav|ogg|aac|mpeg)($|\?)/i) ||
+              (isDataUrl && dataMimeType.startsWith('audio/')) ||
+              (!isDataUrl && preview.match(/\.(mp3|wav|ogg|aac|mpeg)($|\?)/i)) ||
               selectedFile?.type.startsWith('audio/');
+
             const isPdf = mediaType === 'application/pdf' ||
-              preview.includes('pdf') ||
-              preview.match(/\.pdf($|\?)/i) ||
+              (isDataUrl && dataMimeType === 'application/pdf') ||
+              (!isDataUrl && preview.match(/\.pdf($|\?)/i)) ||
               selectedFile?.type === 'application/pdf';
 
             if (isVideo) {
