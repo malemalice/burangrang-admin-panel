@@ -43,6 +43,7 @@ import { ManHoursModule } from './modules/man-hours/man-hours.module';
 import { InspectionsModule } from './modules/inspections/inspections.module';
 import { AuditPolicyModule } from './modules/audit-policy/audit-policy.module';
 import { ZohoWebhooksModule } from './modules/zoho-webhooks/zoho-webhooks.module';
+import { RiskRegisterModule } from './modules/risk-register/risk-register.module';
 
 @Module({
   imports: [
@@ -92,6 +93,8 @@ import { ZohoWebhooksModule } from './modules/zoho-webhooks/zoho-webhooks.module
     AuditPolicyModule,
     // Zoho Webhooks Module
     ZohoWebhooksModule,
+    // Risk Register Module
+    RiskRegisterModule,
   ],
   providers: [
     Reflector,

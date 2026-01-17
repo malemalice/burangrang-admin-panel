@@ -1,0 +1,370 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../../core/prisma/prisma.service';
+import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
+import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
+import { RiskRegisterDto } from '../dto/risk-register.dto';
+import { FindRiskRegisterDto } from '../dto/find-risk-register.dto';
+import {
+  RiskRegisterSourceRiskAssessmentDto,
+  RiskRegisterSourceInspectionDto,
+} from '../dto/risk-register-source.dto';
+import { Prisma, GeneralStatusEnum } from '@prisma/client';
+
+const RISK_ASSESSMENT_ITEM_ENTITY = 'RISK_ASSESSMENT_ITEM';
+const INSPECTION_ITEM_ENTITY = 'INSPECTION_ITEM';
+
+@Injectable()
+export class RiskRegisterService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly errorHandler: ErrorHandlingService,
+    private readonly dtoMapper: DtoMapperService,
+  ) {}
+
+  async findAll(options?: FindRiskRegisterDto): Promise<{
+    data: RiskRegisterDto[];
+    meta: { total: number; page: number; limit: number };
+  }> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      entityType,
+      departmentId,
+      riskId,
+      riskCategoryId,
+      status,
+      isActive,
+      search,
+    } = options || {};
+
+    // Build where clause for RiskMitigationRecord
+    const where: Prisma.RiskMitigationRecordWhereInput = {};
+
+    if (entityType) {
+      where.entity = entityType;
+    } else {
+      // If no entityType specified, include both types
+      where.OR = [
+        { entity: RISK_ASSESSMENT_ITEM_ENTITY },
+        { entity: INSPECTION_ITEM_ENTITY },
+      ];
+    }
+
+    if (isActive !== undefined) {
+      where.isActive = isActive;
+    }
+
+    // Get all mitigation records matching filters
+    const [mitigationRecords, total] = await Promise.all([
+      this.prisma.riskMitigationRecord.findMany({
+        where,
+        orderBy: {
+          [sortBy]: sortOrder,
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.riskMitigationRecord.count({ where }),
+    ]);
+
+    // Separate records by entity type
+    const riskAssessmentItemIds: string[] = [];
+    const inspectionItemIds: string[] = [];
+
+    mitigationRecords.forEach((record) => {
+      if (record.entity === RISK_ASSESSMENT_ITEM_ENTITY) {
+        riskAssessmentItemIds.push(record.entityId);
+      } else if (record.entity === INSPECTION_ITEM_ENTITY) {
+        inspectionItemIds.push(record.entityId);
+      }
+    });
+
+    // Fetch Risk Assessment Items with relations
+    const riskAssessmentItems = riskAssessmentItemIds.length > 0
+      ? await this.prisma.riskAssessmentItem.findMany({
+          where: {
+            id: { in: riskAssessmentItemIds },
+            ...(riskId && { mRiskId: riskId }),
+            ...(riskCategoryId && { mRiskCategoryId: riskCategoryId }),
+            ...(status && {
+              riskAssessment: {
+                status,
+              },
+            }),
+            ...(departmentId && {
+              riskAssessment: {
+                departmentId,
+              },
+            }),
+            ...(search && {
+              OR: [
+                {
+                  riskAssessment: {
+                    code: { contains: search, mode: 'insensitive' },
+                  },
+                },
+                {
+                  mRisk: {
+                    name: { contains: search, mode: 'insensitive' },
+                  },
+                },
+              ],
+            }),
+          },
+          include: {
+            riskAssessment: {
+              include: {
+                department: true,
+                creator: true,
+                assignee: true,
+              },
+            },
+            mRisk: true,
+            mRiskCategory: true,
+          },
+        })
+      : [];
+
+    // Fetch Inspection Items with relations
+    const inspectionItems = inspectionItemIds.length > 0
+      ? await this.prisma.inspectionItem.findMany({
+          where: {
+            id: { in: inspectionItemIds },
+            ...(riskId && { riskId }),
+            ...(riskCategoryId && { riskCategoryId }),
+            ...(status && { status }),
+            ...(departmentId && { assignedDepartmentId: departmentId }),
+            ...(search && {
+              OR: [
+                {
+                  inspection: {
+                    code: { contains: search, mode: 'insensitive' },
+                  },
+                },
+                {
+                  risk: {
+                    name: { contains: search, mode: 'insensitive' },
+                  },
+                },
+              ],
+            }),
+          },
+          include: {
+            inspection: {
+              include: {
+                creator: true,
+              },
+            },
+            area: true,
+            riskCategory: true,
+            risk: true,
+            assignedDepartment: true,
+            assignee: true,
+          },
+        })
+      : [];
+
+    // Create maps for quick lookup
+    const riskAssessmentItemMap = new Map(
+      riskAssessmentItems.map((item) => [item.id, item]),
+    );
+    const inspectionItemMap = new Map(
+      inspectionItems.map((item) => [item.id, item]),
+    );
+
+    // Build RiskRegisterDto array
+    const data: RiskRegisterDto[] = mitigationRecords
+      .map((record) => {
+        let source: RiskRegisterSourceRiskAssessmentDto | RiskRegisterSourceInspectionDto | null = null;
+
+        if (record.entity === RISK_ASSESSMENT_ITEM_ENTITY) {
+          const item = riskAssessmentItemMap.get(record.entityId);
+          if (item && item.riskAssessment) {
+            source = {
+              code: item.riskAssessment.code,
+              description: item.riskAssessment.description || undefined,
+              assessmentDate: item.riskAssessment.assessmentDate,
+              riskAssessmentItem: {
+                id: item.id,
+                mRiskId: (item as any).mRiskId,
+                mRisk: item.mRisk,
+                mRiskCategoryId: item.mRiskCategoryId,
+                mRiskCategory: item.mRiskCategory,
+                likelihoodLevel: item.likelihoodLevel as string,
+                consequenceLevel: item.consequenceLevel,
+                riskMatrixRating: item.riskMatrixRating,
+                interpretation: item.interpretation,
+                postLikelihoodLevel: item.postLikelihoodLevel as string,
+                postConsequenceLevel: item.postConsequenceLevel,
+                postRiskMatrixRating: item.postRiskMatrixRating,
+                postInterpretation: item.postInterpretation,
+              },
+              department: item.riskAssessment.department,
+              creator: item.riskAssessment.creator || undefined,
+              assignee: item.riskAssessment.assignee || undefined,
+            } as RiskRegisterSourceRiskAssessmentDto;
+          }
+        } else if (record.entity === INSPECTION_ITEM_ENTITY) {
+          const item = inspectionItemMap.get(record.entityId);
+          if (item && item.inspection) {
+            source = {
+              code: item.inspection.code,
+              inspectionDate: item.inspection.inspectionDate,
+              inspectionItem: {
+                id: item.id,
+                riskId: item.riskId,
+                risk: item.risk,
+                riskCategoryId: item.riskCategoryId,
+                riskCategory: item.riskCategory,
+                findings: item.findings || undefined,
+                description: item.description || undefined,
+                status: item.status,
+              },
+              area: item.area,
+              department: item.assignedDepartment,
+              assignee: item.assignee || undefined,
+            } as RiskRegisterSourceInspectionDto;
+          }
+        }
+
+        // Only include records that have valid source context
+        if (!source) {
+          return null;
+        }
+
+        return {
+          id: record.id,
+          entity: record.entity,
+          entityId: record.entityId,
+          eliminate: record.eliminate || undefined,
+          transfer: record.transfer || undefined,
+          reduce: record.reduce || undefined,
+          accept: record.accept || undefined,
+          legalAspect: record.legalAspect || undefined,
+          isActive: record.isActive,
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt,
+          source,
+        } as RiskRegisterDto;
+      })
+      .filter((item): item is RiskRegisterDto => item !== null);
+
+    return {
+      data,
+      meta: { total, page, limit },
+    };
+  }
+
+  async findOne(id: string): Promise<RiskRegisterDto> {
+    const record = await this.prisma.riskMitigationRecord.findUnique({
+      where: { id },
+    });
+
+    this.errorHandler.throwIfNotFoundById('Risk Mitigation Record', id, record);
+
+    let source: RiskRegisterSourceRiskAssessmentDto | RiskRegisterSourceInspectionDto | null = null;
+
+    if (record.entity === RISK_ASSESSMENT_ITEM_ENTITY) {
+      const item = await this.prisma.riskAssessmentItem.findUnique({
+        where: { id: record.entityId },
+        include: {
+          riskAssessment: {
+            include: {
+              department: true,
+              creator: true,
+              assignee: true,
+            },
+          },
+          mRisk: true,
+          mRiskCategory: true,
+        },
+      });
+
+      if (item && item.riskAssessment) {
+        source = {
+          code: item.riskAssessment.code,
+          description: item.riskAssessment.description || undefined,
+          assessmentDate: item.riskAssessment.assessmentDate,
+          riskAssessmentItem: {
+            id: item.id,
+            mRiskId: (item as any).mRiskId,
+            mRisk: item.mRisk,
+            mRiskCategoryId: item.mRiskCategoryId,
+            mRiskCategory: item.mRiskCategory,
+            likelihoodLevel: item.likelihoodLevel as string,
+            consequenceLevel: item.consequenceLevel,
+            riskMatrixRating: item.riskMatrixRating,
+            interpretation: item.interpretation,
+            postLikelihoodLevel: item.postLikelihoodLevel as string,
+            postConsequenceLevel: item.postConsequenceLevel,
+            postRiskMatrixRating: item.postRiskMatrixRating,
+            postInterpretation: item.postInterpretation,
+          },
+          department: item.riskAssessment.department,
+          creator: item.riskAssessment.creator || undefined,
+          assignee: item.riskAssessment.assignee || undefined,
+        } as RiskRegisterSourceRiskAssessmentDto;
+      }
+    } else if (record.entity === INSPECTION_ITEM_ENTITY) {
+      const item = await this.prisma.inspectionItem.findUnique({
+        where: { id: record.entityId },
+        include: {
+          inspection: {
+            include: {
+              creator: true,
+            },
+          },
+          area: true,
+          riskCategory: true,
+          risk: true,
+          assignedDepartment: true,
+          assignee: true,
+        },
+      });
+
+      if (item && item.inspection) {
+        source = {
+          code: item.inspection.code,
+          inspectionDate: item.inspection.inspectionDate,
+          inspectionItem: {
+            id: item.id,
+            riskId: item.riskId,
+            risk: item.risk,
+            riskCategoryId: item.riskCategoryId,
+            riskCategory: item.riskCategory,
+            findings: item.findings || undefined,
+            description: item.description || undefined,
+            status: item.status,
+          },
+          area: item.area,
+          department: item.assignedDepartment,
+          assignee: item.assignee || undefined,
+        } as RiskRegisterSourceInspectionDto;
+      }
+    }
+
+    if (!source) {
+      throw new Error(
+        `Source context not found for ${record.entity} with ID ${record.entityId}`,
+      );
+    }
+
+    return {
+      id: record.id,
+      entity: record.entity,
+      entityId: record.entityId,
+      eliminate: record.eliminate || undefined,
+      transfer: record.transfer || undefined,
+      reduce: record.reduce || undefined,
+      accept: record.accept || undefined,
+      legalAspect: record.legalAspect || undefined,
+      isActive: record.isActive,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      source,
+    } as RiskRegisterDto;
+  }
+}
