@@ -288,7 +288,7 @@ export default function ManHourReportPage() {
                       key={`${row.name}-${row.group}`}
                       className={index % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800'}
                     >
-                      <td className="sticky left-0 z-10 px-4 py-2 font-medium border-b border-r bg-inherit">
+                      <td className="left-0 z-10 px-4 py-2 font-medium border-b border-r bg-inherit">
                         {row.name}
                       </td>
                       <td className="px-4 py-2 text-right border-b border-r">
