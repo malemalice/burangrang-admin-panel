@@ -23,6 +23,7 @@ const StockMovementHistory = ({ safetyEquipmentId }: StockMovementHistoryProps) 
     const [limit, setLimit] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
     const [movementType, setMovementType] = useState<string>('all');
+    const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
 
     const loadMovements = useCallback(() => {
         const params: StockMovementSearchParams = {
@@ -152,6 +153,18 @@ const StockMovementHistory = ({ safetyEquipmentId }: StockMovementHistoryProps) 
     ], []);
 
     const handleApplyFilters = useCallback((filters: any[]) => {
+        const newActiveFilters: Record<string, { value: any; label: string }> = {};
+        
+        filters.forEach(filter => {
+            if (filter.value !== undefined && filter.value !== null && filter.value !== '') {
+                newActiveFilters[filter.id] = {
+                    value: filter.value,
+                    label: filter.label || filter.id
+                };
+            }
+        });
+
+        setActiveFilters(newActiveFilters);
         const typeFilter = filters.find(f => f.id === 'movementType');
         setMovementType(typeFilter?.value || 'all');
         setPageIndex(0);
@@ -198,6 +211,7 @@ const StockMovementHistory = ({ safetyEquipmentId }: StockMovementHistoryProps) 
                 onSearch={handleSearch}
                 filterFields={filterFields}
                 onApplyFilters={handleApplyFilters}
+                activeFilters={activeFilters}
                 pagination={{
                     pageIndex,
                     limit,
