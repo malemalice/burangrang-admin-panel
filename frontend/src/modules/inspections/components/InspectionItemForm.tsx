@@ -30,14 +30,11 @@ import { Department } from '@/core/lib/types';
 import areaService from '@/modules/master-data/services/areaService';
 import { AreaDTO } from '@/modules/master-data/types/master-data.types';
 import uploadService, { FileCategory } from '@/modules/uploads/services/uploadService';
-import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { IssueStatus, ISSUE_STATUS_OPTIONS } from '@/shared/constants/issue-status.enum';
 import riskMitigationService, { type RiskMitigation } from '@/modules/risk-assessment/services/riskMitigationService';
 
-// Inspection item status options (only OPEN and DONE/CLOSE)
-const INSPECTION_ITEM_STATUS_OPTIONS = [
-  { value: GeneralStatusEnum.OPEN, label: 'Open' },
-  { value: GeneralStatusEnum.DONE, label: 'Close' },
-] as const;
+// Inspection item status options - using IssueStatus
+const INSPECTION_ITEM_STATUS_OPTIONS = ISSUE_STATUS_OPTIONS;
 
 // Image upload interface
 interface ImageUpload {
@@ -61,7 +58,7 @@ const mitigationSchema = z.object({
 // Form schema for validation
 const formSchema = z.object({
   areaId: z.string().min(1, 'Area is required'),
-  status: z.nativeEnum(GeneralStatusEnum),
+  status: z.nativeEnum(IssueStatus),
   riskCategoryId: z.string().min(1, 'Risk Category is required'),
   riskId: z.string().min(1, 'Risk is required'),
   assignedDepartmentId: z.string().min(1, 'Assigned Department is required'),
@@ -72,11 +69,11 @@ const formSchema = z.object({
   dueDateAt: z.string().optional(),
   mitigation: mitigationSchema.optional(),
 }).superRefine((data, ctx) => {
-  // Status validation: inspection items can only be OPEN or DONE (Close)
-  if (data.status !== GeneralStatusEnum.OPEN && data.status !== GeneralStatusEnum.DONE) {
+  // Status validation: inspection items can be OPEN, WAITING_APPROVAL, or CLOSE
+  if (!Object.values(IssueStatus).includes(data.status)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'Status must be either Open or Close',
+      message: 'Status must be a valid Issue Status',
       path: ['status'],
     });
   }
@@ -266,7 +263,7 @@ const InspectionItemForm = ({
     resolver: zodResolver(formSchema),
     defaultValues: {
       areaId: initialItem?.areaId || '',
-      status: initialItem?.status || GeneralStatusEnum.OPEN,
+      status: initialItem?.status || IssueStatus.OPEN,
       riskCategoryId: initialItem?.riskCategoryId || '',
       riskId: initialItem?.riskId || '',
       assignedDepartmentId: initialItem?.assignedDepartmentId || '',

@@ -12,7 +12,7 @@ import PageHeader from '@/core/components/ui/PageHeader';
 
 import { InspectionItem, InspectionImageTypeEnum } from '../types/inspection-item.types';
 import inspectionItemsService from '../services/inspectionItemsService';
-import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { IssueStatus } from '@/shared/constants/issue-status.enum';
 
 const ViewInspectionItemPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -40,14 +40,11 @@ const ViewInspectionItemPage = () => {
     fetchItem();
   }, [id, navigate]);
 
-  const getStatusBadge = (status: GeneralStatusEnum) => {
+  const getStatusBadge = (status: IssueStatus) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
-      [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
-      [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'outline' },
-      [GeneralStatusEnum.OPEN]: { label: 'Open', variant: 'secondary' },
-      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Approval', variant: 'secondary' },
-      [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
-      [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
+      [IssueStatus.OPEN]: { label: 'Open Issue', variant: 'secondary' },
+      [IssueStatus.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
+      [IssueStatus.CLOSE]: { label: 'Closed', variant: 'default' },
     };
 
     const statusInfo = statusMap[status] || { label: status, variant: 'outline' };

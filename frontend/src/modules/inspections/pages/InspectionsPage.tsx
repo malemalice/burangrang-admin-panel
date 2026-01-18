@@ -273,8 +273,8 @@ const InspectionsPage = () => {
       header: 'Items Count',
       cell: (inspection: Inspection) => {
         const items = inspection.items || [];
-        const openCount = items.filter(item => item.status === GeneralStatusEnum.OPEN).length;
-        const closedCount = items.filter(item => item.status === GeneralStatusEnum.DONE).length;
+        const openCount = items.filter(item => item.status === 'OPEN').length;
+        const closedCount = items.filter(item => item.status === 'CLOSE').length;
         const totalCount = items.length;
 
         return (

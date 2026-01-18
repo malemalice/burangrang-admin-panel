@@ -33,7 +33,7 @@ import { riskCategoryService, riskService, departmentService } from '@/modules/m
 import { RiskCategory, Risk, Department } from '@/core/lib/types';
 import userService from '@/modules/users/services/userService';
 import { User } from '@/core/lib/types';
-import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
+import { IssueStatus, ISSUE_STATUS_OPTIONS } from '@/shared/constants/issue-status.enum';
 
 const formSchema = z.object({
   riskCategoryId: z.string().min(1, 'Risk Category is required'),
@@ -42,7 +42,7 @@ const formSchema = z.object({
   assigneeId: z.string().optional(),
   description: z.string().optional(),
   followUpNotes: z.string().optional(),
-  status: z.nativeEnum(GeneralStatusEnum),
+  status: z.nativeEnum(IssueStatus),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -68,7 +68,7 @@ const EditInspectionItemPage = () => {
       assigneeId: undefined,
       description: '',
       followUpNotes: '',
-      status: GeneralStatusEnum.DRAFT,
+      status: IssueStatus.OPEN,
     },
   });
 
@@ -322,7 +322,7 @@ const EditInspectionItemPage = () => {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {GENERAL_STATUS_OPTIONS.map((option) => (
+                            {ISSUE_STATUS_OPTIONS.map((option) => (
                               <SelectItem key={option.value} value={option.value}>
                                 {option.label}
                               </SelectItem>

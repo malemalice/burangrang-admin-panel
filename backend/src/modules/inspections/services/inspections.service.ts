@@ -15,7 +15,7 @@ import { InspectionImageDto } from '../dto/inspection-image.dto';
 import { CreateInspectionInspectorDto } from '../dto/create-inspection-inspector.dto';
 import { UpdateInspectionInspectorDto } from '../dto/update-inspection-inspector.dto';
 import { InspectionInspectorDto } from '../dto/inspection-inspector.dto';
-import { Prisma, GeneralStatusEnum, RiskMitigationRecord } from '@prisma/client';
+import { Prisma, GeneralStatusEnum, IssueStatus, RiskMitigationRecord } from '@prisma/client';
 import { RemindersService } from '../../reminders/reminders.service';
 import {
   ReminderRepeatTypeEnum,
@@ -41,7 +41,7 @@ interface FindAllItemsOptions {
   limit?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
-  status?: GeneralStatusEnum;
+  status?: IssueStatus;
   assignedDepartmentId?: string;
   assigneeId?: string;
   riskId?: string;
@@ -194,7 +194,7 @@ export class InspectionsService {
               orderBy: { order: 'asc' },
             },
           },
-          orderBy: { order: 'asc' },
+          orderBy: { createdAt: 'asc' },
         },
         inspectors: {
           include: {
@@ -274,7 +274,7 @@ export class InspectionsService {
                 orderBy: { order: 'asc' },
               },
             },
-            orderBy: { order: 'asc' },
+            orderBy: { createdAt: 'asc' },
           },
           inspectors: {
             include: {
@@ -325,7 +325,7 @@ export class InspectionsService {
               orderBy: { order: 'asc' },
             },
           },
-          orderBy: { order: 'asc' },
+          orderBy: { createdAt: 'asc' },
         },
         inspectors: {
           include: {
@@ -434,7 +434,7 @@ export class InspectionsService {
               orderBy: { order: 'asc' },
             },
           },
-          orderBy: { order: 'asc' },
+          orderBy: { createdAt: 'asc' },
         },
         inspectors: {
           include: {
@@ -616,7 +616,7 @@ export class InspectionsService {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'order',
+      sortBy = 'createdAt',
       sortOrder = 'asc',
       search,
     } = options || {};
@@ -629,11 +629,13 @@ export class InspectionsService {
       'riskId',
       'assignedDepartmentId',
       'assigneeId',
-      'order',
+      'status',
+      'createdAt',
+      'updatedAt',
     ];
 
     // Validate and sanitize sortBy
-    const validatedSortBy = validSortFields.includes(sortBy) ? sortBy : 'order';
+    const validatedSortBy = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
 
     const where: Prisma.InspectionItemWhereInput = {
       inspectionId,
@@ -1248,7 +1250,6 @@ export class InspectionsService {
       'assignedDepartmentId',
       'assigneeId',
       'status',
-      'order',
       'createdAt',
       'updatedAt',
     ];

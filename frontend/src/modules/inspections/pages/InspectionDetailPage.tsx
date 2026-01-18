@@ -241,13 +241,13 @@ const InspectionDetailPage = () => {
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Open:</span>
                       <span className="text-lg font-semibold text-blue-600">
-                        {items.filter(item => item.status === GeneralStatusEnum.OPEN).length}
+                        {items.filter(item => item.status === 'OPEN').length}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Closed:</span>
                       <span className="text-lg font-semibold text-green-600">
-                        {items.filter(item => item.status === GeneralStatusEnum.DONE).length}
+                        {items.filter(item => item.status === 'CLOSE').length}
                       </span>
                     </div>
                   </div>

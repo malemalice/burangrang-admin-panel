@@ -36,6 +36,7 @@ import { CreateInspectionItemDTO } from '../../types/inspection.types';
 import inspectionItemsService from '../services/inspectionItemsService';
 import InspectionItemForm from '../../components/InspectionItemForm';
 import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
+import { IssueStatus, ISSUE_STATUS_OPTIONS } from '@/shared/constants/issue-status.enum';
 import { departmentService, riskService, riskCategoryService } from '@/modules/master-data';
 import { Department } from '@/modules/master-data/types/master-data.types';
 import { Risk, RiskCategory } from '@/core/lib/types';
@@ -89,7 +90,7 @@ const InspectionItemsPage = () => {
       id: 'status',
       label: 'Status',
       type: 'select',
-      options: GENERAL_STATUS_OPTIONS.map(option => ({
+      options: ISSUE_STATUS_OPTIONS.map(option => ({
         label: option.label,
         value: option.value,
       })),
@@ -149,7 +150,7 @@ const InspectionItemsPage = () => {
 
       // Add filters
       if (activeFilters.status?.value) {
-        params.status = activeFilters.status.value as GeneralStatusEnum;
+        params.status = activeFilters.status.value as IssueStatus;
       }
       if (activeFilters.assignedDepartmentId?.value) {
         params.assignedDepartmentId = activeFilters.assignedDepartmentId.value;
@@ -191,7 +192,7 @@ const InspectionItemsPage = () => {
     
     filters.forEach(filter => {
       if (filter.id === 'status') {
-        const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === filter.value);
+        const statusOption = ISSUE_STATUS_OPTIONS.find(opt => opt.value === filter.value);
         newActiveFilters[filter.id] = {
           value: filter.value,
           label: statusOption?.label || String(filter.value)
@@ -233,14 +234,11 @@ const InspectionItemsPage = () => {
     }
   };
 
-  const getStatusBadge = (status: GeneralStatusEnum) => {
+  const getStatusBadge = (status: IssueStatus) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
-      [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
-      [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'outline' },
-      [GeneralStatusEnum.OPEN]: { label: 'Open', variant: 'secondary' },
-      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Approval', variant: 'secondary' },
-      [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
-      [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
+      [IssueStatus.OPEN]: { label: 'Open Issue', variant: 'secondary' },
+      [IssueStatus.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
+      [IssueStatus.CLOSE]: { label: 'Closed', variant: 'default' },
     };
 
     const statusInfo = statusMap[status] || { label: status, variant: 'outline' };

@@ -9,7 +9,7 @@ import {
   RiskRegisterSourceRiskAssessmentDto,
   RiskRegisterSourceInspectionDto,
 } from '../dto/risk-register-source.dto';
-import { Prisma, GeneralStatusEnum } from '@prisma/client';
+import { Prisma, GeneralStatusEnum, IssueStatus } from '@prisma/client';
 
 const RISK_ASSESSMENT_ITEM_ENTITY = 'RISK_ASSESSMENT_ITEM';
 const INSPECTION_ITEM_ENTITY = 'INSPECTION_ITEM';
@@ -91,7 +91,7 @@ export class RiskRegisterService {
             ...(riskCategoryId && { mRiskCategoryId: riskCategoryId }),
             ...(status && {
               riskAssessment: {
-                status,
+                status: status as GeneralStatusEnum,
               },
             }),
             ...(departmentId && {
@@ -129,13 +129,27 @@ export class RiskRegisterService {
       : [];
 
     // Fetch Inspection Items with relations
+    // Convert GeneralStatusEnum to IssueStatus for inspection items if needed
+    let inspectionItemStatus: IssueStatus | undefined = undefined;
+    if (status) {
+      // Map GeneralStatusEnum values to IssueStatus
+      // Only apply status filter if it maps to a valid IssueStatus value
+      const statusMap: Partial<Record<GeneralStatusEnum, IssueStatus>> = {
+        [GeneralStatusEnum.OPEN]: IssueStatus.OPEN,
+        [GeneralStatusEnum.WAITING_APPROVAL]: IssueStatus.WAITING_APPROVAL,
+        [GeneralStatusEnum.DONE]: IssueStatus.CLOSE,
+        // DRAFT, REJECTED, SCHEDULED don't map to IssueStatus - skip status filter for these
+      };
+      inspectionItemStatus = statusMap[status as GeneralStatusEnum];
+    }
+
     const inspectionItems = inspectionItemIds.length > 0
       ? await this.prisma.inspectionItem.findMany({
           where: {
             id: { in: inspectionItemIds },
             ...(riskId && { riskId }),
             ...(riskCategoryId && { riskCategoryId }),
-            ...(status && { status }),
+            ...(inspectionItemStatus && { status: inspectionItemStatus }),
             ...(departmentId && { assignedDepartmentId: departmentId }),
             ...(search && {
               OR: [

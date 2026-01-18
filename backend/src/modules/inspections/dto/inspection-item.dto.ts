@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
-import { GeneralStatusEnum } from '@prisma/client';
+import { IssueStatus } from '@prisma/client';
 import { RiskCategoryDto } from 'src/modules/risk-categories/dto/risk-category.dto';
 import { RiskDto } from 'src/modules/risks/dto/risk.dto';
 import { DepartmentDto } from 'src/modules/departments/dto/department.dto';
@@ -86,9 +86,9 @@ export class InspectionItemDto {
   @Expose()
   dueDateAt?: Date;
 
-  @ApiProperty({ enum: GeneralStatusEnum })
+  @ApiProperty({ enum: IssueStatus })
   @Expose()
-  status: GeneralStatusEnum;
+  status: IssueStatus;
 
   @ApiProperty()
   @Expose()

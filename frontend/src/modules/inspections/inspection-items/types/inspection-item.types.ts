@@ -2,7 +2,7 @@
  * Inspection Item types
  */
 
-import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { IssueStatus } from '@/shared/constants/issue-status.enum';
 import { RiskCategory, Risk } from '@/core/lib/types';
 import { Department } from '@/core/lib/types';
 import { User } from '@/core/lib/types';
@@ -64,7 +64,7 @@ export interface InspectionItem {
   followUpNotes?: string;
   findings?: string;
   dueDateAt?: Date;
-  status: GeneralStatusEnum;
+  status: IssueStatus;
   order: number;
   createdAt: Date;
   updatedAt: Date;
@@ -97,7 +97,7 @@ export interface UpdateInspectionItemDTO {
   followUpNotes?: string;
   findings?: string;
   dueDateAt?: string;
-  status?: GeneralStatusEnum;
+  status?: IssueStatus;
   order?: number;
   images?: CreateInspectionItemImageDTO[];
   mitigation?: RiskMitigationData | null;
@@ -115,7 +115,7 @@ export interface InspectionItemSearchParams {
   limit?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
-  status?: GeneralStatusEnum;
+  status?: IssueStatus;
   assignedDepartmentId?: string;
   assigneeId?: string;
   riskId?: string;

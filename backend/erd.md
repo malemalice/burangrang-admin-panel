@@ -32,6 +32,12 @@ Enum RiskRatingEnum {
   EXTREME [note: 'Extreme risk level']
 }
 
+Enum IssueStatus Enum {
+  OPEN [note: 'Open Issue']
+  WAITING_APPROVAL [note: 'Waiting Verification']
+  CLOSE [note: 'Issue Closed']
+}
+
 Enum GeneralStatusEnum {
   SCHEDULED [note: 'Scheduled status']
   DRAFT [note: 'Draft status']
@@ -726,11 +732,10 @@ Table t_inspection_items {
   riskId varchar [not null, ref: > m_risk.id]
   assignedDepartmentId varchar [not null, ref: > m_departments.id]
   assigneeId varchar [null, ref: > t_users.id]
-  status GeneralStatusEnum [not null]
+  status IssueStatus [not null]
   findings text [null]
   description text [null]
   followUpNotes text [null]
-  order int [not null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   dueDateAt timestamp [null]
