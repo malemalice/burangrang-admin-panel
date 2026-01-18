@@ -220,21 +220,9 @@ const CourseDetailPage = () => {
             </div>
           </div>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit Course
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}?tab=chapters`)}>
-              <BookOpen className="mr-2 h-4 w-4" /> Manage Chapters
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button onClick={() => navigate(`/courses/${course.id}/edit`)}>
+          <Edit className="mr-2 h-4 w-4" /> Edit Course
+        </Button>
       </div>
 
       {/* Tabs */}
@@ -356,30 +344,6 @@ const CourseDetailPage = () => {
                       </span>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-
-              {/* Actions */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Button
-                    className="w-full"
-                    onClick={() => navigate(`/courses/${course.id}/edit`)}
-                  >
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit Course
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => navigate(`/courses/${course.id}/chapters`)}
-                  >
-                    <BookOpen className="mr-2 h-4 w-4" />
-                    Manage Chapters
-                  </Button>
                 </CardContent>
               </Card>
             </div>

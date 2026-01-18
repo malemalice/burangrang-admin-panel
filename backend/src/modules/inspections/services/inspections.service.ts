@@ -194,7 +194,7 @@ export class InspectionsService {
               orderBy: { order: 'asc' },
             },
           },
-          orderBy: { order: 'asc' },
+          orderBy: { createdAt: 'asc' },
         },
         inspectors: {
           include: {
@@ -274,7 +274,7 @@ export class InspectionsService {
                 orderBy: { order: 'asc' },
               },
             },
-            orderBy: { order: 'asc' },
+            orderBy: { createdAt: 'asc' },
           },
           inspectors: {
             include: {
@@ -325,7 +325,7 @@ export class InspectionsService {
               orderBy: { order: 'asc' },
             },
           },
-          orderBy: { order: 'asc' },
+          orderBy: { createdAt: 'asc' },
         },
         inspectors: {
           include: {
@@ -434,7 +434,7 @@ export class InspectionsService {
               orderBy: { order: 'asc' },
             },
           },
-          orderBy: { order: 'asc' },
+          orderBy: { createdAt: 'asc' },
         },
         inspectors: {
           include: {
@@ -616,7 +616,7 @@ export class InspectionsService {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'order',
+      sortBy = 'createdAt',
       sortOrder = 'asc',
       search,
     } = options || {};
@@ -629,11 +629,13 @@ export class InspectionsService {
       'riskId',
       'assignedDepartmentId',
       'assigneeId',
-      'order',
+      'status',
+      'createdAt',
+      'updatedAt',
     ];
 
     // Validate and sanitize sortBy
-    const validatedSortBy = validSortFields.includes(sortBy) ? sortBy : 'order';
+    const validatedSortBy = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
 
     const where: Prisma.InspectionItemWhereInput = {
       inspectionId,
@@ -1248,7 +1250,6 @@ export class InspectionsService {
       'assignedDepartmentId',
       'assigneeId',
       'status',
-      'order',
       'createdAt',
       'updatedAt',
     ];
@@ -1503,6 +1504,20 @@ export class InspectionsService {
   }
 
   /**
+   * Generate unique mitigation code: RSK + YYMMDDHHmmss
+   */
+  private generateMitigationCode(): string {
+    const now = new Date();
+    const year = now.getFullYear().toString().slice(-2);
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const date = now.getDate().toString().padStart(2, '0');
+    const hour = now.getHours().toString().padStart(2, '0');
+    const minute = now.getMinutes().toString().padStart(2, '0');
+    const second = now.getSeconds().toString().padStart(2, '0');
+    return `RSK${year}${month}${date}${hour}${minute}${second}`;
+  }
+
+  /**
    * Create mitigation record for an inspection item
    */
   private async createMitigationRecord(
@@ -1511,6 +1526,7 @@ export class InspectionsService {
   ): Promise<RiskMitigationRecord> {
     return this.prisma.riskMitigationRecord.create({
       data: {
+        code: this.generateMitigationCode(),
         entity: INSPECTION_ITEM_ENTITY,
         entityId: itemId,
         eliminate: mitigation.eliminate || null,
@@ -1583,6 +1599,7 @@ export class InspectionsService {
   ): RiskMitigationRecordDto {
     return {
       id: record.id,
+      code: record.code,
       entity: record.entity,
       entityId: record.entityId,
       eliminate: record.eliminate || undefined,

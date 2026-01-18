@@ -33,7 +33,7 @@ import { riskCategoryService, riskService, departmentService } from '@/modules/m
 import { RiskCategory, Risk, Department } from '@/core/lib/types';
 import userService from '@/modules/users/services/userService';
 import { User } from '@/core/lib/types';
-import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
+import { GeneralStatusEnum, INSPECTION_ITEM_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
 
 const formSchema = z.object({
   riskCategoryId: z.string().min(1, 'Risk Category is required'),
@@ -68,7 +68,7 @@ const EditInspectionItemPage = () => {
       assigneeId: undefined,
       description: '',
       followUpNotes: '',
-      status: GeneralStatusEnum.DRAFT,
+      status: GeneralStatusEnum.OPEN,
     },
   });
 
@@ -322,7 +322,7 @@ const EditInspectionItemPage = () => {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {GENERAL_STATUS_OPTIONS.map((option) => (
+                            {INSPECTION_ITEM_STATUS_OPTIONS.map((option) => (
                               <SelectItem key={option.value} value={option.value}>
                                 {option.label}
                               </SelectItem>

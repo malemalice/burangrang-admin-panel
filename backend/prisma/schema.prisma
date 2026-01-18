@@ -300,6 +300,7 @@ model RiskControl {
 // 1-to-1 relationship: Each RiskAssessmentItem or InspectionItem can have one RiskMitigationRecord
 model RiskMitigationRecord {
   id           String   @id @default(uuid())
+  code         String   @unique // Auto-generated code with prefix RSK{datetime}, not user-updatable
   eliminate    String?  @db.Text
   transfer     String?  @db.Text
   reduce       String?  @db.Text
@@ -910,7 +911,7 @@ model Course {
   rating           Decimal   @default(0) @db.Decimal(3, 2)
   reviewCount      Int       @default(0)
   studentCount     Int       @default(0)
-  instructorId     String
+  instructorId     String?
   status           String    @default("draft") // draft, review, published, archived
   isPublished      Boolean   @default(false)
   publishedAt      DateTime?
@@ -919,7 +920,7 @@ model Course {
   updatedAt        DateTime  @updatedAt
 
   // Relations
-  instructor                User                       @relation("CourseInstructor", fields: [instructorId], references: [id])
+  instructor                User?                      @relation("CourseInstructor", fields: [instructorId], references: [id])
   chapters                  Chapter[]
   categories                CourseCategory[]           @relation("CourseToCategory")
   enrollments               Enrollment[]
@@ -1426,7 +1427,7 @@ model InspectionItem {
   riskId              String
   assignedDepartmentId String
   assigneeId          String?
-  status              GeneralStatusEnum @default(DRAFT)
+  status              GeneralStatusEnum @default(OPEN)
   findings            String?  @db.Text
   description         String?  @db.Text
   followUpNotes       String?  @db.Text
@@ -1862,6 +1863,7 @@ enum GeneralStatusEnum {
   WAITING_APPROVAL
   DONE
   REJECTED
+  CLOSE
 }
 
 enum TransitionTypeEnum {

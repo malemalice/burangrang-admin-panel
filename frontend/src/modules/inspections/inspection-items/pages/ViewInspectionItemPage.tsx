@@ -13,12 +13,16 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { InspectionItem, InspectionImageTypeEnum } from '../types/inspection-item.types';
 import inspectionItemsService from '../services/inspectionItemsService';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { approvalService, type ApprovalStatusHistory } from '@/modules/master-data';
+import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
 
 const ViewInspectionItemPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [item, setItem] = useState<InspectionItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -40,14 +44,48 @@ const ViewInspectionItemPage = () => {
     fetchItem();
   }, [id, navigate]);
 
+  // Fetch approval status/history
+  useEffect(() => {
+    const fetchApprovalStatus = async () => {
+      if (!id) return;
+
+      setIsLoadingHistory(true);
+      try {
+        const approvalStatus = await inspectionItemsService.checkApprovalStatus(id);
+        // Handle backend error response (backend returns { error: true, message: string } on errors)
+        if (approvalStatus && !(approvalStatus as any).error) {
+          setApprovalHistory(approvalStatus);
+        } else {
+          // Backend returned an error response, but still set empty history
+          setApprovalHistory({
+            history: [],
+            nextApprover: null,
+            allApprovalLines: [],
+            currentStatus: 'UNKNOWN',
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch approval status:', error);
+        // Set empty history instead of null, so component can still render
+        setApprovalHistory({
+          history: [],
+          nextApprover: null,
+          allApprovalLines: [],
+          currentStatus: 'UNKNOWN',
+        });
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    fetchApprovalStatus();
+  }, [id]);
+
   const getStatusBadge = (status: GeneralStatusEnum) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
-      [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
-      [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'outline' },
-      [GeneralStatusEnum.OPEN]: { label: 'Open', variant: 'secondary' },
-      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Approval', variant: 'secondary' },
-      [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
-      [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
+      [GeneralStatusEnum.OPEN]: { label: 'Open Issue', variant: 'secondary' },
+      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
+      [GeneralStatusEnum.CLOSE]: { label: 'Closed', variant: 'default' },
     };
 
     const statusInfo = statusMap[status] || { label: status, variant: 'outline' };
@@ -94,12 +132,14 @@ const ViewInspectionItemPage = () => {
       />
 
       <div className="space-y-6">
+        {/* Basic Information and Approval Timeline */}
         <Card>
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Inspection Code</p>
                 <p className="text-sm font-medium">
@@ -169,6 +209,16 @@ const ViewInspectionItemPage = () => {
                     ? format(new Date(item.updatedAt), 'dd MMM yyyy HH:mm')
                     : 'N/A'}
                 </p>
+              </div>
+              </div>
+              
+              {/* Approval Timeline */}
+              <div className="lg:border-l lg:pl-6 flex flex-col">
+                <ApprovalTimelineCard
+                  approvalHistory={approvalHistory}
+                  isLoading={isLoadingHistory}
+                  assessmentStatus={item.status === GeneralStatusEnum.CLOSE ? 'DONE' : item.status}
+                />
               </div>
             </div>
           </CardContent>

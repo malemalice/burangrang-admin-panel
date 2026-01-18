@@ -5,8 +5,14 @@ import { RiskRegisterTable } from '../components/RiskRegisterTable';
 import { useRiskRegister } from '../hooks/useRiskRegister';
 import { FindRiskRegisterParams } from '../types/risk-register.types';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
-import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
+import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import { departmentService, riskService, riskCategoryService } from '@/modules/master-data';
+
+// Filter constants
+const STATUS_FILTER_VALUE_CLOSED = 'CLOSED';
+const STATUS_FILTER_LABEL_ALL = 'All';
+const STATUS_FILTER_LABEL_OPEN = 'Open';
+const STATUS_FILTER_LABEL_CLOSED = 'Closed';
 
 const RiskRegisterPage = () => {
   const navigate = useNavigate();
@@ -70,10 +76,11 @@ const RiskRegisterPage = () => {
       id: 'status',
       label: 'Status',
       type: 'select',
-      options: GENERAL_STATUS_OPTIONS.map(option => ({
-        label: option.label,
-        value: option.value,
-      })),
+      options: [
+        { label: STATUS_FILTER_LABEL_ALL, value: '' },
+        { label: STATUS_FILTER_LABEL_OPEN, value: GeneralStatusEnum.OPEN },
+        { label: STATUS_FILTER_LABEL_CLOSED, value: STATUS_FILTER_VALUE_CLOSED },
+      ],
     },
   ]);
 
@@ -144,10 +151,16 @@ const RiskRegisterPage = () => {
 
     filters.forEach(filter => {
       if (filter.id === 'status') {
-        const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === filter.value);
+        // Map CLOSED to DONE for backend query
+        const backendValue = filter.value === STATUS_FILTER_VALUE_CLOSED ? GeneralStatusEnum.DONE : filter.value;
+        const displayLabel = filter.value === STATUS_FILTER_VALUE_CLOSED 
+          ? STATUS_FILTER_LABEL_CLOSED 
+          : filter.value === GeneralStatusEnum.OPEN 
+          ? STATUS_FILTER_LABEL_OPEN 
+          : STATUS_FILTER_LABEL_ALL;
         newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: statusOption?.label || filter.value,
+          value: backendValue,
+          label: displayLabel,
         };
       } else if (filter.id === 'entityType') {
         const entityTypeLabel =

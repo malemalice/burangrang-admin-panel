@@ -18,6 +18,7 @@ export interface RiskMitigationData {
 
 export interface RiskMitigationRecord extends RiskMitigationData {
   id: string;
+  code: string;
   entity: string;
   entityId: string;
   isActive: boolean;

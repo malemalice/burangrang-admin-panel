@@ -405,6 +405,13 @@ async function main() {
           await prisma.auditClause.deleteMany();
           await prisma.auditElement.deleteMany();
           break;
+        case 'master_approvals':
+        case 'master-approvals':
+        case 'approvals':
+          await prisma.masterApprovalItem.deleteMany();
+          await prisma.approval.deleteMany();
+          await prisma.masterApproval.deleteMany();
+          break;
         case 'risk_assessments':
         case 'risk-assessments':
         case 'inspections':
@@ -422,7 +429,7 @@ async function main() {
         default:
           console.error(`Unknown table: ${tableToSeed}`);
           console.log(
-            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, audit-policy, risk-assessments, inspections, risk-assessments-inspections',
+            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, audit-policy, approvals, master-approvals, risk-assessments, inspections, risk-assessments-inspections',
           );
           process.exit(1);
       }

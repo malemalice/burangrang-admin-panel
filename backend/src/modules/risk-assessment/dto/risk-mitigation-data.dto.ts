@@ -45,6 +45,10 @@ export class RiskMitigationRecordDto extends RiskMitigationDataDto {
   @Expose()
   id: string;
 
+  @ApiProperty({ description: 'Auto-generated code with prefix RSK{datetime}' })
+  @Expose()
+  code: string;
+
   @ApiProperty({ description: 'Entity type (e.g., RISK_ASSESSMENT_ITEM)' })
   @Expose()
   entity: string;

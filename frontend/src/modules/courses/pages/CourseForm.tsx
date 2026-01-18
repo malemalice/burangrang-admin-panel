@@ -29,14 +29,12 @@ const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   slug: z.string().min(1, 'Slug is required'),
   description: z.string().optional(),
-  shortDescription: z.string().optional(),
   thumbnailUrl: z.string().optional().or(z.literal('')),
   difficulty: z.enum(['beginner', 'intermediate', 'advanced']),
   language: z.string().min(1, 'Language is required'),
-  instructorId: z.string().min(1, 'Instructor is required'),
-  status: z.enum(['draft', 'review', 'published', 'archived']),
+  instructorId: z.string().optional(),
+  status: z.enum(['draft', 'published']),
   categoryIds: z.array(z.string()).optional(),
-  isPublished: z.boolean(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -60,14 +58,12 @@ const CourseForm = ({ mode }: CourseFormProps) => {
       title: '',
       slug: '',
       description: '',
-      shortDescription: '',
       thumbnailUrl: '',
       difficulty: 'beginner',
       language: 'en',
       instructorId: '',
       status: 'draft',
       categoryIds: [],
-      isPublished: false,
     },
   });
 
@@ -108,14 +104,12 @@ const CourseForm = ({ mode }: CourseFormProps) => {
         title: course.title,
         slug: course.slug,
         description: course.description || '',
-        shortDescription: course.shortDescription || '',
         thumbnailUrl: thumbnailUrl,
         difficulty: course.difficulty,
         language: course.language,
-        instructorId: course.instructorId,
-        status: course.status,
+        instructorId: course.instructorId || '',
+        status: course.status === 'published' ? 'published' : 'draft',
         categoryIds: selectedCats.map(cat => cat.id),
-        isPublished: course.isPublished,
       });
       
       setOriginalThumbnailUrl(thumbnailUrl);
@@ -174,14 +168,13 @@ const CourseForm = ({ mode }: CourseFormProps) => {
         title: data.title,
         slug: data.slug,
         description: data.description,
-        shortDescription: data.shortDescription,
         thumbnailUrl: thumbnailUrl,
         difficulty: data.difficulty,
         language: data.language,
-        instructorId: data.instructorId,
+        instructorId: data.instructorId || undefined,
         status: data.status,
         categoryIds: data.categoryIds && data.categoryIds.length > 0 ? data.categoryIds : undefined,
-        isPublished: data.isPublished,
+        isPublished: data.status === 'published',
       };
 
       if (mode === 'create') {
@@ -279,23 +272,6 @@ const CourseForm = ({ mode }: CourseFormProps) => {
 
                   <FormField
                     control={form.control}
-                    name="shortDescription"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Short Description</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="Brief description for course cards" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
                     name="description"
                     render={({ field }) => (
                       <FormItem>
@@ -371,7 +347,7 @@ const CourseForm = ({ mode }: CourseFormProps) => {
                     name="instructorId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Instructor *</FormLabel>
+                        <FormLabel>Instructor</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
@@ -442,41 +418,27 @@ const CourseForm = ({ mode }: CourseFormProps) => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Status</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="draft">Draft</SelectItem>
-                            <SelectItem value="review">Review</SelectItem>
-                            <SelectItem value="published">Published</SelectItem>
-                            <SelectItem value="archived">Archived</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="isPublished"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                         <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant={field.value === 'draft' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => field.onChange('draft')}
+                            >
+                              Draft
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={field.value === 'published' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => field.onChange('published')}
+                            >
+                              Published
+                            </Button>
+                          </div>
                         </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>Published</FormLabel>
-                          <p className="text-sm text-gray-600">
-                            Make this course visible to students
-                          </p>
-                        </div>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />

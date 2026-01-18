@@ -47,13 +47,19 @@ const ViewRiskRegisterPage = () => {
         }
       />
 
-      <div className="space-y-6 max-w-4xl">
+      <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Source Information</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-muted-foreground">Code</p>
+                <p className="text-sm font-medium font-mono">
+                  {item.code || 'N/A'}
+                </p>
+              </div>
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Source Type</p>
                 <RiskRegisterSourceBadge entity={item.entity} />

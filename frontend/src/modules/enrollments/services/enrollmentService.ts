@@ -1,4 +1,4 @@
-import api from '@/core/lib/api';
+import api from '../../../core/lib/api';
 import {
   Enrollment,
   EnrollmentDTO,
@@ -86,6 +86,17 @@ const enrollmentService = {
   updateEnrollment: async (id: string, updateData: UpdateEnrollmentDTO): Promise<Enrollment> => {
     const response = await api.patch(`/enrollments/${id}`, updateData);
     return mapEnrollmentDtoToEnrollment(response.data);
+  },
+
+  // GET learning context (enrollment + course + chapters + progress)
+  getLearningContext: async (id: string): Promise<any> => {
+    const response = await api.get(`/enrollments/${id}/learning-context`);
+    return {
+      enrollment: mapEnrollmentDtoToEnrollment(response.data.enrollment),
+      course: response.data.course,
+      quizzes: response.data.quizzes,
+      progress: response.data.progress,
+    };
   },
 
   // Helper function to get status color

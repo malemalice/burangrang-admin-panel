@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Loader2, X, Upload, Image as ImageIcon } from 'lucide-react';
+import { Loader2, X, Upload, Image as ImageIcon, CheckCircle, XCircle } from 'lucide-react';
 import { Separator } from '@/core/components/ui/separator';
 
 import { Button } from '@/core/components/ui/button';
@@ -19,6 +19,15 @@ import { Textarea } from '@/core/components/ui/textarea';
 import { Input } from '@/core/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { ModalCombobox, ModalComboboxOption } from '@/core/components/ui/modal-combobox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/core/components/ui/dialog';
+import { Label } from '@/core/components/ui/label';
 
 import { CreateInspectionItemDTO, InspectionImageTypeEnum } from '../types/inspection.types';
 import { riskCategoryService, riskService } from '@/modules/master-data';
@@ -30,14 +39,11 @@ import { Department } from '@/core/lib/types';
 import areaService from '@/modules/master-data/services/areaService';
 import { AreaDTO } from '@/modules/master-data/types/master-data.types';
 import uploadService, { FileCategory } from '@/modules/uploads/services/uploadService';
-import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { GeneralStatusEnum, INSPECTION_ITEM_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
 import riskMitigationService, { type RiskMitigation } from '@/modules/risk-assessment/services/riskMitigationService';
+import inspectionItemsService from '../inspection-items/services/inspectionItemsService';
 
-// Inspection item status options (only OPEN and DONE/CLOSE)
-const INSPECTION_ITEM_STATUS_OPTIONS = [
-  { value: GeneralStatusEnum.OPEN, label: 'Open' },
-  { value: GeneralStatusEnum.DONE, label: 'Close' },
-] as const;
+// Inspection item status options - using GeneralStatusEnum (OPEN, WAITING_APPROVAL, CLOSE)
 
 // Image upload interface
 interface ImageUpload {
@@ -71,12 +77,14 @@ const formSchema = z.object({
   findings: z.string().optional(),
   dueDateAt: z.string().optional(),
   mitigation: mitigationSchema.optional(),
+  approvalNotes: z.string().optional(), // Notes field for approver/verifier
 }).superRefine((data, ctx) => {
-  // Status validation: inspection items can only be OPEN or DONE (Close)
-  if (data.status !== GeneralStatusEnum.OPEN && data.status !== GeneralStatusEnum.DONE) {
+  // Status validation: inspection items can be OPEN, WAITING_APPROVAL, or CLOSE
+  const validStatuses = [GeneralStatusEnum.OPEN, GeneralStatusEnum.WAITING_APPROVAL, GeneralStatusEnum.CLOSE];
+  if (!validStatuses.includes(data.status)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'Status must be either Open or Close',
+      message: 'Status must be OPEN, WAITING_APPROVAL, or CLOSE',
       path: ['status'],
     });
   }
@@ -157,7 +165,7 @@ const FIELD_PERMISSIONS: Record<FormMode, Record<string, FieldPermission>> = {
 
 interface InspectionItemFormProps {
   inspectionId?: string;
-  initialItem?: Partial<CreateInspectionItemDTO>;
+  initialItem?: Partial<CreateInspectionItemDTO & { id?: string }>;
   onSubmit?: (item: CreateInspectionItemDTO) => void;
   onCancel?: () => void;
   showCard?: boolean;
@@ -236,6 +244,18 @@ const InspectionItemForm = ({
   const [fileCategory, setFileCategory] = useState<FileCategory | null>(null);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
 
+  // Approval workflow states
+  // Initialize isCheckingApprovalRights to true if we're in verifier mode with an item ID
+  // This ensures we show loading state immediately instead of blank/access denied
+  const [canApprove, setCanApprove] = useState(false);
+  const [isCheckingApprovalRights, setIsCheckingApprovalRights] = useState(
+    formMode === 'verifier' && !!initialItem?.id
+  );
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [approvalNotes, setApprovalNotes] = useState('');
+  const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
+
   // Convert data to ModalComboboxOption format
   const riskOptions: ModalComboboxOption[] = risks.map(risk => ({
     value: risk.id,
@@ -282,6 +302,7 @@ const InspectionItemForm = ({
         accept: '',
         legalAspect: '',
       },
+      approvalNotes: '', // Initialize approval notes field
     },
   });
 
@@ -293,7 +314,8 @@ const InspectionItemForm = ({
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [riskCategoriesResponse, risksResponse, departmentsResponse, areasResponse, usersResponse] = await Promise.all([
+        // Fetch all required data in parallel
+        const [riskCategoriesResponse, risksResponse, departmentsResponse, areasResponse] = await Promise.all([
           riskCategoryService.getAll({ page: 1, limit: 1000, isActive: true }),
           riskService.getAll({ page: 1, limit: 1000, isActive: true }),
           departmentService.getDepartments({ 
@@ -306,13 +328,32 @@ const InspectionItemForm = ({
             limit: 1000,
             filters: { isActive: true }
           }),
-          userService.getAll({ page: 1, limit: 1000 }),
         ]);
         setRiskCategories(riskCategoriesResponse.data);
         setRisks(risksResponse.data);
         setDepartments(departmentsResponse.data);
         setAreas(areasResponse.data);
-        setUsers(usersResponse.data);
+        
+        // Fetch users separately with error handling - this endpoint requires ADMIN/SUPER_ADMIN role
+        // If user doesn't have permission, we'll just skip it (assignee field is optional)
+        // Only fetch users if assigneeId field is editable in current form mode
+        const assigneePermission = FIELD_PERMISSIONS[formMode]?.assigneeId;
+        if (assigneePermission === 'editable') {
+          try {
+            const usersResponse = await userService.getAll({ page: 1, limit: 1000 });
+            setUsers(usersResponse.data);
+          } catch (userError) {
+            // Silently handle user fetch errors - assignee is optional anyway
+            // Only log if it's not a permission error (403)
+            const isAxiosError = userError && typeof userError === 'object' && 'response' in userError;
+            const errorStatus = isAxiosError ? (userError as { response: { status: number } }).response.status : undefined;
+            if (errorStatus !== 403) {
+              console.warn('Failed to fetch users (non-critical):', userError);
+            }
+            // Set empty array so the form can still render
+            setUsers([]);
+          }
+        }
         
         // Load file category for inspection images
         const category = await uploadService.getCategoryByName('course-materials');
@@ -328,7 +369,7 @@ const InspectionItemForm = ({
     };
 
     fetchData();
-  }, []);
+  }, [formMode]);
 
   // Initialize images from initialItem when editing
   useEffect(() => {
@@ -428,6 +469,36 @@ const InspectionItemForm = ({
       isInitialMount.current = false;
     }
   }, [isLoading, risks.length, riskCategories.length]);
+
+  // Check approval rights when formMode is verifier and item has an id
+  useEffect(() => {
+    const checkApprovalRights = async () => {
+      if (formMode !== 'verifier' || !initialItem?.id) {
+        setCanApprove(false);
+        return;
+      }
+
+      setIsCheckingApprovalRights(true);
+      try {
+        const rights = await inspectionItemsService.checkApprovalRights(initialItem.id);
+        const hasRights = rights.canApprove || false;
+        setCanApprove(hasRights);
+        
+        // If user doesn't have approval rights, show error and prevent form usage
+        if (!hasRights) {
+          toast.error('You do not have approval rights for this inspection item. Verifier mode is not available.');
+        }
+      } catch (error) {
+        console.error('Failed to check approval rights:', error);
+        setCanApprove(false);
+        toast.error('Failed to check approval rights. Verifier mode is not available.');
+      } finally {
+        setIsCheckingApprovalRights(false);
+      }
+    };
+
+    checkApprovalRights();
+  }, [formMode, initialItem?.id]);
 
 
   // Handle image file selection for before images
@@ -656,9 +727,12 @@ const InspectionItemForm = ({
         data.mitigation.legalAspect
       );
 
+      // For updater mode, set status to WAITING_APPROVAL when submitting
+      const finalStatus = formMode === 'updater' ? GeneralStatusEnum.WAITING_APPROVAL : data.status;
+
       const itemData: CreateInspectionItemDTO = {
         areaId: data.areaId,
-        status: data.status,
+        status: finalStatus,
         riskCategoryId: data.riskCategoryId,
         riskId: data.riskId,
         assignedDepartmentId: data.assignedDepartmentId,
@@ -693,10 +767,110 @@ const InspectionItemForm = ({
     }
   };
 
+  // Handle approve action
+  const handleApprove = async () => {
+    if (!initialItem?.id) return;
+
+    try {
+      setIsSubmittingApproval(true);
+      
+      // Submit approval
+      await inspectionItemsService.submitApproval(
+        initialItem.id,
+        'APPROVED',
+        approvalNotes || 'Approved'
+      );
+
+      // Update status to CLOSE and submit the form
+      form.setValue('status', GeneralStatusEnum.CLOSE);
+      
+      // Get form data and update status
+      const formData = form.getValues();
+      
+      // Upload images first if any
+      let uploadedImages: { imageUrl: string; caption: string; type: InspectionImageTypeEnum; order: number }[] = [];
+      if (beforeImages.length > 0 || afterImages.length > 0) {
+        uploadedImages = await uploadImages();
+      }
+
+      // Handle mitigation data
+      const hasMitigation = formData.mitigation && (
+        formData.mitigation.eliminate ||
+        formData.mitigation.transfer ||
+        formData.mitigation.reduce ||
+        formData.mitigation.accept ||
+        formData.mitigation.legalAspect
+      );
+
+      // Build updated data with all required fields
+      const updatedData: CreateInspectionItemDTO = {
+        areaId: formData.areaId,
+        riskCategoryId: formData.riskCategoryId,
+        riskId: formData.riskId,
+        assignedDepartmentId: formData.assignedDepartmentId,
+        assigneeId: formData.assigneeId || undefined,
+        status: GeneralStatusEnum.CLOSE,
+        description: formData.description || undefined,
+        followUpNotes: formData.followUpNotes || undefined,
+        findings: formData.findings || undefined,
+        dueDateAt: formData.dueDateAt || undefined,
+        images: uploadedImages,
+        mitigation: hasMitigation ? {
+          eliminate: formData.mitigation?.eliminate || undefined,
+          transfer: formData.mitigation?.transfer || undefined,
+          reduce: formData.mitigation?.reduce || undefined,
+          accept: formData.mitigation?.accept || undefined,
+          legalAspect: formData.mitigation?.legalAspect || undefined,
+        } : undefined,
+      };
+
+      // Submit the updated data
+      if (onSubmit) {
+        await onSubmit(updatedData);
+      }
+
+      toast.success('Inspection item approved and closed');
+      setApproveDialogOpen(false);
+      setApprovalNotes('');
+    } catch (error) {
+      console.error('Failed to approve inspection item:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to approve inspection item');
+    } finally {
+      setIsSubmittingApproval(false);
+    }
+  };
+
+  // Handle reject action
+  const handleReject = async () => {
+    if (!initialItem?.id) return;
+
+    try {
+      setIsSubmittingApproval(true);
+      
+      // Submit rejection
+      await inspectionItemsService.submitApproval(
+        initialItem.id,
+        'REJECTED',
+        approvalNotes || 'Rejected'
+      );
+
+      // Keep status as OPEN (don't change it)
+      toast.success('Inspection item rejected');
+      setRejectDialogOpen(false);
+      setApprovalNotes('');
+    } catch (error) {
+      console.error('Failed to reject inspection item:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to reject inspection item');
+    } finally {
+      setIsSubmittingApproval(false);
+    }
+  };
+
   // Determine which sections to show based on formMode
-  const showCreatorSection = formMode === 'creator' || formMode === 'updater' || formMode === 'verifier';
-  const showUpdaterSection = formMode === 'updater' || formMode === 'verifier';
-  const showVerifierSection = formMode === 'verifier';
+  // For verifier mode, only show sections if user has approval rights
+  const showCreatorSection = formMode === 'creator' || formMode === 'updater' || (formMode === 'verifier' && canApprove);
+  const showUpdaterSection = formMode === 'updater' || (formMode === 'verifier' && canApprove);
+  const showVerifierSection = formMode === 'verifier' && canApprove && !isCheckingApprovalRights;
   
   // Helper to get field permission
   const getFieldPermission = (fieldName: string): FieldPermission => {
@@ -729,6 +903,43 @@ const InspectionItemForm = ({
         <div className="flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>Loading form data...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if verifier mode is accessed without approval rights
+  if (formMode === 'verifier' && initialItem?.id && !isCheckingApprovalRights && !canApprove) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Access Denied</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <XCircle className="h-12 w-12 text-destructive mb-4" />
+            <p className="text-lg font-semibold mb-2">You do not have approval rights</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Verifier mode is only available for users who have approval rights for this inspection item.
+            </p>
+            {onCancel && (
+              <Button variant="outline" onClick={onCancel}>
+                Go Back
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Show loading state while checking approval rights
+  if (formMode === 'verifier' && isCheckingApprovalRights) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Checking approval rights...</span>
         </div>
       </div>
     );
@@ -1457,23 +1668,163 @@ const InspectionItemForm = ({
         {/* Submit Buttons */}
         <div className="flex justify-end gap-2">
           {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting || isUploadingImages}>
+            <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting || isUploadingImages || isSubmittingApproval}>
               Cancel
             </Button>
           )}
-          <Button type="submit" disabled={isSubmitting || isUploadingImages}>
-            {isSubmitting || isUploadingImages ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {isUploadingImages ? 'Uploading Images...' : 'Submitting...'}
-              </>
-            ) : (
-              'Submit'
-            )}
-          </Button>
+          {formMode === 'verifier' && canApprove && (
+            <>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => setRejectDialogOpen(true)}
+                disabled={isSubmitting || isUploadingImages || isSubmittingApproval || isCheckingApprovalRights}
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Reject
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setApproveDialogOpen(true)}
+                disabled={isSubmitting || isUploadingImages || isSubmittingApproval || isCheckingApprovalRights}
+              >
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Approve
+              </Button>
+            </>
+          )}
+          {/* Hide Submit button in verifier mode - only Approve/Reject should be available */}
+          {formMode !== 'verifier' && (
+            <Button type="submit" disabled={isSubmitting || isUploadingImages || isSubmittingApproval}>
+              {isSubmitting || isUploadingImages ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {isUploadingImages ? 'Uploading Images...' : formMode === 'updater' ? 'Requesting Approval...' : 'Submitting...'}
+                </>
+              ) : (
+                formMode === 'updater' ? 'Request for Approval' : 'Submit'
+              )}
+            </Button>
+          )}
         </div>
       </form>
     </Form>
+  );
+
+  // Approval dialogs
+  const approveDialog = (
+    <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Approve Inspection Item</DialogTitle>
+          <DialogDescription>
+            Approve this inspection item. The status will be set to CLOSED.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="approve-notes">Notes</Label>
+            <Textarea
+              id="approve-notes"
+              placeholder="Enter approval notes (optional)..."
+              value={approvalNotes}
+              onChange={(e) => setApprovalNotes(e.target.value)}
+              className="min-h-[100px]"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setApproveDialogOpen(false);
+              setApprovalNotes('');
+            }}
+            disabled={isSubmittingApproval}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleApprove}
+            disabled={isSubmittingApproval}
+          >
+            {isSubmittingApproval ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Approving...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Approve
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  const rejectDialog = (
+    <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Reject Inspection Item</DialogTitle>
+          <DialogDescription>
+            Reject this inspection item. The status will remain OPEN.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="reject-notes">Reason for Rejection</Label>
+            <Textarea
+              id="reject-notes"
+              placeholder="Enter reason for rejection..."
+              value={approvalNotes}
+              onChange={(e) => setApprovalNotes(e.target.value)}
+              className="min-h-[100px]"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setRejectDialogOpen(false);
+              setApprovalNotes('');
+            }}
+            disabled={isSubmittingApproval}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleReject}
+            disabled={isSubmittingApproval || !approvalNotes.trim()}
+          >
+            {isSubmittingApproval ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Rejecting...
+              </>
+            ) : (
+              <>
+                <XCircle className="mr-2 h-4 w-4" />
+                Reject
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  const formWithDialogs = (
+    <>
+      {formContent}
+      {approveDialog}
+      {rejectDialog}
+    </>
   );
 
   if (showCard) {
@@ -1482,12 +1833,12 @@ const InspectionItemForm = ({
         <CardHeader>
           <CardTitle>{initialItem ? 'Edit' : 'Add'} Inspection Item</CardTitle>
         </CardHeader>
-        <CardContent>{formContent}</CardContent>
+        <CardContent>{formWithDialogs}</CardContent>
       </Card>
     );
   }
 
-  return formContent;
+  return formWithDialogs;
 };
 
 export default InspectionItemForm;

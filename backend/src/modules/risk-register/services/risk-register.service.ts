@@ -91,7 +91,7 @@ export class RiskRegisterService {
             ...(riskCategoryId && { mRiskCategoryId: riskCategoryId }),
             ...(status && {
               riskAssessment: {
-                status,
+                status: status as GeneralStatusEnum,
               },
             }),
             ...(departmentId && {
@@ -237,6 +237,7 @@ export class RiskRegisterService {
 
         return {
           id: record.id,
+          code: record.code,
           entity: record.entity,
           entityId: record.entityId,
           eliminate: record.eliminate || undefined,
@@ -354,6 +355,7 @@ export class RiskRegisterService {
 
     return {
       id: record.id,
+      code: record.code,
       entity: record.entity,
       entityId: record.entityId,
       eliminate: record.eliminate || undefined,

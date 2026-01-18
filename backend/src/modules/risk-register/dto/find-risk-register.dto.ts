@@ -52,7 +52,10 @@ export class FindRiskRegisterDto {
   @IsOptional()
   riskCategoryId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by status', enum: GeneralStatusEnum })
+  @ApiPropertyOptional({ 
+    description: 'Filter by status. Uses GeneralStatusEnum for both risk assessments and inspection items.', 
+    enum: GeneralStatusEnum 
+  })
   @IsEnum(GeneralStatusEnum)
   @IsOptional()
   status?: GeneralStatusEnum;

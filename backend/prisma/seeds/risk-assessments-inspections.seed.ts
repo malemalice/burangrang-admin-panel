@@ -33,6 +33,22 @@ const generateInspectionCode = (date: Date): string => {
 };
 
 /**
+ * Generate risk mitigation record code: RSK{YY}{MM}{DD}{HH}{MM}{SS}{sequence}
+ * Sequence is optional and ensures uniqueness when creating multiple records in quick succession
+ */
+const generateMitigationCode = (date: Date, sequence?: number): string => {
+  const year = date.getFullYear().toString().slice(-2);
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  const hour = date.getHours().toString().padStart(2, '0');
+  const minute = date.getMinutes().toString().padStart(2, '0');
+  const second = date.getSeconds().toString().padStart(2, '0');
+  const ms = date.getMilliseconds().toString().padStart(3, '0');
+  const seq = sequence !== undefined ? sequence.toString().padStart(3, '0') : ms;
+  return `RSK${year}${month}${day}${hour}${minute}${second}${seq}`;
+};
+
+/**
  * Calculate risk matrix rating from likelihood and consequence
  */
 const calculateRiskRating = (
@@ -66,6 +82,9 @@ export const seedRiskAssessmentsAndInspections = async (
 ): Promise<void> => {
   const client = prismaClient || prisma;
   console.log('🌱 Seeding risk assessments and inspections...');
+
+  // Global counter for unique mitigation codes across all records
+  let mitigationCodeCounter = 0;
 
   try {
     // Get dependencies
@@ -302,6 +321,7 @@ export const seedRiskAssessmentsAndInspections = async (
 
         await client.riskMitigationRecord.create({
           data: {
+            code: generateMitigationCode(new Date(), mitigationCodeCounter++),
             entity: 'RISK_ASSESSMENT_ITEM',
             entityId: item.id,
             ...mitigation,
@@ -321,7 +341,7 @@ export const seedRiskAssessmentsAndInspections = async (
 
     // ========================================================================
     // SEED INSPECTIONS (with at least 20 items)
-    // Note: Both inspections and inspection items have status (only OPEN or DONE)
+    // Note: Both inspections and inspection items use GeneralStatusEnum
     // ========================================================================
     console.log('🔍 Creating inspections...');
 
@@ -385,16 +405,16 @@ export const seedRiskAssessmentsAndInspections = async (
         const department = departments[j % departments.length];
         const assignee = j % 3 === 0 ? users[j % users.length] : null; // Assign every 3rd item
 
-        // Only OPEN or DONE status for inspection items
+        // Only OPEN or CLOSE status for inspection items
         const itemStatuses: GeneralStatusEnum[] = [
           GeneralStatusEnum.OPEN,
-          GeneralStatusEnum.DONE,
+          GeneralStatusEnum.CLOSE,
         ];
-        // If inspection is DONE, make most items DONE; if OPEN, mix OPEN and DONE
+        // If inspection is DONE, make most items CLOSE; if OPEN, mix OPEN and CLOSE
         const itemStatus =
           status === GeneralStatusEnum.DONE
-            ? GeneralStatusEnum.DONE // All items DONE when inspection is DONE
-            : itemStatuses[j % itemStatuses.length]; // Mix OPEN and DONE when inspection is OPEN
+            ? GeneralStatusEnum.CLOSE // All items CLOSE when inspection is DONE
+            : itemStatuses[j % itemStatuses.length]; // Mix OPEN and CLOSE when inspection is OPEN
 
         const findings =
           j % 3 === 0
@@ -407,15 +427,13 @@ export const seedRiskAssessmentsAndInspections = async (
             : null;
 
         const followUpNotes =
-          itemStatus === GeneralStatusEnum.DONE
+          itemStatus === GeneralStatusEnum.CLOSE
             ? `Follow-up completed on ${new Date().toLocaleDateString()}. All issues resolved.`
             : null;
 
         const dueDate = new Date(inspectionDate);
         dueDate.setDate(dueDate.getDate() + (7 + j * 2)); // Different due dates
 
-        // Note: Prisma client types expect 'order' field but schema doesn't have it
-        // Using type assertion to bypass this type mismatch
         const item = await client.inspectionItem.create({
           data: {
             inspectionId: inspection.id,
@@ -429,8 +447,7 @@ export const seedRiskAssessmentsAndInspections = async (
             description,
             followUpNotes,
             dueDateAt: dueDate,
-            order: j + 1, // Prisma client expects this, but schema may not have it
-          } as any, // Type assertion to bypass Prisma client type mismatch
+          },
         });
 
         // Create risk mitigation record for this inspection item (at least one field filled)
@@ -482,6 +499,7 @@ export const seedRiskAssessmentsAndInspections = async (
 
         await client.riskMitigationRecord.create({
           data: {
+            code: generateMitigationCode(new Date(), mitigationCodeCounter++),
             entity: 'INSPECTION_ITEM',
             entityId: item.id,
             ...mitigation,
