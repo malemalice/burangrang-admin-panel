@@ -107,3 +107,44 @@ export interface UpdateSafetyEquipmentDTO {
     isActive?: boolean;
 }
 
+// =============================================================================
+// STOCK MOVEMENT TYPES
+// =============================================================================
+
+export interface StockMovement {
+    id: string;
+    movementType: 'STOCK_IN' | 'WITHDRAWAL' | 'ADJUSTMENT';
+    adjustmentType?: string;
+    quantity: number;
+    runningBalance: number;
+    date: string;
+    referenceCode?: string;
+    notes?: string;
+    performedBy: {
+        id: string;
+        name: string;
+    };
+    metadata?: {
+        departmentName?: string;
+        requestedForName?: string;
+        stockCode?: string;
+        expiryDate?: string;
+        reason?: string;
+    };
+}
+
+export interface StockMovementSearchParams extends Omit<PaginationParams, 'filters'> {
+    movementType?: 'STOCK_IN' | 'WITHDRAWAL' | 'ADJUSTMENT';
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+}
+
+export interface StockMovementResponse extends PaginatedResponse<StockMovement> {
+    summary: {
+        totalIn: number;
+        totalOut: number;
+        currentStock: number;
+    };
+}
+

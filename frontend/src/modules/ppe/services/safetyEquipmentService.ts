@@ -6,6 +6,8 @@ import {
     SafetyEquipmentTypeDTO,
     CreateSafetyEquipmentDTO,
     UpdateSafetyEquipmentDTO,
+    StockMovementSearchParams,
+    StockMovementResponse,
 } from '../types/ppe-master-data.types';
 
 // Convert SafetyEquipmentDTO from backend to SafetyEquipment model for frontend
@@ -132,6 +134,31 @@ const safetyEquipmentService = {
             await api.delete(`/ppe/safety-equipments/${id}`);
         } catch (error: any) {
             const errorMessage = error.response?.data?.message || 'Failed to delete safety equipment';
+            throw new Error(errorMessage);
+        }
+    },
+
+    // Get stock movement history for a specific safety equipment
+    async getStockMovements(
+        id: string,
+        params: StockMovementSearchParams,
+    ): Promise<StockMovementResponse> {
+        try {
+            const queryParams = new URLSearchParams({
+                page: (params.page || 1).toString(),
+                limit: (params.limit || 20).toString(),
+            });
+
+            if (params.movementType) queryParams.append('movementType', params.movementType);
+            if (params.dateFrom) queryParams.append('dateFrom', params.dateFrom);
+            if (params.dateTo) queryParams.append('dateTo', params.dateTo);
+            if (params.search) queryParams.append('search', params.search);
+
+            const response = await api.get(`/ppe/safety-equipments/${id}/movements?${queryParams.toString()}`);
+            return response.data;
+        } catch (error: any) {
+            console.error(`Error fetching stock movements for equipment ${id}:`, error);
+            const errorMessage = error.response?.data?.message || 'Failed to fetch stock movements';
             throw new Error(errorMessage);
         }
     },
