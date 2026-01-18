@@ -17,6 +17,30 @@ const inspectionItemsService = {
     const response = await api.patch(`/inspection-items/${id}`, data);
     return response.data;
   },
+
+  checkApprovalRights: async (id: string) => {
+    const response = await api.get(`/master-approvals/check-approval/${id}`, {
+      params: { entity: 'INSPECTION_ITEM' },
+    });
+    return response.data;
+  },
+
+  checkApprovalStatus: async (id: string) => {
+    const response = await api.get(`/master-approvals/check-approval-status/${id}`, {
+      params: { entity: 'INSPECTION_ITEM' },
+    });
+    return response.data;
+  },
+
+  submitApproval: async (id: string, status: 'APPROVED' | 'REJECTED', notes: string) => {
+    const response = await api.post('/master-approvals/approval', {
+      dataId: id,
+      entity: 'INSPECTION_ITEM',
+      status,
+      notes,
+    });
+    return response.data;
+  },
 };
 
 export default inspectionItemsService;

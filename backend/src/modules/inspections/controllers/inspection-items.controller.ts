@@ -14,7 +14,7 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
-import { IssueStatus } from '@prisma/client';
+import { GeneralStatusEnum } from '@prisma/client';
 import { InspectionsService } from '../services/inspections.service';
 import {
   UpdateInspectionItemDto,
@@ -39,7 +39,7 @@ export class InspectionItemsController {
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
   @ApiQuery({ name: 'sortBy', required: false, type: String, description: 'Sort field' })
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Sort order' })
-  @ApiQuery({ name: 'status', required: false, enum: IssueStatus, description: 'Filter by status' })
+  @ApiQuery({ name: 'status', required: false, enum: GeneralStatusEnum, description: 'Filter by status' })
   @ApiQuery({ name: 'assignedDepartmentId', required: false, type: String, description: 'Filter by assigned department ID' })
   @ApiQuery({ name: 'assigneeId', required: false, type: String, description: 'Filter by assignee user ID' })
   @ApiQuery({ name: 'riskId', required: false, type: String, description: 'Filter by risk ID' })
@@ -52,7 +52,7 @@ export class InspectionItemsController {
     @Query('limit') limit?: number,
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
-    @Query('status') status?: IssueStatus,
+    @Query('status') status?: GeneralStatusEnum,
     @Query('assignedDepartmentId') assignedDepartmentId?: string,
     @Query('assigneeId') assigneeId?: string,
     @Query('riskId') riskId?: string,

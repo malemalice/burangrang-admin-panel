@@ -2,7 +2,7 @@
  * Risk Assessment and Inspection seed data
  * Following seed.ts patterns for seed data
  */
-import { PrismaClient, GeneralStatusEnum, IssueStatus, RiskRatingEnum } from '@prisma/client';
+import { PrismaClient, GeneralStatusEnum, RiskRatingEnum } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -30,6 +30,22 @@ const generateInspectionCode = (date: Date): string => {
   const minute = date.getMinutes().toString().padStart(2, '0');
   const second = date.getSeconds().toString().padStart(2, '0');
   return `INS${year}${month}${day}${hour}${minute}${second}`;
+};
+
+/**
+ * Generate risk mitigation record code: RSK{YY}{MM}{DD}{HH}{MM}{SS}{sequence}
+ * Sequence is optional and ensures uniqueness when creating multiple records in quick succession
+ */
+const generateMitigationCode = (date: Date, sequence?: number): string => {
+  const year = date.getFullYear().toString().slice(-2);
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  const hour = date.getHours().toString().padStart(2, '0');
+  const minute = date.getMinutes().toString().padStart(2, '0');
+  const second = date.getSeconds().toString().padStart(2, '0');
+  const ms = date.getMilliseconds().toString().padStart(3, '0');
+  const seq = sequence !== undefined ? sequence.toString().padStart(3, '0') : ms;
+  return `RSK${year}${month}${day}${hour}${minute}${second}${seq}`;
 };
 
 /**
@@ -66,6 +82,9 @@ export const seedRiskAssessmentsAndInspections = async (
 ): Promise<void> => {
   const client = prismaClient || prisma;
   console.log('🌱 Seeding risk assessments and inspections...');
+
+  // Global counter for unique mitigation codes across all records
+  let mitigationCodeCounter = 0;
 
   try {
     // Get dependencies
@@ -302,6 +321,7 @@ export const seedRiskAssessmentsAndInspections = async (
 
         await client.riskMitigationRecord.create({
           data: {
+            code: generateMitigationCode(new Date(), mitigationCodeCounter++),
             entity: 'RISK_ASSESSMENT_ITEM',
             entityId: item.id,
             ...mitigation,
@@ -321,7 +341,7 @@ export const seedRiskAssessmentsAndInspections = async (
 
     // ========================================================================
     // SEED INSPECTIONS (with at least 20 items)
-    // Note: Inspections have GeneralStatusEnum status, inspection items have IssueStatus (OPEN, WAITING_APPROVAL, or CLOSE)
+    // Note: Both inspections and inspection items use GeneralStatusEnum
     // ========================================================================
     console.log('🔍 Creating inspections...');
 
@@ -385,15 +405,15 @@ export const seedRiskAssessmentsAndInspections = async (
         const department = departments[j % departments.length];
         const assignee = j % 3 === 0 ? users[j % users.length] : null; // Assign every 3rd item
 
-        // Only OPEN or CLOSE status for inspection items (using IssueStatus)
-        const itemStatuses: IssueStatus[] = [
-          IssueStatus.OPEN,
-          IssueStatus.CLOSE,
+        // Only OPEN or CLOSE status for inspection items
+        const itemStatuses: GeneralStatusEnum[] = [
+          GeneralStatusEnum.OPEN,
+          GeneralStatusEnum.CLOSE,
         ];
         // If inspection is DONE, make most items CLOSE; if OPEN, mix OPEN and CLOSE
         const itemStatus =
           status === GeneralStatusEnum.DONE
-            ? IssueStatus.CLOSE // All items CLOSE when inspection is DONE
+            ? GeneralStatusEnum.CLOSE // All items CLOSE when inspection is DONE
             : itemStatuses[j % itemStatuses.length]; // Mix OPEN and CLOSE when inspection is OPEN
 
         const findings =
@@ -407,7 +427,7 @@ export const seedRiskAssessmentsAndInspections = async (
             : null;
 
         const followUpNotes =
-          itemStatus === IssueStatus.CLOSE
+          itemStatus === GeneralStatusEnum.CLOSE
             ? `Follow-up completed on ${new Date().toLocaleDateString()}. All issues resolved.`
             : null;
 
@@ -479,6 +499,7 @@ export const seedRiskAssessmentsAndInspections = async (
 
         await client.riskMitigationRecord.create({
           data: {
+            code: generateMitigationCode(new Date(), mitigationCodeCounter++),
             entity: 'INSPECTION_ITEM',
             entityId: item.id,
             ...mitigation,

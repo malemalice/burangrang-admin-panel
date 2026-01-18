@@ -87,39 +87,30 @@ export const RiskRegisterTable = ({
       isSortable: false,
     },
     {
-      id: 'mitigation',
-      header: 'Mitigation',
+      id: 'status',
+      header: 'Status',
       cell: (item: RiskRegister) => {
-        const strategies = [];
-        if (item.eliminate) strategies.push('Eliminate');
-        if (item.transfer) strategies.push('Transfer');
-        if (item.reduce) strategies.push('Reduce');
-        if (item.accept) strategies.push('Accept');
+        let status: string;
+        if ('inspectionItem' in item.source) {
+          // For inspection items, status is OPEN or CLOSE
+          status = item.source.inspectionItem.status;
+        } else {
+          // For risk assessment items, status is not in source - show N/A for now
+          status = 'N/A';
+        }
+
+        const isOpen = status === 'OPEN';
+        const isClose = status === 'CLOSE' || status === 'DONE';
 
         return (
-          <div className="flex flex-wrap gap-1">
-            {strategies.length > 0 ? (
-              strategies.map((strategy) => (
-                <Badge key={strategy} variant="outline" className="text-xs">
-                  {strategy}
-                </Badge>
-              ))
-            ) : (
-              <span className="text-xs text-muted-foreground">None</span>
-            )}
-          </div>
+          <Badge
+            variant={isOpen ? 'default' : isClose ? 'secondary' : 'outline'}
+            className="text-xs"
+          >
+            {isOpen ? 'Open' : isClose ? 'Close' : status}
+          </Badge>
         );
       },
-      isSortable: false,
-    },
-    {
-      id: 'legalAspect',
-      header: 'Legal Aspect',
-      cell: (item: RiskRegister) => (
-        <div className="max-w-[200px] truncate text-sm">
-          {item.legalAspect || 'N/A'}
-        </div>
-      ),
       isSortable: false,
     },
     {

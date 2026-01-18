@@ -1427,7 +1427,7 @@ model InspectionItem {
   riskId              String
   assignedDepartmentId String
   assigneeId          String?
-  status              IssueStatus @default(OPEN)
+  status              GeneralStatusEnum @default(OPEN)
   findings            String?  @db.Text
   description         String?  @db.Text
   followUpNotes       String?  @db.Text
@@ -1863,11 +1863,6 @@ enum GeneralStatusEnum {
   WAITING_APPROVAL
   DONE
   REJECTED
-}
-
-enum IssueStatus {
-  OPEN
-  WAITING_APPROVAL
   CLOSE
 }
 

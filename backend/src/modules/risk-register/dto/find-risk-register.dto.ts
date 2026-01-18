@@ -53,7 +53,7 @@ export class FindRiskRegisterDto {
   riskCategoryId?: string;
 
   @ApiPropertyOptional({ 
-    description: 'Filter by status. For risk assessments: uses GeneralStatusEnum directly. For inspection items: OPEN/WAITING_APPROVAL/DONE are mapped to IssueStatus (DONE→CLOSE).', 
+    description: 'Filter by status. Uses GeneralStatusEnum for both risk assessments and inspection items.', 
     enum: GeneralStatusEnum 
   })
   @IsEnum(GeneralStatusEnum)

@@ -8,6 +8,7 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { InspectionItem } from '../types/inspection.types';
 import { getStatusBadge } from '../utils/inspectionBadgeHelpers';
+import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 
 interface InspectionItemsTableProps {
   items: InspectionItem[];
@@ -33,6 +34,7 @@ interface InspectionItemsTableProps {
   hideActions?: boolean;
   hideHeader?: boolean;
   hidePagination?: boolean;
+  approvalRights?: Record<string, boolean>; // Map of item ID to approval rights
 }
 
 export const InspectionItemsTable = ({
@@ -59,6 +61,7 @@ export const InspectionItemsTable = ({
   hideActions = false,
   hideHeader = false,
   hidePagination = false,
+  approvalRights = {},
 }: InspectionItemsTableProps) => {
   const filterFields: FilterField[] = [];
 
@@ -132,108 +135,151 @@ export const InspectionItemsTable = ({
     {
       id: 'actions',
       header: 'Actions',
-      cell: (item: InspectionItem) => (
-        <div className="flex items-center gap-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onViewItem(item)}
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>View</p>
-            </TooltipContent>
-          </Tooltip>
-          {!hideActions && (
-            <>
-              {onEditItemAsCreator && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onEditItemAsCreator(item)}
-                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                    >
-                      <FileText className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Edit as Creator</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              {onEditItemAsUpdater && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onEditItemAsUpdater(item)}
-                      className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                    >
-                      <Wrench className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Update Action Item</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              {onEditItemAsVerifier && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onEditItemAsVerifier(item)}
-                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Verify</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
+      cell: (item: InspectionItem) => {
+        const isClosed = item.status === GeneralStatusEnum.CLOSE;
+        const isWaitingApproval = item.status === GeneralStatusEnum.WAITING_APPROVAL;
+        const hasApprovalRights = approvalRights[item.id] || false;
+        
+        // When status is CLOSED, only show View button
+        if (isClosed) {
+          return (
+            <div className="flex items-center gap-2">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => onEditItem(item)}
+                    onClick={() => onViewItem(item)}
                   >
-                    <Edit className="h-4 w-4" />
+                    <Eye className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Edit</p>
+                  <p>View</p>
                 </TooltipContent>
               </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    onClick={(e) => onDeleteItem(item, e)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Delete</p>
-                </TooltipContent>
-              </Tooltip>
-            </>
-          )}
-        </div>
-      ),
+            </div>
+          );
+        }
+        
+        return (
+          <div className="flex items-center gap-2">
+            {/* View button - always shown except when closed (handled above) */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onViewItem(item)}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>View</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            {!hideActions && (
+              <>
+                {/* Edit as Creator - hidden when status is WAITING_APPROVAL or CLOSED */}
+                {onEditItemAsCreator && !isWaitingApproval && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onEditItemAsCreator(item)}
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Edit as Creator</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                
+                {/* Update Action Item - hidden when status is WAITING_APPROVAL or CLOSED */}
+                {onEditItemAsUpdater && !isWaitingApproval && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onEditItemAsUpdater(item)}
+                        className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                      >
+                        <Wrench className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Update Action Item</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                
+                {/* Verify button - only show when status is WAITING_APPROVAL and user has approval rights */}
+                {onEditItemAsVerifier && isWaitingApproval && hasApprovalRights && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onEditItemAsVerifier(item)}
+                        className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Verify</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                
+                {/* Edit button - hidden when status is CLOSED */}
+                {!isClosed && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onEditItem(item)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Edit</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                
+                {/* Delete button - hidden when status is CLOSED */}
+                {!isClosed && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={(e) => onDeleteItem(item, e)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Delete</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </>
+            )}
+          </div>
+        );
+      },
       isSortable: false,
     },
   ];

@@ -4,7 +4,6 @@
  */
 
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
-import { IssueStatus } from '@/shared/constants/issue-status.enum';
 import type { AreaDTO } from '@/modules/master-data/types/master-data.types';
 import { User } from '@/core/lib/types';
 import { RiskCategory, Risk } from '@/core/lib/types';
@@ -65,7 +64,7 @@ export interface InspectionItem {
   assignedDepartment?: Department;
   assigneeId?: string;
   assignee?: User;
-  status: IssueStatus;
+  status: GeneralStatusEnum;
   description?: string;
   followUpNotes?: string;
   findings?: string;
@@ -109,7 +108,7 @@ export interface CreateInspectionItemDTO {
   riskId: string;
   assignedDepartmentId: string;
   assigneeId?: string;
-  status: IssueStatus;
+  status: GeneralStatusEnum;
   description?: string;
   followUpNotes?: string;
   findings?: string;

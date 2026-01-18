@@ -37,8 +37,7 @@ import { InspectionItem, InspectionItemSearchParams } from '../types/inspection-
 import { CreateInspectionItemDTO } from '../../types/inspection.types';
 import inspectionItemsService from '../services/inspectionItemsService';
 import InspectionItemForm from '../../components/InspectionItemForm';
-import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
-import { IssueStatus, ISSUE_STATUS_OPTIONS } from '@/shared/constants/issue-status.enum';
+import { GeneralStatusEnum, INSPECTION_ITEM_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
 import { departmentService, riskService, riskCategoryService } from '@/modules/master-data';
 import { Department } from '@/modules/master-data/types/master-data.types';
 import { Risk, RiskCategory } from '@/core/lib/types';
@@ -62,6 +61,7 @@ const InspectionItemsPage = () => {
   const [editingItem, setEditingItem] = useState<InspectionItem | null>(null);
   const [editingFormMode, setEditingFormMode] = useState<'creator' | 'updater' | 'verifier' | null>(null);
   const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
+  const [approvalRights, setApprovalRights] = useState<Record<string, boolean>>({});
 
   // Fetch filter options
   useEffect(() => {
@@ -93,7 +93,7 @@ const InspectionItemsPage = () => {
       id: 'status',
       label: 'Status',
       type: 'select',
-      options: ISSUE_STATUS_OPTIONS.map(option => ({
+      options: INSPECTION_ITEM_STATUS_OPTIONS.map(option => ({
         label: option.label,
         value: option.value,
       })),
@@ -153,7 +153,7 @@ const InspectionItemsPage = () => {
 
       // Add filters
       if (activeFilters.status?.value) {
-        params.status = activeFilters.status.value as IssueStatus;
+        params.status = activeFilters.status.value as GeneralStatusEnum;
       }
       if (activeFilters.assignedDepartmentId?.value) {
         params.assignedDepartmentId = activeFilters.assignedDepartmentId.value;
@@ -178,6 +178,24 @@ const InspectionItemsPage = () => {
       if (response.meta.page) {
         setPageIndex(response.meta.page - 1);
       }
+
+      // Check approval rights for items with WAITING_APPROVAL status
+      const rightsMap: Record<string, boolean> = {};
+      const waitingApprovalItems = response.data.filter(item => item.status === GeneralStatusEnum.WAITING_APPROVAL);
+      
+      await Promise.all(
+        waitingApprovalItems.map(async (item) => {
+          try {
+            const rights = await inspectionItemsService.checkApprovalRights(item.id);
+            rightsMap[item.id] = rights.canApprove || false;
+          } catch (error) {
+            console.error(`Failed to check approval rights for item ${item.id}:`, error);
+            rightsMap[item.id] = false;
+          }
+        })
+      );
+      
+      setApprovalRights(prev => ({ ...prev, ...rightsMap }));
     } catch (error) {
       console.error('Failed to fetch inspection items:', error);
       toast.error('Failed to load inspection items');
@@ -237,11 +255,11 @@ const InspectionItemsPage = () => {
     }
   };
 
-  const getStatusBadge = (status: IssueStatus) => {
+  const getStatusBadge = (status: GeneralStatusEnum) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
-      [IssueStatus.OPEN]: { label: 'Open Issue', variant: 'secondary' },
-      [IssueStatus.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
-      [IssueStatus.CLOSE]: { label: 'Closed', variant: 'default' },
+      [GeneralStatusEnum.OPEN]: { label: 'Open Issue', variant: 'secondary' },
+      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
+      [GeneralStatusEnum.CLOSE]: { label: 'Closed', variant: 'default' },
     };
 
     const statusInfo = statusMap[status] || { label: status, variant: 'outline' };
@@ -326,101 +344,159 @@ const InspectionItemsPage = () => {
     {
       id: 'actions',
       header: 'Actions',
-      cell: (item: InspectionItem) => (
-        <div className="flex items-center gap-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(`/inspections/items/${item.id}`)}
-                className="text-primary hover:text-primary hover:bg-primary/10"
-                aria-label={`View inspection item ${item.id}`}
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>View</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setEditingItem(item);
-                  setEditingFormMode('creator');
-                  setIsEditItemDialogOpen(true);
+      cell: (item: InspectionItem) => {
+        const isClosed = item.status === GeneralStatusEnum.CLOSE;
+        const isWaitingApproval = item.status === GeneralStatusEnum.WAITING_APPROVAL;
+        const hasApprovalRights = approvalRights[item.id] || false;
+        
+        // When status is CLOSED, only show View button
+        if (isClosed) {
+          return (
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => navigate(`/inspections/items/${item.id}`)}
+                    className="text-primary hover:text-primary hover:bg-primary/10"
+                    aria-label={`View inspection item ${item.id}`}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>View</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          );
+        }
+        
+        return (
+          <div className="flex items-center gap-2">
+            {/* View button - always shown except when closed (handled above) */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate(`/inspections/items/${item.id}`)}
+                  className="text-primary hover:text-primary hover:bg-primary/10"
+                  aria-label={`View inspection item ${item.id}`}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>View</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            {/* Edit as Creator - hidden when status is WAITING_APPROVAL or CLOSED */}
+            {!isWaitingApproval && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setEditingItem(item);
+                      setEditingFormMode('creator');
+                      setIsEditItemDialogOpen(true);
+                    }}
+                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    <FileText className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Edit as Creator</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            
+            {/* Update Action Item - hidden when status is WAITING_APPROVAL or CLOSED */}
+            {!isWaitingApproval && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setEditingItem(item);
+                      setEditingFormMode('updater');
+                      setIsEditItemDialogOpen(true);
+                    }}
+                    className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                  >
+                    <Wrench className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Update Action Item</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            
+            {/* Verify button - only show when status is WAITING_APPROVAL and user has approval rights */}
+            {isWaitingApproval && hasApprovalRights && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={async () => {
+                      // Double-check approval rights before allowing verifier mode
+                      try {
+                        const rights = await inspectionItemsService.checkApprovalRights(item.id);
+                        if (!rights.canApprove) {
+                          toast.error('You do not have approval rights for this inspection item');
+                          return;
+                        }
+                        setEditingItem(item);
+                        setEditingFormMode('verifier');
+                        setIsEditItemDialogOpen(true);
+                      } catch (error) {
+                        console.error('Failed to check approval rights:', error);
+                        toast.error('Failed to check approval rights');
+                      }
+                    }}
+                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Verify</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            
+            {/* Dropdown menu - hidden when status is CLOSED */}
+            {!isClosed && (
+              <DropdownMenu
+                open={openDropdownId === item.id}
+                onOpenChange={(open) => {
+                  setOpenDropdownId(open ? item.id : null);
                 }}
-                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
               >
-                <FileText className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Edit as Creator</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setEditingItem(item);
-                  setEditingFormMode('updater');
-                  setIsEditItemDialogOpen(true);
-                }}
-                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-              >
-                <Wrench className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Update Action Item</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setEditingItem(item);
-                  setEditingFormMode('verifier');
-                  setIsEditItemDialogOpen(true);
-                }}
-                className="text-green-600 hover:text-green-700 hover:bg-green-50"
-              >
-                <CheckCircle2 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Verify</p>
-            </TooltipContent>
-          </Tooltip>
-          <DropdownMenu
-            open={openDropdownId === item.id}
-            onOpenChange={(open) => {
-              setOpenDropdownId(open ? item.id : null);
-            }}
-          >
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/inspections/items/${item.id}/edit`)}>
-                <Edit className="mr-2 h-4 w-4" /> Edit
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <span className="sr-only">Open menu</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate(`/inspections/items/${item.id}/edit`)}>
+                    <Edit className="mr-2 h-4 w-4" /> Edit
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        );
+      }
     }
   ];
 
@@ -493,6 +569,7 @@ const InspectionItemsPage = () => {
             <InspectionItemForm
               inspectionId={editingItem.inspectionId}
               initialItem={{
+                id: editingItem.id, // Include id for approval rights check in verifier mode
                 areaId: editingItem.areaId,
                 status: editingItem.status,
                 riskCategoryId: editingItem.riskCategoryId,

@@ -12,7 +12,7 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IssueStatus } from '@prisma/client';
+import { GeneralStatusEnum } from '@prisma/client';
 import { CreateInspectionImageDto } from './create-inspection-image.dto';
 import { RiskMitigationDataDto } from '../../risk-assessment/dto/risk-mitigation-data.dto';
 
@@ -63,9 +63,9 @@ export class CreateInspectionItemDto {
   dueDateAt?: string;
 
   @IsNotEmpty()
-  @IsEnum(IssueStatus)
-  @ApiProperty({ enum: IssueStatus })
-  status: IssueStatus;
+  @IsEnum(GeneralStatusEnum)
+  @ApiProperty({ enum: GeneralStatusEnum })
+  status: GeneralStatusEnum;
 
   @IsOptional()
   @IsArray()

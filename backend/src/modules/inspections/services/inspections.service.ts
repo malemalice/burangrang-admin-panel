@@ -15,7 +15,7 @@ import { InspectionImageDto } from '../dto/inspection-image.dto';
 import { CreateInspectionInspectorDto } from '../dto/create-inspection-inspector.dto';
 import { UpdateInspectionInspectorDto } from '../dto/update-inspection-inspector.dto';
 import { InspectionInspectorDto } from '../dto/inspection-inspector.dto';
-import { Prisma, GeneralStatusEnum, IssueStatus, RiskMitigationRecord } from '@prisma/client';
+import { Prisma, GeneralStatusEnum, RiskMitigationRecord } from '@prisma/client';
 import { RemindersService } from '../../reminders/reminders.service';
 import {
   ReminderRepeatTypeEnum,
@@ -41,7 +41,7 @@ interface FindAllItemsOptions {
   limit?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
-  status?: IssueStatus;
+  status?: GeneralStatusEnum;
   assignedDepartmentId?: string;
   assigneeId?: string;
   riskId?: string;
@@ -1504,6 +1504,20 @@ export class InspectionsService {
   }
 
   /**
+   * Generate unique mitigation code: RSK + YYMMDDHHmmss
+   */
+  private generateMitigationCode(): string {
+    const now = new Date();
+    const year = now.getFullYear().toString().slice(-2);
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const date = now.getDate().toString().padStart(2, '0');
+    const hour = now.getHours().toString().padStart(2, '0');
+    const minute = now.getMinutes().toString().padStart(2, '0');
+    const second = now.getSeconds().toString().padStart(2, '0');
+    return `RSK${year}${month}${date}${hour}${minute}${second}`;
+  }
+
+  /**
    * Create mitigation record for an inspection item
    */
   private async createMitigationRecord(
@@ -1512,6 +1526,7 @@ export class InspectionsService {
   ): Promise<RiskMitigationRecord> {
     return this.prisma.riskMitigationRecord.create({
       data: {
+        code: this.generateMitigationCode(),
         entity: INSPECTION_ITEM_ENTITY,
         entityId: itemId,
         eliminate: mitigation.eliminate || null,
@@ -1584,6 +1599,7 @@ export class InspectionsService {
   ): RiskMitigationRecordDto {
     return {
       id: record.id,
+      code: record.code,
       entity: record.entity,
       entityId: record.entityId,
       eliminate: record.eliminate || undefined,

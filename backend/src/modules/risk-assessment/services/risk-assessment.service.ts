@@ -1015,6 +1015,20 @@ export class RiskAssessmentService {
   // Mitigation record helper methods
 
   /**
+   * Generate unique mitigation code: RSK + YYMMDDHHmmss
+   */
+  private generateMitigationCode(): string {
+    const now = new Date();
+    const year = now.getFullYear().toString().slice(-2);
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const date = now.getDate().toString().padStart(2, '0');
+    const hour = now.getHours().toString().padStart(2, '0');
+    const minute = now.getMinutes().toString().padStart(2, '0');
+    const second = now.getSeconds().toString().padStart(2, '0');
+    return `RSK${year}${month}${date}${hour}${minute}${second}`;
+  }
+
+  /**
    * Create a new mitigation record for a risk assessment item
    */
   private async createMitigationRecord(
@@ -1023,6 +1037,7 @@ export class RiskAssessmentService {
   ): Promise<RiskMitigationRecord> {
     return this.prisma.riskMitigationRecord.create({
       data: {
+        code: this.generateMitigationCode(),
         entity: RISK_ASSESSMENT_ITEM_ENTITY,
         entityId: itemId,
         eliminate: mitigation.eliminate || null,
@@ -1095,6 +1110,7 @@ export class RiskAssessmentService {
   ): RiskMitigationRecordDto {
     return {
       id: record.id,
+      code: record.code,
       entity: record.entity,
       entityId: record.entityId,
       eliminate: record.eliminate || undefined,
