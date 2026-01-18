@@ -30,6 +30,7 @@ export interface RiskMitigationRecord extends RiskMitigationData {
  * Source context for Risk Assessment Item
  */
 export interface RiskRegisterSourceRiskAssessment {
+  riskAssessmentId: string;
   code: string;
   description?: string;
   assessmentDate: Date;
@@ -53,6 +54,16 @@ export interface RiskRegisterSourceRiskAssessment {
   assignee?: User;
 }
 
+export type InspectionImageTypeEnum = 'BEFORE' | 'AFTER' | 'GENERAL';
+
+export interface RiskRegisterInspectionImage {
+  id: string;
+  imageUrl: string;
+  caption?: string;
+  type: InspectionImageTypeEnum;
+  order: number;
+}
+
 /**
  * Source context for Inspection Item
  */
@@ -67,7 +78,9 @@ export interface RiskRegisterSourceInspection {
     riskCategory: RiskCategory;
     findings?: string;
     description?: string;
+    followUpNotes?: string;
     status: GeneralStatusEnum;
+    images?: RiskRegisterInspectionImage[];
   };
   area: AreaDTO;
   department: DepartmentDTO;

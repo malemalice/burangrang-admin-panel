@@ -1,15 +1,21 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import { Separator } from '@/core/components/ui/separator';
 import { Badge } from '@/core/components/ui/badge';
 import PageHeader from '@/core/components/ui/PageHeader';
 
 import { useRiskRegisterDetail } from '../hooks/useRiskRegister';
 import { RiskRegisterSourceBadge } from '../components/RiskRegisterSourceBadge';
+
+const Field = ({ label, value }: { label: string; value: React.ReactNode }) => (
+  <div className="space-y-1.5">
+    <p className="text-sm font-medium text-muted-foreground">{label}</p>
+    <div className="text-sm">{value ?? '—'}</div>
+  </div>
+);
 
 const ViewRiskRegisterPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -122,6 +128,24 @@ const ViewRiskRegisterPage = () => {
                   </p>
                 </div>
               )}
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-muted-foreground">Created At</p>
+                <p className="text-sm">
+                  {format(new Date(item.createdAt), 'dd MMM yyyy HH:mm')}
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-muted-foreground">Updated At</p>
+                <p className="text-sm">
+                  {format(new Date(item.updatedAt), 'dd MMM yyyy HH:mm')}
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium text-muted-foreground">Status</p>
+                <Badge variant={item.isActive ? 'default' : 'secondary'}>
+                  {item.isActive ? 'Active' : 'Inactive'}
+                </Badge>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -188,75 +212,105 @@ const ViewRiskRegisterPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Mitigation Strategies</CardTitle>
+            <CardTitle>Risk Mitigation</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {item.eliminate && (
-              <div>
-                <h4 className="text-sm font-semibold mb-2">Eliminate</h4>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.eliminate}</p>
-              </div>
-            )}
-            {item.transfer && (
-              <div>
-                <h4 className="text-sm font-semibold mb-2">Transfer</h4>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.transfer}</p>
-              </div>
-            )}
-            {item.reduce && (
-              <div>
-                <h4 className="text-sm font-semibold mb-2">Reduce</h4>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.reduce}</p>
-              </div>
-            )}
-            {item.accept && (
-              <div>
-                <h4 className="text-sm font-semibold mb-2">Accept</h4>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.accept}</p>
-              </div>
-            )}
-            {!item.eliminate && !item.transfer && !item.reduce && !item.accept && (
-              <p className="text-sm text-muted-foreground">No mitigation strategies defined</p>
-            )}
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Eliminate</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.eliminate ?? '—'}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Transfer</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.transfer ?? '—'}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Reduce</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.reduce ?? '—'}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Accept</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.accept ?? '—'}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Legal Aspect</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{item.legalAspect ?? '—'}</p>
+            </div>
           </CardContent>
         </Card>
 
-        {item.legalAspect && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Legal Aspect</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm whitespace-pre-wrap">{item.legalAspect}</p>
-            </CardContent>
-          </Card>
-        )}
 
         <Card>
-          <CardHeader>
-            <CardTitle>Metadata</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle>{isRiskAssessment ? 'Risk Assessment Item' : 'Inspection Item'}</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                isRiskAssessment && 'riskAssessmentId' in source
+                  ? navigate(`/risk-assessment/${source.riskAssessmentId}`)
+                  : navigate(`/inspections/items/${item.entityId}`)
+              }
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              View {isRiskAssessment ? 'Risk Assessment' : 'Inspection Item'}
+            </Button>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-1.5">
-                <p className="text-sm font-medium text-muted-foreground">Created At</p>
-                <p className="text-sm">
-                  {format(new Date(item.createdAt), 'dd MMM yyyy HH:mm')}
-                </p>
+          <CardContent className="space-y-6">
+            {isRiskAssessment && 'riskAssessmentItem' in source && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Field label="Entity ID" value={source.riskAssessmentItem.id} />
+                <Field label="Risk" value={source.riskAssessmentItem.mRisk?.name} />
+                <Field label="Risk Category" value={source.riskAssessmentItem.mRiskCategory?.name} />
+                <Field label="Likelihood Level" value={source.riskAssessmentItem.likelihoodLevel} />
+                <Field label="Consequence Level" value={source.riskAssessmentItem.consequenceLevel} />
+                <Field label="Risk Matrix Rating" value={source.riskAssessmentItem.riskMatrixRating} />
+                <Field label="Interpretation" value={<Badge variant="outline">{source.riskAssessmentItem.interpretation}</Badge>} />
+                <Field label="Post Likelihood Level" value={source.riskAssessmentItem.postLikelihoodLevel} />
+                <Field label="Post Consequence Level" value={source.riskAssessmentItem.postConsequenceLevel} />
+                <Field label="Post Risk Matrix Rating" value={source.riskAssessmentItem.postRiskMatrixRating} />
+                <Field label="Post Interpretation" value={<Badge variant="outline">{source.riskAssessmentItem.postInterpretation}</Badge>} />
               </div>
-              <div className="space-y-1.5">
-                <p className="text-sm font-medium text-muted-foreground">Updated At</p>
-                <p className="text-sm">
-                  {format(new Date(item.updatedAt), 'dd MMM yyyy HH:mm')}
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                <p className="text-sm font-medium text-muted-foreground">Status</p>
-                <Badge variant={item.isActive ? 'default' : 'secondary'}>
-                  {item.isActive ? 'Active' : 'Inactive'}
-                </Badge>
-              </div>
-            </div>
+            )}
+            {!isRiskAssessment && 'inspectionItem' in source && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Field label="Entity ID" value={source.inspectionItem.id} />
+                  <Field label="Risk" value={source.inspectionItem.risk?.name} />
+                  <Field label="Risk Category" value={source.inspectionItem.riskCategory?.name} />
+                  <Field label="Status" value={<Badge variant="outline">{source.inspectionItem.status}</Badge>} />
+                  <div className="space-y-1.5 md:col-span-2">
+                    <p className="text-sm font-medium text-muted-foreground">Findings</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{source.inspectionItem.findings ?? '—'}</p>
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <p className="text-sm font-medium text-muted-foreground">Description</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{source.inspectionItem.description ?? '—'}</p>
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <p className="text-sm font-medium text-muted-foreground">Follow-up Notes</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{source.inspectionItem.followUpNotes ?? '—'}</p>
+                  </div>
+                </div>
+                {(source.inspectionItem.images?.length ?? 0) > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold">Images</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {(source.inspectionItem.images ?? []).map((img) => (
+                        <div key={img.id} className="rounded-lg border overflow-hidden bg-muted/50">
+                          <a href={img.imageUrl} target="_blank" rel="noopener noreferrer" className="block aspect-video">
+                            <img src={img.imageUrl} alt={img.caption || `Image ${img.type}`} className="w-full h-full object-cover" />
+                          </a>
+                          <div className="p-2 space-y-1">
+                            <Badge variant="secondary" className="text-xs">{img.type}</Badge>
+                            {img.caption && <p className="text-xs text-muted-foreground line-clamp-2">{img.caption}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

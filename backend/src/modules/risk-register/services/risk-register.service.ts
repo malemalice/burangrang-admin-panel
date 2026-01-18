@@ -184,6 +184,7 @@ export class RiskRegisterService {
           const item = riskAssessmentItemMap.get(record.entityId);
           if (item && item.riskAssessment) {
             source = {
+              riskAssessmentId: item.riskAssessment.id,
               code: item.riskAssessment.code,
               description: item.riskAssessment.description || undefined,
               assessmentDate: item.riskAssessment.assessmentDate,
@@ -286,6 +287,7 @@ export class RiskRegisterService {
 
       if (item && item.riskAssessment) {
         source = {
+          riskAssessmentId: item.riskAssessment.id,
           code: item.riskAssessment.code,
           description: item.riskAssessment.description || undefined,
           assessmentDate: item.riskAssessment.assessmentDate,
@@ -323,6 +325,7 @@ export class RiskRegisterService {
           risk: true,
           assignedDepartment: true,
           assignee: true,
+          images: { orderBy: { order: 'asc' } },
         },
       });
 
@@ -338,7 +341,15 @@ export class RiskRegisterService {
             riskCategory: item.riskCategory,
             findings: item.findings || undefined,
             description: item.description || undefined,
+            followUpNotes: item.followUpNotes || undefined,
             status: item.status,
+            images: (item.images || []).map((img) => ({
+              id: img.id,
+              imageUrl: img.imageUrl,
+              caption: img.caption || undefined,
+              type: img.type,
+              order: img.order,
+            })),
           },
           area: item.area,
           department: item.assignedDepartment,

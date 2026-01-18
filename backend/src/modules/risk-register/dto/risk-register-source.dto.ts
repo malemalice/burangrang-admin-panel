@@ -11,6 +11,10 @@ import { RiskRatingEnum } from '@prisma/client';
  * Source context for Risk Assessment Item
  */
 export class RiskRegisterSourceRiskAssessmentDto {
+  @ApiProperty({ description: 'Risk Assessment ID for linking to detail' })
+  @Expose()
+  riskAssessmentId: string;
+
   @ApiProperty({ description: 'Risk Assessment code' })
   @Expose()
   code: string;
@@ -76,7 +80,9 @@ export class RiskRegisterSourceInspectionDto {
     riskCategory: RiskCategoryDto;
     findings?: string;
     description?: string;
+    followUpNotes?: string;
     status: string;
+    images: { id: string; imageUrl: string; caption?: string; type: string; order: number }[];
   };
 
   @ApiProperty({ type: AreaDto })
