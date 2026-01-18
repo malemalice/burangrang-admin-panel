@@ -39,6 +39,16 @@ export const RiskRegisterTable = ({
 }: RiskRegisterTableProps) => {
   const columns = [
     {
+      id: 'code',
+      header: 'Code',
+      cell: (item: RiskRegister) => (
+        <div className="font-medium font-mono text-sm">
+          {item.code || 'N/A'}
+        </div>
+      ),
+      isSortable: false,
+    },
+    {
       id: 'sourceType',
       header: 'Source',
       cell: (item: RiskRegister) => (

@@ -300,6 +300,7 @@ model RiskControl {
 // 1-to-1 relationship: Each RiskAssessmentItem or InspectionItem can have one RiskMitigationRecord
 model RiskMitigationRecord {
   id           String   @id @default(uuid())
+  code         String   @unique // Auto-generated code with prefix RSK{datetime}, not user-updatable
   eliminate    String?  @db.Text
   transfer     String?  @db.Text
   reduce       String?  @db.Text

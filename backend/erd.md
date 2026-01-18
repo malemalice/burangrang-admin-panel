@@ -598,6 +598,7 @@ Table t_risk_control {
 
 Table t_risk_mitigation {
   id varchar [pk, default: `uuid()`]
+  code varchar [unique, not null, note: 'Auto-generated code with prefix RSK{datetime}, not user-updatable']
   eliminate text [null]
   transfer text [null]
   reduce text [null]
