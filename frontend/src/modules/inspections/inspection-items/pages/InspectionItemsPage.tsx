@@ -9,6 +9,8 @@ import {
   FileText,
   Wrench,
   CheckCircle2,
+  ArrowRight,
+  Info,
 } from 'lucide-react';
 
 import { Button } from '@/core/components/ui/button';
@@ -59,6 +61,7 @@ const InspectionItemsPage = () => {
   const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InspectionItem | null>(null);
   const [editingFormMode, setEditingFormMode] = useState<'creator' | 'updater' | 'verifier' | null>(null);
+  const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
 
   // Fetch filter options
   useEffect(() => {
@@ -426,6 +429,24 @@ const InspectionItemsPage = () => {
       <PageHeader
         title="Inspection Items"
         subtitle="View and manage inspection items"
+        actions={
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setIsWorkflowInfoDialogOpen(true)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Info className="h-4 w-4" />
+                <span className="sr-only">View workflow information</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>View Inspection Item Workflow</p>
+            </TooltipContent>
+          </Tooltip>
+        }
       />
 
       <DataTable
@@ -505,6 +526,115 @@ const InspectionItemsPage = () => {
               formMode={editingFormMode || 'creator'}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Workflow Information Dialog */}
+      <Dialog open={isWorkflowInfoDialogOpen} onOpenChange={setIsWorkflowInfoDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Inspection Item Workflow</DialogTitle>
+            <DialogDescription>
+              The inspection item goes through three main stages before reaching completion
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-2">
+              {/* Step 1: Finding */}
+              <div className="flex flex-col items-center text-center flex-1">
+                <div className="relative flex items-center justify-center mb-4">
+                  <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+                    <FileText className="h-8 w-8 text-blue-600" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-semibold flex items-center justify-center">
+                    1
+                  </div>
+                </div>
+                <h3 className="font-semibold text-lg mb-1">Finding</h3>
+                <p className="text-sm text-muted-foreground mb-4 max-w-[200px]">
+                  Record inspection findings and initial details
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                  onClick={() => {
+                    setIsWorkflowInfoDialogOpen(false);
+                    toast.info('Please select an inspection item from the table to edit as creator');
+                  }}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Edit as Creator
+                </Button>
+              </div>
+
+              {/* Arrow Connector 1 */}
+              <div className="hidden md:flex items-center justify-center px-4">
+                <ArrowRight className="h-6 w-6 text-muted-foreground" />
+              </div>
+
+              {/* Step 2: Action Plan */}
+              <div className="flex flex-col items-center text-center flex-1">
+                <div className="relative flex items-center justify-center mb-4">
+                  <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center">
+                    <Wrench className="h-8 w-8 text-orange-600" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-orange-600 text-white text-xs font-semibold flex items-center justify-center">
+                    2
+                  </div>
+                </div>
+                <h3 className="font-semibold text-lg mb-1">Action Plan</h3>
+                <p className="text-sm text-muted-foreground mb-4 max-w-[200px]">
+                  Update action item progress with images and notes
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700"
+                  onClick={() => {
+                    setIsWorkflowInfoDialogOpen(false);
+                    toast.info('Please select an inspection item from the table to update action item');
+                  }}
+                >
+                  <Wrench className="h-4 w-4 mr-2" />
+                  Update Action Item
+                </Button>
+              </div>
+
+              {/* Arrow Connector 2 */}
+              <div className="hidden md:flex items-center justify-center px-4">
+                <ArrowRight className="h-6 w-6 text-muted-foreground" />
+              </div>
+
+              {/* Step 3: Verify */}
+              <div className="flex flex-col items-center text-center flex-1">
+                <div className="relative flex items-center justify-center mb-4">
+                  <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+                    <CheckCircle2 className="h-8 w-8 text-green-600" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-semibold flex items-center justify-center">
+                    3
+                  </div>
+                </div>
+                <h3 className="font-semibold text-lg mb-1">Verify</h3>
+                <p className="text-sm text-muted-foreground mb-4 max-w-[200px]">
+                  Verify and finalize inspection item
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
+                  onClick={() => {
+                    setIsWorkflowInfoDialogOpen(false);
+                    toast.info('Please select an inspection item from the table to verify');
+                  }}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Verify
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </>
