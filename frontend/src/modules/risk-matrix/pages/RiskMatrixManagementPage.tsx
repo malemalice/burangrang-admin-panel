@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/core/components/ui/dialog';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import riskMatrixService from '../services/riskMatrixService';
 import {
   RiskMatrix,
@@ -57,6 +58,8 @@ const RiskMatrixManagementPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [rowToDelete, setRowToDelete] = useState<MatrixRow | null>(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -74,8 +77,9 @@ const RiskMatrixManagementPage = () => {
       });
 
       // Extract unique likelihoods and consequences from existing matrix data
-      const uniqueLikelihoods = new Map<number, LikelihoodOption>();
-      const uniqueConsequences = new Map<string, ConsequenceOption>();
+      // likelihoodLevel is string (A, B, C...); consequenceLevel is number (1, 2, 3...)
+      const uniqueLikelihoods = new Map<string, LikelihoodOption>();
+      const uniqueConsequences = new Map<number, ConsequenceOption>();
 
       matricesRes.data.forEach((matrix) => {
         if (!uniqueLikelihoods.has(matrix.likelihoodLevel)) {
@@ -96,7 +100,7 @@ const RiskMatrixManagementPage = () => {
 
       // Add default values if no data exists
       if (uniqueLikelihoods.size === 0) {
-        [1, 2, 3, 4, 5].forEach(level => {
+        ['A', 'B', 'C', 'D', 'E'].forEach(level => {
           uniqueLikelihoods.set(level, {
             level,
             name: `Level ${level}`,
@@ -106,7 +110,7 @@ const RiskMatrixManagementPage = () => {
       }
 
       if (uniqueConsequences.size === 0) {
-        ['A', 'B', 'C', 'D', 'E'].forEach(level => {
+        [1, 2, 3, 4, 5].forEach(level => {
           uniqueConsequences.set(level, {
             level,
             name: `Level ${level}`,
@@ -115,8 +119,8 @@ const RiskMatrixManagementPage = () => {
         });
       }
 
-      setLikelihoods(Array.from(uniqueLikelihoods.values()).sort((a, b) => a.level - b.level));
-      setConsequences(Array.from(uniqueConsequences.values()).sort((a, b) => a.level.localeCompare(b.level)));
+      setLikelihoods(Array.from(uniqueLikelihoods.values()).sort((a, b) => String(a.level).localeCompare(String(b.level))));
+      setConsequences(Array.from(uniqueConsequences.values()).sort((a, b) => a.level - b.level));
 
       // Convert matrices to rows
       const rows: MatrixRow[] = matricesRes.data.map((matrix) => ({
@@ -242,8 +246,28 @@ const RiskMatrixManagementPage = () => {
   };
 
   const deleteRow = (index: number) => {
-    const updatedRows = matrixRows.filter((_, i) => i !== index);
-    setMatrixRows(updatedRows);
+    const row = matrixRows[index];
+    if (row?.id) {
+      setRowToDelete(row);
+      setDeleteDialogOpen(true);
+    } else {
+      setMatrixRows((prev) => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!rowToDelete?.id) return;
+    try {
+      await riskMatrixService.deleteRiskMatrix(rowToDelete.id);
+      setMatrixRows((prev) => prev.filter((r) => r.id !== rowToDelete.id));
+      toast.success('Risk matrix entry deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete risk matrix:', error);
+      toast.error('Failed to delete risk matrix entry');
+    } finally {
+      setDeleteDialogOpen(false);
+      setRowToDelete(null);
+    }
   };
 
   const handleSaveAll = async () => {
@@ -332,11 +356,11 @@ const RiskMatrixManagementPage = () => {
   };
 
   const buildMatrixGrid = () => {
-    // Extract unique likelihood and consequence levels from actual data
-    const likelihoodSet = new Set<number>();
-    const consequenceSet = new Set<string>();
-    const likelihoodNameMap = new Map<number, string>();
-    const consequenceNameMap = new Map<string, string>();
+    // likelihoodLevel is string (A, B, C...); consequenceLevel is number (1, 2, 3...)
+    const likelihoodSet = new Set<string>();
+    const consequenceSet = new Set<number>();
+    const likelihoodNameMap = new Map<string, string>();
+    const consequenceNameMap = new Map<number, string>();
 
     // Process all rows (including inactive ones for level extraction)
     matrixRows.forEach((row) => {
@@ -676,6 +700,20 @@ const RiskMatrixManagementPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteDialogOpen(false);
+            setRowToDelete(null);
+          }
+        }}
+        title="Delete Risk Matrix Entry"
+        description="Are you sure you want to delete this risk matrix entry? This action cannot be undone."
+        onConfirm={handleDeleteConfirm}
+        variant="destructive"
+      />
     </div>
   );
 };
