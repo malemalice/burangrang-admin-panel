@@ -195,9 +195,14 @@ export class RiskMatrixService {
     });
     this.errorHandler.throwIfNotFoundById('RiskMatrix', id, existing);
 
+    // Build update data with only defined fields so risk_rating and other optional fields are persisted correctly
+    const data = Object.fromEntries(
+      Object.entries(updateRiskMatrixDto).filter(([_, v]) => v !== undefined),
+    );
+
     const updated = await this.prisma.riskMatrix.update({
       where: { id },
-      data: updateRiskMatrixDto,
+      data,
     });
     return this.riskMatrixMapper(updated);
   }

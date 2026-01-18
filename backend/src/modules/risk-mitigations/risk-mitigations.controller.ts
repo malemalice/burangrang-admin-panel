@@ -33,6 +33,7 @@ export class RiskMitigationsController {
   @Get()
   @ApiOperation({ summary: 'Get all risk mitigations with pagination' })
   @ApiResponse({ status: 200, description: 'Return all risk mitigations.', type: [RiskMitigationDto] })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by risk name/code or mitigation text fields' })
   @ApiQuery({ name: 'riskId', required: false, description: 'Filter mitigations by risk ID' })
   findAll(
     @Query('page') page?: string,
@@ -41,6 +42,7 @@ export class RiskMitigationsController {
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('isActive') isActive?: string,
     @Query('riskId') riskId?: string,
+    @Query('search') search?: string,
   ): Promise<{ data: RiskMitigationDto[]; meta: { total: number } }> {
     // Convert string parameters to their proper types
     const pageNumber = page ? parseInt(page, 10) : undefined;
@@ -54,6 +56,7 @@ export class RiskMitigationsController {
       sortOrder,
       isActive: isActiveBoolean,
       riskId,
+      search: search?.trim() || undefined,
     });
   }
 

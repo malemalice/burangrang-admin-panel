@@ -8,6 +8,8 @@ interface PaginationParams {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   search?: string;
+  name?: string;
+  code?: string;
 }
 
 interface PaginatedResponse<T> {

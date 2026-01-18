@@ -85,7 +85,7 @@ const RiskCategoryForm = ({ riskCategory, mode }: RiskCategoryFormProps) => {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>Name <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
                     <Input placeholder="Enter category name" {...field} />
                   </FormControl>
@@ -99,7 +99,7 @@ const RiskCategoryForm = ({ riskCategory, mode }: RiskCategoryFormProps) => {
               name="code"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Code</FormLabel>
+                  <FormLabel>Code <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
                     <Input placeholder="Enter category code" {...field} />
                   </FormControl>

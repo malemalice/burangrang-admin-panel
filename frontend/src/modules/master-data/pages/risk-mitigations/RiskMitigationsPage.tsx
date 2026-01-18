@@ -55,7 +55,7 @@ const RiskMitigationsPage = () => {
     {
       id: 'riskId',
       label: 'Risk',
-      type: 'select',
+      type: 'searchableSelect',
       options: [
         { label: 'All Risks', value: 'all' },
         ...risks.map(risk => ({ label: risk.name, value: risk.id }))
@@ -73,18 +73,24 @@ const RiskMitigationsPage = () => {
     },
   ];
 
-  // Fetch risk mitigations
+  // Fetch risk mitigations. Use activeFilters.status when set, else activeTab (MDRMG-006, MDRMG-008/009).
   const fetchMitigations = useCallback(async () => {
     try {
       setIsLoading(true);
+      const isActiveFromFilter = activeFilters.status
+        ? (activeFilters.status.value === 'active' ? true : activeFilters.status.value === 'inactive' ? false : undefined)
+        : undefined;
+      const isActive = isActiveFromFilter !== undefined
+        ? isActiveFromFilter
+        : (activeTab === 'all' ? undefined : activeTab === 'active');
       const response = await riskMitigationService.getAll({
         page: pageIndex + 1,
         limit,
-        isActive: activeTab === 'all' ? undefined : activeTab === 'active',
-        search: searchTerm,
+        isActive,
+        search: searchTerm.trim() || undefined,
         sortBy: sorting?.id,
         sortOrder: sorting?.desc ? 'desc' : 'asc',
-        riskId: selectedRiskId !== 'all' ? selectedRiskId : undefined,
+        riskId: selectedRiskId && selectedRiskId !== 'all' ? selectedRiskId : undefined,
       });
       setMitigations(response.data);
       setTotalMitigations(response.meta.total);
@@ -98,16 +104,27 @@ const RiskMitigationsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, activeTab, searchTerm, sorting, selectedRiskId]);
+  }, [pageIndex, limit, activeTab, searchTerm, activeFilters, sorting, selectedRiskId]);
 
   useEffect(() => {
     fetchMitigations();
   }, [fetchMitigations]);
 
-  // Handle tab change
+  // Handle tab change (MDRMG-012/013: set activeFilters so filter badges appear above list like user management)
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     setPageIndex(0);
+    if (value === 'all') {
+      setActiveFilters(prev => {
+        const next = { ...prev };
+        delete next.status;
+        return next;
+      });
+    } else if (value === 'active') {
+      setActiveFilters(prev => ({ ...prev, status: { value: 'active', label: 'Active' } }));
+    } else if (value === 'inactive') {
+      setActiveFilters(prev => ({ ...prev, status: { value: 'inactive', label: 'Inactive' } }));
+    }
   };
 
   // Handle search
@@ -116,29 +133,40 @@ const RiskMitigationsPage = () => {
     setPageIndex(0);
   };
 
-  // Handle filter application
+  // Handle filter application (MDRMG-006, MDRMG-007: status filter, riskId, and X to clear update data)
   const handleApplyFilters = (filters: FilterValue[]) => {
     const newFilters: Record<string, { value: any; label: string }> = {};
     
     filters.forEach(filter => {
       const field = filterFields.find(f => f.id === filter.id);
-      if (field) {
-        let label = '';
-        if (field.type === 'select' && field.options) {
-          const option = field.options.find(opt => opt.value === filter.value);
-          label = option?.label || '';
-        } else {
-          label = String(filter.value);
-        }
-        
-        // Set the specific filter state variables
-        if (filter.id === 'riskId') {
-          setSelectedRiskId(filter.value === 'all' ? undefined : filter.value);
-        }
-        
-        newFilters[filter.id] = { value: filter.value, label };
+      if (!field) return;
+      // Skip 'all' values - treat as no filter
+      if (filter.id === 'riskId' && filter.value === 'all') return;
+      if (filter.id === 'status' && filter.value === 'all') return;
+      let label = '';
+      if (field.type === 'select' && field.options) {
+        const option = field.options.find(opt => opt.value === filter.value);
+        label = option?.label || '';
+      } else if (field.type === 'searchableSelect' && field.options) {
+        const option = field.options.find(opt => String(opt.value) === String(filter.value));
+        label = option?.label || String(filter.value);
+      } else {
+        label = String(filter.value);
       }
+      newFilters[filter.id] = { value: filter.value, label };
     });
+    
+    // Sync selectedRiskId: set when riskId in filters and not 'all', else undefined (MDRMG-007)
+    const riskFilter = filters.find(f => f.id === 'riskId');
+    setSelectedRiskId(riskFilter && riskFilter.value !== 'all' ? riskFilter.value : undefined);
+    
+    // Sync activeTab with status filter (MDRMG-006, MDRMG-007)
+    const statusFilter = filters.find(f => f.id === 'status');
+    if (!statusFilter || statusFilter.value === 'all') {
+      setActiveTab('all');
+    } else {
+      setActiveTab(String(statusFilter.value));
+    }
     
     setActiveFilters(newFilters);
     setPageIndex(0);
@@ -324,7 +352,7 @@ const RiskMitigationsPage = () => {
           </Button>
         }
       >
-        <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
+        <Tabs value={activeTab} className="w-full" onValueChange={handleTabChange}>
           <TabsList>
             <TabsTrigger value="all">All Mitigations</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
