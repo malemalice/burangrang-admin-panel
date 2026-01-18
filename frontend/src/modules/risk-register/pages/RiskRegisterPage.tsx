@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { RiskRegisterTable } from '../components/RiskRegisterTable';
 import { useRiskRegister } from '../hooks/useRiskRegister';
@@ -35,7 +36,13 @@ const RiskRegisterPage = () => {
     }
 
     Object.entries(activeFilters).forEach(([key, filter]) => {
-      params[key as keyof FindRiskRegisterParams] = filter.value;
+      if (key === 'createdAtRange') {
+        const v = filter.value as { from?: string | Date; to?: string | Date };
+        if (v?.from) params.createdAtFrom = typeof v.from === 'string' ? v.from : new Date(v.from).toISOString();
+        if (v?.to) params.createdAtTo = typeof v.to === 'string' ? v.to : new Date(v.to).toISOString();
+      } else {
+        (params as Record<string, unknown>)[key] = filter.value;
+      }
     });
 
     return params;
@@ -81,6 +88,11 @@ const RiskRegisterPage = () => {
         { label: STATUS_FILTER_LABEL_OPEN, value: GeneralStatusEnum.OPEN },
         { label: STATUS_FILTER_LABEL_CLOSED, value: STATUS_FILTER_VALUE_CLOSED },
       ],
+    },
+    {
+      id: 'createdAtRange',
+      label: 'Created At',
+      type: 'dateRange',
     },
   ]);
 
@@ -163,23 +175,31 @@ const RiskRegisterPage = () => {
           label: displayLabel,
         };
       } else if (filter.id === 'entityType') {
-        const entityTypeLabel =
+        const entityTypeLabel: string =
           filter.value === 'RISK_ASSESSMENT_ITEM'
             ? 'Risk Assessment'
             : filter.value === 'INSPECTION_ITEM'
             ? 'Inspection'
-            : filter.value;
+            : String(filter.value ?? 'All');
         newActiveFilters[filter.id] = {
           value: filter.value,
           label: entityTypeLabel,
         };
+      } else if (filter.id === 'createdAtRange') {
+        const range = filter.value as { from?: string | Date; to?: string | Date };
+        const fromStr = range?.from ? format(new Date(range.from), 'dd MMM yyyy') : '';
+        const toStr = range?.to ? format(new Date(range.to), 'dd MMM yyyy') : '';
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: fromStr && toStr ? `${fromStr} - ${toStr}` : fromStr || toStr,
+        };
       } else {
-        // For other filters, find label from options
+        // For other filters (departmentId, riskId, riskCategoryId)
         const field = filterFields.find(f => f.id === filter.id);
         const option = field?.options?.find(opt => opt.value === filter.value);
         newActiveFilters[filter.id] = {
           value: filter.value,
-          label: option?.label || filter.value,
+          label: String(option?.label ?? filter.value ?? ''),
         };
       }
     });

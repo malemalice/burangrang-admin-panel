@@ -16,7 +16,10 @@ import { User } from 'src/shared/types';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
-import { APPROVAL_ENTITY_TO_TABLE } from '../../shared/constants/approval-entities';
+import {
+  APPROVAL_ENTITY_TO_DEPARTMENT_COLUMN,
+  APPROVAL_ENTITY_TO_TABLE,
+} from '../../shared/constants/approval-entities';
 import {
   APPROVAL_FIELD_MARKERS,
   isApprovalFieldMarker,
@@ -442,30 +445,36 @@ export class MasterApprovalsService {
   }
 
   /**
-   * Get entity data for sentinel resolution
+   * Get entity data for sentinel resolution.
+   * Fetches the department FK from the entity row when the entity has a department
+   * column. Entities without one (e.g. WORK_PERMIT, INSPECTION) return null;
+   * resolveSentinelDepartment/resolveSentinelJobPosition then use the fallback label.
    */
   private async getEntityData(
     entityId: string,
     entityName: string,
-  ): Promise<any> {
+  ): Promise<{ departmentId: string } | null> {
     try {
-      // Get the source entity table name from mapping
       const tableName =
         APPROVAL_ENTITY_TO_TABLE[
           entityName as keyof typeof APPROVAL_ENTITY_TO_TABLE
         ];
-
       if (!tableName) {
         console.warn(`[getEntityData] No table mapping found for entity: ${entityName}`);
         return null;
       }
 
-      // Query the source entity to get departmentId
-      // Note: Use Prisma.raw() correctly for table name injection
-      const result = await this.prisma.$queryRaw<
-        Array<{ departmentId: string }>
-      >(
-        Prisma.sql`SELECT "departmentId" FROM ${Prisma.raw(`"${tableName}"`)} WHERE id = ${entityId} LIMIT 1`
+      const departmentColumn =
+        APPROVAL_ENTITY_TO_DEPARTMENT_COLUMN[
+          entityName as keyof typeof APPROVAL_ENTITY_TO_DEPARTMENT_COLUMN
+        ];
+      if (departmentColumn == null) {
+        return null;
+      }
+
+      // Column name is from our allowlist (APPROVAL_ENTITY_TO_DEPARTMENT_COLUMN)
+      const result = await this.prisma.$queryRaw<Array<{ departmentId: string }>>(
+        Prisma.sql`SELECT ${Prisma.raw(`"${departmentColumn}"`)} AS "departmentId" FROM ${Prisma.raw(`"${tableName}"`)} WHERE id = ${entityId} LIMIT 1`
       );
 
       if (!result || result.length === 0) {

@@ -39,6 +39,16 @@ export const RiskRegisterTable = ({
 }: RiskRegisterTableProps) => {
   const columns = [
     {
+      id: 'createdAt',
+      header: 'Created At',
+      cell: (item: RiskRegister) => (
+        <div className="text-sm">
+          {format(new Date(item.createdAt), 'dd MMM yyyy')}
+        </div>
+      ),
+      isSortable: true,
+    },
+    {
       id: 'code',
       header: 'Code',
       cell: (item: RiskRegister) => (
@@ -49,19 +59,14 @@ export const RiskRegisterTable = ({
       isSortable: false,
     },
     {
-      id: 'sourceType',
+      id: 'source',
       header: 'Source',
       cell: (item: RiskRegister) => (
-        <RiskRegisterSourceBadge entity={item.entity} />
-      ),
-      isSortable: false,
-    },
-    {
-      id: 'sourceCode',
-      header: 'Source Code',
-      cell: (item: RiskRegister) => (
-        <div className="font-medium">
-          {'code' in item.source ? item.source.code : 'N/A'}
+        <div className="flex items-center gap-2 flex-wrap">
+          <RiskRegisterSourceBadge entity={item.entity} />
+          <span className="font-mono text-sm text-muted-foreground">
+            {'code' in item.source ? item.source.code : 'N/A'}
+          </span>
         </div>
       ),
       isSortable: false,
@@ -84,6 +89,16 @@ export const RiskRegisterTable = ({
           </div>
         );
       },
+      isSortable: false,
+    },
+    {
+      id: 'department',
+      header: 'Department',
+      cell: (item: RiskRegister) => (
+        <div className="text-sm">
+          {item.source.department?.name || 'N/A'}
+        </div>
+      ),
       isSortable: false,
     },
     {
@@ -112,26 +127,6 @@ export const RiskRegisterTable = ({
         );
       },
       isSortable: false,
-    },
-    {
-      id: 'department',
-      header: 'Department',
-      cell: (item: RiskRegister) => (
-        <div className="text-sm">
-          {item.source.department?.name || 'N/A'}
-        </div>
-      ),
-      isSortable: false,
-    },
-    {
-      id: 'createdAt',
-      header: 'Created At',
-      cell: (item: RiskRegister) => (
-        <div className="text-sm">
-          {format(new Date(item.createdAt), 'dd MMM yyyy')}
-        </div>
-      ),
-      isSortable: true,
     },
     {
       id: 'actions',

@@ -114,4 +114,6 @@ export interface FindRiskRegisterParams {
   status?: GeneralStatusEnum;
   isActive?: boolean;
   search?: string;
+  createdAtFrom?: string;
+  createdAtTo?: string;
 }

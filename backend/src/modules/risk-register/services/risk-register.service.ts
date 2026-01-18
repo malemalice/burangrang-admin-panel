@@ -10,6 +10,7 @@ import {
   RiskRegisterSourceInspectionDto,
 } from '../dto/risk-register-source.dto';
 import { Prisma, GeneralStatusEnum } from '@prisma/client';
+import { endOfDay } from 'date-fns';
 
 const RISK_ASSESSMENT_ITEM_ENTITY = 'RISK_ASSESSMENT_ITEM';
 const INSPECTION_ITEM_ENTITY = 'INSPECTION_ITEM';
@@ -38,6 +39,8 @@ export class RiskRegisterService {
       status,
       isActive,
       search,
+      createdAtFrom,
+      createdAtTo,
     } = options || {};
 
     // Build where clause for RiskMitigationRecord
@@ -55,6 +58,16 @@ export class RiskRegisterService {
 
     if (isActive !== undefined) {
       where.isActive = isActive;
+    }
+
+    if (createdAtFrom || createdAtTo) {
+      where.createdAt = {};
+      if (createdAtFrom) {
+        (where.createdAt as Prisma.DateTimeFilter).gte = new Date(createdAtFrom);
+      }
+      if (createdAtTo) {
+        (where.createdAt as Prisma.DateTimeFilter).lte = endOfDay(new Date(createdAtTo));
+      }
     }
 
     // Get all mitigation records matching filters

@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, IsUUID, IsInt, Min, Max, IsBoolean } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID, IsInt, Min, Max, IsBoolean, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { GeneralStatusEnum } from '@prisma/client';
 
@@ -70,4 +70,14 @@ export class FindRiskRegisterDto {
   @IsString()
   @IsOptional()
   search?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by createdAt from (ISO date string)' })
+  @IsDateString()
+  @IsOptional()
+  createdAtFrom?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by createdAt to (ISO date string, inclusive of the day)' })
+  @IsDateString()
+  @IsOptional()
+  createdAtTo?: string;
 }
