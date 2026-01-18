@@ -4,20 +4,10 @@ import {
     ArrowUpCircle, 
     RefreshCw, 
     Search,
-    Calendar as CalendarIcon,
-    Filter
+    Calendar as CalendarIcon
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Badge } from '@/core/components/ui/badge';
-import { Button } from '@/core/components/ui/button';
-import { Input } from '@/core/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/core/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import { useStockMovements } from '../hooks/useSafetyEquipments';
@@ -148,6 +138,30 @@ const StockMovementHistory = ({ safetyEquipmentId }: StockMovementHistoryProps) 
         },
     ], []);
 
+    const filterFields = useMemo(() => [
+        {
+            id: 'movementType',
+            label: 'Movement Type',
+            type: 'select' as const,
+            options: [
+                { label: 'Stock In', value: 'STOCK_IN' },
+                { label: 'Withdrawal', value: 'WITHDRAWAL' },
+                { label: 'Adjustment', value: 'ADJUSTMENT' },
+            ],
+        },
+    ], []);
+
+    const handleApplyFilters = useCallback((filters: any[]) => {
+        const typeFilter = filters.find(f => f.id === 'movementType');
+        setMovementType(typeFilter?.value || 'all');
+        setPageIndex(0);
+    }, []);
+
+    const handleSearch = useCallback((term: string) => {
+        setSearchTerm(term);
+        setPageIndex(0);
+    }, []);
+
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -177,42 +191,13 @@ const StockMovementHistory = ({ safetyEquipmentId }: StockMovementHistoryProps) 
                 </Card>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 items-end">
-                <div className="flex-1 w-full space-y-2">
-                    <label className="text-sm font-medium">Search</label>
-                    <div className="relative">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Search by code, notes, or user..."
-                            className="pl-8"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                </div>
-                <div className="w-full md:w-[200px] space-y-2">
-                    <label className="text-sm font-medium">Movement Type</label>
-                    <Select value={movementType} onValueChange={setMovementType}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="All Types" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Types</SelectItem>
-                            <SelectItem value="STOCK_IN">Stock In</SelectItem>
-                            <SelectItem value="WITHDRAWAL">Withdrawal</SelectItem>
-                            <SelectItem value="ADJUSTMENT">Adjustment</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                <Button onClick={loadMovements} variant="secondary">
-                    <Filter className="mr-2 h-4 w-4" /> Apply Filters
-                </Button>
-            </div>
-
             <DataTable
                 columns={columns}
                 data={movements}
                 isLoading={isLoading}
+                onSearch={handleSearch}
+                filterFields={filterFields}
+                onApplyFilters={handleApplyFilters}
                 pagination={{
                     pageIndex,
                     limit,
