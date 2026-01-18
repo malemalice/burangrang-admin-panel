@@ -24,6 +24,12 @@ import { MasterApproval } from '@/core/lib/types';
 import jobPositionService from '../../services/jobPositionService';
 import departmentService from '../../services/departmentService';
 
+// Sentinel values for dynamic approval fields
+const APPROVAL_FIELD_MARKERS = {
+  FROM_ENTITY_DEPARTMENT: '@ENTITY_DEPARTMENT',
+  FROM_ENTITY_JOB_POSITION: '@ENTITY_JOB_POSITION',
+} as const;
+
 const formSchema = z.object({
   entity: z.string().min(1, 'Entity is required'),
   isActive: z.boolean().default(true),
@@ -63,15 +69,27 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
   });
 
   // Convert data to SearchableSelectOption format
-  const jobPositionOptions: SearchableSelectOption[] = jobPositions.map(position => ({
-    value: position.id,
-    label: position.name,
-  }));
+  const jobPositionOptions: SearchableSelectOption[] = [
+    ...jobPositions.map(position => ({
+      value: position.id,
+      label: position.name,
+    })),
+    {
+      value: APPROVAL_FIELD_MARKERS.FROM_ENTITY_JOB_POSITION,
+      label: 'Dynamic: From Entity Data (Department Head)',
+    },
+  ];
 
-  const departmentOptions: SearchableSelectOption[] = departments.map(dept => ({
-    value: dept.id,
-    label: dept.name,
-  }));
+  const departmentOptions: SearchableSelectOption[] = [
+    ...departments.map(dept => ({
+      value: dept.id,
+      label: dept.name,
+    })),
+    {
+      value: APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT,
+      label: 'Dynamic: From Entity Data',
+    },
+  ];
 
   // Fetch options (job positions and departments)
   useEffect(() => {
@@ -132,15 +150,22 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
   const onSubmit = async (data: FormValues) => {
     try {
       setIsLoading(true);
+      
+      // Always use index + 1 as order since the visual position in the form IS the approval sequence
+      // This ensures proper ordering regardless of how items were added or reordered
+      const itemsWithOrder = data.items.map((item, index) => ({
+        order: index + 1, // Always use 1-based index as order
+        jobPositionId: item.jobPositionId,
+        departmentId: item.departmentId,
+      }));
+      
+      console.log('[MasterApprovalForm] Submitting items with orders:', itemsWithOrder);
+      
       if (mode === 'create') {
         const createData: CreateMasterApprovalDTO = {
           entity: data.entity,
           isActive: data.isActive,
-          items: data.items.map((item, index) => ({
-            order: item.order || index + 1,
-            jobPositionId: item.jobPositionId,
-            departmentId: item.departmentId,
-          })),
+          items: itemsWithOrder,
         };
         await masterApprovalService.create(createData);
         toast.success('Master approval created successfully');
@@ -148,11 +173,7 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
         const updateData: UpdateMasterApprovalDTO = {
           entity: data.entity,
           isActive: data.isActive,
-          items: data.items.map((item, index) => ({
-            order: item.order || index + 1,
-            jobPositionId: item.jobPositionId,
-            departmentId: item.departmentId,
-          })),
+          items: itemsWithOrder,
         };
         await masterApprovalService.update(approval.id, updateData);
         toast.success('Master approval updated successfully');

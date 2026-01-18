@@ -14,8 +14,25 @@ export const InspectionDetailsCard = ({ inspection }: InspectionDetailsCardProps
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Area</p>
-          <p className="text-sm">{inspection.area?.name || 'N/A'}</p>
+          <p className="text-xs font-medium text-muted-foreground">Areas</p>
+          <p className="text-sm">
+            {(() => {
+              const areaNames = inspection.areas
+                ?.map(a => a?.name)
+                .filter((name): name is string => Boolean(name)) || [];
+              
+              if (areaNames.length > 0) {
+                return areaNames.join(', ');
+              }
+              
+              // Fallback to deprecated area field for backward compatibility
+              if (inspection.area?.name) {
+                return inspection.area.name;
+              }
+              
+              return 'N/A';
+            })()}
+          </p>
         </div>
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">Inspection Date</p>

@@ -11,9 +11,11 @@ import { RiskAssessmentDto } from '../dto/risk-assessment.dto';
 import { CreateRiskAssessmentItemDto } from '../dto/create-risk-assessment-item.dto';
 import { UpdateRiskAssessmentItemDto } from '../dto/update-risk-assessment-item.dto';
 import { RiskAssessmentItemDto } from '../dto/risk-assessment-item.dto';
+import { RiskMitigationDataDto, RiskMitigationRecordDto } from '../dto/risk-mitigation-data.dto';
 import {
   RiskAssessment,
   RiskAssessmentItem,
+  RiskMitigationRecord,
   Prisma,
   GeneralStatusEnum,
 } from '@prisma/client';
@@ -23,6 +25,10 @@ import {
   ReminderRepeatTypeEnum,
   ReminderTargetTypeEnum,
 } from '../../reminders/dto/reminder.dto';
+import { APPROVAL_ENTITIES } from '../../../shared/constants/approval-entities';
+
+// Entity type constant for risk assessment items
+const RISK_ASSESSMENT_ITEM_ENTITY = 'RISK_ASSESSMENT_ITEM';
 
 interface FindAllOptions {
   page?: number;
@@ -50,17 +56,21 @@ export class RiskAssessmentService {
     const { items, createdBy, ...data } = createRiskAssessmentDto;
 
     try {
+      // Extract mitigations from items before creating (they need to be saved separately)
+      const itemsWithoutMitigation = items?.map(({ mitigation, ...itemData }) => itemData);
+      const itemMitigations = items?.map((item) => item.mitigation);
+
       const assessment = await this.prisma.riskAssessment.create({
         data: {
           ...data,
           createdBy: userId, // Use authenticated user ID from request
-          ...(items &&
-            items.length > 0 && {
+          ...(itemsWithoutMitigation &&
+            itemsWithoutMitigation.length > 0 && {
               items: {
-                create: items, // Prisma will automatically map mRiskId to mriskid column via @map
+                create: itemsWithoutMitigation as any, // Prisma will automatically map mRiskId to mriskid column via @map
               },
             }),
-        },
+        } as any,
         include: {
           items: {
             include: {
@@ -73,6 +83,23 @@ export class RiskAssessmentService {
           assignee: true,
         },
       });
+
+      // Create mitigation records for items
+      const assessmentWithItems = assessment as any as RiskAssessment & {
+        items: (RiskAssessmentItem & {
+          mRisk: any;
+          mRiskCategory: any;
+        })[];
+      };
+      
+      if (assessmentWithItems.items?.length > 0 && itemMitigations) {
+        for (let i = 0; i < assessmentWithItems.items.length; i++) {
+          const mitigation = itemMitigations[i];
+          if (mitigation) {
+            await this.createMitigationRecord(assessmentWithItems.items[i].id, mitigation);
+          }
+        }
+      }
 
       const assessmentWithRelations =
         await this.prisma.riskAssessment.findUnique({
@@ -116,7 +143,7 @@ export class RiskAssessmentService {
         }
       }
 
-      return this.mapToDto(assessmentWithRelations);
+      return this.mapToDtoWithMitigations(assessmentWithRelations);
     } catch (error: any) {
       // Handle Prisma unique constraint error for code
       if (error.code === 'P2002' && error.meta?.target?.includes('code')) {
@@ -187,8 +214,26 @@ export class RiskAssessmentService {
       this.prisma.riskAssessment.count({ where }),
     ]);
 
+    // Fetch all mitigation records for all items in all assessments
+    const allItemIds = assessments.flatMap((a) => a.items.map((item) => item.id));
+    const mitigationRecords = await this.prisma.riskMitigationRecord.findMany({
+      where: {
+        entity: RISK_ASSESSMENT_ITEM_ENTITY,
+        entityId: { in: allItemIds },
+        isActive: true,
+      },
+    });
+
+    // Create a map of itemId -> mitigation record
+    const mitigationMap = new Map<string, RiskMitigationRecord>();
+    mitigationRecords.forEach((record) => {
+      mitigationMap.set(record.entityId, record);
+    });
+
     return {
-      data: assessments.map((assessment) => this.mapToDto(assessment)),
+      data: assessments.map((assessment) =>
+        this.mapToDtoWithMitigationMap(assessment, mitigationMap),
+      ),
       meta: { total, page, limit },
     };
   }
@@ -213,7 +258,7 @@ export class RiskAssessmentService {
       throw new NotFoundException(`Risk Assessment with ID ${id} not found`);
     }
 
-    return this.mapToDto(assessment);
+    return this.mapToDtoWithMitigations(assessment as any);
   }
 
   async update(
@@ -247,18 +292,33 @@ export class RiskAssessmentService {
       data.assessmentDate.getTime() !==
         existingAssessment.assessmentDate.getTime();
 
+    // Delete existing mitigation records if items are being replaced
+    if (items) {
+      const existingItemIds = existingAssessment.items.map((item) => item.id);
+      await this.prisma.riskMitigationRecord.deleteMany({
+        where: {
+          entity: RISK_ASSESSMENT_ITEM_ENTITY,
+          entityId: { in: existingItemIds },
+        },
+      });
+    }
+
+    // Extract mitigations from items before creating (they need to be saved separately)
+    const itemsWithoutMitigation = items?.map(({ mitigation, ...itemData }) => itemData);
+    const itemMitigations = items?.map((item) => item.mitigation);
+
     // Update the assessment and its items
     const assessment = await this.prisma.riskAssessment.update({
       where: { id },
       data: {
         ...data,
-        ...(items && {
+        ...(itemsWithoutMitigation && {
           items: {
             deleteMany: {},
-            create: items, // Prisma will automatically map mRiskId to mriskid column via @map
+            create: itemsWithoutMitigation as any, // Prisma will automatically map mRiskId to mriskid column via @map
           },
         }),
-      },
+      } as any,
       include: {
         items: {
           include: {
@@ -271,6 +331,27 @@ export class RiskAssessmentService {
         assignee: true,
       },
     });
+
+    // Create mitigation records for new items
+    const assessmentWithItems = assessment as any as RiskAssessment & {
+      items: (RiskAssessmentItem & {
+        mRisk: any;
+        mRiskCategory: any;
+      })[];
+    };
+    
+    if (assessmentWithItems.items?.length > 0 && itemMitigations) {
+      for (let i = 0; i < assessmentWithItems.items.length; i++) {
+        const mitigation = itemMitigations[i];
+        if (mitigation) {
+          await this.createMitigationRecord(assessmentWithItems.items[i].id, mitigation);
+        }
+      }
+    }
+
+    // Note: Approval records (t_approvals) should only be created when an approver
+    // actually submits their approval/rejection action, not when status changes to WAITING_APPROVAL.
+    // The approval workflow is defined in m_approvals and shown in allApprovalLines.
 
     // Handle reminder creation/deletion based on status changes
     if (statusChangedFromScheduled) {
@@ -328,7 +409,7 @@ export class RiskAssessmentService {
       }
     }
 
-    return this.mapToDto(assessment);
+    return this.mapToDtoWithMitigations(assessment as any);
   }
 
   async remove(id: string): Promise<void> {
@@ -543,15 +624,104 @@ export class RiskAssessmentService {
         mRisk: (item as any).mRisk,
         mRiskCategoryId: item.mRiskCategoryId,
         mRiskCategory: item.mRiskCategory,
-        likelihoodLevel: item.likelihoodLevel,
+        likelihoodLevel: item.likelihoodLevel as any as string,
         consequenceLevel: item.consequenceLevel,
         riskMatrixRating: item.riskMatrixRating,
         interpretation: item.interpretation,
-        postLikelihoodLevel: item.postLikelihoodLevel,
+        postLikelihoodLevel: item.postLikelihoodLevel as any as string,
         postConsequenceLevel: item.postConsequenceLevel,
         postRiskMatrixRating: item.postRiskMatrixRating,
         postInterpretation: item.postInterpretation,
       })),
+      assigneeId: assessment.assigneeId ?? undefined,
+      assignee: assessment.assignee,
+      actionPlan: assessment.actionPlan ?? undefined,
+    };
+  }
+
+  /**
+   * Map assessment to DTO with mitigations fetched from database
+   */
+  private async mapToDtoWithMitigations(
+    assessment: RiskAssessment & {
+      items: (RiskAssessmentItem & {
+        mRisk: any;
+        mRiskCategory: any;
+      })[];
+      department: any;
+      creator: any;
+      assignee: any;
+    },
+  ): Promise<RiskAssessmentDto> {
+    // Fetch mitigation records for all items
+    const itemIds = assessment.items.map((item) => item.id);
+    const mitigationRecords = await this.prisma.riskMitigationRecord.findMany({
+      where: {
+        entity: RISK_ASSESSMENT_ITEM_ENTITY,
+        entityId: { in: itemIds },
+        isActive: true,
+      },
+    });
+
+    // Create a map of itemId -> mitigation record
+    const mitigationMap = new Map<string, RiskMitigationRecord>();
+    mitigationRecords.forEach((record) => {
+      mitigationMap.set(record.entityId, record);
+    });
+
+    return this.mapToDtoWithMitigationMap(assessment, mitigationMap);
+  }
+
+  /**
+   * Map assessment to DTO using a pre-fetched mitigation map
+   */
+  private mapToDtoWithMitigationMap(
+    assessment: RiskAssessment & {
+      items: (RiskAssessmentItem & {
+        mRisk: any;
+        mRiskCategory: any;
+      })[];
+      department: any;
+      creator: any;
+      assignee: any;
+    },
+    mitigationMap: Map<string, RiskMitigationRecord>,
+  ): RiskAssessmentDto {
+    return {
+      id: assessment.id,
+      code: assessment.code,
+      description: assessment.description ?? undefined,
+      departmentId: assessment.departmentId,
+      department: assessment.department,
+      assessmentDate: assessment.assessmentDate,
+      createdAt: assessment.createdAt,
+      updatedAt: assessment.updatedAt,
+      createdBy: assessment.createdBy,
+      creator: assessment.creator,
+      status: assessment.status,
+      isActive: assessment.isActive,
+      items: assessment.items.map((item) => {
+        const mitigationRecord = mitigationMap.get(item.id);
+        return {
+          id: item.id,
+          riskAssessmentId: item.riskAssessmentId,
+          mRiskId: (item as any).mRiskId,
+          mRisk: (item as any).mRisk,
+          mRiskCategoryId: item.mRiskCategoryId,
+          mRiskCategory: item.mRiskCategory,
+          likelihoodLevel: item.likelihoodLevel,
+          consequenceLevel: item.consequenceLevel,
+          riskMatrixRating: item.riskMatrixRating,
+          interpretation: item.interpretation,
+          postLikelihoodLevel: item.postLikelihoodLevel as any as string,
+          postConsequenceLevel: item.postConsequenceLevel,
+          postRiskMatrixRating: item.postRiskMatrixRating,
+          postInterpretation: item.postInterpretation,
+          mitigation: mitigationRecord
+            ? this.mapMitigationToDto(mitigationRecord)
+            : undefined,
+        };
+      }),
       assigneeId: assessment.assigneeId ?? undefined,
       assignee: assessment.assignee,
       actionPlan: assessment.actionPlan ?? undefined,
@@ -574,18 +744,30 @@ export class RiskAssessmentService {
       );
     }
 
+    // Extract mitigation from DTO
+    const { mitigation, ...itemData } = createItemDto;
+
     const item = await this.prisma.riskAssessmentItem.create({
       data: {
-        ...createItemDto,
+        ...itemData,
         riskAssessmentId,
-      },
+      } as any,
       include: {
         mRisk: true,
         mRiskCategory: true,
       },
     });
 
-    return this.mapItemToDto(item);
+    // Create mitigation record if provided
+    let mitigationRecord: RiskMitigationRecord | null = null;
+    if (mitigation) {
+      mitigationRecord = await this.createMitigationRecord(item.id, mitigation);
+    }
+
+    return this.mapItemToDto(item as any as RiskAssessmentItem & {
+      mRisk: any;
+      mRiskCategory: any;
+    }, mitigationRecord);
   }
 
   async findAllItems(
@@ -679,8 +861,26 @@ export class RiskAssessmentService {
       this.prisma.riskAssessmentItem.count({ where }),
     ]);
 
+    // Fetch mitigation records for all items
+    const itemIds = items.map((item) => item.id);
+    const mitigationRecords = await this.prisma.riskMitigationRecord.findMany({
+      where: {
+        entity: RISK_ASSESSMENT_ITEM_ENTITY,
+        entityId: { in: itemIds },
+        isActive: true,
+      },
+    });
+
+    // Create a map of itemId -> mitigation record
+    const mitigationMap = new Map<string, RiskMitigationRecord>();
+    mitigationRecords.forEach((record) => {
+      mitigationMap.set(record.entityId, record);
+    });
+
     return {
-      data: items.map((item) => this.mapItemToDto(item)),
+      data: items.map((item) =>
+        this.mapItemToDto(item, mitigationMap.get(item.id)),
+      ),
       meta: { total, page, limit },
     };
   }
@@ -706,7 +906,13 @@ export class RiskAssessmentService {
       );
     }
 
-    return this.mapItemToDto(item);
+    // Fetch mitigation record for the item
+    const mitigationRecord = await this.getMitigationRecord(itemId);
+
+    return this.mapItemToDto(item as any as RiskAssessmentItem & {
+      mRisk: any;
+      mRiskCategory: any;
+    }, mitigationRecord);
   }
 
   async updateItem(
@@ -728,16 +934,31 @@ export class RiskAssessmentService {
       );
     }
 
+    // Extract mitigation from DTO
+    const { mitigation, ...itemData } = updateItemDto;
+
     const item = await this.prisma.riskAssessmentItem.update({
       where: { id: itemId },
-      data: updateItemDto,
+      data: itemData as any,
       include: {
         mRisk: true,
         mRiskCategory: true,
       },
     });
 
-    return this.mapItemToDto(item);
+    // Update or create mitigation record if provided
+    let mitigationRecord: RiskMitigationRecord | null = null;
+    if (mitigation) {
+      mitigationRecord = await this.upsertMitigationRecord(itemId, mitigation);
+    } else {
+      // Fetch existing mitigation record if any
+      mitigationRecord = await this.getMitigationRecord(itemId);
+    }
+
+    return this.mapItemToDto(item as any as RiskAssessmentItem & {
+      mRisk: any;
+      mRiskCategory: any;
+    }, mitigationRecord);
   }
 
   async removeItem(riskAssessmentId: string, itemId: string): Promise<void> {
@@ -755,6 +976,9 @@ export class RiskAssessmentService {
       );
     }
 
+    // Delete associated mitigation record first
+    await this.deleteMitigationRecord(itemId);
+
     await this.prisma.riskAssessmentItem.delete({
       where: { id: itemId },
     });
@@ -765,6 +989,7 @@ export class RiskAssessmentService {
       mRisk: any;
       mRiskCategory: any;
     },
+    mitigationRecord?: RiskMitigationRecord | null,
   ): RiskAssessmentItemDto {
     return {
       id: item.id,
@@ -777,10 +1002,125 @@ export class RiskAssessmentService {
       consequenceLevel: item.consequenceLevel,
       riskMatrixRating: item.riskMatrixRating,
       interpretation: item.interpretation,
-      postLikelihoodLevel: item.postLikelihoodLevel,
-      postConsequenceLevel: item.postConsequenceLevel,
+        postLikelihoodLevel: item.postLikelihoodLevel as any as string,
+        postConsequenceLevel: item.postConsequenceLevel,
       postRiskMatrixRating: item.postRiskMatrixRating,
       postInterpretation: item.postInterpretation,
+      mitigation: mitigationRecord
+        ? this.mapMitigationToDto(mitigationRecord)
+        : undefined,
+    };
+  }
+
+  // Mitigation record helper methods
+
+  /**
+   * Generate unique mitigation code: RSK + YYMMDDHHmmss
+   */
+  private generateMitigationCode(): string {
+    const now = new Date();
+    const year = now.getFullYear().toString().slice(-2);
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const date = now.getDate().toString().padStart(2, '0');
+    const hour = now.getHours().toString().padStart(2, '0');
+    const minute = now.getMinutes().toString().padStart(2, '0');
+    const second = now.getSeconds().toString().padStart(2, '0');
+    return `RSK${year}${month}${date}${hour}${minute}${second}`;
+  }
+
+  /**
+   * Create a new mitigation record for a risk assessment item
+   */
+  private async createMitigationRecord(
+    itemId: string,
+    mitigation: RiskMitigationDataDto,
+  ): Promise<RiskMitigationRecord> {
+    return this.prisma.riskMitigationRecord.create({
+      data: {
+        code: this.generateMitigationCode(),
+        entity: RISK_ASSESSMENT_ITEM_ENTITY,
+        entityId: itemId,
+        eliminate: mitigation.eliminate || null,
+        transfer: mitigation.transfer || null,
+        reduce: mitigation.reduce || null,
+        accept: mitigation.accept || null,
+        legalAspect: mitigation.legalAspect || null,
+        isActive: true,
+      },
+    });
+  }
+
+  /**
+   * Get mitigation record for a risk assessment item
+   */
+  private async getMitigationRecord(
+    itemId: string,
+  ): Promise<RiskMitigationRecord | null> {
+    return this.prisma.riskMitigationRecord.findFirst({
+      where: {
+        entity: RISK_ASSESSMENT_ITEM_ENTITY,
+        entityId: itemId,
+        isActive: true,
+      },
+    });
+  }
+
+  /**
+   * Update or create mitigation record for a risk assessment item
+   */
+  private async upsertMitigationRecord(
+    itemId: string,
+    mitigation: RiskMitigationDataDto,
+  ): Promise<RiskMitigationRecord> {
+    const existing = await this.getMitigationRecord(itemId);
+
+    if (existing) {
+      return this.prisma.riskMitigationRecord.update({
+        where: { id: existing.id },
+        data: {
+          eliminate: mitigation.eliminate || null,
+          transfer: mitigation.transfer || null,
+          reduce: mitigation.reduce || null,
+          accept: mitigation.accept || null,
+          legalAspect: mitigation.legalAspect || null,
+        },
+      });
+    }
+
+    return this.createMitigationRecord(itemId, mitigation);
+  }
+
+  /**
+   * Delete mitigation record for a risk assessment item
+   */
+  private async deleteMitigationRecord(itemId: string): Promise<void> {
+    await this.prisma.riskMitigationRecord.deleteMany({
+      where: {
+        entity: RISK_ASSESSMENT_ITEM_ENTITY,
+        entityId: itemId,
+      },
+    });
+  }
+
+  /**
+   * Map mitigation record to DTO
+   */
+  private mapMitigationToDto(
+    record: RiskMitigationRecord,
+  ): RiskMitigationRecordDto {
+    return {
+      id: record.id,
+      code: record.code,
+      entity: record.entity,
+      entityId: record.entityId,
+      eliminate: record.eliminate || undefined,
+      transfer: record.transfer || undefined,
+      reduce: record.reduce || undefined,
+      accept: record.accept || undefined,
+      legalAspect: record.legalAspect || undefined,
+      isActive: record.isActive,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
     };
   }
 }

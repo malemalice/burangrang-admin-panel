@@ -10,6 +10,7 @@ export enum GeneralStatusEnum {
   WAITING_APPROVAL = 'WAITING_APPROVAL',
   DONE = 'DONE',
   REJECTED = 'REJECTED',
+  CLOSE = 'CLOSE',
 }
 
 /**
@@ -22,4 +23,15 @@ export const GENERAL_STATUS_OPTIONS = [
   { value: GeneralStatusEnum.WAITING_APPROVAL, label: 'Waiting Approval' },
   { value: GeneralStatusEnum.DONE, label: 'Done' },
   { value: GeneralStatusEnum.REJECTED, label: 'Rejected' },
+  { value: GeneralStatusEnum.CLOSE, label: 'Closed' },
+] as const;
+
+/**
+ * Inspection Item Status Options
+ * Only includes statuses valid for inspection items: OPEN, WAITING_APPROVAL, CLOSE
+ */
+export const INSPECTION_ITEM_STATUS_OPTIONS = [
+  { value: GeneralStatusEnum.OPEN, label: 'Open Issue' },
+  { value: GeneralStatusEnum.WAITING_APPROVAL, label: 'Waiting Verification' },
+  { value: GeneralStatusEnum.CLOSE, label: 'Closed' },
 ] as const;

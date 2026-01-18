@@ -34,6 +34,7 @@ This Technical Reference Document (TRD) provides comprehensive guidance for the 
 - **Consistency**: Standardized patterns across all modules
 - **Security First**: Comprehensive authentication and authorization
 - **Maintainability**: Clear separation of concerns and modular architecture
+- **Dynamic Resolution**: Use sentinel values for entity-based field resolution; resolve at runtime, never store sentinels in transactional data
 
 ## Architecture
 
@@ -1464,9 +1465,62 @@ Multi-level sequential approval workflow system using template-based configurati
 - Template-based workflows per entity type
 - Sequential approval steps (order 0, 1, 2...)
 - Department + Job Position matching for authorization
+- **Dynamic field resolution** via sentinel values for entity-based approvals
 - Status flow: PENDING → WAITING_APPROVAL → COMPLETED/REJECTED
 - Complete approval history tracking
 - Automatic source entity status updates
+
+### Dynamic Approval Options Principles
+
+**Sentinel Values Approach**: Use special string constants (`@ENTITY_DEPARTMENT`, `@ENTITY_JOB_POSITION`) instead of fixed IDs to enable dynamic field resolution from entity data at approval creation time.
+
+**Core Principles**:
+1. **Sentinel Values**: Store sentinel strings in `m_approval_item.departmentId`/`jobPositionId` to indicate dynamic lookup
+2. **Resolution at Creation**: Resolve sentinel values to actual UUIDs when creating `t_approvals` records (never store sentinels in transactional data)
+3. **Backward Compatibility**: Fixed UUIDs continue to work unchanged; sentinel detection via `isApprovalFieldMarker()`
+4. **Schema Handling**: Foreign key constraints removed from `m_approval_item` (via migration) to allow sentinel storage; `t_approvals` keeps constraints
+5. **Relation Loading**: Load `department`/`jobPosition` relations separately, skip when sentinel detected, use display labels ("Dynamic: From Entity Data")
+6. **Entity Resolution**: `ApprovalResolverService.getEntityData()` reads entity `departmentId`; `findDepartmentHead()` resolves job position via department head lookup
+
+**Implementation**:
+- Constants: `APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT`, `FROM_ENTITY_JOB_POSITION`
+- Service: `ApprovalResolverService.resolveApprovalItem()` - resolves sentinels before creating approval records
+- Usage: Master approval items can mix fixed IDs and sentinels (e.g., first step dynamic, second step fixed)
+
+### Approval Record Creation Principles
+
+**Separation of Workflow Definition and Execution Records**:
+- **`m_approvals` / `m_approval_item`**: Define the approval workflow configuration (source of truth for pending/current lines)
+- **`t_approvals`**: Record actual approval actions taken by approvers (execution history)
+
+**Core Principles**:
+
+1. **`t_approvals` Records Only After Approver Action**:
+   - `t_approvals` should **ONLY** contain records AFTER an approver takes action (approves/rejects)
+   - `t_approvals` should **NOT** be created when status changes to `WAITING_APPROVAL`
+   - Records are created via `POST /master-approvals/approval` when approver submits their decision
+
+2. **Workflow Definition vs. Execution**:
+   - `m_approvals` defines the workflow (shown via `allApprovalLines` in API responses)
+   - `t_approvals` records the execution history (shown via `history` in API responses)
+   - These serve different purposes and should not duplicate each other
+
+3. **Status Change to WAITING_APPROVAL**:
+   - When entity status changes to `WAITING_APPROVAL`, do **NOT** call `createApproval()` service
+   - The workflow is already defined in `m_approvals` and shown via `allApprovalLines`
+   - Creating `t_approvals` records at this point causes duplication in the approval timeline
+
+4. **Avoiding Duplication**:
+   - The API response from `GET /master-approvals/check-approval-status/:dataId` includes:
+     - `history[]`: Actual approval actions from `t_approvals` (after approvers act)
+     - `allApprovalLines[]`: Workflow configuration from `m_approvals` (pending/current lines)
+   - Frontend should render both separately, avoiding duplication by checking if a specific department/job position combination already exists in history before showing from `allApprovalLines`
+
+**Implementation Guidelines**:
+- **DO NOT** create `t_approvals` records when entity status changes to `WAITING_APPROVAL`
+- **DO** create `t_approvals` records when approver submits via `POST /master-approvals/approval`
+- **DO** rely on `m_approvals` configuration for showing pending/current approval lines
+- **DO** use `t_approvals` records for showing completed approval history
 
 ### Module Structure
 ```

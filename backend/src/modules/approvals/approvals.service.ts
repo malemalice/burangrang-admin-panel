@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateApprovalDto, ApprovalStatus } from './dto/create-approval.dto';
+import { ApprovalResolverService } from './services/approval-resolver.service';
 
 @Injectable()
 export class ApprovalsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly approvalResolver: ApprovalResolverService,
+  ) {}
 
   async createApproval(
     entityName: string,
@@ -30,26 +34,28 @@ export class ApprovalsService {
       throw new NotFoundException(`No active master approval found for entity: ${entityName}`);
     }
 
-    // Get user data to get department and job position
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        departmentId: true,
-        jobPositionId: true,
-      },
-    });
+    // Create approval records for all items in order
+    for (const item of masterApproval.items) {
+      // Resolve dynamic fields (handle sentinel values)
+      const { departmentId, jobPositionId } =
+        await this.approvalResolver.resolveApprovalItem(
+          item,
+          entityId,
+          entityName,
+        );
 
-    // Create approval record
-    await this.prisma.approval.create({
-      data: {
-        mApprovalId: masterApproval.id,
-        entityId,
-        status: ApprovalStatus.REQUESTED,
-        departmentId: user?.departmentId || '',
-        jobPositionId: user?.jobPositionId || '',
-        createdBy: userId,
-        notes: '', // Required field in schema
-      },
-    });
+      // Create approval record with resolved values
+      await this.prisma.approval.create({
+        data: {
+          mApprovalId: masterApproval.id,
+          entityId,
+          status: ApprovalStatus.REQUESTED,
+          departmentId,
+          jobPositionId,
+          createdBy: userId,
+          notes: '', // Required field in schema
+        },
+      });
+    }
   }
 } 

@@ -10,6 +10,26 @@ export const users = [
     isActive: true,
     roleName: 'Super Admin',
   },
+  {
+    email: 'hse.lead.academic@mailinator.com',
+    password: 'admin123',
+    firstName: 'HSE',
+    lastName: 'Lead Academic',
+    isActive: true,
+    roleName: 'User',
+    departmentName: 'Academics',
+    jobPositionName: 'Lead',
+  },
+  {
+    email: 'hse.head.administration@mailinator.com',
+    password: 'admin123',
+    firstName: 'HSE',
+    lastName: 'Head Administration',
+    isActive: true,
+    roleName: 'User',
+    departmentName: 'Administration',
+    jobPositionName: 'Head',
+  },
 ];
 
 export async function seedUsers(
@@ -17,7 +37,12 @@ export async function seedUsers(
   roles: Role[],
   offices: Office[]
 ) {
-  console.log('Creating admin user...');
+  console.log('Creating users...');
+  
+  // Fetch departments and job positions from database
+  const departments = await prisma.department.findMany();
+  const jobPositions = await prisma.jobPosition.findMany();
+  
   const createdUsers = await Promise.all(
     users.map(async (user) => {
       const hashedPassword = await bcrypt.hash(user.password, 10);
@@ -26,6 +51,24 @@ export async function seedUsers(
 
       if (!role) {
         throw new Error(`Role ${user.roleName} not found`);
+      }
+
+      // Find department if specified
+      const department = user.departmentName
+        ? departments.find((d) => d.name === user.departmentName)
+        : null;
+
+      // Find job position if specified
+      const jobPosition = user.jobPositionName
+        ? jobPositions.find((jp) => jp.name === user.jobPositionName)
+        : null;
+
+      if (user.departmentName && !department) {
+        throw new Error(`Department ${user.departmentName} not found`);
+      }
+
+      if (user.jobPositionName && !jobPosition) {
+        throw new Error(`Job Position ${user.jobPositionName} not found`);
       }
 
       return prisma.user.create({
@@ -37,6 +80,8 @@ export async function seedUsers(
           isActive: user.isActive,
           roleId: role.id,
           officeId: office.id,
+          departmentId: department?.id,
+          jobPositionId: jobPosition?.id,
         },
       });
     })

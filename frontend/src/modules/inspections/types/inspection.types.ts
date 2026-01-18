@@ -9,18 +9,53 @@ import { User } from '@/core/lib/types';
 import { RiskCategory, Risk } from '@/core/lib/types';
 import { Department } from '@/core/lib/types';
 
+export enum InspectionImageTypeEnum {
+  BEFORE = 'BEFORE',
+  AFTER = 'AFTER',
+  GENERAL = 'GENERAL',
+}
+
 export interface InspectionImage {
   id: string;
   inspectionItemId: string;
   imageUrl: string;
   caption?: string;
+  type: InspectionImageTypeEnum;
   order: number;
   createdAt: Date;
+}
+
+export interface RiskMitigationData {
+  eliminate?: string;
+  transfer?: string;
+  reduce?: string;
+  accept?: string;
+  legalAspect?: string;
+}
+
+export interface RiskMitigationRecord extends RiskMitigationData {
+  id: string;
+  entity: string;
+  entityId: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface InspectionItem {
   id: string;
   inspectionId: string;
+  inspection?: {
+    id: string;
+    code: string;
+    creator?: {
+      id: string;
+      firstName: string;
+      lastName: string;
+    };
+  };
+  areaId: string;
+  area?: AreaDTO;
   riskCategoryId: string;
   riskCategory?: RiskCategory;
   riskId: string;
@@ -29,12 +64,15 @@ export interface InspectionItem {
   assignedDepartment?: Department;
   assigneeId?: string;
   assignee?: User;
+  status: GeneralStatusEnum;
   description?: string;
   followUpNotes?: string;
-  order: number;
+  findings?: string;
+  dueDateAt?: Date;
   createdAt: Date;
   updatedAt: Date;
   images?: InspectionImage[];
+  mitigation?: RiskMitigationRecord;
 }
 
 export interface InspectionInspector {
@@ -49,8 +87,10 @@ export interface InspectionInspector {
 export interface Inspection {
   id: string;
   code: string;
-  areaId: string;
-  area?: AreaDTO;
+  areaIds?: string[];
+  areas?: AreaDTO[];
+  areaId?: string; // Deprecated: kept for backward compatibility
+  area?: AreaDTO; // Deprecated: kept for backward compatibility
   inspectionDate: Date;
   status: GeneralStatusEnum;
   isActive: boolean;
@@ -63,14 +103,18 @@ export interface Inspection {
 }
 
 export interface CreateInspectionItemDTO {
+  areaId: string;
   riskCategoryId: string;
   riskId: string;
   assignedDepartmentId: string;
   assigneeId?: string;
+  status: GeneralStatusEnum;
   description?: string;
   followUpNotes?: string;
-  order: number;
+  findings?: string;
+  dueDateAt?: string;
   images?: CreateInspectionImageDTO[];
+  mitigation?: RiskMitigationData;
 }
 
 export interface UpdateInspectionItemDTO extends Partial<CreateInspectionItemDTO> {}
@@ -78,6 +122,7 @@ export interface UpdateInspectionItemDTO extends Partial<CreateInspectionItemDTO
 export interface CreateInspectionImageDTO {
   imageUrl: string;
   caption?: string;
+  type?: InspectionImageTypeEnum;
   order: number;
 }
 
@@ -92,7 +137,7 @@ export interface UpdateInspectionInspectorDTO extends Partial<CreateInspectionIn
 
 export interface CreateInspectionDTO {
   code: string;
-  areaId: string;
+  areaIds: string[];
   inspectionDate: Date;
   status: GeneralStatusEnum;
   isActive?: boolean;

@@ -12,6 +12,7 @@ export const APPROVAL_ENTITIES = {
   RISK_ASSESSMENT: 'RISK_ASSESSMENT',
   WORK_PERMIT: 'WORK_PERMIT',
   INSPECTION: 'INSPECTION',
+  INSPECTION_ITEM: 'INSPECTION_ITEM',
   // Add more entities as modules are added
   // CERTIFICATE: 'CERTIFICATE',
   // PPE_WITHDRAWAL: 'PPE_WITHDRAWAL',
@@ -35,10 +36,27 @@ export const APPROVAL_ENTITY_TO_TABLE: Record<ApprovalEntityName, string> = {
   [APPROVAL_ENTITIES.RISK_ASSESSMENT]: 't_risk_assessment',
   [APPROVAL_ENTITIES.WORK_PERMIT]: 't_work_permits',
   [APPROVAL_ENTITIES.INSPECTION]: 't_inspections',
+  [APPROVAL_ENTITIES.INSPECTION_ITEM]: 't_inspection_items',
   // Add more mappings as modules are added
   // [APPROVAL_ENTITIES.CERTIFICATE]: 't_certificates',
   // [APPROVAL_ENTITIES.PPE_WITHDRAWAL]: 't_ppe_withdrawals',
 } as const;
+
+/**
+ * Maps each approval entity to the database column that holds the department FK.
+ * Null when the entity table has no department. Used by getEntityData for
+ * resolving sentinel markers (@ENTITY_DEPARTMENT, @ENTITY_JOB_POSITION).
+ * Column names must match Prisma schema (camelCase, no @map).
+ */
+export const APPROVAL_ENTITY_TO_DEPARTMENT_COLUMN: Record<
+  ApprovalEntityName,
+  string | null
+> = {
+  [APPROVAL_ENTITIES.RISK_ASSESSMENT]: 'departmentId',
+  [APPROVAL_ENTITIES.WORK_PERMIT]: null,
+  [APPROVAL_ENTITIES.INSPECTION]: null,
+  [APPROVAL_ENTITIES.INSPECTION_ITEM]: 'assignedDepartmentId',
+};
 
 /**
  * Helper: Get entity name from module name

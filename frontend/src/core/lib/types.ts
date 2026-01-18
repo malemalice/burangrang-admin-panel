@@ -209,14 +209,27 @@ export interface RiskAssessmentItem {
   mRisk?: Risk;
   mRiskCategoryId: string;
   mRiskCategory?: RiskCategory;
-  likelihoodLevel: number;
+  likelihoodLevel: string;
   consequenceLevel: number;
   riskMatrixRating: RiskRatingEnum;
   interpretation: RiskRatingEnum;
-  postLikelihoodLevel: number;
+  postLikelihoodLevel: string;
   postConsequenceLevel: number;
   postRiskMatrixRating: RiskRatingEnum;
   postInterpretation: RiskRatingEnum;
+  mitigation?: {
+    id: string;
+    entity: string;
+    entityId: string;
+    eliminate?: string;
+    transfer?: string;
+    reduce?: string;
+    accept?: string;
+    legalAspect?: string;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  };
 }
 
 export interface RiskControl {

@@ -4,8 +4,10 @@ import {
   IsOptional,
   IsArray,
   ValidateNested,
+  IsNumber,
+  Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 export class CreateMasterApprovalItemDto {
   @IsString()
@@ -14,8 +16,10 @@ export class CreateMasterApprovalItemDto {
   @IsString()
   departmentId: string;
 
-  @IsOptional()
-  order?: number;
+  @IsNumber()
+  @Min(1)
+  @Transform(({ value }) => Number(value) || 1)
+  order: number;
 }
 
 export class CreateMasterApprovalDto {
