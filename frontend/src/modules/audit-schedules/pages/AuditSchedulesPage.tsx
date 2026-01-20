@@ -24,11 +24,52 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Badge } from '@/core/components/ui/badge';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/tooltip';
 
 import { AuditSchedule } from '../types/audit-schedule.types';
 import auditSchedulesService from '../services/auditSchedulesService';
 import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
 import api from '@/core/lib/api';
+import areaService from '@/modules/master-data/services/areaService';
+import { userService } from '@/modules/users';
+import auditPolicyService from '@/modules/audit-policy/services/auditPolicyService';
+
+// Component for assessment status with tooltip
+const AssessmentStatusCell = ({ stats }: { stats: { total: number; filled: number; comply: number; notComply: number } }) => {
+  const [open, setOpen] = useState(false);
+  
+  return (
+    <Tooltip open={open} onOpenChange={setOpen} delayDuration={200}>
+      <TooltipTrigger asChild>
+        <div 
+          className="flex flex-col items-center gap-1.5 cursor-help w-full"
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen(!open);
+          }}
+        >
+          <div className="text-sm font-medium tabular-nums">
+            {stats.filled}/{stats.total}
+          </div>
+          <div className="flex gap-2">
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-green-50 text-green-700">
+              <span className="text-xs tabular-nums font-medium">{stats.comply}</span>
+            </div>
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-50 text-red-700">
+              <span className="text-xs tabular-nums font-medium">{stats.notComply}</span>
+            </div>
+          </div>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent>
+        <div className="text-xs space-y-1">
+          <div>Total: {stats.total} | Filled: {stats.filled}</div>
+          <div>Comply: {stats.comply} | Not Comply: {stats.notComply}</div>
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+};
 
 const AuditSchedulesPage = () => {
   const navigate = useNavigate();
@@ -44,25 +85,56 @@ const AuditSchedulesPage = () => {
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [auditElements, setAuditElements] = useState<Array<{ value: string; label: string }>>([]);
+  const [areas, setAreas] = useState<Array<{ value: string; label: string }>>([]);
+  const [auditors, setAuditors] = useState<Array<{ value: string; label: string }>>([]);
+  const [assessmentStats, setAssessmentStats] = useState<Record<string, {
+    total: number;
+    filled: number;
+    comply: number;
+    notComply: number;
+  }>>({});
 
-  // Fetch audit elements for filter
+  // Fetch filter options
   useEffect(() => {
-    const fetchAuditElements = async () => {
+    const fetchFilterData = async () => {
       try {
-        const response = await api.get('/audit-elements', {
-          params: { page: 1, limit: 1000, isActive: true },
-        });
+        const [auditElementsResponse, areasResponse, usersResponse] = await Promise.all([
+          api.get('/audit-elements', {
+            params: { page: 1, limit: 1000, isActive: true },
+          }),
+          areaService.getAreas({ 
+            page: 1, 
+            limit: 1000,
+            filters: { isActive: true }
+          }),
+          userService.getAll({ page: 1, limit: 1000 }),
+        ]);
+
         setAuditElements(
-          response.data.data.map((el: any) => ({
+          auditElementsResponse.data.data.map((el: any) => ({
             value: el.id,
             label: el.name,
           }))
         );
+
+        setAreas(
+          areasResponse.data.map((area: any) => ({
+            value: area.id,
+            label: area.name,
+          }))
+        );
+
+        setAuditors(
+          usersResponse.data.map((user: any) => ({
+            value: user.id,
+            label: `${user.firstName} ${user.lastName}`,
+          }))
+        );
       } catch (error) {
-        console.error('Failed to fetch audit elements:', error);
+        console.error('Failed to fetch filter data:', error);
       }
     };
-    fetchAuditElements();
+    fetchFilterData();
   }, []);
 
   // Define filter fields
@@ -75,19 +147,144 @@ const AuditSchedulesPage = () => {
     {
       id: 'auditElementId',
       label: 'Audit Element',
-      type: 'select',
+      type: 'multiSelectSearchable',
       options: auditElements,
+    },
+    {
+      id: 'areaIds',
+      label: 'Areas',
+      type: 'multiSelectSearchable',
+      options: areas,
+    },
+    {
+      id: 'auditorIds',
+      label: 'Auditors',
+      type: 'multiSelectSearchable',
+      options: auditors,
     },
     {
       id: 'status',
       label: 'Status',
-      type: 'select',
+      type: 'searchableSelect',
       options: GENERAL_STATUS_OPTIONS.map(option => ({
         label: option.label,
         value: option.value,
       })),
+    },
+    {
+      id: 'createdAt',
+      label: 'Created At',
+      type: 'dateRange',
     }
   ];
+
+  const fetchAssessmentStats = useCallback(async (auditSchedules: AuditSchedule[]) => {
+    try {
+      const stats: Record<string, {
+        total: number;
+        filled: number;
+        comply: number;
+        notComply: number;
+      }> = {};
+
+      // Get unique audit element IDs
+      const auditElementIds = [...new Set(auditSchedules.map(s => s.auditElementId).filter(Boolean))];
+      
+      // Fetch total criteria count for each audit element
+      const criteriaCounts: Record<string, number> = {};
+      await Promise.all(
+        auditElementIds.map(async (elementId) => {
+          try {
+            // Get all clauses for this element
+            const clausesResponse = await auditPolicyService.getClauses({
+              page: 1,
+              limit: 10000,
+              auditElementId: elementId,
+              isActive: true,
+            });
+            const clauses = clausesResponse.data;
+            const clauseIds = clauses.map(c => c.id);
+
+            // Get all criteria for all clauses
+            let totalCriteria = 0;
+            await Promise.all(
+              clauseIds.map(async (clauseId) => {
+                const criteriaResponse = await auditPolicyService.getCriteria({
+                  page: 1,
+                  limit: 10000,
+                  auditClauseId: clauseId,
+                  isActive: true,
+                });
+                totalCriteria += criteriaResponse.meta.total;
+              })
+            );
+            criteriaCounts[elementId] = totalCriteria;
+          } catch (error) {
+            console.error(`Failed to fetch criteria count for element ${elementId}:`, error);
+            criteriaCounts[elementId] = 0;
+          }
+        })
+      );
+
+      // Fetch all audit items for the audit schedules
+      const auditIds = auditSchedules.map(s => s.id);
+      if (auditIds.length > 0) {
+        try {
+          const auditItemsResponse = await api.get('/audits/results', {
+            params: {
+              page: 1,
+              limit: 10000,
+            },
+          });
+
+          const auditItems = auditItemsResponse.data?.data || [];
+          
+          // Group items by auditId and calculate stats
+          auditSchedules.forEach((schedule) => {
+            const items = auditItems.filter((item: any) => item.auditId === schedule.id);
+            const total = criteriaCounts[schedule.auditElementId] || 0;
+            const filled = items.length;
+            const comply = items.filter((item: any) => item.compliantStatus === 'COMPLY').length;
+            const notComply = items.filter((item: any) => 
+              item.compliantStatus === 'NOT_COMPLY_MAJOR' || item.compliantStatus === 'NOT_COMPLY_MINOR'
+            ).length;
+
+            stats[schedule.id] = {
+              total,
+              filled,
+              comply,
+              notComply,
+            };
+          });
+        } catch (error) {
+          console.error('Failed to fetch audit items:', error);
+          // Set default stats if fetch fails
+          auditSchedules.forEach((schedule) => {
+            stats[schedule.id] = {
+              total: criteriaCounts[schedule.auditElementId] || 0,
+              filled: 0,
+              comply: 0,
+              notComply: 0,
+            };
+          });
+        }
+      } else {
+        // No audit schedules, set empty stats
+        auditSchedules.forEach((schedule) => {
+          stats[schedule.id] = {
+            total: criteriaCounts[schedule.auditElementId] || 0,
+            filled: 0,
+            comply: 0,
+            notComply: 0,
+          };
+        });
+      }
+
+      setAssessmentStats(stats);
+    } catch (error) {
+      console.error('Failed to fetch assessment stats:', error);
+    }
+  }, []);
 
   const fetchAuditSchedules = useCallback(async () => {
     setIsLoading(true);
@@ -112,9 +309,45 @@ const AuditSchedulesPage = () => {
         params.status = activeFilters.status.value;
       }
 
-      // Add other filters
+      // Handle array filters (multi-select)
+      if (activeFilters.auditElementId?.value) {
+        if (Array.isArray(activeFilters.auditElementId.value)) {
+          params.auditElementId = activeFilters.auditElementId.value;
+        } else {
+          params.auditElementId = [activeFilters.auditElementId.value];
+        }
+      }
+
+      if (activeFilters.areaIds?.value) {
+        if (Array.isArray(activeFilters.areaIds.value)) {
+          params.areaId = activeFilters.areaIds.value;
+        } else {
+          params.areaId = [activeFilters.areaIds.value];
+        }
+      }
+
+      if (activeFilters.auditorIds?.value) {
+        if (Array.isArray(activeFilters.auditorIds.value)) {
+          params.auditorIds = activeFilters.auditorIds.value;
+        } else {
+          params.auditorIds = [activeFilters.auditorIds.value];
+        }
+      }
+
+      // Handle date range filter
+      if (activeFilters.createdAt?.value) {
+        const dateRange = activeFilters.createdAt.value as { from?: Date; to?: Date };
+        if (dateRange.from) {
+          params.createdAtFrom = new Date(dateRange.from).toISOString().split('T')[0];
+        }
+        if (dateRange.to) {
+          params.createdAtTo = new Date(dateRange.to).toISOString().split('T')[0];
+        }
+      }
+
+      // Add other filters (excluding handled ones)
       Object.entries(activeFilters).forEach(([key, filter]) => {
-        if (key !== 'status' && key !== 'isActive') {
+        if (!['status', 'isActive', 'auditElementId', 'areaIds', 'auditorIds', 'createdAt'].includes(key)) {
           params[key] = filter.value;
         }
       });
@@ -128,13 +361,16 @@ const AuditSchedulesPage = () => {
       if (actualPage && actualPage - 1 !== pageIndex) {
         setPageIndex(actualPage - 1);
       }
+
+      // Fetch assessment stats for the loaded audit schedules
+      await fetchAssessmentStats(response.data);
     } catch (error) {
       console.error('Failed to fetch audit schedules:', error);
       toast.error('Failed to load audit schedules');
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, searchTerm, activeFilters]);
+  }, [pageIndex, limit, searchTerm, activeFilters, fetchAssessmentStats]);
 
   useEffect(() => {
     fetchAuditSchedules();
@@ -173,11 +409,31 @@ const AuditSchedulesPage = () => {
           value: filter.value,
           label: statusOption?.label || String(filter.value)
         };
-      } else if (filter.id === 'auditElementId') {
-        const elementOption = auditElements.find(opt => opt.value === filter.value);
+      } else if (filter.id === 'auditElementId' && Array.isArray(filter.value)) {
+        const selectedElements = auditElements.filter(opt => filter.value.includes(opt.value));
         newActiveFilters[filter.id] = {
           value: filter.value,
-          label: elementOption?.label || String(filter.value)
+          label: selectedElements.map(opt => opt.label).join(', ')
+        };
+      } else if (filter.id === 'areaIds' && Array.isArray(filter.value)) {
+        const selectedAreas = areas.filter(opt => filter.value.includes(opt.value));
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: selectedAreas.map(opt => opt.label).join(', ')
+        };
+      } else if (filter.id === 'auditorIds' && Array.isArray(filter.value)) {
+        const selectedAuditors = auditors.filter(opt => filter.value.includes(opt.value));
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: selectedAuditors.map(opt => opt.label).join(', ')
+        };
+      } else if (filter.id === 'createdAt' && typeof filter.value === 'object' && !Array.isArray(filter.value)) {
+        const dateRange = filter.value as { from?: Date; to?: Date };
+        const fromStr = dateRange.from ? format(new Date(dateRange.from), 'PP') : '';
+        const toStr = dateRange.to ? format(new Date(dateRange.to), 'PP') : '';
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: fromStr && toStr ? `${fromStr} - ${toStr}` : (fromStr || toStr)
         };
       } else {
         newActiveFilters[filter.id] = {
@@ -254,15 +510,20 @@ const AuditSchedulesPage = () => {
   const columns = [
     {
       id: 'code',
-      header: 'Code',
+      header: 'Code / Created At',
       cell: (auditSchedule: AuditSchedule) => (
-        <button
-          onClick={() => navigate(`/audit-schedules/${auditSchedule.id}`)}
-          className="font-medium text-primary hover:underline focus:outline-none focus:underline"
-          aria-label={`View details for ${auditSchedule.code}`}
-        >
-          {auditSchedule.code}
-        </button>
+        <div className="space-y-1">
+          <button
+            onClick={() => navigate(`/audit-schedules/${auditSchedule.id}`)}
+            className="font-medium text-primary hover:underline focus:outline-none focus:underline block"
+            aria-label={`View details for ${auditSchedule.code}`}
+          >
+            {auditSchedule.code}
+          </button>
+          <div className="text-xs text-muted-foreground">
+            {format(new Date(auditSchedule.createdAt), 'dd MMM yyyy')}
+          </div>
+        </div>
       ),
     },
     {
@@ -315,6 +576,14 @@ const AuditSchedulesPage = () => {
       id: 'status',
       header: 'Status',
       cell: (auditSchedule: AuditSchedule) => getStatusBadge(auditSchedule.status),
+    },
+    {
+      id: 'assessmentStatus',
+      header: 'Assessment Status',
+      cell: (auditSchedule: AuditSchedule) => {
+        const stats = assessmentStats[auditSchedule.id] || { total: 0, filled: 0, comply: 0, notComply: 0 };
+        return <AssessmentStatusCell stats={stats} />;
+      },
     },
     {
       id: 'actions',

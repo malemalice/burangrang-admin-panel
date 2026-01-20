@@ -4,6 +4,7 @@ import CreateAuditSchedulePage from '../pages/CreateAuditSchedulePage';
 import EditAuditSchedulePage from '../pages/EditAuditSchedulePage';
 import AuditScheduleDetailPage from '../pages/AuditScheduleDetailPage';
 import AuditClauseCriteriaPage from '../pages/AuditClauseCriteriaPage';
+import ViewAuditCriteriaPage from '../pages/ViewAuditCriteriaPage';
 
 /**
  * Audit Schedules module routes
@@ -20,6 +21,10 @@ const auditSchedulesRoutes: RouteConfig[] = [
   {
     path: '/audit-schedules/:id/edit',
     component: EditAuditSchedulePage,
+  },
+  {
+    path: '/audit-schedules/:id/clauses/:clauseId/criteria/:criteriaId',
+    component: ViewAuditCriteriaPage,
   },
   {
     path: '/audit-schedules/:id/clauses/:clauseId',

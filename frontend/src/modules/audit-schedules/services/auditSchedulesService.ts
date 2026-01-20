@@ -9,9 +9,12 @@ import api from '@/core/lib/api';
 const auditSchedulesService = {
   getAll: async (params: PaginationParams & {
     isActive?: boolean;
-    areaId?: string;
-    auditElementId?: string;
+    areaId?: string | string[];
+    auditElementId?: string | string[];
+    auditorIds?: string | string[];
     status?: string;
+    createdAtFrom?: string;
+    createdAtTo?: string;
   }): Promise<PaginatedResponse<AuditSchedule>> => {
     const response = await api.get('/audit-schedules', { params });
     return response.data;

@@ -10,6 +10,7 @@ import { CreateAuditItemDto } from '../dto/create-audit-item.dto';
 import { AuditItemDto } from '../dto/audit-item.dto';
 import { AuditResultDto } from '../dto/audit-result.dto';
 import { Prisma, GeneralStatusEnum, CompliantStatusEnum } from '@prisma/client';
+import { BadRequestException } from '@nestjs/common';
 import { RemindersService } from '../../reminders/reminders.service';
 import {
   ReminderRepeatTypeEnum,
@@ -22,9 +23,12 @@ interface FindAllOptions {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
-  areaId?: string;
-  auditElementId?: string;
+  areaIds?: string[];
+  auditElementIds?: string[];
+  auditorIds?: string[];
   status?: GeneralStatusEnum;
+  createdAtFrom?: Date;
+  createdAtTo?: Date;
 }
 
 interface FindAllAuditResultsOptions {
@@ -75,15 +79,70 @@ export class AuditSchedulesService {
     );
   }
 
+  /**
+   * Validates status against audit date
+   * - DONE status cannot be set for dates newer than today
+   * - SCHEDULED status cannot be set for dates older than today
+   */
+  private validateStatusAgainstDate(
+    status: GeneralStatusEnum,
+    auditDate: Date,
+  ): void {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const auditDateOnly = new Date(auditDate);
+    auditDateOnly.setHours(0, 0, 0, 0);
+
+    if (status === GeneralStatusEnum.DONE && auditDateOnly > today) {
+      throw new BadRequestException(
+        'DONE status cannot be set for audit dates newer than today',
+      );
+    }
+
+    if (status === GeneralStatusEnum.SCHEDULED && auditDateOnly < today) {
+      throw new BadRequestException(
+        'SCHEDULED status cannot be set for audit dates older than today',
+      );
+    }
+  }
+
+  /**
+   * Auto-determines status based on audit date
+   * - If audit date is in the past, returns DONE
+   * - If audit date is today or in the future, returns SCHEDULED
+   */
+  private autoDetermineStatus(auditDate: Date): GeneralStatusEnum {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const auditDateOnly = new Date(auditDate);
+    auditDateOnly.setHours(0, 0, 0, 0);
+
+    if (auditDateOnly < today) {
+      return GeneralStatusEnum.DONE;
+    }
+    return GeneralStatusEnum.SCHEDULED;
+  }
+
   async create(
     createAuditScheduleDto: CreateAuditScheduleDto,
     userId: string,
   ): Promise<AuditScheduleDto> {
     const { areaIds, auditorIds, ...data } = createAuditScheduleDto;
 
+    // Auto-determine status based on audit date
+    // If status is provided, validate it first, then auto-determine (status always auto-changes)
+    let finalStatus = data.status;
+    if (finalStatus) {
+      // Validate provided status against audit date
+      this.validateStatusAgainstDate(finalStatus, data.auditDate);
+    }
+    // Always auto-determine status based on audit date (status auto-changes)
+    finalStatus = this.autoDetermineStatus(data.auditDate);
+
     const audit = await this.prisma.audit.create({
       data: {
         ...data,
+        status: finalStatus,
         createdBy: userId,
         ...(areaIds && areaIds.length > 0 && {
           areas: {
@@ -147,9 +206,12 @@ export class AuditSchedulesService {
       sortBy = 'code',
       sortOrder = 'asc',
       isActive,
-      areaId,
-      auditElementId,
+      areaIds,
+      auditElementIds,
+      auditorIds,
       status,
+      createdAtFrom,
+      createdAtTo,
     } = options || {};
 
     const where: Prisma.AuditWhereInput = {};
@@ -157,18 +219,43 @@ export class AuditSchedulesService {
     if (isActive !== undefined) {
       where.isActive = isActive;
     }
-    if (areaId) {
+    if (areaIds && areaIds.length > 0) {
       where.areas = {
         some: {
-          areaId: areaId,
+          areaId: {
+            in: areaIds,
+          },
         },
       };
     }
-    if (auditElementId) {
-      where.auditElementId = auditElementId;
+    if (auditElementIds && auditElementIds.length > 0) {
+      where.auditElementId = {
+        in: auditElementIds,
+      };
+    }
+    if (auditorIds && auditorIds.length > 0) {
+      where.auditors = {
+        some: {
+          userId: {
+            in: auditorIds,
+          },
+        },
+      };
     }
     if (status) {
       where.status = status;
+    }
+    if (createdAtFrom || createdAtTo) {
+      where.createdAt = {};
+      if (createdAtFrom) {
+        where.createdAt.gte = createdAtFrom;
+      }
+      if (createdAtTo) {
+        // Set to end of day for inclusive range
+        const endOfDay = new Date(createdAtTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        where.createdAt.lte = endOfDay;
+      }
     }
 
     const [audits, total] = await Promise.all([
@@ -257,16 +344,34 @@ export class AuditSchedulesService {
 
     this.errorHandler.throwIfNotFoundById('Audit', id, existingAudit);
 
-    // Track status and date changes for reminder management
+    // Determine the audit date to use (from update or existing)
+    const auditDate = data.auditDate || existingAudit.auditDate;
+
+    // Auto-determine status based on audit date
+    let finalStatus = data.status;
+    if (data.status !== undefined) {
+      // If status is explicitly provided, validate it first
+      this.validateStatusAgainstDate(data.status, auditDate);
+      // Then auto-update based on audit date (status is auto-changed)
+      finalStatus = this.autoDetermineStatus(auditDate);
+    } else if (data.auditDate) {
+      // If only audit date is changed, auto-update status
+      finalStatus = this.autoDetermineStatus(auditDate);
+    } else {
+      // No status or date change, keep existing status but re-validate based on current date
+      // This handles the case where the audit date might be in the past now
+      finalStatus = this.autoDetermineStatus(auditDate);
+    }
+
+    // Track status and date changes for reminder management (use finalStatus for newStatus)
     const oldStatus = existingAudit.status;
-    const newStatus = data.status;
+    const newStatus = finalStatus;
     const statusChangedToScheduled =
       oldStatus !== GeneralStatusEnum.SCHEDULED &&
       newStatus === GeneralStatusEnum.SCHEDULED;
     const statusChangedFromScheduled =
       oldStatus === GeneralStatusEnum.SCHEDULED &&
-      newStatus !== GeneralStatusEnum.SCHEDULED &&
-      newStatus !== undefined;
+      newStatus !== GeneralStatusEnum.SCHEDULED;
     const auditDateChanged =
       data.auditDate &&
       data.auditDate.getTime() !== existingAudit.auditDate.getTime();
@@ -276,6 +381,7 @@ export class AuditSchedulesService {
       where: { id },
       data: {
         ...data,
+        status: finalStatus,
         ...(areaIds !== undefined && {
           areas: {
             deleteMany: {},

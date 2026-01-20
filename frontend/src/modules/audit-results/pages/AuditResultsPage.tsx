@@ -294,9 +294,11 @@ const AuditResultsPage = () => {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigate(`/audit-schedules/${result.auditId}`)}
+          onClick={() => navigate(`/audit-schedules/${result.auditId}/clauses/${result.auditClause.id}/criteria/${result.auditCriteria.id}`, {
+            state: { returnTo: '/audit-results' }
+          })}
           className="text-primary hover:text-primary hover:bg-primary/10"
-          aria-label={`View audit schedule ${result.auditScheduleCode}`}
+          aria-label={`View audit criteria ${result.auditCriteria.code}`}
         >
           <Eye className="mr-2 h-4 w-4" />
           View

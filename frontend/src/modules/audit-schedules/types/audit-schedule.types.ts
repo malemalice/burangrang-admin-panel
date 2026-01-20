@@ -37,7 +37,7 @@ export interface CreateAuditScheduleDTO {
   areaIds: string[];
   auditDate: Date;
   auditElementId: string;
-  status: GeneralStatusEnum;
+  status?: GeneralStatusEnum; // Optional - auto-determined by backend based on audit date
   isActive?: boolean;
   auditorIds?: string[];
 }

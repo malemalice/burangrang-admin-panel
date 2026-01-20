@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ArrowLeft, FileEdit, Eye } from 'lucide-react';
@@ -15,7 +15,67 @@ import { AuditSchedule } from '../types/audit-schedule.types';
 import auditSchedulesService from '../services/auditSchedulesService';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import auditPolicyService from '@/modules/audit-policy/services/auditPolicyService';
-import { AuditClause } from '@/modules/audit-policy/types/audit-policy.types';
+import { AuditClause, AuditCriteria } from '@/modules/audit-policy/types/audit-policy.types';
+import api from '@/core/lib/api';
+
+// Component for assessment status with tooltip
+const AssessmentStatusCell = ({ stats }: { stats: { total: number; filled: number; comply: number; notComply: number } }) => {
+  const [open, setOpen] = useState(false);
+  
+  return (
+    <Tooltip open={open} onOpenChange={setOpen} delayDuration={200}>
+      <TooltipTrigger asChild>
+        <div 
+          className="flex flex-col items-center gap-1.5 cursor-help w-full"
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen(!open);
+          }}
+        >
+          <div className="text-sm font-medium tabular-nums">
+            {stats.filled}/{stats.total}
+          </div>
+          <div className="flex gap-2">
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-green-50 text-green-700">
+              <span className="text-xs tabular-nums font-medium">{stats.comply}</span>
+            </div>
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-50 text-red-700">
+              <span className="text-xs tabular-nums font-medium">{stats.notComply}</span>
+            </div>
+          </div>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent>
+        <div className="text-xs space-y-1">
+          <div>Total: {stats.total} | Filled: {stats.filled}</div>
+          <div>Comply: {stats.comply} | Not Comply: {stats.notComply}</div>
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+};
+
+interface AuditItem {
+  id: string;
+  auditId: string;
+  auditCriteriaId: string;
+  status: string;
+  compliantStatus: string;
+  evidence?: string;
+  recommendation?: string;
+  actionRealization?: string;
+  order: number;
+  dueDate: Date;
+  auditCriteria?: AuditCriteria;
+  departments?: Array<{ departmentId: string }>;
+  users?: Array<{ userId: string }>;
+  images?: Array<{
+    id: string;
+    imageUrl: string;
+    caption?: string;
+    order: number;
+  }>;
+}
 
 const AuditScheduleDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +87,9 @@ const AuditScheduleDetailPage = () => {
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
   const [totalClauses, setTotalClauses] = useState(0);
+  const [auditItems, setAuditItems] = useState<AuditItem[]>([]);
+  const [allCriteria, setAllCriteria] = useState<AuditCriteria[]>([]);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
   useEffect(() => {
     const fetchAuditSchedule = async () => {
@@ -71,6 +134,97 @@ const AuditScheduleDetailPage = () => {
 
     fetchAuditClauses();
   }, [auditSchedule?.auditElementId, pageIndex, limit]);
+
+  // Fetch audit items and criteria for summary calculation
+  useEffect(() => {
+    const fetchSummaryData = async () => {
+      if (!id || !auditSchedule?.auditElementId) return;
+
+      try {
+        setIsLoadingSummary(true);
+
+        // Fetch all clauses to get their IDs
+        const clausesResponse = await auditPolicyService.getClauses({
+          page: 1,
+          limit: 10000,
+          auditElementId: auditSchedule.auditElementId,
+          isActive: true,
+          sortBy: 'order',
+          sortOrder: 'asc',
+        });
+        const allClauses = clausesResponse.data;
+        const clauseIds = allClauses.map(c => c.id);
+
+        // Fetch all criteria for all clauses
+        const criteriaPromises = clauseIds.map(clauseId =>
+          auditPolicyService.getCriteria({
+            page: 1,
+            limit: 10000,
+            auditClauseId: clauseId,
+            isActive: true,
+            sortBy: 'order',
+            sortOrder: 'asc',
+          })
+        );
+        const criteriaResponses = await Promise.all(criteriaPromises);
+        const allCriteriaData = criteriaResponses.flatMap(res => res.data);
+        setAllCriteria(allCriteriaData);
+
+        // Fetch audit items
+        try {
+          const auditResponse = await api.get(`/audits/${id}/items`, {
+            params: {
+              page: 1,
+              limit: 10000,
+            },
+          });
+          if (auditResponse?.data?.data) {
+            setAuditItems(auditResponse.data.data);
+          }
+        } catch (error) {
+          console.log('Audit items endpoint not available or no items found');
+        }
+      } catch (error) {
+        console.error('Failed to fetch summary data:', error);
+      } finally {
+        setIsLoadingSummary(false);
+      }
+    };
+
+    fetchSummaryData();
+  }, [id, auditSchedule?.auditElementId]);
+
+  // Calculate summary statistics
+  const summaryStats = useMemo(() => {
+    const total = allCriteria.length;
+    const filled = auditItems.length;
+    const comply = auditItems.filter(
+      item => item.compliantStatus === 'COMPLY'
+    ).length;
+    const notComply = auditItems.filter(
+      item => item.compliantStatus === 'NOT_COMPLY_MAJOR' || 
+              item.compliantStatus === 'NOT_COMPLY_MINOR'
+    ).length;
+    
+    return { total, filled, comply, notComply };
+  }, [allCriteria, auditItems]);
+
+  // Calculate assessment status for each clause
+  const getClauseAssessmentStatus = (clause: AuditClause) => {
+    const clauseCriteria = allCriteria.filter(c => c.auditClauseId === clause.id);
+    const clauseCriteriaIds = clauseCriteria.map(c => c.id);
+    const clauseItems = auditItems.filter(item => clauseCriteriaIds.includes(item.auditCriteriaId));
+    
+    const total = clauseCriteria.length;
+    const filled = clauseItems.length;
+    const comply = clauseItems.filter(item => item.compliantStatus === 'COMPLY').length;
+    const notComply = clauseItems.filter(
+      item => item.compliantStatus === 'NOT_COMPLY_MAJOR' || 
+              item.compliantStatus === 'NOT_COMPLY_MINOR'
+    ).length;
+
+    return { total, filled, comply, notComply };
+  };
 
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
@@ -150,6 +304,15 @@ const AuditScheduleDetailPage = () => {
       isSortable: false,
     },
     {
+      id: 'assessmentStatus',
+      header: 'Status',
+      cell: (clause: AuditClause) => {
+        const status = getClauseAssessmentStatus(clause);
+        return <AssessmentStatusCell stats={status} />;
+      },
+      isSortable: false,
+    },
+    {
       id: 'actions',
       header: 'Actions',
       cell: (clause: AuditClause) => (
@@ -200,52 +363,87 @@ const AuditScheduleDetailPage = () => {
         </div>
       </PageHeader>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Audit Schedule Details</CardTitle>
-          <CardDescription>Basic information for this audit schedule</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Code</label>
-              <p className="text-sm font-medium">{auditSchedule.code}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Audit Schedule Details</CardTitle>
+            <CardDescription>Basic information for this audit schedule</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Code</label>
+                <p className="text-sm font-medium">{auditSchedule.code}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Status</label>
+                <div className="mt-1">{getStatusBadge(auditSchedule.status)}</div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Audit Date</label>
+                <p className="text-sm font-medium">
+                  {auditSchedule.auditDate
+                    ? format(new Date(auditSchedule.auditDate), 'dd MMM yyyy')
+                    : 'N/A'}
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Audit Element</label>
+                <p className="text-sm font-medium">
+                  {auditSchedule.auditElement?.name || 'N/A'}
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Active</label>
+                <p className="text-sm font-medium">
+                  {auditSchedule.isActive ? 'Yes' : 'No'}
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Created At</label>
+                <p className="text-sm font-medium">
+                  {auditSchedule.createdAt
+                    ? format(new Date(auditSchedule.createdAt), 'dd MMM yyyy HH:mm')
+                    : 'N/A'}
+                </p>
+              </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Status</label>
-              <div className="mt-1">{getStatusBadge(auditSchedule.status)}</div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Audit Date</label>
-              <p className="text-sm font-medium">
-                {auditSchedule.auditDate
-                  ? format(new Date(auditSchedule.auditDate), 'dd MMM yyyy')
-                  : 'N/A'}
-              </p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Audit Element</label>
-              <p className="text-sm font-medium">
-                {auditSchedule.auditElement?.name || 'N/A'}
-              </p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Active</label>
-              <p className="text-sm font-medium">
-                {auditSchedule.isActive ? 'Yes' : 'No'}
-              </p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Created At</label>
-              <p className="text-sm font-medium">
-                {auditSchedule.createdAt
-                  ? format(new Date(auditSchedule.createdAt), 'dd MMM yyyy HH:mm')
-                  : 'N/A'}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Summary</CardTitle>
+            <CardDescription>Overview of audit items status</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isLoadingSummary ? (
+              <div className="flex items-center justify-center py-8">
+                <span className="text-sm text-muted-foreground">Loading summary...</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Total Audit Items</label>
+                  <p className="text-2xl font-semibold">{summaryStats.total}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Already Filled</label>
+                  <p className="text-2xl font-semibold">{summaryStats.filled}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Comply</label>
+                  <p className="text-2xl font-semibold text-green-600">{summaryStats.comply}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Not Comply</label>
+                  <p className="text-2xl font-semibold text-red-600">{summaryStats.notComply}</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Audit Clauses Section */}
       <Card>

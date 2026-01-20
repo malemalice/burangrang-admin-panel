@@ -35,10 +35,10 @@ export class CreateAuditScheduleDto {
   @ApiProperty()
   auditElementId: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsEnum(GeneralStatusEnum)
-  @ApiProperty({ enum: GeneralStatusEnum })
-  status: GeneralStatusEnum;
+  @ApiProperty({ enum: GeneralStatusEnum, required: false, description: 'Status is auto-determined based on audit date if not provided' })
+  status?: GeneralStatusEnum;
 
   @IsBoolean()
   @IsOptional()

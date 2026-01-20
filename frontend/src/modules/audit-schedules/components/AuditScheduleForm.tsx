@@ -15,7 +15,6 @@ import {
   FormMessage,
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
-import { Switch } from '@/core/components/ui/switch';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import {
@@ -54,7 +53,7 @@ const formSchema = z.object({
   areaIds: z.array(z.string()).min(1, 'At least one area is required'),
   auditDate: z.string().min(1, 'Audit date is required'),
   auditElementId: z.string().min(1, 'Audit element is required'),
-  status: z.nativeEnum(GeneralStatusEnum),
+  status: z.nativeEnum(GeneralStatusEnum).optional(), // Optional - auto-determined by backend
   isActive: z.boolean().default(true),
   auditorIds: z.array(z.string()).optional(),
 });
@@ -90,17 +89,20 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
     label: el.name
   }));
 
-  // Filter status options
-  const statusOptions = GENERAL_STATUS_OPTIONS;
+  // Filter status options to only show DONE and SCHEDULED (only valid statuses for audit schedules)
+  const statusOptions = GENERAL_STATUS_OPTIONS.filter(
+    option => option.value === GeneralStatusEnum.DONE || option.value === GeneralStatusEnum.SCHEDULED
+  );
 
   // Helper function to determine default status based on audit date
+  // Matches backend logic: past dates = DONE, today or future = SCHEDULED
   const getDefaultStatus = (auditDate: string): GeneralStatusEnum => {
     if (!auditDate) return GeneralStatusEnum.SCHEDULED;
     const date = new Date(auditDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     date.setHours(0, 0, 0, 0);
-    return date > today ? GeneralStatusEnum.SCHEDULED : GeneralStatusEnum.DONE;
+    return date < today ? GeneralStatusEnum.DONE : GeneralStatusEnum.SCHEDULED;
   };
 
   const form = useForm<FormValues>({
@@ -164,14 +166,12 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
     }
   }, [auditSchedule, mode, dataReady, form]);
 
-  // Auto-select SCHEDULED when audit date is newer than today
+  // Auto-update status when audit date changes (both SCHEDULED and DONE)
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
       if (name === 'auditDate' && value.auditDate) {
         const newStatus = getDefaultStatus(value.auditDate);
-        if (newStatus === GeneralStatusEnum.SCHEDULED) {
-          form.setValue('status', GeneralStatusEnum.SCHEDULED, { shouldValidate: true });
-        }
+        form.setValue('status', newStatus, { shouldValidate: false });
       }
     });
     return () => subscription.unsubscribe();
@@ -185,7 +185,7 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
         auditDate: new Date(data.auditDate),
         auditElementId: data.auditElementId,
         status: data.status,
-        ...(data.isActive !== undefined && { isActive: data.isActive }),
+        isActive: true, // Always default to true (field is hidden)
         ...(data.auditorIds && data.auditorIds.length > 0 && {
           auditorIds: data.auditorIds,
         }),
@@ -207,16 +207,27 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
             await auditSchedulesService.create(auditScheduleData);
             toast.success('Audit schedule created successfully (code regenerated)');
           } else {
-            throw error;
+            // Display backend validation error messages
+            const errorMessage = error?.response?.data?.message || error?.message || `Failed to ${mode} audit schedule`;
+            toast.error(errorMessage);
+            return; // Don't navigate on error
           }
         }
       } else if (auditSchedule) {
-        await auditSchedulesService.update(auditSchedule.id, auditScheduleData);
-        toast.success('Audit schedule updated successfully');
+        try {
+          await auditSchedulesService.update(auditSchedule.id, auditScheduleData);
+          toast.success('Audit schedule updated successfully');
+        } catch (error: any) {
+          // Display backend validation error messages
+          const errorMessage = error?.response?.data?.message || error?.message || 'Failed to update audit schedule';
+          toast.error(errorMessage);
+          return; // Don't navigate on error
+        }
       }
       navigate('/audit-schedules');
-    } catch (error) {
-      toast.error(`Failed to ${mode} audit schedule`);
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || error?.message || `Failed to ${mode} audit schedule`;
+      toast.error(errorMessage);
     }
   };
 
@@ -323,9 +334,15 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Status <span className="text-destructive">*</span>
+                        Status
+                        <span className="text-muted-foreground text-xs ml-2">
+                          (Auto-determined based on audit date)
+                        </span>
                       </FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
+                      <Select 
+                        value={field.value} 
+                        onValueChange={field.onChange}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select status" />
@@ -339,6 +356,11 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {field.value === GeneralStatusEnum.DONE 
+                          ? 'Note: Status will be auto-corrected to DONE if audit date is in the past'
+                          : 'Note: Status will be auto-corrected to SCHEDULED if audit date is today or in the future'}
+                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -364,24 +386,6 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
                   )}
                 />
               </div>
-
-              <FormField
-                control={form.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Active Status</FormLabel>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
             </div>
 
             <div className="flex justify-end gap-4">

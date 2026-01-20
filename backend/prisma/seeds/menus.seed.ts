@@ -173,7 +173,7 @@ export const seedMenus = async () => {
         path: '/audit-policy',
         icon: 'FileCheck',
         parentId: auditMenu.id,
-        order: 1,
+        order: 3,
         isActive: true,
         roles: {
           connect: [
@@ -193,7 +193,7 @@ export const seedMenus = async () => {
         path: '/audit-schedules',
         icon: 'Calendar',
         parentId: auditMenu.id,
-        order: 2,
+        order: 1,
         isActive: true,
         roles: {
           connect: [
@@ -213,7 +213,7 @@ export const seedMenus = async () => {
         path: '/audit-criteria',
         icon: 'ClipboardList',
         parentId: auditMenu.id,
-        order: 3,
+        order: 4,
         isActive: true,
         roles: {
           connect: [
@@ -233,7 +233,7 @@ export const seedMenus = async () => {
         path: '/audit-results',
         icon: 'FileCheck2',
         parentId: auditMenu.id,
-        order: 4,
+        order: 2,
         isActive: true,
         roles: {
           connect: [
