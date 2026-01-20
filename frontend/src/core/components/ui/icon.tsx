@@ -17,7 +17,7 @@ import {
   Package, Truck, ShoppingCart, ChevronDown, ChevronUp, ChevronLeft,
   ChevronRight, UsersRound, ClipboardCheck, Search, Thermometer,
   GraduationCap, Tag, LogOut, ShieldAlert, DoorOpen, BookOpen,
-  FileQuestion, Clock, Cog, Recycle, Waves, FlaskConical, Scale,
+  FileQuestion, FileCheck, FileCheck2, Clock, Cog, Recycle, Waves, FlaskConical, Scale,
   Factory, Droplets, Tags, Warehouse, Grid, ClipboardList
 } from 'lucide-react';
 
@@ -37,7 +37,7 @@ const iconMap: Record<string, any> = {
   Package, Truck, ShoppingCart, ChevronDown, ChevronUp, ChevronLeft,
   ChevronRight, UsersRound, ClipboardCheck, Search, Thermometer,
   GraduationCap, Tag, LogOut, ShieldAlert, DoorOpen, BookOpen,
-  FileQuestion, Clock, Cog, Recycle, Waves, FlaskConical, Scale,
+  FileQuestion, FileCheck, FileCheck2, Clock, Cog, Recycle, Waves, FlaskConical, Scale,
   Factory, Droplets, Tags, Warehouse, Grid, ClipboardList
 };
 

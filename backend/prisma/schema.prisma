@@ -98,6 +98,11 @@ model User {
   // Man Hour Relations
   manHoursCreated                 ManHour[]               @relation("ManHourCreator")
 
+  // Audit Relations
+  auditsCreated                   Audit[]                 @relation("AuditCreator")
+  auditItemsAssigned              AuditItemToUser[]       @relation("AuditItemAssignee")
+  auditsAsAuditor                 AuditToUser[]           @relation("AuditAuditor")
+
   @@map("t_users")
 }
 
@@ -207,6 +212,7 @@ model Department {
   certificates         Certificate[]
   notificationRecipients NotificationRecipient[]
   inspectionItems      InspectionItem[]
+  auditItemToDepartments AuditItemToDepartment[]
 
   @@map("m_departments")
 }
@@ -1387,6 +1393,7 @@ model Area {
   storageLocations StorageLocation[]
   inspectionItems  InspectionItem[]
   inspections      InspectionToArea[]
+  audits           AuditToArea[]
 
   @@map("m_areas")
 }
@@ -1894,6 +1901,7 @@ model AuditElement {
 
   // Relations
   clauses AuditClause[]
+  audits  Audit[]
 
   @@map("m_audit_element")
 }
@@ -1934,11 +1942,158 @@ model AuditCriteria {
 
   // Relations
   auditClause AuditClause @relation(fields: [auditClauseId], references: [id])
-  // auditItems  AuditItem[] // Will be added when AuditItem model is created
+  auditItems  AuditItem[]
 
   @@index([auditClauseId])
   @@index([order])
   @@map("m_audit_criteria")
+}
+
+// ============================================================
+// AUDIT SYSTEM - Transactional Data
+// ============================================================
+
+enum CompliantStatusEnum {
+  COMPLY
+  NOT_COMPLY_MAJOR
+  NOT_COMPLY_MINOR
+}
+
+// Audit - Transactional Data
+model Audit {
+  id             String         @id @default(uuid())
+  code           String         @unique
+  auditDate      DateTime
+  auditElementId String
+  status         GeneralStatusEnum
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  createdBy      String
+
+  // Relations
+  areas       AuditToArea[]
+  auditElement AuditElement @relation(fields: [auditElementId], references: [id])
+  creator     User         @relation("AuditCreator", fields: [createdBy], references: [id])
+  items       AuditItem[]
+  auditors    AuditToUser[]
+
+  @@index([auditElementId])
+  @@index([status])
+  @@map("t_audits")
+}
+
+// Audit Item - Transactional Data
+model AuditItem {
+  id               String                @id @default(uuid())
+  auditId          String
+  auditCriteriaId  String
+  status           GeneralStatusEnum     @default(OPEN)
+  compliantStatus  CompliantStatusEnum
+  evidence         String?               @db.Text
+  recommendation   String?               @db.Text
+  actionRealization String?              @db.Text
+  order            Int
+  dueDate          DateTime
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  // Relations
+  audit          Audit                   @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  auditCriteria  AuditCriteria           @relation(fields: [auditCriteriaId], references: [id])
+  departments    AuditItemToDepartment[]
+  users          AuditItemToUser[]
+  images         AuditImage[]
+
+  @@index([auditId])
+  @@index([auditCriteriaId])
+  @@index([status])
+  @@map("t_audit_items")
+}
+
+// Audit Image - Transactional Data
+model AuditImage {
+  id           String    @id @default(uuid())
+  auditItemId  String
+  imageUrl     String
+  caption      String?   @db.Text
+  order        Int
+  createdAt    DateTime  @default(now())
+
+  // Relations
+  auditItem AuditItem @relation(fields: [auditItemId], references: [id], onDelete: Cascade)
+
+  @@index([auditItemId])
+  @@index([order])
+  @@map("t_audit_images")
+}
+
+// Audit Item to Department - Many-to-Many Junction Table
+model AuditItemToDepartment {
+  id               String    @id @default(uuid())
+  auditItemId      String
+  departmentId     String
+  createdAt        DateTime  @default(now())
+
+  // Relations
+  auditItem  AuditItem   @relation(fields: [auditItemId], references: [id], onDelete: Cascade)
+  department Department  @relation(fields: [departmentId], references: [id])
+
+  @@unique([auditItemId, departmentId])
+  @@index([auditItemId])
+  @@index([departmentId])
+  @@map("_AuditItemToDepartment")
+}
+
+// Audit Item to User - Many-to-Many Junction Table (optional users)
+model AuditItemToUser {
+  id          String   @id @default(uuid())
+  auditItemId String
+  userId      String
+  createdAt   DateTime @default(now())
+
+  // Relations
+  auditItem AuditItem @relation(fields: [auditItemId], references: [id], onDelete: Cascade)
+  user      User      @relation("AuditItemAssignee", fields: [userId], references: [id])
+
+  @@unique([auditItemId, userId])
+  @@index([auditItemId])
+  @@index([userId])
+  @@map("_AuditItemToUser")
+}
+
+// Audit to Area - Many-to-Many Junction Table
+model AuditToArea {
+  id        String   @id @default(uuid())
+  auditId   String
+  areaId    String
+  createdAt DateTime @default(now())
+
+  // Relations
+  audit Audit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  area  Area  @relation(fields: [areaId], references: [id])
+
+  @@unique([auditId, areaId])
+  @@index([auditId])
+  @@index([areaId])
+  @@map("_AuditToArea")
+}
+
+// Audit to User - Many-to-Many Junction Table (auditors)
+model AuditToUser {
+  id        String   @id @default(uuid())
+  auditId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  // Relations
+  audit Audit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  user  User  @relation("AuditAuditor", fields: [userId], references: [id])
+
+  @@unique([auditId, userId])
+  @@index([auditId])
+  @@index([userId])
+  @@map("_AuditToUser")
 }
 
 // ============================================================

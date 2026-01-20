@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -66,9 +66,19 @@ const DataTable = <T extends Record<string, any>>({
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [localActiveFilters, setLocalActiveFilters] = useState<FilterValue[]>([]);
 
+  // Create a stable string representation of activeFilters for comparison
+  const activeFiltersKey = useMemo(() => {
+    if (!activeFilters || Object.keys(activeFilters).length === 0) return '';
+    return JSON.stringify(
+      Object.entries(activeFilters)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([id, item]) => ({ id, value: item.value }))
+    );
+  }, [activeFilters]);
+
   // Sync activeFilters prop with localActiveFilters when it changes
   useEffect(() => {
-    if (activeFilters) {
+    if (activeFilters && Object.keys(activeFilters).length > 0) {
       const filterValues: FilterValue[] = Object.entries(activeFilters).map(([id, item]) => ({
         id,
         value: item.value
@@ -77,7 +87,7 @@ const DataTable = <T extends Record<string, any>>({
     } else {
       setLocalActiveFilters([]);
     }
-  }, [activeFilters]);
+  }, [activeFiltersKey]);
 
   // Search handler
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
