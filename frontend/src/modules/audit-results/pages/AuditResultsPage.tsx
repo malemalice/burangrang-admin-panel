@@ -34,6 +34,7 @@ import auditPolicyService from '@/modules/audit-policy/services/auditPolicyServi
 import { AuditSchedule } from '@/modules/audit-schedules/types/audit-schedule.types';
 import { AuditClause, AuditCriteria } from '@/modules/audit-policy/types/audit-policy.types';
 import { AuditItemForm } from '@/modules/audit-schedules/components/AuditItemForm';
+import { normalizeAuditItem } from '@/modules/audit-schedules/utils/auditItemUtils';
 import uploadService from '@/modules/uploads/services/uploadService';
 import departmentService from '@/modules/master-data/services/departmentService';
 import { Department } from '@/modules/master-data/types/master-data.types';
@@ -57,6 +58,8 @@ interface AuditItem {
   actionRealization?: string;
   order: number;
   dueDate: Date;
+  departmentIds?: string[];
+  userIds?: string[];
   departments?: Array<{ departmentId: string }>;
   users?: Array<{ userId: string }>;
   images?: Array<{
@@ -273,10 +276,11 @@ const AuditResultsPage = () => {
         });
         
         if (auditResponse?.data?.data) {
-          const items = auditResponse.data.data as AuditItem[];
-          const item = items.find((item: AuditItem) => item.auditCriteriaId === result.auditCriteria.id);
+          // Normalize audit items using shared utility function
+          const normalizedItems = auditResponse.data.data.map((item: any) => normalizeAuditItem(item));
+          const item = normalizedItems.find((item: any) => item.auditCriteriaId === result.auditCriteria.id);
           if (item) {
-            setAuditItem(item);
+            setAuditItem(item as AuditItem);
           } else {
             setAuditItem(null);
           }
@@ -707,6 +711,14 @@ const AuditResultsPage = () => {
         }
       }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Assess Audit Criteria</DialogTitle>
+            <DialogDescription>
+              {selectedResult && auditCriteria 
+                ? `Assess criteria: ${auditCriteria.name}`
+                : 'Assess audit criteria'}
+            </DialogDescription>
+          </DialogHeader>
           {isLoadingFormData ? (
             <div className="flex items-center justify-center py-8">
               <span>Loading form data...</span>
@@ -724,8 +736,8 @@ const AuditResultsPage = () => {
               auditItem={auditItem ? {
                 id: auditItem.id,
                 compliantStatus: auditItem.compliantStatus,
-                departmentIds: auditItem.departments?.map(d => d.departmentId) || [],
-                userIds: auditItem.users?.map(u => u.userId) || [],
+                departmentIds: auditItem.departmentIds || [],
+                userIds: auditItem.userIds || [],
                 evidence: auditItem.evidence,
                 recommendation: auditItem.recommendation,
                 actionRealization: auditItem.actionRealization,

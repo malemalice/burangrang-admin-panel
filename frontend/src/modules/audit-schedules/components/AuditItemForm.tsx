@@ -239,6 +239,21 @@ export const AuditItemForm = ({
     }
   }, [auditItem]);
 
+  // Helper function to convert ISO date string to datetime-local format (yyyy-MM-ddThh:mm)
+  // datetime-local format expects local time, not UTC
+  const convertToDateTimeLocal = (dateString: string): string => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
+    // Get local time components (not UTC)
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -249,8 +264,8 @@ export const AuditItemForm = ({
       recommendation: auditItem?.recommendation || '',
       actionRealization: auditItem?.actionRealization || '',
       dueDate: auditItem?.dueDate 
-        ? new Date(auditItem.dueDate).toISOString()
-        : new Date().toISOString(),
+        ? convertToDateTimeLocal(new Date(auditItem.dueDate).toISOString())
+        : convertToDateTimeLocal(new Date().toISOString()),
     },
   });
 
@@ -264,8 +279,8 @@ export const AuditItemForm = ({
       recommendation: auditItem?.recommendation || '',
       actionRealization: auditItem?.actionRealization || '',
       dueDate: auditItem?.dueDate 
-        ? new Date(auditItem.dueDate).toISOString()
-        : new Date().toISOString(),
+        ? convertToDateTimeLocal(new Date(auditItem.dueDate).toISOString())
+        : convertToDateTimeLocal(new Date().toISOString()),
     });
   }, [auditItem, form]);
 
@@ -448,9 +463,12 @@ export const AuditItemForm = ({
                   </FormLabel>
                   <FormControl>
                     <DateTimePicker
+                      type="datetime-local"
                       value={field.value ? field.value : undefined}
                       onChange={(value) => {
-                        field.onChange(typeof value === 'string' ? value : '');
+                        // Ensure we store the value in datetime-local format (yyyy-MM-ddThh:mm)
+                        const dateValue = typeof value === 'string' ? value : '';
+                        field.onChange(dateValue);
                       }}
                       disabled={isReadOnly || isSubmitting}
                     />

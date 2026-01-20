@@ -189,13 +189,20 @@ export function ModalMultiSelect({
             className="px-1 py-0 text-xs font-normal"
           >
             {option.label}
-            <button
-              type="button"
-              className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            <span
+              role="button"
+              tabIndex={0}
+              className="ml-1 ring-offset-background rounded-full outline-none cursor-pointer hover:bg-muted/50 focus:ring-2 focus:ring-ring focus:ring-offset-2 inline-flex items-center"
               onClick={(e) => handleRemoveOption(option.value, e)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleRemoveOption(option.value, e as any);
+                }
+              }}
             >
               <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-            </button>
+            </span>
           </Badge>
         ))}
         {remainingCount > 0 && (
@@ -226,13 +233,20 @@ export function ModalMultiSelect({
         </div>
         <div className="flex items-center gap-1 ml-2">
           {selectedOptions.length > 0 && (
-            <button
-              type="button"
+            <span
+              role="button"
+              tabIndex={0}
               onClick={handleClearAll}
-              className="rounded-full p-1 hover:bg-muted"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleClearAll(e as any);
+                }
+              }}
+              className="rounded-full p-1 hover:bg-muted cursor-pointer outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             >
               <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-            </button>
+            </span>
           )}
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </div>

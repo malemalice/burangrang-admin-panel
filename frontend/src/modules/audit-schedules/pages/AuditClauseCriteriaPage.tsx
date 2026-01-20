@@ -22,6 +22,7 @@ import auditSchedulesService from '../services/auditSchedulesService';
 import auditPolicyService from '@/modules/audit-policy/services/auditPolicyService';
 import { AuditClause, AuditCriteria } from '@/modules/audit-policy/types/audit-policy.types';
 import { AuditSchedule } from '../types/audit-schedule.types';
+import { normalizeAuditItem, normalizeAuditItems } from '../utils/auditItemUtils';
 import api from '@/core/lib/api';
 import { AuditItemForm } from '../components/AuditItemForm';
 import uploadService from '@/modules/uploads/services/uploadService';
@@ -174,35 +175,8 @@ const AuditClauseCriteriaPage = () => {
             },
           });
           if (auditResponse?.data?.data) {
-            // Transform the data to ensure departmentIds is properly set
-            // The API should return DTO format with departmentIds, but handle both cases for safety
-            items = auditResponse.data.data.map((item: any): AuditItem => {
-              // Extract departmentIds - handle both DTO format and raw database format
-              let departmentIds: string[] = [];
-              if (item.departmentIds && Array.isArray(item.departmentIds) && item.departmentIds.length > 0) {
-                departmentIds = item.departmentIds;
-              } else if (item.departments && Array.isArray(item.departments) && item.departments.length > 0) {
-                departmentIds = item.departments
-                  .map((d: any) => d.departmentId || d.id || d)
-                  .filter((id: any) => id);
-              }
-              
-              // Extract userIds - handle both DTO format and raw database format
-              let userIds: string[] = [];
-              if (item.userIds && Array.isArray(item.userIds)) {
-                userIds = item.userIds;
-              } else if (item.users && Array.isArray(item.users)) {
-                userIds = item.users
-                  .map((u: any) => u.userId || u.id)
-                  .filter((id: any) => id);
-              }
-              
-              return {
-                ...item,
-                departmentIds,
-                userIds,
-              } as AuditItem;
-            });
+            // Normalize audit items using shared utility function
+            items = normalizeAuditItems(auditResponse.data.data) as AuditItem[];
           }
         } catch (error) {
           console.error('Failed to fetch audit items from API:', error);
@@ -800,6 +774,12 @@ const AuditClauseCriteriaPage = () => {
       {/* Audit Item Form Dialog */}
       <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Assess Audit Criteria</DialogTitle>
+            <DialogDescription>
+              {selectedCriteria ? `Assess criteria: ${selectedCriteria.name}` : 'Assess audit criteria'}
+            </DialogDescription>
+          </DialogHeader>
           {selectedCriteria && (
             <AuditItemForm
               key={selectedCriteria.auditItem?.id || `new-${selectedCriteria.id}`}
