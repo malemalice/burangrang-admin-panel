@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '@/core/components/ui/select';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
-import { MultiSelectSearchable, SearchableSelectOption } from '@/core/components/ui/searchable-select';
+import { ModalMultiSelect, ModalMultiSelectOption } from '@/core/components/ui/modal-multi-select';
 import { departmentService } from '@/modules/master-data';
 import { userService } from '@/modules/users';
 import { Department, User } from '@/core/lib/types';
@@ -95,12 +95,12 @@ export const AuditItemForm = ({
   const [fileCategory, setFileCategory] = useState<FileCategory | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
 
-  const departmentOptions: SearchableSelectOption[] = departments.map(dept => ({
+  const departmentOptions: ModalMultiSelectOption[] = departments.map(dept => ({
     value: dept.id,
     label: dept.name,
   }));
 
-  const userOptions: SearchableSelectOption[] = users.map(user => ({
+  const userOptions: ModalMultiSelectOption[] = users.map(user => ({
     value: user.id,
     label: `${user.firstName} ${user.lastName}`,
   }));
@@ -282,7 +282,7 @@ export const AuditItemForm = ({
                   Assigned Departments <span className="text-destructive">*</span>
                 </FormLabel>
                 <FormControl>
-                  <MultiSelectSearchable
+                  <ModalMultiSelect
                     options={departmentOptions}
                     value={field.value || []}
                     onValueChange={field.onChange}
@@ -302,7 +302,7 @@ export const AuditItemForm = ({
               <FormItem>
                 <FormLabel>Assigned Users</FormLabel>
                 <FormControl>
-                  <MultiSelectSearchable
+                  <ModalMultiSelect
                     options={userOptions}
                     value={field.value || []}
                     onValueChange={field.onChange}
