@@ -166,26 +166,6 @@ export const seedMenus = async () => {
       },
     });
 
-    // Audit Policy submenu
-    await prisma.menu.create({
-      data: {
-        name: 'Audit Policy',
-        path: '/audit-policy',
-        icon: 'FileCheck',
-        parentId: auditMenu.id,
-        order: 3,
-        isActive: true,
-        roles: {
-          connect: [
-            { id: superAdminRole.id },
-            { id: adminRole.id },
-            { id: managerRole.id },
-            { id: userRole.id },
-          ],
-        },
-      },
-    });
-
     // Audit Schedules submenu
     await prisma.menu.create({
       data: {
@@ -206,14 +186,14 @@ export const seedMenus = async () => {
       },
     });
 
-    // Audit Criteria submenu
+    // Audit Results submenu
     await prisma.menu.create({
       data: {
-        name: 'Audit Criteria',
-        path: '/audit-criteria',
-        icon: 'ClipboardList',
+        name: 'Audit Results',
+        path: '/audit-results',
+        icon: 'FileCheck2',
         parentId: auditMenu.id,
-        order: 4,
+        order: 2,
         isActive: true,
         roles: {
           connect: [
@@ -226,14 +206,34 @@ export const seedMenus = async () => {
       },
     });
 
-    // Audit Results submenu
+    // Audit Policy submenu
     await prisma.menu.create({
       data: {
-        name: 'Audit Results',
-        path: '/audit-results',
-        icon: 'FileCheck2',
+        name: 'Audit Policy',
+        path: '/audit-policy',
+        icon: 'FileCheck',
         parentId: auditMenu.id,
-        order: 2,
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Audit Criteria submenu
+    await prisma.menu.create({
+      data: {
+        name: 'Audit Criteria',
+        path: '/audit-criteria',
+        icon: 'ClipboardList',
+        parentId: auditMenu.id,
+        order: 4,
         isActive: true,
         roles: {
           connect: [

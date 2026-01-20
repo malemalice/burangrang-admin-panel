@@ -28,6 +28,10 @@ import { departmentService } from '@/modules/master-data';
 import { userService } from '@/modules/users';
 import { Department, User } from '@/core/lib/types';
 import uploadService, { FileCategory } from '@/modules/uploads/services/uploadService';
+import { useAuth } from '@/core/lib/auth';
+import api from '@/core/lib/api';
+import { roleService } from '@/modules/roles';
+import { AuditSchedule } from '../types/audit-schedule.types';
 
 enum CompliantStatusEnum {
   COMPLY = 'COMPLY',
@@ -65,6 +69,7 @@ interface AuditItemFormProps {
   auditScheduleCode?: string;
   auditClauseName?: string;
   auditElementName?: string;
+  auditSchedule?: AuditSchedule | null;
   auditItem?: {
     id: string;
     compliantStatus: string;
@@ -94,16 +99,22 @@ export const AuditItemForm = ({
   auditScheduleCode,
   auditClauseName,
   auditElementName,
+  auditSchedule,
   auditItem,
   onSubmit,
   onCancel,
   isSubmitting = false,
 }: AuditItemFormProps) => {
+  const { user: currentUser } = useAuth();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [images, setImages] = useState<ImageUpload[]>([]);
   const [fileCategory, setFileCategory] = useState<FileCategory | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isAuditor, setIsAuditor] = useState(false);
+  const [canEditActionRealization, setCanEditActionRealization] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(false);
 
   const departmentOptions: ModalMultiSelectOption[] = departments.map(dept => ({
     value: dept.id,
@@ -114,6 +125,77 @@ export const AuditItemForm = ({
     value: user.id,
     label: `${user.firstName} ${user.lastName}`,
   }));
+
+  // Check user permissions and role
+  useEffect(() => {
+    const checkPermissions = async () => {
+      if (!currentUser?.id) return;
+
+      try {
+        // Fetch user data to get role code
+        const response = await api.get('/users/me');
+        const userData = response.data;
+        
+        let roleCode: string | null = null;
+        
+        // Try to get role code from the role object in the response
+        if (userData.role && typeof userData.role === 'object') {
+          if ('code' in userData.role) {
+            roleCode = userData.role.code;
+          }
+        }
+        
+        // If role code is not directly available, fetch it using roleId
+        if (!roleCode && userData.roleId) {
+          try {
+            const role = await roleService.getRoleById(userData.roleId);
+            roleCode = role.code;
+          } catch (roleError) {
+            console.error('Failed to fetch role by ID:', roleError);
+          }
+        }
+
+        const isUserSuperAdmin = roleCode === 'SUPER_ADMIN';
+        setIsSuperAdmin(isUserSuperAdmin);
+
+        // Check if user is an auditor assigned to the audit schedule
+        const userIsAuditor = auditSchedule?.auditors?.some(auditor => auditor.id === currentUser.id) || false;
+        setIsAuditor(userIsAuditor);
+
+        // Check if user is in assigned department or is an assigned user (for existing audit item)
+        let userInAssignedDept = false;
+        let userIsAssignedUser = false;
+
+        if (auditItem) {
+          // Check if user's department is in assigned departments
+          if (userData.departmentId && auditItem.departmentIds) {
+            userInAssignedDept = auditItem.departmentIds.includes(userData.departmentId);
+          }
+
+          // Check if user is in assigned users
+          if (auditItem.userIds) {
+            userIsAssignedUser = auditItem.userIds.includes(currentUser.id);
+          }
+        }
+
+        const userCanEditActionRealization = userInAssignedDept || userIsAssignedUser;
+        setCanEditActionRealization(userCanEditActionRealization);
+
+        // Determine read-only state:
+        // - Read-only if user is not SUPER_ADMIN and not an auditor and is assigned dept/user
+        // - SUPER_ADMIN and auditors have full access
+        const readOnly = !isUserSuperAdmin && !userIsAuditor && userCanEditActionRealization;
+        setIsReadOnly(readOnly);
+
+        // If user is not SUPER_ADMIN, not an auditor, and not assigned dept/user, they shouldn't be able to edit at all
+        // This case should be handled at the parent component level to prevent form from opening
+      } catch (error) {
+        console.error('Failed to check user permissions:', error);
+      }
+    };
+
+    checkPermissions();
+  }, [currentUser, auditSchedule, auditItem]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -171,6 +253,21 @@ export const AuditItemForm = ({
         : new Date().toISOString(),
     },
   });
+
+  // Reset form when auditItem changes (important for reopening form with different data)
+  useEffect(() => {
+    form.reset({
+      compliantStatus: auditItem?.compliantStatus as CompliantStatusEnum || undefined,
+      departmentIds: auditItem?.departmentIds || [],
+      userIds: auditItem?.userIds || [],
+      evidence: auditItem?.evidence || '',
+      recommendation: auditItem?.recommendation || '',
+      actionRealization: auditItem?.actionRealization || '',
+      dueDate: auditItem?.dueDate 
+        ? new Date(auditItem.dueDate).toISOString()
+        : new Date().toISOString(),
+    });
+  }, [auditItem, form]);
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -245,48 +342,58 @@ export const AuditItemForm = ({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        {/* Breadcrumb and Context Header */}
-        <div className="space-y-4 pb-4 border-b">
-          {/* Breadcrumb */}
-          {(auditScheduleCode || auditClauseName || auditElementName || auditCriteriaName) && (
-            <nav aria-label="breadcrumb" className="flex items-center gap-2 text-sm">
+        {/* Header Section */}
+        <div className="space-y-4 pb-6 border-b">
+          {/* Compact Breadcrumb */}
+          {(auditScheduleCode || auditClauseName || auditElementName || auditCriteriaCode) && (
+            <nav aria-label="breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground overflow-hidden">
               {auditScheduleCode && (
                 <>
-                  <span className="text-muted-foreground font-medium">{auditScheduleCode}</span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <span className="truncate max-w-[120px]" title={auditScheduleCode}>
+                    {auditScheduleCode}
+                  </span>
+                  <ChevronRight className="h-3 w-3 flex-shrink-0" />
                 </>
               )}
               {auditClauseName && (
                 <>
-                  <span className="text-muted-foreground font-medium">{auditClauseName}</span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <span className="truncate max-w-[150px]" title={auditClauseName}>
+                    {auditClauseName}
+                  </span>
+                  <ChevronRight className="h-3 w-3 flex-shrink-0" />
                 </>
               )}
               {auditElementName && (
                 <>
-                  <span className="text-muted-foreground font-medium">{auditElementName}</span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <span className="truncate max-w-[150px]" title={auditElementName}>
+                    {auditElementName}
+                  </span>
+                  <ChevronRight className="h-3 w-3 flex-shrink-0" />
                 </>
               )}
               {auditCriteriaCode && (
-                <span className="text-foreground font-semibold">{auditCriteriaCode}</span>
+                <span className="text-foreground font-medium truncate max-w-[120px]" title={auditCriteriaCode}>
+                  {auditCriteriaCode}
+                </span>
               )}
             </nav>
           )}
 
-          {/* Audit Criteria Header */}
-          <div className="space-y-2">
-            <div>
-              <h3 className="text-lg font-semibold leading-none tracking-tight">
+          {/* Main Title Section */}
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <h2 className="text-xl font-semibold leading-tight break-words">
                 {auditCriteriaName}
-              </h3>
+              </h2>
               {auditCriteriaCode && (
-                <p className="text-sm text-muted-foreground mt-1">Code: {auditCriteriaCode}</p>
+                <p className="text-sm text-muted-foreground font-mono">
+                  {auditCriteriaCode}
+                </p>
               )}
             </div>
             {auditCriteriaDescription && (
-              <div className="bg-muted/50 rounded-md p-3 border">
-                <p className="text-sm text-muted-foreground leading-relaxed">
+              <div className="bg-muted/50 rounded-md p-4 border">
+                <p className="text-sm text-muted-foreground leading-relaxed break-words">
                   {auditCriteriaDescription}
                 </p>
               </div>
@@ -309,6 +416,7 @@ export const AuditItemForm = ({
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
+                    disabled={isReadOnly || isSubmitting}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -340,10 +448,11 @@ export const AuditItemForm = ({
                   </FormLabel>
                   <FormControl>
                     <DateTimePicker
-                      value={field.value ? new Date(field.value) : undefined}
-                      onChange={(date) => {
-                        field.onChange(date ? date.toISOString() : '');
+                      value={field.value ? field.value : undefined}
+                      onChange={(value) => {
+                        field.onChange(typeof value === 'string' ? value : '');
                       }}
+                      disabled={isReadOnly || isSubmitting}
                     />
                   </FormControl>
                   <FormMessage />
@@ -366,7 +475,11 @@ export const AuditItemForm = ({
                     <ModalMultiSelect
                       options={departmentOptions}
                       value={field.value || []}
-                      onValueChange={field.onChange}
+                      onValueChange={(value) => {
+                        if (!isReadOnly && !isSubmitting) {
+                          field.onChange(value);
+                        }
+                      }}
                       placeholder="Select departments"
                       searchPlaceholder="Search departments..."
                     />
@@ -386,7 +499,11 @@ export const AuditItemForm = ({
                     <ModalMultiSelect
                       options={userOptions}
                       value={field.value || []}
-                      onValueChange={field.onChange}
+                      onValueChange={(value) => {
+                        if (!isReadOnly && !isSubmitting) {
+                          field.onChange(value);
+                        }
+                      }}
                       placeholder="Select users (optional)"
                       searchPlaceholder="Search users..."
                     />
@@ -408,6 +525,8 @@ export const AuditItemForm = ({
                     placeholder="Enter evidence..."
                     className="min-h-[100px]"
                     {...field}
+                    disabled={isReadOnly || isSubmitting}
+                    readOnly={isReadOnly}
                   />
                 </FormControl>
                 <FormMessage />
@@ -426,6 +545,8 @@ export const AuditItemForm = ({
                     placeholder="Enter recommendation..."
                     className="min-h-[100px]"
                     {...field}
+                    disabled={isReadOnly || isSubmitting}
+                    readOnly={isReadOnly}
                   />
                 </FormControl>
                 <FormMessage />
@@ -444,6 +565,8 @@ export const AuditItemForm = ({
                     placeholder="Enter action realization..."
                     className="min-h-[100px]"
                     {...field}
+                    disabled={(!canEditActionRealization && !isSuperAdmin && !isAuditor) || isSubmitting}
+                    readOnly={!canEditActionRealization && !isSuperAdmin && !isAuditor}
                   />
                 </FormControl>
                 <FormMessage />
@@ -462,7 +585,7 @@ export const AuditItemForm = ({
                   multiple
                   onChange={handleImageSelect}
                   className="cursor-pointer"
-                  disabled={isSubmitting}
+                  disabled={isReadOnly || isSubmitting}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Upload multiple images (JPEG, PNG, GIF, WebP, max 5MB each)
@@ -480,23 +603,26 @@ export const AuditItemForm = ({
                           className="w-full h-full object-cover"
                         />
                       </div>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => handleRemoveImage(image.id)}
-                        disabled={isSubmitting}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                      {!isReadOnly && (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleRemoveImage(image.id)}
+                          disabled={isSubmitting}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
                       <div className="mt-2">
                         <Input
                           type="text"
                           placeholder="Caption (optional)"
                           value={image.caption}
                           onChange={(e) => handleUpdateImageCaption(image.id, e.target.value)}
-                          disabled={isSubmitting}
+                          disabled={isReadOnly || isSubmitting}
+                          readOnly={isReadOnly}
                           className="text-xs"
                         />
                       </div>
@@ -513,9 +639,17 @@ export const AuditItemForm = ({
           <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Saving...' : auditItem ? 'Update' : 'Save'}
-          </Button>
+          {/* Show submit button based on permissions:
+              - For new items: Only auditors or SUPER_ADMIN can add
+              - For existing items: Auditors/SUPER_ADMIN can edit all, assigned dept/users can edit actionRealization */}
+          {((isSuperAdmin || isAuditor) || (auditItem && canEditActionRealization)) && (
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || (isReadOnly && !canEditActionRealization)}
+            >
+              {isSubmitting ? 'Saving...' : auditItem ? 'Update' : 'Save'}
+            </Button>
+          )}
         </div>
       </form>
     </Form>

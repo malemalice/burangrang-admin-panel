@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, Edit, Eye } from 'lucide-react';
+import { ArrowLeft, Edit, Eye, ClipboardCheck, Wrench, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/core/components/ui/button';
@@ -25,6 +25,9 @@ import { AuditSchedule } from '../types/audit-schedule.types';
 import api from '@/core/lib/api';
 import { AuditItemForm } from '../components/AuditItemForm';
 import uploadService from '@/modules/uploads/services/uploadService';
+import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import departmentService from '@/modules/master-data/services/departmentService';
+import { Department } from '@/modules/master-data/types/master-data.types';
 
 enum CompliantStatusEnum {
   COMPLY = 'COMPLY',
@@ -51,9 +54,11 @@ interface AuditItem {
   actionRealization?: string;
   order: number;
   dueDate: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
   auditCriteria?: AuditCriteria;
-  departments?: Array<{ departmentId: string }>;
-  users?: Array<{ userId: string }>;
+  departmentIds?: string[];
+  userIds?: string[];
   images?: Array<{
     id: string;
     imageUrl: string;
@@ -87,6 +92,8 @@ const AuditClauseCriteriaPage = () => {
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [selectedCriteria, setSelectedCriteria] = useState<MergedCriteriaItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [departmentMap, setDepartmentMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -113,6 +120,25 @@ const AuditClauseCriteriaPage = () => {
     fetchData();
   }, [id, clauseId, navigate]);
 
+  // Fetch departments for department name lookup
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await departmentService.getDepartments({ page: 1, limit: 1000 });
+        setDepartments(response.data);
+        // Create a map of department ID to name for quick lookup
+        const map: Record<string, string> = {};
+        response.data.forEach((dept) => {
+          map[dept.id] = dept.name;
+        });
+        setDepartmentMap(map);
+      } catch (error) {
+        console.error('Failed to fetch departments:', error);
+      }
+    };
+    fetchDepartments();
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       if (!id || !clauseId) return;
@@ -135,28 +161,59 @@ const AuditClauseCriteriaPage = () => {
         // Get criteria IDs for filtering
         const criteriaIds = criteria.map(c => c.id);
 
-        // Fetch audit items - try different endpoints
+        // Fetch audit items - always use API endpoint to get full data with departments
         let items: AuditItem[] = [];
         
-        // Try to get items from audit schedule response if available
-        const scheduleWithItems = auditSchedule as AuditSchedule & { items?: AuditItem[] };
-        if (scheduleWithItems?.items) {
-          items = scheduleWithItems.items;
-        } else {
-          // Try to fetch items from audits endpoint (audit schedule is an audit)
-          try {
-            const auditResponse = await api.get(`/audits/${id}/items`, {
-              params: {
-                page: 1,
-                limit: 10000,
-              },
+        // Always fetch from API endpoint to ensure we get departments relation
+        // The auditSchedule.items might not include departments relation
+        try {
+          const auditResponse = await api.get(`/audits/${id}/items`, {
+            params: {
+              page: 1,
+              limit: 10000,
+            },
+          });
+          if (auditResponse?.data?.data) {
+            // Transform the data to ensure departmentIds is properly set
+            // The API should return DTO format with departmentIds, but handle both cases for safety
+            items = auditResponse.data.data.map((item: any): AuditItem => {
+              // Extract departmentIds - handle both DTO format and raw database format
+              let departmentIds: string[] = [];
+              if (item.departmentIds && Array.isArray(item.departmentIds) && item.departmentIds.length > 0) {
+                departmentIds = item.departmentIds;
+              } else if (item.departments && Array.isArray(item.departments) && item.departments.length > 0) {
+                departmentIds = item.departments
+                  .map((d: any) => d.departmentId || d.id || d)
+                  .filter((id: any) => id);
+              }
+              
+              // Extract userIds - handle both DTO format and raw database format
+              let userIds: string[] = [];
+              if (item.userIds && Array.isArray(item.userIds)) {
+                userIds = item.userIds;
+              } else if (item.users && Array.isArray(item.users)) {
+                userIds = item.users
+                  .map((u: any) => u.userId || u.id)
+                  .filter((id: any) => id);
+              }
+              
+              return {
+                ...item,
+                departmentIds,
+                userIds,
+              } as AuditItem;
             });
-            if (auditResponse?.data?.data) {
-              items = auditResponse.data.data;
-            }
-          } catch (error) {
-            // Endpoint might not exist, that's okay
-            console.log('Audit items endpoint not available');
+          }
+        } catch (error) {
+          console.error('Failed to fetch audit items from API:', error);
+          // Fallback: try to use items from auditSchedule if API fails
+          const scheduleWithItems = auditSchedule as AuditSchedule & { items?: AuditItem[] };
+          if (scheduleWithItems?.items) {
+            items = scheduleWithItems.items.map((item: any): AuditItem => ({
+              ...item,
+              departmentIds: item.departmentIds || [],
+              userIds: item.userIds || [],
+            } as AuditItem));
           }
         }
 
@@ -360,9 +417,9 @@ const AuditClauseCriteriaPage = () => {
           });
           setAuditItems(filteredItems);
         }
-      } catch (error) {
-        console.log('Failed to refresh audit items');
-      }
+        } catch (error) {
+          // Silently fail - items will refresh on next page load
+        }
 
       handleCloseForm();
     } catch (error: unknown) {
@@ -422,13 +479,13 @@ const AuditClauseCriteriaPage = () => {
       case 'NOT_COMPLY_MAJOR':
         return (
           <Badge className="bg-red-100 text-red-800 border-red-800">
-            Not Comply (Major)
+            Not Comply - Major
           </Badge>
         );
       case 'NOT_COMPLY_MINOR':
         return (
           <Badge className="bg-yellow-100 text-yellow-800 border-yellow-800">
-            Not Comply (Minor)
+            Not Comply - Minor
           </Badge>
         );
       default:
@@ -458,22 +515,83 @@ const AuditClauseCriteriaPage = () => {
       isSortable: true,
     },
     {
-      id: 'description',
-      header: 'Description',
-      cell: (item: MergedCriteriaItem) => (
-        <div className="text-sm text-muted-foreground">
-          {item.description || 'N/A'}
-        </div>
-      ),
-      isSortable: false,
-    },
-    {
       id: 'transitionType',
       header: 'Transition Type',
       cell: (item: MergedCriteriaItem) => (
         <div className="text-sm">{item.transitionType}</div>
       ),
       isSortable: true,
+    },
+    {
+      id: 'dates',
+      header: 'Created At / Due Date',
+      cell: (item: MergedCriteriaItem) => {
+        const auditItem = item.auditItem;
+        return (
+          <div className="space-y-1">
+            <div className="text-sm">
+              <span className="text-muted-foreground">Created: </span>
+              <span>
+                {auditItem?.createdAt
+                  ? format(new Date(auditItem.createdAt), 'dd MMM yyyy')
+                  : 'N/A'}
+              </span>
+            </div>
+            <div className="text-sm">
+              <span className="text-muted-foreground">Due: </span>
+              <span>
+                {auditItem?.dueDate
+                  ? format(new Date(auditItem.dueDate), 'dd MMM yyyy')
+                  : 'N/A'}
+              </span>
+            </div>
+          </div>
+        );
+      },
+      isSortable: false,
+    },
+    {
+      id: 'departments',
+      header: 'Department Assigned',
+      cell: (item: MergedCriteriaItem) => {
+        const auditItem = item.auditItem;
+        if (!auditItem) {
+          return <div className="text-muted-foreground">N/A</div>;
+        }
+        
+        // Handle both departmentIds (DTO format) and departments (raw format)
+        // The API should return departmentIds, but handle both for safety
+        let departmentIds: string[] = [];
+        
+        if (auditItem.departmentIds && Array.isArray(auditItem.departmentIds)) {
+          departmentIds = auditItem.departmentIds;
+        } else if ((auditItem as any).departments && Array.isArray((auditItem as any).departments)) {
+          // Fallback: extract from departments array if departmentIds not present
+          departmentIds = (auditItem as any).departments.map((d: any) => 
+            d.departmentId || d.id || d
+          ).filter((id: any) => id);
+        }
+        
+        if (departmentIds.length === 0) {
+          return <div className="text-muted-foreground">N/A</div>;
+        }
+        
+        // Map department IDs to names, fallback to ID if name not found
+        const departmentNames = departmentIds
+          .map((id: string) => {
+            const name = departmentMap[id];
+            return name || id; // Fallback to ID if name not in map yet
+          })
+          .filter((name) => name) // Filter out any empty values
+          .join(', ');
+        
+        return (
+          <div className="text-sm">
+            {departmentNames || 'N/A'}
+          </div>
+        );
+      },
+      isSortable: false,
     },
     {
       id: 'compliantStatus',
@@ -488,38 +606,94 @@ const AuditClauseCriteriaPage = () => {
     {
       id: 'actions',
       header: 'Actions',
-      cell: (item: MergedCriteriaItem) => (
-        <div className="flex items-center gap-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(`/audit-schedules/${id}/clauses/${clauseId}/criteria/${item.masterCriteria?.id || item.id}`)}
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>View Details</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleOpenForm(item)}
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{item.isFromAuditItem ? 'Edit Audit Item' : 'Fill Audit Item'}</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      ),
+      cell: (item: MergedCriteriaItem) => {
+        const auditItem = item.auditItem;
+        const status = auditItem?.status;
+        const isDraft = status === GeneralStatusEnum.DRAFT;
+        const isOpen = status === GeneralStatusEnum.OPEN;
+        const isWaitingApproval = status === GeneralStatusEnum.WAITING_APPROVAL;
+        const isDone = status === GeneralStatusEnum.DONE;
+        const isRejected = status === GeneralStatusEnum.REJECTED;
+        const hasNoItem = !item.isFromAuditItem;
+
+        return (
+          <div className="flex items-center gap-2">
+            {/* View button - always shown */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate(`/audit-schedules/${id}/clauses/${clauseId}/criteria/${item.masterCriteria?.id || item.id}`)}
+                  className="text-primary hover:text-primary hover:bg-primary/10"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>View Details</p>
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Assess button - shown when no item exists or status is DRAFT/OPEN */}
+            {(hasNoItem || isDraft || isOpen) && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleOpenForm(item)}
+                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    <ClipboardCheck className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{hasNoItem ? 'Assess Criteria' : 'Assess'}</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* Update button - shown when item exists and status is OPEN or WAITING_APPROVAL */}
+            {item.isFromAuditItem && (isOpen || isWaitingApproval) && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleOpenForm(item)}
+                    className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                  >
+                    <Wrench className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Update</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* Verify button - shown when status is WAITING_APPROVAL */}
+            {item.isFromAuditItem && isWaitingApproval && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleOpenForm(item)}
+                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Verify</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        );
+      },
       isSortable: false,
     },
   ];
@@ -628,6 +802,7 @@ const AuditClauseCriteriaPage = () => {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           {selectedCriteria && (
             <AuditItemForm
+              key={selectedCriteria.auditItem?.id || `new-${selectedCriteria.id}`}
               auditCriteriaId={selectedCriteria.masterCriteria?.id || selectedCriteria.id}
               auditCriteriaName={selectedCriteria.name}
               auditCriteriaDescription={selectedCriteria.description}
@@ -635,11 +810,12 @@ const AuditClauseCriteriaPage = () => {
               auditScheduleCode={auditSchedule?.code}
               auditClauseName={auditClause?.name}
               auditElementName={auditClause?.auditElement?.name}
+              auditSchedule={auditSchedule}
               auditItem={selectedCriteria.auditItem ? {
                 id: selectedCriteria.auditItem.id,
                 compliantStatus: selectedCriteria.auditItem.compliantStatus,
-                departmentIds: selectedCriteria.auditItem.departments?.map(d => d.departmentId) || [],
-                userIds: selectedCriteria.auditItem.users?.map(u => u.userId) || [],
+                departmentIds: selectedCriteria.auditItem.departmentIds || [],
+                userIds: selectedCriteria.auditItem.userIds || [],
                 evidence: selectedCriteria.auditItem.evidence,
                 recommendation: selectedCriteria.auditItem.recommendation,
                 actionRealization: selectedCriteria.auditItem.actionRealization,

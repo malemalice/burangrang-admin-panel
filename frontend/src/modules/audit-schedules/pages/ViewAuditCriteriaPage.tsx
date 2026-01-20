@@ -22,6 +22,8 @@ import auditPolicyService from '@/modules/audit-policy/services/auditPolicyServi
 import { AuditClause, AuditCriteria } from '@/modules/audit-policy/types/audit-policy.types';
 import { AuditSchedule } from '../types/audit-schedule.types';
 import api from '@/core/lib/api';
+import departmentService from '@/modules/master-data/services/departmentService';
+import { Department } from '@/modules/master-data/types/master-data.types';
 
 interface AuditItem {
   id: string;
@@ -34,9 +36,11 @@ interface AuditItem {
   actionRealization?: string;
   order: number;
   dueDate: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
   auditCriteria?: AuditCriteria;
-  departments?: Array<{ departmentId: string; department?: { id: string; name: string } }>;
-  users?: Array<{ userId: string; user?: { id: string; firstName: string; lastName: string } }>;
+  departmentIds?: string[];
+  userIds?: string[];
   images?: Array<{
     id: string;
     imageUrl: string;
@@ -54,6 +58,8 @@ const ViewAuditCriteriaPage = () => {
   const [auditCriteria, setAuditCriteria] = useState<AuditCriteria | null>(null);
   const [auditItem, setAuditItem] = useState<AuditItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [departmentMap, setDepartmentMap] = useState<Record<string, string>>({});
 
   // Determine where to navigate back to
   const getBackPath = () => {
@@ -118,6 +124,25 @@ const ViewAuditCriteriaPage = () => {
 
     fetchData();
   }, [id, clauseId, criteriaId, navigate]);
+
+  // Fetch departments for department name lookup
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await departmentService.getDepartments({ page: 1, limit: 1000 });
+        setDepartments(response.data);
+        // Create a map of department ID to name for quick lookup
+        const map: Record<string, string> = {};
+        response.data.forEach((dept) => {
+          map[dept.id] = dept.name;
+        });
+        setDepartmentMap(map);
+      } catch (error) {
+        console.error('Failed to fetch departments:', error);
+      }
+    };
+    fetchDepartments();
+  }, []);
 
   const getCompliantStatusBadge = (status?: string) => {
     if (!status) {
@@ -377,13 +402,16 @@ const ViewAuditCriteriaPage = () => {
                   <label className="text-sm font-medium text-muted-foreground mb-2 block">
                     Departments
                   </label>
-                  {auditItem.departments && auditItem.departments.length > 0 ? (
+                  {auditItem.departmentIds && auditItem.departmentIds.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
-                      {auditItem.departments.map((dept) => (
-                        <Badge key={dept.departmentId} variant="outline">
-                          {dept.department?.name || dept.departmentId}
-                        </Badge>
-                      ))}
+                      {auditItem.departmentIds.map((deptId) => {
+                        const deptName = departmentMap[deptId] || deptId;
+                        return (
+                          <Badge key={deptId} variant="outline">
+                            {deptName}
+                          </Badge>
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">No departments assigned</p>
@@ -393,13 +421,11 @@ const ViewAuditCriteriaPage = () => {
                   <label className="text-sm font-medium text-muted-foreground mb-2 block">
                     Users
                   </label>
-                  {auditItem.users && auditItem.users.length > 0 ? (
+                  {auditItem.userIds && auditItem.userIds.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
-                      {auditItem.users.map((user) => (
-                        <Badge key={user.userId} variant="outline">
-                          {user.user
-                            ? `${user.user.firstName} ${user.user.lastName}`
-                            : user.userId}
+                      {auditItem.userIds.map((userId) => (
+                        <Badge key={userId} variant="outline">
+                          {userId}
                         </Badge>
                       ))}
                     </div>
