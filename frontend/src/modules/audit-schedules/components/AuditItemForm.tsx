@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { X, Upload, Image as ImageIcon } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/core/components/ui/button';
 import {
@@ -60,6 +60,11 @@ interface ImageUpload {
 interface AuditItemFormProps {
   auditCriteriaId: string;
   auditCriteriaName: string;
+  auditCriteriaDescription?: string | null;
+  auditCriteriaCode?: string;
+  auditScheduleCode?: string;
+  auditClauseName?: string;
+  auditElementName?: string;
   auditItem?: {
     id: string;
     compliantStatus: string;
@@ -84,6 +89,11 @@ interface AuditItemFormProps {
 export const AuditItemForm = ({
   auditCriteriaId,
   auditCriteriaName,
+  auditCriteriaDescription,
+  auditCriteriaCode,
+  auditScheduleCode,
+  auditClauseName,
+  auditElementName,
   auditItem,
   onSubmit,
   onCancel,
@@ -235,106 +245,157 @@ export const AuditItemForm = ({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-muted-foreground">Audit Criteria</label>
-            <p className="text-sm font-medium mt-1">{auditCriteriaName}</p>
+        {/* Breadcrumb and Context Header */}
+        <div className="space-y-4 pb-4 border-b">
+          {/* Breadcrumb */}
+          {(auditScheduleCode || auditClauseName || auditElementName || auditCriteriaName) && (
+            <nav aria-label="breadcrumb" className="flex items-center gap-2 text-sm">
+              {auditScheduleCode && (
+                <>
+                  <span className="text-muted-foreground font-medium">{auditScheduleCode}</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </>
+              )}
+              {auditClauseName && (
+                <>
+                  <span className="text-muted-foreground font-medium">{auditClauseName}</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </>
+              )}
+              {auditElementName && (
+                <>
+                  <span className="text-muted-foreground font-medium">{auditElementName}</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </>
+              )}
+              {auditCriteriaCode && (
+                <span className="text-foreground font-semibold">{auditCriteriaCode}</span>
+              )}
+            </nav>
+          )}
+
+          {/* Audit Criteria Header */}
+          <div className="space-y-2">
+            <div>
+              <h3 className="text-lg font-semibold leading-none tracking-tight">
+                {auditCriteriaName}
+              </h3>
+              {auditCriteriaCode && (
+                <p className="text-sm text-muted-foreground mt-1">Code: {auditCriteriaCode}</p>
+              )}
+            </div>
+            {auditCriteriaDescription && (
+              <div className="bg-muted/50 rounded-md p-3 border">
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {auditCriteriaDescription}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Form Fields Section */}
+        <div className="space-y-6">
+          {/* Status and Due Date Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField
+              control={form.control}
+              name="compliantStatus"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Compliant Status <span className="text-destructive">*</span>
+                  </FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select compliant status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={CompliantStatusEnum.COMPLY}>Comply</SelectItem>
+                      <SelectItem value={CompliantStatusEnum.NOT_COMPLY_MAJOR}>
+                        Not Comply - Major
+                      </SelectItem>
+                      <SelectItem value={CompliantStatusEnum.NOT_COMPLY_MINOR}>
+                        Not Comply - Minor
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="dueDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Due Date <span className="text-destructive">*</span>
+                  </FormLabel>
+                  <FormControl>
+                    <DateTimePicker
+                      value={field.value ? new Date(field.value) : undefined}
+                      onChange={(date) => {
+                        field.onChange(date ? date.toISOString() : '');
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
 
-          <FormField
-            control={form.control}
-            name="compliantStatus"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Compliant Status <span className="text-destructive">*</span>
-                </FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  value={field.value}
-                >
+          {/* Assignment Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField
+              control={form.control}
+              name="departmentIds"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Assigned Departments <span className="text-destructive">*</span>
+                  </FormLabel>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select compliant status" />
-                    </SelectTrigger>
+                    <ModalMultiSelect
+                      options={departmentOptions}
+                      value={field.value || []}
+                      onValueChange={field.onChange}
+                      placeholder="Select departments"
+                      searchPlaceholder="Search departments..."
+                    />
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value={CompliantStatusEnum.COMPLY}>Comply</SelectItem>
-                    <SelectItem value={CompliantStatusEnum.NOT_COMPLY_MAJOR}>
-                      Not Comply - Major
-                    </SelectItem>
-                    <SelectItem value={CompliantStatusEnum.NOT_COMPLY_MINOR}>
-                      Not Comply - Minor
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <FormField
-            control={form.control}
-            name="departmentIds"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Assigned Departments <span className="text-destructive">*</span>
-                </FormLabel>
-                <FormControl>
-                  <ModalMultiSelect
-                    options={departmentOptions}
-                    value={field.value || []}
-                    onValueChange={field.onChange}
-                    placeholder="Select departments"
-                    searchPlaceholder="Search departments..."
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="userIds"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Assigned Users</FormLabel>
-                <FormControl>
-                  <ModalMultiSelect
-                    options={userOptions}
-                    value={field.value || []}
-                    onValueChange={field.onChange}
-                    placeholder="Select users (optional)"
-                    searchPlaceholder="Search users..."
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="dueDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Due Date <span className="text-destructive">*</span>
-                </FormLabel>
-                <FormControl>
-                  <DateTimePicker
-                    value={field.value ? new Date(field.value) : undefined}
-                    onChange={(date) => {
-                      field.onChange(date ? date.toISOString() : '');
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <FormField
+              control={form.control}
+              name="userIds"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Assigned Users</FormLabel>
+                  <FormControl>
+                    <ModalMultiSelect
+                      options={userOptions}
+                      value={field.value || []}
+                      onValueChange={field.onChange}
+                      placeholder="Select users (optional)"
+                      searchPlaceholder="Search users..."
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
           <FormField
             control={form.control}
@@ -391,7 +452,7 @@ export const AuditItemForm = ({
           />
 
           {/* Image Upload Section */}
-          <div className="space-y-4">
+          <div className="space-y-4 pt-2">
             <FormLabel>Images</FormLabel>
             <div className="space-y-4">
               <div>
@@ -447,7 +508,8 @@ export const AuditItemForm = ({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2">
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-4 pt-4 border-t">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
             Cancel
           </Button>

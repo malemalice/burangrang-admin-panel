@@ -521,21 +521,16 @@ const AuditClauseCriteriaPage = () => {
 
       {/* Audit Item Form Dialog */}
       <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedCriteria?.isFromAuditItem ? 'Edit Audit Item' : 'Fill Audit Item'}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedCriteria && (
-                <>Fill in the audit item details for: {selectedCriteria.name}</>
-              )}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           {selectedCriteria && (
             <AuditItemForm
               auditCriteriaId={selectedCriteria.masterCriteria?.id || selectedCriteria.id}
               auditCriteriaName={selectedCriteria.name}
+              auditCriteriaDescription={selectedCriteria.description}
+              auditCriteriaCode={selectedCriteria.code}
+              auditScheduleCode={auditSchedule?.code}
+              auditClauseName={auditClause?.name}
+              auditElementName={auditClause?.auditElement?.name}
               auditItem={selectedCriteria.auditItem ? {
                 id: selectedCriteria.auditItem.id,
                 compliantStatus: selectedCriteria.auditItem.compliantStatus,
