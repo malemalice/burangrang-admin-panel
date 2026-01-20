@@ -186,6 +186,26 @@ export const seedMenus = async () => {
       },
     });
 
+    // Audit Schedules submenu
+    await prisma.menu.create({
+      data: {
+        name: 'Audit Schedules',
+        path: '/audit-schedules',
+        icon: 'Calendar',
+        parentId: auditMenu.id,
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     // Audit Criteria submenu
     await prisma.menu.create({
       data: {
@@ -193,7 +213,7 @@ export const seedMenus = async () => {
         path: '/audit-criteria',
         icon: 'ClipboardList',
         parentId: auditMenu.id,
-        order: 2,
+        order: 3,
         isActive: true,
         roles: {
           connect: [

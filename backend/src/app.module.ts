@@ -42,6 +42,7 @@ import { WasteManagementModule } from './modules/waste-management/waste-manageme
 import { ManHoursModule } from './modules/man-hours/man-hours.module';
 import { InspectionsModule } from './modules/inspections/inspections.module';
 import { AuditPolicyModule } from './modules/audit-policy/audit-policy.module';
+import { AuditSchedulesModule } from './modules/audit-schedules/audit-schedules.module';
 import { ZohoWebhooksModule } from './modules/zoho-webhooks/zoho-webhooks.module';
 import { RiskRegisterModule } from './modules/risk-register/risk-register.module';
 
@@ -91,6 +92,8 @@ import { RiskRegisterModule } from './modules/risk-register/risk-register.module
     InspectionsModule,
     // Audit Policy Module
     AuditPolicyModule,
+    // Audit Schedules Module
+    AuditSchedulesModule,
     // Zoho Webhooks Module
     ZohoWebhooksModule,
     // Risk Register Module
