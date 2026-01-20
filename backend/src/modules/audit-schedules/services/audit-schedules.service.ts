@@ -8,7 +8,8 @@ import { UpdateAuditScheduleDto } from '../dto/update-audit-schedule.dto';
 import { AuditScheduleDto } from '../dto/audit-schedule.dto';
 import { CreateAuditItemDto } from '../dto/create-audit-item.dto';
 import { AuditItemDto } from '../dto/audit-item.dto';
-import { Prisma, GeneralStatusEnum } from '@prisma/client';
+import { AuditResultDto } from '../dto/audit-result.dto';
+import { Prisma, GeneralStatusEnum, CompliantStatusEnum } from '@prisma/client';
 import { RemindersService } from '../../reminders/reminders.service';
 import {
   ReminderRepeatTypeEnum,
@@ -24,6 +25,20 @@ interface FindAllOptions {
   areaId?: string;
   auditElementId?: string;
   status?: GeneralStatusEnum;
+}
+
+interface FindAllAuditResultsOptions {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  auditId?: string;
+  auditElementId?: string;
+  auditClauseId?: string;
+  auditCriteriaId?: string;
+  compliantStatus?: CompliantStatusEnum;
+  status?: GeneralStatusEnum;
+  search?: string;
 }
 
 @Injectable()
@@ -684,6 +699,175 @@ export class AuditSchedulesService {
         caption: img.caption,
         order: img.order,
       })) || [],
+    });
+  }
+
+  async findAllAuditResults(
+    options?: FindAllAuditResultsOptions,
+  ): Promise<{
+    data: AuditResultDto[];
+    meta: { total: number; page: number; limit: number };
+  }> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      auditId,
+      auditElementId,
+      auditClauseId,
+      auditCriteriaId,
+      compliantStatus,
+      status,
+      search,
+    } = options || {};
+
+    const where: Prisma.AuditItemWhereInput = {};
+
+    if (auditId) {
+      where.auditId = auditId;
+    }
+
+    if (auditElementId) {
+      where.audit = {
+        auditElementId,
+      };
+    }
+
+    if (auditClauseId) {
+      where.auditCriteria = {
+        auditClauseId,
+      };
+    }
+
+    if (auditCriteriaId) {
+      where.auditCriteriaId = auditCriteriaId;
+    }
+
+    if (compliantStatus) {
+      where.compliantStatus = compliantStatus;
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (search) {
+      where.OR = [
+        {
+          audit: {
+            code: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+        },
+        {
+          auditCriteria: {
+            name: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+        },
+        {
+          auditCriteria: {
+            auditClause: {
+              name: {
+                contains: search,
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+        {
+          auditCriteria: {
+            auditClause: {
+              auditElement: {
+                name: {
+                  contains: search,
+                  mode: 'insensitive',
+                },
+              },
+            },
+          },
+        },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.auditItem.findMany({
+        where,
+        include: {
+          audit: {
+            include: {
+              auditElement: true,
+            },
+          },
+          auditCriteria: {
+            include: {
+              auditClause: {
+                include: {
+                  auditElement: true,
+                },
+              },
+            },
+          },
+          departments: true,
+          users: true,
+        },
+        orderBy: {
+          [sortBy]: sortOrder,
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.auditItem.count({ where }),
+    ]);
+
+    const data = items.map((item) => this.mapAuditResultToDto(item));
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+      },
+    };
+  }
+
+  private mapAuditResultToDto(item: any): AuditResultDto {
+    return new AuditResultDto({
+      id: item.id,
+      auditId: item.auditId,
+      auditScheduleCode: item.audit?.code || '',
+      auditElement: {
+        id: item.auditCriteria?.auditClause?.auditElement?.id || '',
+        name: item.auditCriteria?.auditClause?.auditElement?.name || '',
+        code: item.auditCriteria?.auditClause?.auditElement?.code || '',
+      },
+      auditClause: {
+        id: item.auditCriteria?.auditClause?.id || '',
+        name: item.auditCriteria?.auditClause?.name || '',
+        code: item.auditCriteria?.auditClause?.code || '',
+      },
+      auditCriteria: {
+        id: item.auditCriteria?.id || '',
+        name: item.auditCriteria?.name || '',
+        code: item.auditCriteria?.code || '',
+      },
+      status: item.status,
+      compliantStatus: item.compliantStatus,
+      evidence: item.evidence,
+      recommendation: item.recommendation,
+      actionRealization: item.actionRealization,
+      order: item.order,
+      dueDate: item.dueDate,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      departmentIds: item.departments?.map((d: any) => d.departmentId) || [],
+      userIds: item.users?.map((u: any) => u.userId) || [],
     });
   }
 }

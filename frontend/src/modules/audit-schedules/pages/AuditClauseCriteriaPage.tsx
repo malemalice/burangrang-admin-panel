@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from '@/core/components/ui/dialog';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/tooltip';
+import { Badge } from '@/core/components/ui/badge';
 
 import auditSchedulesService from '../services/auditSchedulesService';
 import auditPolicyService from '@/modules/audit-policy/services/auditPolicyService';
@@ -24,6 +25,20 @@ import { AuditSchedule } from '../types/audit-schedule.types';
 import api from '@/core/lib/api';
 import { AuditItemForm } from '../components/AuditItemForm';
 import uploadService from '@/modules/uploads/services/uploadService';
+
+enum CompliantStatusEnum {
+  COMPLY = 'COMPLY',
+  NOT_COMPLY_MAJOR = 'NOT_COMPLY_MAJOR',
+  NOT_COMPLY_MINOR = 'NOT_COMPLY_MINOR',
+}
+
+interface ImageUpload {
+  id: string;
+  url: string;
+  caption: string;
+  file?: File;
+  isNew?: boolean;
+}
 
 interface AuditItem {
   id: string;
@@ -211,6 +226,22 @@ const AuditClauseCriteriaPage = () => {
     return Array.from(criteriaMap.values()).sort((a, b) => a.order - b.order);
   }, [masterCriteria, auditItems]);
 
+  // Calculate summary statistics
+  const summaryStats = useMemo(() => {
+    const total = mergedCriteria.length;
+    const filled = mergedCriteria.filter(item => item.isFromAuditItem).length;
+    const comply = mergedCriteria.filter(
+      item => item.auditItem?.compliantStatus === 'COMPLY'
+    ).length;
+    const notComply = mergedCriteria.filter(
+      item => item.auditItem?.compliantStatus && 
+      (item.auditItem.compliantStatus === 'NOT_COMPLY_MAJOR' || 
+       item.auditItem.compliantStatus === 'NOT_COMPLY_MINOR')
+    ).length;
+    
+    return { total, filled, comply, notComply };
+  }, [mergedCriteria]);
+
   const handleOpenForm = (item: MergedCriteriaItem) => {
     setSelectedCriteria(item);
     setIsFormDialogOpen(true);
@@ -222,20 +253,14 @@ const AuditClauseCriteriaPage = () => {
   };
 
   const handleSubmitForm = async (data: {
-    compliantStatus: string;
+    compliantStatus: CompliantStatusEnum;
     departmentIds: string[];
     userIds?: string[];
     evidence?: string;
     recommendation?: string;
     actionRealization?: string;
     dueDate: string;
-    images: Array<{
-      id: string;
-      url: string;
-      caption: string;
-      file?: File;
-      isNew?: boolean;
-    }>;
+    images: ImageUpload[];
   }) => {
     if (!id || !selectedCriteria) return;
 
@@ -340,9 +365,12 @@ const AuditClauseCriteriaPage = () => {
       }
 
       handleCloseForm();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to save audit item:', error);
-      toast.error(error?.response?.data?.message || 'Failed to save audit item');
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+        : undefined;
+      toast.error(errorMessage || 'Failed to save audit item');
     } finally {
       setIsSubmitting(false);
     }
@@ -374,6 +402,43 @@ const AuditClauseCriteriaPage = () => {
       </div>
     );
   }
+
+  const getCompliantStatusBadge = (status?: string) => {
+    if (!status) {
+      return (
+        <Badge variant="outline" className="bg-gray-100 text-gray-600">
+          Not Filled
+        </Badge>
+      );
+    }
+    
+    switch (status) {
+      case 'COMPLY':
+        return (
+          <Badge className="bg-green-100 text-green-800 border-green-800">
+            Comply
+          </Badge>
+        );
+      case 'NOT_COMPLY_MAJOR':
+        return (
+          <Badge className="bg-red-100 text-red-800 border-red-800">
+            Not Comply (Major)
+          </Badge>
+        );
+      case 'NOT_COMPLY_MINOR':
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-800">
+            Not Comply (Minor)
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline">
+            {status}
+          </Badge>
+        );
+    }
+  };
 
   const auditCriteriaColumns = [
     {
@@ -411,15 +476,11 @@ const AuditClauseCriteriaPage = () => {
       isSortable: true,
     },
     {
-      id: 'source',
-      header: 'Source',
+      id: 'compliantStatus',
+      header: 'Compliant Status',
       cell: (item: MergedCriteriaItem) => (
-        <div className="text-sm">
-          {item.isFromAuditItem ? (
-            <span className="text-blue-600 font-medium">Audit Item</span>
-          ) : (
-            <span className="text-gray-600">Master Criteria</span>
-          )}
+        <div>
+          {getCompliantStatusBadge(item.auditItem?.compliantStatus)}
         </div>
       ),
       isSortable: false,
@@ -462,42 +523,71 @@ const AuditClauseCriteriaPage = () => {
         }
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Audit Clause Details</CardTitle>
-          <CardDescription>Basic information for this audit clause</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Code</label>
-              <p className="text-sm font-medium">{auditClause.code}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Audit Clause Details</CardTitle>
+            <CardDescription>Basic information for this audit clause</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Code</label>
+                <p className="text-sm font-medium">{auditClause.code}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Name</label>
+                <p className="text-sm font-medium">{auditClause.name}</p>
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-muted-foreground">Description</label>
+                <p className="text-sm font-medium">
+                  {auditClause.description || 'N/A'}
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Audit Element</label>
+                <p className="text-sm font-medium">
+                  {auditClause.auditElement?.name || 'N/A'}
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Active</label>
+                <p className="text-sm font-medium">
+                  {auditClause.isActive ? 'Yes' : 'No'}
+                </p>
+              </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Name</label>
-              <p className="text-sm font-medium">{auditClause.name}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Summary</CardTitle>
+            <CardDescription>Overview of audit items status</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Total Audit Items</label>
+                <p className="text-2xl font-semibold">{summaryStats.total}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Already Filled</label>
+                <p className="text-2xl font-semibold">{summaryStats.filled}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Comply</label>
+                <p className="text-2xl font-semibold text-green-600">{summaryStats.comply}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Not Comply</label>
+                <p className="text-2xl font-semibold text-red-600">{summaryStats.notComply}</p>
+              </div>
             </div>
-            <div className="md:col-span-2">
-              <label className="text-sm font-medium text-muted-foreground">Description</label>
-              <p className="text-sm font-medium">
-                {auditClause.description || 'N/A'}
-              </p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Audit Element</label>
-              <p className="text-sm font-medium">
-                {auditClause.auditElement?.name || 'N/A'}
-              </p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Active</label>
-              <p className="text-sm font-medium">
-                {auditClause.isActive ? 'Yes' : 'No'}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Audit Criteria Section */}
       <Card>

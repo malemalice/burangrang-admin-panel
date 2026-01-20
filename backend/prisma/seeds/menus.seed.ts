@@ -226,6 +226,26 @@ export const seedMenus = async () => {
       },
     });
 
+    // Audit Results submenu
+    await prisma.menu.create({
+      data: {
+        name: 'Audit Results',
+        path: '/audit-results',
+        icon: 'FileCheck2',
+        parentId: auditMenu.id,
+        order: 4,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     // Environmental Measurements menu
     await prisma.menu.create({
       data: {
@@ -1045,7 +1065,7 @@ export const seedMenus = async () => {
     console.log(`   - Top-level menus: 14`);
     console.log(`   - Master Data submenus: 9`);
     console.log(`   - User Management submenus: 3`);
-    console.log(`   - Audit submenus: 2`);
+    console.log(`   - Audit submenus: 4`);
     console.log(`   - PPE Management submenus: 2`);
     console.log(`   - Certificate Management submenus: 2`);
     console.log(`   - Work Permit submenus: 2`);

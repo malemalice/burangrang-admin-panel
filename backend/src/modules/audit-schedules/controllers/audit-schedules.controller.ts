@@ -17,7 +17,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { GeneralStatusEnum } from '@prisma/client';
+import { GeneralStatusEnum, CompliantStatusEnum } from '@prisma/client';
 import { AuditSchedulesService } from '../services/audit-schedules.service';
 import {
   CreateAuditScheduleDto,
@@ -25,6 +25,7 @@ import {
   AuditScheduleDto,
   CreateAuditItemDto,
   AuditItemDto,
+  AuditResultDto,
 } from '../dto';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
@@ -82,6 +83,39 @@ export class AuditSchedulesController {
       areaId,
       auditElementId,
       status,
+    });
+  }
+
+  // Audit Results endpoints - Get all audit items across all audits
+  // Must be before :id route to avoid route conflicts
+  @Get('results')
+  @ApiOperation({ summary: 'Get all audit results (items) with pagination and filtering' })
+  @ApiResponse({ status: 200, type: [AuditResultDto] })
+  async findAllAuditResults(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+    @Query('auditId') auditId?: string,
+    @Query('auditElementId') auditElementId?: string,
+    @Query('auditClauseId') auditClauseId?: string,
+    @Query('auditCriteriaId') auditCriteriaId?: string,
+    @Query('compliantStatus') compliantStatus?: CompliantStatusEnum,
+    @Query('status') status?: GeneralStatusEnum,
+    @Query('search') search?: string,
+  ) {
+    return this.auditSchedulesService.findAllAuditResults({
+      page: page ? +page : undefined,
+      limit: limit ? +limit : undefined,
+      sortBy,
+      sortOrder: sortOrder as 'asc' | 'desc' | undefined,
+      auditId,
+      auditElementId,
+      auditClauseId,
+      auditCriteriaId,
+      compliantStatus,
+      status,
+      search,
     });
   }
 
