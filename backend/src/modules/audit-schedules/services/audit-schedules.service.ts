@@ -6,6 +6,8 @@ import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
 import { CreateAuditScheduleDto } from '../dto/create-audit-schedule.dto';
 import { UpdateAuditScheduleDto } from '../dto/update-audit-schedule.dto';
 import { AuditScheduleDto } from '../dto/audit-schedule.dto';
+import { CreateAuditItemDto } from '../dto/create-audit-item.dto';
+import { AuditItemDto } from '../dto/audit-item.dto';
 import { Prisma, GeneralStatusEnum } from '@prisma/client';
 import { RemindersService } from '../../reminders/reminders.service';
 import {
@@ -482,5 +484,206 @@ export class AuditSchedulesService {
         error,
       );
     }
+  }
+
+  async createAuditItem(
+    auditId: string,
+    createAuditItemDto: CreateAuditItemDto,
+  ): Promise<AuditItemDto> {
+    // Verify audit exists
+    const audit = await this.prisma.audit.findUnique({
+      where: { id: auditId },
+    });
+    this.errorHandler.throwIfNotFoundById('Audit', auditId, audit);
+
+    const {
+      departmentIds,
+      userIds,
+      images,
+      ...itemData
+    } = createAuditItemDto;
+
+    // Create audit item with relations
+    const auditItem = await this.prisma.auditItem.create({
+      data: {
+        ...itemData,
+        auditId,
+        dueDate: new Date(itemData.dueDate),
+        status: GeneralStatusEnum.OPEN,
+        ...(departmentIds && departmentIds.length > 0 && {
+          departments: {
+            create: departmentIds.map((departmentId) => ({
+              departmentId,
+            })),
+          },
+        }),
+        ...(userIds && userIds.length > 0 && {
+          users: {
+            create: userIds.map((userId) => ({
+              userId,
+            })),
+          },
+        }),
+        ...(images && images.length > 0 && {
+          images: {
+            create: images.map((img) => ({
+              imageUrl: img.imageUrl,
+              caption: img.caption || null,
+              order: img.order,
+            })),
+          },
+        }),
+      },
+      include: {
+        departments: true,
+        users: true,
+        images: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    return this.mapAuditItemToDto(auditItem);
+  }
+
+  async updateAuditItem(
+    auditId: string,
+    itemId: string,
+    updateAuditItemDto: Partial<CreateAuditItemDto>,
+  ): Promise<AuditItemDto> {
+    // Verify audit and item exist
+    const auditItem = await this.prisma.auditItem.findFirst({
+      where: {
+        id: itemId,
+        auditId,
+      },
+    });
+    this.errorHandler.throwIfNotFoundById(
+      'Audit Item',
+      itemId,
+      auditItem,
+    );
+
+    const {
+      departmentIds,
+      userIds,
+      images,
+      ...itemData
+    } = updateAuditItemDto;
+
+    // Update audit item
+    const updatedItem = await this.prisma.auditItem.update({
+      where: { id: itemId },
+      data: {
+        ...itemData,
+        ...(itemData.dueDate && {
+          dueDate: new Date(itemData.dueDate),
+        }),
+        // Update departments
+        ...(departmentIds !== undefined && {
+          departments: {
+            deleteMany: {},
+            create: departmentIds.map((departmentId) => ({
+              departmentId,
+            })),
+          },
+        }),
+        // Update users
+        ...(userIds !== undefined && {
+          users: {
+            deleteMany: {},
+            create: userIds.map((userId) => ({
+              userId,
+            })),
+          },
+        }),
+        // Update images
+        ...(images !== undefined && {
+          images: {
+            deleteMany: {},
+            create: images.map((img) => ({
+              imageUrl: img.imageUrl,
+              caption: img.caption || null,
+              order: img.order,
+            })),
+          },
+        }),
+      },
+      include: {
+        departments: true,
+        users: true,
+        images: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    return this.mapAuditItemToDto(updatedItem);
+  }
+
+  async getAuditItems(
+    auditId: string,
+    page?: number,
+    limit?: number,
+  ): Promise<{ data: AuditItemDto[]; meta: any }> {
+    const skip = page && limit ? (page - 1) * limit : undefined;
+    const take = limit;
+
+    const [items, total] = await Promise.all([
+      this.prisma.auditItem.findMany({
+        where: { auditId },
+        include: {
+          departments: true,
+          users: true,
+          images: {
+            orderBy: { order: 'asc' },
+          },
+          auditCriteria: true,
+        },
+        orderBy: { order: 'asc' },
+        skip,
+        take,
+      }),
+      this.prisma.auditItem.count({
+        where: { auditId },
+      }),
+    ]);
+
+    const data = items.map((item) => this.mapAuditItemToDto(item));
+
+    return {
+      data,
+      meta: {
+        total,
+        page: page || 1,
+        limit: limit || total,
+        pageCount: limit ? Math.ceil(total / limit) : 1,
+      },
+    };
+  }
+
+  private mapAuditItemToDto(item: any): AuditItemDto {
+    return new AuditItemDto({
+      id: item.id,
+      auditId: item.auditId,
+      auditCriteriaId: item.auditCriteriaId,
+      status: item.status,
+      compliantStatus: item.compliantStatus,
+      evidence: item.evidence,
+      recommendation: item.recommendation,
+      actionRealization: item.actionRealization,
+      order: item.order,
+      dueDate: item.dueDate,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      departmentIds: item.departments?.map((d: any) => d.departmentId) || [],
+      userIds: item.users?.map((u: any) => u.userId) || [],
+      images: item.images?.map((img: any) => ({
+        id: img.id,
+        imageUrl: img.imageUrl,
+        caption: img.caption,
+        order: img.order,
+      })) || [],
+    });
   }
 }

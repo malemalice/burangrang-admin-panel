@@ -23,6 +23,8 @@ import {
   CreateAuditScheduleDto,
   UpdateAuditScheduleDto,
   AuditScheduleDto,
+  CreateAuditItemDto,
+  AuditItemDto,
 } from '../dto';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
@@ -38,7 +40,7 @@ interface RequestWithUser extends ExpressRequest {
 
 @ApiTags('Audit Schedules')
 @ApiBearerAuth()
-@Controller('audit-schedules')
+@Controller(['audit-schedules', 'audits'])
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AuditSchedulesController {
   constructor(
@@ -105,5 +107,46 @@ export class AuditSchedulesController {
   @ApiResponse({ status: 204 })
   async remove(@Param('id') id: string): Promise<void> {
     return this.auditSchedulesService.remove(id);
+  }
+
+  // Audit Items endpoints
+  @Post(':id/items')
+  @ApiOperation({ summary: 'Create a new audit item' })
+  @ApiResponse({ status: 201, type: AuditItemDto })
+  async createItem(
+    @Param('id') id: string,
+    @Body() createAuditItemDto: CreateAuditItemDto,
+  ): Promise<AuditItemDto> {
+    return this.auditSchedulesService.createAuditItem(id, createAuditItemDto);
+  }
+
+  @Get(':id/items')
+  @ApiOperation({ summary: 'Get all audit items for an audit' })
+  @ApiResponse({ status: 200, type: [AuditItemDto] })
+  async getItems(
+    @Param('id') id: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.auditSchedulesService.getAuditItems(
+      id,
+      page ? +page : undefined,
+      limit ? +limit : undefined,
+    );
+  }
+
+  @Patch(':id/items/:itemId')
+  @ApiOperation({ summary: 'Update an audit item' })
+  @ApiResponse({ status: 200, type: AuditItemDto })
+  async updateItem(
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Body() updateAuditItemDto: Partial<CreateAuditItemDto>,
+  ): Promise<AuditItemDto> {
+    return this.auditSchedulesService.updateAuditItem(
+      id,
+      itemId,
+      updateAuditItemDto,
+    );
   }
 }
