@@ -414,6 +414,17 @@ async function main() {
           await prisma.auditClause.deleteMany();
           await prisma.auditElement.deleteMany();
           break;
+        case 'audit_schedules':
+        case 'audit-schedules':
+          // Clear audit schedule data first (foreign key dependencies)
+          await prisma.auditImage.deleteMany();
+          await prisma.auditItemToDepartment.deleteMany();
+          await prisma.auditItemToUser.deleteMany();
+          await prisma.auditItem.deleteMany();
+          await prisma.auditToUser.deleteMany();
+          await prisma.auditToArea.deleteMany();
+          await prisma.audit.deleteMany();
+          break;
         case 'master_approvals':
         case 'master-approvals':
         case 'approvals':
@@ -438,7 +449,7 @@ async function main() {
         default:
           console.error(`Unknown table: ${tableToSeed}`);
           console.log(
-            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, audit-policy, approvals, master-approvals, risk-assessments, inspections, risk-assessments-inspections',
+            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, audit-policy, audit-schedules, approvals, master-approvals, risk-assessments, inspections, risk-assessments-inspections',
           );
           process.exit(1);
       }
