@@ -31,6 +31,7 @@ const NotificationsPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<NotificationFilters>({});
   const [activeTab, setActiveTab] = useState('all');
+  const [totalAllNotifications, setTotalAllNotifications] = useState<number | null>(null);
 
   // Load notifications when dependencies change
   useEffect(() => {
@@ -48,6 +49,13 @@ const NotificationsPage: React.FC = () => {
 
     fetchNotifications(searchParams);
   }, [fetchNotifications, pageIndex, limit, search, filters, activeTab]);
+
+  // Store total count when on "all" tab (no isRead filter)
+  useEffect(() => {
+    if (activeTab === 'all') {
+      setTotalAllNotifications(totalNotifications);
+    }
+  }, [activeTab, totalNotifications]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -107,8 +115,10 @@ const NotificationsPage: React.FC = () => {
     fetchNotifications(searchParams);
   };
 
-  // Calculate read count from total notifications minus unread count
-  const readCount = totalNotifications - unreadCount;
+  // Calculate counts for tabs
+  // Use totalAllNotifications for overall count, fallback to totalNotifications if not set yet
+  const allCount = totalAllNotifications !== null ? totalAllNotifications : totalNotifications;
+  const readCount = Math.max(0, allCount - unreadCount);
 
   return (
     <>
@@ -150,8 +160,8 @@ const NotificationsPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold">{totalNotifications}</span>
-              <Badge variant="outline">{totalNotifications}</Badge>
+              <span className="text-2xl font-bold">{allCount}</span>
+              <Badge variant="outline">{allCount}</Badge>
             </div>
           </CardContent>
         </Card>
@@ -254,7 +264,7 @@ const NotificationsPage: React.FC = () => {
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="all">
-            All ({totalNotifications})
+            All ({allCount})
           </TabsTrigger>
           <TabsTrigger value="unread">
             Unread ({unreadCount})

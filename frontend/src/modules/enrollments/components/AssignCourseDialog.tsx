@@ -31,7 +31,6 @@ import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import { Button } from '@/core/components/ui/button';
-import { Checkbox } from '@/core/components/ui/checkbox';
 import { useEnrollments } from '../hooks/useEnrollments';
 import { AssignEnrollmentDTO } from '../types/enrollment.types';
 import courseService from '@/modules/courses/services/courseService';
@@ -43,9 +42,7 @@ const formSchema = z.object({
   userId: z.string().min(1, 'User is required'),
   courseId: z.string().min(1, 'Course is required'),
   dueDate: z.string().optional(),
-  isRequired: z.boolean().default(false),
   notes: z.string().optional(),
-  sendEmail: z.boolean().default(true),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -69,9 +66,7 @@ const AssignCourseDialog = ({ open, onOpenChange, onSuccess }: AssignCourseDialo
       userId: '',
       courseId: '',
       dueDate: '',
-      isRequired: false,
       notes: '',
-      sendEmail: true,
     },
   });
 
@@ -121,8 +116,8 @@ const AssignCourseDialog = ({ open, onOpenChange, onSuccess }: AssignCourseDialo
       const assignData: AssignEnrollmentDTO = {
         userId: data.userId.trim(),
         courseId: data.courseId.trim(),
-        isRequired: Boolean(data.isRequired ?? false),
-        sendEmail: Boolean(data.sendEmail ?? true),
+        isRequired: true,
+        sendEmail: true,
         // Only include optional fields if they have valid values
         ...(dueDateISO && { dueDate: dueDateISO }),
         ...(data.notes && data.notes.trim() !== '' && { notes: data.notes.trim() }),
@@ -279,27 +274,6 @@ const AssignCourseDialog = ({ open, onOpenChange, onSuccess }: AssignCourseDialo
 
             <FormField
               control={form.control}
-              name="isRequired"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Required Enrollment</FormLabel>
-                    <FormDescription>
-                      Mark this enrollment as required for the user
-                    </FormDescription>
-                  </div>
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
               name="notes"
               render={({ field }) => (
                 <FormItem>
@@ -311,27 +285,6 @@ const AssignCourseDialog = ({ open, onOpenChange, onSuccess }: AssignCourseDialo
                     />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="sendEmail"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Send Email Notification</FormLabel>
-                    <FormDescription>
-                      Send email notification to the user about this assignment
-                    </FormDescription>
-                  </div>
                 </FormItem>
               )}
             />

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Building, MoreHorizontal } from 'lucide-react';
+import { Edit, Trash2, Plus, MoreHorizontal, Mail, Eye } from 'lucide-react';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import {
   DropdownMenu,
@@ -191,6 +191,25 @@ export default function DepartmentsPage() {
       cell: (department: Department) => department.description || '-',
     },
     {
+      id: 'emails',
+      header: 'Email Addresses',
+      cell: (department: Department) => {
+        if (!department.emails || department.emails.length === 0) {
+          return <span className="text-muted-foreground">-</span>;
+        }
+        return (
+          <div className="flex flex-col gap-1">
+            {department.emails.map((email, index) => (
+              <div key={index} className="flex items-center gap-2 text-sm">
+                <Mail className="h-3 w-3 text-muted-foreground" />
+                <span>{email}</span>
+              </div>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
       id: 'status',
       header: 'Status',
       cell: (department: Department) => (
@@ -224,7 +243,7 @@ export default function DepartmentsPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => navigate(`/master/departments/${department.id}`)}>
-              <Building className="mr-2 h-4 w-4" /> View details
+              <Eye className="mr-2 h-4 w-4" /> View details
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/master/departments/${department.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit
@@ -275,6 +294,7 @@ export default function DepartmentsPage() {
           total: totalDepartments
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

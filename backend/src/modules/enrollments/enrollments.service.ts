@@ -3,6 +3,7 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
+import { MailService } from '../mail/mail.service';
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { AssignEnrollmentDto } from './dto/assign-enrollment.dto';
 import { UpdateEnrollmentDto } from './dto/update-enrollment.dto';
@@ -21,6 +22,7 @@ export class EnrollmentsService {
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
     private readonly notificationsService: NotificationsService,
+    private readonly mailService: MailService,
   ) {
     // Initialize mappers with relations
     this.enrollmentMapper = this.dtoMapper.createRelationMapper(EnrollmentDto, {
@@ -223,22 +225,40 @@ export class EnrollmentsService {
             assignedBy,
           );
 
-          // Send email notification
-          // TODO: Integrate with email service when available
-          // Email service should be injected and used here
-          // Example implementation:
-          // await this.emailService.sendCourseAssignmentEmail({
-          //   to: user.email,
-          //   userName: `${user.firstName} ${user.lastName}`,
-          //   courseTitle: course.title,
-          //   courseSlug: course.slug,
-          //   dueDate: dueDate ? new Date(dueDate).toLocaleDateString() : null,
-          //   notes: notes || null,
-          //   enrollmentId: enrollment.id,
-          // });
+          // Send email notification using MailService
+          const emailResult = await this.mailService.sendTemplatedMailWithResult({
+            template: 'course-assignment',
+            email: user.email,
+            context: {
+              userName: `${user.firstName} ${user.lastName}`,
+              courseTitle: course.title,
+              courseSlug: course.slug,
+              dueDate: dueDate ? new Date(dueDate).toLocaleDateString() : null,
+              notes: notes || null,
+              enrollmentId: enrollment.id,
+              isRequired: isRequired ? 'Yes' : 'No',
+            },
+          });
 
-          // Placeholder: Log email sending intent for development/debugging
-          console.log(`[Email] Would send course assignment email to ${user.email} for course "${course.title}"`);
+          if (!emailResult.success) {
+            if (emailResult.skipped) {
+              console.warn(
+                `Email notification skipped for ${user.email}: ${emailResult.error}`,
+              );
+            } else {
+              console.error(
+                `Failed to send email to ${user.email}: ${emailResult.error}`,
+              );
+            }
+          } else if (emailResult.skipped) {
+            console.warn(
+              `Email notification SKIPPED for ${user.email} (SMTP not configured) - Check server logs for details`,
+            );
+          } else {
+            console.log(
+              `Email notification sent successfully to ${user.email} for course "${course.title}"`,
+            );
+          }
         } catch (error) {
           // Log error but don't fail enrollment creation
           console.error('Failed to send notification:', error);
@@ -295,13 +315,14 @@ export class EnrollmentsService {
         where.assignedBy = assignedBy;
       }
 
-      // Search functionality
+      // Search functionality - improved to match full words or exact substrings
       if (search) {
+        const searchTerm = search.trim();
         where.OR = [
           {
             course: {
               title: {
-                contains: search,
+                contains: searchTerm,
                 mode: 'insensitive',
               },
             },
@@ -311,19 +332,19 @@ export class EnrollmentsService {
               OR: [
                 {
                   firstName: {
-                    contains: search,
+                    startsWith: searchTerm,
                     mode: 'insensitive',
                   },
                 },
                 {
                   lastName: {
-                    contains: search,
+                    startsWith: searchTerm,
                     mode: 'insensitive',
                   },
                 },
                 {
                   email: {
-                    contains: search,
+                    startsWith: searchTerm,
                     mode: 'insensitive',
                   },
                 },
@@ -528,5 +549,82 @@ export class EnrollmentsService {
 
       return this.enrollmentMapper(enrollment);
     }, 'Finding enrollment');
+  }
+
+  async getLearningContext(id: string, userId: string, userRole: string): Promise<any> {
+    return this.errorHandler.safeExecute(async () => {
+      // Get enrollment with basic course info (no chapters yet)
+      const enrollment = await this.prisma.enrollment.findUnique({
+        where: { id },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          course: true, // Get course to check instructor
+          progressRecords: true,
+        },
+      });
+
+      this.errorHandler.throwIfNotFoundById('Enrollment', id, enrollment);
+
+      // Access control
+      if (userRole !== Role.ADMIN && userRole !== Role.SUPER_ADMIN && enrollment.userId !== userId) {
+        this.errorHandler.throwForbidden('You can only access your own learning context');
+      }
+
+      // Fetch chapters separately
+      // Based on feedback: if course is published, all active chapters should be visible.
+      // We rely on 'isActive' status and remove 'isPublished' filter for chapters.
+      const chapters = await this.prisma.chapter.findMany({
+        where: {
+          courseId: enrollment.courseId,
+          isActive: true,
+        },
+        orderBy: {
+          order: 'asc',
+        },
+      });
+
+      // Attach chapters to course object
+      const courseWithChapters = {
+        ...enrollment.course,
+        chapters,
+      };
+
+      // Determine visibility for quizzes
+      const canViewDrafts =
+        userRole === Role.ADMIN ||
+        userRole === Role.SUPER_ADMIN ||
+        enrollment.course.instructorId === userId;
+
+      // Fetch quizzes (both course-level and chapter-level)
+      const chapterIds = courseWithChapters.chapters.map(ch => ch.id);
+      
+      const quizzes = await this.prisma.quiz.findMany({
+        where: {
+          OR: [
+            { entity: 'COURSE', entityId: enrollment.courseId },
+            { entity: 'CHAPTER', entityId: { in: chapterIds } }
+          ],
+          isActive: true,
+          ...(canViewDrafts ? {} : { isPublished: true }),
+        },
+        orderBy: {
+          createdAt: 'asc', // Or order if available
+        },
+      });
+
+      return {
+        enrollment: this.enrollmentMapper(enrollment),
+        course: courseWithChapters,
+        quizzes,
+        progress: enrollment.progressRecords,
+      };
+    }, 'Getting learning context');
   }
 }

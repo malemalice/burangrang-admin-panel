@@ -28,6 +28,7 @@ export interface User {
 export interface Role {
   id: string;
   name: string;
+  code: string;
   description: string;
   status: 'active' | 'inactive';
   isActive: boolean;
@@ -84,6 +85,7 @@ export interface Department {
   name: string;
   code: string;
   description?: string;
+  emails?: string[] | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -207,14 +209,27 @@ export interface RiskAssessmentItem {
   mRisk?: Risk;
   mRiskCategoryId: string;
   mRiskCategory?: RiskCategory;
-  likelihoodLevel: number;
+  likelihoodLevel: string;
   consequenceLevel: number;
   riskMatrixRating: RiskRatingEnum;
   interpretation: RiskRatingEnum;
-  postLikelihoodLevel: number;
+  postLikelihoodLevel: string;
   postConsequenceLevel: number;
   postRiskMatrixRating: RiskRatingEnum;
   postInterpretation: RiskRatingEnum;
+  mitigation?: {
+    id: string;
+    entity: string;
+    entityId: string;
+    eliminate?: string;
+    transfer?: string;
+    reduce?: string;
+    accept?: string;
+    legalAspect?: string;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  };
 }
 
 export interface RiskControl {
@@ -262,8 +277,8 @@ export interface MasterApprovalItem {
   id: string;
   mApprovalId: string;
   order: number;
-  job_position_id: string;
-  department_id: string;
+  jobPositionId: string;
+  departmentId: string;
   createdBy: string;
   createdAt: string;
   jobPosition: {

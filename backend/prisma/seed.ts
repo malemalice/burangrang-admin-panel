@@ -27,6 +27,11 @@ import { seedRooms } from './seeds/rooms.seed';
 import { seedEnvironmentalMeasurements } from './seeds/environmental-measurements.seed';
 import { seedWasteManagement } from './seeds/waste-management.seed';
 import { seedManHours } from './seeds/man-hours.seed';
+import { seedMailTemplates } from './seeds/mail-templates.seed';
+import { seedMasterApprovals } from './seeds/master-approvals.seed';
+import { seedAuditPolicy } from './seeds/audit-policy.seed';
+import { seedRiskAssessmentsAndInspections } from './seeds/risk-assessments-inspections.seed';
+import { seedAuditSchedules } from './seeds/audit-schedules.seed';
 
 const prisma = new PrismaClient();
 
@@ -46,6 +51,7 @@ async function main() {
       await prisma.notificationRecipient.deleteMany();
       await prisma.notification.deleteMany();
       await prisma.notificationType.deleteMany();
+      await prisma.emailTemplate.deleteMany();
       await prisma.refreshToken.deleteMany();
       // Clear PPE data first (before User deletion due to foreign keys)
       await (prisma as any).pPEWithdrawalItem.deleteMany();
@@ -92,6 +98,19 @@ async function main() {
       await prisma.workPermitSupervisorToGuest.deleteMany();
       await prisma.workPermit.deleteMany();
       await prisma.guest.deleteMany();
+      // Clear Inspection data (before User deletion)
+      await prisma.inspectionImage.deleteMany();
+      await prisma.inspectionInspector.deleteMany();
+      await prisma.inspectionItem.deleteMany();
+      await prisma.inspection.deleteMany();
+      // Clear Audit Schedule data (before User deletion)
+      await prisma.auditImage.deleteMany();
+      await prisma.auditItemToDepartment.deleteMany();
+      await prisma.auditItemToUser.deleteMany();
+      await prisma.auditItem.deleteMany();
+      await prisma.auditToUser.deleteMany();
+      await prisma.auditToArea.deleteMany();
+      await prisma.audit.deleteMany();
       // Clear Environmental Measurements and Rooms
       await prisma.environmentalMeasurement.deleteMany();
       await prisma.room.deleteMany();
@@ -114,6 +133,12 @@ async function main() {
       await prisma.masterApproval.deleteMany();
       await prisma.fileAccessLog.deleteMany();
       await prisma.fileUpload.deleteMany();
+      // Clear RiskAssessment data (before User deletion)
+      await prisma.riskAssessmentItem.deleteMany();
+      await prisma.riskAssessment.deleteMany();
+      // Clear Reminder data (before User deletion)
+      await prisma.reminderLog.deleteMany();
+      await prisma.reminder.deleteMany();
       await prisma.user.deleteMany();
       await prisma.menu.deleteMany();
       await prisma.role.deleteMany();
@@ -144,15 +169,95 @@ async function main() {
       await prisma.setting.deleteMany();
       await prisma.fileCategory.deleteMany();
       await prisma.fileStorageProvider.deleteMany();
+      // Clear audit policy data
+      await prisma.auditCriteria.deleteMany();
+      await prisma.auditClause.deleteMany();
+      await prisma.auditElement.deleteMany();
       console.log('All existing data cleared successfully');
     } else {
       // Clear only the specified table
       switch (tableToSeed) {
         case 'users':
+          // Delete records that reference users before deleting users (in dependency order)
+          await prisma.notificationRecipient.deleteMany();
+          await prisma.notification.deleteMany();
+          await prisma.refreshToken.deleteMany();
+          // Clear PPE data
+          await (prisma as any).pPEWithdrawalItem.deleteMany();
+          await (prisma as any).pPEWithdrawal.deleteMany();
+          await (prisma as any).pPEStockAdjustment.deleteMany();
+          await (prisma as any).pPEExpiryAlert.deleteMany();
+          await (prisma as any).pPEStockItem.deleteMany();
+          await (prisma as any).pPEStock.deleteMany();
+          // Clear Certificate data
+          await prisma.certificateReminder.deleteMany();
+          await prisma.certificateRenewal.deleteMany();
+          await prisma.certificate.deleteMany();
+          // Clear Course data
+          await prisma.progress.deleteMany();
+          await prisma.enrollment.deleteMany();
+          await prisma.chapter.deleteMany();
+          await prisma.course.deleteMany();
+          // Clear Quiz data
+          await prisma.quizAnswer.deleteMany();
+          await prisma.quizAttempt.deleteMany();
+          await prisma.quizAssignment.deleteMany();
+          await prisma.quizQuestionOption.deleteMany();
+          await prisma.quizQuestion.deleteMany();
+          await prisma.quiz.deleteMany();
+          // Clear Work Permit data
+          await prisma.workPermitAttachment.deleteMany();
+          await prisma.workPermitHazard.deleteMany();
+          await prisma.workPermitRequiredCourse.deleteMany();
+          await prisma.workPermitProfession.deleteMany();
+          await prisma.workPermitMachine.deleteMany();
+          await prisma.workPermitMaterial.deleteMany();
+          await prisma.workPermitTool.deleteMany();
+          await prisma.workPermitHeavyEquipment.deleteMany();
+          await prisma.workPermitWorker.deleteMany();
+          await prisma.workPermitEmployee.deleteMany();
+          await prisma.workPermitClassification.deleteMany();
+          await prisma.workPermitToSafetyEquipment.deleteMany();
+          await prisma.workPermitToUser.deleteMany();
+          await prisma.workPermitSupervisorToGuest.deleteMany();
+          await prisma.workPermit.deleteMany();
+          // Clear Inspection data
+          await prisma.inspectionImage.deleteMany();
+          await prisma.inspectionInspector.deleteMany();
+          await prisma.inspectionItem.deleteMany();
+          await prisma.inspection.deleteMany();
+          // Clear Environmental Measurements
+          await prisma.environmentalMeasurement.deleteMany();
+          // Clear Waste Management data
+          await prisma.weightReportItem.deleteMany();
+          await prisma.dispatchOrder.deleteMany();
+          await prisma.weightReport.deleteMany();
+          await prisma.waterQualityLabReport.deleteMany();
+          await prisma.monthlyFlowReport.deleteMany();
+          await prisma.storageLocation.deleteMany();
+          await prisma.treatmentPlant.deleteMany();
+          // Clear Man Hours data
+          await prisma.manHour.deleteMany();
+          // Clear Approval data
+          await prisma.masterApprovalItem.deleteMany();
+          await prisma.approval.deleteMany();
+          // Clear RiskAssessment data
+          await prisma.riskAssessmentItem.deleteMany();
+          await prisma.riskAssessment.deleteMany();
+          // Clear Reminder data
+          await prisma.reminderLog.deleteMany();
+          await prisma.reminder.deleteMany();
+          // Clear File data
+          await prisma.fileAccessLog.deleteMany();
+          await prisma.fileUpload.deleteMany();
+          // Finally delete users
           await prisma.user.deleteMany();
           break;
         case 'roles':
           await prisma.role.deleteMany();
+          break;
+        case 'email_templates':
+          await prisma.emailTemplate.deleteMany();
           break;
         case 'permissions':
           await prisma.permission.deleteMany();
@@ -303,10 +408,48 @@ async function main() {
         case 'man-hours':
           await prisma.manHour.deleteMany();
           break;
+        case 'audit_policy':
+        case 'audit-policy':
+          await prisma.auditCriteria.deleteMany();
+          await prisma.auditClause.deleteMany();
+          await prisma.auditElement.deleteMany();
+          break;
+        case 'audit_schedules':
+        case 'audit-schedules':
+          // Clear audit schedule data first (foreign key dependencies)
+          await prisma.auditImage.deleteMany();
+          await prisma.auditItemToDepartment.deleteMany();
+          await prisma.auditItemToUser.deleteMany();
+          await prisma.auditItem.deleteMany();
+          await prisma.auditToUser.deleteMany();
+          await prisma.auditToArea.deleteMany();
+          await prisma.audit.deleteMany();
+          break;
+        case 'master_approvals':
+        case 'master-approvals':
+        case 'approvals':
+          await prisma.masterApprovalItem.deleteMany();
+          await prisma.approval.deleteMany();
+          await prisma.masterApproval.deleteMany();
+          break;
+        case 'risk_assessments':
+        case 'risk-assessments':
+        case 'inspections':
+        case 'risk_assessments_inspections':
+        case 'risk-assessments-inspections':
+          // Clear inspection data first (foreign key dependencies)
+          await prisma.inspectionImage.deleteMany();
+          await prisma.inspectionInspector.deleteMany();
+          await prisma.inspectionItem.deleteMany();
+          await prisma.inspection.deleteMany();
+          // Clear risk assessment data
+          await prisma.riskAssessmentItem.deleteMany();
+          await prisma.riskAssessment.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
           console.log(
-            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours',
+            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, audit-policy, audit-schedules, approvals, master-approvals, risk-assessments, inspections, risk-assessments-inspections',
           );
           process.exit(1);
       }
@@ -337,9 +480,13 @@ async function main() {
       // Seed Risk Matrix
       await seedRiskMatrix(prisma);
 
+      // Seed Master Approvals (requires users, departments, job positions)
+      await seedMasterApprovals(prisma);
+
       await seedSettings(prisma);
       await seedMenus();
       await seedNotifications();
+      await seedMailTemplates(prisma);
       await seedFileStorageProviders();
       await seedFileCategories();
       await seedSafetyEquipmentTypes();
@@ -355,6 +502,9 @@ async function main() {
       await seedEnvironmentalMeasurements();
       await seedWasteManagement();
       await seedManHours();
+      await seedAuditPolicy(prisma);
+      await seedAuditSchedules(prisma);
+      await seedRiskAssessmentsAndInspections(prisma);
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -365,6 +515,9 @@ async function main() {
         case 'roles':
           const permissions = await seedPermissions(prisma);
           await seedRoles(prisma, permissions);
+          break;
+        case 'email_templates':
+          await seedMailTemplates(prisma);
           break;
         case 'offices':
           await seedOffices(prisma);
@@ -521,6 +674,53 @@ async function main() {
         case 'man_hours':
         case 'man-hours':
           await seedManHours();
+          break;
+        case 'master_approvals':
+        case 'master-approvals':
+        case 'approvals':
+          // Ensure required dependencies exist
+          const existingUsers = await prisma.user.findMany();
+          const existingDepts = await prisma.department.findMany();
+          const existingJobs = await prisma.jobPosition.findMany();
+          if (existingUsers.length === 0 || existingDepts.length === 0 || existingJobs.length === 0) {
+            console.log('⚠️  Missing required data. Please seed users, departments, and job positions first.');
+            break;
+          }
+          await seedMasterApprovals(prisma);
+          break;
+        case 'audit_policy':
+        case 'audit-policy':
+          await prisma.auditCriteria.deleteMany();
+          await prisma.auditClause.deleteMany();
+          await prisma.auditElement.deleteMany();
+          await seedAuditPolicy(prisma);
+          break;
+        case 'audit_schedules':
+        case 'audit-schedules':
+          // Clear audit schedule data first (foreign key dependencies)
+          await prisma.auditImage.deleteMany();
+          await prisma.auditItemToDepartment.deleteMany();
+          await prisma.auditItemToUser.deleteMany();
+          await prisma.auditItem.deleteMany();
+          await prisma.auditToUser.deleteMany();
+          await prisma.auditToArea.deleteMany();
+          await prisma.audit.deleteMany();
+          await seedAuditSchedules(prisma);
+          break;
+        case 'risk_assessments':
+        case 'risk-assessments':
+        case 'inspections':
+        case 'risk_assessments_inspections':
+        case 'risk-assessments-inspections':
+          // Clear inspection data first (foreign key dependencies)
+          await prisma.inspectionImage.deleteMany();
+          await prisma.inspectionInspector.deleteMany();
+          await prisma.inspectionItem.deleteMany();
+          await prisma.inspection.deleteMany();
+          // Clear risk assessment data
+          await prisma.riskAssessmentItem.deleteMany();
+          await prisma.riskAssessment.deleteMany();
+          await seedRiskAssessmentsAndInspections(prisma);
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

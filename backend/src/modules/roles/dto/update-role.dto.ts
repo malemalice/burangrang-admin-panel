@@ -7,6 +7,11 @@ export class UpdateRoleDto {
   @IsOptional()
   name?: string;
 
+  @ApiProperty({ description: 'Code of the role', required: false })
+  @IsString()
+  @IsOptional()
+  code?: string;
+
   @ApiProperty({ description: 'Description of the role', required: false })
   @IsString()
   @IsOptional()

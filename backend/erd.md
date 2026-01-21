@@ -7,6 +7,9 @@ Project BurangrangAdminPanel {
   ## Key Features
   - User Management with RBAC
   - Risk Assessment & HSE Management
+  - Inspection System
+  - Audit System
+  - Incident Report System
   - Approval Workflows
   - Notification System
   - File Upload Management
@@ -15,6 +18,7 @@ Project BurangrangAdminPanel {
   - Certificate Management
   - Work Permit System
   - Waste Management System
+  - Man Hour Management System
   - Reminder System
   '''
 }
@@ -26,6 +30,12 @@ Enum RiskRatingEnum {
   MEDIUM [note: 'Medium risk level']
   HIGH [note: 'High risk level']
   EXTREME [note: 'Extreme risk level']
+}
+
+Enum IssueStatus Enum {
+  OPEN [note: 'Open Issue']
+  WAITING_APPROVAL [note: 'Waiting Verification']
+  CLOSE [note: 'Issue Closed']
 }
 
 Enum GeneralStatusEnum {
@@ -141,6 +151,154 @@ Enum ReminderRepeatTypeEnum {
   MONTHLY [note: 'Monthly repeat']
 }
 
+Enum ReminderTargetTypeEnum {
+  USER [note: 'Target specific user']
+  ROLE [note: 'Target all users with role']
+  DEPARTMENT [note: 'Target all users in department']
+  OFFICE [note: 'Target all users in office']
+}
+
+Enum CompliantStatusEnum {
+  COMPLY [note: 'Compliant']
+  NOT_COMPLY_MAJOR [note: 'Major non-compliance']
+  NOT_COMPLY_MINOR [note: 'Minor non-compliance']
+}
+
+Enum IncidentClassificationEnum {
+  MAJOR [note: 'Major incident']
+  MINOR [note: 'Minor incident']
+  FATALITY [note: 'Fatality']
+}
+
+Enum SourceEnum {
+  SYSTEM [note: 'Created in system']
+  ZOHO [note: 'Imported from Zoho']
+}
+
+Enum TransitionTypeEnum {
+  INITIAL [note: 'Initial level']
+  TRANSITION_LEVEL [note: 'Transition level']
+  ADVANCE_LEVEL [note: 'Advance level']
+}
+
+Enum IncidentTypeEnum {
+  NEAR_MISS [note: 'Near miss incident']
+  ACCIDENT [note: 'Accident']
+  DANGEROUS_OR_HAZARDOUS_OCCURRENCE [note: 'Dangerous or hazardous occurrence']
+}
+
+Enum GenderEnum {
+  MALE [note: 'Male']
+  FEMALE [note: 'Female']
+}
+
+Enum LevelOfInjuryEnum {
+  NOT_SPECIFIED [note: 'Not specified']
+  MINOR [note: 'Minor injury']
+  MODERATE [note: 'Moderate injury']
+  SEVERE [note: 'Severe injury']
+  FATAL [note: 'Fatal injury']
+}
+
+Enum InjuredBodyPartEnum {
+  NOT_SPECIFIED [note: 'Not specified']
+  HEAD [note: 'Head']
+  NECK [note: 'Neck']
+  ABDOMENT [note: 'Abdomen']
+  ARM [note: 'Arm']
+  FEET [note: 'Feet']
+  SHOULDER [note: 'Shoulder']
+  HAND [note: 'Hand']
+  LEG [note: 'Leg']
+  BACK [note: 'Back']
+  SKIN [note: 'Skin']
+  CHEST [note: 'Chest']
+  EYE [note: 'Eye']
+  INTERNAL_ORGAN [note: 'Internal organ']
+  OTHER [note: 'Other']
+}
+
+Enum TypeOfInjuryEnum {
+  NOT_SPECIFIED [note: 'Not specified']
+  CUT [note: 'Cut']
+  BRUISE [note: 'Bruise']
+  FRACTURE [note: 'Fracture']
+  BURN [note: 'Burn']
+  SPRAIN [note: 'Sprain']
+  STRAIN [note: 'Strain']
+  LACERATION [note: 'Laceration']
+  CONCUSSION [note: 'Concussion']
+  OTHER [note: 'Other']
+}
+
+Enum MechanismOfInjuryEnum {
+  NOT_SPECIFIED [note: 'Not specified']
+  STRUCK_BY [note: 'Struck by']
+  FAILING_OBJECT [note: 'Falling object']
+  TRIP [note: 'Trip']
+  SLIP [note: 'Slip']
+  FALL [note: 'Fall']
+  CHEMICAL [note: 'Chemical']
+  VEHICLES [note: 'Vehicles']
+  MECHINARY [note: 'Machinery']
+  ELECTRICITY [note: 'Electricity']
+  HAND_TOOLS [note: 'Hand tools']
+  FALL_FROM_HEIGHT [note: 'Fall from height']
+  FLYING_OBJECT [note: 'Flying object']
+  OTHER [note: 'Other']
+}
+
+Enum StopActivityEnum {
+  NOT_SPECIFIED [note: 'Not specified']
+  YES [note: 'Yes, activity stopped']
+  NO [note: 'No, activity not stopped']
+}
+
+Enum TreatmentEnum {
+  NOT_SPECIFIED [note: 'Not specified']
+  FIRST_AID [note: 'First aid']
+  MEDICAL_TREATMENT [note: 'Medical treatment']
+  HOSPITALIZATION [note: 'Hospitalization']
+  NO_TREATMENT [note: 'No treatment']
+  OTHER [note: 'Other']
+}
+
+Enum AbsenceEnum {
+  NOT_YET_KNOWN [note: 'Not yet known']
+  RETURNED_AFTER_TREATMENT [note: 'Returned after treatment']
+  MORE_THAN_THREE_DAYS [note: 'More than three days']
+  NOT_SPECIFIED [note: 'Not specified']
+}
+
+Enum PriorityEnum {
+  NOT_SPECIFIED [note: 'Not specified']
+  NORMAL [note: 'Normal priority']
+  HIGH [note: 'High priority']
+  VENDOR [note: 'Vendor priority']
+  LONGER_TERM [note: 'Longer term priority']
+}
+
+Enum HasInjuredPersonEnum {
+  YES [note: 'Has injured person']
+  NO [note: 'No injured person']
+}
+
+Enum HasWitnessEnum {
+  YES [note: 'Has witness']
+  NO [note: 'No witness']
+}
+
+Enum ManHourGroupEnum {
+  STUDENT [note: 'Student group']
+  NON_STUDENT [note: 'Non-student group']
+}
+
+Enum InspectionImageTypeEnum {
+  BEFORE [note: 'Image taken before fix/action plan']
+  AFTER [note: 'Image taken after fix/action plan']
+  GENERAL [note: 'General inspection image']
+}
+
 //// -- CORE USER MANAGEMENT --
 
 Table t_users {
@@ -253,6 +411,7 @@ Table m_departments {
   name varchar [not null]
   code varchar [unique, not null]
   description text [null]
+  emails json [null, note: 'Array of email addresses for the department']
   isActive boolean [not null, default: true]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
@@ -277,6 +436,25 @@ Table m_job_positions {
   indexes {
     code [unique]
     level
+  }
+}
+
+//// -- REFERENCE DATA --
+
+Table m_achievement_rates {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  rangeMin decimal(5,2) [not null]
+  rangeMax decimal(5,2) [not null]
+  description text [null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Achievement rate categories with percentage ranges (e.g., Excellent: 90-100%, Good: 75-89%)'
+  indexes {
+    code [unique]
   }
 }
 
@@ -395,7 +573,6 @@ Table m_risk_mitigations {
   Note: 'Risk mitigation strategies with control measures'
   indexes {
     riskId
-    level
   }
 }
 
@@ -419,14 +596,54 @@ Table t_risk_control {
   }
 }
 
+Table t_risk_mitigation {
+  id varchar [pk, default: `uuid()`]
+  code varchar [unique, not null, note: 'Auto-generated code with prefix RSK{datetime}, not user-updatable']
+  eliminate text [null]
+  transfer text [null]
+  reduce text [null]
+  accept text [null]
+  legalAspect text [null]
+  isActive boolean [not null, default: true]
+  entity varchar [not null, note: 'Entity type identifier (RISK_ASSESSMENT_ITEM, INSPECTION_ITEM)']
+  entityId varchar [not null, note: 'Entity ID - references t_risk_assessment_item.id or t_inspection_items.id']
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Risk mitigation strategies with control measures - polymorphic relation to risk assessment items and inspection items'
+  indexes {
+    (entity, entityId)
+    isActive
+  }
+}
+
+Table t_hse_targets {
+  id varchar [pk, default: `uuid()`]
+  month MonthEnum [not null]
+  year int [not null]
+  code varchar [unique, not null]
+  name varchar [not null]
+  target decimal(10,2) [not null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  createdBy varchar [not null, ref: > t_users.id]
+  
+  Note: 'HSE targets tracking monthly and yearly targets with code and name'
+  indexes {
+    code [unique]
+    (month, year)
+  }
+}
+
 //// -- RISK ASSESSMENT --
 
 Table m_risk_matrix {
   id varchar [pk, default: `uuid()`]
-  likelihoodLevel int [not null]
+  likelihoodLevel varchar [not null, note: 'String type to match Schema']
   likelihoodName varchar [not null, default: '']
   likelihoodDesc text [not null, default: '']
-  consequenceLevel varchar [not null]
+  consequenceLevel int [not null, note: 'Int type to match Schema']
   consequenceName varchar [not null, default: '']
   consequenceDesc text [not null, default: '']
   risk_rating RiskRatingEnum [not null]
@@ -453,6 +670,7 @@ Table t_risk_assessment {
   actionPlan text [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
+  dueDateAt timestamp [null]
   
   Note: 'Risk assessment records'
   indexes {
@@ -468,21 +686,403 @@ Table t_risk_assessment_item {
   riskAssessmentId varchar [not null, ref: > t_risk_assessment.id]
   mRiskId varchar [not null, ref: > m_risk.id]
   mRiskCategoryId varchar [not null, ref: > m_risk_categories.id]
-  riskDescription text [not null]
-  likelihoodLevel int [not null]
+  likelihoodLevel varchar [not null, note: 'String type to match Schema']
   consequenceLevel int [not null]
-  riskMatrixRating text [not null]
+  riskMatrixRating varchar [not null, note: 'String type to match Schema']
   interpretation RiskRatingEnum [not null]
-  postLikelihoodLevel int [not null]
+  postLikelihoodLevel varchar [not null, note: 'String type to match Schema']
   postConsequenceLevel int [not null]
-  postRiskMatrixRating text [not null]
+  postRiskMatrixRating varchar [not null, note: 'String type to match Schema']
   postInterpretation RiskRatingEnum [not null]
   
-  Note: 'Individual risk assessment entries'
+  Note: 'Individual risk assessment entries - has 1-to-1 polymorphic relation with t_risk_mitigation (entity='RISK_ASSESSMENT_ITEM', entityId=id). Note: riskDescription field removed to match Schema.'
   indexes {
     riskAssessmentId
     mRiskId
     mRiskCategoryId
+  }
+}
+
+Ref: t_risk_mitigation.entityId > t_risk_assessment_item.id [delete: cascade, note: 'Polymorphic relation: when entity='RISK_ASSESSMENT_ITEM'']
+
+//// -- INSPECTION SYSTEM --
+
+Table t_inspections {
+  id varchar [pk, default: `uuid()`]
+  code varchar [unique, not null]
+  inspectionDate timestamp [not null]
+  status GeneralStatusEnum [not null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  createdBy varchar [not null, ref: > t_users.id]
+  doneAt timestamp [null]
+  
+  Note: 'HSE inspection header - tracks inspection date, status, and inspectors. Many-to-many relationship with m_areas via _InspectionToArea junction table'
+  indexes {
+    code [unique]
+    status
+  }
+}
+
+Table t_inspection_items {
+  id varchar [pk, default: `uuid()`]
+  inspectionId varchar [not null, ref: > t_inspections.id, note: 'onDelete: Cascade']
+  areaId varchar [not null, ref: > m_areas.id]
+  riskCategoryId varchar [not null, ref: > m_risk_categories.id]
+  riskId varchar [not null, ref: > m_risk.id]
+  assignedDepartmentId varchar [not null, ref: > m_departments.id]
+  assigneeId varchar [null, ref: > t_users.id]
+  status GeneralStatusEnum [not null, default: 'OPEN']
+  findings text [null]
+  description text [null]
+  followUpNotes text [null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  dueDateAt timestamp [null]
+  
+  Note: 'Individual inspection items - tracks risk findings, assignments, description, and follow-up notes per item. Has 1-to-1 polymorphic relation with t_risk_mitigation (entity='INSPECTION_ITEM', entityId=id)'
+  indexes {
+    inspectionId
+    areaId
+    riskCategoryId
+    riskId
+    assignedDepartmentId
+    assigneeId
+    status
+  }
+}
+
+Ref: t_risk_mitigation.entityId > t_inspection_items.id [delete: cascade, note: 'Polymorphic relation: when entity='INSPECTION_ITEM'']
+
+Table t_inspection_images {
+  id varchar [pk, default: `uuid()`]
+  inspectionItemId varchar [not null, ref: > t_inspection_items.id, note: 'onDelete: Cascade']
+  imageUrl varchar [not null]
+  caption text [null]
+  type InspectionImageTypeEnum [not null, default: 'GENERAL', note: 'BEFORE: before fix action plan, AFTER: after fix action plan, GENERAL: general inspection image']
+  order int [not null]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Photos/images attached to inspection items - supports before/after fix action plan tracking'
+  indexes {
+    inspectionItemId
+    (inspectionItemId, type)
+    order
+  }
+}
+
+Table t_inspection_inspectors {
+  id varchar [pk, default: `uuid()`]
+  inspectionId varchar [not null, ref: > t_inspections.id, note: 'onDelete: Cascade']
+  inspectorId varchar [not null, ref: > t_users.id]
+  order int [not null]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Inspectors assigned to inspections - one-to-many relationship (one inspection can have many inspectors)'
+  indexes {
+    inspectionId
+    inspectorId
+  }
+}
+
+//// -- AUDIT SYSTEM --
+
+Table m_audit_element {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text [null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Top-level audit elements (e.g., Safety Standards, Quality Control)'
+  indexes {
+    code [unique]
+  }
+}
+
+Table m_audit_clause {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text [null]
+  auditElementId varchar [not null, ref: > m_audit_element.id]
+  order int [not null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Audit clauses within elements (e.g., PPE, Emergency Equipment, Work Procedures)'
+  indexes {
+    code [unique]
+    auditElementId
+    order
+  }
+}
+
+Table m_audit_criteria {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  description text [null]
+  auditClauseId varchar [not null, ref: > m_audit_clause.id]
+  transitionType TransitionTypeEnum [not null]
+  order int [not null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Specific audit criteria within clauses (e.g., Hard hat condition, Fire extinguisher location)'
+  indexes {
+    code [unique]
+    auditClauseId
+    order
+  }
+}
+
+Table t_audits {
+  id varchar [pk, default: `uuid()`]
+  code varchar [unique, not null]
+  auditDate timestamp [not null]
+  auditElementId varchar [not null, ref: > m_audit_element.id]
+  status GeneralStatusEnum [not null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  createdBy varchar [not null, ref: > t_users.id]
+  
+  Note: 'Audit records - supports multiple areas via _AuditToArea junction table and multiple auditors via _AuditToUser junction table'
+  indexes {
+    code [unique]
+    auditElementId
+    status
+  }
+}
+
+Table t_audit_items {
+  id varchar [pk, default: `uuid()`]
+  auditId varchar [not null, ref: > t_audits.id, note: 'onDelete: Cascade']
+  auditCriteriaId varchar [not null, ref: > m_audit_criteria.id]
+  status GeneralStatusEnum [not null, default: 'OPEN']
+  compliantStatus CompliantStatusEnum [not null]
+  evidence text [null]
+  recommendation text [null]
+  actionRealization text [null]
+  order int [not null]
+  dueDate timestamp [not null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Individual audit item findings - tracks compliance status for each audit criteria. Many-to-many relationship with m_departments via _AuditItemToDepartment and t_users via _AuditItemToUser junction tables'
+  indexes {
+    auditId
+    auditCriteriaId
+    status
+  }
+}
+
+Table t_audit_images {
+  id varchar [pk, default: `uuid()`]
+  auditItemId varchar [not null, ref: > t_audit_items.id, note: 'onDelete: Cascade']
+  imageUrl varchar [not null]
+  caption text [null]
+  order int [not null]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Photos/images attached to individual audit items as evidence'
+  indexes {
+    auditItemId
+    order
+  }
+}
+
+Table _AuditItemToDepartment {
+  id varchar [pk, default: `uuid()`]
+  auditItemId varchar [not null, ref: > t_audit_items.id, note: 'onDelete: Cascade']
+  departmentId varchar [not null, ref: > m_departments.id]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Many-to-many: Audit Items and Departments - junction table linking audit items to assigned departments'
+  indexes {
+    (auditItemId, departmentId) [unique]
+    auditItemId
+    departmentId
+  }
+}
+
+Table _AuditItemToUser {
+  id varchar [pk, default: `uuid()`]
+  auditItemId varchar [not null, ref: > t_audit_items.id, note: 'onDelete: Cascade']
+  userId varchar [not null, ref: > t_users.id]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Many-to-many: Audit Items and Users - junction table linking audit items to assigned users (optional)'
+  indexes {
+    (auditItemId, userId) [unique]
+    auditItemId
+    userId
+  }
+}
+
+Table _AuditToArea {
+  id varchar [pk, default: `uuid()`]
+  auditId varchar [not null, ref: > t_audits.id, note: 'onDelete: Cascade']
+  areaId varchar [not null, ref: > m_areas.id]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Many-to-many: Audits and Areas - junction table linking audits to areas'
+  indexes {
+    (auditId, areaId) [unique]
+    auditId
+    areaId
+  }
+}
+
+Table _AuditToUser {
+  id varchar [pk, default: `uuid()`]
+  auditId varchar [not null, ref: > t_audits.id, note: 'onDelete: Cascade']
+  userId varchar [not null, ref: > t_users.id]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Many-to-many: Audits and Auditors (Users) - junction table linking audits to auditors'
+  indexes {
+    (auditId, userId) [unique]
+    auditId
+    userId
+  }
+}
+
+//// -- INCIDENT REPORT SYSTEM --
+
+Table t_incidents {
+  id varchar [pk, default: `uuid()`]
+  code varchar [unique, not null]
+  subject varchar [not null]
+  incidentDate timestamp [not null]
+  incidentLocation varchar [not null]
+  areaId varchar [not null, ref: > m_areas.id]
+  incidentType IncidentTypeEnum [not null]
+  incidentClassification IncidentClassificationEnum [not null]
+  requesterId varchar [not null, ref: > t_users.id]
+  reportedBy varchar [not null, ref: > t_users.id]
+  technicianId varchar [null, ref: > t_users.id]
+  priority PriorityEnum [not null, default: 'NORMAL']
+  riskCategoryId varchar [not null, ref: > m_risk_categories.id]
+  description text [null]
+  controlMeasure text [null]
+  dueDate timestamp [null]
+  expectedOutcome text [null]
+  needToStopActivity StopActivityEnum [not null, default: 'NOT_SPECIFIED']
+  stopActivityDescription text [null]
+  treatment TreatmentEnum [not null, default: 'NOT_SPECIFIED']
+  treatmentDescription text [null]
+  absence AbsenceEnum [not null, default: 'NOT_SPECIFIED']
+  resolution text [null]
+  assignedDepartmentId varchar [not null, ref: > m_departments.id]
+  assigneeId varchar [null, ref: > t_users.id]
+  status GeneralStatusEnum [not null]
+  source SourceEnum [not null, default: 'SYSTEM']
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  createdBy varchar [not null, ref: > t_users.id]
+  
+  Note: 'Incident report records with comprehensive incident details, action taken, and assignment tracking'
+  indexes {
+    code [unique]
+    areaId
+    riskCategoryId
+    requesterId
+    reportedBy
+    assignedDepartmentId
+    assigneeId
+    status
+    source
+  }
+}
+
+Table t_incident_injured_persons {
+  id varchar [pk, default: `uuid()`]
+  incidentId varchar [not null, ref: > t_incidents.id, note: 'onDelete: Cascade']
+  hasInjuredPerson HasInjuredPersonEnum [not null]
+  injuredPersonName varchar [null]
+  gender GenderEnum [null]
+  levelOfInjury LevelOfInjuryEnum [not null, default: 'NOT_SPECIFIED']
+  injuredBodyPart InjuredBodyPartEnum [not null, default: 'NOT_SPECIFIED']
+  typeOfInjury TypeOfInjuryEnum [not null, default: 'NOT_SPECIFIED']
+  mechanismOfInjury MechanismOfInjuryEnum [not null, default: 'NOT_SPECIFIED']
+  departmentId varchar [null, ref: > m_departments.id]
+  order int [not null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Injured persons associated with incident - supports multiple injured persons per incident. If hasInjuredPerson is NO, other fields may be null.'
+  indexes {
+    incidentId
+    departmentId
+  }
+}
+
+Table t_incident_witnesses {
+  id varchar [pk, default: `uuid()`]
+  incidentId varchar [not null, ref: > t_incidents.id, note: 'onDelete: Cascade']
+  hasWitness HasWitnessEnum [not null]
+  witnessName varchar [null]
+  gender GenderEnum [null]
+  departmentId varchar [null, ref: > m_departments.id]
+  order int [not null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Witnesses associated with incident - supports multiple witnesses per incident. If hasWitness is NO, other fields may be null.'
+  indexes {
+    incidentId
+    departmentId
+  }
+}
+
+Table t_incident_assets {
+  id varchar [pk, default: `uuid()`]
+  incidentId varchar [not null, ref: > t_incidents.id, note: 'onDelete: Cascade']
+  assetName varchar [not null]
+  assetCode varchar [null]
+  order int [not null]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Assets associated with incident - supports multiple assets per incident. Can reference existing assets or be free-text.'
+  indexes {
+    incidentId
+  }
+}
+
+Table t_incident_images {
+  id varchar [pk, default: `uuid()`]
+  incidentId varchar [not null, ref: > t_incidents.id, note: 'onDelete: Cascade']
+  imageUrl varchar [not null]
+  caption text [null]
+  order int [not null]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Photos/images attached to incident reports as evidence'
+  indexes {
+    incidentId
+    order
+  }
+}
+
+Table t_incident_attachments {
+  id varchar [pk, default: `uuid()`]
+  incidentId varchar [not null, ref: > t_incidents.id, note: 'onDelete: Cascade']
+  attachmentUrl varchar [not null]
+  order int [not null]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'File attachments for incident reports - references file upload system'
+  indexes {
+    incidentId
+    order
   }
 }
 
@@ -530,16 +1130,20 @@ Table t_notification_recipients {
   notificationId varchar [not null, ref: > t_notifications.id, note: 'onDelete: Cascade']
   roleId varchar [not null, ref: > m_roles.id]
   userId varchar [null, ref: > t_users.id, note: 'Optional for specific user targeting']
+  departmentId varchar [null, ref: > m_departments.id, note: 'Optional for specific department targeting']
+  jobPositionId varchar [null, ref: > m_job_positions.id, note: 'Optional for specific job position targeting']
   isRead boolean [not null, default: false]
   readAt timestamp [null]
   createdAt timestamp [not null, default: `now()`]
   
-  Note: 'Notification recipients tracking'
+  Note: 'Notification recipients tracking - supports targeting by role, user, department, or job position'
   indexes {
     notificationId
     roleId
     userId
-    (notificationId, roleId, userId) [unique, name: 'unique_recipient']
+    departmentId
+    jobPositionId
+    (notificationId, roleId, userId, departmentId, jobPositionId) [unique, name: 'unique_recipient']
   }
 }
 
@@ -547,22 +1151,33 @@ Table t_notification_recipients {
 
 Table t_reminders {
   id varchar [pk, default: `uuid()`]
-  userId varchar [not null, ref: > t_users.id]
-  entity varchar [null, note: 'Context/module name']
+  
+  // Polymorphic target - determines who receives the reminder
+  targetType ReminderTargetTypeEnum [not null, default: 'USER', note: 'USER, ROLE, DEPARTMENT, or OFFICE']
+  targetId varchar [not null, note: 'userId, roleId, departmentId, or officeId based on targetType']
+  
+  // Context linking (polymorphic entity)
+  entity varchar [null, note: 'Context/module name (e.g., "t_incidents", "t_audits")']
   entityId varchar [null, note: 'Entity primary key']
+  
+  // Reminder content and scheduling
   message varchar [not null]
   remindAt timestamp [not null]
-  repeatType ReminderRepeatTypeEnum [null, note: 'NONE, WEEKLY, MONTHLY']
+  repeatType ReminderRepeatTypeEnum [null, note: 'NONE, DAILY, WEEKLY, MONTHLY']
   repeatUntil timestamp [null]
   status ReminderStatusEnum [not null, default: 'PENDING']
   lastSentAt timestamp [null]
+  
+  // Metadata
+  createdBy varchar [not null, ref: > t_users.id, note: 'User who created this reminder']
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
-  Note: 'Scheduled reminders that trigger notifications'
+  Note: 'Scheduled reminders that trigger notifications - supports polymorphic targeting (USER, ROLE, DEPARTMENT, OFFICE)'
   indexes {
     (status, remindAt)
-    userId
+    (targetType, targetId)
+    createdBy
     (entity, entityId)
   }
 }
@@ -667,6 +1282,22 @@ Table t_file_access_logs {
 
 //// -- SYSTEM CONFIGURATION --
 
+Table m_email_templates {
+  id varchar [pk, default: `uuid()`]
+  code varchar [unique, not null, note: 'Unique code, e.g. "verification"']
+  name varchar [not null, note: 'Human readable name']
+  subjectTemplate varchar [not null, note: 'Handlebars template for subject']
+  bodyTemplate text [not null, note: 'Handlebars template for HTML body']
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Email template master data with Handlebars templates'
+  indexes {
+    code [unique]
+  }
+}
+
 Table m_settings {
   id varchar [pk, default: `uuid()`]
   key varchar [unique, not null]
@@ -678,6 +1309,25 @@ Table m_settings {
   Note: 'Application configuration settings'
   indexes {
     key [unique]
+  }
+}
+
+Table t_zoho_webhook_logs {
+  id varchar [pk, default: `uuid()`]
+  requestId varchar [unique, not null, note: 'X-Zoho-Request-Id header for idempotency']
+  eventType varchar [not null, note: 'Event type (e.g., contact.created, lead.updated)']
+  status varchar [not null, note: 'processed | failed | duplicate']
+  payload json [not null, note: 'Full webhook payload']
+  errorMessage text [null, note: 'Error message if status is failed']
+  processedAt timestamp [not null, default: `now()`]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Zoho webhook logs for idempotency and tracking'
+  indexes {
+    requestId [unique]
+    eventType
+    status
+    processedAt
   }
 }
 
@@ -1860,6 +2510,30 @@ Table t_dispatch_orders {
   }
 }
 
+//// -- MAN HOUR MANAGEMENT SYSTEM --
+
+Table t_man_hours {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  group ManHourGroupEnum [not null]
+  qty int [not null]
+  manHourPerDay decimal(4,2) [not null]
+  month MonthEnum [not null]
+  year int [not null]
+  total decimal(10,2) [not null]
+  notes text [null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  createdBy varchar [not null, ref: > t_users.id]
+  
+  Note: 'Man hour records tracking quantity, hours per day, month, year, and calculated total'
+  indexes {
+    (name, group, month, year) [unique]
+    createdBy
+  }
+}
+
 //// -- MANY-TO-MANY RELATIONSHIPS (Junction Tables) --
 
 Table _PermissionToRole {
@@ -1892,6 +2566,30 @@ Table _CourseToCategory {
   }
 }
 
+Table _AuditToUser {
+  A varchar [ref: > t_audits.id]
+  B varchar [ref: > t_users.id]
+  
+  Note: 'Many-to-many: Audits and Auditors (Users)'
+  indexes {
+    (A, B) [pk]
+  }
+}
+
+Table _InspectionToArea {
+  id varchar [pk, default: `uuid()`]
+  inspectionId varchar [not null, ref: > t_inspections.id, note: 'onDelete: Cascade']
+  areaId varchar [not null, ref: > m_areas.id]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Many-to-many: Inspections and Areas - junction table linking inspections to areas'
+  indexes {
+    (inspectionId, areaId) [unique]
+    inspectionId
+    areaId
+  }
+}
+
 //// -- TABLE GROUPS --
 
 TableGroup user_management {
@@ -1907,6 +2605,10 @@ TableGroup organizational_structure {
   m_offices
   m_departments
   m_job_positions
+}
+
+TableGroup reference_data {
+  m_achievement_rates
 }
 
 TableGroup navigation_access {
@@ -1925,12 +2627,47 @@ TableGroup risk_management {
   m_risk
   m_risk_mitigations
   t_risk_control
+  t_risk_mitigation
+  t_hse_targets
 }
 
 TableGroup risk_assessment {
   m_risk_matrix
   t_risk_assessment
   t_risk_assessment_item
+}
+
+TableGroup inspection_system {
+  m_areas
+  m_rooms
+  t_inspections
+  t_inspection_items
+  t_inspection_images
+  t_inspection_inspectors
+  _InspectionToArea
+  t_environmental_measurements
+}
+
+TableGroup audit_system {
+  m_audit_element
+  m_audit_clause
+  m_audit_criteria
+  t_audits
+  t_audit_items
+  t_audit_images
+  _AuditItemToDepartment
+  _AuditItemToUser
+  _AuditToArea
+  _AuditToUser
+}
+
+TableGroup incident_report_system {
+  t_incidents
+  t_incident_injured_persons
+  t_incident_witnesses
+  t_incident_assets
+  t_incident_images
+  t_incident_attachments
 }
 
 TableGroup notification_system {
@@ -1944,6 +2681,10 @@ TableGroup reminder_system {
   t_reminder_logs
 }
 
+TableGroup email_system {
+  m_email_templates
+}
+
 TableGroup file_upload_system {
   m_file_storage_providers
   m_file_categories
@@ -1952,7 +2693,9 @@ TableGroup file_upload_system {
 }
 
 TableGroup system_configuration {
+  m_email_templates
   m_settings
+  t_zoho_webhook_logs
 }
 
 TableGroup ppe_management {
@@ -2028,4 +2771,8 @@ TableGroup waste_management {
   t_weight_reports
   t_weight_report_items
   t_dispatch_orders
+}
+
+TableGroup man_hour_management {
+  t_man_hours
 }

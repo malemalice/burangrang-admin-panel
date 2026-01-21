@@ -1,0 +1,618 @@
+import { PrismaClient, TransitionTypeEnum } from '@prisma/client';
+
+// Static data extracted from CSV files
+const auditElements = [
+  {
+    code: '1',
+    name: 'Development and Maintenance of Commitments',
+    description: 'Pembangunan dan Pemeliharaan Komitmen',
+  },
+  {
+    code: '2',
+    name: 'Preparation and Documentation of OHS Plan',
+    description: 'Pembuatan dan Pendokumentasian Rencana K3',
+  },
+  {
+    code: '3',
+    name: 'Design Control and Contract Review',
+    description: 'Pengendalian Perancangan dan Peninjauan Kontrak',
+  },
+  {
+    code: '4',
+    name: 'Document Control',
+    description: 'Pengendalian Dokumen',
+  },
+  {
+    code: '5',
+    name: 'Purchase and Product Control',
+    description: 'Pembelian dan Pengendalian Produk',
+  },
+  {
+    code: '6',
+    name: 'Safety Works Based on OHSMS',
+    description: 'Keamanan Bekerja Berdasarkan SMK3',
+  },
+  {
+    code: '7',
+    name: 'Monitoring Standard',
+    description: 'Standar Pemantauan',
+  },
+  {
+    code: '8',
+    name: 'Reporting and Fixing Weaknesses',
+    description: 'Pelaporan dan Perbaikan Kekurangan',
+  },
+  {
+    code: '9',
+    name: 'Material Management and Movements',
+    description: 'Pengelolaan Material dan Perpindahannya',
+  },
+  {
+    code: '10',
+    name: 'Data Collection and Use',
+    description: 'Pengumpulan dan Penggunaan Data',
+  },
+  {
+    code: '11',
+    name: 'OHS Management System Assessment',
+    description: 'Pemeriksaan SMK3',
+  },
+  {
+    code: '12',
+    name: 'Skills and Abilities Development',
+    description: 'Pengembangan Keterampilan dan Kemampuan',
+  },
+];
+
+const auditClauses = [
+  // Element 1
+  { code: '1.1', elementCode: '1', name: 'Occupational Safety and Health Policy Clauses', description: 'Klausul Kebijakan Keselamatan dan Kesehatan Kerja', order: 1 },
+  { code: '1.2', elementCode: '1', name: 'Responsibility and Authority to Act', description: 'Tanggung Jawab dan Wewenang Untuk Bertindak', order: 2 },
+  { code: '1.3', elementCode: '1', name: 'Review and Evaluation', description: 'Tinjauan dan Evaluasi', order: 3 },
+  { code: '1.4', elementCode: '1', name: 'Involvement and Consultation with Workers', description: 'Keterlibatan dan Konsultasi dengan Tenaga Kerja', order: 4 },
+  // Element 2
+  { code: '2.1', elementCode: '2', name: 'OHS Strategic Plan', description: 'Rencana Srategi K3', order: 1 },
+  { code: '2.2', elementCode: '2', name: 'OHS Management System Manual', description: 'Manual SMK3', order: 2 },
+  { code: '2.3', elementCode: '2', name: 'Legislation and other requirements in the field of OHS', description: 'Peraturan perundangan dan persyaratan lain dibidang K3', order: 3 },
+  { code: '2.4', elementCode: '2', name: 'Occupational Health and Safety Information', description: 'Informasi K3', order: 4 },
+  // Element 3
+  { code: '3.1', elementCode: '3', name: 'Design Control', description: 'Pengendalian Perancangan', order: 1 },
+  { code: '3.2', elementCode: '3', name: 'Contract Review', description: 'Peninjauan Kontrak', order: 2 },
+  // Element 4
+  { code: '4.1', elementCode: '4', name: 'Document Control Approval and Expenditure', description: 'Persetujuan dan Pengeluaran Pengendalian Dokumen', order: 1 },
+  { code: '4.2', elementCode: '4', name: 'Document Changes and Modifications', description: 'Perubahan dan Modifikasi Dokumen', order: 2 },
+  // Element 5
+  { code: '5.1', elementCode: '5', name: 'Specification and Purchase of Goods and Services', description: 'Spesifikasi dan Pembelian Barang dan Jasa', order: 1 },
+  { code: '5.2', elementCode: '5', name: 'Verification System for Purchased Goods and Services', description: 'Sistem Verivikasi Barang dan Jasa yang Telah dibeli', order: 2 },
+  { code: '5.3', elementCode: '5', name: 'Control of Customer-Supplied Goods and Services', description: 'Pengendalian Barang dan Jasa yang Dipasok Pelanggan', order: 3 },
+  { code: '5.4', elementCode: '5', name: 'Product Traceability', description: 'Kemampuan Telusur Produk', order: 4 },
+  // Element 6
+  { code: '6.1', elementCode: '6', name: 'Work System', description: 'Sistem Kerja', order: 1 },
+  { code: '6.2', elementCode: '6', name: 'Supervision', description: 'Pengawasan', order: 2 },
+  { code: '6.3', elementCode: '6', name: 'Selection and Placement of Personnel', description: 'Seleksi dan Penempatan Personil', order: 3 },
+  { code: '6.4', elementCode: '6', name: 'Restricted Area', description: 'Area Terbatas', order: 4 },
+  { code: '6.5', elementCode: '6', name: 'Maintenance, Repair and Change of Production Facilities', description: 'Pemeliharaan, Perbaikan dan Perubahan Sarana Produksi', order: 5 },
+  { code: '6.6', elementCode: '6', name: 'Service', description: 'Pelayanan', order: 6 },
+  { code: '6.7', elementCode: '6', name: 'Preparedness to Handle Emergencies', description: 'Kesiapan untuk Menangani Keadaan Darurat', order: 7 },
+  { code: '6.8', elementCode: '6', name: 'First Aid In Accident', description: 'Pertolongan Pertama Pada Kecelakaan', order: 8 },
+  { code: '6.9', elementCode: '6', name: 'Emergency Planning and Recovery', description: 'Rencana dan Pemulihan Keadaan Darurat', order: 9 },
+  // Element 7
+  { code: '7.1', elementCode: '7', name: 'Hazard Assessment', description: 'Pemeriksaan Bahaya', order: 1 },
+  { code: '7.2', elementCode: '7', name: 'Monitoring / Measurement of Work Environment', description: 'Pemantauan / Pengukuran Lingkungan Kerja', order: 2 },
+  { code: '7.3', elementCode: '7', name: 'Inspection, Measurement and Testing Equipment', description: 'Peralatan Pemeriksaan / Inspeksi, Pengukuran dan Pengujian', order: 3 },
+  { code: '7.4', elementCode: '7', name: 'Workforce Health Monitoring', description: 'Pemantauan Kesehatan Tenaga Kerja', order: 4 },
+  // Element 8
+  { code: '8.1', elementCode: '8', name: 'Hazard Reporting', description: 'Pelaporan Bahaya', order: 1 },
+  { code: '8.2', elementCode: '8', name: 'Accident Report', description: 'Pelaporan Kcelakaan', order: 2 },
+  { code: '8.3', elementCode: '8', name: 'Accident Inspection and Assessment', description: 'Pemeriksaan dan Pengkajian Kecelakaan', order: 3 },
+  { code: '8.4', elementCode: '8', name: 'Troubleshooting', description: 'Penanganan Masalah', order: 4 },
+  // Element 9
+  { code: '9.1', elementCode: '9', name: 'Manual and Mechanical Handling', description: 'Penanganan Secara Manual dan Mekanis', order: 1 },
+  { code: '9.2', elementCode: '9', name: 'Transport, Storage and Construction Systems', description: 'Sistem Pengangkutan, Penyimpanan dan Pembangunan', order: 2 },
+  { code: '9.3', elementCode: '9', name: 'Control of Hazardous Chemicals', description: 'Pengendalian Bahan Kimia Berbahaya (BKB)', order: 3 },
+  // Element 10
+  { code: '10.1', elementCode: '10', name: 'OSH records', description: 'Catatan K3', order: 1 },
+  { code: '10.2', elementCode: '10', name: 'OHS Data and Report', description: 'Data dan Laporan K3', order: 2 },
+  // Element 11
+  { code: '11.1', elementCode: '11', name: 'Internal Audit SMK3', description: 'Audit Internal SMK3', order: 1 },
+  // Element 12
+  { code: '12.1', elementCode: '12', name: 'Training Strategy', description: 'Strategi Pelatihan', order: 1 },
+  { code: '12.2', elementCode: '12', name: 'Training for Management and Supervisor', description: 'Pelatihan bagi Manajemen dan Penyelia', order: 2 },
+  { code: '12.3', elementCode: '12', name: 'Training for Workers', description: 'Pelatihan Bagi Tenaga Kerja', order: 3 },
+  { code: '12.4', elementCode: '12', name: 'Induction Training and Training for Visitors and Contractors', description: 'Pelatihan Pengenalan dan Pelatihan untuk Pengunjung dan Kontraktor', order: 4 },
+  { code: '12.5', elementCode: '12', name: 'Special Skills Training', description: 'Pelatihan Keahlian Khusus', order: 5 },
+];
+
+const auditCriteria = [
+  // Clause 1.1
+  { code: '1.1.1', clauseCode: '1.1', name: 'There is a written occupational health and safety policy, dated and signed by the employer or manager, clearly stating the objectives and targets of OHS as well as the commitment to improving OHS.', description: 'The company creates a written occupational health and safety policy, dated and covering the objectives and the company\'s commitment statement regarding the implementation of OHS in the workplace.', order: 1 },
+  { code: '1.1.2', clauseCode: '1.1', name: 'The policy is formulated by the employer and/or management after consulting with representatives of the workforce.', description: 'The consultation process can take the form of a meeting discussing the formulation of policy content, where meeting participants can include members of P2K3 (HSE Committes member as representatives of the workforce) or department representatives. Refer to the minutes of the meeting discussing this policy.', order: 2 },
+  { code: '1.1.3', clauseCode: '1.1', name: 'The company communicates its OHS policy to all workers, guests, contractors, customers and suppliers in the right manner. The company communicates the occupational health and safety policy to all employees, visitors, contractors, customers, and suppliers using appropriate procedures.', description: 'The communication of this OHS policy can take various forms, including: posting, reading during morning briefings, visitor identification cards, inclusion in contracts, briefing materials for guests, notice boards at entrances, etc.', order: 3 },
+  { code: '1.1.4', clauseCode: '1.1', name: 'Special policies are made for specific OHS issues', description: 'Special OSH policies are made according to company needs (not mandatory), for example policies on chemical, alcohol & drugs hazards, etc.', order: 4 },
+  { code: '1.1.5', clauseCode: '1.1', name: 'The OSH policy and other specific policies are reviewed periodically to ensure that these policies are in accordance with changes that occur within the company and in the laws and regulations', description: 'There is a mechanism for periodically reviewing the contents of the policy, such as through annual management review meetings, Health and Safety committee meetings, or other meetings. If there are changes in the company\'s name, management, vision, etc., the policy should also be revised accordingly. The schedule for the review should be specified.', order: 5 },
+  // Clause 1.2
+  { code: '1.2.1', clauseCode: '1.2', name: 'The responsibility and authority to take action and report to all relevant personnel within the company that has been established must be disseminated and documented.', description: 'There is a document that explains the responsibilities and authorities of individuals (both management and workers) to take action and report on occupational health and safety matters (e.g., accident reports, hazards, inspections, emergency response actions, first aid, work stoppages, etc.). This can be in the form of a job description document, OHS responsibilities within the OHS manual, etc. It must be ensured that relevant personnel are aware of this information.', order: 1 },
+  { code: '1.2.2', clauseCode: '1.2', name: 'The appointment of the occupational health and safety responsible person must comply with applicable regulations.', description: 'There are several officer in charge of OHS in accordance with the relevant regulations, namely; company doctor (Permenaker 01/MEN/1976), Paramedic (Permenaker 01/MEN/1979), Secretary of Safety Committee (Permenaker 02/MEN/1992)), emergency team (Kepmenaker 186/1999).', order: 2 },
+  { code: '1.2.3', clauseCode: '1.2', name: 'The unit leaders in a company are responsible for the occupational health and safety performance within their respective units.', description: 'It can be seen in their job descriptions, and evidence of involvement includes actively participating in unit performance evaluations, participating in OHS inspections, attending unit OHS meetings, and monitoring the achievement of OHS unit performance.', order: 3 },
+  { code: '1.2.4', clauseCode: '1.2', name: 'The employer or management is fully responsible for ensuring the implementation of the SMK3 (Occupational Health and Safety Management System).', description: 'It can be observed in the vision, mission, and OHS program established by the employer or management of the company, as well as the support of human resources and budget.', order: 4 },
+  { code: '1.2.5', clauseCode: '1.2', name: 'Officers responsible for handling emergencies have been assigned and trained', description: 'The company can be seen from training certificates, emergency training documentation, training absences. The officer\'s appointment can be identified from identification, such as special hats/helmets, badges, color of clothes, etc. Emergency response officers are trained in accordance with the provisions of Kepmenaker 186/MEN/1999 concerning firefighters and Permenakertrans 15/MEN/VII/2008', order: 5 },
+  { code: '1.2.6', clauseCode: '1.2', name: 'The company receives advice from occupational health and safety experts from within and/or outside the company.', description: 'From within, this could include internal OHS auditor reports, inspection reports/recommendations from OHS experts, benchmarking/study reports, etc. From outside, this could include OHS performance reports from independent consultants, inspection notes from local labor department inspectors.', order: 6 },
+  { code: '1.2.7', clauseCode: '1.2', name: 'The performance of OHS is included in the company\'s annual report or other equivalent reports.', description: 'OHS performance may include accident rates (FR & SR), the number of accident claims, OHS presentations/awards, percentage achievement of targets, etc.', order: 7 },
+  // Clause 1.3
+  { code: '1.3.1', clauseCode: '1.3', name: 'A review of the implementation of the Occupational Health and Safety management system including policies, planning, implementation, monitoring and evaluation has been conducted, recorded, and documented.', description: 'There is an Management Review Meeting that discusses policies, planning, implementation, monitoring and evaluation, accompanied by Absences & Minutes of Meetings. This review activity is in the form of a management review meeting whose agenda is in accordance with the attachment of PP 50 of 2012, this management review meeting is attended by top management and cannot be carried out with safety committee meeting.', order: 1 },
+  { code: '1.3.2', clauseCode: '1.3', name: 'The review results are incorporated into the management action planning.', description: 'Refer to the minutes of the management review meeting to see if the corrective actions or corrective actions to be taken will be included in the next year\'s work program.', order: 2 },
+  { code: '1.3.3', clauseCode: '1.3', name: 'Management must periodically review the implementation of OHSMS to assess its suitability and effectiveness.', description: 'Periodic review of OHSMS implementation is conducted after internal audits and reported findings of non-conformities to audit criteria. There are schedules for internal audits, periodic review schedules, and reports of internal audit results.', order: 3 },
+  // Clause 1.4
+  { code: '1.4.1', clauseCode: '1.4', name: 'The involvement of workers and scheduling consultations with appointed company representatives are documented and disseminated to all employees.', description: 'Documentation can take the form of activity minutes, schedules, or timetables. Company representatives are personnel appointed by company management (documents of worker consultation with company representatives, minutes of SP forum meetings, minutes of Health and safety Committee meetings, attendance lists).', order: 1 },
+  { code: '1.4.2', clauseCode: '1.4', name: 'There is a procedure in place to facilitate consultation regarding changes that have implications for OHS.', description: 'The procedure can take the form of guidelines or procedures, outlining the steps for reporting occupational health and safety issues. It could involve a simple and straightforward form to report the consequences of changes in the workplace, such as the operation of equipment and hazards perceived by workers to pose a risk to themselves', order: 2 },
+  { code: '1.4.3', clauseCode: '1.4', name: 'The company has established a Occupational Health and Safety Committee (P2K3) in accordance with the regulations.', description: 'The evidence can be in the form of a letter of appointment or certification of the Occupational Health and Safety Committee (P2K3) from the local Labor Office.', order: 3 },
+  { code: '1.4.4', clauseCode: '1.4', name: 'The chairperson of the  Occupational Health & Safety Committee is the top leader or management', description: 'Refer to document 1.4.3 to see who holds the position of the OHS Committee chairperson. It should be an official or a top management personnel of the company. The term "official" here corresponds to the regulations stated in Minister of Manpower Regulation No. 04/MEN/1987, Article 3, Paragraph 1.', order: 4 },
+  { code: '1.4.5', clauseCode: '1.4', name: 'The secretary of the P2K3 is an Occupational Health and Safety expert in accordance with the regulations.', description: 'The secretary of the  Health and Safety Committee must be an Occupational Health and Safety expert according to Minister of Manpower Regulation No. 02/MEN/1992. Please refer to the certificate and appointment letter for Occupational Health and Safety experts. It is preferable for them to be a General Occupational Health and Safety expert because the training for a General Occupational Health and Safety expert includes, among others, knowledge of legislation.', order: 5 },
+  { code: '1.4.6', clauseCode: '1.4', name: 'The Safety Committee focuses on activities related to the development of policies and procedures to control risks.', description: 'Look at the Occupational Health and Safety programs that have been planned or are currently being implemented. Are there any programs related to the development or review of policies and procedures for controlling risks based on findings from risk assessments (minutes of OHS Committee meetings) as outlined in the duties and functions of OHS Committee stated in Minister of Manpower Regulation No. 04/MEN/1987', order: 6 },
+  { code: '1.4.7', clauseCode: '1.4', name: 'The composition of the Heatlh and Safety Committee management is documented and communicated to the employees.', description: 'The Health and Safety Committee management is displayed on the information board or can be emailed to the employees, as evidenced by the notification/mechanism announcement related to occupational health and safety information and the number of employees who are aware of the P2K3 management.', order: 7 },
+  { code: '1.4.8', clauseCode: '1.4', name: 'The Safety Committee holds regular meetings, and the results are disseminated in the workplace.', description: 'It should be conducted at least once a month or as specified in the Health & Safety Committee procedure. Please refer to the minutes of the Health & Safety Committee meetings that have been conducted thus far.', order: 8 },
+  { code: '1.4.9', clauseCode: '1.4', name: 'The Safety Committee regularly reports its activities in accordance with regulations.', description: 'In accordance with Minister of Manpower Regulation No. 04/MEN/1987, Health and Safety Committee activities must be reported to the local authorities every three months, at minimum, using the prescribed reporting format as stipulated by the legislation.', order: 9 },
+  { code: '1.4.10', clauseCode: '1.4', name: 'Working groups are formed and selected from representatives of the workforce appointed as OHS responsible persons in their workplaces, and they are provided with training in accordance with regulations.', description: 'If formed, this is further adjusted to the conditions within the company related to the effectiveness of OHSMS implementation itself, especially in terms of establishing emergency response teams in each unit/department and when implementing OHSMS at separate locations, such as in the construction sector.', order: 10 },
+  { code: '1.4.11', clauseCode: '1.4', name: 'The composition of the established working groups is documented and communicated to the workforce.', description: 'If formed, it should be checked with the workers through interviews whether they are aware of the structure of these working groups.', order: 11 },
+  // Clause 2.1
+  { code: '2.1.1', clauseCode: '2.1', name: 'There are documented procedures for the identification of potential hazards, assessment, and control of OHS risks.', description: 'There is an HIRADC Procedure. There is a plan or activity program to control identified risks. The document may take the form of a OHS program/plan or management program. To see its implementation, monitoring of work programs related to risk control can be observed.', order: 1 },
+  { code: '2.1.2', clauseCode: '2.1', name: 'Hazard identification, assessment and control of OHS risks as OHS strategy plan is carried out by competent officers', description: 'Competent HIRADC Officers. Competency is assessed based on their training (certificates of internal or external training) and their work experience and outcomes, namely the risk management documents that exist in accordance with the established procedures or references.', order: 2 },
+  { code: '2.1.3', clauseCode: '2.1', name: 'The occupational health and safety strategy plan is based at least on an initial review, identification of potential hazards, risk assessment, risk control, and regulations as well as other occupational health and safety information both from within and outside the company.', description: 'There is a plan or activity program to control identified risks, and attention is paid to the details of this plan: Whether it is related to the initial review document, hazard identification, risk control based on the assessment conducted in accordance with regulations, as well as occupational health and safety information from both within and outside the company. (documents: Initial Review, Hazid, Hazev, Risk Control, IReg, Occupational Health and Safety Information/Data)', order: 3 },
+  { code: '2.1.4', clauseCode: '2.1', name: 'The established occupational health and safety strategy plan is used to control OHS risks by setting measurable objectives and targets, prioritizing them, and providing resources.', description: 'The prioritization of risk control is achieved by setting measurable objectives and targets and providing resources. Looking at the details of the OHS plan/program, which include: objectives, targets, responsible parties, implementation timeframe, resources (including facilities), and priorities (based on risk management assessment results).', order: 4 },
+  { code: '2.1.5', clauseCode: '2.1', name: 'Work plans and specific plans related to products, processes, projects, or specific workplaces have been created by setting measurable objectives and targets, establishing achievement timelines, and providing resources.', description: 'General and specific work programs are the same as criteria 2.1.4, and these specific plans are more associated with modification/design planning work. For example, management of a program related to risk control outcomes where its scope is separate from the structured work program. Typically, it is project-oriented with long-term planning.', order: 5 },
+  { code: '2.1.6', clauseCode: '2.1', name: 'OHS plan is aligned with company management system plan', description: 'Integrated Management System. A plan or program of activities to control the identified risks contained in the document in the form of an OHS program/plan that is integrally harmonized with the company\'s management program.', order: 6 },
+  // Clause 2.2
+  { code: '2.2.1', clauseCode: '2.2', name: 'The OHSMS manual covers OSH policies, objectives, plans and procedures and defines OSH responsibilities for all levels within the company.', description: 'Documents in the form of OHSMS manuals or level 1 documents, which include policies, objectives, work plans (the latest plan can be in the form attached) OHS procedures can be in the form of a procedure correlation matrix and job descriptions according to the organizational structure listed.', order: 1 },
+  { code: '2.2.2', clauseCode: '2.2', name: 'There are specific manuals relating to a particular product, process or workplace', description: 'Documents in the form of special manuals/SOP/IK (eg manuals for the management of Chemicals, Waste, Manuals for Ergonomics, manuals for handling explosives etc.)', order: 2 },
+  { code: '2.2.3', clauseCode: '2.2', name: 'The OHSMS manual is easily accessible by all personnel in the company as needed', description: 'The manual is stored in a location that is easily accessible by company personnel, to prove it can be seen from the distribution manual', order: 3 },
+  // Clause 2.3
+  { code: '2.3.1', clauseCode: '2.3', name: 'There are documented procedures to identify, obtain, maintain and understand laws and regulations, standards, technical guidelines, and other relevant requirements in the field of OHS for all employees in the Company.', description: 'Procedures for obtaining OHS instructions and information for each worker and related parties. Consultation procedures, communication, OHS information, ref. 1.4.1. There are instructions and information for every worker who needs it related to obtaining and understanding the regulations, standards, technical guidelines and requirements relevant to K3 to make it easier for every worker to apply it in his work.', order: 1 },
+  { code: '2.3.2', clauseCode: '2.3', name: 'Responsible for maintaining and distributing the latest information regarding laws and regulations, standards, technical guidelines, and other requirements has been established', description: 'Personnel who are appointed and given responsibility for maintaining and distributing every latest OHS information to reach every workforce who needs it (assignment orders, decrees, list of types of OHS information, evidence of distribution of the latest information.', order: 2 },
+  { code: '2.3.3', clauseCode: '2.3', name: 'OHS requirements in laws and regulations, standards, technical guidelines, and other relevant requirements in the field of OHS are included in procedures and work instructions', description: 'OHS requirements in Work Instruction procedures. OHS requirements and other relevant requirements both from regulations, standards, technical guidelines, etc. Ensure that it is included in the procedures and work instructions.', order: 3 },
+  { code: '2.3.4', clauseCode: '2.3', name: 'Changes to laws and regulations, standards, technical guidelines, and other relevant requirements in the field of OHS, are used for reviewing work procedures and instructions', description: 'Review of work procedures and instructions. OHS requirements and other relevant requirements come from regulations, standards, guidelines, technical etc. Used for reviewing procedures and work instructions.', order: 4 },
+  // Clause 2.4
+  { code: '2.4.1', clauseCode: '2.4', name: 'The required information regarding OHS activities is disseminated systematically to all employees, guests, contractors, customers and suppliers', description: 'The form can be in the form of bulletin boards, photos, posters, verbal in briefings / apples, emails, etc. The procedure can be seen from the communication procedure, there is a section/personnel appointed as the person in charge', order: 1 },
+  // Clause 3.1
+  { code: '3.1.1', clauseCode: '3.1', name: 'Documented procedures considering potential hazard identification, assessment, and risk control are carried out at the Design and modification stages.', description: 'There is a written document in the form of a design and modification procedure in which there is a hazard identification and risk assessment (risk management). See the details of the contents of the procedure, how the risk management stages are included in the design stage.', order: 1 },
+  { code: '3.1.2', clauseCode: '3.1', name: 'Procedures and work instructions in the use of products, operation of machines and equipment, installations, aircraft or processes as well as other information related to OHS have been developed during the design and/or modification', description: 'When the design is carried out, has a special WI/procedure been made for products/facilities/processes that have been designed or redesigned based on recommendations from the established risk control.', order: 2 },
+  { code: '3.1.3', clauseCode: '3.1', name: 'Competent personnel verify that the design and/or modification meets the established OHS requirements prior to use of the design.', description: 'There are personnel appointed to verify that the OHS aspects have been met in the design. This personnel can be internal (e.g. OHS Expert) or external (e.g. OHS supervisory officer, consultant or designated OHS Service Company)', order: 3 },
+  { code: '3.1.4', clauseCode: '3.1', name: 'All design changes and modifications that have implications for OHS are identified, documented, reviewed and approved by authorized personnel prior to implementation.', description: 'Lihat pada rekaman hasil modifikasi / perancangan berupa catatan atau notulensi review perancangan, checklist kesesuaian desain dengan aspek K3, tanda tangan pengesahan rancang oleh petugas di 3.1.3.', order: 4 },
+  // Clause 3.2
+  { code: '3.2.1', clauseCode: '3.2', name: 'Documented procedures must be able to identify and assess potential OHS hazards, the environment and society, where these procedures are used when supplying goods and services in a contract.', description: 'There is a written procedure that includes the process of identifying potential hazards and risk assessment carried out on activities to supply goods and services in a contract. The form of the record can be the results of risk management on the activities of supplying goods and services as well as the contents of these activities included in the contract', order: 1 },
+  { code: '3.2.2', clauseCode: '3.2', name: 'Hazard identification and risk assessment is carried out on contract review by a competent person.', description: 'Requirements for personnel who carry out these activities include those stipulated in the procedure, at least having received training in OHS and risk management experts as well as those who are experienced in their fields.', order: 2 },
+  { code: '3.2.3', clauseCode: '3.2', name: 'Contracts are reviewed to ensure that suppliers can meet OHS requirements for customers', description: 'If 3.2.1 already exists and is applied then this criterion will of course be automatically met. and it will be seen whether the customer\'s OHS requirements have been met. The recording is that the contents of the contract clearly contain the K3 aspects in accordance with the job specifications, such as the provision of personal protective equipment, responsibility and liability for work accidents, accident insurance, etc. Contract reviews are carried out periodically, especially if a new contract will be made or a contract change will be made.', order: 3 },
+  { code: '3.2.4', clauseCode: '3.2', name: 'Contract review records are maintained and documented', description: 'The document is in the form of a contract review note/checklist for compliance with OHS requirements in a contract. And a record of the changes by the authorized officer.', order: 4 },
+  // Clause 4.1
+  { code: '4.1.1', clauseCode: '4.1', name: 'OHS document has identification of status, authority, date of issue and date of modification', description: 'Here we see from the reference document control that has been determined, where the status of the document can be in the form of numbering procedures, authorized in the form of anyone who approves the document, there is a contest date and modification if there is a change.', order: 1 },
+  { code: '4.1.2', clauseCode: '4.1', name: 'The recipient of the distribution document is listed in the document.', description: 'The document states the ownership of the document by referring to the distribution list of the recipients of the document.', order: 2 },
+  { code: '4.1.3', clauseCode: '4.1', name: 'The latest edition of OHS documents are stored in a systematic manner in the designated places', description: 'Documents are stored in a specific location that is easy to access', order: 3 },
+  { code: '4.1.4', clauseCode: '4.1', name: 'Obsolete documents are immediately removed from use, while obsolete documents stored for certain purposes are marked with a special mark', description: 'The company must ensure that the OHS document currently in circulation is the latest/last revised document. If it is saved, it is marked for example "obselete" or "superceded" for obsolete documents that are still stored. Saved at least 2 previous revisions', order: 4 },
+  // Clause 4.2
+  { code: '4.2.1', clauseCode: '4.2', name: 'There is a system for making, approving changes to OHS documents.', description: 'There is a document control procedure that includes the stages of the process of making and approving document changes.', order: 1 },
+  { code: '4.2.2', clauseCode: '4.2', name: 'In the event of a change, the reason for the change is given and stated in the document or attachment and informs the relevant parties.', description: 'The document that has changed is usually attached with a description / reason for the changes made, the date of modification and who approved the change or a list of changes that are usually located in front or behind the related document.', order: 2 },
+  { code: '4.2.3', clauseCode: '4.2', name: 'There is a document control procedure or a list of all documents that lists the status of each of these documents in an effort to prevent the use of obsolete documents.', description: 'There is a document control procedure in which it requires the creation of a document masterlist or a list containing all titles of OHS documents used including their status (eg the last revision and the date of revision).', order: 3 },
+  // Clause 5.1
+  { code: '5.1.1', clauseCode: '5.1', name: 'There is a documented procedure in place to ensure that technical specifications and other information relevant to OSH have been checked prior to a purchase decision.', description: 'There is a written procedure regarding the procedure for purchasing goods and services where there are OHS specifications and other related information clearly stated in one of the clauses of the procedure, for example MSDS for the purchase of chemicals, relevant information for the purchase of personal protective equipment, etc.', order: 1 },
+  { code: '5.1.2', clauseCode: '5.1', name: 'Purchase specifications for each production facility, chemical substance or service must be accompanied by specifications that comply with statutory requirements and OHS standards.', description: 'This criteria is an application of criteria 5.1.1 where the company can show an example of a purchase order record that clearly includes an OHS item at the time of purchase.', order: 2 },
+  { code: '5.1.3', clauseCode: '5.1', name: 'Consultation with a competent workforce at the time of the purchase decision is carried out to determine the OHS requirements that are included in the purchase specification and informed to the workers who use it.', description: 'This consultation activity can be stated in the contents of the procedure 5.1.1 or and shown evidence in the form of meeting minutes/input from the user to the Purchase and or endorsement in the purchasing order', order: 3 },
+  { code: '5.1.4', clauseCode: '5.1', name: 'Training needs, supply of personal protective equipment, and changes to work procedures should be considered prior to purchase and use.', description: 'Training need, PPE, etc. can be stated in the purchasing procedure and can be proven in the form of a purchase order record that has completed its OHS items. The form of a review can be in the form of approval in a purchasing order or the results of an assessment of a new product or service prior to purchase, for example an assessment in the purchase of personal protective equipment and others.', order: 4 },
+  { code: '5.1.5', clauseCode: '5.1', name: 'OHS requirements are evaluated and taken into consideration in the purchase selection.', description: 'An evaluation of the purchase requirements is used as a consideration in the purchase selection which may be due to changes/new OHS requirements related to the purchased goods. Selected supplier and subcontractor selection form (CSMS) that meets OHS requirements (selection procedure goes into purchasing procedure)', order: 5 },
+  // Clause 5.2
+  { code: '5.2.1', clauseCode: '5.2', name: 'Purchased goods and services are checked for conformance with purchase specifications.', description: 'Inspection of goods and services is carried out conformity with the purchase specifications has been defined in 5.1.1. All incoming goods and services must be inspected according to pre-agreed specifications. For example, an approval document for receiving goods by the warehouse.', order: 1 },
+  // Clause 5.3
+  { code: '5.3.1', clauseCode: '5.3', name: 'Goods and services supplied by customers, before being used, the potential hazards are identified and the risks are assessed. Records are maintained to check this procedure', description: 'Goods and services supplied by customers means goods/services that are used/processed in our workplace and then after completion, they are returned to the customer. Evidence of the implementation of this activity can be included in a separate procedure or through risk management activities as carried out in 2.1.1', order: 1 },
+  // Clause 5.4
+  { code: '5.4.1', clauseCode: '5.4', name: 'All products used in the production process can be identified at all stages of production and installation, if there are potential OHS problems', description: 'OHS problem identification list for all stages of production and installation, there is a machine (product) manual, there is an MSDS, etc.', order: 1 },
+  { code: '5.4.2', clauseCode: '5.4', name: 'There is a documented procedure for tracing products that have been sold, if there are potential OHS problems in their use.', description: 'There is a documented procedure for tracing products sold/List of products sold (type, quantity, sales area). The traceability procedure of products that have been sold is safe and complies with OHS requirements', order: 2 },
+  // Clause 6.1
+  { code: '6.1.1', clauseCode: '6.1', name: 'Competent officers have identified hazards, assessed and controlled risks arising from a work process.', description: 'The company has appointed personnel to carry out risk management. Evidence of its implementation can be seen from the risk management records for each stage of the work process. The competence of these officers is seen from the certificate or risk management training record, job decs or their authority from the experience track record and risk management records according to the established calculation procedure.', order: 1 },
+  { code: '6.1.2', clauseCode: '6.1', name: 'If risk control efforts are needed, these efforts are determined through the level of control.', description: 'Risk control can be seen from the risk management that has been made/proposed, whether the risk control taken has followed the control stages such as elimination, substitution, engineering (including isolation), administration control and PPE. Risk control is not always through the administration of controls and PPE.', order: 2 },
+  { code: '6.1.3', clauseCode: '6.1', name: 'There are documented procedures or work instructions to control identified risks and are made on the basis of input from competent personnel and workforce', description: 'There is a written document of work procedures/work instructions (WI) in the workplace. For work permits such as hot work permits, confined space permits, work at heights (WAH), excavation/depth work, radiation work, etc., depending on the processes in place, for example: hot work permit, confined space permit, work at height (WAH), excavation/depth work, radiation work, etc., document status (created, inspected, approved, no & date).', order: 3 },
+  { code: '6.1.4', clauseCode: '6.1', name: 'Compliance with laws and regulations, standards and relevant technical guidelines is observed when developing or modifying work instructions.', description: 'There are written procedures or work instructions (WI) that have taken into account OHS factors such as based on job safety analysis. Especially the work procedures/WI required in risk control as control administration control must be demonstrated.', order: 4 },
+  { code: '6.1.5', clauseCode: '6.1', name: 'There is a work permit system for high-risk tasks', description: 'If there are developments and or changes to work procedures / work instructions, it must refer to the provisions of laws and regulations, standards or other relevant provisions. There are restrictions on certain areas by providing a work permit system such as: hot, crowded, height, radiation, depth, underground, confine space.', order: 5 },
+  { code: '6.1.6', clauseCode: '6.1', name: 'Personal protective equipment is provided as needed and used correctly and always maintained in a usable condition', description: 'Maintenance/storage and use of PPE is carried out correctly in accordance with the specifications and instructions of the manufacturer or technical standards that are universally applicable. Evaluation of the need for PPE at each site is adjusted to the type of work of the personnel, maintenance procedures and periodic PPE inspections.', order: 6 },
+  { code: '6.1.7', clauseCode: '6.1', name: 'The personal protective equipment used is ensured that it is suitable for use in accordance with applicable standards and/or laws and regulations.', description: 'The suitability of PPE with standards / Per Law is seen in the technical specifications of the supplier based on information on brochures and certificates of due diligence sent by the supplier. What standards do they refer to? Or maybe look at product certifications for example: SNI, BS, ISO, etc. from the PPE, see Permanaker 08 of 2010.', order: 7 },
+  { code: '6.1.8', clauseCode: '6.1', name: 'Risk control efforts are evaluated periodically if there is a discrepancy or change in the work process.', description: 'Related to 6.1.1 where the risk control that has been implemented is reviewed if there is a change in the work process.', order: 8 },
+  // Clause 6.2
+  { code: '6.2.1', clauseCode: '6.2', name: 'Supervision is carried out to ensure that every work is carried out safely and follows the procedures and work instructions that have been determined', description: 'There are monitoring activities on the implementation of work in the workplace. Usually the responsibility of the supervisor or equivalent. Look at the description of his responsibilities. Document evidence can be in the form of daily inspection records/logs.', order: 1 },
+  { code: '6.2.2', clauseCode: '6.2', name: 'Everyone is supervised according to their level of ability and the level of risk of the task', description: 'Refer back to the description of responsibilities in 6.2.1 or the existence of monitoring activities for new employees or on the job training programs', order: 2 },
+  { code: '6.2.3', clauseCode: '6.2', name: 'Supervisor/superior participates in hazard identification and makes control measures.', description: 'Same with 6.2.1, look at the job description. Evidence of implementation in the form of inspection reports/hazard source reports or others.', order: 3 },
+  { code: '6.2.4', clauseCode: '6.2', name: 'Supervisors/superior are involved in conducting investigations and making reports on the occurrence of accidents and occupational diseases and are required to submit reports and suggestions to the management.', description: 'Supervisors are involved in reporting and investigating work-related accidents and diseases. Refer to procedures for reporting & investigation of work accidents (element 8) and items in 6.2.1 (job description). See also the reporting documents and the results of the investigation of accidents that have occurred.', order: 4 },
+  { code: '6.2.5', clauseCode: '6.2', name: 'Supervisor/superior participate in the consultation process.', description: 'The consultation process here can take the form of the supervisor\'s involvement in a meeting that discusses OHS issues in his area of supervision.', order: 5 },
+  // Clause 6.3
+  { code: '6.3.1', clauseCode: '6.3', name: 'Specific job requirements, including health requirements are identified and used for the selection and placement of workers.', description: 'The company stipulates health requirements in recruiting employees. Look at the recruitment procedures and data on employee health check activities so far.', order: 1 },
+  { code: '6.3.2', clauseCode: '6.3', name: 'Job assignments must be based on the abilities and skills possessed', description: 'Same as 6.3.1 and there is a job qualification for each position which includes a minimum of training and educational background and experience.', order: 2 },
+  // Clause 6.4
+  { code: '6.4.1', clauseCode: '6.4', name: 'Employers or administrators conduct a risk assessment of the work environment to identify areas that require restrictions on entry permits.', description: 'There is a document or list of areas in the workplace that require an entry permit. Or check directly in the field or it can also be seen from existing risk management records.', order: 1 },
+  { code: '6.4.2', clauseCode: '6.4', name: 'There is control over areas / places with restrictions on entry permits', description: 'In these areas, control is carried out which can be in the form of written permission, locks, signs, etc.', order: 2 },
+  { code: '6.4.3', clauseCode: '6.4', name: 'Facilities and services are available in the workplace in accordance with technical standards and guidelines.', description: 'The facilities here are bathrooms, sinks, lockers / changing rooms, prayer rooms, dining rooms, canteens, sports facilities, polyclinics for work aids such as stairs, floor space, transportation, etc. Services, namely the provision of clean drinking water, food services, health, etc.', order: 3 },
+  { code: '6.4.4', clauseCode: '6.4', name: 'OHS signs must be installed in accordance with technical standards and guidelines.', description: 'OHS signs (safety signs, warning signs, posters, PPE signs, fire extinguisher signs, etc.) and door signs are installed according to standards based on technical guidelines / SNI have a minimum lighting signal of 10 Lux and are green and white writing and have a sign that says "Exit" or " Exit" above it and facing the corridor.', order: 4 },
+  // Clause 6.5
+  { code: '6.5.1', clauseCode: '6.5', name: 'Scheduling of inspection and maintenance of production facilities and equipment includes verification of safety equipment and requirements stipulated by laws and regulations, relevant technical standards and guidelines.', description: 'The company has a document in the form of a maintenance schedule for production facilities used in the workplace, including safety devices. Verification covering safety devices can be seen from the inspection checklist of each production facility.', order: 1 },
+  { code: '6.5.2', clauseCode: '6.5', name: 'All records containing detailed data on inspection, maintenance, repair and changes made to production facilities must be kept and maintained.', description: 'The company keeps records of maintenance carried out in the form of a history list of equipment inspections, either in soft copy or hard copy.', order: 2 },
+  { code: '6.5.3', clauseCode: '6.5', name: 'Production facilities and equipment have valid certificates in accordance with statutory requirements and standards', description: 'The company has a valid production facility certificate. Some of these production facilities include pressure vessels (Permenaker 01/MEN/1082), lift ting equipment (Permanker 05/MEN/1985), elevators (Permenaker 03/MEN/1999), Steam equipment (Steam Regulations 1930). To be precise, refer to the object of supervision sheet and there is a scheduling monitoring schedule for company equipment that is included in the object of supervision, including the certificate expiration schedule along with the recertification schedule.', order: 3 },
+  { code: '6.5.4', clauseCode: '6.5', name: 'Inspection, maintenance, repair and any changes must be carried out by competent and authorized personnel.', description: 'Look at the competence of the personnel who carry out maintenance activities for the production facilities. (certificate, license, experience) if done by a 3rd party can show a CV along with a certificate of implementation based on the proposal sent then compared with reports / minutes of work completion, is it the same?.', order: 4 },
+  { code: '6.5.5', clauseCode: '6.5', name: 'There is a procedure to ensure that if there is a change to the production facilities and equipment, the change must be in accordance with the requirements of laws and regulations, relevant technical standards and guidelines.', description: 'There are procedures for compliance with laws and regulations. Same as 6.5.3 For details, see the contents of the legislation or ask if any changes have been made.', order: 5 },
+  { code: '6.5.6', clauseCode: '6.5', name: 'There is a procedure for requesting maintenance of production facilities and equipment with OHS conditions that do not meet the requirements and need to be repaired immediately.', description: 'There are stages of procedures regarding maintenance activities and inspection of production facilities. Examples of records such as Work Order Form, recording activities from the beginning to the end of the year (flow activity)', order: 6 },
+  { code: '6.5.7', clauseCode: '6.5', name: 'There is a system for marking equipment that is no longer safe for use or has not been used.', description: 'Marking on machines/production facilities that are being repaired or damaged can be included in maintenance procedures which include Lock Out and Tag Out or LOTO if separated. Look at the existing marking documents, compare with the procedure.', order: 7 },
+  { code: '6.5.8', clauseCode: '6.5', name: 'If necessary, a lock out system is implemented to prevent production facilities from being turned on prematurely.', description: 'There is a locking mechanism (see the form/locking system used) associated with the procedure, maintenance/repair or LOTO procedure if separated. Records can be viewed on the Lock Out implementation list and compared with the procedure.', order: 8 },
+  { code: '6.5.9', clauseCode: '6.5', name: 'There are procedures that can guarantee the safety and health of workers or other people who are near production facilities and equipment during the inspection, maintenance, repair and alteration process.', description: 'There are procedures that can ensure the safety of the area during the inspection, maintenance, repair and change process documented in the form of a form/checklist used', order: 9 },
+  { code: '6.5.10', clauseCode: '6.5', name: 'There is a person responsible for agreeing that the production facilities and equipment are safe to use after the maintenance, repair or change process.', description: 'Refer to the maintenance/repair request procedure to ensure that the repaired facility is safe. For reuse. The recorded evidence is the Work Order Form signed by the user after the repair process is complete and the LOTO revocation form from the authorized personnel.', order: 10 },
+  // Clause 6.6
+  { code: '6.6.1', clauseCode: '6.6', name: 'If the company is contracted to provide services that comply with OHS standards and laws and regulations, it is necessary to develop procedures to ensure that the services meet the requirements.', description: 'The services are included in PJK3 (OHS service company) in accordance with Permenaker 04/MEN/1995 which includes OHS consulting services, manufacturing services, maintenance, repairs and OHS technical installations, technical inspection and testing services, inspection services and or occupational health services. , OHS audit services and OHS coaching services.', order: 1 },
+  { code: '6.6.2', clauseCode: '6.6', name: 'If the company is provided with services through contracts and the services comply with OHS standards and legislation, it is necessary to develop procedures to ensure that service delivery meets the requirements.', description: 'If we, as service users, or customers (6.6.2), it can be seen in element 5 (on the purchase procedure) where this OHS specification has been detailed in the purchase of goods and services. This specification can be in the form of a letter of appointment for PJK3 from the Ministry of Manpower of the Republic of Indonesia on 6.6.2 companies are required to have a procedure for selecting and evaluating subcontractors in which OHS aspects are a requirement. Recorded evidence can be seen from the recording of selection and evaluation activities.', order: 2 },
+  // Clause 6.7
+  { code: '6.7.1', clauseCode: '6.7', name: 'Potential emergencies inside or outside the workplace have been identified and emergency procedures documented. and informed so that it is known by all people in the workplace.', description: 'The company has identified possible emergencies (fire, spill, explosion, flood, riot, etc.). This is evidenced by the existence of written documents in the form of company emergency procedures. See potential emergencies in the KD procedure (emergency situations) compare with existing conditions referring to risk management records. Informed by induction safety and promoted through banners / stickers.', order: 1 },
+  { code: '6.7.2', clauseCode: '6.7', name: 'Provision of tools / facilities and procedures for emergencies based on the results of identification and tested and reviewed regularly by competent and authorized officers', description: 'The procedure must be simulated to determine whether it is appropriate or effective. The simulation schedule can be done at least once a year or refers to the frequency of implementation in the KD procedure itself. Emergency procedures are evaluated / reviewed by competent personnel (can be OHS department or external parties eg cooperation with the fire service if it is related to fire). Evaluation includes conformance to procedure scenarios, equipment readiness and speed and accuracy targets for each emergency procedure.', order: 2 },
+  { code: '6.7.3', clauseCode: '6.7', name: 'Workers receive instructions and training on emergency procedures that are appropriate to the level of risk', description: 'The company has made emergency instructions and has informed all employees and provided training in the form of Drill evacuation. The recorded evidence is the drill evacuation record for each worker referring to the emergency procedure that is in accordance with the level of risk.', order: 3 },
+  { code: '6.7.4', clauseCode: '6.7', name: 'Emergency handling officers are appointed and given special training and informed to all people in the workplace', description: 'Special emergency officers have been given emergency specific training in accordance with their roles and duties. Records can be in the form of attendance lists and/or training certificates and related training records. For the fire team, refer to Kepmenaker 186/Men/1999. The Organizational Structure of the Emergency Response Team is posted on information boards and other media.', order: 4 },
+  { code: '6.7.5', clauseCode: '6.7', name: 'Emergency instructions/procedures and emergency relations are shown clearly and prominently and are known by all employees in the company.', description: 'Clear. Verification is carried out by looking at the conditions in the field, recorded evidence of which is work instructions, evacuation maps, arrows leading to the nearest and safe exit to the assembly point, clearly visible and bright at a distance of 20 meters and all workers understand it. And emergency contact (Emergency contact number is clearly displayed) and is known by all workers.', order: 5 },
+  { code: '6.7.6', clauseCode: '6.7', name: 'Emergency alarm equipment and systems are provided, checked, tested and maintained on a regular basis in accordance with relevant laws and regulations, technical standards and guidelines.', description: 'Look at inspection records, test and result certificates, and maintenance reports and schedules. Such as Hydrant equipment, Sprinkle, Detector, Fire alarm, Apar, Hydrant Pump, Emergency lamp, Emergency shower, Breathing apparatus etc.', order: 6 },
+  { code: '6.7.7', clauseCode: '6.7', name: 'The type, number of placements and the ease of obtaining emergency equipment are in accordance with statutory regulations or standards and are assessed by competent and authorized officers.', description: 'Type. The number and position of emergency equipment (fire extinguishers, hydrants, spill kits, showers, first aid kits, etc.) are clearly visible, unobstructed and clearly marked by employees. Including accuracy in the specifications of the emergency equipment provided based on the potential hazard.', order: 7 },
+  // Clause 6.8
+  { code: '6.8.1', clauseCode: '6.8', name: 'The company has evaluated the first aid kits and ensured that each existing first aid meets the laws and regulations, standards and technical guidelines.', description: 'There is an activity to check the condition of the contents of the first aid kit, usually using a checklist on the completeness of the equipment, the amount of use, replacement, etc. In accordance with the Minister of Manpower No. 15 of 2008.', order: 1 },
+  { code: '6.8.2', clauseCode: '6.8', name: 'First aid officers have been trained and appointed in accordance with the laws and regulations.', description: 'There is an appointed first aid officer. This officer can be an employee or a medical person at the clinic who is appointed as a first aid officer. First aid training for appointed officers in accordance with Permenaker no 15 of 2008.', order: 2 },
+  // Clause 6.9
+  { code: '6.9.1', clauseCode: '6.9', name: 'Procedures for selecting the condition of the workforce as well as the damaged production facilities and equipment have been established and can be implemented as soon as possible after the occurrence of accidents and occupational diseases.', description: 'There are post-emergency procedures (accidents & occupational diseases) to prevent recurrence. Procedures for restoring the condition of workers and production facilities and equipment that have been damaged.', order: 1 },
+  // Clause 7.1
+  { code: '7.1.1', clauseCode: '7.1', name: 'Inspection of the workplace and working methods are carried out regularly', description: 'There is a regular schedule of these inspection activities. It can be seen in the schedule table or inspection procedure or from the results of inspection reports that have been carried out some time before. Inspection of work procedures can refer to job safety analysis and workplace inspections can refer to hazard identification (HAZID).', order: 1 },
+  { code: '7.1.2', clauseCode: '7.1', name: 'The inspection is carried out by competent and authorized officers who have received training on hazard identification.', description: 'Inspections are carried out jointly by representatives of the management and representatives of employees on the condition that they have attended training on identifying potential hazards. Evidence can be seen from the recording of the inspection results of who did it and their position.', order: 2 },
+  { code: '7.1.3', clauseCode: '7.1', name: 'Inspection seeks input from workers who carry out tasks at the inspected place.', description: 'Inspection not only refers to the checklist but also provides input space outside the checklist. See from the inspection records whether there is input from officers who perform duties at the inspected place.', order: 3 },
+  { code: '7.1.4', clauseCode: '7.1', name: 'A workplace checklist has been compiled for use during inspections', description: 'Documents in the form of a workplace inspection checklist in accordance with the conditions of the workplace.', order: 4 },
+  { code: '7.1.5', clauseCode: '7.1', name: 'The inspection report contains recommendations for corrective action and is submitted to the management and Safety Committee as needed.', description: 'See a copy of the inspection report with reference to the inspection procedure (there is a corrective action plan)', order: 5 },
+  { code: '7.1.6', clauseCode: '7.1', name: 'The management have determined the person in charge for the implementation of corrective actions from the results of the inspection report.', description: 'Look at the report/recommendation for corrective action whether there is a PIC or is there a warrant appointing someone to take corrective action', order: 6 },
+  { code: '7.1.7', clauseCode: '7.1', name: 'Corrective actions from the results of the inspection report are monitored to determine their effectiveness.', description: 'There is a record of monitoring the completion status of corrective actions from inspection findings that have been carried out and have assessed their effectiveness in the sense that they do not cause new hazards.', order: 7 },
+  // Clause 7.2
+  { code: '7.2.1', clauseCode: '7.2', name: 'Monitoring / measurement of the work environment is carried out regularly and the results are documented, maintained and used for risk assessment and control.', description: 'There is documentation/report on the results of monitoring the work environment. The implementation time interval is adjusted to the applicable provisions/standards. Can look at UKL and UPL/RPL-RKL', order: 1 },
+  { code: '7.2.2', clauseCode: '7.2', name: 'Monitoring/measurement of the work environment includes physical, chemical, biological, ergonomic, and psychological factors.', description: '• Refer to Permenaker 13/MEN/X/2011 on NAV of physical and chemical factors in the workplace • Refer to Kepmenaker 187/MEN/1999 on the control of hazardous chemicals in the workplace. • Biological factors such as the value of drinking water quality standards, supervision of employee food quality, etc. • Radiation factor can refer to the provisions of BAPETEN (Nuclear Energy Supervisory Agency) Indonesia. •PMP No. 7/1964 on lighting, ventilation, distance of work equipment and cubic space', order: 2 },
+  { code: '7.2.3', clauseCode: '7.2', name: 'Monitoring/measurement of the work environment is carried out by competent and authorized officers or parties from within and/or outside the company.', description: 'Can be carried out by PJK3 or other parties / personnel who have obtained permission from the Ministry of Manpower and Transmigration (Competent / Certified Expert in Environmental Inspection). Proof of competence of competent and authorized officers or parties from within and/or outside the company circular letter Director General of BINWASNAKER No. SE-01/DIPPK/2011', order: 3 },
+  // Clause 7.3
+  { code: '7.3.1', clauseCode: '7.3', name: 'There are documented procedures regarding identification, calibration, maintenance and storage for inspection, measuring and testing equipment regarding OHS', description: 'There are written procedures related to identification, calibration, maintenance and storage of measuring instruments, such as noisemeters, luxmeters, gas detectors, etc. If the tools are provided from outside parties, the provider/supplier/contractor must be able to show the test results. This can be identified at the stage of contracting and purchasing the services concerned.', order: 1 },
+  { code: '7.3.2', clauseCode: '7.3', name: 'Tools are maintained and calibrated by competent and authorized officers or parties from within and/or outside the company.', description: 'Look at the qualifications of the officer who calibrated the device or his training records.', order: 2 },
+  // Clause 7.4
+  { code: '7.4.1', clauseCode: '7.4', name: 'Monitoring the health of workers who work in places containing high potential hazards in accordance with statutory regulations.', description: 'There are activities and documentation regarding labor health monitoring activities. Especially special health checks such as blood tests to see chemical contamination, audiometry for noise, X-rays for respiratory diseases, etc.', order: 1 },
+  { code: '7.4.2', clauseCode: '7.4', name: 'Employers or administrators have identified conditions in which workers\' health checks need to be carried out and have implemented a system to assist these inspections.', description: 'The results of the identification are in the form of a list of employee health examination programs carried out and the procedures or procedures for this workforce health examination.', order: 2 },
+  { code: '7.4.3', clauseCode: '7.4', name: 'The health examination of the workforce is carried out by an examining doctor who is appointed according to the legislation.', description: 'Workforce health checks are carried out by company doctors in accordance with the provisions of the Minister of Manpower Regulation No. Per.01/MEN/1976 concerning the Obligation of Hyperkes Training for Company Doctors and obtain a letter of appointment from the Director General of Manpower Supervision Development as referred to in Article 8 of Law 1/1970 concerning Occupational Safety.', order: 3 },
+  { code: '7.4.4', clauseCode: '7.4', name: 'The company provides occupational health services in accordance with statutory regulations', description: 'The details of the health services provided refer to the Minister of Manpower Regulation 03/MEN/1982 regarding workplace health services', order: 4 },
+  { code: '7.4.5', clauseCode: '7.4', name: 'Records regarding the health monitoring of workers are made in accordance with statutory regulations.', description: 'Required to provide a report on every health inspection activity referring to Per.02/MEN/1980', order: 5 },
+  // Clause 8.1
+  { code: '8.1.1', clauseCode: '8.1', name: 'There is a hazard reporting procedure related to OSH and this procedure is known to the workforce.', description: 'The company has a procedure for reporting sources of danger and the workforce knows how to report it. Documents in the form of reporting procedures, hazard / non-conformance reporting forms.', order: 1 },
+  // Clause 8.2
+  { code: '8.2.1', clauseCode: '8.2', name: 'There is a documented procedure that ensures that all work accidents, occupational diseases, fires or explosions as well as other hazardous events in the workplace are recorded and reported in accordance with statutory regulations.', description: 'Documents in the form of procedures for reporting work accidents and occupational diseases, which refer to the Minister of Manpower Regulation No. 3 of 1998.', order: 1 },
+  // Clause 8.3
+  { code: '8.3.1', clauseCode: '8.3', name: 'The workplace/company has procedures for examining and assessing work accidents and occupational diseases', description: 'The document is the same as 8.2.1 which can be used as a procedure, namely reporting and investigation.', order: 1 },
+  { code: '8.3.2', clauseCode: '8.3', name: 'Examination and assessment of work accidents is carried out by appointed OHS officers or experts in accordance with statutory regulations or other competent and authorized parties.', description: 'The company has assigned company personnel to carry out the investigation. Competence can be seen in the training or training certificates that they already have.', order: 2 },
+  { code: '8.3.3', clauseCode: '8.3', name: 'The inspection and assessment report contains the causes and effects as well as recommendations/suggestions and a time schedule for the implementation of improvement efforts', description: 'See and check the accident report documents so far, whether there are suggestions and a schedule for repairs.', order: 3 },
+  { code: '8.3.4', clauseCode: '8.3', name: 'The person in charge of carrying out corrective action on the inspection and assessment report has been assigned.', description: 'Look at the accident report document, who is responsible for the corrective action? Has he been informed of his responsibilities?', order: 4 },
+  { code: '8.3.5', clauseCode: '8.3', name: 'Corrective actions are informed to workers who work at the place where the accident occurred.', description: 'Verification is done by looking at the process when the investigation was carried out. Does it involve the workforce when gathering information or when discussing corrective actions to be taken? Cross check with related workers ! Or include the employee\'s signature.', order: 5 },
+  { code: '8.3.6', clauseCode: '8.3', name: 'The implementation of corrective actions is monitored, documented and informed to the entire workforce.', description: 'The company verifies the corrective action proposed in the accident report. The form can be in the form of a status report (closed) or an initial on the completed corrective action.', order: 6 },
+  // Clause 8.4
+  { code: '8.4.1', clauseCode: '8.4', name: 'There are procedures to deal with safety and health issues that arise and are in accordance with the applicable laws and regulations.', description: 'There is a procedure for addressing OHS issues in the workplace. These problems can be things like; work environment that is less comfortable and safe, work methods, health at work, or other complaints.', order: 1 },
+  // Clause 9.1
+  { code: '9.1.1', clauseCode: '9.1', name: 'There are procedures for identifying potential hazards and assessing risks associated with manual and mechanical handling.', description: 'The procedures referred to are risk management procedures as in 2.11 and 6.1.1 but these criteria focus more on manual and mechanical material handling activities. For proof of implementation, see the results of the risk assessment report on this activity.', order: 1 },
+  { code: '9.1.2', clauseCode: '9.1', name: 'Hazard identification and risk assessment are carried out by competent and authorized personnel.', description: 'Verify the officer conducting this risk assessment.', order: 2 },
+  { code: '9.1.3', clauseCode: '9.1', name: 'The company / management implements and reviews risk control methods related to manual and mechanical handling.', description: 'Verification to the field whether the recommendations for risk control actions from the risk assessment report are implemented in the workplace. Recorded evidence, namely there is monitoring of the work program of risk control taken.', order: 3 },
+  { code: '9.1.4', clauseCode: '9.1', name: 'There are procedures for material handling including methods of preventing damage, spills, and/or leaks.', description: 'There are written procedures for handling possible damage, spills and leaks.', order: 4 },
+  // Clause 9.2
+  { code: '9.2.1', clauseCode: '9.2', name: 'There are procedures to ensure that Materials are stored and transferred in a safe manner in accordance with statutory regulations.', description: 'All of these criteria can be demonstrated by a procedure and material handling so that it is orderly and neat in the storage (housekeeping).', order: 1 },
+  { code: '9.2.2', clauseCode: '9.2', name: 'There is a procedure that describes the requirements for controlling materials that can be damaged or expired.', description: 'The procedure includes handling of material properties, especially material expiration, such as setting out expenditures and recording the material code period, placing the material according to the nature of the material, that it is in a ready-to-use condition.', order: 2 },
+  { code: '9.2.3', clauseCode: '9.2', name: 'There are procedures to ensure that materials are disposed of in a safe manner in accordance with statutory regulations.', description: 'And if it is not used, it will be disposed of in a way that is safe for the environment and the waste will be disposed of in a safe way such as for the disposal of waste oil, it is required to go to a container that has a permit and liquid waste to PPLI and others. Evidence of the implementation of disposal can be seen from the manifest.', order: 3 },
+  // Clause 9.3
+  { code: '9.3.1', clauseCode: '9.3', name: 'The Company has documented and implemented procedures regarding the storage, handling, and transfer of hazardous chemicals (BKB) in accordance with the requirements of laws and regulations, relevant technical standards and guidelines.', description: 'There are written procedures regarding these activities for hazardous materials. It can be in the form of procedures or work instructions related to the use of the chemical. The regulation that regulates Hazardous waste is PP no.74 of 2001 concerning Chemical Control in the workplace. and Kepmenaker No. Kep. 187/MEN/1999.', order: 1 },
+  { code: '9.3.2', clauseCode: '9.3', name: 'There is a Material Safety Data Sheet Hazardous Chemicals (MSDS) includes information regarding the safety of materials as regulated in laws and regulations and can easily be obtained.', description: 'This data sheet is known as MSDS (material safety data sheet). The workplace should have/kept this MSDS, and it can be obtained from the chemical supplier (required in element 5 in the purchase of materials). Records of this MSDS must be found both at the place where the material is stored and where it is used. MSDS should be communicative, meaning that it is understood by those who read it (eg in Bahasa Indonesia).', order: 2 },
+  { code: '9.3.3', clauseCode: '9.3', name: 'There is a system in place to identify and clearly label hazardous chemicals.', description: 'There is a label on the chemical container. The important thing is that this label is known by chemical users. The proof is that all chemical containers have clear labels, namely the name of the substance, the nature of the danger / hazard signs and actions in case of an emergency.', order: 3 },
+  { code: '9.3.4', clauseCode: '9.3', name: 'Hazard warning signs are posted in accordance with the requirements of relevant laws and standards.', description: 'These warning signs explain the dangers of chemicals in the workplace. For example: signs of the nature of the material, warning signs such as flammable, explosive, poison etc.', order: 4 },
+  { code: '9.3.5', clauseCode: '9.3', name: 'The handling of Hazardous chemical is carried out by competent and authorized officers.', description: 'The same as in 9.3.1 and more emphasis is placed on storage methods to suit the reactive nature of the material, for example, materials whose oxidizing agents are not placed close to flammables, etc. And also the material being moved must be in a safe way, such as loading-unloading gasoline where must be equipped with a grounding system, equipped with a suitable fire extinguisher, marked no smoking, etc.', order: 5 },
+  // Clause 10.1
+  { code: '10.1.1', clauseCode: '10.1', name: 'The management has documented and implemented procedures for identifying, collecting, filing, maintaining, storing and replacing OHS records.', description: 'The company has established procedures that regulate the management of these OHS records. The evidence of the record is the record control procedure where the application is that there is a masterlist of OHS records which at least includes the shelf life and storage location. Where the definition of this K3 record is in the form of a filled OHS form, for example, accident, inspection, NCR audit forms, etc.', order: 1 },
+  { code: '10.1.2', clauseCode: '10.1', name: 'Relevant OSH legislation, standards and technical guidelines are maintained in an easily accessible place.', description: 'Included in the document control procedure is the control of external documents, where the application is contained in the relevant laws, regulations, standards and technical guidelines which are always updated to find out, it can be seen from the date of issuance and the list includes the location of storage.', order: 2 },
+  { code: '10.1.3', clauseCode: '10.1', name: 'There are procedures that define the requirements for maintaining the confidentiality of Records.', description: 'The proof can be seen in the record control procedure whether there are clauses that require the confidentiality of records, such as how to access, store and destroy them. Examples of records that are confidential are: Medical Check Up.', order: 3 },
+  { code: '10.1.4', clauseCode: '10.1', name: 'Records of accident compensation and health rehabilitation of workers are maintained.', description: 'Examples of review and inspection notes include: management review minutes, safety committee meeting minutes, audit results, medical records, etc. by referring to the compiled list of OHS record retention periods. Accident compensation records such as insurance and health rehabilitation are records in the form of records of healing from illness either due to work accidents or occupational diseases including recommendations for temporary or permanent transfer to other places if advised by personnel.', order: 4 },
+  // Clause 10.2
+  { code: '10.2.1', clauseCode: '10.2', name: 'The latest OSH data is collected and analysed.', description: 'The company\'s OHS data can be in the form of; minimum work accident data such as FR & SR, Medical Cost, occupational disease reports, presentation of inspection data, OHS program performance achievement data, work environment monitoring data (eg noise, NAV, etc.) where all data are analyzed by tables, matrices, or graphics or otherwise is in the form of data processing, while data analysis includes analysis to find the root cause of the data processing carried out and includes corrective and preventive actions.', order: 1 },
+  { code: '10.2.2', clauseCode: '10.2', name: 'Regular OHS performance reports are made and disseminated in the workplace.', description: 'For example, routine K3 reports; Reports related to OHS performance are included in the monitoring of the OHS program.', order: 2 },
+  // Clause 11.1
+  { code: '11.1.1', clauseCode: '11.1', name: 'Scheduled OHSMS internal audits are carried out to check the suitability of planning activities and to determine the effectiveness of these activities.', description: 'The company has a schedule of OHSMS internal audit activities and has been carried out according to that schedule. Refer to internal audit procedures. Look at the existing audit reports> The evidence must be certain that these 166 criteria have been audited in a year, to see their effectiveness, it can be seen from their qualitative presentation.', order: 1 },
+  { code: '11.1.2', clauseCode: '11.1', name: 'OHSMS Internal Audit is carried out by competent and authorized officers.', description: 'OHSMS internal auditors/officers must be competent, that is, they have been equipped with an understanding of the content of OHSMS and this OHSMS audit standard. Look at the training notes/certificates or at the sample reports so far. Independent i.e. it does not audit its own part. In accordance with Permenakertrans No. 18 of 2008.', order: 2 },
+  { code: '11.1.3', clauseCode: '11.1', name: 'The audit report is distributed to the entrepreneur or management and other related officers and monitored to ensure that corrective action is taken.', description: 'Look at the non-conformance report/NCR audit if there is any sign of approval/approval that corrective action has been completed. We can also see the priority of audit findings on the monitoring sheet for the recapitulation of corrective actions on audit results in accordance with the date line or not, then see the statement if it has not been carried out it will be closed. Each audit report contains a distribution list of receipts of the report documents.', order: 3 },
+  // Clause 12.1
+  { code: '12.1.1', clauseCode: '12.1', name: 'An analysis of the need for OHS training in accordance with the requirements of the legislation has been carried out.', description: 'There is a TNA (training need analysis) document that covers the need for OSH training (the relationship between OHS competence and OHS training that needs to be prepared/planned. See the training matrix', order: 1 },
+  { code: '12.1.2', clauseCode: '12.1', name: 'OSH training plans for all levels have been prepared.', description: 'Look at the company\'s annual training program and then compose the training participants.', order: 2 },
+  { code: '12.1.3', clauseCode: '12.1', name: 'The type of OSH training carried out must be adjusted to the need for controlling potential hazards.', description: 'Look again at the OHS training matrix. By adjusting to the job qualifications and adjusted to the potential hazards of the workplace. Special attention to the training required by law such as forklift operators, cranes, fire crews and OHS Experts.', order: 3 },
+  { code: '12.1.4', clauseCode: '12.1', name: 'The training is carried out by a competent and authorized person or body in accordance with the laws and regulations.', description: 'This criterion is related to third parties whose services are used to conduct training. This is regulated in Permenaker No.04/MEN/1995 concerning OHS Service Companies. This conformity can be ensured in the service purchase contract.', order: 4 },
+  { code: '12.1.5', clauseCode: '12.1', name: 'There are adequate facilities and resources for the effective implementation of training.', description: 'The company provides facilities (classes, boards, OHP, LCD, etc.) and resources (trainers, funds) for training activities (especially if the training is internal).', order: 5 },
+  { code: '12.1.6', clauseCode: '12.1', name: 'The company or management documents and keeps records of all training.', description: 'Training records such as attendance lists, schedules, etc. are kept and archived, including employee training history lists.', order: 6 },
+  { code: '12.1.7', clauseCode: '12.1', name: 'The training program is reviewed regularly to ensure that it remains relevant and effective.', description: 'In the training procedure there is a stage where all training programs are evaluated to determine whether they are still relevant or need further improvement. Including the percentage of successful training that has been followed. At the end of the training program, an evaluation sheet on the implementation of the training should be made', order: 7 },
+  // Clause 12.2
+  { code: '12.2.1', clauseCode: '12.2', name: 'Members of executive management and management participate in training which includes explanations of legal obligations and principles and implementation of OSH.', description: 'Senior management is involved in OHS training activities. Seen here includes participating in training, at least training on explanation of legal obligations and principles and implementation of OHS. Documents seen are training records, certificates (if any) or activities followed such as seminars etc.', order: 1 },
+  { code: '12.2.2', clauseCode: '12.2', name: 'Managers and supervisors receive training appropriate to their roles and responsibilities', description: 'The training here is not only OHS training in accordance with their roles and duties but also related to the competence of workers, which can be seen in their job qualifications and/or their training matrix. For proof, look at the training records from their certificates or training history lists. Evidence of its implementation can be seen on the training record and certificate or training history list', order: 2 },
+  // Clause 12.3
+  { code: '12.3.1', clauseCode: '12.3', name: 'Training is provided to all workers including new and transferred workers so that they can carry out their duties safely.', description: 'Each new worker receives training on how to work safely including an introduction to OHS. as well as workers who are transferred to a new section. Look at training procedures, training notes.', order: 1 },
+  { code: '12.3.2', clauseCode: '12.3', name: 'Training is given to the workforce if there is a change in the means of production or the process of changing the means of production or process.', description: 'Changes in production facilities or processes can create new hazards, so workers must be informed about these hazards.', order: 2 },
+  { code: '12.3.3', clauseCode: '12.3', name: 'Employers or administrators provide refresher training to all workers.', description: 'This refresher training depends on the existing needs/requirements. For example emergency response training once a year, first aid training, chemical handling training, etc.', order: 3 },
+  // Clause 12.4
+  { code: '12.4.1', clauseCode: '12.4', name: 'There is a procedure that stipulates the requirements to provide briefings to visitors and business partners to ensure OSH.', description: 'There is an OHS introduction training program for the workforce. Look at the training materials, training schedule and OHS introduction training attendance.', order: 1 },
+  // Clause 12.5
+  { code: '12.5.1', clauseCode: '12.5', name: 'The company has a system that ensures compliance with licensing or qualification requirements in accordance with laws and regulations to carry out special tasks, carry out work or operate equipment.', description: 'The company identifies training needs that are indeed required in the legislation. Look at the existing TNA or training matrices. Some of the trainings are; General K3 Expert: Permenaker 02/MEN/1992, Company doctor : Permenaker 01/MEN/1976, Paramedic : Permenaker No.Per. 01/MEN/1979, Welder : Permenaker No. Per.02/MEN/1982, Steam Operator : Permenaker 01/MEN/1988, Fire Team : Kepmenaker 186/MEN/1999, Chemical K3 Expert and Chemical K3 Officer : Kepmenaker No. Kep. 187/MEN/1999, First Aid Officer : Permenakertrans No.Per.15/VII/2008, Lifting and hauling operators : Permenaker 09/MEN/2010', order: 1 },
+];
+
+// Transition type mapping based on Grouping CSV
+const transitionTypeMap: Record<string, TransitionTypeEnum> = {
+  // Element 1 - INITIAL
+  '1.1.1': TransitionTypeEnum.INITIAL,
+  '1.1.3': TransitionTypeEnum.INITIAL,
+  '1.2.2': TransitionTypeEnum.INITIAL,
+  '1.2.4': TransitionTypeEnum.INITIAL,
+  '1.2.5': TransitionTypeEnum.INITIAL,
+  '1.2.6': TransitionTypeEnum.INITIAL,
+  '1.3.3': TransitionTypeEnum.INITIAL,
+  '1.4.1': TransitionTypeEnum.INITIAL,
+  '1.4.3': TransitionTypeEnum.INITIAL,
+  '1.4.4': TransitionTypeEnum.INITIAL,
+  '1.4.5': TransitionTypeEnum.INITIAL,
+  '1.4.6': TransitionTypeEnum.INITIAL,
+  '1.4.7': TransitionTypeEnum.INITIAL,
+  '1.4.8': TransitionTypeEnum.INITIAL,
+  '1.4.9': TransitionTypeEnum.INITIAL,
+  // Element 1 - TRANSITION_LEVEL
+  '1.1.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '1.2.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '1.2.3': TransitionTypeEnum.TRANSITION_LEVEL,
+  '1.3.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '1.4.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 1 - ADVANCE_LEVEL
+  '1.1.4': TransitionTypeEnum.ADVANCE_LEVEL,
+  '1.1.5': TransitionTypeEnum.ADVANCE_LEVEL,
+  '1.2.7': TransitionTypeEnum.ADVANCE_LEVEL,
+  '1.3.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  '1.4.10': TransitionTypeEnum.ADVANCE_LEVEL,
+  '1.4.11': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 2 - INITIAL
+  '2.1.1': TransitionTypeEnum.INITIAL,
+  '2.4.1': TransitionTypeEnum.INITIAL,
+  // Element 2 - TRANSITION_LEVEL
+  '2.1.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '2.1.3': TransitionTypeEnum.TRANSITION_LEVEL,
+  '2.1.4': TransitionTypeEnum.TRANSITION_LEVEL,
+  '2.2.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '2.3.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '2.3.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '2.3.4': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 2 - ADVANCE_LEVEL
+  '2.1.5': TransitionTypeEnum.ADVANCE_LEVEL,
+  '2.1.6': TransitionTypeEnum.ADVANCE_LEVEL,
+  '2.2.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  '2.2.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  '2.3.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 3 - INITIAL
+  '3.1.1': TransitionTypeEnum.INITIAL,
+  '3.2.2': TransitionTypeEnum.INITIAL,
+  // Element 3 - TRANSITION_LEVEL
+  '3.1.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '3.1.3': TransitionTypeEnum.TRANSITION_LEVEL,
+  '3.1.4': TransitionTypeEnum.TRANSITION_LEVEL,
+  '3.2.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 3 - ADVANCE_LEVEL
+  '3.2.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  '3.2.4': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 4 - INITIAL
+  '4.1.1': TransitionTypeEnum.INITIAL,
+  // Element 4 - TRANSITION_LEVEL
+  '4.1.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '4.2.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '4.2.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 4 - ADVANCE_LEVEL
+  '4.1.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  '4.1.4': TransitionTypeEnum.ADVANCE_LEVEL,
+  '4.2.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 5 - INITIAL
+  '5.1.1': TransitionTypeEnum.INITIAL,
+  '5.1.2': TransitionTypeEnum.INITIAL,
+  '5.2.1': TransitionTypeEnum.INITIAL,
+  // Element 5 - TRANSITION_LEVEL
+  '5.1.3': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 5 - ADVANCE_LEVEL
+  '5.1.4': TransitionTypeEnum.ADVANCE_LEVEL,
+  '5.1.5': TransitionTypeEnum.ADVANCE_LEVEL,
+  '5.3.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  '5.4.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  '5.4.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 6 - INITIAL
+  '6.1.1': TransitionTypeEnum.INITIAL,
+  '6.1.5': TransitionTypeEnum.INITIAL,
+  '6.1.6': TransitionTypeEnum.INITIAL,
+  '6.1.7': TransitionTypeEnum.INITIAL,
+  '6.2.1': TransitionTypeEnum.INITIAL,
+  '6.3.1': TransitionTypeEnum.INITIAL,
+  '6.3.2': TransitionTypeEnum.INITIAL,
+  '6.4.1': TransitionTypeEnum.INITIAL,
+  '6.4.2': TransitionTypeEnum.INITIAL,
+  '6.4.3': TransitionTypeEnum.INITIAL,
+  '6.4.4': TransitionTypeEnum.INITIAL,
+  '6.5.2': TransitionTypeEnum.INITIAL,
+  '6.5.3': TransitionTypeEnum.INITIAL,
+  '6.5.4': TransitionTypeEnum.INITIAL,
+  '6.5.7': TransitionTypeEnum.INITIAL,
+  '6.5.8': TransitionTypeEnum.INITIAL,
+  '6.5.9': TransitionTypeEnum.INITIAL,
+  '6.7.4': TransitionTypeEnum.INITIAL,
+  '6.7.6': TransitionTypeEnum.INITIAL,
+  '6.8.1': TransitionTypeEnum.INITIAL,
+  '6.8.2': TransitionTypeEnum.INITIAL,
+  // Element 6 - TRANSITION_LEVEL
+  '6.1.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.1.3': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.1.4': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.2.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.2.3': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.2.4': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.2.5': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.5.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.5.5': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.5.6': TransitionTypeEnum.TRANSITION_LEVEL,
+  '6.5.10': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 6 - ADVANCE_LEVEL
+  '6.1.8': TransitionTypeEnum.ADVANCE_LEVEL,
+  '6.6.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  '6.6.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  '6.7.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  '6.7.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  '6.7.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  '6.7.5': TransitionTypeEnum.ADVANCE_LEVEL,
+  '6.7.7': TransitionTypeEnum.ADVANCE_LEVEL,
+  '6.9.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 7 - INITIAL
+  '7.1.1': TransitionTypeEnum.INITIAL,
+  '7.2.1': TransitionTypeEnum.INITIAL,
+  '7.2.2': TransitionTypeEnum.INITIAL,
+  '7.2.3': TransitionTypeEnum.INITIAL,
+  '7.4.1': TransitionTypeEnum.INITIAL,
+  '7.4.3': TransitionTypeEnum.INITIAL,
+  '7.4.4': TransitionTypeEnum.INITIAL,
+  '7.4.5': TransitionTypeEnum.INITIAL,
+  // Element 7 - TRANSITION_LEVEL
+  '7.1.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '7.1.3': TransitionTypeEnum.TRANSITION_LEVEL,
+  '7.1.4': TransitionTypeEnum.TRANSITION_LEVEL,
+  '7.1.5': TransitionTypeEnum.TRANSITION_LEVEL,
+  '7.1.6': TransitionTypeEnum.TRANSITION_LEVEL,
+  '7.1.7': TransitionTypeEnum.TRANSITION_LEVEL,
+  '7.4.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 7 - ADVANCE_LEVEL
+  '7.3.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  '7.3.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 8 - INITIAL
+  '8.3.1': TransitionTypeEnum.INITIAL,
+  // Element 8 - TRANSITION_LEVEL
+  '8.1.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '8.2.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '8.3.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 8 - ADVANCE_LEVEL
+  '8.3.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  '8.3.4': TransitionTypeEnum.ADVANCE_LEVEL,
+  '8.3.5': TransitionTypeEnum.ADVANCE_LEVEL,
+  '8.3.6': TransitionTypeEnum.ADVANCE_LEVEL,
+  '8.4.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 9 - INITIAL
+  '9.1.1': TransitionTypeEnum.INITIAL,
+  '9.1.2': TransitionTypeEnum.INITIAL,
+  '9.2.1': TransitionTypeEnum.INITIAL,
+  '9.2.3': TransitionTypeEnum.INITIAL,
+  '9.3.1': TransitionTypeEnum.INITIAL,
+  '9.3.3': TransitionTypeEnum.INITIAL,
+  '9.3.4': TransitionTypeEnum.INITIAL,
+  // Element 9 - TRANSITION_LEVEL
+  '9.1.3': TransitionTypeEnum.TRANSITION_LEVEL,
+  '9.1.4': TransitionTypeEnum.TRANSITION_LEVEL,
+  '9.3.5': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 9 - ADVANCE_LEVEL
+  '9.2.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  '9.3.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 10 - TRANSITION_LEVEL
+  '10.1.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '10.1.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '10.2.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  '10.2.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 10 - ADVANCE_LEVEL
+  '10.1.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  '10.1.4': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 11 - ADVANCE_LEVEL
+  '11.1.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  '11.1.2': TransitionTypeEnum.ADVANCE_LEVEL,
+  '11.1.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  // Element 12 - INITIAL
+  '12.2.1': TransitionTypeEnum.INITIAL,
+  '12.2.2': TransitionTypeEnum.INITIAL,
+  '12.3.1': TransitionTypeEnum.INITIAL,
+  '12.5.1': TransitionTypeEnum.INITIAL,
+  // Element 12 - TRANSITION_LEVEL
+  '12.1.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '12.1.4': TransitionTypeEnum.TRANSITION_LEVEL,
+  '12.1.5': TransitionTypeEnum.TRANSITION_LEVEL,
+  '12.1.6': TransitionTypeEnum.TRANSITION_LEVEL,
+  '12.3.2': TransitionTypeEnum.TRANSITION_LEVEL,
+  '12.4.1': TransitionTypeEnum.TRANSITION_LEVEL,
+  // Element 12 - ADVANCE_LEVEL
+  '12.1.1': TransitionTypeEnum.ADVANCE_LEVEL,
+  '12.1.3': TransitionTypeEnum.ADVANCE_LEVEL,
+  '12.1.7': TransitionTypeEnum.ADVANCE_LEVEL,
+  '12.3.3': TransitionTypeEnum.ADVANCE_LEVEL,
+};
+
+export async function seedAuditPolicy(prisma: PrismaClient) {
+  console.log('Creating audit policy data...');
+
+  // Clear existing audit data
+  await prisma.auditCriteria.deleteMany();
+  await prisma.auditClause.deleteMany();
+  await prisma.auditElement.deleteMany();
+
+  // Create elements
+  const createdElements = await Promise.all(
+    auditElements.map((element) =>
+      prisma.auditElement.create({
+        data: {
+          code: element.code,
+          name: element.name,
+          description: element.description,
+          isActive: true,
+        },
+      }),
+    ),
+  );
+
+  console.log(`Created ${createdElements.length} audit elements`);
+
+  // Create a map of element codes to IDs
+  const elementMap = new Map(
+    createdElements.map((el) => [el.code, el.id]),
+  );
+
+  // Create clauses
+  const createdClauses = await Promise.all(
+    auditClauses.map((clause) =>
+      prisma.auditClause.create({
+        data: {
+          code: clause.code,
+          name: clause.name,
+          description: clause.description,
+          auditElementId: elementMap.get(clause.elementCode)!,
+          order: clause.order,
+          isActive: true,
+        },
+      }),
+    ),
+  );
+
+  console.log(`Created ${createdClauses.length} audit clauses`);
+
+  // Create a map of clause codes to IDs
+  const clauseMap = new Map(
+    createdClauses.map((cl) => [cl.code, cl.id]),
+  );
+
+  // Create criteria
+  const createdCriteria = await Promise.all(
+    auditCriteria.map((criterion) =>
+      prisma.auditCriteria.create({
+        data: {
+          code: criterion.code,
+          name: criterion.name,
+          description: criterion.description,
+          auditClauseId: clauseMap.get(criterion.clauseCode)!,
+          transitionType: transitionTypeMap[criterion.code] || TransitionTypeEnum.INITIAL,
+          order: criterion.order,
+          isActive: true,
+        },
+      }),
+    ),
+  );
+
+  console.log(`Created ${createdCriteria.length} audit criteria`);
+
+  return {
+    elements: createdElements,
+    clauses: createdClauses,
+    criteria: createdCriteria,
+  };
+}

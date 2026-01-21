@@ -30,12 +30,10 @@ const RisksPage = () => {
   const [totalRisks, setTotalRisks] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [riskToDelete, setRiskToDelete] = useState<Risk | null>(null);
-  const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
   const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Get risk categories for filtering
@@ -55,13 +53,14 @@ const RisksPage = () => {
     fetchRiskCategories();
   }, []);
 
-  // Check for category filter in URL
+  // Check for category filter in URL (MDR-017, MDR-018)
   useEffect(() => {
     const categoryId = searchParams.get('categoryId');
     if (categoryId) {
-      setSelectedCategoryId(categoryId);
+      const cat = riskCategories.find((c) => c.id === categoryId);
+      setActiveFilters((prev) => ({ ...prev, riskCategoryId: { value: categoryId, label: cat?.name || categoryId } }));
     }
-  }, [searchParams]);
+  }, [searchParams, riskCategories]);
 
   // Define filter fields
   const filterFields: FilterField[] = [
@@ -98,54 +97,76 @@ const RisksPage = () => {
     },
   ];
 
-  // Fetch risks
+  // Fetch risks (MDR-012: pass name, code, riskCategoryId, isActive from activeFilters)
   const fetchRisks = useCallback(async () => {
     try {
       setIsLoading(true);
+      const isActive =
+        activeFilters.status?.value === 'active' ? true : activeFilters.status?.value === 'inactive' ? false : undefined;
+      const riskCategoryId =
+        activeFilters.riskCategoryId?.value && activeFilters.riskCategoryId.value !== 'all'
+          ? activeFilters.riskCategoryId.value
+          : undefined;
       const response = await riskService.getAll({
         page: pageIndex + 1,
         limit,
-        isActive: activeTab === 'all' ? undefined : activeTab === 'active',
-        search: searchTerm,
+        isActive,
+        search: searchTerm || undefined,
         sortBy: sorting?.id,
         sortOrder: sorting?.desc ? 'desc' : 'asc',
-        riskCategoryId: selectedCategoryId && selectedCategoryId !== 'all' ? selectedCategoryId : undefined,
+        riskCategoryId,
+        name: activeFilters.name?.value || undefined,
+        code: activeFilters.code?.value || undefined,
       });
       setRisks(response.data);
       setTotalRisks(response.meta.total);
-      
-      // Update pageIndex based on returned page from backend
+
       if (response.meta.page) {
-        setPageIndex(response.meta.page - 1); // Convert 1-based to 0-based
+        setPageIndex(response.meta.page - 1);
       }
     } catch (error) {
       toast.error('Failed to fetch risks');
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, activeTab, searchTerm, sorting, selectedCategoryId]);
+  }, [pageIndex, limit, activeFilters, searchTerm, sorting]);
 
   useEffect(() => {
     fetchRisks();
   }, [fetchRisks]);
 
-  // Handle category filter change
+  // Handle category filter change (MDR-017, MDR-018: store in activeFilters so chip appears above list)
   const handleCategoryChange = (value: string) => {
-    setSelectedCategoryId(value);
-    // Update URL search params
+    setActiveFilters((prev) => {
+      const next = { ...prev };
+      if (value === 'all') {
+        delete next.riskCategoryId;
+      } else {
+        const cat = riskCategories.find((c) => c.id === value);
+        next.riskCategoryId = { value, label: cat?.name || value };
+      }
+      return next;
+    });
     if (value && value !== 'all') {
       searchParams.set('categoryId', value);
     } else {
       searchParams.delete('categoryId');
     }
     setSearchParams(searchParams);
-    // Reset page index when changing category
     setPageIndex(0);
   };
 
-  // Handle tab change
+  // Handle tab change (MDR-017, MDR-018: store status in activeFilters so chip appears above list)
   const handleTabChange = (value: string) => {
-    setActiveTab(value);
+    setActiveFilters((prev) => {
+      const next = { ...prev };
+      if (value === 'all') {
+        delete next.status;
+      } else {
+        next.status = { value: value as 'active' | 'inactive', label: value === 'active' ? 'Active' : 'Inactive' };
+      }
+      return next;
+    });
     setPageIndex(0);
   };
 
@@ -155,15 +176,16 @@ const RisksPage = () => {
     setPageIndex(0);
   };
 
-  // Handle filter application
+  // Handle filter application (MDR-012: include name, code, riskCategoryId, status for API)
   const handleApplyFilters = (filters: FilterValue[]) => {
     const newFilters: Record<string, { value: any; label: string }> = {};
-    filters.forEach(filter => {
-      const field = filterFields.find(f => f.id === filter.id);
+    filters.forEach((filter) => {
+      if (filter.id === 'riskCategoryId' && filter.value === 'all') return;
+      const field = filterFields.find((f) => f.id === filter.id);
       if (field) {
         let label = '';
         if (field.type === 'select' && field.options) {
-          const option = field.options.find(opt => opt.value === filter.value);
+          const option = field.options.find((opt) => opt.value === filter.value);
           label = option?.label || '';
         } else {
           label = String(filter.value);
@@ -315,19 +337,20 @@ const RisksPage = () => {
         }
       >
         <div className="flex flex-col md:flex-row gap-4 w-full">
-          <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
+          <Tabs
+            value={activeFilters.status?.value === 'active' ? 'active' : activeFilters.status?.value === 'inactive' ? 'inactive' : 'all'}
+            className="w-full"
+            onValueChange={handleTabChange}
+          >
             <TabsList>
               <TabsTrigger value="all">All Risks</TabsTrigger>
               <TabsTrigger value="active">Active</TabsTrigger>
               <TabsTrigger value="inactive">Inactive</TabsTrigger>
             </TabsList>
           </Tabs>
-          
+
           <div className="w-full md:w-64">
-            <Select
-              value={selectedCategoryId}
-              onValueChange={handleCategoryChange}
-            >
+            <Select value={activeFilters.riskCategoryId?.value || 'all'} onValueChange={handleCategoryChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
@@ -357,6 +380,7 @@ const RisksPage = () => {
           total: totalRisks
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
         sorting={sorting}
@@ -374,6 +398,7 @@ const RisksPage = () => {
         description={`Are you sure you want to delete "${riskToDelete?.name}"? This action cannot be undone. Note that risks with associated mitigations cannot be deleted.`}
         onConfirm={handleDeleteConfirm}
         variant="destructive"
+        confirmText="Delete"
       />
     </>
   );

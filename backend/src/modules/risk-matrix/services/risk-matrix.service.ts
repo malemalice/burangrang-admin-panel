@@ -51,18 +51,15 @@ export class RiskMatrixService {
   }
 
   async calculateRiskRating(
-    likelihoodLevel: number,
-    consequenceLevel: string,
+    likelihoodLevel: string,
+    consequenceLevel: number,
   ): Promise<RiskRating> {
-    // Convert consequence level letter (A, B, C, D, E, etc.) to number (1, 2, 3, 4, 5, etc.)
-    // A = 1, B = 2, C = 3, D = 4, E = 5, etc.
-    const consequenceLevelNum = consequenceLevel.charCodeAt(0) - 64; // 'A'.charCodeAt(0) = 65, so A becomes 1
-
     // Query RiskMatrix table to find matching risk rating
+    // Database stores: likelihoodLevel as String (A, B, C, D, E, etc.), consequenceLevel as Int (1, 2, 3, 4, 5, etc.)
     const riskMatrix = await this.prisma.riskMatrix.findFirst({
       where: {
-        likelihoodLevel,
-        consequenceLevel: consequenceLevel.toUpperCase(),
+        likelihoodLevel: likelihoodLevel,
+        consequenceLevel: consequenceLevel,
         isActive: true,
       },
     });
@@ -74,8 +71,10 @@ export class RiskMatrixService {
       riskMatrix,
     );
 
-    // Calculate risk score (likelihoodLevel * consequenceLevel number)
-    const score = likelihoodLevel * consequenceLevelNum;
+    // Calculate risk score (likelihoodLevel number * consequenceLevel)
+    // Convert likelihood letter to number for score calculation: A=1, B=2, C=3, D=4, E=5, etc.
+    const likelihoodLevelNum = likelihoodLevel.charCodeAt(0) - 64; // 'A'.charCodeAt(0) = 65, so A becomes 1
+    const score = likelihoodLevelNum * consequenceLevel;
 
     // Map RiskRatingEnum to RiskLevel
     const riskLevel = this.mapRiskRatingToRiskLevel(riskMatrix.risk_rating);
@@ -196,9 +195,14 @@ export class RiskMatrixService {
     });
     this.errorHandler.throwIfNotFoundById('RiskMatrix', id, existing);
 
+    // Build update data with only defined fields so risk_rating and other optional fields are persisted correctly
+    const data = Object.fromEntries(
+      Object.entries(updateRiskMatrixDto).filter(([_, v]) => v !== undefined),
+    );
+
     const updated = await this.prisma.riskMatrix.update({
       where: { id },
-      data: updateRiskMatrixDto,
+      data,
     });
     return this.riskMatrixMapper(updated);
   }

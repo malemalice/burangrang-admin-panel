@@ -62,7 +62,7 @@ const formSchema = z.object({
             path: ['requestedForName'],
         });
     }
-    
+
     // Validate jobPositionId or jobPositionName
     if (!data.jobPositionId && !data.jobPositionName) {
         ctx.addIssue({
@@ -76,7 +76,7 @@ const formSchema = z.object({
             path: ['jobPositionName'],
         });
     }
-    
+
     // Validate items - ensure all items have stockItemId
     data.items.forEach((item, index) => {
         if (!item.stockItemId) {
@@ -173,7 +173,36 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                 setDepartments(deptsRes.data);
                 setJobPositions(positionsRes.data);
                 setUsers(usersRes.data);
-                setAvailableStockItems(stockItemsRes.data);
+
+                // For edit mode, include existing withdrawal items in available options
+                // This ensures previously selected items appear in the dropdown
+                let finalStockItems = stockItemsRes.data;
+                if (withdrawal && mode === 'edit' && withdrawal.items) {
+                    const existingItemIds = new Set(stockItemsRes.data.map(si => si.id));
+                    const existingWithdrawalItems: PPEStockItem[] = [];
+
+                    for (const item of withdrawal.items) {
+                        if (!existingItemIds.has(item.stockItemId)) {
+                            existingWithdrawalItems.push({
+                                id: item.stockItemId,
+                                stockId: '',
+                                equipmentName: item.stockItemEquipmentName || 'Unknown',
+                                equipmentType: item.stockItemEquipmentType || null,
+                                equipmentSize: item.stockItemEquipmentSize || null,
+                                currentQuantity: item.requestedQuantity,
+                                initialQuantity: 0,
+                                reservedQuantity: 0,
+                                status: PPEStockStatus.AVAILABLE,
+                                order: item.order,
+                                createdAt: '',
+                                updatedAt: '',
+                            });
+                        }
+                    }
+
+                    finalStockItems = [...stockItemsRes.data, ...existingWithdrawalItems];
+                }
+                setAvailableStockItems(finalStockItems);
 
                 // Set form data for edit mode
                 if (withdrawal && mode === 'edit') {
@@ -413,9 +442,10 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                 toast.success('Withdrawal updated successfully');
                 navigate(`/ppe/withdrawals/${withdrawal!.id}`);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving withdrawal:', error);
-            toast.error(`Failed to ${mode} withdrawal`);
+            const errorMessage = error.response?.data?.message || `Failed to ${mode} withdrawal`;
+            toast.error(errorMessage);
         } finally {
             setIsLoading(false);
         }

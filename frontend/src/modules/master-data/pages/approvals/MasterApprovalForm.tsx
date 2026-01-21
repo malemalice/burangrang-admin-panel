@@ -17,22 +17,26 @@ import {
 import { Input } from '@/core/components/ui/input';
 import { Switch } from '@/core/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import { SearchableSelect } from '@/core/components/ui/searchable-select';
+import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
 import masterApprovalService from '../../services/masterApprovalService';
-import { CreateMasterApprovalDTO } from '../../types/master-data.types';
+import { CreateMasterApprovalDTO, UpdateMasterApprovalDTO } from '../../types/master-data.types';
 import { MasterApproval } from '@/core/lib/types';
 import jobPositionService from '../../services/jobPositionService';
 import departmentService from '../../services/departmentService';
-import { userService } from '@/modules/users';
+
+// Sentinel values for dynamic approval fields
+const APPROVAL_FIELD_MARKERS = {
+  FROM_ENTITY_DEPARTMENT: '@ENTITY_DEPARTMENT',
+  FROM_ENTITY_JOB_POSITION: '@ENTITY_JOB_POSITION',
+} as const;
 
 const formSchema = z.object({
   entity: z.string().min(1, 'Entity is required'),
   isActive: z.boolean().default(true),
   items: z.array(z.object({
-    job_position_id: z.string().min(1, 'Job Position is required'),
-    department_id: z.string().min(1, 'Department is required'),
-    createdBy: z.string().min(1, 'Creator is required'),
-    order: z.number().optional(),
+    jobPositionId: z.string().min(1, 'Job Position is required'),
+    departmentId: z.string().min(1, 'Department is required'),
+    order: z.number().default(1),
   })).min(1, 'At least one approval item is required'),
 });
 
@@ -45,17 +49,17 @@ interface MasterApprovalFormProps {
 
 const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [dataReady, setDataReady] = useState(false);
   const [jobPositions, setJobPositions] = useState<{ id: string; name: string }[]>([]);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
-  const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       entity: '',
       isActive: true,
-      items: [{ job_position_id: '', department_id: '', createdBy: '', order: 1 }],
+      items: [{ jobPositionId: '', departmentId: '', order: 1 }],
     },
   });
 
@@ -64,50 +68,114 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
     name: 'items',
   });
 
+  // Convert data to SearchableSelectOption format
+  const jobPositionOptions: SearchableSelectOption[] = [
+    ...jobPositions.map(position => ({
+      value: position.id,
+      label: position.name,
+    })),
+    {
+      value: APPROVAL_FIELD_MARKERS.FROM_ENTITY_JOB_POSITION,
+      label: 'Dynamic: From Entity Data (Department Head)',
+    },
+  ];
+
+  const departmentOptions: SearchableSelectOption[] = [
+    ...departments.map(dept => ({
+      value: dept.id,
+      label: dept.name,
+    })),
+    {
+      value: APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT,
+      label: 'Dynamic: From Entity Data',
+    },
+  ];
+
+  // Fetch options (job positions and departments)
   useEffect(() => {
     const fetchOptions = async () => {
       try {
-        const [positionsRes, deptsRes, usersRes] = await Promise.all([
+        setIsLoading(true);
+        setDataReady(false);
+
+        const [positionsRes, deptsRes] = await Promise.all([
           jobPositionService.getAll({ page: 1, limit: 100 }),
           departmentService.getDepartments({ page: 1, limit: 100 }),
-          userService.getUsers({ page: 1, limit: 100 }),
         ]);
 
-        setJobPositions(positionsRes.data);
-        setDepartments(deptsRes.data);
-        setUsers(usersRes.data);
+        setJobPositions(positionsRes.data || []);
+        setDepartments(deptsRes.data || []);
+
+        // Set data ready after options are loaded
+        setDataReady(true);
       } catch (error) {
         console.error('Failed to fetch options:', error);
         toast.error('Failed to load form options');
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchOptions();
   }, []);
 
+  // Reset form when approval data is available and options are loaded
   useEffect(() => {
-    if (approval) {
-      form.reset({
-        entity: approval.entity,
-        isActive: approval.isActive,
-        items: approval.items.map(item => ({
-          job_position_id: item.job_position_id,
-          department_id: item.department_id,
-          createdBy: item.createdBy,
+    if (approval && dataReady && jobPositions.length > 0 && departments.length > 0) {
+      if (approval.items && approval.items.length > 0) {
+        const items = approval.items.map(item => ({
+          jobPositionId: item.jobPositionId,
+          departmentId: item.departmentId,
           order: item.order,
-        })),
-      });
+        }));
+        
+        console.log('Resetting form with approval items:', items);
+        
+        form.reset({
+          entity: approval.entity,
+          isActive: approval.isActive,
+          items,
+        });
+      } else {
+        // Handle case where approval exists but has no items
+        form.reset({
+          entity: approval.entity,
+          isActive: approval.isActive,
+          items: [{ jobPositionId: '', departmentId: '', order: 1 }],
+        });
+      }
     }
-  }, [approval, form]);
+  }, [approval, dataReady, jobPositions, departments, form]);
 
   const onSubmit = async (data: FormValues) => {
     try {
       setIsLoading(true);
+      
+      // Always use index + 1 as order since the visual position in the form IS the approval sequence
+      // This ensures proper ordering regardless of how items were added or reordered
+      const itemsWithOrder = data.items.map((item, index) => ({
+        order: index + 1, // Always use 1-based index as order
+        jobPositionId: item.jobPositionId,
+        departmentId: item.departmentId,
+      }));
+      
+      console.log('[MasterApprovalForm] Submitting items with orders:', itemsWithOrder);
+      
       if (mode === 'create') {
-        await masterApprovalService.create(data);
+        const createData: CreateMasterApprovalDTO = {
+          entity: data.entity,
+          isActive: data.isActive,
+          items: itemsWithOrder,
+        };
+        await masterApprovalService.create(createData);
         toast.success('Master approval created successfully');
       } else if (approval) {
-        await masterApprovalService.update(approval.id, data);
+        const updateData: UpdateMasterApprovalDTO = {
+          entity: data.entity,
+          isActive: data.isActive,
+          items: itemsWithOrder,
+        };
+        await masterApprovalService.update(approval.id, updateData);
         toast.success('Master approval updated successfully');
       }
       navigate('/master/approvals');
@@ -122,6 +190,21 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
   const moveItem = (from: number, to: number) => {
     move(from, to);
   };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent>
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+              <span>Loading form options...</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -171,7 +254,8 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
                 <h3 className="text-lg font-medium">Approval Flow</h3>
                 <Button
                   type="button"
-                  onClick={() => append({ job_position_id: '', department_id: '', createdBy: '', order: fields.length + 1 })}
+                  onClick={() => append({ jobPositionId: '', departmentId: '', order: fields.length + 1 })}
+                  disabled={!dataReady}
                 >
                   <Plus className="mr-2 h-4 w-4" /> Add Step
                 </Button>
@@ -191,20 +275,21 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
-                          name={`items.${index}.job_position_id`}
+                          name={`items.${index}.jobPositionId`}
                           render={({ field }) => (
-                            <FormItem>
+                            <FormItem className="flex flex-col">
                               <FormLabel>Job Position</FormLabel>
                               <FormControl>
-                                <SearchableSelect
-                                  options={jobPositions.map(position => ({
-                                    value: position.id,
-                                    label: position.name,
-                                  }))}
-                                  value={field.value}
-                                  onValueChange={field.onChange}
-                                  placeholder="Select job position"
-                                />
+                                {dataReady && (
+                                  <SearchableSelect
+                                    options={jobPositionOptions}
+                                    value={field.value}
+                                    onValueChange={(value) => form.setValue(`items.${index}.jobPositionId`, value)}
+                                    placeholder="Select job position"
+                                    searchPlaceholder="Search job position..."
+                                    emptyText="No job position found."
+                                  />
+                                )}
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -213,26 +298,26 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
 
                         <FormField
                           control={form.control}
-                          name={`items.${index}.department_id`}
+                          name={`items.${index}.departmentId`}
                           render={({ field }) => (
-                            <FormItem>
+                            <FormItem className="flex flex-col">
                               <FormLabel>Department</FormLabel>
                               <FormControl>
-                                <SearchableSelect
-                                  options={departments.map(dept => ({
-                                    value: dept.id,
-                                    label: dept.name,
-                                  }))}
-                                  value={field.value}
-                                  onValueChange={field.onChange}
-                                  placeholder="Select department"
-                                />
+                                {dataReady && (
+                                  <SearchableSelect
+                                    options={departmentOptions}
+                                    value={field.value}
+                                    onValueChange={(value) => form.setValue(`items.${index}.departmentId`, value)}
+                                    placeholder="Select department"
+                                    searchPlaceholder="Search department..."
+                                    emptyText="No department found."
+                                  />
+                                )}
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-
                       </div>
                     </div>
 
@@ -259,7 +344,7 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isLoading}>
+              <Button type="submit" disabled={isLoading || !dataReady}>
                 {mode === 'create' ? 'Create' : 'Save Changes'}
               </Button>
             </div>

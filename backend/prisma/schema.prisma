@@ -8,6 +8,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Email Templates - Master Data
+model EmailTemplate {
+  id               String   @id @default(uuid())
+  code             String   @unique         // unique code, e.g. "verification"
+  name             String                      // Human readable name
+  subjectTemplate  String                      // Handlebars template for subject
+  bodyTemplate     String   @db.Text           // Handlebars template for HTML body
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("m_email_templates")
+}
+
 model User {
   id                           String                     @id @default(uuid())
   email                        String                     @unique
@@ -46,7 +60,7 @@ model User {
   instructorCourses            Course[]                   @relation("CourseInstructor")
   enrollments                  Enrollment[]
   enrollmentsAssigned          Enrollment[]               @relation("EnrollmentAssigner")
-  reminders                    Reminder[]                 @relation("UserReminders")
+  createdReminders             Reminder[]                 @relation("CreatedReminders")
   quizzesCreated               Quiz[]                     @relation("QuizCreator")
   quizAssignments              QuizAssignment[]           @relation("QuizAssignmentUser")
   quizAssignmentsAssigned      QuizAssignment[]           @relation("QuizAssignmentAssigner")
@@ -61,6 +75,9 @@ model User {
   workPermitEmployees          WorkPermitEmployee[]       @relation("WorkPermitEmployee")
   workPermitHseOfficers        WorkPermitToUser[]         @relation("WorkPermitHseOfficer")
   environmentalMeasurements    EnvironmentalMeasurement[] @relation("EnvironmentalMeasurementCreator")
+  inspectionsCreated           Inspection[]               @relation("InspectionCreator")
+  inspectionItemsAssigned      InspectionItem[]           @relation("InspectionItemAssignee")
+  inspectionInspectors         InspectionInspector[]      @relation("InspectionInspectorUser")
 
   // Waste Management Relations
   treatmentPlantsCreated          TreatmentPlant[]        @relation("TreatmentPlantCreator")
@@ -80,6 +97,11 @@ model User {
 
   // Man Hour Relations
   manHoursCreated                 ManHour[]               @relation("ManHourCreator")
+
+  // Audit Relations
+  auditsCreated                   Audit[]                 @relation("AuditCreator")
+  auditItemsAssigned              AuditItemToUser[]       @relation("AuditItemAssignee")
+  auditsAsAuditor                 AuditToUser[]           @relation("AuditAuditor")
 
   @@map("t_users")
 }
@@ -111,6 +133,7 @@ model PasswordResetToken {
 model Role {
   id                     String                  @id @default(uuid())
   name                   String                  @unique
+  code                   String                  @unique
   description            String?
   isActive               Boolean                 @default(true)
   createdAt              DateTime                @default(now())
@@ -174,36 +197,39 @@ model Office {
 }
 
 model Department {
-  id              String               @id @default(uuid())
-  name            String
-  code            String               @unique
-  description     String?              @db.Text
-  isActive        Boolean              @default(true)
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @default(now())
-  users           User[]
-  riskAssessments RiskAssessment[]
-  approvalItems   MasterApprovalItem[]
-  approvals       Approval[]
-  ppeWithdrawals  PPEWithdrawal[]
-  certificates    Certificate[]
+  id                   String                 @id @default(uuid())
+  name                 String
+  code                 String                 @unique
+  description          String?                @db.Text
+  emails               Json?                  // Array of email addresses for the department
+  isActive             Boolean                @default(true)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @default(now())
+  users                User[]
+  riskAssessments      RiskAssessment[]
+  approvals            Approval[]
+  ppeWithdrawals       PPEWithdrawal[]
+  certificates         Certificate[]
+  notificationRecipients NotificationRecipient[]
+  inspectionItems      InspectionItem[]
+  auditItemToDepartments AuditItemToDepartment[]
 
   @@map("m_departments")
 }
 
 model JobPosition {
-  id             String               @id @default(uuid())
-  name           String
-  code           String               @unique
-  level          Int
-  description    String?              @db.Text
-  isActive       Boolean              @default(true)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @default(now())
-  users          User[]
-  approvalItems  MasterApprovalItem[]
-  approvals      Approval[]
-  ppeWithdrawals PPEWithdrawal[]
+  id                   String                 @id @default(uuid())
+  name                 String
+  code                 String                 @unique
+  level                Int
+  description          String?                @db.Text
+  isActive             Boolean                @default(true)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @default(now())
+  users                User[]
+  approvals            Approval[]
+  ppeWithdrawals       PPEWithdrawal[]
+  notificationRecipients NotificationRecipient[]
 
   @@map("m_job_positions")
 }
@@ -218,6 +244,7 @@ model RiskCategory {
   updatedAt           DateTime             @updatedAt
   risks               Risk[]
   riskAssessmentItems RiskAssessmentItem[]
+  inspectionItems     InspectionItem[]
 
   @@map("m_risk_categories")
 }
@@ -235,6 +262,7 @@ model Risk {
   mitigations         RiskMitigation[]
   riskAssessmentItems RiskAssessmentItem[]
   workPermitHazards   WorkPermitHazard[]
+  inspectionItems     InspectionItem[]
 
   @@map("m_risk")
 }
@@ -272,6 +300,29 @@ model RiskControl {
   @@index([isActive])
 }
 
+// Risk Mitigation - Transactional Data (Polymorphic)
+// Supports RISK_ASSESSMENT_ITEM and INSPECTION_ITEM entity types
+// Related to RiskAssessmentItem (entity='RISK_ASSESSMENT_ITEM') and InspectionItem (entity='INSPECTION_ITEM')
+// 1-to-1 relationship: Each RiskAssessmentItem or InspectionItem can have one RiskMitigationRecord
+model RiskMitigationRecord {
+  id           String   @id @default(uuid())
+  code         String   @unique // Auto-generated code with prefix RSK{datetime}, not user-updatable
+  eliminate    String?  @db.Text
+  transfer     String?  @db.Text
+  reduce       String?  @db.Text
+  accept       String?  @db.Text
+  legalAspect  String?  @db.Text
+  isActive     Boolean  @default(true)
+  entity       String   // Entity type identifier (RISK_ASSESSMENT_ITEM, INSPECTION_ITEM)
+  entityId     String   // Entity ID - references t_risk_assessment_item.id or t_inspection_items.id
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("t_risk_mitigation")
+  @@index([entity, entityId])
+  @@index([isActive])
+}
+
 enum RiskRatingEnum {
   LOW
   MEDIUM
@@ -281,10 +332,10 @@ enum RiskRatingEnum {
 
 model RiskMatrix {
   id               String         @id @default(uuid())
-  likelihoodLevel  Int
+  likelihoodLevel  String
   likelihoodName   String         @default("")
   likelihoodDesc   String         @default("") @db.Text
-  consequenceLevel String
+  consequenceLevel Int
   consequenceName  String         @default("")
   consequenceDesc  String         @default("") @db.Text
   risk_rating      RiskRatingEnum
@@ -324,11 +375,11 @@ model RiskAssessmentItem {
   mRisk               Risk           @relation(fields: [mRiskId], references: [id])
   mRiskCategoryId     String
   mRiskCategory       RiskCategory         @relation(fields: [mRiskCategoryId], references: [id])
-  likelihoodLevel     Int
+  likelihoodLevel     String
   consequenceLevel    Int
   riskMatrixRating    String
   interpretation      RiskRatingEnum
-  postLikelihoodLevel Int
+  postLikelihoodLevel String
   postConsequenceLevel Int
   postRiskMatrixRating String
   postInterpretation   RiskRatingEnum
@@ -354,8 +405,9 @@ model MasterApprovalItem {
   departmentId  String
   createdBy     String
   createdAt     DateTime       @default(now())
-  jobPosition   JobPosition    @relation(fields: [jobPositionId], references: [id])
-  department    Department     @relation(fields: [departmentId], references: [id])
+  // Relations removed to support sentinel values (@ENTITY_DEPARTMENT, @ENTITY_JOB_POSITION)
+  // Relations are loaded manually via loadItemRelations() to handle sentinel values
+  // No foreign key constraints - jobPositionId and departmentId are plain String fields
   creator       User           @relation("CreatedApprovalItems", fields: [createdBy], references: [id])
 
   @@map("m_approval_item")
@@ -387,6 +439,24 @@ model Setting {
   updatedAt DateTime @updatedAt
 
   @@map("m_settings")
+}
+
+// Zoho Webhook Logs - Transactional Data
+model TZohoWebhookLogs {
+  id          String   @id @default(uuid())
+  requestId   String   @unique // X-Zoho-Request-Id header for idempotency
+  eventType   String   // Event type (e.g., contact.created, lead.updated)
+  status      String   // processed | failed | duplicate
+  payload     Json     // Full webhook payload
+  errorMessage String? @db.Text // Error message if status is failed
+  processedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([requestId])
+  @@index([eventType])
+  @@index([status])
+  @@index([processedAt])
+  @@map("t_zoho_webhook_logs")
 }
 
 // Notification System Models
@@ -430,6 +500,8 @@ model NotificationRecipient {
   notificationId String
   roleId         String
   userId         String? // Optional: specific user if targeting individual
+  departmentId   String? // Optional: target specific department
+  jobPositionId  String? // Optional: target specific job position
   isRead         Boolean   @default(false)
   readAt         DateTime?
   createdAt      DateTime  @default(now())
@@ -438,8 +510,10 @@ model NotificationRecipient {
   notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
   role         Role         @relation(fields: [roleId], references: [id])
   user         User?        @relation("NotificationRecipient", fields: [userId], references: [id])
+  department   Department?  @relation(fields: [departmentId], references: [id])
+  jobPosition  JobPosition? @relation(fields: [jobPositionId], references: [id])
 
-  @@unique([notificationId, roleId, userId])
+  @@unique([notificationId, roleId, userId, departmentId, jobPositionId])
   @@map("t_notification_recipients")
 }
 
@@ -536,27 +610,45 @@ enum ReminderRepeatTypeEnum {
   MONTHLY
 }
 
+enum ReminderTargetTypeEnum {
+  USER
+  ROLE
+  DEPARTMENT
+  OFFICE
+}
+
 // Reminder - Scheduled task that triggers at specific time
 model Reminder {
-  id          String                  @id @default(uuid())
-  userId      String
-  entity      String? // Context/module name (e.g., "t_incidents", "t_audits")
-  entityId    String? // Entity primary key
+  id          String                    @id @default(uuid())
+  
+  // Polymorphic target - determines who receives the reminder
+  targetType  ReminderTargetTypeEnum    @default(USER)
+  targetId    String                    // userId, roleId, departmentId, or officeId
+  
+  // Context linking (polymorphic entity)
+  entity      String?                   // Context/module name (e.g., "t_incidents", "t_audits")
+  entityId    String?                   // Entity primary key
+  
+  // Reminder content and scheduling
   message     String
   remindAt    DateTime
-  repeatType  ReminderRepeatTypeEnum? // NONE, WEEKLY, MONTHLY
+  repeatType  ReminderRepeatTypeEnum?
   repeatUntil DateTime?
-  status      ReminderStatusEnum      @default(PENDING)
+  status      ReminderStatusEnum        @default(PENDING)
   lastSentAt  DateTime?
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
+  
+  // Metadata
+  createdBy   String                    // User who created this reminder
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
 
   // Relations
-  user User          @relation("UserReminders", fields: [userId], references: [id])
-  logs ReminderLog[]
+  createdByUser User                    @relation("CreatedReminders", fields: [createdBy], references: [id])
+  logs          ReminderLog[]
 
   @@index([status, remindAt])
-  @@index([userId])
+  @@index([targetType, targetId])
+  @@index([createdBy])
   @@index([entity, entityId])
   @@map("t_reminders")
 }
@@ -825,7 +917,7 @@ model Course {
   rating           Decimal   @default(0) @db.Decimal(3, 2)
   reviewCount      Int       @default(0)
   studentCount     Int       @default(0)
-  instructorId     String
+  instructorId     String?
   status           String    @default("draft") // draft, review, published, archived
   isPublished      Boolean   @default(false)
   publishedAt      DateTime?
@@ -834,7 +926,7 @@ model Course {
   updatedAt        DateTime  @updatedAt
 
   // Relations
-  instructor                User                       @relation("CourseInstructor", fields: [instructorId], references: [id])
+  instructor                User?                      @relation("CourseInstructor", fields: [instructorId], references: [id])
   chapters                  Chapter[]
   categories                CourseCategory[]           @relation("CourseToCategory")
   enrollments               Enrollment[]
@@ -1299,8 +1391,128 @@ model Area {
   workPermits      WorkPermit[]
   rooms            Room[]
   storageLocations StorageLocation[]
+  inspectionItems  InspectionItem[]
+  inspections      InspectionToArea[]
+  audits           AuditToArea[]
 
   @@map("m_areas")
+}
+
+// ============================================================
+// INSPECTION SYSTEM
+// ============================================================
+
+// Inspection - Transactional Data
+model Inspection {
+  id             String                 @id @default(uuid())
+  code           String                 @unique
+  inspectionDate DateTime
+  status         GeneralStatusEnum
+  isActive       Boolean                @default(true)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  createdBy      String
+  doneAt         DateTime?
+
+  // Relations
+  creator    User                   @relation("InspectionCreator", fields: [createdBy], references: [id])
+  items      InspectionItem[]
+  inspectors InspectionInspector[]
+  areas      InspectionToArea[]
+
+  @@index([status])
+  @@map("t_inspections")
+}
+
+// Inspection Item - Transactional Data
+// Has 1-to-1 polymorphic relation with RiskMitigationRecord (entity='INSPECTION_ITEM', entityId=id)
+model InspectionItem {
+  id                  String   @id @default(uuid())
+  inspectionId        String
+  areaId              String
+  riskCategoryId      String
+  riskId              String
+  assignedDepartmentId String
+  assigneeId          String?
+  status              GeneralStatusEnum @default(OPEN)
+  findings            String?  @db.Text
+  description         String?  @db.Text
+  followUpNotes       String?  @db.Text
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  dueDateAt           DateTime?
+
+  // Relations
+  inspection          Inspection     @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  area                Area           @relation(fields: [areaId], references: [id])
+  riskCategory        RiskCategory   @relation(fields: [riskCategoryId], references: [id])
+  risk                Risk           @relation(fields: [riskId], references: [id])
+  assignedDepartment  Department     @relation(fields: [assignedDepartmentId], references: [id])
+  assignee            User?          @relation("InspectionItemAssignee", fields: [assigneeId], references: [id])
+  images              InspectionImage[]
+
+  @@index([inspectionId])
+  @@index([areaId])
+  @@index([riskCategoryId])
+  @@index([riskId])
+  @@index([assignedDepartmentId])
+  @@index([assigneeId])
+  @@index([status])
+  @@map("t_inspection_items")
+}
+
+// Inspection Image - Transactional Data
+// Supports before/after fix action plan tracking
+model InspectionImage {
+  id               String                  @id @default(uuid())
+  inspectionItemId String
+  imageUrl         String
+  caption          String?                 @db.Text
+  type             InspectionImageTypeEnum @default(GENERAL) // BEFORE: before fix action plan, AFTER: after fix action plan, GENERAL: general inspection image
+  order            Int
+  createdAt        DateTime                 @default(now())
+
+  // Relations
+  inspectionItem InspectionItem @relation(fields: [inspectionItemId], references: [id], onDelete: Cascade)
+
+  @@index([inspectionItemId])
+  @@index([inspectionItemId, type])
+  @@index([order])
+  @@map("t_inspection_images")
+}
+
+// Inspection Inspector - Transactional Data
+model InspectionInspector {
+  id           String   @id @default(uuid())
+  inspectionId String
+  inspectorId  String
+  order        Int
+  createdAt    DateTime @default(now())
+
+  // Relations
+  inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  inspector  User       @relation("InspectionInspectorUser", fields: [inspectorId], references: [id])
+
+  @@index([inspectionId])
+  @@index([inspectorId])
+  @@map("t_inspection_inspectors")
+}
+
+// Inspection to Area - Many-to-Many Junction Table
+model InspectionToArea {
+  id           String   @id @default(uuid())
+  inspectionId String
+  areaId       String
+  createdAt    DateTime @default(now())
+
+  // Relations
+  inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  area       Area       @relation(fields: [areaId], references: [id])
+
+  @@unique([inspectionId, areaId])
+  @@index([inspectionId])
+  @@index([areaId])
+  @@map("_InspectionToArea")
 }
 
 model Room {
@@ -1658,6 +1870,230 @@ enum GeneralStatusEnum {
   WAITING_APPROVAL
   DONE
   REJECTED
+  CLOSE
+}
+
+enum TransitionTypeEnum {
+  INITIAL
+  TRANSITION_LEVEL
+  ADVANCE_LEVEL
+}
+
+enum InspectionImageTypeEnum {
+  BEFORE  // Image taken before fix/action plan
+  AFTER   // Image taken after fix/action plan
+  GENERAL // General inspection image
+}
+
+// ============================================================
+// AUDIT SYSTEM - Master Data
+// ============================================================
+
+// Audit Element - Master Data
+model AuditElement {
+  id          String        @id @default(uuid())
+  name        String
+  code        String        @unique
+  description String?      @db.Text
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  clauses AuditClause[]
+  audits  Audit[]
+
+  @@map("m_audit_element")
+}
+
+// Audit Clause - Master Data
+model AuditClause {
+  id             String        @id @default(uuid())
+  name           String
+  code           String        @unique
+  description    String?      @db.Text
+  auditElementId String
+  order          Int
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  auditElement AuditElement  @relation(fields: [auditElementId], references: [id])
+  criteria     AuditCriteria[]
+
+  @@index([auditElementId])
+  @@index([order])
+  @@map("m_audit_clause")
+}
+
+// Audit Criteria - Master Data
+model AuditCriteria {
+  id             String            @id @default(uuid())
+  name           String
+  code           String            @unique
+  description    String?           @db.Text
+  auditClauseId  String
+  transitionType TransitionTypeEnum
+  order          Int
+  isActive       Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  // Relations
+  auditClause AuditClause @relation(fields: [auditClauseId], references: [id])
+  auditItems  AuditItem[]
+
+  @@index([auditClauseId])
+  @@index([order])
+  @@map("m_audit_criteria")
+}
+
+// ============================================================
+// AUDIT SYSTEM - Transactional Data
+// ============================================================
+
+enum CompliantStatusEnum {
+  COMPLY
+  NOT_COMPLY_MAJOR
+  NOT_COMPLY_MINOR
+}
+
+// Audit - Transactional Data
+model Audit {
+  id             String         @id @default(uuid())
+  code           String         @unique
+  auditDate      DateTime
+  auditElementId String
+  status         GeneralStatusEnum
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  createdBy      String
+
+  // Relations
+  areas       AuditToArea[]
+  auditElement AuditElement @relation(fields: [auditElementId], references: [id])
+  creator     User         @relation("AuditCreator", fields: [createdBy], references: [id])
+  items       AuditItem[]
+  auditors    AuditToUser[]
+
+  @@index([auditElementId])
+  @@index([status])
+  @@map("t_audits")
+}
+
+// Audit Item - Transactional Data
+model AuditItem {
+  id               String                @id @default(uuid())
+  auditId          String
+  auditCriteriaId  String
+  status           GeneralStatusEnum     @default(OPEN)
+  compliantStatus  CompliantStatusEnum
+  evidence         String?               @db.Text
+  recommendation   String?               @db.Text
+  actionRealization String?              @db.Text
+  order            Int
+  dueDate          DateTime
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  // Relations
+  audit          Audit                   @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  auditCriteria  AuditCriteria           @relation(fields: [auditCriteriaId], references: [id])
+  departments    AuditItemToDepartment[]
+  users          AuditItemToUser[]
+  images         AuditImage[]
+
+  @@index([auditId])
+  @@index([auditCriteriaId])
+  @@index([status])
+  @@map("t_audit_items")
+}
+
+// Audit Image - Transactional Data
+model AuditImage {
+  id           String    @id @default(uuid())
+  auditItemId  String
+  imageUrl     String
+  caption      String?   @db.Text
+  order        Int
+  createdAt    DateTime  @default(now())
+
+  // Relations
+  auditItem AuditItem @relation(fields: [auditItemId], references: [id], onDelete: Cascade)
+
+  @@index([auditItemId])
+  @@index([order])
+  @@map("t_audit_images")
+}
+
+// Audit Item to Department - Many-to-Many Junction Table
+model AuditItemToDepartment {
+  id               String    @id @default(uuid())
+  auditItemId      String
+  departmentId     String
+  createdAt        DateTime  @default(now())
+
+  // Relations
+  auditItem  AuditItem   @relation(fields: [auditItemId], references: [id], onDelete: Cascade)
+  department Department  @relation(fields: [departmentId], references: [id])
+
+  @@unique([auditItemId, departmentId])
+  @@index([auditItemId])
+  @@index([departmentId])
+  @@map("_AuditItemToDepartment")
+}
+
+// Audit Item to User - Many-to-Many Junction Table (optional users)
+model AuditItemToUser {
+  id          String   @id @default(uuid())
+  auditItemId String
+  userId      String
+  createdAt   DateTime @default(now())
+
+  // Relations
+  auditItem AuditItem @relation(fields: [auditItemId], references: [id], onDelete: Cascade)
+  user      User      @relation("AuditItemAssignee", fields: [userId], references: [id])
+
+  @@unique([auditItemId, userId])
+  @@index([auditItemId])
+  @@index([userId])
+  @@map("_AuditItemToUser")
+}
+
+// Audit to Area - Many-to-Many Junction Table
+model AuditToArea {
+  id        String   @id @default(uuid())
+  auditId   String
+  areaId    String
+  createdAt DateTime @default(now())
+
+  // Relations
+  audit Audit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  area  Area  @relation(fields: [areaId], references: [id])
+
+  @@unique([auditId, areaId])
+  @@index([auditId])
+  @@index([areaId])
+  @@map("_AuditToArea")
+}
+
+// Audit to User - Many-to-Many Junction Table (auditors)
+model AuditToUser {
+  id        String   @id @default(uuid())
+  auditId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  // Relations
+  audit Audit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  user  User  @relation("AuditAuditor", fields: [userId], references: [id])
+
+  @@unique([auditId, userId])
+  @@index([auditId])
+  @@index([userId])
+  @@map("_AuditToUser")
 }
 
 // ============================================================

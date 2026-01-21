@@ -44,7 +44,7 @@ const QuizForm = ({ mode, entity, entityId, onQuestionMediaFileSelect }: QuizFor
         if (selectedEntity === 'CHAPTER') {
           // Load all chapters immediately when CHAPTER is selected
           try {
-            const chaptersResponse = await chapterService.getChapters({ page: 1, limit: 1000 });
+            const chaptersResponse = await chapterService.getChapters({ page: 1, limit: 1000, isActive: true });
             setChapters(chaptersResponse.data.map(ch => ({ id: ch.id, title: ch.title, courseId: ch.courseId })));
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to load chapters';

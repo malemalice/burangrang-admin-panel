@@ -15,6 +15,10 @@ import { quizRoutes } from '@/modules/quizzes';
 import certificateRoutes from '@/modules/certificates/routes/certificateRoutes';
 import { riskMatrixRoutes } from '@/modules/risk-matrix';
 import { manHourRoutes } from '@/modules/man-hours';
+import { emailTemplateRoutes } from '@/modules/mail-templates';
+import { auditCriteriaRoutes } from '@/modules/audit-criteria';
+import auditSchedulesRoutes from '@/modules/audit-schedules/routes/auditSchedulesRoutes';
+import auditResultsRoutes from '@/modules/audit-results/routes/auditResultsRoutes';
 
 /**
  * Application routes registry
@@ -37,11 +41,16 @@ const routes: RouteConfig[] = [
   ...riskMatrixRoutes,
   ...manHourRoutes,
   ...moduleRoutes,
+  ...emailTemplateRoutes,
+  ...auditCriteriaRoutes,
+  ...auditSchedulesRoutes,
+  ...auditResultsRoutes,
 ];
 
 // Public routes that don't require authentication
 export const publicRoutes: RouteConfig[] = [
   coreRoutes.find(route => route.path === '/login')!,
+  coreRoutes.find(route => route.path === '/reset-password')!,
 ];
 
 // Not Found route

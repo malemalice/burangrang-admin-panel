@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -24,10 +24,11 @@ import { useTheme } from '@/core/lib/theme';
 interface DataTableProps<T> {
   columns: {
     id: string;
-    header: string;
+    header: string | (() => React.ReactNode);
     cell: (item: T) => React.ReactNode;
     isSortable?: boolean;
     isFilterable?: boolean;
+    headerClassName?: string;
   }[];
   data: T[];
   isLoading?: boolean;
@@ -45,6 +46,7 @@ interface DataTableProps<T> {
   onApplyFilters?: (filters: FilterValue[]) => void;
   sorting?: { id: string; desc: boolean } | null;
   onSortingChange?: (sorting: { id: string; desc: boolean } | null) => void;
+  hideSearch?: boolean;
 }
 
 const DataTable = <T extends Record<string, any>>({
@@ -58,14 +60,25 @@ const DataTable = <T extends Record<string, any>>({
   onApplyFilters,
   sorting,
   onSortingChange,
+  hideSearch = false,
 }: DataTableProps<T>) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [localActiveFilters, setLocalActiveFilters] = useState<FilterValue[]>([]);
 
+  // Create a stable string representation of activeFilters for comparison
+  const activeFiltersKey = useMemo(() => {
+    if (!activeFilters || Object.keys(activeFilters).length === 0) return '';
+    return JSON.stringify(
+      Object.entries(activeFilters)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([id, item]) => ({ id, value: item.value }))
+    );
+  }, [activeFilters]);
+
   // Sync activeFilters prop with localActiveFilters when it changes
   useEffect(() => {
-    if (activeFilters) {
+    if (activeFilters && Object.keys(activeFilters).length > 0) {
       const filterValues: FilterValue[] = Object.entries(activeFilters).map(([id, item]) => ({
         id,
         value: item.value
@@ -74,7 +87,7 @@ const DataTable = <T extends Record<string, any>>({
     } else {
       setLocalActiveFilters([]);
     }
-  }, [activeFilters]);
+  }, [activeFiltersKey]);
 
   // Search handler
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -135,25 +148,27 @@ const DataTable = <T extends Record<string, any>>({
 
   return (
     <div className="rounded-md border bg-card">
-      <div className="flex items-center justify-between p-4 border-b">
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-          <Input
-            placeholder="Search..."
-            value={searchTerm}
-            onChange={handleSearch}
-            className="pl-10 pr-4"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          {filterFields.length > 0 && (
-            <FilterButton 
-              onClick={() => setIsFilterOpen(true)} 
-              filterCount={localActiveFilters.length}
+      {!hideSearch && (
+        <div className="flex items-center justify-between p-4 border-b">
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+            <Input
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={handleSearch}
+              className="pl-10 pr-4"
             />
-          )}
+          </div>
+          <div className="flex items-center gap-2">
+            {filterFields.length > 0 && (
+              <FilterButton 
+                onClick={() => setIsFilterOpen(true)} 
+                filterCount={localActiveFilters.length}
+              />
+            )}
+          </div>
         </div>
-      </div>
+      )}
       
       {/* Display filter badges if there are active filters */}
       {localActiveFilters.length > 0 && (
@@ -186,8 +201,8 @@ const DataTable = <T extends Record<string, any>>({
                     )}
                     onClick={() => column.isSortable && handleSort(column.id)}
                   >
-                    <div className="flex items-center gap-2">
-                      {column.header}
+                    <div className={cn("flex items-center gap-2", column.headerClassName)}>
+                      {typeof column.header === 'function' ? column.header() : column.header}
                       {column.isSortable && sorting?.id === column.id && (
                         <span className="text-gray-500">
                           {sorting.desc ? '↓' : '↑'}

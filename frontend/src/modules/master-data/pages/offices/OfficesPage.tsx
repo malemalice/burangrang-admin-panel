@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, MapPin, Phone, Mail, Building, MoreHorizontal } from 'lucide-react';
+import { Edit, Trash2, Plus, MapPin, Phone, Mail, MoreHorizontal, Eye } from 'lucide-react';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import {
   DropdownMenu,
@@ -265,7 +265,7 @@ const OfficesPage = () => {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => navigate(`/master/offices/${office.id}`)}>
-              <Building className="mr-2 h-4 w-4" /> View details
+              <Eye className="mr-2 h-4 w-4" /> View details
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/master/offices/${office.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit
@@ -316,6 +316,7 @@ const OfficesPage = () => {
           total: totalOffices
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

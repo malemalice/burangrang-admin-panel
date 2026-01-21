@@ -29,11 +29,11 @@ import manHourService from '../services/manHourService';
 
 // Form validation schema
 const formSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
+  name: z.string().min(1, 'Name / Class is required'),
   group: z.enum(['STUDENT', 'NON_STUDENT'], {
     required_error: 'Group is required',
   }),
-  qty: z.coerce.number().min(1, 'Quantity must be at least 1'),
+  qty: z.coerce.number().min(1, 'Value must be greater or equal to 1'),
   manHourPerDay: z.coerce.number().min(0, 'Hours per day must be positive').max(24, 'Hours per day cannot exceed 24'),
   month: z.enum(['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'], {
     required_error: 'Month is required',
@@ -111,7 +111,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" noValidate>
         <Card>
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -121,7 +121,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name / Class</FormLabel>
+                    <FormLabel>Name / Class *</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g., Year 1-2, Kukang - KG2" {...field} />
                     </FormControl>
@@ -136,7 +136,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                 name="group"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Group</FormLabel>
+                    <FormLabel>Group *</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -159,7 +159,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                 name="qty"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Quantity (People)</FormLabel>
+                    <FormLabel>Quantity (People) *</FormLabel>
                     <FormControl>
                       <Input type="number" min="1" {...field} />
                     </FormControl>
@@ -174,7 +174,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                 name="manHourPerDay"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Hours per Day</FormLabel>
+                    <FormLabel>Hours per Day *</FormLabel>
                     <FormControl>
                       <Input type="number" step="0.5" min="0" max="24" {...field} />
                     </FormControl>
@@ -189,7 +189,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                 name="month"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Month</FormLabel>
+                    <FormLabel>Month *</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -215,7 +215,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                 name="year"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Year</FormLabel>
+                    <FormLabel>Year *</FormLabel>
                     <Select onValueChange={(val) => field.onChange(parseInt(val))} defaultValue={String(field.value)}>
                       <FormControl>
                         <SelectTrigger>

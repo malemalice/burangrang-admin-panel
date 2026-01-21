@@ -18,6 +18,16 @@ export class DepartmentDto {
   @Expose()
   description: string | null;
 
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    description: 'Array of email addresses for the department',
+    type: [String],
+    example: ['dept@example.com', 'contact@example.com'],
+  })
+  @Expose()
+  emails: string[] | null;
+
   @ApiProperty()
   @Expose()
   isActive: boolean;

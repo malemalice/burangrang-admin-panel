@@ -150,7 +150,7 @@ const RiskMatricesPage = () => {
       header: 'Likelihood',
       cell: (riskMatrix: RiskMatrix) => (
         <div>
-          <div className="font-medium">Level {riskMatrix.likelihoodLevel}: {riskMatrix.likelihoodName}</div>
+          <div className="font-medium">{riskMatrix.likelihoodLevel} - {riskMatrix.likelihoodName}</div>
           <div className="text-sm text-muted-foreground">{riskMatrix.likelihoodDesc}</div>
         </div>
       ),
@@ -161,7 +161,7 @@ const RiskMatricesPage = () => {
       header: 'Consequence',
       cell: (riskMatrix: RiskMatrix) => (
         <div>
-          <div className="font-medium">Level {riskMatrix.consequenceLevel}: {riskMatrix.consequenceName}</div>
+          <div className="font-medium">{riskMatrix.consequenceLevel} - {riskMatrix.consequenceName}</div>
           <div className="text-sm text-muted-foreground">{riskMatrix.consequenceDesc}</div>
         </div>
       ),
@@ -251,6 +251,7 @@ const RiskMatricesPage = () => {
           total: totalRiskMatrices,
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

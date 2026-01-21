@@ -19,13 +19,13 @@ export enum RiskRatingEnum {
 // These types are used for UI organization only
 
 export interface LikelihoodOption {
-  level: number;
+  level: string;
   name: string;
   desc: string;
 }
 
 export interface ConsequenceOption {
-  level: string;
+  level: number;
   name: string;
   desc: string;
 }
@@ -37,10 +37,10 @@ export interface ConsequenceOption {
 // Interface for risk matrix data from API
 export interface RiskMatrixDTO {
   id: string;
-  likelihoodLevel: number;
+  likelihoodLevel: string;
   likelihoodName: string;
   likelihoodDesc: string;
-  consequenceLevel: string;
+  consequenceLevel: number;
   consequenceName: string;
   consequenceDesc: string;
   risk_rating: RiskRatingEnum;
@@ -52,10 +52,10 @@ export interface RiskMatrixDTO {
 // Frontend model for risk matrix
 export interface RiskMatrix {
   id: string;
-  likelihoodLevel: number;
+  likelihoodLevel: string;
   likelihoodName: string;
   likelihoodDesc: string;
-  consequenceLevel: string;
+  consequenceLevel: number;
   consequenceName: string;
   consequenceDesc: string;
   riskRating: RiskRatingEnum;
@@ -66,10 +66,10 @@ export interface RiskMatrix {
 
 // Interface for creating a risk matrix entry
 export interface CreateRiskMatrixDTO {
-  likelihoodLevel: number;
+  likelihoodLevel: string;
   likelihoodName: string;
   likelihoodDesc: string;
-  consequenceLevel: string;
+  consequenceLevel: number;
   consequenceName: string;
   consequenceDesc: string;
   risk_rating: RiskRatingEnum;
@@ -78,10 +78,10 @@ export interface CreateRiskMatrixDTO {
 
 // Interface for updating a risk matrix entry
 export interface UpdateRiskMatrixDTO {
-  likelihoodLevel?: number;
+  likelihoodLevel?: string;
   likelihoodName?: string;
   likelihoodDesc?: string;
-  consequenceLevel?: string;
+  consequenceLevel?: number;
   consequenceName?: string;
   consequenceDesc?: string;
   risk_rating?: RiskRatingEnum;
@@ -108,7 +108,7 @@ export interface RiskRating {
 }
 
 export interface CalculateRiskDTO {
-  likelihoodLevel: number;
+  likelihoodLevel: string;
   consequenceLevel: number;
 }
 
@@ -118,8 +118,8 @@ export interface CalculateRiskDTO {
 
 export interface MatrixCell {
   id?: string;
-  likelihoodLevel: number;
-  consequenceLevel: string;
+  likelihoodLevel: string;
+  consequenceLevel: number;
   riskRating: RiskRatingEnum;
   isActive: boolean;
   isNew?: boolean;

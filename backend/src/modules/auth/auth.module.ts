@@ -9,12 +9,14 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import { PrismaModule } from '../../core/prisma/prisma.module';
 import { UsersModule } from '../users/users.module';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
     PrismaModule,
     UsersModule,
     PassportModule,
+    MailModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({

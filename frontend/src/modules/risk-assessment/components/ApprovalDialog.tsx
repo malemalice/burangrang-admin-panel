@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
@@ -13,7 +13,7 @@ import { Label } from '@/core/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
 import { Textarea } from '@/core/components/ui/textarea';
 import { ApprovalStatus } from '@/core/lib/types';
-import { approvalService } from '@/modules/master-data';
+import { approvalService, APPROVAL_ENTITIES } from '@/modules/master-data';
 import { toast } from 'sonner';
 
 interface ApprovalDialogProps {
@@ -21,17 +21,27 @@ interface ApprovalDialogProps {
   onOpenChange: (open: boolean) => void;
   assessmentId: string;
   onApprovalSubmitted: () => void;
+  initialStatus?: ApprovalStatus;
 }
 
 export const ApprovalDialog = ({ 
   open, 
   onOpenChange, 
   assessmentId,
-  onApprovalSubmitted 
+  onApprovalSubmitted,
+  initialStatus = ApprovalStatus.APPROVED,
 }: ApprovalDialogProps) => {
-  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
+  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(initialStatus);
   const [approvalNotes, setApprovalNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Reset form when dialog opens or initialStatus changes
+  useEffect(() => {
+    if (open) {
+      setApprovalStatus(initialStatus);
+      setApprovalNotes('');
+    }
+  }, [open, initialStatus]);
 
   const handleSubmit = async () => {
     if (!assessmentId) return;
@@ -40,7 +50,7 @@ export const ApprovalDialog = ({
       setIsSubmitting(true);
       await approvalService.submitApproval({
         dataId: assessmentId,
-        entity: 'RiskAssessment',
+        entity: APPROVAL_ENTITIES.RISK_ASSESSMENT,
         status: approvalStatus,
         notes: approvalNotes,
       });

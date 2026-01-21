@@ -1,0 +1,437 @@
+import { Injectable, Logger } from '@nestjs/common';
+import {
+  SendVerificationEmailDto,
+  SendPasswordResetEmailDto,
+  SendTeamInvitationEmailDto,
+  SendPasswordChangeEmailDto,
+  SendTemplatedEmailDto,
+} from './dto/mail.dto';
+import { PrismaService } from '../../core/prisma/prisma.service';
+import * as Handlebars from 'handlebars';
+import { handlebarsHelpers } from './templates/helpers';
+import { CreateEmailTemplateDto } from './dto/create-email-template.dto';
+import { UpdateEmailTemplateDto } from './dto/update-email-template.dto';
+import { EmailTemplateDto } from './dto/email-template.dto';
+import { Prisma } from '@prisma/client';
+import * as nodemailer from 'nodemailer';
+import { SettingsHelperService } from '../../shared/services/settings.service';
+import { ConfigService } from '@nestjs/config';
+
+@Injectable()
+export class MailService {
+  private readonly logger = new Logger(MailService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsHelperService,
+    private readonly config: ConfigService,
+  ) {
+    // Register handlebars helpers once
+    Object.entries(handlebarsHelpers).forEach(([name, fn]) => {
+      if (!Handlebars.helpers[name]) {
+        Handlebars.registerHelper(name, fn as Handlebars.HelperDelegate);
+      }
+    });
+  }
+
+  // Add method to check SMTP configuration
+  async isSmtpConfigured(): Promise<boolean> {
+    const user = await this.settings.getWithDefault(
+      'mail.user',
+      this.config.get<string>('app.mail.user') ?? '',
+    );
+    const pass = await this.settings.getWithDefault(
+      'mail.password',
+      this.config.get<string>('app.mail.password') ?? '',
+    );
+    return !!(user && pass);
+  }
+
+  private async buildTransporter(): Promise<{
+    transporter: nodemailer.Transporter;
+    from: string;
+    isRealTransport: boolean;
+  }> {
+    // Resolve provider and defaults
+    const provider =
+      (await this.settings.getWithDefault(
+        'mail.provider',
+        (this.config.get<string>('app.mail.provider') || 'smtp').toLowerCase(),
+      )) || 'smtp';
+    const from =
+      (await this.settings.getWithDefault(
+        'mail.from',
+        this.config.get<string>('app.mail.from') ?? 'no-reply@example.com',
+      )) ?? 'no-reply@example.com';
+
+    let defaults: { host: string; port: number; secure: boolean };
+    if (provider === 'gmail') {
+      defaults = { host: 'smtp.gmail.com', port: 465, secure: true };
+    } else if (provider === 'mailgun') {
+      defaults = { host: 'smtp.mailgun.org', port: 587, secure: false };
+    } else {
+      defaults = { host: 'localhost', port: 1025, secure: false };
+    }
+
+    const host =
+      (await this.settings.getWithDefault(
+        'mail.host',
+        this.config.get<string>('app.mail.host') ?? defaults.host,
+      )) ?? defaults.host;
+    const port =
+      (await this.settings.getNumber(
+        'mail.port',
+        this.config.get<number>('app.mail.port') ?? defaults.port,
+      )) ?? defaults.port;
+    const secure =
+      (await this.settings.getBoolean(
+        'mail.secure',
+        this.config.get<boolean>('app.mail.secure') ?? defaults.secure,
+      )) ?? defaults.secure;
+    const user =
+      (await this.settings.getWithDefault(
+        'mail.user',
+        this.config.get<string>('app.mail.user') ?? '',
+      )) ?? '';
+    const pass =
+      (await this.settings.getWithDefault(
+        'mail.password',
+        this.config.get<string>('app.mail.password') ?? '',
+      )) ?? '';
+
+    const useStreamTransport =
+      (!user || !pass) && host === 'localhost' && port === 1025;
+
+    if (useStreamTransport) {
+      this.logger.warn(
+        'SMTP not configured - using stream transport. Emails will NOT be delivered! ' +
+        'Set MAIL_USER and MAIL_PASSWORD environment variables for real email delivery.',
+      );
+    }
+
+    const transporter = useStreamTransport
+      ? nodemailer.createTransport({
+        streamTransport: true,
+        buffer: true,
+      } as any)
+      : nodemailer.createTransport({
+        host,
+        port,
+        secure,
+        auth: user && pass ? { user, pass } : undefined,
+      } as any);
+
+    return { transporter, from, isRealTransport: !useStreamTransport };
+  }
+
+  async sendVerificationEmail(
+    payload: SendVerificationEmailDto,
+  ): Promise<void> {
+    await this.sendByKey('verification', payload.email, {
+      name: payload.name,
+      verificationLink: payload.verificationLink,
+    });
+  }
+
+  async sendPasswordResetEmail(
+    payload: SendPasswordResetEmailDto,
+  ): Promise<void> {
+    await this.sendByKey('password-reset', payload.email, {
+      name: payload.name,
+      // Provide both keys for template compatibility
+      resetLink: payload.resetLink,
+      resetUrl: payload.resetLink,
+    });
+  }
+
+  async sendTeamInvitationEmail(
+    payload: SendTeamInvitationEmailDto,
+  ): Promise<void> {
+    await this.sendByKey('team-invitation', payload.email, {
+      name: payload.name,
+      inviterName: payload.inviterName,
+      invitationLink: payload.invitationLink,
+      teamName: payload.teamName,
+    });
+  }
+
+  async sendPasswordChangeNotification(
+    payload: SendPasswordChangeEmailDto,
+  ): Promise<void> {
+    await this.sendByKey('password-change', payload.email, {
+      name: payload.name,
+      changedAt: payload.changedAt?.toISOString() ?? new Date().toISOString(),
+    });
+  }
+
+  async sendTemplatedMail(payload: SendTemplatedEmailDto): Promise<void> {
+    await this.sendByKey(
+      payload.template as any,
+      payload.email,
+      payload.context,
+      payload.subject,
+    );
+  }
+
+  async sendTemplatedMailWithResult(payload: SendTemplatedEmailDto): Promise<{
+    success: boolean;
+    error?: string;
+    skipped?: boolean;
+  }> {
+    try {
+      const { isRealTransport } = await this.buildTransporter();
+      if (!isRealTransport) {
+        // Still try to send to stream transport for testing, but mark as skipped for delivery
+        await this.sendTemplatedMail(payload);
+        return {
+          success: true,
+          skipped: true,
+          error: 'SMTP not configured - email buffered in memory',
+        };
+      }
+      await this.sendTemplatedMail(payload);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  /**
+   * Strict test sender used by /mail/test to surface delivery errors synchronously.
+   * Mirrors sendByKey but rethrows errors instead of swallowing them.
+   */
+  async sendTemplatedMailStrict(payload: SendTemplatedEmailDto): Promise<void> {
+    const code = payload.template as any;
+    const to = payload.email;
+    const context = payload.context ?? {};
+    const subjectOverride = payload.subject;
+
+    const tpl = await this.prisma.emailTemplate.findUnique({
+      where: { code },
+    });
+    if (!tpl || !tpl.isActive) {
+      throw new Error(
+        `Email template not found or inactive for code "${code}"`,
+      );
+    }
+
+    const compiledSubject = Handlebars.compile(tpl.subjectTemplate, {
+      noEscape: true,
+    });
+    const compiledBody = Handlebars.compile(tpl.bodyTemplate, {
+      noEscape: true,
+    });
+
+    const subject = subjectOverride ?? compiledSubject(context);
+    const html = compiledBody(context);
+
+    const { transporter, from } = await this.buildTransporter();
+    await transporter.sendMail({ from, to, subject, html });
+  }
+
+  private async sendByKey(
+    code:
+      | 'verification'
+      | 'password-reset'
+      | 'team-invitation'
+      | 'password-change'
+      | string,
+    to: string,
+    context: Record<string, unknown> = {},
+    subjectOverride?: string,
+  ): Promise<void> {
+    try {
+      const tpl = await this.prisma.emailTemplate.findUnique({
+        where: { code },
+      });
+      if (!tpl || !tpl.isActive) {
+        this.logger.warn(
+          `Email template not found or inactive for code "${code}"`,
+        );
+        return;
+      }
+
+      const compiledSubject = Handlebars.compile(tpl.subjectTemplate, {
+        noEscape: true,
+      });
+      const compiledBody = Handlebars.compile(tpl.bodyTemplate, {
+        noEscape: true,
+      });
+
+      const subject = subjectOverride ?? compiledSubject(context);
+      const html = compiledBody(context);
+
+      const { transporter, from } = await this.buildTransporter();
+      await transporter.sendMail({ from, to, subject, html });
+    } catch (error) {
+      // Do not throw to avoid blocking critical flows
+      this.logger.error(
+        `Failed sending email with code "${code}" to ${to}: ${String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Send a simple HTML email without using a template
+   */
+  async sendSimpleEmail(
+    to: string,
+    subject: string,
+    html: string,
+  ): Promise<void> {
+    try {
+      const { transporter, from } = await this.buildTransporter();
+      await transporter.sendMail({ from, to, subject, html });
+    } catch (error) {
+      // Do not throw to avoid blocking critical flows
+      this.logger.error(
+        `Failed sending simple email to ${to}: ${String(error)}`,
+      );
+    }
+  }
+
+  // Email Template Management
+  async findAllTemplates(params: {
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    isActive?: boolean;
+    search?: string;
+  }): Promise<{
+    data: EmailTemplateDto[];
+    meta: { total: number; page: number; limit: number };
+  }> {
+    const page = params.page && params.page > 0 ? params.page : 1;
+    const limit = params.limit && params.limit > 0 ? params.limit : 10;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.EmailTemplateWhereInput = {
+      AND: [
+        params.isActive === undefined ? {} : { isActive: params.isActive },
+        params.search
+          ? {
+            OR: [
+              { code: { contains: params.search, mode: 'insensitive' } },
+              { name: { contains: params.search, mode: 'insensitive' } },
+              {
+                subjectTemplate: {
+                  contains: params.search,
+                  mode: 'insensitive',
+                },
+              },
+            ],
+          }
+          : {},
+      ],
+    };
+
+    const orderBy: Prisma.EmailTemplateOrderByWithRelationInput | undefined =
+      params.sortBy
+        ? ({ [params.sortBy]: params.sortOrder ?? 'asc' } as any)
+        : { createdAt: 'desc' };
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.emailTemplate.count({ where }),
+      this.prisma.emailTemplate.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    const data: EmailTemplateDto[] = rows.map(
+      (r) =>
+        new EmailTemplateDto({
+          id: r.id,
+          code: r.code,
+          name: r.name,
+          subjectTemplate: r.subjectTemplate,
+          bodyTemplate: r.bodyTemplate,
+          isActive: r.isActive,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+        }),
+    );
+
+    return {
+      data,
+      meta: { total, page, limit },
+    };
+  }
+
+  async findOneTemplate(id: string): Promise<EmailTemplateDto> {
+    const tpl = await this.prisma.emailTemplate.findUnique({ where: { id } });
+    if (!tpl) {
+      throw new Error('Email template not found');
+    }
+    return new EmailTemplateDto(tpl);
+  }
+
+  async createTemplate(dto: CreateEmailTemplateDto): Promise<EmailTemplateDto> {
+    // Ensure code is unique
+    const existing = await this.prisma.emailTemplate.findUnique({
+      where: { code: dto.code },
+    });
+    if (existing) {
+      throw new Error('Email template code already exists');
+    }
+    const created = await this.prisma.emailTemplate.create({
+      data: {
+        code: dto.code,
+        name: dto.name,
+        subjectTemplate: dto.subjectTemplate,
+        bodyTemplate: dto.bodyTemplate,
+        isActive: dto.isActive ?? true,
+      },
+    });
+    return new EmailTemplateDto(created);
+  }
+
+  async updateTemplate(
+    id: string,
+    dto: UpdateEmailTemplateDto,
+  ): Promise<EmailTemplateDto> {
+    const existing = await this.prisma.emailTemplate.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      throw new Error('Email template not found');
+    }
+    const updated = await this.prisma.emailTemplate.update({
+      where: { id },
+      data: {
+        name: dto.name ?? undefined,
+        subjectTemplate: dto.subjectTemplate ?? undefined,
+        bodyTemplate: dto.bodyTemplate ?? undefined,
+        isActive: dto.isActive ?? undefined,
+      },
+    });
+    return new EmailTemplateDto(updated);
+  }
+
+  async toggleTemplate(id: string): Promise<EmailTemplateDto> {
+    const existing = await this.prisma.emailTemplate.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      throw new Error('Email template not found');
+    }
+    const updated = await this.prisma.emailTemplate.update({
+      where: { id },
+      data: { isActive: !existing.isActive },
+    });
+    return new EmailTemplateDto(updated);
+  }
+
+  async removeTemplate(id: string): Promise<void> {
+    const existing = await this.prisma.emailTemplate.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      return;
+    }
+    await this.prisma.emailTemplate.delete({ where: { id } });
+  }
+}

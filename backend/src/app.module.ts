@@ -40,6 +40,11 @@ import { AreasModule } from './modules/areas/areas.module';
 
 import { WasteManagementModule } from './modules/waste-management/waste-management.module';
 import { ManHoursModule } from './modules/man-hours/man-hours.module';
+import { InspectionsModule } from './modules/inspections/inspections.module';
+import { AuditPolicyModule } from './modules/audit-policy/audit-policy.module';
+import { AuditSchedulesModule } from './modules/audit-schedules/audit-schedules.module';
+import { ZohoWebhooksModule } from './modules/zoho-webhooks/zoho-webhooks.module';
+import { RiskRegisterModule } from './modules/risk-register/risk-register.module';
 
 @Module({
   imports: [
@@ -83,6 +88,16 @@ import { ManHoursModule } from './modules/man-hours/man-hours.module';
     WasteManagementModule,
     // Man Hours Module
     ManHoursModule,
+    // Inspections Module
+    InspectionsModule,
+    // Audit Policy Module
+    AuditPolicyModule,
+    // Audit Schedules Module
+    AuditSchedulesModule,
+    // Zoho Webhooks Module
+    ZohoWebhooksModule,
+    // Risk Register Module
+    RiskRegisterModule,
   ],
   providers: [
     Reflector,

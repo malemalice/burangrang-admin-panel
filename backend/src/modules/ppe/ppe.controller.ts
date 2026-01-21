@@ -39,6 +39,8 @@ import { CreateSafetyEquipmentDto } from './dto/create-safety-equipment.dto';
 import { UpdateSafetyEquipmentDto } from './dto/update-safety-equipment.dto';
 import { SafetyEquipmentDto } from './dto/safety-equipment.dto';
 import { FindSafetyEquipmentDto } from './dto/find-safety-equipment.dto';
+import { FindMovementsDto } from './dto/find-movements.dto';
+import { StockMovementDto } from './dto/stock-movement.dto';
 import { UpdateStockItemDto } from './dto/update-stock-item.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
@@ -666,6 +668,27 @@ export class PPEController {
     @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
     findSafetyEquipmentByCode(@Param('code') code: string): Promise<SafetyEquipmentDto> {
         return this.ppeService.findSafetyEquipmentByCode(code);
+    }
+
+    @Get('safety-equipments/:id/movements')
+    @ApiOperation({ summary: 'Get stock movement history for a specific safety equipment' })
+    @ApiParam({ name: 'id', type: String, description: 'Safety Equipment ID' })
+    @ApiQuery({ name: 'page', required: false, type: Number })
+    @ApiQuery({ name: 'limit', required: false, type: Number })
+    @ApiQuery({ name: 'movementType', required: false, enum: ['STOCK_IN', 'WITHDRAWAL', 'ADJUSTMENT'] })
+    @ApiQuery({ name: 'dateFrom', required: false, type: String })
+    @ApiQuery({ name: 'dateTo', required: false, type: String })
+    @ApiQuery({ name: 'search', required: false, type: String })
+    @ApiResponse({
+        status: 200,
+        description: 'Return paginated stock movements with summary.',
+    })
+    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    findMovementsBySafetyEquipmentId(
+        @Param('id') id: string,
+        @Query() query: FindMovementsDto,
+    ) {
+        return this.ppeService.findMovementsBySafetyEquipmentId(id, query);
     }
 }
 

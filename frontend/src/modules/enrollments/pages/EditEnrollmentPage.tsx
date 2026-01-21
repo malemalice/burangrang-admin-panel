@@ -110,7 +110,7 @@ const EditEnrollmentPage = () => {
       };
 
       await updateEnrollment(id, updateData);
-      toast.success('Enrollment updated successfully');
+      // Toast is handled by useEnrollments hook
       navigate(`/enrollments/${id}`);
     } catch (error: any) {
       console.error('Error updating enrollment:', error);

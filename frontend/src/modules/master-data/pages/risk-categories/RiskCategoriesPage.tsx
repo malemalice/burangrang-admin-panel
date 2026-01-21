@@ -61,11 +61,19 @@ const RiskCategoriesPage = () => {
   const fetchRiskCategories = useCallback(async () => {
     try {
       setIsLoading(true);
+      const isActiveFromFilter = activeFilters.status
+        ? (activeFilters.status.value === 'active' ? true : activeFilters.status.value === 'inactive' ? false : undefined)
+        : undefined;
+      const isActive = isActiveFromFilter !== undefined
+        ? isActiveFromFilter
+        : (activeTab === 'all' ? undefined : activeTab === 'active');
       const response = await riskCategoryService.getAll({
         page: pageIndex + 1,
         limit,
-        isActive: activeTab === 'all' ? undefined : activeTab === 'active',
-        search: searchTerm,
+        isActive,
+        search: searchTerm || undefined,
+        name: activeFilters.name?.value,
+        code: activeFilters.code?.value,
         sortBy: sorting?.id,
         sortOrder: sorting?.desc ? 'desc' : 'asc',
       });
@@ -81,16 +89,23 @@ const RiskCategoriesPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, activeTab, searchTerm, sorting]);
+  }, [pageIndex, limit, activeTab, searchTerm, activeFilters, sorting]);
 
   useEffect(() => {
     fetchRiskCategories();
   }, [fetchRiskCategories]);
 
-  // Handle tab change
+  // Handle tab change (MDRC-016/017: set activeFilters so filter badges appear above list)
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     setPageIndex(0);
+    if (value === 'all') {
+      setActiveFilters({});
+    } else if (value === 'active') {
+      setActiveFilters({ status: { value: 'active', label: 'Active' } });
+    } else if (value === 'inactive') {
+      setActiveFilters({ status: { value: 'inactive', label: 'Inactive' } });
+    }
   };
 
   // Handle search
@@ -117,6 +132,15 @@ const RiskCategoriesPage = () => {
     });
     setActiveFilters(newFilters);
     setPageIndex(0);
+    // Sync tab: when status is removed from filters, switch to "all"
+    if (!filters.some(f => f.id === 'status') && (activeTab === 'active' || activeTab === 'inactive')) {
+      setActiveTab('all');
+    } else {
+      const statusFilter = filters.find(f => f.id === 'status');
+      if (statusFilter) {
+        setActiveTab(String(statusFilter.value));
+      }
+    }
   };
 
   // Handle sorting
@@ -243,7 +267,7 @@ const RiskCategoriesPage = () => {
           </Button>
         }
       >
-        <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
+        <Tabs value={activeTab} className="w-full" onValueChange={handleTabChange}>
           <TabsList>
             <TabsTrigger value="all">All Categories</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
@@ -265,6 +289,7 @@ const RiskCategoriesPage = () => {
           total: totalRiskCategories
         }}
         filterFields={filterFields}
+        activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
         sorting={sorting}

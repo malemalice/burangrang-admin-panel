@@ -162,6 +162,7 @@ export const useCertificateCategories = () => {
     const [categories, setCategories] = useState<CertificateCategory[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [hasInitialFetch, setHasInitialFetch] = useState(false);
     const [pagination, setPagination] = useState<{
         total: number;
         page: number;
@@ -182,6 +183,7 @@ export const useCertificateCategories = () => {
                 params || { page: 1, limit: 100 }, // Use larger limit for form dropdowns
             );
             setCategories(response.data || []);
+            setHasInitialFetch(true);
             if (response.meta) {
                 setPagination({
                     total: response.meta.total || 0,
@@ -211,10 +213,10 @@ export const useCertificateCategories = () => {
 
     // Auto-fetch categories on mount if not already loaded
     useEffect(() => {
-        if (categories.length === 0 && !isLoading) {
+        if (!hasInitialFetch && !isLoading) {
             fetchCategories({ page: 1, limit: 100 });
         }
-    }, [categories.length, isLoading, fetchCategories]); // Include fetchCategories for consistency with TRD pattern
+    }, [hasInitialFetch, isLoading, fetchCategories]);
 
     return {
         categories,

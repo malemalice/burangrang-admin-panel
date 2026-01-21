@@ -33,10 +33,10 @@ export class CreateChapterDto {
 
   @ApiProperty({ 
     description: 'Content type', 
-    enum: ['video', 'pdf', 'text', 'youtube'],
+    enum: ['video', 'pdf', 'text', 'youtube', 'image', 'audio'],
     default: 'video'
   })
-  @IsEnum(['video', 'pdf', 'text', 'youtube'])
+  @IsEnum(['video', 'pdf', 'text', 'youtube', 'image', 'audio'])
   contentType: string = 'video';
 
   @ApiProperty({ 

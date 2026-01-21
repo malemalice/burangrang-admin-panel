@@ -16,7 +16,7 @@ const mapChapterDtoToChapter = (chapterDto: ChapterDTO): Chapter => ({
   description: chapterDto.description,
   order: chapterDto.order,
   duration: chapterDto.duration,
-  contentType: chapterDto.contentType as 'video' | 'pdf' | 'text' | 'youtube',
+  contentType: chapterDto.contentType as 'video' | 'pdf' | 'text' | 'youtube' | 'image' | 'audio',
   contentUrl: chapterDto.contentUrl,
   youtubeVideoId: chapterDto.youtubeVideoId,
   content: chapterDto.content,
@@ -138,6 +138,10 @@ const chapterService = {
         return 'FileText';
       case 'text':
         return 'FileText';
+      case 'image':
+        return 'Image';
+      case 'audio':
+        return 'Audio';
       default:
         return 'File';
     }
@@ -154,6 +158,10 @@ const chapterService = {
         return 'bg-orange-100 text-orange-800';
       case 'text':
         return 'bg-green-100 text-green-800';
+      case 'image':
+        return 'bg-purple-100 text-purple-800';
+      case 'audio':
+        return 'bg-pink-100 text-pink-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }

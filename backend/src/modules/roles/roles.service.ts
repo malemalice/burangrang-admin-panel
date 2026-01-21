@@ -98,6 +98,7 @@ export class RolesService {
     const role = await this.prisma.role.create({
       data: {
         name: createRoleDto.name,
+        code: createRoleDto.code,
         description: createRoleDto.description,
         isActive: createRoleDto.isActive,
         permissions: {
@@ -135,6 +136,7 @@ export class RolesService {
         // Prisma uses contains with mode: 'insensitive' for case-insensitive search
         where.OR = [
           { name: { contains: searchTerm, mode: 'insensitive' } },
+          { code: { contains: searchTerm, mode: 'insensitive' } },
           { description: { contains: searchTerm, mode: 'insensitive' } },
         ];
       }
@@ -223,6 +225,7 @@ export class RolesService {
       where: { id },
       data: {
         name: updateRoleDto.name,
+        code: updateRoleDto.code,
         description: updateRoleDto.description,
         isActive: updateRoleDto.isActive,
         permissions: {

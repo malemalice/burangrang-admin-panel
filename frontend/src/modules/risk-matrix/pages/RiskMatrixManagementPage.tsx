@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/core/components/ui/dialog';
+import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import riskMatrixService from '../services/riskMatrixService';
 import {
   RiskMatrix,
@@ -25,10 +26,10 @@ import { Loader2 } from 'lucide-react';
 
 interface MatrixRow {
   id?: string;
-  likelihoodLevel: number | null;
+  likelihoodLevel: string | null;
   likelihoodName: string;
   likelihoodDesc: string;
-  consequenceLevel: string | null;
+  consequenceLevel: number | null;
   consequenceName: string;
   consequenceDesc: string;
   riskRating: RiskRatingEnum;
@@ -39,13 +40,13 @@ interface MatrixRow {
 }
 
 interface LikelihoodOption {
-  level: number;
+  level: string;
   name: string;
   desc: string;
 }
 
 interface ConsequenceOption {
-  level: string;
+  level: number;
   name: string;
   desc: string;
 }
@@ -57,6 +58,8 @@ const RiskMatrixManagementPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [rowToDelete, setRowToDelete] = useState<MatrixRow | null>(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -74,8 +77,9 @@ const RiskMatrixManagementPage = () => {
       });
 
       // Extract unique likelihoods and consequences from existing matrix data
-      const uniqueLikelihoods = new Map<number, LikelihoodOption>();
-      const uniqueConsequences = new Map<string, ConsequenceOption>();
+      // likelihoodLevel is string (A, B, C...); consequenceLevel is number (1, 2, 3...)
+      const uniqueLikelihoods = new Map<string, LikelihoodOption>();
+      const uniqueConsequences = new Map<number, ConsequenceOption>();
 
       matricesRes.data.forEach((matrix) => {
         if (!uniqueLikelihoods.has(matrix.likelihoodLevel)) {
@@ -96,7 +100,7 @@ const RiskMatrixManagementPage = () => {
 
       // Add default values if no data exists
       if (uniqueLikelihoods.size === 0) {
-        [1, 2, 3, 4, 5].forEach(level => {
+        ['A', 'B', 'C', 'D', 'E'].forEach(level => {
           uniqueLikelihoods.set(level, {
             level,
             name: `Level ${level}`,
@@ -106,7 +110,7 @@ const RiskMatrixManagementPage = () => {
       }
 
       if (uniqueConsequences.size === 0) {
-        ['A', 'B', 'C', 'D', 'E'].forEach(level => {
+        [1, 2, 3, 4, 5].forEach(level => {
           uniqueConsequences.set(level, {
             level,
             name: `Level ${level}`,
@@ -115,8 +119,8 @@ const RiskMatrixManagementPage = () => {
         });
       }
 
-      setLikelihoods(Array.from(uniqueLikelihoods.values()).sort((a, b) => a.level - b.level));
-      setConsequences(Array.from(uniqueConsequences.values()).sort((a, b) => a.level.localeCompare(b.level)));
+      setLikelihoods(Array.from(uniqueLikelihoods.values()).sort((a, b) => String(a.level).localeCompare(String(b.level))));
+      setConsequences(Array.from(uniqueConsequences.values()).sort((a, b) => a.level - b.level));
 
       // Convert matrices to rows
       const rows: MatrixRow[] = matricesRes.data.map((matrix) => ({
@@ -160,7 +164,7 @@ const RiskMatrixManagementPage = () => {
     setMatrixRows([...matrixRows, newRow]);
   };
 
-  const validatePairing = (rows: MatrixRow[], currentIndex: number, likelihoodLevel: number | null, consequenceLevel: string | null): string | undefined => {
+  const validatePairing = (rows: MatrixRow[], currentIndex: number, likelihoodLevel: string | null, consequenceLevel: number | null): string | undefined => {
     if (likelihoodLevel === null || consequenceLevel === null) {
       return undefined;
     }
@@ -186,20 +190,20 @@ const RiskMatrixManagementPage = () => {
     // Auto-uppercase if it's an alphabet
     const processedValue = /[a-zA-Z]/.test(value) ? value.toUpperCase() : value;
 
-    // Validate: numbers (1-99) for likelihood, letters (A-Z, AA-ZZ) for consequence
+    // Validate: letters (A-Z, AA-ZZ) for likelihood, numbers (1-99) for consequence
     if (field === 'likelihoodLevel') {
+      // Allow empty, single letter (A-Z), or two letters (AA-ZZ)
+      if (processedValue && !/^[A-Z]{1,2}$/.test(processedValue)) {
+        return; // Invalid input, don't update
+      }
+      updateRow(index, field, processedValue || null);
+    } else if (field === 'consequenceLevel') {
       // Allow empty, single digit (1-9), or two digits (10-99)
       if (processedValue && !/^([1-9]|[1-9][0-9])$/.test(processedValue)) {
         return; // Invalid input, don't update
       }
       const numValue = processedValue ? parseInt(processedValue, 10) : null;
       updateRow(index, field, numValue);
-    } else if (field === 'consequenceLevel') {
-      // Allow empty, single letter (A-Z), or two letters (AA-ZZ)
-      if (processedValue && !/^[A-Z]{1,2}$/.test(processedValue)) {
-        return; // Invalid input, don't update
-      }
-      updateRow(index, field, processedValue || null);
     }
   };
 
@@ -230,8 +234,8 @@ const RiskMatrixManagementPage = () => {
     }
 
     // Validate pairing uniqueness
-    const newLikelihoodLevel = field === 'likelihoodLevel' ? (value as number | null) : row.likelihoodLevel;
-    const newConsequenceLevel = field === 'consequenceLevel' ? (value as string | null) : row.consequenceLevel;
+    const newLikelihoodLevel = field === 'likelihoodLevel' ? (value as string | null) : row.likelihoodLevel;
+    const newConsequenceLevel = field === 'consequenceLevel' ? (value as number | null) : row.consequenceLevel;
     
     const validationError = validatePairing(updatedRows, index, newLikelihoodLevel, newConsequenceLevel);
     if (validationError) {
@@ -242,8 +246,28 @@ const RiskMatrixManagementPage = () => {
   };
 
   const deleteRow = (index: number) => {
-    const updatedRows = matrixRows.filter((_, i) => i !== index);
-    setMatrixRows(updatedRows);
+    const row = matrixRows[index];
+    if (row?.id) {
+      setRowToDelete(row);
+      setDeleteDialogOpen(true);
+    } else {
+      setMatrixRows((prev) => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!rowToDelete?.id) return;
+    try {
+      await riskMatrixService.deleteRiskMatrix(rowToDelete.id);
+      setMatrixRows((prev) => prev.filter((r) => r.id !== rowToDelete.id));
+      toast.success('Risk matrix entry deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete risk matrix:', error);
+      toast.error('Failed to delete risk matrix entry');
+    } finally {
+      setDeleteDialogOpen(false);
+      setRowToDelete(null);
+    }
   };
 
   const handleSaveAll = async () => {
@@ -332,11 +356,11 @@ const RiskMatrixManagementPage = () => {
   };
 
   const buildMatrixGrid = () => {
-    // Extract unique likelihood and consequence levels from actual data
-    const likelihoodSet = new Set<number>();
-    const consequenceSet = new Set<string>();
-    const likelihoodNameMap = new Map<number, string>();
-    const consequenceNameMap = new Map<string, string>();
+    // likelihoodLevel is string (A, B, C...); consequenceLevel is number (1, 2, 3...)
+    const likelihoodSet = new Set<string>();
+    const consequenceSet = new Set<number>();
+    const likelihoodNameMap = new Map<string, string>();
+    const consequenceNameMap = new Map<number, string>();
 
     // Process all rows (including inactive ones for level extraction)
     matrixRows.forEach((row) => {
@@ -354,11 +378,11 @@ const RiskMatrixManagementPage = () => {
       }
     });
 
-    // Sort likelihood levels: highest first (descending)
-    const likelihoodLevels = Array.from(likelihoodSet).sort((a, b) => b - a);
+    // Sort likelihood levels: alphabetically (A, B, C, D, E)
+    const likelihoodLevels = Array.from(likelihoodSet).sort((a, b) => a.localeCompare(b));
     
-    // Sort consequence levels: alphabetically (A, B, C, D, E)
-    const consequenceLevels = Array.from(consequenceSet).sort((a, b) => a.localeCompare(b));
+    // Sort consequence levels: numerically (1, 2, 3, 4, 5)
+    const consequenceLevels = Array.from(consequenceSet).sort((a, b) => a - b);
 
     // Create a map for quick lookup: key = "likelihoodLevel-consequenceLevel"
     // Only include active entries for the matrix display
@@ -481,11 +505,10 @@ const RiskMatrixManagementPage = () => {
                         <td className="p-4">
                           <Input
                             type="text"
-                            inputMode="numeric"
-                            placeholder="1-99"
-                            value={row.likelihoodLevel?.toString() || ''}
+                            placeholder="A-Z, AA-ZZ"
+                            value={row.likelihoodLevel || ''}
                             onChange={(e) => handleLevelInput(index, 'likelihoodLevel', e.target.value)}
-                            className={`h-8 text-sm text-center max-w-[80px] ${row.error ? 'border-destructive' : ''}`}
+                            className={`h-8 text-sm text-center max-w-[80px] uppercase ${row.error ? 'border-destructive' : ''}`}
                             maxLength={2}
                             aria-label="Likelihood level"
                           />
@@ -512,10 +535,11 @@ const RiskMatrixManagementPage = () => {
                         <td className="p-4">
                           <Input
                             type="text"
-                            placeholder="A-Z, AA-ZZ"
-                            value={row.consequenceLevel || ''}
+                            inputMode="numeric"
+                            placeholder="1-99"
+                            value={row.consequenceLevel?.toString() || ''}
                             onChange={(e) => handleLevelInput(index, 'consequenceLevel', e.target.value)}
-                            className={`h-8 text-sm text-center max-w-[80px] uppercase ${row.error ? 'border-destructive' : ''}`}
+                            className={`h-8 text-sm text-center max-w-[80px] ${row.error ? 'border-destructive' : ''}`}
                             maxLength={2}
                             aria-label="Consequence level"
                           />
@@ -676,6 +700,20 @@ const RiskMatrixManagementPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteDialogOpen(false);
+            setRowToDelete(null);
+          }
+        }}
+        title="Delete Risk Matrix Entry"
+        description="Are you sure you want to delete this risk matrix entry? This action cannot be undone."
+        onConfirm={handleDeleteConfirm}
+        variant="destructive"
+      />
     </div>
   );
 };

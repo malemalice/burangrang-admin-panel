@@ -5,6 +5,7 @@ import { Button } from '@/core/components/ui/button';
 import { Eye, EyeOff } from 'lucide-react';
 import { Notification } from '../types/notification.types';
 import { cn } from '@/core/lib/utils';
+import { useNotificationNavigation } from '../utils/notificationRoutes';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -21,6 +22,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   showActions = false,
   className,
 }) => {
+  const navigateFromNotification = useNotificationNavigation();
+
   const handleMarkAsRead = () => {
     if (onMarkAsRead && !notification.isRead) {
       onMarkAsRead(notification.id);
@@ -30,6 +33,19 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   const handleMarkAsUnread = () => {
     if (onMarkAsUnread && notification.isRead) {
       onMarkAsUnread(notification.id);
+    }
+  };
+
+  const handleClick = () => {
+    // Mark as read first
+    handleMarkAsRead();
+
+    // Navigate to the context route if context and/or contextId exists
+    if (notification.context || notification.contextId) {
+      navigateFromNotification({
+        context: notification.context,
+        contextId: notification.contextId,
+      });
     }
   };
 
@@ -71,7 +87,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         !notification.isRead && 'bg-blue-50 dark:bg-blue-900/20',
         className
       )}
-      onClick={handleMarkAsRead}
+      onClick={handleClick}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
