@@ -11,7 +11,7 @@ export const defaultSettings = [
   { key: 'system.timezone', value: 'UTC' },
 
   // App Settings
-  { key: 'app.name', value: 'Office Nexus' },
+  { key: 'app.name', value: 'HSE System' },
   { key: 'app.language', value: 'en' },
 
   // Pagination defaults

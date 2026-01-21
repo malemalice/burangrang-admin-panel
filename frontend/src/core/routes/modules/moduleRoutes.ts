@@ -5,6 +5,7 @@ import { environmentalMeasurementRoutes } from '@/modules/environmental-measurem
 import { wasteManagementRoutes } from '@/modules/waste-management';
 import { inspectionsRoutes } from '@/modules/inspections';
 import { auditPolicyRoutes } from '@/modules/audit-policy';
+import riskRegisterRoutes from '@/modules/risk-register/routes/riskRegisterRoutes';
 
 /**
  * Module routes for operational components
@@ -16,6 +17,7 @@ const moduleRoutes: RouteConfig[] = [
   ...wasteManagementRoutes,
   ...inspectionsRoutes,
   ...auditPolicyRoutes,
+  ...riskRegisterRoutes,
 ];
 
 export default moduleRoutes;

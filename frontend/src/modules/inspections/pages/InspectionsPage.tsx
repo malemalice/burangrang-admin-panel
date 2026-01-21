@@ -250,15 +250,47 @@ const InspectionsPage = () => {
     },
     {
       id: 'area',
-      header: 'Area',
-      cell: (inspection: Inspection) => <div>{inspection.area?.name || 'N/A'}</div>,
+      header: 'Areas',
+      cell: (inspection: Inspection) => {
+        const areaNames = inspection.areas
+          ?.map(a => a?.name)
+          .filter((name): name is string => Boolean(name)) || [];
+        
+        if (areaNames.length > 0) {
+          return <div>{areaNames.join(', ')}</div>;
+        }
+        
+        // Fallback to deprecated area field for backward compatibility
+        if (inspection.area?.name) {
+          return <div>{inspection.area.name}</div>;
+        }
+        
+        return <div>N/A</div>;
+      },
     },
     {
       id: 'itemCount',
       header: 'Items Count',
-      cell: (inspection: Inspection) => (
-        <div className="text-center">{inspection.items?.length || 0}</div>
-      ),
+      cell: (inspection: Inspection) => {
+        const items = inspection.items || [];
+        const openCount = items.filter(item => item.status === 'OPEN').length;
+        const closedCount = items.filter(item => item.status === 'CLOSE').length;
+        const totalCount = items.length;
+
+        return (
+          <div className="flex items-center gap-3">
+            <div className="text-lg font-bold">{totalCount}</div>
+            <div className="flex flex-col gap-0.5">
+              <div className={`text-xs whitespace-nowrap ${openCount > 0 ? 'text-yellow-800 dark:text-yellow-400' : 'text-muted-foreground'}`}>
+                {openCount} Open
+              </div>
+              <div className={`text-xs whitespace-nowrap ${closedCount > 0 ? 'text-green-800 dark:text-green-400' : 'text-muted-foreground'}`}>
+                {closedCount} Closed
+              </div>
+            </div>
+          </div>
+        );
+      },
     },
     {
       id: 'inspectors',

@@ -11,6 +11,8 @@ interface FindAllOptions {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   search?: string;
+  name?: string;
+  code?: string;
 }
 
 @Injectable()
@@ -33,21 +35,32 @@ export class RiskCategoriesService {
       sortOrder = 'asc',
       isActive,
       search,
+      name,
+      code,
     } = options || {};
 
-    const where: any = {};
-    
+    const andConditions: any[] = [];
+
+    // Search: name field only (MDRC-012)
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { code: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ];
+      andConditions.push({ name: { contains: search, mode: 'insensitive' } });
+    }
+
+    // Filter: name (contains)
+    if (name) {
+      andConditions.push({ name: { contains: name, mode: 'insensitive' } });
+    }
+
+    // Filter: code (contains)
+    if (code) {
+      andConditions.push({ code: { contains: code, mode: 'insensitive' } });
     }
 
     if (isActive !== undefined) {
-      where.isActive = isActive;
+      andConditions.push({ isActive });
     }
+
+    const where = andConditions.length > 0 ? { AND: andConditions } : {};
 
     const [categories, total] = await Promise.all([
       (this.prisma as any).riskCategory.findMany({

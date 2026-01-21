@@ -15,12 +15,16 @@ import { InspectionImageDto } from '../dto/inspection-image.dto';
 import { CreateInspectionInspectorDto } from '../dto/create-inspection-inspector.dto';
 import { UpdateInspectionInspectorDto } from '../dto/update-inspection-inspector.dto';
 import { InspectionInspectorDto } from '../dto/inspection-inspector.dto';
-import { Prisma, GeneralStatusEnum } from '@prisma/client';
+import { Prisma, GeneralStatusEnum, RiskMitigationRecord } from '@prisma/client';
 import { RemindersService } from '../../reminders/reminders.service';
 import {
   ReminderRepeatTypeEnum,
   ReminderTargetTypeEnum,
 } from '../../reminders/dto/reminder.dto';
+import { RiskMitigationDataDto, RiskMitigationRecordDto } from '../../risk-assessment/dto/risk-mitigation-data.dto';
+
+// Entity type constant for inspection items
+const INSPECTION_ITEM_ENTITY = 'INSPECTION_ITEM';
 
 interface FindAllOptions {
   page?: number;
@@ -30,6 +34,20 @@ interface FindAllOptions {
   isActive?: boolean;
   areaId?: string;
   status?: GeneralStatusEnum;
+}
+
+interface FindAllItemsOptions {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  status?: GeneralStatusEnum;
+  assignedDepartmentId?: string;
+  assigneeId?: string;
+  riskId?: string;
+  riskCategoryId?: string;
+  inspectionCode?: string;
+  search?: string;
 }
 
 @Injectable()
@@ -54,6 +72,14 @@ export class InspectionsService {
     this.inspectionItemMapper = this.dtoMapper.createRelationMapper(
       InspectionItemDto,
       {
+        inspection: {
+          mapper: (inspection: any) => inspection,
+          isArray: false,
+        },
+        area: {
+          mapper: (area: any) => area,
+          isArray: false,
+        },
         riskCategory: {
           mapper: (riskCategory: any) => riskCategory,
           isArray: false,
@@ -92,9 +118,9 @@ export class InspectionsService {
     this.inspectionMapper = this.dtoMapper.createRelationMapper(
       InspectionDto,
       {
-        area: {
+        areas: {
           mapper: (area: any) => area,
-          isArray: false,
+          isArray: true,
         },
         creator: {
           mapper: (creator: any) => creator,
@@ -116,12 +142,19 @@ export class InspectionsService {
     createInspectionDto: CreateInspectionDto,
     userId: string,
   ): Promise<InspectionDto> {
-    const { items, inspectors, ...data } = createInspectionDto;
+    const { items, inspectors, areaIds, ...data } = createInspectionDto;
 
     const inspection = await this.prisma.inspection.create({
       data: {
         ...data,
         createdBy: userId,
+        ...(areaIds && areaIds.length > 0 && {
+          areas: {
+            create: areaIds.map((areaId) => ({
+              areaId,
+            })),
+          },
+        }),
         ...(items && items.length > 0 && {
           items: {
             create: items.map((item) => {
@@ -132,6 +165,7 @@ export class InspectionsService {
                   create: images.map((img) => ({
                     imageUrl: img.imageUrl,
                     caption: img.caption || null,
+                    type: img.type || 'GENERAL',
                     order: img.order,
                   })),
                 };
@@ -151,6 +185,7 @@ export class InspectionsService {
       include: {
         items: {
           include: {
+            area: true,
             riskCategory: true,
             risk: true,
             assignedDepartment: true,
@@ -159,7 +194,7 @@ export class InspectionsService {
               orderBy: { order: 'asc' },
             },
           },
-          orderBy: { order: 'asc' },
+          orderBy: { createdAt: 'asc' },
         },
         inspectors: {
           include: {
@@ -167,7 +202,11 @@ export class InspectionsService {
           },
           orderBy: { order: 'asc' },
         },
-        area: true,
+        areas: {
+          include: {
+            area: true,
+          },
+        },
         creator: true,
       },
     });
@@ -183,7 +222,12 @@ export class InspectionsService {
       );
     }
 
-    return this.inspectionMapper(inspection);
+    const mapped = this.inspectionMapper(inspection);
+    // Transform areas to areaIds
+    return {
+      ...mapped,
+      areaIds: inspection.areas.map((ia: any) => ia.area.id),
+    };
   }
 
   async findAll(options?: FindAllOptions): Promise<{
@@ -206,7 +250,11 @@ export class InspectionsService {
       where.isActive = isActive;
     }
     if (areaId) {
-      where.areaId = areaId;
+      where.areas = {
+        some: {
+          areaId: areaId,
+        },
+      };
     }
     if (status) {
       where.status = status;
@@ -226,7 +274,7 @@ export class InspectionsService {
                 orderBy: { order: 'asc' },
               },
             },
-            orderBy: { order: 'asc' },
+            orderBy: { createdAt: 'asc' },
           },
           inspectors: {
             include: {
@@ -234,7 +282,11 @@ export class InspectionsService {
             },
             orderBy: { order: 'asc' },
           },
-          area: true,
+          areas: {
+            include: {
+              area: true,
+            },
+          },
           creator: true,
         },
         orderBy: {
@@ -247,7 +299,14 @@ export class InspectionsService {
     ]);
 
     return {
-      data: inspections.map((inspection) => this.inspectionMapper(inspection)),
+      data: inspections.map((inspection) => {
+        const mapped = this.inspectionMapper(inspection);
+        return {
+          ...mapped,
+          areaIds: inspection.areas.map((ia: any) => ia.area.id),
+          areas: inspection.areas.map((ia: any) => ia.area), // Flatten the areas array
+        };
+      }),
       meta: { total, page, limit },
     };
   }
@@ -266,7 +325,7 @@ export class InspectionsService {
               orderBy: { order: 'asc' },
             },
           },
-          orderBy: { order: 'asc' },
+          orderBy: { createdAt: 'asc' },
         },
         inspectors: {
           include: {
@@ -274,21 +333,31 @@ export class InspectionsService {
           },
           orderBy: { order: 'asc' },
         },
-        area: true,
+        areas: {
+          include: {
+            area: true,
+          },
+        },
         creator: true,
       },
     });
 
     this.errorHandler.throwIfNotFoundById('Inspection', id, inspection);
 
-    return this.inspectionMapper(inspection);
+    const mapped = this.inspectionMapper(inspection);
+    // Transform areas to areaIds and flatten areas array
+    return {
+      ...mapped,
+      areaIds: inspection.areas.map((ia: any) => ia.area.id),
+      areas: inspection.areas.map((ia: any) => ia.area), // Flatten the areas array
+    };
   }
 
   async update(
     id: string,
     updateInspectionDto: UpdateInspectionDto,
   ): Promise<InspectionDto> {
-    const { items, inspectors, ...data } = updateInspectionDto;
+    const { items, inspectors, areaIds, ...data } = updateInspectionDto;
 
     // First, find the inspection to update
     const existingInspection = await this.prisma.inspection.findUnique({
@@ -317,6 +386,14 @@ export class InspectionsService {
       where: { id },
       data: {
         ...data,
+        ...(areaIds !== undefined && {
+          areas: {
+            deleteMany: {},
+            create: areaIds.map((areaId) => ({
+              areaId,
+            })),
+          },
+        }),
         ...(items !== undefined && {
           items: {
             deleteMany: {},
@@ -328,6 +405,7 @@ export class InspectionsService {
                   create: images.map((img) => ({
                     imageUrl: img.imageUrl,
                     caption: img.caption || null,
+                    type: img.type || 'GENERAL',
                     order: img.order,
                   })),
                 };
@@ -356,7 +434,7 @@ export class InspectionsService {
               orderBy: { order: 'asc' },
             },
           },
-          orderBy: { order: 'asc' },
+          orderBy: { createdAt: 'asc' },
         },
         inspectors: {
           include: {
@@ -364,7 +442,11 @@ export class InspectionsService {
           },
           orderBy: { order: 'asc' },
         },
-        area: true,
+        areas: {
+          include: {
+            area: true,
+          },
+        },
         creator: true,
       },
     });
@@ -397,7 +479,13 @@ export class InspectionsService {
       );
     }
 
-    return this.inspectionMapper(inspection);
+    const mapped = this.inspectionMapper(inspection);
+    // Transform areas to areaIds and flatten areas array
+    return {
+      ...mapped,
+      areaIds: inspection.areas.map((ia: any) => ia.area.id),
+      areas: inspection.areas.map((ia: any) => ia.area), // Flatten the areas array
+    };
   }
 
   async remove(id: string): Promise<void> {
@@ -429,6 +517,11 @@ export class InspectionsService {
       where: { inspectionId: id },
     });
 
+    // Delete all related areas (junction table)
+    await this.prisma.inspectionToArea.deleteMany({
+      where: { inspectionId: id },
+    });
+
     // Then delete the inspection
     await this.prisma.inspection.delete({
       where: { id },
@@ -451,13 +544,14 @@ export class InspectionsService {
       inspection,
     );
 
-    // Extract images from DTO
-    const { images, ...itemData } = createItemDto;
+    // Extract images and mitigation from DTO
+    const { images, mitigation, dueDateAt, ...itemData } = createItemDto;
 
     // Prepare data for creation
     const createData: any = {
       ...itemData,
       inspectionId,
+      dueDateAt: dueDateAt ? new Date(dueDateAt) : null,
     };
 
     // Handle images with nested create if provided
@@ -466,6 +560,7 @@ export class InspectionsService {
         create: images.map((img) => ({
           imageUrl: img.imageUrl,
           caption: img.caption || null,
+          type: img.type || 'GENERAL',
           order: img.order,
         })),
       };
@@ -474,6 +569,7 @@ export class InspectionsService {
     const item = await this.prisma.inspectionItem.create({
       data: createData,
       include: {
+        area: true,
         riskCategory: true,
         risk: true,
         assignedDepartment: true,
@@ -484,7 +580,13 @@ export class InspectionsService {
       },
     });
 
-    return this.inspectionItemMapper(item);
+    // Create mitigation record if provided
+    let mitigationRecord: RiskMitigationRecord | null = null;
+    if (mitigation) {
+      mitigationRecord = await this.createMitigationRecord(item.id, mitigation);
+    }
+
+    return this.mapItemToDto(item, mitigationRecord);
   }
 
   async findAllItems(
@@ -514,7 +616,7 @@ export class InspectionsService {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'order',
+      sortBy = 'createdAt',
       sortOrder = 'asc',
       search,
     } = options || {};
@@ -527,11 +629,13 @@ export class InspectionsService {
       'riskId',
       'assignedDepartmentId',
       'assigneeId',
-      'order',
+      'status',
+      'createdAt',
+      'updatedAt',
     ];
 
     // Validate and sanitize sortBy
-    const validatedSortBy = validSortFields.includes(sortBy) ? sortBy : 'order';
+    const validatedSortBy = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
 
     const where: Prisma.InspectionItemWhereInput = {
       inspectionId,
@@ -567,6 +671,20 @@ export class InspectionsService {
       this.prisma.inspectionItem.findMany({
         where,
         include: {
+          inspection: {
+            select: {
+              id: true,
+              code: true,
+              creator: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
+            },
+          },
+          area: true,
           riskCategory: true,
           risk: true,
           assignedDepartment: true,
@@ -584,8 +702,24 @@ export class InspectionsService {
       this.prisma.inspectionItem.count({ where }),
     ]);
 
+    // Fetch mitigation records for all items
+    const itemIds = items.map((item) => item.id);
+    const mitigationRecords = await this.prisma.riskMitigationRecord.findMany({
+      where: {
+        entity: INSPECTION_ITEM_ENTITY,
+        entityId: { in: itemIds },
+        isActive: true,
+      },
+    });
+
+    // Create a map of itemId -> mitigation record
+    const mitigationMap = new Map<string, RiskMitigationRecord>();
+    mitigationRecords.forEach((record) => {
+      mitigationMap.set(record.entityId, record);
+    });
+
     return {
-      data: items.map((item) => this.inspectionItemMapper(item)),
+      data: items.map((item) => this.mapItemToDto(item, mitigationMap.get(item.id))),
       meta: { total, page, limit },
     };
   }
@@ -600,6 +734,7 @@ export class InspectionsService {
         inspectionId,
       },
       include: {
+        area: true,
         riskCategory: true,
         risk: true,
         assignedDepartment: true,
@@ -616,7 +751,10 @@ export class InspectionsService {
       item,
     );
 
-    return this.inspectionItemMapper(item);
+    // Fetch mitigation record for the item
+    const mitigationRecord = await this.getMitigationRecord(itemId);
+
+    return this.mapItemToDto(item, mitigationRecord);
   }
 
   async updateItem(
@@ -638,12 +776,13 @@ export class InspectionsService {
       existingItem,
     );
 
-    // Extract images from DTO
-    const { images, ...itemData } = updateItemDto;
+    // Extract images, mitigation, and dueDateAt from DTO
+    const { images, mitigation, dueDateAt, ...itemData } = updateItemDto;
 
     // Prepare data for update
     const updateData: any = {
       ...itemData,
+      ...(dueDateAt !== undefined && { dueDateAt: dueDateAt ? new Date(dueDateAt) : null }),
     };
 
     // Handle images: delete all existing and create new ones
@@ -654,6 +793,7 @@ export class InspectionsService {
         create: images.map((img) => ({
           imageUrl: img.imageUrl,
           caption: img.caption || null,
+          type: img.type || 'GENERAL',
           order: img.order,
         })),
       };
@@ -663,6 +803,7 @@ export class InspectionsService {
       where: { id: itemId },
       data: updateData,
       include: {
+        area: true,
         riskCategory: true,
         risk: true,
         assignedDepartment: true,
@@ -673,7 +814,22 @@ export class InspectionsService {
       },
     });
 
-    return this.inspectionItemMapper(item);
+    // Handle mitigation record update/create/delete
+    let mitigationRecord: RiskMitigationRecord | null = null;
+    if (mitigation !== undefined) {
+      if (mitigation === null) {
+        // Delete mitigation record if explicitly set to null
+        await this.deleteMitigationRecord(itemId);
+      } else {
+        // Update or create mitigation record
+        mitigationRecord = await this.upsertMitigationRecord(itemId, mitigation);
+      }
+    } else {
+      // Fetch existing mitigation record if not provided
+      mitigationRecord = await this.getMitigationRecord(itemId);
+    }
+
+    return this.mapItemToDto(item, mitigationRecord);
   }
 
   async removeItem(inspectionId: string, itemId: string): Promise<void> {
@@ -690,6 +846,9 @@ export class InspectionsService {
       `ID ${itemId}`,
       item,
     );
+
+    // Delete associated mitigation record first
+    await this.deleteMitigationRecord(itemId);
 
     // CASCADE will handle images deletion
     await this.prisma.inspectionItem.delete({
@@ -1059,6 +1218,399 @@ export class InspectionsService {
         error,
       );
     }
+  }
+
+  // Standalone inspection items operations (not nested under inspection)
+  async findAllItemsStandalone(
+    options?: FindAllItemsOptions,
+  ): Promise<{
+    data: InspectionItemDto[];
+    meta: { total: number; page: number; limit: number };
+  }> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      status,
+      assignedDepartmentId,
+      assigneeId,
+      riskId,
+      riskCategoryId,
+      inspectionCode,
+      search,
+    } = options || {};
+
+    // Valid sortable fields for InspectionItem
+    const validSortFields = [
+      'id',
+      'inspectionId',
+      'riskCategoryId',
+      'riskId',
+      'assignedDepartmentId',
+      'assigneeId',
+      'status',
+      'createdAt',
+      'updatedAt',
+    ];
+
+    // Validate and sanitize sortBy
+    const validatedSortBy = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+
+    const where: Prisma.InspectionItemWhereInput = {
+      ...(status && { status }),
+      ...(assignedDepartmentId && { assignedDepartmentId }),
+      ...(assigneeId && { assigneeId }),
+      ...(riskId && { riskId }),
+      ...(riskCategoryId && { riskCategoryId }),
+      ...(inspectionCode && {
+        inspection: {
+          code: {
+            contains: inspectionCode,
+            mode: 'insensitive',
+          },
+        },
+      }),
+      ...(search && {
+        OR: [
+          {
+            risk: {
+              OR: [
+                { name: { contains: search, mode: 'insensitive' } },
+                { code: { contains: search, mode: 'insensitive' } },
+              ],
+            },
+          },
+          {
+            riskCategory: {
+              OR: [
+                { name: { contains: search, mode: 'insensitive' } },
+                { code: { contains: search, mode: 'insensitive' } },
+              ],
+            },
+          },
+          {
+            inspection: {
+              code: { contains: search, mode: 'insensitive' },
+            },
+          },
+          {
+            description: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+          {
+            followUpNotes: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+        ],
+      }),
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.inspectionItem.findMany({
+        where,
+        include: {
+          inspection: {
+            select: {
+              id: true,
+              code: true,
+              creator: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
+            },
+          },
+          area: true,
+          riskCategory: true,
+          risk: true,
+          assignedDepartment: true,
+          assignee: true,
+          images: {
+            orderBy: { order: 'asc' },
+          },
+        },
+        orderBy: {
+          [validatedSortBy]: sortOrder,
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.inspectionItem.count({ where }),
+    ]);
+
+    // Fetch mitigation records for all items
+    const itemIds = items.map((item) => item.id);
+    const mitigationRecords = await this.prisma.riskMitigationRecord.findMany({
+      where: {
+        entity: INSPECTION_ITEM_ENTITY,
+        entityId: { in: itemIds },
+        isActive: true,
+      },
+    });
+
+    // Create a map of itemId -> mitigation record
+    const mitigationMap = new Map<string, RiskMitigationRecord>();
+    mitigationRecords.forEach((record) => {
+      mitigationMap.set(record.entityId, record);
+    });
+
+    return {
+      data: items.map((item) => this.mapItemToDto(item, mitigationMap.get(item.id))),
+      meta: { total, page, limit },
+    };
+  }
+
+  async findOneItemStandalone(itemId: string): Promise<InspectionItemDto> {
+    const item = await this.prisma.inspectionItem.findUnique({
+      where: { id: itemId },
+      include: {
+        inspection: {
+          select: {
+            id: true,
+            code: true,
+            creator: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+        area: true,
+        riskCategory: true,
+        risk: true,
+        assignedDepartment: true,
+        assignee: true,
+        images: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    this.errorHandler.throwIfNotFoundById('InspectionItem', itemId, item);
+
+    // Fetch mitigation record for the item
+    const mitigationRecord = await this.getMitigationRecord(itemId);
+
+    return this.mapItemToDto(item, mitigationRecord);
+  }
+
+  async updateItemStandalone(
+    itemId: string,
+    updateItemDto: UpdateInspectionItemDto,
+  ): Promise<InspectionItemDto> {
+    // Verify item exists
+    const existingItem = await this.prisma.inspectionItem.findUnique({
+      where: { id: itemId },
+    });
+
+    this.errorHandler.throwIfNotFoundById(
+      'InspectionItem',
+      itemId,
+      existingItem,
+    );
+
+    // Extract images, mitigation, and dueDateAt from DTO
+    const { images, mitigation, dueDateAt, ...itemData } = updateItemDto;
+
+    // Prepare update data
+    const updateData: any = {
+      ...itemData,
+      ...(dueDateAt !== undefined && { dueDateAt: dueDateAt ? new Date(dueDateAt) : null }),
+    };
+
+    // Handle images update if provided
+    if (images !== undefined) {
+      // Delete existing images
+      await this.prisma.inspectionImage.deleteMany({
+        where: { inspectionItemId: itemId },
+      });
+
+      // Create new images if provided
+      if (images.length > 0) {
+        updateData.images = {
+          create: images.map((img) => ({
+            imageUrl: img.imageUrl,
+            caption: img.caption || null,
+            type: img.type || 'GENERAL',
+            order: img.order,
+          })),
+        };
+      }
+    }
+
+    const item = await this.prisma.inspectionItem.update({
+      where: { id: itemId },
+      data: updateData,
+      include: {
+        inspection: {
+          select: {
+            id: true,
+            code: true,
+          },
+        },
+        riskCategory: true,
+        risk: true,
+        assignedDepartment: true,
+        assignee: true,
+        images: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    // Handle mitigation record update/create/delete
+    let mitigationRecord: RiskMitigationRecord | null = null;
+    if (mitigation !== undefined) {
+      if (mitigation === null) {
+        // Delete mitigation record if explicitly set to null
+        await this.deleteMitigationRecord(itemId);
+      } else {
+        // Update or create mitigation record
+        mitigationRecord = await this.upsertMitigationRecord(itemId, mitigation);
+      }
+    } else {
+      // Fetch existing mitigation record if not provided
+      mitigationRecord = await this.getMitigationRecord(itemId);
+    }
+
+    return this.mapItemToDto(item, mitigationRecord);
+  }
+
+  // Helper methods for mapping and mitigation records
+
+  /**
+   * Map inspection item to DTO with optional mitigation record
+   */
+  private mapItemToDto(
+    item: any,
+    mitigationRecord?: RiskMitigationRecord | null,
+  ): InspectionItemDto {
+    const dto = this.inspectionItemMapper(item);
+    return {
+      ...dto,
+      mitigation: mitigationRecord
+        ? this.mapMitigationToDto(mitigationRecord)
+        : undefined,
+    };
+  }
+
+  /**
+   * Generate unique mitigation code: RSK + YYMMDDHHmmss
+   */
+  private generateMitigationCode(): string {
+    const now = new Date();
+    const year = now.getFullYear().toString().slice(-2);
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const date = now.getDate().toString().padStart(2, '0');
+    const hour = now.getHours().toString().padStart(2, '0');
+    const minute = now.getMinutes().toString().padStart(2, '0');
+    const second = now.getSeconds().toString().padStart(2, '0');
+    return `RSK${year}${month}${date}${hour}${minute}${second}`;
+  }
+
+  /**
+   * Create mitigation record for an inspection item
+   */
+  private async createMitigationRecord(
+    itemId: string,
+    mitigation: RiskMitigationDataDto,
+  ): Promise<RiskMitigationRecord> {
+    return this.prisma.riskMitigationRecord.create({
+      data: {
+        code: this.generateMitigationCode(),
+        entity: INSPECTION_ITEM_ENTITY,
+        entityId: itemId,
+        eliminate: mitigation.eliminate || null,
+        transfer: mitigation.transfer || null,
+        reduce: mitigation.reduce || null,
+        accept: mitigation.accept || null,
+        legalAspect: mitigation.legalAspect || null,
+        isActive: true,
+      },
+    });
+  }
+
+  /**
+   * Get mitigation record for an inspection item
+   */
+  private async getMitigationRecord(
+    itemId: string,
+  ): Promise<RiskMitigationRecord | null> {
+    return this.prisma.riskMitigationRecord.findFirst({
+      where: {
+        entity: INSPECTION_ITEM_ENTITY,
+        entityId: itemId,
+        isActive: true,
+      },
+    });
+  }
+
+  /**
+   * Update or create mitigation record for an inspection item
+   */
+  private async upsertMitigationRecord(
+    itemId: string,
+    mitigation: RiskMitigationDataDto,
+  ): Promise<RiskMitigationRecord> {
+    const existing = await this.getMitigationRecord(itemId);
+    
+    if (existing) {
+      return this.prisma.riskMitigationRecord.update({
+        where: { id: existing.id },
+        data: {
+          eliminate: mitigation.eliminate || null,
+          transfer: mitigation.transfer || null,
+          reduce: mitigation.reduce || null,
+          accept: mitigation.accept || null,
+          legalAspect: mitigation.legalAspect || null,
+        },
+      });
+    }
+    
+    return this.createMitigationRecord(itemId, mitigation);
+  }
+
+  /**
+   * Delete mitigation record for an inspection item
+   */
+  private async deleteMitigationRecord(itemId: string): Promise<void> {
+    await this.prisma.riskMitigationRecord.deleteMany({
+      where: {
+        entity: INSPECTION_ITEM_ENTITY,
+        entityId: itemId,
+      },
+    });
+  }
+
+  /**
+   * Map mitigation record to DTO
+   */
+  private mapMitigationToDto(
+    record: RiskMitigationRecord,
+  ): RiskMitigationRecordDto {
+    return {
+      id: record.id,
+      code: record.code,
+      entity: record.entity,
+      entityId: record.entityId,
+      eliminate: record.eliminate || undefined,
+      transfer: record.transfer || undefined,
+      reduce: record.reduce || undefined,
+      accept: record.accept || undefined,
+      legalAspect: record.legalAspect || undefined,
+      isActive: record.isActive,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
   }
 
 }

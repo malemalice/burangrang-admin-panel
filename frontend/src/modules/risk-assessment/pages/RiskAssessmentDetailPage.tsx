@@ -407,6 +407,12 @@ const RiskAssessmentDetailPage = () => {
                 postConsequenceLevel: editingItem.postConsequenceLevel,
                 postRiskMatrixRating: editingItem.postRiskMatrixRating,
                 postInterpretation: editingItem.postInterpretation,
+                mitigation: editingItem.mitigation ? {
+                  eliminate: editingItem.mitigation.eliminate,
+                  transfer: editingItem.mitigation.transfer,
+                  reduce: editingItem.mitigation.reduce,
+                  accept: editingItem.mitigation.accept,
+                } : undefined,
               }}
               onSubmit={handleUpdateItemSubmit}
               onCancel={() => {

@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
+import { InspectionImageTypeEnum } from '@prisma/client';
 
 export class InspectionImageDto {
   @ApiProperty()
@@ -17,6 +18,10 @@ export class InspectionImageDto {
   @ApiProperty()
   @Expose()
   caption?: string;
+
+  @ApiProperty({ enum: InspectionImageTypeEnum })
+  @Expose()
+  type: InspectionImageTypeEnum;
 
   @ApiProperty()
   @Expose()

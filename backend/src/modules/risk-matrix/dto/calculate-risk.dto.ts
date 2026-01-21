@@ -7,11 +7,11 @@ export class CalculateRiskDto {
     example: 'A',
   })
   @IsString()
-  @Matches(/^[A-Z]$/, { message: 'Likelihood level must be a single uppercase letter (A-Z)' })
+  @Matches(/^[A-Z]{1,2}$/, { message: 'Likelihood level must be 1-2 uppercase letters (A-Z or AA-ZZ)' })
   likelihoodLevel: string;
 
   @ApiProperty({
-    description: 'Consequence level (1-5)',
+    description: 'Consequence level (1-99)',
     minimum: 1,
     maximum: 99,
     example: 3,

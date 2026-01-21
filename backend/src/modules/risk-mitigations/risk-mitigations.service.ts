@@ -11,6 +11,7 @@ interface FindAllOptions {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   riskId?: string;
+  search?: string;
 }
 
 @Injectable()
@@ -46,6 +47,7 @@ export class RiskMitigationsService {
       sortOrder = 'asc',
       isActive,
       riskId,
+      search,
     } = options || {};
 
     // Using 'any' as a workaround until the Prisma client is regenerated
@@ -57,6 +59,18 @@ export class RiskMitigationsService {
 
     if (riskId) {
       where.riskId = riskId;
+    }
+
+    // Search by risk name, risk code, or mitigation text fields (MDRMG-008, MDRMG-009)
+    if (search) {
+      where.OR = [
+        { risk: { name: { contains: search, mode: 'insensitive' } } },
+        { risk: { code: { contains: search, mode: 'insensitive' } } },
+        { eliminate: { contains: search, mode: 'insensitive' } },
+        { transfer: { contains: search, mode: 'insensitive' } },
+        { reduce: { contains: search, mode: 'insensitive' } },
+        { accept: { contains: search, mode: 'insensitive' } },
+      ];
     }
 
     const [mitigations, total] = await Promise.all([
