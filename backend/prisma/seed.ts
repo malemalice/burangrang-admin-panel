@@ -32,6 +32,7 @@ import { seedMasterApprovals } from './seeds/master-approvals.seed';
 import { seedAuditPolicy } from './seeds/audit-policy.seed';
 import { seedRiskAssessmentsAndInspections } from './seeds/risk-assessments-inspections.seed';
 import { seedAuditSchedules } from './seeds/audit-schedules.seed';
+import { seedWorkPermitApprovalTest } from './seeds/work-permit-approval-test.seed';
 
 const prisma = new PrismaClient();
 
@@ -425,6 +426,10 @@ async function main() {
           await prisma.auditToArea.deleteMany();
           await prisma.audit.deleteMany();
           break;
+        case 'work_permit_approvals':
+        case 'work-permit-approvals':
+          // Data clearing is handled inside the seeder itself
+          break;
         case 'master_approvals':
         case 'master-approvals':
         case 'approvals':
@@ -706,6 +711,10 @@ async function main() {
           await prisma.auditToArea.deleteMany();
           await prisma.audit.deleteMany();
           await seedAuditSchedules(prisma);
+          break;
+        case 'work_permit_approvals':
+        case 'work-permit-approvals':
+          await seedWorkPermitApprovalTest(prisma);
           break;
         case 'risk_assessments':
         case 'risk-assessments':

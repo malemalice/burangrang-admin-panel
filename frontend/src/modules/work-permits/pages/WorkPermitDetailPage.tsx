@@ -27,6 +27,13 @@ const WorkPermitDetailPage = () => {
   const { workPermit, isLoading, fetchWorkPermit } = useWorkPermit(id || null);
   const { submit, approve, reject, requestInfo, extend, close, isLoading: isActionLoading } = useWorkPermitActions();
 
+  const [approvalRights, setApprovalRights] = useState<{
+    canApprove: boolean;
+    canReject: boolean;
+    canRequestInfo: boolean;
+    nextApprover: any;
+  } | null>(null);
+
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [requestInfoDialogOpen, setRequestInfoDialogOpen] = useState(false);
@@ -56,6 +63,27 @@ const WorkPermitDetailPage = () => {
       });
     }
   }, [id]);
+
+  // Fetch approval rights when work permit is loaded
+  useEffect(() => {
+    if (id && workPermit) {
+      const status = workPermit.status;
+      // Only check rights if in review status
+      if (['IN_REVIEW_HSE', 'IN_REVIEW_SECURITY', 'WAITING_APPROVAL', 'IN_REVIEW'].includes(status)) {
+        import('../services/workPermitService').then((module) => {
+          module.default
+            .checkApprovalRights(id)
+            .then(setApprovalRights)
+            .catch((error) => {
+              console.error('Failed to fetch approval rights:', error);
+              setApprovalRights(null);
+            });
+        });
+      } else {
+        setApprovalRights(null);
+      }
+    }
+  }, [id, workPermit]);
 
   const handleSubmitForApproval = async () => {
     if (!id) return;
@@ -152,9 +180,12 @@ const WorkPermitDetailPage = () => {
 
   const canEdit = workPermit?.status === 'DRAFT' || workPermit?.status === 'NEED_INFO';
   const canSubmit = workPermit?.status === 'DRAFT';
-  const canApprove = ['IN_REVIEW_HSE', 'IN_REVIEW_SECURITY'].includes(workPermit?.status || '');
-  const canReject = ['IN_REVIEW_HSE', 'IN_REVIEW_SECURITY'].includes(workPermit?.status || '');
-  const canRequestInfo = ['IN_REVIEW_HSE'].includes(workPermit?.status || '');
+  
+  // Permission-based actions using checkApprovalRights result
+  const canApprove = approvalRights?.canApprove ?? false;
+  const canReject = approvalRights?.canReject ?? false;
+  const canRequestInfo = approvalRights?.canRequestInfo ?? false;
+  
   const canExtend = workPermit?.status === 'APPROVED';
   const canClose = ['APPROVED', 'EXTENDED'].includes(workPermit?.status || '');
 
