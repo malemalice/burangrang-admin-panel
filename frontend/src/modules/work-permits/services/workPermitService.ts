@@ -129,6 +129,23 @@ const workPermitService = {
   },
 
   /**
+   * Check approval rights for the current user
+   */
+  checkApprovalRights: async (id: string): Promise<{
+    canApprove: boolean;
+    canReject: boolean;
+    canRequestInfo: boolean;
+    nextApprover: {
+      line: number;
+      department: { name: string };
+      jobPosition: { name: string };
+    } | null;
+  }> => {
+    const response = await api.get(`/work-permits/${id}/approval-rights`);
+    return response.data;
+  },
+
+  /**
    * Get approval timeline
    */
   getTimeline: async (id: string): Promise<ApprovalTimelineItem[]> => {
