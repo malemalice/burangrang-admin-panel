@@ -1226,19 +1226,6 @@ export class PPEService {
                         },
                     });
 
-                    // Create stock adjustment for audit trail
-                    await tx["pPEStockAdjustment"].create({
-                        data: {
-                            stockItemId: item.stockItemId,
-                            adjustmentType: 'RETURN', // Actually it's withdrawal, but using RETURN type
-                            quantityBefore: stockItem.currentQuantity,
-                            quantityAfter: newCurrentQuantity,
-                            quantityChange: -issuedQty,
-                            reason: `Withdrawal ${withdrawal.withdrawalCode} - Item collected`,
-                            adjustedBy: updateDto.collectedBy || withdrawal.requestedBy,
-                        },
-                    });
-
                     // Update withdrawal item
                     await tx["pPEWithdrawalItem"].update({
                         where: { id: item.id },
