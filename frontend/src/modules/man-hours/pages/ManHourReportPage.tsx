@@ -263,16 +263,16 @@ export default function ManHourReportPage() {
               <table className="w-full text-sm border-collapse">
                 <thead className="sticky top-0">
                   <tr className="bg-blue-600 text-white">
-                    <th className="sticky left-0 top-0 z-30 bg-blue-600 px-4 py-3 text-left font-semibold min-w-[150px] border-r border-blue-500">
+                    <th className="sticky left-0 top-0 z-30 bg-blue-600 px-4 py-3 text-left font-semibold min-w-[150px] border-r">
                       Classes
                     </th>
-                    <th className="sticky top-0 z-20 px-4 py-3 text-right font-semibold min-w-[80px] border-r border-blue-500">
+                    <th className="sticky top-0 z-20 px-4 py-3 text-right font-semibold min-w-[80px] border-r">
                       Study Hour
                     </th>
                     {columnHeaders.map(({ key, label }) => (
                       <th
                         key={key}
-                        className="sticky top-0 z-20 px-3 py-3 text-right font-semibold min-w-[80px] whitespace-nowrap border-r border-blue-500"
+                        className="sticky top-0 z-20 px-3 py-3 text-right font-semibold min-w-[80px] whitespace-nowrap border-r"
                       >
                         {label}
                       </th>
