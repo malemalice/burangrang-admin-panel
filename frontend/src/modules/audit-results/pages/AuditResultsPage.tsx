@@ -131,23 +131,24 @@ const AuditResultsPage = () => {
     fetchDepartments();
   }, []);
 
-  // Define filter fields
+  // Define filter fields (same component types as AuditSchedulesPage)
   const filterFields: FilterField[] = [
     {
       id: 'auditScheduleCode',
       label: 'Audit Schedule Code',
       type: 'text',
+      placeholder: 'Search by audit schedule code...',
     },
     {
       id: 'auditElementId',
       label: 'Audit Element',
-      type: 'select',
+      type: 'searchableSelect',
       options: auditElements,
     },
     {
       id: 'compliantStatus',
       label: 'Compliant Status',
-      type: 'select',
+      type: 'searchableSelect',
       options: COMPLIANT_STATUS_OPTIONS.map(option => ({
         label: option.label,
         value: option.value,
@@ -156,7 +157,7 @@ const AuditResultsPage = () => {
     {
       id: 'status',
       label: 'Status',
-      type: 'select',
+      type: 'searchableSelect',
       options: GENERAL_STATUS_OPTIONS.map(option => ({
         label: option.label,
         value: option.value,
@@ -702,6 +703,7 @@ const AuditResultsPage = () => {
         activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+        searchPlaceholder="Search by code, criteria, clause, or element name..."
       />
 
       {/* Audit Item Form Dialog */}

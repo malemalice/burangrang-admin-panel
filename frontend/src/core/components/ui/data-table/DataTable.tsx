@@ -47,6 +47,7 @@ interface DataTableProps<T> {
   sorting?: { id: string; desc: boolean } | null;
   onSortingChange?: (sorting: { id: string; desc: boolean } | null) => void;
   hideSearch?: boolean;
+  searchPlaceholder?: string;
 }
 
 const DataTable = <T extends Record<string, any>>({
@@ -61,6 +62,7 @@ const DataTable = <T extends Record<string, any>>({
   sorting,
   onSortingChange,
   hideSearch = false,
+  searchPlaceholder = 'Search...',
 }: DataTableProps<T>) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -153,7 +155,7 @@ const DataTable = <T extends Record<string, any>>({
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
             <Input
-              placeholder="Search..."
+              placeholder={searchPlaceholder}
               value={searchTerm}
               onChange={handleSearch}
               className="pl-10 pr-4"

@@ -140,11 +140,6 @@ const AuditSchedulesPage = () => {
   // Define filter fields
   const filterFields: FilterField[] = [
     {
-      id: 'code',
-      label: 'Audit Code',
-      type: 'text',
-    },
-    {
       id: 'auditElementId',
       label: 'Audit Element',
       type: 'multiSelectSearchable',
@@ -294,10 +289,11 @@ const AuditSchedulesPage = () => {
         limit,
       };
 
-      // Add search term if exists
-      if (searchTerm) {
-        params.search = searchTerm;
-      }
+      // Note: Backend doesn't support search parameter for audit schedules list endpoint
+      // Search functionality would need to be implemented in the backend
+      // if (searchTerm) {
+      //   params.search = searchTerm;
+      // }
 
       // Add isActive filter from filters (for active/inactive tabs)
       if (activeFilters.isActive?.value !== undefined) {
@@ -346,8 +342,9 @@ const AuditSchedulesPage = () => {
       }
 
       // Add other filters (excluding handled ones)
+      // Note: 'code' filter removed as backend doesn't support it
       Object.entries(activeFilters).forEach(([key, filter]) => {
-        if (!['status', 'isActive', 'auditElementId', 'areaIds', 'auditorIds', 'createdAt'].includes(key)) {
+        if (!['status', 'isActive', 'auditElementId', 'areaIds', 'auditorIds', 'createdAt', 'code'].includes(key)) {
           params[key] = filter.value;
         }
       });
@@ -401,6 +398,11 @@ const AuditSchedulesPage = () => {
 
   const handleApplyFilters = (filters: FilterValue[]) => {
     const newActiveFilters: Record<string, { value: any; label: string }> = {};
+    
+    // Preserve isActive filter from current tab state (not in filter drawer)
+    if (activeFilters.isActive) {
+      newActiveFilters.isActive = activeFilters.isActive;
+    }
     
     filters.forEach(filter => {
       if (filter.id === 'status') {
@@ -666,6 +668,7 @@ const AuditSchedulesPage = () => {
         activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+        searchPlaceholder="Search by code or element name..."
       />
 
       <ConfirmDialog
