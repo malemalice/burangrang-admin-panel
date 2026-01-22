@@ -550,25 +550,29 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                           Add Quiz
                         </Button>
                       </div>
-                    ) : (
-                      // Show only the first quiz (1 chapter = 1 quiz)
-                      <div className="flex items-center justify-between p-2 rounded-md border hover:bg-gray-50 transition-colors">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{chapterQuizzes[0].title}</p>
-                          <p className="text-xs text-gray-500">
-                            {chapterQuizzes[0].questions?.length || 0} questions
-                          </p>
+                      ) : (
+                        // Show all linked quizzes
+                        <div className="space-y-2">
+                          {chapterQuizzes.map((quiz) => (
+                            <div key={quiz.id} className="flex items-center justify-between p-2 rounded-md border hover:bg-gray-50 transition-colors">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{quiz.title}</p>
+                                <p className="text-xs text-gray-500">
+                                  {quiz.questions?.length || 0} questions
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => navigate(`/quizzes/${quiz.id}`)}
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => navigate(`/quizzes/${chapterQuizzes[0].id}`)}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
+                      )}
                   </CardContent>
                 </Card>
               )}
