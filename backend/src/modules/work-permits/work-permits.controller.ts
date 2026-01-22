@@ -281,7 +281,7 @@ export class WorkPermitsController {
   @ApiResponse({ status: 400, description: 'Invalid status for approval' })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async approve(
     @Param('id') id: string,
     @Body() approveDto: ApproveWorkPermitDto,
@@ -302,7 +302,7 @@ export class WorkPermitsController {
   @ApiResponse({ status: 400, description: 'Invalid status for rejection' })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async reject(
     @Param('id') id: string,
     @Body() rejectDto: RejectWorkPermitDto,
@@ -323,7 +323,7 @@ export class WorkPermitsController {
   @ApiResponse({ status: 400, description: 'Invalid status for requesting info' })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async requestInfo(
     @Param('id') id: string,
     @Body() requestInfoDto: RequestInfoWorkPermitDto,
@@ -372,6 +372,17 @@ export class WorkPermitsController {
     @Request() req,
   ): Promise<WorkPermitDto> {
     return this.workPermitsService.close(id, closeDto, req.user.id);
+  }
+
+  @Get(':id/approval-rights')
+  @ApiOperation({ summary: 'Check approval rights for the current user' })
+  @ApiResponse({ status: 200, description: 'Returns approval rights' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  async checkApprovalRights(
+    @Param('id') id: string,
+    @Request() req,
+  ) {
+    return this.workPermitsService.checkApprovalRights(id, req.user.id);
   }
 
   @Get(':id/timeline')

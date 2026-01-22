@@ -59,6 +59,81 @@ export class WorkPermitsService {
   }
 
   /**
+   * Helper to get full user details for master approvals
+   */
+  private async getFullUser(userId: string): Promise<any> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: true,
+        department: true,
+        jobPosition: true,
+        office: true,
+      },
+    });
+
+    if (!user) {
+      this.errorHandler.throwBadRequest('User not found');
+    }
+
+    // Return as any to satisfy MasterApprovalsService which expects specific User interface
+    // Ideally we should align types, but for now this ensures runtime compatibility
+    return {
+      ...user,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
+      role: user.role?.name || '',
+      department: user.department ? {
+        id: user.department.id,
+        name: user.department.name,
+      } : undefined,
+      jobPosition: user.jobPosition ? {
+        id: user.jobPosition.id,
+        name: user.jobPosition.name,
+      } : undefined,
+    };
+  }
+
+  /**
+   * Check approval rights for a work permit
+   */
+  async checkApprovalRights(id: string, userId: string) {
+    const workPermit = await this.prisma.workPermit.findUnique({ where: { id } });
+    this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
+
+    // If not in review status, no one can approve
+    if (!['IN_REVIEW_HSE', 'IN_REVIEW_SECURITY', 'WAITING_APPROVAL', 'IN_REVIEW'].includes(workPermit.status)) {
+      return { canApprove: false, canReject: false, canRequestInfo: false, nextApprover: null };
+    }
+
+    const user = await this.getFullUser(userId);
+
+    try {
+      const approvalRights = await this.masterApprovalsService.checkApprovalRights(
+        id,
+        user,
+        'WORK_PERMIT',
+      );
+
+      const approvalStatus = await this.masterApprovalsService.checkApprovalStatus(
+        id,
+        'WORK_PERMIT',
+      );
+
+      return {
+        canApprove: approvalRights.canApprove,
+        canReject: approvalRights.canApprove, // Approver can also reject
+        canRequestInfo: approvalRights.canApprove, // Approver can request info
+        nextApprover: approvalStatus.nextApprover,
+      };
+    } catch (error) {
+      console.warn(`Master approval check failed for WorkPermit ${id}:`, error.message);
+      // Fallback: block approvals if configuration is missing/invalid
+      return { canApprove: false, canReject: false, canRequestInfo: false, nextApprover: null };
+    }
+  }
+
+  /**
    * Generate work permit code
    */
   private async generateCode(): Promise<string> {
@@ -1231,7 +1306,7 @@ export class WorkPermitsService {
   }
 
   /**
-   * Approve work permit (HSE or Security)
+   * Approve work permit (Dynamic based on Master Approval)
    */
   async approve(id: string, approveDto: ApproveWorkPermitDto, userId: string): Promise<WorkPermitDto> {
     return this.errorHandler.safeExecute(async () => {
@@ -1244,44 +1319,50 @@ export class WorkPermitsService {
 
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
 
-      // Get user to check role
-      const userRecord = await this.prisma.user.findUnique({
-        where: { id: userId },
-        include: {
-          role: true,
-        },
-      });
+      const user = await this.getFullUser(userId);
 
-      if (!userRecord) {
-        this.errorHandler.throwBadRequest('User not found');
+      // Check approval rights
+      const approvalRights = await this.masterApprovalsService.checkApprovalRights(
+        id,
+        user,
+        'WORK_PERMIT',
+      );
+
+      if (!approvalRights.canApprove) {
+        this.errorHandler.throwForbidden('You do not have permission to approve this work permit');
       }
 
-      // Convert to User type expected by MasterApprovalsService
-      const user: any = {
-        id: userRecord.id,
-        email: userRecord.email,
-        roleId: userRecord.roleId,
-        officeId: userRecord.officeId,
-        departmentId: userRecord.departmentId,
-        jobPositionId: userRecord.jobPositionId,
-        firstName: userRecord.firstName,
-        lastName: userRecord.lastName,
-        isActive: userRecord.isActive,
-        createdAt: userRecord.createdAt.toISOString(),
-        updatedAt: userRecord.updatedAt.toISOString(),
-        role: userRecord.role?.name || '',
-      };
+      // Submit approval record
+      await this.masterApprovalsService.submitApproval(
+        {
+          entity: 'WORK_PERMIT',
+          dataId: id,
+          status: ApprovalStatus.APPROVED,
+          notes: approveDto.notes || '',
+        },
+        user,
+      );
 
-      // Determine next status based on current status
+      // Check approval status to determine next step
+      const approvalStatus = await this.masterApprovalsService.checkApprovalStatus(
+        id,
+        'WORK_PERMIT',
+      );
+
       let nextStatus: string;
-      if (workPermit.status === 'WAITING_APPROVAL' || workPermit.status === 'IN_REVIEW_HSE') {
-        // HSE approval - move to Security review
-        nextStatus = 'IN_REVIEW_SECURITY';
-      } else if (workPermit.status === 'IN_REVIEW_SECURITY') {
-        // Security approval - final approval
+      if (approvalStatus.currentStatus === 'COMPLETED') {
         nextStatus = 'APPROVED';
+      } else if (approvalStatus.nextApprover) {
+        const nextDept = approvalStatus.nextApprover.department.name.toUpperCase();
+        if (nextDept.includes('SECURITY')) {
+          nextStatus = 'IN_REVIEW_SECURITY';
+        } else if (nextDept.includes('HSE')) {
+          nextStatus = 'IN_REVIEW_HSE';
+        } else {
+          nextStatus = 'IN_REVIEW'; // Generic fallback
+        }
       } else {
-        this.errorHandler.throwBadRequest(`Cannot approve work permit with status ${workPermit.status}`);
+        nextStatus = 'APPROVED';
       }
 
       // Update status
@@ -1297,26 +1378,13 @@ export class WorkPermitsService {
         },
       });
 
-      // Submit approval record
-      try {
-        await this.masterApprovalsService.submitApproval(
-          {
-            entity: 'WORK_PERMIT',
-            dataId: id,
-            status: ApprovalStatus.APPROVED,
-            notes: approveDto.notes || '',
-          },
-          user,
-        );
-      } catch (error) {
-        console.warn('Failed to submit approval record:', error);
-      }
-
       // Send notifications
       if (nextStatus === 'APPROVED') {
         await this.sendApprovalNotifications(id, updated);
-      } else {
+      } else if (nextStatus === 'IN_REVIEW_SECURITY') {
         await this.sendNotificationToSecurity(id, updated);
+      } else {
+        // Generic notification for other steps could be added here
       }
 
       return this.workPermitMapper(updated);
@@ -1337,9 +1405,17 @@ export class WorkPermitsService {
 
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
 
-      // Business rule: Can only reject if in approval process
-      if (!['WAITING_APPROVAL', 'IN_REVIEW_HSE', 'IN_REVIEW_SECURITY'].includes(workPermit.status)) {
-        this.errorHandler.throwBadRequest(`Cannot reject work permit with status ${workPermit.status}`);
+      const user = await this.getFullUser(userId);
+
+      // Check approval rights (approvers can reject)
+      const approvalRights = await this.masterApprovalsService.checkApprovalRights(
+        id,
+        user,
+        'WORK_PERMIT',
+      );
+
+      if (!approvalRights.canApprove) {
+        this.errorHandler.throwForbidden('You do not have permission to reject this work permit');
       }
 
       // Update status to REJECTED
@@ -1356,40 +1432,15 @@ export class WorkPermitsService {
       });
 
       // Submit rejection record
-      const userRecord = await this.prisma.user.findUnique({
-        where: { id: userId },
-      });
-
-      if (userRecord) {
-        // Convert to User type expected by MasterApprovalsService
-        const user: any = {
-          id: userRecord.id,
-          email: userRecord.email,
-          roleId: userRecord.roleId,
-          officeId: userRecord.officeId,
-          departmentId: userRecord.departmentId,
-          jobPositionId: userRecord.jobPositionId,
-          firstName: userRecord.firstName,
-          lastName: userRecord.lastName,
-          isActive: userRecord.isActive,
-          createdAt: userRecord.createdAt.toISOString(),
-          updatedAt: userRecord.updatedAt.toISOString(),
-        };
-
-        try {
-          await this.masterApprovalsService.submitApproval(
-            {
-              entity: 'WORK_PERMIT',
-              dataId: id,
-              status: ApprovalStatus.REJECTED,
-              notes: rejectDto.reason + (rejectDto.notes ? `\n\n${rejectDto.notes}` : ''),
-            },
-            user,
-          );
-        } catch (error) {
-          console.warn('Failed to submit rejection record:', error);
-        }
-      }
+      await this.masterApprovalsService.submitApproval(
+        {
+          entity: 'WORK_PERMIT',
+          dataId: id,
+          status: ApprovalStatus.REJECTED,
+          notes: rejectDto.reason + (rejectDto.notes ? `\n\n${rejectDto.notes}` : ''),
+        },
+        user,
+      );
 
       // Send rejection notification
       await this.sendRejectionNotification(id, updated, rejectDto.reason);
@@ -1412,9 +1463,17 @@ export class WorkPermitsService {
 
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
 
-      // Business rule: Only HSE can request info
-      if (!['WAITING_APPROVAL', 'IN_REVIEW_HSE'].includes(workPermit.status)) {
-        this.errorHandler.throwBadRequest(`Cannot request info for work permit with status ${workPermit.status}`);
+      const user = await this.getFullUser(userId);
+
+      // Check approval rights (approvers can request info)
+      const approvalRights = await this.masterApprovalsService.checkApprovalRights(
+        id,
+        user,
+        'WORK_PERMIT',
+      );
+
+      if (!approvalRights.canApprove) {
+        this.errorHandler.throwForbidden('You do not have permission to request info for this work permit');
       }
 
       // Update status to NEED_INFO

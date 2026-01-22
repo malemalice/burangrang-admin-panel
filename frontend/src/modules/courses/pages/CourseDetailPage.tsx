@@ -59,6 +59,7 @@ const CourseDetailPage = () => {
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [quizzesLoading, setQuizzesLoading] = useState(false);
+  const [chapterQuizCounts, setChapterQuizCounts] = useState<Record<string, number>>({});
 
   // Load course data
   useEffect(() => {
@@ -73,6 +74,32 @@ const CourseDetailPage = () => {
       fetchChapters({ courseId: course.id, page: 1, limit: 100 });
     }
   }, [course]);
+
+  // Load quiz counts for each chapter
+  useEffect(() => {
+    const loadChapterQuizCounts = async () => {
+      if (chapters.length > 0) {
+        const counts: Record<string, number> = {};
+        await Promise.all(
+          chapters.map(async (chapter) => {
+            try {
+              const response = await quizService.getQuizzes({
+                page: 1,
+                limit: 1,
+                entity: 'CHAPTER',
+                entityId: chapter.id,
+              });
+              counts[chapter.id] = response.meta.total;
+            } catch (error) {
+              counts[chapter.id] = 0;
+            }
+          })
+        );
+        setChapterQuizCounts(counts);
+      }
+    };
+    loadChapterQuizCounts();
+  }, [chapters]);
 
   // Load quizzes when course is loaded
   useEffect(() => {
@@ -411,6 +438,12 @@ const CourseDetailPage = () => {
                               <Clock className="h-3 w-3" />
                               <span>{formatDuration(chapter.duration)}</span>
                             </div>
+                            {chapterQuizCounts[chapter.id] > 0 && (
+                              <div className="flex items-center gap-1">
+                                <FileQuestion className="h-3 w-3" />
+                                <span>{chapterQuizCounts[chapter.id]} quiz{chapterQuizCounts[chapter.id] > 1 ? 'zes' : ''}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
