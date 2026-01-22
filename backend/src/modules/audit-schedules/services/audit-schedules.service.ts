@@ -1052,12 +1052,23 @@ export class AuditSchedulesService {
         );
       }
 
+      // Check if user has SUPER_ADMIN role
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { role: true },
+      });
+
+      const isSuperAdmin = user?.role?.code === 'SUPER_ADMIN';
+
       // Validate user is assigned to the audit item (via department or user assignment)
-      const isAssigned = await this.isUserAssignedToAuditItem(userId, auditItem);
-      if (!isAssigned) {
-        this.errorHandler.throwForbidden(
-          'You are not assigned to this audit item and cannot submit it for approval.',
-        );
+      // Bypass this check if user is SUPER_ADMIN
+      if (!isSuperAdmin) {
+        const isAssigned = await this.isUserAssignedToAuditItem(userId, auditItem);
+        if (!isAssigned) {
+          this.errorHandler.throwForbidden(
+            'You are not assigned to this audit item and cannot submit it for approval.',
+          );
+        }
       }
 
       // Update status to WAITING_APPROVAL
@@ -1074,13 +1085,6 @@ export class AuditSchedulesService {
           },
         },
       });
-
-      // Create approval records using the approval service
-      await this.approvalsService.createApproval(
-        APPROVAL_ENTITIES.AUDIT_ITEM,
-        itemId,
-        userId,
-      );
 
       return this.mapAuditItemToDto(updatedItem);
     }, 'Submitting audit item for approval');

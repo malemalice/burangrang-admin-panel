@@ -38,6 +38,8 @@ import { normalizeAuditItem } from '@/modules/audit-schedules/utils/auditItemUti
 import uploadService from '@/modules/uploads/services/uploadService';
 import departmentService from '@/modules/master-data/services/departmentService';
 import { Department } from '@/modules/master-data/types/master-data.types';
+import approvalService from '@/modules/master-data/services/approvalService';
+import { ApprovalStatus } from '@/core/lib/types';
 
 interface ImageUpload {
   id: string;
@@ -309,6 +311,77 @@ const AuditResultsPage = () => {
     setAuditClause(null);
     setAuditCriteria(null);
     setAuditItem(null);
+  };
+
+  const handleOpenApprovalForm = async (result: AuditResult) => {
+    // First fetch the audit item to get its ID and check status
+    try {
+      const auditResponse = await api.get(`/audits/${result.auditId}/items`, {
+        params: {
+          page: 1,
+          limit: 10000,
+        },
+      });
+      
+      if (auditResponse?.data?.data) {
+        const normalizedItems = auditResponse.data.data.map((item: any) => normalizeAuditItem(item));
+        const item = normalizedItems.find((item: any) => item.auditCriteriaId === result.auditCriteria.id);
+        
+        if (item) {
+          // Check if audit item status is WAITING_APPROVAL
+          if (item.status !== GeneralStatusEnum.WAITING_APPROVAL) {
+            toast.error('This audit item is not waiting for approval');
+            return;
+          }
+
+          // Check approval rights using the audit item ID
+          const response = await approvalService.checkApprovalRights(item.id, 'AUDIT_ITEM');
+          if (!response.canApprove) {
+            toast.error('You do not have permission to approve this audit item');
+            return;
+          }
+        } else {
+          toast.error('Audit item not found');
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check approval rights:', error);
+      toast.error('Failed to check approval rights');
+      return;
+    }
+    
+    await handleOpenForm(result);
+  };
+
+  const handleApprove = async (status: ApprovalStatus, notes: string) => {
+    if (!selectedResult || !auditItem) return;
+
+    try {
+      setIsSubmitting(true);
+      
+      await approvalService.submitApproval({
+        dataId: auditItem.id,
+        entity: 'AUDIT_ITEM',
+        status,
+        notes,
+      });
+
+      toast.success(`Audit item ${status === ApprovalStatus.APPROVED ? 'approved' : 'rejected'} successfully`);
+      
+      // Refresh audit results
+      await fetchAuditResults();
+      
+      handleCloseForm();
+    } catch (error: unknown) {
+      console.error('Failed to submit approval:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+        : undefined;
+      toast.error(errorMessage || 'Failed to submit approval');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmitForm = async (data: {
@@ -637,22 +710,22 @@ const AuditResultsPage = () => {
               </Tooltip>
             )}
 
-            {/* Verify button - shown when status is WAITING_APPROVAL */}
+            {/* Approve button - shown when status is WAITING_APPROVAL */}
             {isWaitingApproval && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleOpenForm(result)}
+                    onClick={() => handleOpenApprovalForm(result)}
                     className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                    aria-label={`Verify audit criteria ${result.auditCriteria.code}`}
+                    aria-label={`Approve audit criteria ${result.auditCriteria.code}`}
                   >
                     <CheckCircle2 className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Verify</p>
+                  <p>Approve</p>
                 </TooltipContent>
               </Tooltip>
             )}
@@ -749,6 +822,9 @@ const AuditResultsPage = () => {
               onSubmit={handleSubmitForm}
               onCancel={handleCloseForm}
               isSubmitting={isSubmitting}
+              mode={selectedResult.status === GeneralStatusEnum.WAITING_APPROVAL && auditItem?.status === GeneralStatusEnum.WAITING_APPROVAL ? 'approval' : 'edit'}
+              onApprove={selectedResult.status === GeneralStatusEnum.WAITING_APPROVAL && auditItem?.status === GeneralStatusEnum.WAITING_APPROVAL ? handleApprove : undefined}
+              auditId={selectedResult.auditId}
             />
           ) : null}
         </DialogContent>
