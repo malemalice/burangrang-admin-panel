@@ -145,11 +145,44 @@ export async function seedMasterApprovals(prisma: PrismaClient) {
     `✅ Created Inspection Item approval workflow (Dynamic → Lead in Academic Department)`,
   );
 
+  // 4. Audit Item Approval Workflow
+  const auditItemApproval = await prisma.masterApproval.create({
+    data: {
+      entity: APPROVAL_ENTITIES.AUDIT_ITEM,
+      isActive: true,
+    },
+  });
+
+  // Audit Item: 2-step approval (Dynamic → Lead in Academic Department)
+  await prisma.masterApprovalItem.createMany({
+    data: [
+      {
+        mApprovalId: auditItemApproval.id,
+        order: 0,
+        jobPositionId: APPROVAL_FIELD_MARKERS.FROM_ENTITY_JOB_POSITION,
+        departmentId: APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT,
+        createdBy: creator.id,
+      },
+      {
+        mApprovalId: auditItemApproval.id,
+        order: 1,
+        jobPositionId: leadPos.id,
+        departmentId: academicDept.id,
+        createdBy: creator.id,
+      },
+    ],
+  });
+
+  console.log(
+    `✅ Created Audit Item approval workflow (Dynamic → Lead in Academic Department)`,
+  );
+
   console.log('✅ Master Approvals seeding completed');
   return {
     riskAssessmentApproval,
     workPermitApproval,
     inspectionItemApproval,
+    auditItemApproval,
   };
 }
 

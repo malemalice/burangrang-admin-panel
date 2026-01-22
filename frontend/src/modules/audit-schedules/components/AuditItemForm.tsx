@@ -72,6 +72,7 @@ interface AuditItemFormProps {
   auditSchedule?: AuditSchedule | null;
   auditItem?: {
     id: string;
+    status?: string;
     compliantStatus: string;
     departmentIds?: string[];
     userIds?: string[];
@@ -665,7 +666,10 @@ export const AuditItemForm = ({
               type="submit" 
               disabled={isSubmitting || (isReadOnly && !canEditActionRealization)}
             >
-              {isSubmitting ? 'Saving...' : auditItem ? 'Update' : 'Save'}
+              {isSubmitting 
+                ? 'Submitting...'
+                : 'Submit'
+              }
             </Button>
           )}
         </div>

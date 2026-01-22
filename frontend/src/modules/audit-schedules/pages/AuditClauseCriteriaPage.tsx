@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, Edit, Eye, ClipboardCheck, Wrench, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Edit, Eye, ClipboardCheck, Wrench, CheckCircle2, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/core/components/ui/button';
@@ -25,6 +25,7 @@ import { AuditSchedule } from '../types/audit-schedule.types';
 import { normalizeAuditItem, normalizeAuditItems } from '../utils/auditItemUtils';
 import api from '@/core/lib/api';
 import { AuditItemForm } from '../components/AuditItemForm';
+import { ApprovalDialog } from '../components/ApprovalDialog';
 import uploadService from '@/modules/uploads/services/uploadService';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import departmentService from '@/modules/master-data/services/departmentService';
@@ -95,6 +96,8 @@ const AuditClauseCriteriaPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [departmentMap, setDepartmentMap] = useState<Record<string, string>>({});
+  const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
+  const [selectedItemForApproval, setSelectedItemForApproval] = useState<{ auditId: string; itemId: string } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -283,6 +286,23 @@ const AuditClauseCriteriaPage = () => {
     setSelectedCriteria(null);
   };
 
+  const handleOpenApprovalDialog = (item: MergedCriteriaItem) => {
+    if (!id || !item.auditItem) return;
+
+    setSelectedItemForApproval({ auditId: id, itemId: item.auditItem.id });
+    setIsApprovalDialogOpen(true);
+  };
+
+  const handleCloseApprovalDialog = () => {
+    setIsApprovalDialogOpen(false);
+    setSelectedItemForApproval(null);
+  };
+
+  const handleApprovalSubmitted = () => {
+    // Refresh the data
+    window.location.reload();
+  };
+
   const handleSubmitForm = async (data: {
     compliantStatus: CompliantStatusEnum;
     departmentIds: string[];
@@ -355,14 +375,49 @@ const AuditClauseCriteriaPage = () => {
         images: uploadedImageUrls,
       };
 
+      let updatedItemId: string;
+      let itemStatus: string | undefined;
+      
+      // If compliant status is COMPLY, skip approval and set status to DONE directly
+      const shouldSkipApproval = data.compliantStatus === CompliantStatusEnum.COMPLY;
+      
       if (selectedCriteria.auditItem) {
         // Update existing audit item
-        await api.patch(`/audits/${id}/items/${selectedCriteria.auditItem.id}`, payload);
-        toast.success('Audit item updated successfully');
+        const updatePayload = shouldSkipApproval 
+          ? { ...payload, status: GeneralStatusEnum.DONE }
+          : payload;
+        const updateResponse = await api.patch(`/audits/${id}/items/${selectedCriteria.auditItem.id}`, updatePayload);
+        updatedItemId = selectedCriteria.auditItem.id;
+        itemStatus = updateResponse.data?.status || selectedCriteria.auditItem.status;
+        toast.success(shouldSkipApproval ? 'Audit item completed (COMPLY - no approval needed)' : 'Audit item updated successfully');
       } else {
         // Create new audit item
-        await api.post(`/audits/${id}/items`, payload);
-        toast.success('Audit item created successfully');
+        const createPayload = shouldSkipApproval
+          ? { ...payload, status: GeneralStatusEnum.DONE }
+          : payload;
+        const createResponse = await api.post(`/audits/${id}/items`, createPayload);
+        updatedItemId = createResponse.data?.id || createResponse.data?.data?.id;
+        itemStatus = createResponse.data?.status || createResponse.data?.data?.status || (shouldSkipApproval ? GeneralStatusEnum.DONE : GeneralStatusEnum.OPEN);
+        toast.success(shouldSkipApproval ? 'Audit item completed (COMPLY - no approval needed)' : 'Audit item created successfully');
+      }
+
+      // If compliant status is NOT COMPLY and item status is OPEN, automatically submit for approval
+      // This follows the workflow: assigned user updates → submits for approval
+      if (!shouldSkipApproval && (itemStatus === GeneralStatusEnum.OPEN || (!selectedCriteria.auditItem && itemStatus === GeneralStatusEnum.OPEN))) {
+        try {
+          await auditSchedulesService.submitForApproval(id, updatedItemId);
+          toast.success('Audit item submitted for approval');
+        } catch (error) {
+          console.error('Failed to submit for approval:', error);
+          // Don't show error if user doesn't have permission - item is still saved
+          // Only show error if it's a real issue
+          if (error && typeof error === 'object' && 'response' in error) {
+            const errorResponse = (error as { response?: { status?: number } })?.response;
+            if (errorResponse?.status !== 403) {
+              toast.error('Item saved but failed to submit for approval');
+            }
+          }
+        }
       }
 
       // Refresh data
@@ -568,6 +623,32 @@ const AuditClauseCriteriaPage = () => {
       isSortable: false,
     },
     {
+      id: 'status',
+      header: 'Status',
+      cell: (item: MergedCriteriaItem) => {
+        const status = item.auditItem?.status;
+        if (!status) {
+          return <Badge variant="outline" className="bg-gray-100 text-gray-600">Not Started</Badge>;
+        }
+
+        switch (status) {
+          case GeneralStatusEnum.DRAFT:
+            return <Badge variant="outline" className="bg-gray-100 text-gray-600">Draft</Badge>;
+          case GeneralStatusEnum.OPEN:
+            return <Badge variant="outline" className="bg-blue-100 text-blue-800">Open</Badge>;
+          case GeneralStatusEnum.WAITING_APPROVAL:
+            return <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Waiting Approval</Badge>;
+          case GeneralStatusEnum.DONE:
+            return <Badge className="bg-green-100 text-green-800">Done</Badge>;
+          case GeneralStatusEnum.REJECTED:
+            return <Badge className="bg-red-100 text-red-800">Rejected</Badge>;
+          default:
+            return <Badge variant="outline">{status}</Badge>;
+        }
+      },
+      isSortable: false,
+    },
+    {
       id: 'compliantStatus',
       header: 'Compliant Status',
       cell: (item: MergedCriteriaItem) => (
@@ -643,6 +724,25 @@ const AuditClauseCriteriaPage = () => {
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Update</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* Approve/Reject button - shown when status is WAITING_APPROVAL */}
+            {item.isFromAuditItem && isWaitingApproval && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleOpenApprovalDialog(item)}
+                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                  >
+                    <UserCheck className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Approve/Reject</p>
                 </TooltipContent>
               </Tooltip>
             )}
@@ -793,6 +893,7 @@ const AuditClauseCriteriaPage = () => {
               auditSchedule={auditSchedule}
               auditItem={selectedCriteria.auditItem ? {
                 id: selectedCriteria.auditItem.id,
+                status: selectedCriteria.auditItem.status,
                 compliantStatus: selectedCriteria.auditItem.compliantStatus,
                 departmentIds: selectedCriteria.auditItem.departmentIds || [],
                 userIds: selectedCriteria.auditItem.userIds || [],
@@ -809,6 +910,17 @@ const AuditClauseCriteriaPage = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Approval Dialog */}
+      {selectedItemForApproval && (
+        <ApprovalDialog
+          open={isApprovalDialogOpen}
+          onOpenChange={handleCloseApprovalDialog}
+          auditId={selectedItemForApproval.auditId}
+          itemId={selectedItemForApproval.itemId}
+          onApprovalSubmitted={handleApprovalSubmitted}
+        />
+      )}
     </div>
   );
 };
