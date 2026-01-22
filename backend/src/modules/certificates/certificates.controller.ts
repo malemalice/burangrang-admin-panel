@@ -241,8 +241,9 @@ export class CertificatesController {
   async update(
     @Param('id') id: string,
     @Body() updateCertificateDto: UpdateCertificateDto,
+    @Req() req: RequestWithUser,
   ): Promise<CertificateDto> {
-    return this.certificatesService.update(id, updateCertificateDto);
+    return this.certificatesService.update(id, updateCertificateDto, req.user.id);
   }
 
   @Delete(':id')

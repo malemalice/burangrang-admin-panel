@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Upload, X, FileText } from 'lucide-react';
 import api from '@/core/lib/api';
 import { Button } from '@/core/components/ui/button';
+import { Switch } from '@/core/components/ui/switch';
 import {
     Form,
     FormControl,
@@ -58,6 +59,7 @@ const formSchema = z
         departmentId: z.string().min(1, 'Department is required'),
         reminderDays: z.number().min(1, 'Reminder days must be at least 1').default(30),
         notes: z.string().optional(),
+        isActive: z.boolean().default(true),
     })
     .refine(
         (data) => {
@@ -169,6 +171,7 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
             departmentId: '',
             reminderDays: 30,
             notes: '',
+            isActive: true,
         },
     });
 
@@ -246,6 +249,7 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                 departmentId: certificateData.departmentId,
                 reminderDays: certificateData.reminderDays,
                 notes: certificateData.notes || '',
+                isActive: certificateData.isActive,
             });
 
             // Set uploaded file name if documentUrl exists
@@ -344,6 +348,7 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                 departmentId: values.departmentId,
                 reminderDays: values.reminderDays,
                 notes: values.notes || undefined,
+                isActive: values.isActive,
             };
 
             if (mode === 'create') {
@@ -767,6 +772,29 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                                 </FormItem>
                             )}
                         />
+
+                        {mode === 'edit' && (
+                            <FormField
+                                control={form.control}
+                                name="isActive"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                        <div className="space-y-0.5">
+                                            <FormLabel className="text-base">Active Status</FormLabel>
+                                            <FormDescription>
+                                                Toggle to set the certificate status (Active/Inactive)
+                                            </FormDescription>
+                                        </div>
+                                        <FormControl>
+                                            <Switch
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                            />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                        )}
                     </CardContent>
                 </Card>
 

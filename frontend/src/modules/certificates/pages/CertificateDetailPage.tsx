@@ -1,9 +1,20 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Edit, Calendar, Award, Building, User, FileText, AlertTriangle } from 'lucide-react';
+import { Edit, Calendar, Award, Building, User, FileText, AlertTriangle, Plus } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/core/components/ui/dialog';
+import { Textarea } from '@/core/components/ui/textarea';
+import { Label } from '@/core/components/ui/label';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { useCertificate } from '../hooks/useCertificates';
 import { useCertificateRenewals } from '../hooks/useCertificates';
@@ -13,8 +24,26 @@ const CertificateDetailPage = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { certificate, isLoading } = useCertificate(id || null);
-    const { renewals, isLoading: isLoadingRenewals } = useCertificateRenewals(id || null);
+    const { renewals, isLoading: isLoadingRenewals, createRenewal } = useCertificateRenewals(id || null);
     const { reminders, isLoading: isLoadingReminders } = useCertificateReminders(id || null);
+
+    const [isRenewalOpen, setIsRenewalOpen] = useState(false);
+    const [renewalNotes, setRenewalNotes] = useState('');
+    const [isSubmittingRenewal, setIsSubmittingRenewal] = useState(false);
+
+    const handleCreateRenewal = async () => {
+        if (!id) return;
+        try {
+            setIsSubmittingRenewal(true);
+            await createRenewal(id, { notes: renewalNotes });
+            setIsRenewalOpen(false);
+            setRenewalNotes('');
+        } catch (error) {
+            console.error('Failed to create renewal:', error);
+        } finally {
+            setIsSubmittingRenewal(false);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -226,8 +255,12 @@ const CertificateDetailPage = () => {
 
                 <TabsContent value="renewals" className="space-y-4">
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle>Renewal History</CardTitle>
+                            <Button onClick={() => setIsRenewalOpen(true)} size="sm">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Request Renewal
+                            </Button>
                         </CardHeader>
                         <CardContent>
                             {isLoadingRenewals ? (
@@ -320,6 +353,44 @@ const CertificateDetailPage = () => {
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            <Dialog open={isRenewalOpen} onOpenChange={setIsRenewalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Request Certificate Renewal</DialogTitle>
+                        <DialogDescription>
+                            Create a new renewal request for this certificate.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="notes">Notes</Label>
+                            <Textarea
+                                id="notes"
+                                placeholder="Enter renewal notes or instructions..."
+                                value={renewalNotes}
+                                onChange={(e) => setRenewalNotes(e.target.value)}
+                                rows={4}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsRenewalOpen(false)}
+                            disabled={isSubmittingRenewal}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleCreateRenewal}
+                            disabled={isSubmittingRenewal}
+                        >
+                            {isSubmittingRenewal ? 'Submitting...' : 'Submit Request'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 };
