@@ -120,7 +120,7 @@ const mapReminderDtoToReminder = (
 const certificateService = {
     // Get all certificates with pagination and filtering
     getCertificates: async (
-        params: PaginationParams,
+        params: CertificateSearchParams,
     ): Promise<PaginatedResponse<Certificate>> => {
         try {
             const queryParams = new URLSearchParams({
@@ -137,10 +137,42 @@ const certificateService = {
                 queryParams.append('search', params.search);
             }
 
+            // Handle direct filter properties from CertificateSearchParams
+            if (params.isActive !== undefined) {
+                queryParams.append('isActive', params.isActive.toString());
+            }
+
+            if (params.categoryId) {
+                queryParams.append('categoryId', params.categoryId);
+            }
+
+            if (params.certificateType) {
+                queryParams.append('certificateType', params.certificateType);
+            }
+
+            if (params.departmentId) {
+                queryParams.append('departmentId', params.departmentId);
+            }
+
+            if (params.personnelId) {
+                queryParams.append('personnelId', params.personnelId);
+            }
+
+            if (params.expired !== undefined) {
+                queryParams.append('expired', params.expired.toString());
+            }
+
+            if (params.expiringSoon !== undefined) {
+                queryParams.append('expiringSoon', params.expiringSoon.toString());
+            }
+
             if (params.filters) {
                 Object.entries(params.filters).forEach(([key, value]) => {
                     if (value !== undefined && value !== null && value !== '') {
-                        queryParams.append(key, value.toString());
+                        // Avoid duplicates if already added via direct properties
+                        if (!queryParams.has(key)) {
+                            queryParams.append(key, value.toString());
+                        }
                     }
                 });
             }
