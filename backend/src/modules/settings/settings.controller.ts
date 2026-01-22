@@ -69,7 +69,7 @@ export class SettingsController {
     const name = await this.settingsService.getValueByKey('app.name');
 
     return {
-      name: name || 'Office Nexus',
+      name: name || 'HSE System',
     };
   }
 

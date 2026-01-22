@@ -209,7 +209,7 @@ const settingsService = {
       return response.data.name;
     } catch (error: any) {
       console.warn('Failed to get app name, using default:', error);
-      return 'Office Nexus';
+      return 'HSE System';
     }
   },
 

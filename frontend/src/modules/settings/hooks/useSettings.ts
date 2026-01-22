@@ -120,7 +120,7 @@ export const useSettings = () => {
  * Custom hook for managing app name setting
  */
 export const useAppName = () => {
-  const [appName, setAppName] = useState<string>('Office Nexus');
+  const [appName, setAppName] = useState<string>('HSE System');
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -181,7 +181,7 @@ export const useDocumentTitle = (pageTitle?: string) => {
   const { appName } = useAppName();
 
   useEffect(() => {
-    const baseTitle = appName || 'Office Nexus';
+    const baseTitle = appName || 'HSE System';
     const fullTitle = pageTitle ? `${pageTitle} - ${baseTitle}` : baseTitle;
     document.title = fullTitle;
   }, [appName, pageTitle]);

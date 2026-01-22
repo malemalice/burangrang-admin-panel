@@ -222,12 +222,12 @@ const ViewAuditCriteriaPage = () => {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
-            <Button
+            {/* <Button
               onClick={() => navigate(`/audit-schedules/${id}/clauses/${clauseId}`)}
             >
               <Edit className="mr-2 h-4 w-4" />
               {auditItem ? 'Edit' : 'Fill Audit Item'}
-            </Button>
+            </Button> */}
           </div>
         }
       />
