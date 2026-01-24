@@ -19,6 +19,7 @@ import {
 import { RiskAssessmentItem } from '@/core/lib/types';
 import { type CreateRiskAssessmentItemDTO } from '../services/riskAssessmentService';
 import riskAssessmentService from '../services/riskAssessmentService';
+import { approvalService, type ApprovalStatusHistory } from '@/modules/master-data';
 import RiskAssessmentItemForm from '../components/RiskAssessmentItemForm';
 import { AssessmentDetailsCard } from '../components/AssessmentDetailsCard';
 import { ApprovalTimelineCard } from '../components/ApprovalTimelineCard';
@@ -36,6 +37,7 @@ const RiskAssessmentDetailPage = () => {
   const navigate = useNavigate();
   const [allItemsForPDF, setAllItemsForPDF] = useState<RiskAssessmentItem[]>([]);
   const [isLoadingAllItems, setIsLoadingAllItems] = useState(false);
+  const [approvalHistoryForPDF, setApprovalHistoryForPDF] = useState<ApprovalStatusHistory | null>(null);
   
   const {
     assessment,
@@ -124,13 +126,24 @@ const RiskAssessmentDetailPage = () => {
     try {
       setIsLoadingAllItems(true);
       
-      // Fetch all items (not paginated) for PDF
-      const response = await riskAssessmentService.getItems(id, {
-        page: 1,
-        limit: 10000, // Large limit to get all items
-      });
+      const [itemsResponse, approvalStatus] = await Promise.all([
+        // Fetch all items (not paginated) for PDF
+        riskAssessmentService.getItems(id, {
+          page: 1,
+          limit: 10000, // Large limit to get all items
+        }),
+        // Ensure approval history is available for the PDF
+        approvalService.checkApprovalStatus(id).catch(() => null),
+      ]);
       
-      setAllItemsForPDF(response.data);
+      setAllItemsForPDF(itemsResponse.data);
+
+      if (approvalStatus && !(approvalStatus as any).error) {
+        setApprovalHistoryForPDF(approvalStatus);
+      } else {
+        // Fall back to whatever the page already has
+        setApprovalHistoryForPDF(approvalHistory);
+      }
       
       // Wait for React to re-render with new data
       await new Promise(resolve => setTimeout(resolve, 200));
@@ -310,7 +323,7 @@ const RiskAssessmentDetailPage = () => {
           <RiskAssessmentPDFTemplate
             assessment={assessment}
             items={allItemsForPDF.length > 0 ? allItemsForPDF : items}
-            approvalHistory={approvalHistory}
+            approvalHistory={approvalHistoryForPDF ?? approvalHistory}
           />
         </div>
       )}
