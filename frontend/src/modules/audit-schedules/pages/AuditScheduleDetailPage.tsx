@@ -14,6 +14,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/to
 import { AuditSchedule } from '../types/audit-schedule.types';
 import auditSchedulesService from '../services/auditSchedulesService';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { CompliantStatusEnum } from '@/shared/constants/compliant-status.enum';
 import auditPolicyService from '@/modules/audit-policy/services/auditPolicyService';
 import { AuditClause, AuditCriteria } from '@/modules/audit-policy/types/audit-policy.types';
 import api from '@/core/lib/api';
@@ -59,8 +60,8 @@ interface AuditItem {
   id: string;
   auditId: string;
   auditCriteriaId: string;
-  status: string;
-  compliantStatus: string;
+  status: GeneralStatusEnum;
+  compliantStatus: CompliantStatusEnum;
   evidence?: string;
   recommendation?: string;
   actionRealization?: string;
@@ -199,11 +200,11 @@ const AuditScheduleDetailPage = () => {
     const total = allCriteria.length;
     const filled = auditItems.length;
     const comply = auditItems.filter(
-      item => item.compliantStatus === 'COMPLY'
+      item => item.compliantStatus === CompliantStatusEnum.COMPLY
     ).length;
     const notComply = auditItems.filter(
-      item => item.compliantStatus === 'NOT_COMPLY_MAJOR' || 
-              item.compliantStatus === 'NOT_COMPLY_MINOR'
+      item => item.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MAJOR || 
+              item.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MINOR
     ).length;
     
     return { total, filled, comply, notComply };
@@ -217,16 +218,16 @@ const AuditScheduleDetailPage = () => {
     
     const total = clauseCriteria.length;
     const filled = clauseItems.length;
-    const comply = clauseItems.filter(item => item.compliantStatus === 'COMPLY').length;
+    const comply = clauseItems.filter(item => item.compliantStatus === CompliantStatusEnum.COMPLY).length;
     const notComply = clauseItems.filter(
-      item => item.compliantStatus === 'NOT_COMPLY_MAJOR' || 
-              item.compliantStatus === 'NOT_COMPLY_MINOR'
+      item => item.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MAJOR || 
+              item.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MINOR
     ).length;
 
     return { total, filled, comply, notComply };
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: GeneralStatusEnum | string) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
       [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
       [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'outline' },
@@ -236,7 +237,8 @@ const AuditScheduleDetailPage = () => {
       [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
     };
 
-    const statusInfo = statusMap[status] || { label: status, variant: 'outline' };
+    const statusKey = String(status);
+    const statusInfo = statusMap[statusKey] || { label: statusKey, variant: 'outline' };
 
     return (
       <Badge variant={statusInfo.variant}>

@@ -34,24 +34,34 @@ import { roleService } from '@/modules/roles';
 import { AuditSchedule } from '../types/audit-schedule.types';
 import approvalService from '@/modules/master-data/services/approvalService';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { CompliantStatusEnum } from '@/shared/constants/compliant-status.enum';
+import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
+import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
 
-enum CompliantStatusEnum {
-  COMPLY = 'COMPLY',
-  NOT_COMPLY_MAJOR = 'NOT_COMPLY_MAJOR',
-  NOT_COMPLY_MINOR = 'NOT_COMPLY_MINOR',
-}
-
-const formSchema = z.object({
-  compliantStatus: z.nativeEnum(CompliantStatusEnum, {
-    required_error: 'Compliant status is required',
-  }),
-  departmentIds: z.array(z.string()).min(1, 'At least one department is required'),
-  userIds: z.array(z.string()).optional(),
-  evidence: z.string().optional(),
-  recommendation: z.string().optional(),
-  actionRealization: z.string().optional(),
-  dueDate: z.string().min(1, 'Due date is required'),
-});
+const formSchema = z
+  .object({
+    compliantStatus: z.nativeEnum(CompliantStatusEnum, {
+      required_error: 'Compliant status is required',
+    }),
+    // Conditionally required when compliantStatus is outside COMPLY.
+    departmentIds: z.array(z.string()),
+    userIds: z.array(z.string()).optional(),
+    evidence: z.string().optional(),
+    recommendation: z.string().optional(),
+    actionRealization: z.string().optional(),
+    dueDate: z.string().min(1, 'Due date is required'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.compliantStatus !== CompliantStatusEnum.COMPLY) {
+      if (!data.departmentIds || data.departmentIds.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['departmentIds'],
+          message: 'Assigned Departments is required when Compliant Status is not Comply',
+        });
+      }
+    }
+  });
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -76,8 +86,8 @@ interface AuditItemFormProps {
   auditSchedule?: AuditSchedule | null;
   auditItem?: {
     id: string;
-    status?: string;
-    compliantStatus: string;
+    status?: GeneralStatusEnum;
+    compliantStatus: CompliantStatusEnum;
     departmentIds?: string[];
     userIds?: string[];
     evidence?: string;
@@ -183,7 +193,7 @@ export const AuditItemForm = ({
           }
         }
 
-        const isUserSuperAdmin = roleCode === 'SUPER_ADMIN';
+        const isUserSuperAdmin = roleCode === ROLE_CODES.SUPER_ADMIN;
         setIsSuperAdmin(isUserSuperAdmin);
 
         // Check if user is an auditor assigned to the audit schedule
@@ -213,7 +223,10 @@ export const AuditItemForm = ({
         let hasApprovalRights = false;
         if (auditItem && auditItem.status === GeneralStatusEnum.WAITING_APPROVAL) {
           try {
-            const approvalResponse = await approvalService.checkApprovalRights(auditItem.id, 'AUDIT_ITEM');
+            const approvalResponse = await approvalService.checkApprovalRights(
+              auditItem.id,
+              APPROVAL_ENTITIES.AUDIT_ITEM,
+            );
             hasApprovalRights = approvalResponse.canApprove;
             setCanApprove(hasApprovalRights);
           } catch (error) {
@@ -330,6 +343,10 @@ export const AuditItemForm = ({
         : convertToDateTimeLocal(new Date().toISOString()),
     },
   });
+
+  const watchedCompliantStatus = form.watch('compliantStatus');
+  const isDepartmentRequired =
+    watchedCompliantStatus !== undefined && watchedCompliantStatus !== CompliantStatusEnum.COMPLY;
 
   // Reset form when auditItem changes (important for reopening form with different data)
   useEffect(() => {
@@ -611,7 +628,8 @@ export const AuditItemForm = ({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Assigned Departments <span className="text-destructive">*</span>
+                      Assigned Departments
+                      {isDepartmentRequired && <span className="text-destructive"> *</span>}
                     </FormLabel>
                     <FormControl>
                       <ModalMultiSelect

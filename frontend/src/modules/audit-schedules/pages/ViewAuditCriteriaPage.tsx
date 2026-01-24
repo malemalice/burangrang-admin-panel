@@ -11,6 +11,8 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { approvalService, type ApprovalStatusHistory } from '@/modules/master-data';
 import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { CompliantStatusEnum } from '@/shared/constants/compliant-status.enum';
+import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 
 // Reusable Field component for consistent layout
 const Field = ({ label, value, spanFull = false }: { label: string; value: React.ReactNode; spanFull?: boolean }) => (
@@ -27,13 +29,14 @@ import { AuditSchedule } from '../types/audit-schedule.types';
 import api from '@/core/lib/api';
 import departmentService from '@/modules/master-data/services/departmentService';
 import { Department } from '@/modules/master-data/types/master-data.types';
+import { userService } from '@/modules/users';
 
 interface AuditItem {
   id: string;
   auditId: string;
   auditCriteriaId: string;
-  status: string;
-  compliantStatus: string;
+  status: GeneralStatusEnum;
+  compliantStatus: CompliantStatusEnum;
   evidence?: string;
   recommendation?: string;
   actionRealization?: string;
@@ -63,6 +66,7 @@ const ViewAuditCriteriaPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [departmentMap, setDepartmentMap] = useState<Record<string, string>>({});
+  const [userMap, setUserMap] = useState<Record<string, string>>({});
   const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
@@ -157,6 +161,24 @@ const ViewAuditCriteriaPage = () => {
     fetchDepartments();
   }, []);
 
+  // Fetch users for user name lookup
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await userService.getAll({ page: 1, limit: 1000 });
+        const map: Record<string, string> = {};
+        response.data.forEach((user: any) => {
+          const firstLast = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+          map[user.id] = firstLast || user.name || user.email || 'Unknown user';
+        });
+        setUserMap(map);
+      } catch (error) {
+        console.error('Failed to fetch users:', error);
+      }
+    };
+    fetchUsers();
+  }, []);
+
   // Fetch approval status/history for audit item
   useEffect(() => {
     const fetchApprovalStatus = async () => {
@@ -164,7 +186,10 @@ const ViewAuditCriteriaPage = () => {
 
       setIsLoadingHistory(true);
       try {
-        const approvalStatus = await approvalService.checkApprovalStatus(auditItem.id, 'AUDIT_ITEM');
+        const approvalStatus = await approvalService.checkApprovalStatus(
+          auditItem.id,
+          APPROVAL_ENTITIES.AUDIT_ITEM,
+        );
         // Handle backend error response (backend returns { error: true, message: string } on errors)
         if (approvalStatus && !(approvalStatus as any).error) {
           setApprovalHistory(approvalStatus);
@@ -194,7 +219,7 @@ const ViewAuditCriteriaPage = () => {
     fetchApprovalStatus();
   }, [auditItem?.id]);
 
-  const getCompliantStatusBadge = (status?: string) => {
+  const getCompliantStatusBadge = (status?: CompliantStatusEnum) => {
     if (!status) {
       return (
         <Badge variant="outline" className="bg-gray-100 text-gray-600">
@@ -204,19 +229,19 @@ const ViewAuditCriteriaPage = () => {
     }
     
     switch (status) {
-      case 'COMPLY':
+      case CompliantStatusEnum.COMPLY:
         return (
           <Badge className="bg-green-100 text-green-800 border-green-800">
             Comply
           </Badge>
         );
-      case 'NOT_COMPLY_MAJOR':
+      case CompliantStatusEnum.NOT_COMPLY_MAJOR:
         return (
           <Badge className="bg-red-100 text-red-800 border-red-800">
             Not Comply (Major)
           </Badge>
         );
-      case 'NOT_COMPLY_MINOR':
+      case CompliantStatusEnum.NOT_COMPLY_MINOR:
         return (
           <Badge className="bg-yellow-100 text-yellow-800 border-yellow-800">
             Not Comply (Minor)
@@ -486,14 +511,17 @@ const ViewAuditCriteriaPage = () => {
                   </label>
                   {auditItem.userIds && auditItem.userIds.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
-                      {auditItem.userIds.map((userId) => (
-                        <Badge key={userId} variant="outline">
-                          {userId}
-                        </Badge>
-                      ))}
+                      {auditItem.userIds.map((userId) => {
+                        const userName = userMap[userId] || 'Unknown user';
+                        return (
+                          <Badge key={userId} variant="outline">
+                            {userName}
+                          </Badge>
+                        );
+                      })}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No users assigned</p>
+                    <p className="text-sm text-muted-foreground">N/A</p>
                   )}
                 </div>
               </div>

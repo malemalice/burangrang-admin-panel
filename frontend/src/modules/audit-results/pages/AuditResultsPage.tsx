@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { 
@@ -40,6 +40,7 @@ import departmentService from '@/modules/master-data/services/departmentService'
 import { Department } from '@/modules/master-data/types/master-data.types';
 import approvalService from '@/modules/master-data/services/approvalService';
 import { ApprovalStatus } from '@/core/lib/types';
+import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 
 interface ImageUpload {
   id: string;
@@ -53,8 +54,8 @@ interface AuditItem {
   id: string;
   auditId: string;
   auditCriteriaId: string;
-  status: string;
-  compliantStatus: string;
+  status: GeneralStatusEnum;
+  compliantStatus: CompliantStatusEnum;
   evidence?: string;
   recommendation?: string;
   actionRealization?: string;
@@ -74,13 +75,11 @@ interface AuditItem {
 
 const AuditResultsPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [auditResults, setAuditResults] = useState<AuditResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [pageIndex, setPageIndex] = useState(0);
-  const [limit, setLimit] = useState(10);
   const [totalAuditResults, setTotalAuditResults] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [auditElements, setAuditElements] = useState<Array<{ value: string; label: string }>>([]);
   const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
@@ -168,6 +167,69 @@ const AuditResultsPage = () => {
     }
   ];
 
+  const pageIndex = useMemo(() => {
+    const raw = searchParams.get('page');
+    const page = raw ? Number(raw) : 1;
+    if (!Number.isFinite(page) || page <= 0) return 0;
+    return Math.floor(page) - 1;
+  }, [searchParams]);
+
+  const limit = useMemo(() => {
+    const raw = searchParams.get('limit');
+    const parsed = raw ? Number(raw) : 10;
+    if (!Number.isFinite(parsed) || parsed <= 0) return 10;
+    return Math.floor(parsed);
+  }, [searchParams]);
+
+  const searchTerm = useMemo(() => searchParams.get('search') ?? '', [searchParams]);
+
+  const activeFilters = useMemo(() => {
+    const filters: Record<string, { value: any; label: string }> = {};
+
+    const auditScheduleCode = searchParams.get('auditScheduleCode');
+    if (auditScheduleCode) {
+      filters.auditScheduleCode = { value: auditScheduleCode, label: auditScheduleCode };
+    }
+
+    const auditElementId = searchParams.get('auditElementId');
+    if (auditElementId) {
+      const elementOption = auditElements.find(opt => opt.value === auditElementId);
+      filters.auditElementId = {
+        value: auditElementId,
+        label: elementOption?.label || auditElementId,
+      };
+    }
+
+    const compliantStatus = searchParams.get('compliantStatus');
+    if (compliantStatus) {
+      const compliantOption = COMPLIANT_STATUS_OPTIONS.find(opt => opt.value === compliantStatus);
+      filters.compliantStatus = {
+        value: compliantStatus,
+        label: compliantOption?.label || compliantStatus,
+      };
+    }
+
+    const status = searchParams.get('status');
+    if (status) {
+      const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === status);
+      filters.status = {
+        value: status,
+        label: statusOption?.label || status,
+      };
+    }
+
+    return filters;
+  }, [searchParams, auditElements]);
+
+  const updateSearchParams = useCallback((
+    updater: (next: URLSearchParams) => void,
+    options: { replace?: boolean } = { replace: true }
+  ) => {
+    const next = new URLSearchParams(searchParams);
+    updater(next);
+    setSearchParams(next, options);
+  }, [searchParams, setSearchParams]);
+
   const fetchAuditResults = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -215,42 +277,34 @@ const AuditResultsPage = () => {
   }, [fetchAuditResults]);
 
   const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    setPageIndex(0);
+    updateSearchParams((next) => {
+      const trimmed = term.trim();
+      if (trimmed) {
+        next.set('search', trimmed);
+      } else {
+        next.delete('search');
+      }
+      next.set('page', '1');
+    });
   };
 
   const handleApplyFilters = (filters: FilterValue[]) => {
-    const newActiveFilters: Record<string, { value: any; label: string }> = {};
-    
-    filters.forEach(filter => {
-      if (filter.id === 'status') {
-        const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === filter.value);
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: statusOption?.label || String(filter.value)
-        };
-      } else if (filter.id === 'compliantStatus') {
-        const compliantOption = COMPLIANT_STATUS_OPTIONS.find(opt => opt.value === filter.value);
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: compliantOption?.label || String(filter.value)
-        };
-      } else if (filter.id === 'auditElementId') {
-        const elementOption = auditElements.find(opt => opt.value === filter.value);
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: elementOption?.label || String(filter.value)
-        };
-      } else {
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: String(filter.value)
-        };
-      }
+    updateSearchParams((next) => {
+      // Clear known filter keys first
+      ['auditScheduleCode', 'auditElementId', 'compliantStatus', 'status'].forEach((k) => next.delete(k));
+
+      // Re-apply filters with values
+      filters.forEach((filter) => {
+        const value = filter.value;
+        if (value === undefined || value === null || value === '') return;
+        if (Array.isArray(value) && value.length === 0) return;
+        if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) return;
+
+        next.set(filter.id, String(value));
+      });
+
+      next.set('page', '1');
     });
-    
-    setActiveFilters(newActiveFilters);
-    setPageIndex(0); // Reset to first page on new filters
   };
 
   const handleOpenForm = async (
@@ -341,7 +395,7 @@ const AuditResultsPage = () => {
           }
 
           // Check approval rights using the audit item ID
-          const response = await approvalService.checkApprovalRights(item.id, 'AUDIT_ITEM');
+          const response = await approvalService.checkApprovalRights(item.id, APPROVAL_ENTITIES.AUDIT_ITEM);
           if (!response.canApprove) {
             toast.error('You do not have permission to approve this audit item');
             return;
@@ -368,7 +422,7 @@ const AuditResultsPage = () => {
       
       await approvalService.submitApproval({
         dataId: auditItem.id,
-        entity: 'AUDIT_ITEM',
+        entity: APPROVAL_ENTITIES.AUDIT_ITEM,
         status,
         notes,
       });
@@ -518,7 +572,7 @@ const AuditResultsPage = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: GeneralStatusEnum | string) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
       [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
       [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'outline' },
@@ -528,7 +582,8 @@ const AuditResultsPage = () => {
       [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
     };
 
-    const statusInfo = statusMap[status] || { label: status, variant: 'outline' };
+    const statusKey = String(status);
+    const statusInfo = statusMap[statusKey] || { label: statusKey, variant: 'outline' };
 
     return (
       <Badge variant={statusInfo.variant}>
@@ -543,7 +598,9 @@ const AuditResultsPage = () => {
       header: 'Audit Schedule Code',
       cell: (result: AuditResult) => (
         <button
-          onClick={() => navigate(`/audit-schedules/${result.auditId}`)}
+          onClick={() => navigate(`/audit-schedules/${result.auditId}`, {
+            state: { returnTo: `${location.pathname}${location.search}` }
+          })}
           className="font-medium text-primary hover:underline focus:outline-none focus:underline"
           aria-label={`View audit schedule ${result.auditScheduleCode}`}
         >
@@ -665,7 +722,7 @@ const AuditResultsPage = () => {
                   variant="ghost"
                   size="icon"
                   onClick={() => navigate(`/audit-schedules/${result.auditId}/clauses/${result.auditClause.id}/criteria/${result.auditCriteria.id}`, {
-                    state: { returnTo: '/audit-results' }
+                    state: { returnTo: `${location.pathname}${location.search}` }
                   })}
                   className="text-primary hover:text-primary hover:bg-primary/10"
                   aria-label={`View audit criteria ${result.auditCriteria.code}`}
@@ -776,12 +833,22 @@ const AuditResultsPage = () => {
           pageIndex,
           limit,
           pageCount: Math.ceil(totalAuditResults / limit),
-          onPageChange: setPageIndex,
-          onPageSizeChange: setLimit,
+          onPageChange: (nextPageIndex) => {
+            updateSearchParams((next) => {
+              next.set('page', String(nextPageIndex + 1));
+            });
+          },
+          onPageSizeChange: (nextLimit) => {
+            updateSearchParams((next) => {
+              next.set('limit', String(nextLimit));
+              next.set('page', '1');
+            });
+          },
           total: totalAuditResults
         }}
         filterFields={filterFields}
         activeFilters={activeFilters}
+        searchValue={searchTerm}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
         searchPlaceholder="Search by code, criteria, clause, or element name..."

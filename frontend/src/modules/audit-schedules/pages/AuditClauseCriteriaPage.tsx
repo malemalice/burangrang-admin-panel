@@ -27,16 +27,12 @@ import api from '@/core/lib/api';
 import { AuditItemForm } from '../components/AuditItemForm';
 import uploadService from '@/modules/uploads/services/uploadService';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { CompliantStatusEnum } from '@/shared/constants/compliant-status.enum';
+import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import departmentService from '@/modules/master-data/services/departmentService';
 import { Department } from '@/modules/master-data/types/master-data.types';
 import approvalService from '@/modules/master-data/services/approvalService';
 import { ApprovalStatus } from '@/core/lib/types';
-
-enum CompliantStatusEnum {
-  COMPLY = 'COMPLY',
-  NOT_COMPLY_MAJOR = 'NOT_COMPLY_MAJOR',
-  NOT_COMPLY_MINOR = 'NOT_COMPLY_MINOR',
-}
 
 interface ImageUpload {
   id: string;
@@ -50,8 +46,8 @@ interface AuditItem {
   id: string;
   auditId: string;
   auditCriteriaId: string;
-  status: string;
-  compliantStatus: string;
+  status: GeneralStatusEnum;
+  compliantStatus: CompliantStatusEnum;
   evidence?: string;
   recommendation?: string;
   actionRealization?: string;
@@ -267,12 +263,12 @@ const AuditClauseCriteriaPage = () => {
     const total = mergedCriteria.length;
     const filled = mergedCriteria.filter(item => item.isFromAuditItem).length;
     const comply = mergedCriteria.filter(
-      item => item.auditItem?.compliantStatus === 'COMPLY'
+      item => item.auditItem?.compliantStatus === CompliantStatusEnum.COMPLY
     ).length;
     const notComply = mergedCriteria.filter(
       item => item.auditItem?.compliantStatus && 
-      (item.auditItem.compliantStatus === 'NOT_COMPLY_MAJOR' || 
-       item.auditItem.compliantStatus === 'NOT_COMPLY_MINOR')
+      (item.auditItem.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MAJOR || 
+       item.auditItem.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MINOR)
     ).length;
     
     return { total, filled, comply, notComply };
@@ -305,7 +301,10 @@ const AuditClauseCriteriaPage = () => {
 
     // Check approval rights
     try {
-      const response = await approvalService.checkApprovalRights(item.auditItem.id, 'AUDIT_ITEM');
+      const response = await approvalService.checkApprovalRights(
+        item.auditItem.id,
+        APPROVAL_ENTITIES.AUDIT_ITEM,
+      );
       if (!response.canApprove) {
         toast.error('You do not have permission to approve this audit item');
         return;
@@ -333,7 +332,7 @@ const AuditClauseCriteriaPage = () => {
       
       await approvalService.submitApproval({
         dataId: selectedItemForApprovalForm.auditItem.id,
-        entity: 'AUDIT_ITEM',
+        entity: APPROVAL_ENTITIES.AUDIT_ITEM,
         status,
         notes,
       });
@@ -594,7 +593,7 @@ const AuditClauseCriteriaPage = () => {
     );
   }
 
-  const getCompliantStatusBadge = (status?: string) => {
+  const getCompliantStatusBadge = (status?: CompliantStatusEnum) => {
     if (!status) {
       return (
         <Badge variant="outline" className="bg-gray-100 text-gray-600">
@@ -604,19 +603,19 @@ const AuditClauseCriteriaPage = () => {
     }
     
     switch (status) {
-      case 'COMPLY':
+      case CompliantStatusEnum.COMPLY:
         return (
           <Badge className="bg-green-100 text-green-800 border-green-800">
             Comply
           </Badge>
         );
-      case 'NOT_COMPLY_MAJOR':
+      case CompliantStatusEnum.NOT_COMPLY_MAJOR:
         return (
           <Badge className="bg-red-100 text-red-800 border-red-800">
             Not Comply - Major
           </Badge>
         );
-      case 'NOT_COMPLY_MINOR':
+      case CompliantStatusEnum.NOT_COMPLY_MINOR:
         return (
           <Badge className="bg-yellow-100 text-yellow-800 border-yellow-800">
             Not Comply - Minor

@@ -182,10 +182,35 @@ export const seedAuditSchedules = async (
     // ========================================================================
     console.log('🧾 Creating audit items (results)...');
 
-    const departments = await client.department.findMany({
-      where: { isActive: true },
-      take: 10,
-    });
+    // Prefer departments that are actually used by seeded users (see `users.seed.ts`)
+    const userDepartmentIds = Array.from(
+      new Set(
+        users
+          .map((u) => u.departmentId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+
+    if (userDepartmentIds.length === 0) {
+      console.log(
+        '⚠️  No departmentId found on seeded users. Falling back to any active departments.',
+      );
+    }
+
+    const departments =
+      userDepartmentIds.length > 0
+        ? await client.department.findMany({
+            where: { id: { in: userDepartmentIds } },
+          })
+        : await client.department.findMany({
+            where: { isActive: true },
+            take: 10,
+          });
+
+    const departmentIds = departments.map((d) => d.id);
+    const userDepartmentIdByUserId = new Map<string, string | null>(
+      users.map((u) => [u.id, u.departmentId ?? null]),
+    );
 
     let totalItemsCreated = 0;
 
@@ -273,18 +298,43 @@ export const seedAuditSchedules = async (
               : 'Verified compliant during audit. No action required.'
             : null;
 
-        // Assign 0-2 departments and 1-2 users (prefer auditors)
-        const selectedDepartments = pickRandom(
-          departments,
-          departments.length === 0 ? 0 : getRandomInt(0, Math.min(2, departments.length)),
-        );
-
         const candidateUserIds =
           audit.auditorIds.length > 0 ? audit.auditorIds : users.map((u) => u.id);
-        const selectedUserIds = pickRandom(
-          candidateUserIds,
-          candidateUserIds.length === 0 ? 0 : getRandomInt(1, Math.min(2, candidateUserIds.length)),
+        const candidateUserIdsWithDept = candidateUserIds.filter((userId) =>
+          Boolean(userDepartmentIdByUserId.get(userId)),
         );
+        const userPickPool =
+          isNonComply && candidateUserIdsWithDept.length > 0
+            ? candidateUserIdsWithDept
+            : candidateUserIds;
+
+        const selectedUserIds = pickRandom(
+          userPickPool,
+          userPickPool.length === 0
+            ? 0
+            : getRandomInt(1, Math.min(2, userPickPool.length)),
+        );
+
+        // Assign departments (must exist in `users.seed.ts`-linked departments when possible):
+        // - Non-comply items MUST have at least 1 department
+        // - Prefer the departments of assigned users; fallback to known seeded departments
+        const deptIdsFromUsers = Array.from(
+          new Set(
+            selectedUserIds
+              .map((userId) => userDepartmentIdByUserId.get(userId))
+              .filter((id): id is string => Boolean(id)),
+          ),
+        );
+
+        const deptPool = deptIdsFromUsers.length > 0 ? deptIdsFromUsers : departmentIds;
+        const deptCount =
+          deptPool.length === 0
+            ? 0
+            : isNonComply
+              ? getRandomInt(1, Math.min(2, deptPool.length))
+              : getRandomInt(0, Math.min(2, deptPool.length));
+
+        const selectedDepartmentIds = pickRandom(deptPool, deptCount);
 
         const imageCount = isNonComply ? getRandomInt(0, 2) : getRandomInt(0, 1);
         const images = Array.from({ length: imageCount }).map((_, idx) => ({
@@ -304,11 +354,11 @@ export const seedAuditSchedules = async (
             actionRealization,
             order: i + 1,
             dueDate,
-            ...(selectedDepartments.length > 0
+            ...(selectedDepartmentIds.length > 0
               ? {
                   departments: {
-                    create: selectedDepartments.map((d) => ({
-                      departmentId: d.id,
+                    create: selectedDepartmentIds.map((departmentId) => ({
+                      departmentId,
                     })),
                   },
                 }

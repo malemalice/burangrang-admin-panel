@@ -1,0 +1,13 @@
+/**
+ * Approval Entity constants
+ * Used to identify what entity is being approved in master approvals flow.
+ */
+export const APPROVAL_ENTITIES = {
+  AUDIT_ITEM: 'AUDIT_ITEM',
+  INSPECTION_ITEM: 'INSPECTION_ITEM',
+  COURSE: 'COURSE',
+  CHAPTER: 'CHAPTER',
+} as const;
+
+export type ApprovalEntity = (typeof APPROVAL_ENTITIES)[keyof typeof APPROVAL_ENTITIES];
+

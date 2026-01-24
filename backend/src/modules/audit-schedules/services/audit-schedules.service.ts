@@ -1135,7 +1135,7 @@ export class AuditSchedulesService {
 
       let newStatus = auditItem.status;
       if (approvalStatus.currentStatus === 'COMPLETED') {
-        newStatus = GeneralStatusEnum.DONE;
+        newStatus = GeneralStatusEnum.CLOSE;
       }
 
       // Update status if changed
