@@ -84,6 +84,7 @@ const AuditResultsPage = () => {
   const [auditElements, setAuditElements] = useState<Array<{ value: string; label: string }>>([]);
   const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [formEntryMode, setFormEntryMode] = useState<'assessment' | 'update_action_item' | 'approval'>('assessment');
   const [selectedResult, setSelectedResult] = useState<AuditResult | null>(null);
   const [auditSchedule, setAuditSchedule] = useState<AuditSchedule | null>(null);
   const [auditClause, setAuditClause] = useState<AuditClause | null>(null);
@@ -252,7 +253,11 @@ const AuditResultsPage = () => {
     setPageIndex(0); // Reset to first page on new filters
   };
 
-  const handleOpenForm = async (result: AuditResult) => {
+  const handleOpenForm = async (
+    result: AuditResult,
+    entryMode: 'assessment' | 'update_action_item' | 'approval' = 'assessment',
+  ) => {
+    setFormEntryMode(entryMode);
     setSelectedResult(result);
     setIsLoadingFormData(true);
     setIsFormDialogOpen(true);
@@ -306,6 +311,7 @@ const AuditResultsPage = () => {
 
   const handleCloseForm = () => {
     setIsFormDialogOpen(false);
+    setFormEntryMode('assessment');
     setSelectedResult(null);
     setAuditSchedule(null);
     setAuditClause(null);
@@ -351,7 +357,7 @@ const AuditResultsPage = () => {
       return;
     }
     
-    await handleOpenForm(result);
+    await handleOpenForm(result, 'approval');
   };
 
   const handleApprove = async (status: ApprovalStatus, notes: string) => {
@@ -393,6 +399,7 @@ const AuditResultsPage = () => {
     actionRealization?: string;
     dueDate: string;
     images: ImageUpload[];
+    status?: string;
   }) => {
     if (!selectedResult) return;
 
@@ -454,6 +461,7 @@ const AuditResultsPage = () => {
         dueDate: new Date(data.dueDate).toISOString(),
         order: auditCriteria?.order || 0,
         images: uploadedImageUrls,
+        ...(data.status ? { status: data.status } : {}),
       };
 
       if (auditItem) {
@@ -515,7 +523,7 @@ const AuditResultsPage = () => {
       [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
       [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'outline' },
       [GeneralStatusEnum.OPEN]: { label: 'Open', variant: 'secondary' },
-      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Approval', variant: 'secondary' },
+      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
       [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
       [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
     };
@@ -677,7 +685,7 @@ const AuditResultsPage = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleOpenForm(result)}
+                    onClick={() => handleOpenForm(result, 'assessment')}
                     className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                     aria-label={`Assess audit criteria ${result.auditCriteria.code}`}
                   >
@@ -690,22 +698,22 @@ const AuditResultsPage = () => {
               </Tooltip>
             )}
 
-            {/* Update button - shown when status is OPEN or WAITING_APPROVAL */}
-            {(isOpen || isWaitingApproval) && (
+            {/* Update Action Item button - shown when status is OPEN */}
+            {isOpen && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleOpenForm(result)}
+                    onClick={() => handleOpenForm(result, 'update_action_item')}
                     className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                    aria-label={`Update audit criteria ${result.auditCriteria.code}`}
+                    aria-label={`Update action item for audit criteria ${result.auditCriteria.code}`}
                   >
                     <Wrench className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Update</p>
+                  <p>Update Action Item</p>
                 </TooltipContent>
               </Tooltip>
             )}
@@ -787,11 +795,25 @@ const AuditResultsPage = () => {
       }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Assess Audit Criteria</DialogTitle>
+            <DialogTitle>
+              {formEntryMode === 'update_action_item'
+                ? 'Update Action Item'
+                : formEntryMode === 'approval'
+                  ? 'Approve Audit Item'
+                  : 'Assess Audit Criteria'}
+            </DialogTitle>
             <DialogDescription>
-              {selectedResult && auditCriteria 
-                ? `Assess criteria: ${auditCriteria.name}`
-                : 'Assess audit criteria'}
+              {selectedResult && auditCriteria
+                ? formEntryMode === 'update_action_item'
+                  ? `Update action item for criteria: ${auditCriteria.name}`
+                  : formEntryMode === 'approval'
+                    ? `Review and approve criteria: ${auditCriteria.name}`
+                    : `Assess criteria: ${auditCriteria.name}`
+                : formEntryMode === 'update_action_item'
+                  ? 'Update action item'
+                  : formEntryMode === 'approval'
+                    ? 'Review and approve audit item'
+                    : 'Assess audit criteria'}
             </DialogDescription>
           </DialogHeader>
           {isLoadingFormData ? (
@@ -810,6 +832,7 @@ const AuditResultsPage = () => {
               auditSchedule={auditSchedule}
               auditItem={auditItem ? {
                 id: auditItem.id,
+                status: auditItem.status,
                 compliantStatus: auditItem.compliantStatus,
                 departmentIds: auditItem.departmentIds || [],
                 userIds: auditItem.userIds || [],
@@ -822,8 +845,9 @@ const AuditResultsPage = () => {
               onSubmit={handleSubmitForm}
               onCancel={handleCloseForm}
               isSubmitting={isSubmitting}
-              mode={selectedResult.status === GeneralStatusEnum.WAITING_APPROVAL && auditItem?.status === GeneralStatusEnum.WAITING_APPROVAL ? 'approval' : 'edit'}
-              onApprove={selectedResult.status === GeneralStatusEnum.WAITING_APPROVAL && auditItem?.status === GeneralStatusEnum.WAITING_APPROVAL ? handleApprove : undefined}
+              entryMode={formEntryMode}
+              mode={formEntryMode === 'approval' ? 'approval' : 'edit'}
+              onApprove={formEntryMode === 'approval' ? handleApprove : undefined}
               auditId={selectedResult.auditId}
             />
           ) : null}

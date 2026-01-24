@@ -63,7 +63,7 @@ interface ImageUpload {
   isNew?: boolean;
 }
 
-type FormMode = 'assessment' | 'update' | 'approver';
+type AuditItemFormMode = 'assessment' | 'update_action_item' | 'approval';
 
 interface AuditItemFormProps {
   auditCriteriaId: string;
@@ -94,6 +94,16 @@ interface AuditItemFormProps {
   onSubmit: (data: FormValues & { images: ImageUpload[]; status?: string }) => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
+  /**
+   * Preferred explicit mode to avoid ambiguity:
+   * - `assessment`: assessor/auditor fills compliance + assignments + recommendations
+   * - `update_action_item`: assigned dept updates corrective action & images (will submit to WAITING_APPROVAL)
+   * - `approval`: approver reviews and approves/rejects
+   */
+  entryMode?: AuditItemFormMode;
+  /**
+   * @deprecated Use `entryMode` instead. Kept for backward compatibility with existing callers.
+   */
   mode?: 'edit' | 'approval';
   onApprove?: (status: ApprovalStatus, notes: string) => Promise<void>;
   auditId?: string;
@@ -112,6 +122,7 @@ export const AuditItemForm = ({
   onSubmit,
   onCancel,
   isSubmitting = false,
+  entryMode,
   mode = 'edit',
   onApprove,
   auditId,
@@ -126,11 +137,12 @@ export const AuditItemForm = ({
   const [isAuditor, setIsAuditor] = useState(false);
   const [canEditActionRealization, setCanEditActionRealization] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
-  const [formMode, setFormMode] = useState<FormMode>('assessment');
+  const [resolvedMode, setResolvedMode] = useState<AuditItemFormMode>('assessment');
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
   const [approvalNotes, setApprovalNotes] = useState('');
   const [isApproving, setIsApproving] = useState(false);
-  const isApprovalMode = mode === 'approval';
+  const explicitMode: AuditItemFormMode | null =
+    entryMode ?? (mode === 'approval' ? 'approval' : null);
 
   const departmentOptions: ModalMultiSelectOption[] = departments.map(dept => ({
     value: dept.id,
@@ -142,7 +154,7 @@ export const AuditItemForm = ({
     label: `${user.firstName} ${user.lastName}`,
   }));
 
-  // Check user permissions and determine form mode
+  // Check user permissions and resolve form mode (assessment / update action item / approval)
   useEffect(() => {
     const checkPermissions = async () => {
       if (!currentUser?.id) return;
@@ -210,43 +222,42 @@ export const AuditItemForm = ({
           }
         }
 
-        // Determine form mode:
-        // If mode prop is explicitly set to 'approval', use approver mode
-        // Otherwise, auto-detect based on user role, permissions, and item status:
-        // 1. Approver mode: Item status is WAITING_APPROVAL and user has approval rights
-        // 2. Update mode: Item exists, status is OPEN, and user is assigned (but not SUPER_ADMIN or auditor)
-        // 3. Assessment mode: SUPER_ADMIN, auditor, or creating new item
-        let determinedMode: FormMode = 'assessment';
-        
-        if (isApprovalMode) {
-          // Explicitly set to approval mode
-          determinedMode = 'approver';
+        // Resolve mode:
+        // - If caller explicitly sets entryMode, always respect it (removes ambiguity).
+        // - Otherwise, infer based on item status + approval rights + assignment.
+        let nextMode: AuditItemFormMode = 'assessment';
+
+        if (explicitMode) {
+          nextMode = explicitMode;
         } else if (auditItem) {
+          // 1) Approval mode if waiting approval and user has approval rights
           if (auditItem.status === GeneralStatusEnum.WAITING_APPROVAL && hasApprovalRights) {
-            determinedMode = 'approver';
-          } else if (
-            auditItem.status === GeneralStatusEnum.OPEN && 
-            userCanEditActionRealization && 
-            !isUserSuperAdmin && 
-            !userIsAuditor
-          ) {
-            determinedMode = 'update';
-          } else if (isUserSuperAdmin || userIsAuditor) {
-            determinedMode = 'assessment';
+            nextMode = 'approval';
           }
-        } else {
-          // New item - always assessment mode for SUPER_ADMIN or auditor
-          determinedMode = 'assessment';
+          // 2) Update action item mode for assigned users (OPEN or WAITING_APPROVAL)
+          else if (
+            userCanEditActionRealization &&
+            !isUserSuperAdmin &&
+            !userIsAuditor &&
+            (auditItem.status === GeneralStatusEnum.OPEN ||
+              auditItem.status === GeneralStatusEnum.WAITING_APPROVAL)
+          ) {
+            nextMode = 'update_action_item';
+          }
+          // 3) Default to assessment for auditors / super admin
+          else if (isUserSuperAdmin || userIsAuditor) {
+            nextMode = 'assessment';
+          }
         }
 
-        setFormMode(determinedMode);
+        setResolvedMode(nextMode);
       } catch (error) {
         console.error('Failed to check user permissions:', error);
       }
     };
 
     checkPermissions();
-  }, [currentUser, auditSchedule, auditItem, isApprovalMode]);
+  }, [currentUser, auditSchedule, auditItem, explicitMode]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -392,18 +403,17 @@ export const AuditItemForm = ({
   };
 
   const handleSubmit = async (data: FormValues) => {
-    // Determine status based on form mode
+    // Determine status based on mode
     let statusToSet: string | undefined;
     
-    if (formMode === 'update') {
-      // Update mode: set status to WAITING_APPROVAL
+    if (resolvedMode === 'update_action_item') {
+      // Update Action Item: submit to WAITING_APPROVAL
       statusToSet = GeneralStatusEnum.WAITING_APPROVAL;
-    } else if (formMode === 'approver') {
-      // Approver mode: status will be set by onApprove handler
-      // This shouldn't be called in approver mode, but handle it just in case
+    } else if (resolvedMode === 'approval') {
+      // Approval: status handled by approve/reject handlers (should not submit via main form)
       return;
     }
-    // Assessment mode: no status change (use default from backend or existing)
+    // Assessment: no status change (use backend default or existing)
     
     await onSubmit({ ...data, images, status: statusToSet });
   };
@@ -425,28 +435,28 @@ export const AuditItemForm = ({
   const isFieldDisabled = (fieldName: string): boolean => {
     if (isSubmitting || isApproving) return true;
     
-    if (formMode === 'update') {
-      // Update mode: only actionRealization and images are editable
+    if (resolvedMode === 'update_action_item') {
+      // Update Action Item: only actionRealization and images are editable
       return fieldName !== 'actionRealization' && fieldName !== 'images';
     }
     
-    if (formMode === 'approver') {
-      // Approver mode: all fields are editable
+    if (resolvedMode === 'approval') {
+      // Approval: all fields are editable
       return false;
     }
     
-    // Assessment mode: all fields are editable
+    // Assessment: all fields are editable
     return false;
   };
 
   // Determine if field should be hidden based on mode
   const isFieldHidden = (fieldName: string): boolean => {
-    if (formMode === 'update') {
-      // Update mode: hide all fields except actionRealization and images
+    if (resolvedMode === 'update_action_item') {
+      // Update Action Item: hide all fields except actionRealization and images
       return fieldName !== 'actionRealization' && fieldName !== 'images';
     }
     
-    // Assessment and approver modes: show all fields
+    // Assessment and approval: show all fields
     return false;
   };
 
@@ -506,6 +516,11 @@ export const AuditItemForm = ({
               <h2 className="text-xl font-semibold leading-tight break-words">
                 {auditCriteriaName}
               </h2>
+              {resolvedMode === 'update_action_item' && (
+                <p className="text-sm text-muted-foreground">
+                  Update Action Item
+                </p>
+              )}
               {auditCriteriaCode && (
                 <p className="text-sm text-muted-foreground font-mono">
                   {auditCriteriaCode}
@@ -770,8 +785,8 @@ export const AuditItemForm = ({
           )}
         </div>
 
-        {/* Approval Notes (only in approver mode) */}
-        {formMode === 'approver' && (
+        {/* Approval Notes (only in approval mode) */}
+        {resolvedMode === 'approval' && (
           <div className="space-y-4 pt-4 border-t">
             <FormItem>
               <FormLabel>Approval Notes</FormLabel>
@@ -794,7 +809,7 @@ export const AuditItemForm = ({
             Cancel
           </Button>
           
-          {formMode === 'approver' ? (
+          {resolvedMode === 'approval' ? (
             <>
               <Button
                 type="button"
@@ -859,7 +874,7 @@ export const AuditItemForm = ({
             >
               {isSubmitting 
                 ? 'Submitting...'
-                : formMode === 'update' ? 'Submit' : 'Submit'
+                : resolvedMode === 'update_action_item' ? 'Update Action Item' : 'Submit'
               }
             </Button>
           )}

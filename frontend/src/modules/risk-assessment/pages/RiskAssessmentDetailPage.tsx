@@ -328,6 +328,8 @@ const RiskAssessmentDetailPage = () => {
               approvalHistory={approvalHistory} 
               isLoading={isLoadingHistory}
               assessmentStatus={assessment?.status}
+              entityDepartmentName={assessment?.department?.name}
+              entityJobPositionName="Department Head"
             />
           </div>
         </CardContent>

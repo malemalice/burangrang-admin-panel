@@ -93,6 +93,7 @@ const AuditClauseCriteriaPage = () => {
   const [isLoadingClause, setIsLoadingClause] = useState(true);
   const [isLoadingCriteria, setIsLoadingCriteria] = useState(false);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [formEntryMode, setFormEntryMode] = useState<'assessment' | 'update_action_item'>('assessment');
   const [selectedCriteria, setSelectedCriteria] = useState<MergedCriteriaItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -277,13 +278,18 @@ const AuditClauseCriteriaPage = () => {
     return { total, filled, comply, notComply };
   }, [mergedCriteria]);
 
-  const handleOpenForm = (item: MergedCriteriaItem) => {
+  const handleOpenForm = (
+    item: MergedCriteriaItem,
+    entryMode: 'assessment' | 'update_action_item' = 'assessment',
+  ) => {
+    setFormEntryMode(entryMode);
     setSelectedCriteria(item);
     setIsFormDialogOpen(true);
   };
 
   const handleCloseForm = () => {
     setIsFormDialogOpen(false);
+    setFormEntryMode('assessment');
     setSelectedCriteria(null);
   };
 
@@ -736,7 +742,7 @@ const AuditClauseCriteriaPage = () => {
           case GeneralStatusEnum.OPEN:
             return <Badge variant="outline" className="bg-blue-100 text-blue-800">Open</Badge>;
           case GeneralStatusEnum.WAITING_APPROVAL:
-            return <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Waiting Approval</Badge>;
+            return <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Waiting Verification</Badge>;
           case GeneralStatusEnum.DONE:
             return <Badge className="bg-green-100 text-green-800">Done</Badge>;
           case GeneralStatusEnum.REJECTED:
@@ -796,7 +802,7 @@ const AuditClauseCriteriaPage = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleOpenForm(item)}
+                    onClick={() => handleOpenForm(item, 'assessment')}
                     className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                   >
                     <ClipboardCheck className="h-4 w-4" />
@@ -808,21 +814,21 @@ const AuditClauseCriteriaPage = () => {
               </Tooltip>
             )}
 
-            {/* Update button - shown when item exists and status is OPEN or WAITING_APPROVAL */}
-            {item.isFromAuditItem && (isOpen || isWaitingApproval) && (
+            {/* Update Action Item button - shown when item exists and status is OPEN */}
+            {item.isFromAuditItem && isOpen && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleOpenForm(item)}
+                    onClick={() => handleOpenForm(item, 'update_action_item')}
                     className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                   >
                     <Wrench className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Update</p>
+                  <p>Update Action Item</p>
                 </TooltipContent>
               </Tooltip>
             )}
@@ -955,9 +961,17 @@ const AuditClauseCriteriaPage = () => {
       <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Assess Audit Criteria</DialogTitle>
+            <DialogTitle>
+              {formEntryMode === 'update_action_item' ? 'Update Action Item' : 'Assess Audit Criteria'}
+            </DialogTitle>
             <DialogDescription>
-              {selectedCriteria ? `Assess criteria: ${selectedCriteria.name}` : 'Assess audit criteria'}
+              {selectedCriteria
+                ? formEntryMode === 'update_action_item'
+                  ? `Update action item for criteria: ${selectedCriteria.name}`
+                  : `Assess criteria: ${selectedCriteria.name}`
+                : formEntryMode === 'update_action_item'
+                  ? 'Update action item'
+                  : 'Assess audit criteria'}
             </DialogDescription>
           </DialogHeader>
           {selectedCriteria && (
@@ -986,6 +1000,7 @@ const AuditClauseCriteriaPage = () => {
               onSubmit={handleSubmitForm}
               onCancel={handleCloseForm}
               isSubmitting={isSubmitting}
+              entryMode={formEntryMode}
             />
           )}
         </DialogContent>

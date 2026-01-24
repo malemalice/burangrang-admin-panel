@@ -2,7 +2,7 @@
  * Audit Schedules seed data
  * Following seed.ts patterns for seed data
  */
-import { PrismaClient, GeneralStatusEnum } from '@prisma/client';
+import { PrismaClient, GeneralStatusEnum, CompliantStatusEnum } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -17,6 +17,30 @@ const generateAuditCode = (date: Date): string => {
   const minute = date.getMinutes().toString().padStart(2, '0');
   const second = date.getSeconds().toString().padStart(2, '0');
   return `AUD${year}${month}${day}${hour}${minute}${second}`;
+};
+
+const addDays = (date: Date, days: number): Date => {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+};
+
+const getRandomInt = (min: number, max: number): number => {
+  const minCeil = Math.ceil(min);
+  const maxFloor = Math.floor(max);
+  return Math.floor(Math.random() * (maxFloor - minCeil + 1)) + minCeil;
+};
+
+const pickRandom = <T>(items: T[], count: number): T[] => {
+  if (count <= 0) return [];
+  if (count >= items.length) return [...items];
+  const copy = [...items];
+  const picked: T[] = [];
+  while (picked.length < count && copy.length > 0) {
+    const idx = Math.floor(Math.random() * copy.length);
+    picked.push(copy.splice(idx, 1)[0]);
+  }
+  return picked;
 };
 
 export const seedAuditSchedules = async (
@@ -83,10 +107,8 @@ export const seedAuditSchedules = async (
       auditDate: Date;
       auditElementId: string;
       status: GeneralStatusEnum;
-      isActive: boolean;
-      createdAt: Date;
-      updatedAt: Date;
-      createdBy: string;
+      auditorIds: string[];
+      areaIds: string[];
     }> = [];
 
     // ========================================================================
@@ -143,12 +165,180 @@ export const seedAuditSchedules = async (
         },
       });
 
-      audits.push(audit);
+      audits.push({
+        id: audit.id,
+        code: audit.code,
+        auditDate: audit.auditDate,
+        auditElementId: audit.auditElementId,
+        status: audit.status,
+        auditorIds: selectedAuditors.map((u) => u.id),
+        areaIds: selectedAreas.map((a) => a.id),
+      });
       console.log(`   ✓ Created audit: ${code} (${status})`);
+    }
+
+    // ========================================================================
+    // SEED AUDIT ITEMS (AUDIT RESULTS)
+    // ========================================================================
+    console.log('🧾 Creating audit items (results)...');
+
+    const departments = await client.department.findMany({
+      where: { isActive: true },
+      take: 10,
+    });
+
+    let totalItemsCreated = 0;
+
+    for (const audit of audits) {
+      const criteria = await client.auditCriteria.findMany({
+        where: {
+          isActive: true,
+          auditClause: {
+            auditElementId: audit.auditElementId,
+          },
+        },
+        include: {
+          auditClause: true,
+        },
+        orderBy: [
+          { auditClause: { order: 'asc' } },
+          { order: 'asc' },
+        ],
+      });
+
+      if (criteria.length === 0) {
+        console.log(
+          `⚠️  No audit criteria found for audit element ${audit.auditElementId}. Skipping items for audit ${audit.code}.`,
+        );
+        continue;
+      }
+
+      // Keep it reasonably sized for UI while still realistic
+      const itemCount = Math.min(criteria.length, getRandomInt(10, 12));
+      const selectedCriteria = criteria.slice(0, itemCount);
+
+      for (let i = 0; i < selectedCriteria.length; i++) {
+        const criterion = selectedCriteria[i];
+
+        // Weighted compliant statuses
+        const roll = Math.random();
+        const compliantStatus =
+          roll < 0.72
+            ? CompliantStatusEnum.COMPLY
+            : roll < 0.92
+              ? CompliantStatusEnum.NOT_COMPLY_MINOR
+              : CompliantStatusEnum.NOT_COMPLY_MAJOR;
+
+        const isNonComply =
+          compliantStatus === CompliantStatusEnum.NOT_COMPLY_MINOR ||
+          compliantStatus === CompliantStatusEnum.NOT_COMPLY_MAJOR;
+
+        // Item status:
+        // - If COMPLY → must be CLOSE (per request)
+        // - If NOT COMPLY → aligned to audit lifecycle, with some in approval flow
+        const itemStatus =
+          compliantStatus === CompliantStatusEnum.COMPLY
+            ? GeneralStatusEnum.CLOSE
+            : audit.status === GeneralStatusEnum.DRAFT
+              ? GeneralStatusEnum.DRAFT
+              : audit.status === GeneralStatusEnum.DONE
+                ? GeneralStatusEnum.DONE
+                : Math.random() < 0.18
+                  ? GeneralStatusEnum.WAITING_APPROVAL
+                  : GeneralStatusEnum.OPEN;
+
+        // Due date: some overdue, some upcoming
+        const dueDate =
+          itemStatus === GeneralStatusEnum.DONE ||
+          itemStatus === GeneralStatusEnum.CLOSE
+            ? addDays(audit.auditDate, getRandomInt(3, 10))
+            : addDays(today, getRandomInt(-7, 30));
+
+        const evidence =
+          compliantStatus === CompliantStatusEnum.COMPLY
+            ? `Evidence recorded for ${criterion.code} (compliant). SOP/records available and verified during audit.`
+            : `Finding for ${criterion.code}: non-compliance observed. Evidence attached and documented.`;
+
+        const recommendation = isNonComply
+          ? compliantStatus === CompliantStatusEnum.NOT_COMPLY_MAJOR
+            ? 'Immediate corrective action required. Review procedure, assign PIC, and implement controls within 14 days.'
+            : 'Corrective action required. Assign PIC and implement improvement within 30 days.'
+          : null;
+
+        const actionRealization =
+          itemStatus === GeneralStatusEnum.DONE ||
+          itemStatus === GeneralStatusEnum.CLOSE
+            ? isNonComply
+              ? 'Corrective action implemented and verified. Documentation updated and communicated.'
+              : 'Verified compliant during audit. No action required.'
+            : null;
+
+        // Assign 0-2 departments and 1-2 users (prefer auditors)
+        const selectedDepartments = pickRandom(
+          departments,
+          departments.length === 0 ? 0 : getRandomInt(0, Math.min(2, departments.length)),
+        );
+
+        const candidateUserIds =
+          audit.auditorIds.length > 0 ? audit.auditorIds : users.map((u) => u.id);
+        const selectedUserIds = pickRandom(
+          candidateUserIds,
+          candidateUserIds.length === 0 ? 0 : getRandomInt(1, Math.min(2, candidateUserIds.length)),
+        );
+
+        const imageCount = isNonComply ? getRandomInt(0, 2) : getRandomInt(0, 1);
+        const images = Array.from({ length: imageCount }).map((_, idx) => ({
+          imageUrl: `https://picsum.photos/seed/audit-${audit.code}-${criterion.code}-${idx + 1}/800/600`,
+          caption: isNonComply ? 'Finding evidence' : 'Supporting evidence',
+          order: idx + 1,
+        }));
+
+        await client.auditItem.create({
+          data: {
+            auditId: audit.id,
+            auditCriteriaId: criterion.id,
+            status: itemStatus,
+            compliantStatus,
+            evidence,
+            recommendation,
+            actionRealization,
+            order: i + 1,
+            dueDate,
+            ...(selectedDepartments.length > 0
+              ? {
+                  departments: {
+                    create: selectedDepartments.map((d) => ({
+                      departmentId: d.id,
+                    })),
+                  },
+                }
+              : {}),
+            ...(selectedUserIds.length > 0
+              ? {
+                  users: {
+                    create: selectedUserIds.map((userId) => ({
+                      userId,
+                    })),
+                  },
+                }
+              : {}),
+            ...(images.length > 0
+              ? {
+                  images: {
+                    create: images,
+                  },
+                }
+              : {}),
+          },
+        });
+
+        totalItemsCreated += 1;
+      }
     }
 
     console.log(`✅ Audit schedules seeded successfully`);
     console.log(`   - Created ${audits.length} audit schedules`);
+    console.log(`   - Created ${totalItemsCreated} audit items (results)`);
     console.log(`   - Statuses: ${statuses.join(', ')}`);
   } catch (error) {
     console.error('❌ Error seeding audit schedules:', error);
