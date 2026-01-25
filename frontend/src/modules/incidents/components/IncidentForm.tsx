@@ -23,8 +23,9 @@ import {
   SelectValue,
 } from '@/core/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { Badge } from '@/core/components/ui/badge';
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip } from 'lucide-react';
 import incidentsService from '../services/incidentsService';
 import {
   CreateIncidentDTO,
@@ -454,11 +455,17 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             {/* Basic Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Basic Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="border-l-4 border-l-blue-500 bg-blue-50/30 dark:bg-blue-950/10">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  Basic Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
                   name="code"
@@ -652,31 +659,38 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                     </FormItem>
                   )}
                 />
-              </div>
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Enter incident description"
-                        className="min-h-[100px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter incident description"
+                          className="min-h-[100px]"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                </div>
+              </CardContent>
+            </Card>
 
             {/* People Involved */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">People Involved</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="border-l-4 border-l-purple-500 bg-purple-50/30 dark:bg-purple-950/10">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  People Involved
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
                   name="requesterId"
@@ -771,13 +785,20 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                     </FormItem>
                   )}
                 />
-              </div>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Control Measures & Outcomes */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Control Measures & Outcomes</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="border-l-4 border-l-green-500 bg-green-50/30 dark:bg-green-950/10">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  Control Measures & Outcomes
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
                   name="dueDate"
@@ -868,137 +889,164 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                     </FormItem>
                   )}
                 />
-              </div>
 
-              <FormField
-                control={form.control}
-                name="controlMeasure"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Control Measure</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Enter control measures"
-                        className="min-h-[100px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="controlMeasure"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Control Measure</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter control measures"
+                          className="min-h-[100px]"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="expectedOutcome"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Expected Outcome</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Enter expected outcome"
-                        className="min-h-[100px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="expectedOutcome"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Expected Outcome</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter expected outcome"
+                          className="min-h-[100px]"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="stopActivityDescription"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Stop Activity Description</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Enter stop activity description"
-                        className="min-h-[100px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="stopActivityDescription"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Stop Activity Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter stop activity description"
+                          className="min-h-[100px]"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="treatmentDescription"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Treatment Description</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Enter treatment description"
-                        className="min-h-[100px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="treatmentDescription"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Treatment Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter treatment description"
+                          className="min-h-[100px]"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="resolution"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Resolution</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Enter resolution"
-                        className="min-h-[100px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                <FormField
+                  control={form.control}
+                  name="resolution"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Resolution</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter resolution"
+                          className="min-h-[100px]"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Injured Persons */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Injured Persons</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    appendInjuredPerson({
-                      hasInjuredPerson: HasInjuredPersonEnum.YES,
-                      injuredPersonName: '',
-                      gender: undefined,
-                      levelOfInjury: LevelOfInjuryEnum.NOT_SPECIFIED,
-                      injuredBodyPart: InjuredBodyPartEnum.NOT_SPECIFIED,
-                      typeOfInjury: TypeOfInjuryEnum.NOT_SPECIFIED,
-                      mechanismOfInjury: MechanismOfInjuryEnum.NOT_SPECIFIED,
-                      departmentId: '',
-                    })
-                  }
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Injured Person
-                </Button>
-              </div>
-
-              {injuredPersonFields.map((field, index) => (
-                <Card key={field.id}>
+            <Card className="border-l-4 border-l-red-500 bg-red-50/30 dark:bg-red-950/10">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                      Injured Persons
+                    </CardTitle>
+                    {injuredPersonFields.length > 0 && (
+                      <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                        {injuredPersonFields.length} {injuredPersonFields.length === 1 ? 'person' : 'people'}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    onClick={() =>
+                      appendInjuredPerson({
+                        hasInjuredPerson: HasInjuredPersonEnum.YES,
+                        injuredPersonName: '',
+                        gender: undefined,
+                        levelOfInjury: LevelOfInjuryEnum.NOT_SPECIFIED,
+                        injuredBodyPart: InjuredBodyPartEnum.NOT_SPECIFIED,
+                        typeOfInjury: TypeOfInjuryEnum.NOT_SPECIFIED,
+                        mechanismOfInjury: MechanismOfInjuryEnum.NOT_SPECIFIED,
+                        departmentId: '',
+                      })
+                    }
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Injured Person
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  You can add multiple injured persons. Click the button above to add your first or additional person.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+              {injuredPersonFields.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-red-200 dark:border-red-800 rounded-lg bg-red-50/50 dark:bg-red-950/20">
+                  <AlertTriangle className="h-8 w-8 text-red-400 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground font-medium">No injured persons added yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Click "Add Injured Person" above to get started</p>
+                </div>
+              ) : (
+                <>
+                  {injuredPersonFields.map((field, index) => (
+                    <Card key={field.id}>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base">Injured Person {index + 1}</CardTitle>
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="destructive"
                         size="sm"
                         onClick={() => removeInjuredPerson(index)}
+                        className="h-8"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Remove
                       </Button>
                     </div>
                   </CardHeader>
@@ -1241,44 +1289,73 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                       />
                     </div>
                   </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </Card>
+                  ))}
+                </>
+              )}
+              </CardContent>
+            </Card>
 
             {/* Witnesses */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Witnesses</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    appendWitness({
-                      hasWitness: HasWitnessEnum.YES,
-                      witnessName: '',
-                      gender: undefined,
-                      departmentId: '',
-                    })
-                  }
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Witness
-                </Button>
-              </div>
-
-              {witnessFields.map((field, index) => (
+            <Card className="border-l-4 border-l-orange-500 bg-orange-50/30 dark:bg-orange-950/10">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Eye className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                      Witnesses
+                    </CardTitle>
+                    {witnessFields.length > 0 && (
+                      <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
+                        {witnessFields.length} {witnessFields.length === 1 ? 'witness' : 'witnesses'}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                    onClick={() =>
+                      appendWitness({
+                        hasWitness: HasWitnessEnum.YES,
+                        witnessName: '',
+                        gender: undefined,
+                        departmentId: '',
+                      })
+                    }
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Witness
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  You can add multiple witnesses. Click the button above to add your first or additional witness.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+              {witnessFields.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-orange-200 dark:border-orange-800 rounded-lg bg-orange-50/50 dark:bg-orange-950/20">
+                  <Eye className="h-8 w-8 text-orange-400 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground font-medium">No witnesses added yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Click "Add Witness" above to get started</p>
+                </div>
+              ) : (
+                <>
+                  {witnessFields.map((field, index) => (
                 <Card key={field.id}>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base">Witness {index + 1}</CardTitle>
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="destructive"
                         size="sm"
                         onClick={() => removeWitness(index)}
+                        className="h-8"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Remove
                       </Button>
                     </div>
                   </CardHeader>
@@ -1365,42 +1442,71 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                       />
                     </div>
                   </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </Card>
+                  ))}
+                </>
+              )}
+              </CardContent>
+            </Card>
 
             {/* Assets */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Assets</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    appendAsset({
-                      assetName: '',
-                      assetCode: '',
-                    })
-                  }
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Asset
-                </Button>
-              </div>
-
-              {assetFields.map((field, index) => (
+            <Card className="border-l-4 border-l-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/10">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Package className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                      Assets
+                    </CardTitle>
+                    {assetFields.length > 0 && (
+                      <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
+                        {assetFields.length} {assetFields.length === 1 ? 'asset' : 'assets'}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                    onClick={() =>
+                      appendAsset({
+                        assetName: '',
+                        assetCode: '',
+                      })
+                    }
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Asset
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  You can add multiple assets. Click the button above to add your first or additional asset.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+              {assetFields.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-indigo-200 dark:border-indigo-800 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/20">
+                  <Package className="h-8 w-8 text-indigo-400 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground font-medium">No assets added yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Click "Add Asset" above to get started</p>
+                </div>
+              ) : (
+                <>
+                  {assetFields.map((field, index) => (
                 <Card key={field.id}>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base">Asset {index + 1}</CardTitle>
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="destructive"
                         size="sm"
                         onClick={() => removeAsset(index)}
+                        className="h-8"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Remove
                       </Button>
                     </div>
                   </CardHeader>
@@ -1435,42 +1541,71 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                       />
                     </div>
                   </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </Card>
+                  ))}
+                </>
+              )}
+              </CardContent>
+            </Card>
 
             {/* Images */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Images</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    appendImage({
-                      imageUrl: '',
-                      caption: '',
-                    })
-                  }
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Image
-                </Button>
-              </div>
-
-              {imageFields.map((field, index) => (
+            <Card className="border-l-4 border-l-teal-500 bg-teal-50/30 dark:bg-teal-950/10">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Image className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                      Images
+                    </CardTitle>
+                    {imageFields.length > 0 && (
+                      <Badge variant="secondary" className="bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300">
+                        {imageFields.length} {imageFields.length === 1 ? 'image' : 'images'}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="bg-teal-600 hover:bg-teal-700 text-white"
+                    onClick={() =>
+                      appendImage({
+                        imageUrl: '',
+                        caption: '',
+                      })
+                    }
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Image
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  You can add multiple images. Click the button above to add your first or additional image.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+              {imageFields.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-teal-200 dark:border-teal-800 rounded-lg bg-teal-50/50 dark:bg-teal-950/20">
+                  <Image className="h-8 w-8 text-teal-400 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground font-medium">No images added yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Click "Add Image" above to get started</p>
+                </div>
+              ) : (
+                <>
+                  {imageFields.map((field, index) => (
                 <Card key={field.id}>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base">Image {index + 1}</CardTitle>
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="destructive"
                         size="sm"
                         onClick={() => removeImage(index)}
+                        className="h-8"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Remove
                       </Button>
                     </div>
                   </CardHeader>
@@ -1503,41 +1638,70 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                       )}
                     />
                   </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </Card>
+                  ))}
+                </>
+              )}
+              </CardContent>
+            </Card>
 
             {/* Attachments */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Attachments</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    appendAttachment({
-                      attachmentUrl: '',
-                    })
-                  }
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Attachment
-                </Button>
-              </div>
-
-              {attachmentFields.map((field, index) => (
+            <Card className="border-l-4 border-l-slate-500 bg-slate-50/30 dark:bg-slate-950/10">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Paperclip className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                      Attachments
+                    </CardTitle>
+                    {attachmentFields.length > 0 && (
+                      <Badge variant="secondary" className="bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-300">
+                        {attachmentFields.length} {attachmentFields.length === 1 ? 'attachment' : 'attachments'}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="bg-slate-600 hover:bg-slate-700 text-white"
+                    onClick={() =>
+                      appendAttachment({
+                        attachmentUrl: '',
+                      })
+                    }
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Attachment
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  You can add multiple attachments. Click the button above to add your first or additional attachment.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+              {attachmentFields.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50/50 dark:bg-slate-950/20">
+                  <Paperclip className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground font-medium">No attachments added yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Click "Add Attachment" above to get started</p>
+                </div>
+              ) : (
+                <>
+                  {attachmentFields.map((field, index) => (
                 <Card key={field.id}>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base">Attachment {index + 1}</CardTitle>
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="destructive"
                         size="sm"
                         onClick={() => removeAttachment(index)}
+                        className="h-8"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Remove
                       </Button>
                     </div>
                   </CardHeader>
@@ -1556,9 +1720,12 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                       )}
                     />
                   </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </Card>
+                  ))}
+                </>
+              )}
+              </CardContent>
+            </Card>
 
             {/* Form Actions */}
             <div className="flex justify-end gap-4 pt-4">
