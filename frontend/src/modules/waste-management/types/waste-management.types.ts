@@ -100,6 +100,7 @@ export interface CreateWaterQualityParameterData {
   testMethod?: string;
   description?: string;
   isActive?: boolean;
+  dateSampleTaken: string;
 }
 
 export type UpdateWaterQualityParameterData = Partial<CreateWaterQualityParameterData>;
