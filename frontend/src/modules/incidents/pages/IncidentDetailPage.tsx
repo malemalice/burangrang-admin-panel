@@ -177,7 +177,7 @@ const IncidentDetailPage = () => {
               </div>
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground">Location</h3>
-                <p className="mt-1 text-sm">{incident.incidentLocation}</p>
+                <p className="mt-1 text-sm">{incident.room?.name || '-'}</p>
               </div>
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground">Area</h3>

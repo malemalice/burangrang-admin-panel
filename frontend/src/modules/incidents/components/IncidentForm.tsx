@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -25,8 +25,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
-import { Plus, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip } from 'lucide-react';
+import { DateTimePicker } from '@/core/components/ui/datetime-picker';
+import { Plus, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip, X } from 'lucide-react';
 import incidentsService from '../services/incidentsService';
+import uploadService, { FileCategory } from '@/modules/uploads/services/uploadService';
 import {
   CreateIncidentDTO,
   UpdateIncidentDTO,
@@ -38,8 +40,6 @@ import {
   TreatmentEnum,
   AbsenceEnum,
   SourceEnum,
-  HasInjuredPersonEnum,
-  HasWitnessEnum,
   GenderEnum,
   LevelOfInjuryEnum,
   InjuredBodyPartEnum,
@@ -53,15 +53,28 @@ import {
 } from '../types/incident.types';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import areaService from '@/modules/master-data/services/areaService';
-import { riskCategoryService, departmentService } from '@/modules/master-data';
+import { riskCategoryService, departmentService, roomService } from '@/modules/master-data';
 import userService from '@/modules/users/services/userService';
-import { AreaDTO } from '@/modules/master-data/types/master-data.types';
+import roleService from '@/modules/roles/services/roleService';
+import { AreaDTO, RoomDTO } from '@/modules/master-data/types/master-data.types';
 import { RiskCategory, Department } from '@/core/lib/types';
 import { User } from '@/core/lib/types';
 
+// Generate incident code: ICD + YYMMDDHHmmss
+// Includes seconds to reduce collision probability
+const generateIncidentCode = (): string => {
+  const now = new Date();
+  const year = now.getFullYear().toString().slice(-2);
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const date = now.getDate().toString().padStart(2, '0');
+  const hour = now.getHours().toString().padStart(2, '0');
+  const minute = now.getMinutes().toString().padStart(2, '0');
+  const second = now.getSeconds().toString().padStart(2, '0');
+  return `ICD${year}${month}${date}${hour}${minute}${second}`;
+};
+
 // Schema for injured person
 const injuredPersonSchema = z.object({
-  hasInjuredPerson: z.nativeEnum(HasInjuredPersonEnum),
   injuredPersonName: z.string().optional(),
   gender: z.nativeEnum(GenderEnum).optional(),
   levelOfInjury: z.nativeEnum(LevelOfInjuryEnum).default(LevelOfInjuryEnum.NOT_SPECIFIED),
@@ -73,7 +86,6 @@ const injuredPersonSchema = z.object({
 
 // Schema for witness
 const witnessSchema = z.object({
-  hasWitness: z.nativeEnum(HasWitnessEnum),
   witnessName: z.string().optional(),
   gender: z.nativeEnum(GenderEnum).optional(),
   departmentId: z.string().optional(),
@@ -85,23 +97,12 @@ const assetSchema = z.object({
   assetCode: z.string().optional(),
 });
 
-// Schema for image
-const imageSchema = z.object({
-  imageUrl: z.string().min(1, 'Image URL is required'),
-  caption: z.string().optional(),
-});
-
-// Schema for attachment
-const attachmentSchema = z.object({
-  attachmentUrl: z.string().min(1, 'Attachment URL is required'),
-});
-
 // Main form schema
 const formSchema = z.object({
   code: z.string().min(1, 'Code is required'),
   subject: z.string().min(1, 'Subject is required'),
   incidentDate: z.string().min(1, 'Incident date is required'),
-  incidentLocation: z.string().min(1, 'Incident location is required'),
+  roomId: z.string().optional(),
   areaId: z.string().min(1, 'Area is required'),
   incidentType: z.nativeEnum(IncidentTypeEnum),
   incidentClassification: z.nativeEnum(IncidentClassificationEnum),
@@ -128,8 +129,6 @@ const formSchema = z.object({
   injuredPersons: z.array(injuredPersonSchema).optional(),
   witnesses: z.array(witnessSchema).optional(),
   assets: z.array(assetSchema).optional(),
-  images: z.array(imageSchema).optional(),
-  attachments: z.array(attachmentSchema).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -147,17 +146,19 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
 
   // Reference data
   const [areas, setAreas] = useState<AreaDTO[]>([]);
+  const [rooms, setRooms] = useState<RoomDTO[]>([]);
   const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [technicians, setTechnicians] = useState<User[]>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      code: '',
+      code: mode === 'create' ? generateIncidentCode() : '',
       subject: '',
       incidentDate: new Date().toISOString().split('T')[0],
-      incidentLocation: '',
+      roomId: '',
       areaId: '',
       incidentType: IncidentTypeEnum.NEAR_MISS,
       incidentClassification: IncidentClassificationEnum.MINOR,
@@ -184,10 +185,32 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
       injuredPersons: [],
       witnesses: [],
       assets: [],
-      images: [],
-      attachments: [],
     },
   });
+
+  // Image/attachment upload state (drag-and-drop, multi-file like InspectionItemForm)
+  interface ImageUploadItem {
+    id: string;
+    url: string;
+    caption: string;
+    file?: File;
+    isNew?: boolean;
+  }
+  interface AttachmentUploadItem {
+    id: string;
+    url: string;
+    file?: File;
+    isNew?: boolean;
+    name?: string;
+  }
+  const [imageUploads, setImageUploads] = useState<ImageUploadItem[]>([]);
+  const [attachmentUploads, setAttachmentUploads] = useState<AttachmentUploadItem[]>([]);
+  const [fileCategory, setFileCategory] = useState<FileCategory | null>(null);
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const [imageDropActive, setImageDropActive] = useState(false);
+  const [attachmentDropActive, setAttachmentDropActive] = useState(false);
 
   // Field arrays for nested data
   const {
@@ -217,40 +240,39 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
     name: 'assets',
   });
 
-  const {
-    fields: imageFields,
-    append: appendImage,
-    remove: removeImage,
-  } = useFieldArray({
-    control: form.control,
-    name: 'images',
-  });
-
-  const {
-    fields: attachmentFields,
-    append: appendAttachment,
-    remove: removeAttachment,
-  } = useFieldArray({
-    control: form.control,
-    name: 'attachments',
-  });
-
   // Fetch reference data
   useEffect(() => {
     const fetchData = async () => {
       setIsLoadingData(true);
       try {
-        const [areasRes, riskCategoriesRes, departmentsRes, usersRes] = await Promise.all([
+        // First, fetch roles to find TECHNICIAN role
+        const rolesRes = await roleService.getRoles({ page: 1, limit: 100 });
+        const technicianRole = rolesRes.data.find(role => role.code === 'TECHNICIAN');
+        
+        // Fetch users and technicians in parallel
+        const [areasRes, riskCategoriesRes, departmentsRes, usersRes, techniciansRes] = await Promise.all([
           areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true } }),
           riskCategoryService.getAll({ page: 1, limit: 100, isActive: true }),
           departmentService.getDepartments({ page: 1, limit: 100 }),
           userService.getUsers({ page: 1, limit: 100 }),
+          // Fetch technicians: users with TECHNICIAN role and job position
+          technicianRole 
+            ? userService.getUsers({ 
+                page: 1, 
+                limit: 100, 
+                filters: { roleId: technicianRole.id } 
+              })
+            : Promise.resolve({ data: [], meta: { total: 0 } }),
         ]);
 
         setAreas(areasRes.data);
         setRiskCategories(riskCategoriesRes.data);
         setDepartments(departmentsRes.data);
         setUsers(usersRes.data);
+        
+        // Filter technicians to only those with job position
+        const techniciansWithJob = techniciansRes.data.filter(user => user.jobPositionId);
+        setTechnicians(techniciansWithJob);
 
         // If editing, populate form with incident data
         if (incident && mode === 'edit') {
@@ -258,7 +280,7 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
             code: incident.code,
             subject: incident.subject,
             incidentDate: new Date(incident.incidentDate).toISOString().split('T')[0],
-            incidentLocation: incident.incidentLocation,
+            roomId: incident.roomId || '',
             areaId: incident.areaId,
             incidentType: incident.incidentType,
             incidentClassification: incident.incidentClassification,
@@ -286,7 +308,6 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
             isActive: incident.isActive,
             injuredPersons:
               incident.injuredPersons?.map((p, index) => ({
-                hasInjuredPerson: p.hasInjuredPerson,
                 injuredPersonName: p.injuredPersonName || '',
                 gender: p.gender,
                 levelOfInjury: p.levelOfInjury,
@@ -297,7 +318,6 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
               })) || [],
             witnesses:
               incident.witnesses?.map((w) => ({
-                hasWitness: w.hasWitness,
                 witnessName: w.witnessName || '',
                 gender: w.gender,
                 departmentId: w.departmentId || '',
@@ -306,15 +326,6 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
               incident.assets?.map((a) => ({
                 assetName: a.assetName,
                 assetCode: a.assetCode || '',
-              })) || [],
-            images:
-              incident.images?.map((i) => ({
-                imageUrl: i.imageUrl,
-                caption: i.caption || '',
-              })) || [],
-            attachments:
-              incident.attachments?.map((a) => ({
-                attachmentUrl: a.attachmentUrl,
               })) || [],
           });
         }
@@ -330,6 +341,68 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
 
     fetchData();
   }, [incident, mode, form]);
+
+  // Load file category for uploads
+  useEffect(() => {
+    const loadCategory = async () => {
+      try {
+        const cat = await uploadService.getCategoryByName('course-materials');
+        if (cat) setFileCategory(cat);
+      } catch (e) {
+        console.warn('Could not load upload category:', e);
+      }
+    };
+    loadCategory();
+  }, []);
+
+  // Populate image/attachment uploads when editing
+  useEffect(() => {
+    if (incident && mode === 'edit' && dataReady) {
+      setImageUploads(
+        (incident.images ?? []).map((i) => ({
+          id: `img-${i.id ?? i.imageUrl}-${Date.now()}-${Math.random()}`,
+          url: i.imageUrl,
+          caption: i.caption ?? '',
+          isNew: false,
+        }))
+      );
+      setAttachmentUploads(
+        (incident.attachments ?? []).map((a) => ({
+          id: `att-${a.id ?? a.attachmentUrl}-${Date.now()}-${Math.random()}`,
+          url: a.attachmentUrl,
+          isNew: false,
+          name: a.attachmentUrl.split('/').pop() ?? undefined,
+        }))
+      );
+    } else if (!incident && mode === 'create') {
+      setImageUploads([]);
+      setAttachmentUploads([]);
+    }
+  }, [incident, mode, dataReady]);
+
+  // Fetch rooms when area changes
+  const areaId = form.watch('areaId');
+  useEffect(() => {
+    const fetchRooms = async () => {
+      if (areaId) {
+        try {
+          const roomsRes = await roomService.getRooms({ 
+            page: 1, 
+            limit: 100, 
+            areaId,
+            isActive: true 
+          });
+          setRooms(roomsRes.data);
+        } catch (error) {
+          console.error('Error fetching rooms:', error);
+          setRooms([]);
+        }
+      } else {
+        setRooms([]);
+      }
+    };
+    fetchRooms();
+  }, [areaId]);
 
   // Convert to SearchableSelectOption format
   const areaOptions: SearchableSelectOption[] = areas.map((area) => ({
@@ -352,15 +425,141 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
     label: user.name || `${user.email}`,
   }));
 
+  const technicianOptions: SearchableSelectOption[] = technicians.map((technician) => ({
+    value: technician.id,
+    label: technician.name || `${technician.email}`,
+  }));
+
+  const roomOptions: SearchableSelectOption[] = rooms.map((room) => ({
+    value: room.id,
+    label: room.name,
+  }));
+
+  const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  const ATTACHMENT_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+  const handleImageFiles = useCallback((files: FileList | null) => {
+    if (!files?.length) return;
+    const next: ImageUploadItem[] = [];
+    Array.from(files).forEach((file) => {
+      if (!IMAGE_TYPES.includes(file.type)) {
+        toast.error(`Invalid type for ${file.name}. Use JPEG, PNG, GIF, or WebP.`);
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`${file.name} exceeds 5MB`);
+        return;
+      }
+      const previewUrl = URL.createObjectURL(file);
+      next.push({
+        id: `img-${Date.now()}-${Math.random()}`,
+        url: previewUrl,
+        caption: '',
+        file,
+        isNew: true,
+      });
+    });
+    if (next.length) {
+      setImageUploads((prev) => [...prev, ...next]);
+    }
+    if (imageInputRef.current) imageInputRef.current.value = '';
+  }, []);
+
+  const handleAttachmentFiles = useCallback((files: FileList | null) => {
+    if (!files?.length) return;
+    const next: AttachmentUploadItem[] = [];
+    Array.from(files).forEach((file) => {
+      if (!ATTACHMENT_TYPES.includes(file.type)) {
+        toast.error(`Invalid type for ${file.name}. Use JPEG, PNG, GIF, WebP, or PDF.`);
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`${file.name} exceeds 5MB`);
+        return;
+      }
+      const previewUrl = file.type.startsWith('image/')
+        ? URL.createObjectURL(file)
+        : ''; // PDF no preview
+      next.push({
+        id: `att-${Date.now()}-${Math.random()}`,
+        url: previewUrl || file.name,
+        file,
+        isNew: true,
+        name: file.name,
+      });
+    });
+    if (next.length) {
+      setAttachmentUploads((prev) => [...prev, ...next]);
+    }
+    if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+  }, []);
+
+  const removeImage = useCallback((id: string) => {
+    setImageUploads((prev) => {
+      const item = prev.find((i) => i.id === id);
+      if (item?.url.startsWith('blob:')) URL.revokeObjectURL(item.url);
+      return prev.filter((i) => i.id !== id);
+    });
+  }, []);
+
+  const removeAttachment = useCallback((id: string) => {
+    setAttachmentUploads((prev) => {
+      const item = prev.find((i) => i.id === id);
+      if (item?.url.startsWith('blob:')) URL.revokeObjectURL(item.url);
+      return prev.filter((i) => i.id !== id);
+    });
+  }, []);
+
+  const updateImageCaption = useCallback((id: string, caption: string) => {
+    setImageUploads((prev) => prev.map((i) => (i.id === id ? { ...i, caption } : i)));
+  }, []);
+
+  const uploadImagesAndAttachments = useCallback(async () => {
+    const hasNewImages = imageUploads.some((i) => i.isNew && i.file);
+    const hasNewAttachments = attachmentUploads.some((a) => a.isNew && a.file);
+    if ((hasNewImages || hasNewAttachments) && !fileCategory) {
+      throw new Error('Upload category not loaded. Please try again.');
+    }
+    const imagePayload: { imageUrl: string; caption: string; order: number }[] = [];
+    const attachmentPayload: { attachmentUrl: string; order: number }[] = [];
+    let order = 0;
+    for (const img of imageUploads) {
+      if (img.isNew && img.file && fileCategory) {
+        setIsUploadingFiles(true);
+        const res = await uploadService.uploadFile(img.file, fileCategory.id, true);
+        imagePayload.push({ imageUrl: uploadService.getPublicFileUrl(res.id), caption: img.caption || '', order: order++ });
+      } else if (!img.isNew) {
+        imagePayload.push({ imageUrl: img.url, caption: img.caption || '', order: order++ });
+      }
+    }
+    order = 0;
+    for (const att of attachmentUploads) {
+      if (att.isNew && att.file && fileCategory) {
+        setIsUploadingFiles(true);
+        const res = await uploadService.uploadFile(att.file, fileCategory.id, true);
+        attachmentPayload.push({ attachmentUrl: uploadService.getPublicFileUrl(res.id), order: order++ });
+      } else if (!att.isNew) {
+        attachmentPayload.push({ attachmentUrl: att.url, order: order++ });
+      }
+    }
+    setIsUploadingFiles(false);
+    return { images: imagePayload, attachments: attachmentPayload };
+  }, [fileCategory, imageUploads, attachmentUploads]);
+
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
     try {
-      // Transform form data to DTO
+      const { images, attachments } = await uploadImagesAndAttachments();
+      [...imageUploads, ...attachmentUploads].forEach((x) => {
+        if ('url' in x && x.url.startsWith('blob:')) URL.revokeObjectURL(x.url);
+      });
+
       const dto: CreateIncidentDTO | UpdateIncidentDTO = {
         code: data.code,
         subject: data.subject,
         incidentDate: new Date(data.incidentDate),
-        incidentLocation: data.incidentLocation,
+        roomId: data.roomId || undefined,
         areaId: data.areaId,
         incidentType: data.incidentType,
         incidentClassification: data.incidentClassification,
@@ -386,7 +585,6 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
         isActive: data.isActive,
         injuredPersons:
           data.injuredPersons?.map((p, index) => ({
-            hasInjuredPerson: p.hasInjuredPerson,
             injuredPersonName: p.injuredPersonName || undefined,
             gender: p.gender,
             levelOfInjury: p.levelOfInjury,
@@ -398,7 +596,6 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
           })) || undefined,
         witnesses:
           data.witnesses?.map((w, index) => ({
-            hasWitness: w.hasWitness,
             witnessName: w.witnessName || undefined,
             gender: w.gender,
             departmentId: w.departmentId || undefined,
@@ -410,17 +607,8 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
             assetCode: a.assetCode || undefined,
             order: index,
           })) || undefined,
-        images:
-          data.images?.map((i, index) => ({
-            imageUrl: i.imageUrl,
-            caption: i.caption || undefined,
-            order: index,
-          })) || undefined,
-        attachments:
-          data.attachments?.map((a, index) => ({
-            attachmentUrl: a.attachmentUrl,
-            order: index,
-          })) || undefined,
+        images: images.length ? images : undefined,
+        attachments: attachments.length ? attachments : undefined,
       };
 
       if (mode === 'create') {
@@ -471,7 +659,7 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                   name="code"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Code *</FormLabel>
+                      <FormLabel>Code <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
                         <Input placeholder="Enter incident code" {...field} />
                       </FormControl>
@@ -485,7 +673,7 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                   name="subject"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Subject *</FormLabel>
+                      <FormLabel>Subject <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
                         <Input placeholder="Enter incident subject" {...field} />
                       </FormControl>
@@ -499,23 +687,9 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                   name="incidentDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Incident Date *</FormLabel>
+                      <FormLabel>Incident Date <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="incidentLocation"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Incident Location *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter incident location" {...field} />
+                        <DateTimePicker mode="date" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -527,7 +701,7 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                   name="areaId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Area *</FormLabel>
+                      <FormLabel>Area <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
                         <SearchableSelect
                           options={areaOptions}
@@ -543,10 +717,30 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
 
                 <FormField
                   control={form.control}
+                  name="roomId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Location</FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          options={roomOptions}
+                          value={field.value || ''}
+                          onValueChange={field.onChange}
+                          placeholder="location/room"
+                          disabled={!areaId || rooms.length === 0}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="riskCategoryId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Risk Category *</FormLabel>
+                      <FormLabel>Risk Category <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
                         <SearchableSelect
                           options={riskCategoryOptions}
@@ -565,7 +759,7 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                   name="incidentType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Incident Type *</FormLabel>
+                      <FormLabel>Incident Type <span className="text-red-500">*</span></FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -590,7 +784,7 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                   name="incidentClassification"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Classification *</FormLabel>
+                      <FormLabel>Classification <span className="text-red-500">*</span></FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -638,7 +832,7 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                   name="status"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Status *</FormLabel>
+                      <FormLabel>Status <span className="text-red-500">*</span></FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -696,7 +890,7 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                   name="requesterId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Requester *</FormLabel>
+                      <FormLabel>Requester <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
                         <SearchableSelect
                           options={userOptions}
@@ -715,7 +909,7 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                   name="reportedBy"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Reported By *</FormLabel>
+                      <FormLabel>Reported By <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
                         <SearchableSelect
                           options={userOptions}
@@ -737,7 +931,7 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                       <FormLabel>Technician</FormLabel>
                       <FormControl>
                         <SearchableSelect
-                          options={userOptions}
+                          options={technicianOptions}
                           value={field.value || ''}
                           onValueChange={field.onChange}
                           placeholder="Select technician"
@@ -753,7 +947,7 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                   name="assignedDepartmentId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Assigned Department *</FormLabel>
+                      <FormLabel>Assigned Department <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
                         <SearchableSelect
                           options={departmentOptions}
@@ -806,7 +1000,7 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                     <FormItem>
                       <FormLabel>Due Date</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <DateTimePicker mode="date" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1005,7 +1199,6 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                     className="bg-red-600 hover:bg-red-700 text-white"
                     onClick={() =>
                       appendInjuredPerson({
-                        hasInjuredPerson: HasInjuredPersonEnum.YES,
                         injuredPersonName: '',
                         gender: undefined,
                         levelOfInjury: LevelOfInjuryEnum.NOT_SPECIFIED,
@@ -1052,28 +1245,6 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name={`injuredPersons.${index}.hasInjuredPerson`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Has Injured Person</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value={HasInjuredPersonEnum.YES}>Yes</SelectItem>
-                                <SelectItem value={HasInjuredPersonEnum.NO}>No</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
                       <FormField
                         control={form.control}
                         name={`injuredPersons.${index}.injuredPersonName`}
@@ -1318,7 +1489,6 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                     className="bg-orange-600 hover:bg-orange-700 text-white"
                     onClick={() =>
                       appendWitness({
-                        hasWitness: HasWitnessEnum.YES,
                         witnessName: '',
                         gender: undefined,
                         departmentId: '',
@@ -1361,28 +1531,6 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name={`witnesses.${index}.hasWitness`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Has Witness</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value={HasWitnessEnum.YES}>Yes</SelectItem>
-                                <SelectItem value={HasWitnessEnum.NO}>No</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
                       <FormField
                         control={form.control}
                         name={`witnesses.${index}.witnessName`}
@@ -1517,7 +1665,7 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                         name={`assets.${index}.assetName`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Asset Name *</FormLabel>
+                            <FormLabel>Asset Name <span className="text-red-500">*</span></FormLabel>
                             <FormControl>
                               <Input placeholder="Enter asset name" {...field} />
                             </FormControl>
@@ -1551,179 +1699,163 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
             {/* Images */}
             <Card className="border-l-4 border-l-teal-500 bg-teal-50/30 dark:bg-teal-950/10">
               <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Image className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-                      Images
-                    </CardTitle>
-                    {imageFields.length > 0 && (
-                      <Badge variant="secondary" className="bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300">
-                        {imageFields.length} {imageFields.length === 1 ? 'image' : 'images'}
-                      </Badge>
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    className="bg-teal-600 hover:bg-teal-700 text-white"
-                    onClick={() =>
-                      appendImage({
-                        imageUrl: '',
-                        caption: '',
-                      })
-                    }
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Image
-                  </Button>
+                <div className="flex items-center gap-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Image className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                    Images
+                  </CardTitle>
+                  {imageUploads.length > 0 && (
+                    <Badge variant="secondary" className="bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300">
+                      {imageUploads.length} {imageUploads.length === 1 ? 'image' : 'images'}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  You can add multiple images. Click the button above to add your first or additional image.
+                  Drag and drop images here, or click to browse. JPEG, PNG, GIF, WebP. Max 5MB each.
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
-              {imageFields.length === 0 ? (
-                <div className="text-center py-8 border-2 border-dashed border-teal-200 dark:border-teal-800 rounded-lg bg-teal-50/50 dark:bg-teal-950/20">
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handleImageFiles(e.target.files)}
+                  disabled={isLoading || isUploadingFiles}
+                />
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onDragOver={(e) => { e.preventDefault(); setImageDropActive(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); setImageDropActive(false); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setImageDropActive(false);
+                    handleImageFiles(e.dataTransfer.files);
+                  }}
+                  onClick={() => imageInputRef.current?.click()}
+                  onKeyDown={(e) => e.key === 'Enter' && imageInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-all ${imageDropActive ? 'border-teal-500 ring-2 ring-teal-500 bg-teal-100/50 dark:bg-teal-900/20' : 'border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-950/20'}`}
+                >
                   <Image className="h-8 w-8 text-teal-400 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground font-medium">No images added yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">Click "Add Image" above to get started</p>
+                  <p className="text-sm text-muted-foreground font-medium">Drop images here or click to select</p>
                 </div>
-              ) : (
-                <>
-                  {imageFields.map((field, index) => (
-                <Card key={field.id}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">Image {index + 1}</CardTitle>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removeImage(index)}
-                        className="h-8"
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Remove
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name={`images.${index}.imageUrl`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Image URL *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter image URL" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name={`images.${index}.caption`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Caption</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="Enter caption" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </CardContent>
-                    </Card>
-                  ))}
-                </>
-              )}
+                {imageUploads.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {imageUploads.map((img) => (
+                      <div key={img.id} className="relative border rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-900">
+                        <div className="aspect-video relative">
+                          <img src={img.url} alt={img.caption || 'Incident'} className="w-full h-full object-cover" />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-2 right-2 h-8 w-8"
+                            onClick={(e) => { e.stopPropagation(); removeImage(img.id); }}
+                            disabled={isLoading || isUploadingFiles}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                          {img.isNew && (
+                            <span className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">New</span>
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <Input
+                            placeholder="Caption (optional)"
+                            value={img.caption}
+                            onChange={(e) => updateImageCaption(img.id, e.target.value)}
+                            disabled={isLoading || isUploadingFiles}
+                            className="text-sm"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             {/* Attachments */}
             <Card className="border-l-4 border-l-slate-500 bg-slate-50/30 dark:bg-slate-950/10">
               <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Paperclip className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                      Attachments
-                    </CardTitle>
-                    {attachmentFields.length > 0 && (
-                      <Badge variant="secondary" className="bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-300">
-                        {attachmentFields.length} {attachmentFields.length === 1 ? 'attachment' : 'attachments'}
-                      </Badge>
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    className="bg-slate-600 hover:bg-slate-700 text-white"
-                    onClick={() =>
-                      appendAttachment({
-                        attachmentUrl: '',
-                      })
-                    }
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Attachment
-                  </Button>
+                <div className="flex items-center gap-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Paperclip className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                    Attachments
+                  </CardTitle>
+                  {attachmentUploads.length > 0 && (
+                    <Badge variant="secondary" className="bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-300">
+                      {attachmentUploads.length} {attachmentUploads.length === 1 ? 'attachment' : 'attachments'}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  You can add multiple attachments. Click the button above to add your first or additional attachment.
+                  Drag and drop files here, or click to browse. Images (JPEG, PNG, GIF, WebP) or PDF. Max 5MB each.
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
-              {attachmentFields.length === 0 ? (
-                <div className="text-center py-8 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50/50 dark:bg-slate-950/20">
+                <input
+                  ref={attachmentInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handleAttachmentFiles(e.target.files)}
+                  disabled={isLoading || isUploadingFiles}
+                />
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onDragOver={(e) => { e.preventDefault(); setAttachmentDropActive(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); setAttachmentDropActive(false); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setAttachmentDropActive(false);
+                    handleAttachmentFiles(e.dataTransfer.files);
+                  }}
+                  onClick={() => attachmentInputRef.current?.click()}
+                  onKeyDown={(e) => e.key === 'Enter' && attachmentInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-all ${attachmentDropActive ? 'border-slate-500 ring-2 ring-slate-500 bg-slate-100/50 dark:bg-slate-900/20' : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20'}`}
+                >
                   <Paperclip className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground font-medium">No attachments added yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">Click "Add Attachment" above to get started</p>
+                  <p className="text-sm text-muted-foreground font-medium">Drop files here or click to select</p>
                 </div>
-              ) : (
-                <>
-                  {attachmentFields.map((field, index) => (
-                <Card key={field.id}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">Attachment {index + 1}</CardTitle>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removeAttachment(index)}
-                        className="h-8"
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Remove
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <FormField
-                      control={form.control}
-                      name={`attachments.${index}.attachmentUrl`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Attachment URL *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter attachment URL" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </CardContent>
-                    </Card>
-                  ))}
-                </>
-              )}
+                {attachmentUploads.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {attachmentUploads.map((att) => {
+                      const isImage = !!(att.file?.type.startsWith('image/') || att.url.startsWith('blob:') || /\.(jpe?g|png|gif|webp)(\?|$)/i.test(att.url ?? ''));
+                      return (
+                        <div key={att.id} className="relative border rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-900">
+                          <div className="aspect-video relative flex items-center justify-center min-h-[120px]">
+                            {isImage ? (
+                              <img src={att.url} alt={att.name ?? 'Attachment'} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                                <FileText className="h-10 w-10" />
+                                <span className="text-xs truncate max-w-full px-2">{att.name ?? 'File'}</span>
+                              </div>
+                            )}
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute top-2 right-2 h-8 w-8"
+                              onClick={(e) => { e.stopPropagation(); removeAttachment(att.id); }}
+                              disabled={isLoading || isUploadingFiles}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                            {att.isNew && (
+                              <span className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">New</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -1733,12 +1865,12 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                 type="button"
                 variant="outline"
                 onClick={() => navigate('/incidents')}
-                disabled={isLoading}
+                disabled={isLoading || isUploadingFiles}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? 'Saving...' : mode === 'create' ? 'Create Incident' : 'Update Incident'}
+              <Button type="submit" disabled={isLoading || isUploadingFiles}>
+                {isLoading ? 'Saving...' : isUploadingFiles ? 'Uploading...' : mode === 'create' ? 'Create Incident' : 'Update Incident'}
               </Button>
             </div>
           </form>

@@ -7,14 +7,9 @@ import {
   IsInt,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { HasWitnessEnum, GenderEnum } from '@prisma/client';
+import { GenderEnum } from '@prisma/client';
 
 export class CreateIncidentWitnessDto {
-  @IsNotEmpty()
-  @IsEnum(HasWitnessEnum)
-  @ApiProperty({ enum: HasWitnessEnum })
-  hasWitness: HasWitnessEnum;
-
   @IsString()
   @IsOptional()
   @ApiProperty({ required: false })

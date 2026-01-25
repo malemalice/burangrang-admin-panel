@@ -8,7 +8,6 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  HasInjuredPersonEnum,
   GenderEnum,
   LevelOfInjuryEnum,
   InjuredBodyPartEnum,
@@ -17,11 +16,6 @@ import {
 } from '@prisma/client';
 
 export class CreateIncidentInjuredPersonDto {
-  @IsNotEmpty()
-  @IsEnum(HasInjuredPersonEnum)
-  @ApiProperty({ enum: HasInjuredPersonEnum })
-  hasInjuredPerson: HasInjuredPersonEnum;
-
   @IsString()
   @IsOptional()
   @ApiProperty({ required: false })

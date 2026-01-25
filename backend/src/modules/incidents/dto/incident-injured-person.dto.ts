@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
 import {
-  HasInjuredPersonEnum,
   GenderEnum,
   LevelOfInjuryEnum,
   InjuredBodyPartEnum,
@@ -18,10 +17,6 @@ export class IncidentInjuredPersonDto {
   @ApiProperty()
   @Expose()
   incidentId: string;
-
-  @ApiProperty({ enum: HasInjuredPersonEnum })
-  @Expose()
-  hasInjuredPerson: HasInjuredPersonEnum;
 
   @ApiProperty({ required: false })
   @Expose()

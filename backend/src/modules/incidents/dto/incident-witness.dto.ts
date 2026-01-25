@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
-import { HasWitnessEnum, GenderEnum } from '@prisma/client';
+import { GenderEnum } from '@prisma/client';
 import { DepartmentDto } from 'src/modules/departments/dto/department.dto';
 
 export class IncidentWitnessDto {
@@ -11,10 +11,6 @@ export class IncidentWitnessDto {
   @ApiProperty()
   @Expose()
   incidentId: string;
-
-  @ApiProperty({ enum: HasWitnessEnum })
-  @Expose()
-  hasWitness: HasWitnessEnum;
 
   @ApiProperty({ required: false })
   @Expose()

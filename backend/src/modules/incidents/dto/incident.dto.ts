@@ -14,6 +14,7 @@ import { AreaDto } from 'src/modules/areas/dto/area.dto';
 import { RiskCategoryDto } from 'src/modules/risk-categories/dto/risk-category.dto';
 import { UserDto } from 'src/modules/users/dto/user.dto';
 import { DepartmentDto } from 'src/modules/departments/dto/department.dto';
+import { RoomDto } from 'src/modules/rooms/dto/room.dto';
 import { IncidentInjuredPersonDto } from './incident-injured-person.dto';
 import { IncidentWitnessDto } from './incident-witness.dto';
 import { IncidentAssetDto } from './incident-asset.dto';
@@ -37,9 +38,13 @@ export class IncidentDto {
   @Expose()
   incidentDate: Date;
 
-  @ApiProperty()
+  @ApiProperty({ required: false })
   @Expose()
-  incidentLocation: string;
+  roomId?: string;
+
+  @ApiProperty({ type: () => RoomDto, required: false })
+  @Expose()
+  room?: RoomDto;
 
   @ApiProperty()
   @Expose()

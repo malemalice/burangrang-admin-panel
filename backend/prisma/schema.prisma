@@ -1538,6 +1538,7 @@ model Room {
   updatedAt                 DateTime                   @updatedAt
   area                      Area                       @relation(fields: [areaId], references: [id])
   environmentalMeasurements EnvironmentalMeasurement[]
+  incident                  Incident?
 
   @@map("m_rooms")
 }
@@ -2029,7 +2030,7 @@ model Incident {
   code                  String                    @unique
   subject               String
   incidentDate          DateTime
-  incidentLocation      String
+  roomId                String?                   @unique
   areaId                String
   incidentType          IncidentTypeEnum
   incidentClassification IncidentClassificationEnum
@@ -2058,6 +2059,7 @@ model Incident {
   createdBy             String
 
   // Relations
+  room                  Room?                    @relation(fields: [roomId], references: [id])
   area                  Area                     @relation(fields: [areaId], references: [id])
   riskCategory          RiskCategory             @relation(fields: [riskCategoryId], references: [id])
   requester             User                     @relation("IncidentRequester", fields: [requesterId], references: [id])
@@ -2073,6 +2075,7 @@ model Incident {
   attachments           IncidentAttachment[]
 
   @@index([code])
+  @@index([roomId])
   @@index([areaId])
   @@index([riskCategoryId])
   @@index([requesterId])
@@ -2088,7 +2091,6 @@ model Incident {
 model IncidentInjuredPerson {
   id                String                @id @default(uuid())
   incidentId        String
-  hasInjuredPerson  HasInjuredPersonEnum
   injuredPersonName String?
   gender            GenderEnum?
   levelOfInjury     LevelOfInjuryEnum     @default(NOT_SPECIFIED)
@@ -2113,7 +2115,6 @@ model IncidentInjuredPerson {
 model IncidentWitness {
   id          String        @id @default(uuid())
   incidentId String
-  hasWitness  HasWitnessEnum
   witnessName String?
   gender      GenderEnum?
   departmentId String?

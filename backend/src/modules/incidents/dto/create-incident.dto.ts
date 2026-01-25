@@ -44,10 +44,10 @@ export class CreateIncidentDto {
   @ApiProperty()
   incidentDate: Date;
 
-  @IsNotEmpty()
-  @IsString()
-  @ApiProperty()
-  incidentLocation: string;
+  @IsUUID()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  roomId?: string;
 
   @IsNotEmpty()
   @IsUUID()

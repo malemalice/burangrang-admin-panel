@@ -4,7 +4,7 @@
  */
 
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
-import type { AreaDTO } from '@/modules/master-data/types/master-data.types';
+import type { AreaDTO, RoomDTO } from '@/modules/master-data/types/master-data.types';
 import { User } from '@/core/lib/types';
 import { RiskCategory } from '@/core/lib/types';
 import { Department } from '@/core/lib/types';
@@ -55,16 +55,6 @@ export enum AbsenceEnum {
 export enum SourceEnum {
   SYSTEM = 'SYSTEM',
   ZOHO = 'ZOHO',
-}
-
-export enum HasInjuredPersonEnum {
-  YES = 'YES',
-  NO = 'NO',
-}
-
-export enum HasWitnessEnum {
-  YES = 'YES',
-  NO = 'NO',
 }
 
 export enum GenderEnum {
@@ -132,7 +122,6 @@ export enum MechanismOfInjuryEnum {
 export interface IncidentInjuredPerson {
   id: string;
   incidentId: string;
-  hasInjuredPerson: HasInjuredPersonEnum;
   injuredPersonName?: string;
   gender?: GenderEnum;
   levelOfInjury: LevelOfInjuryEnum;
@@ -149,7 +138,6 @@ export interface IncidentInjuredPerson {
 export interface IncidentWitness {
   id: string;
   incidentId: string;
-  hasWitness: HasWitnessEnum;
   witnessName?: string;
   gender?: GenderEnum;
   departmentId?: string;
@@ -191,7 +179,8 @@ export interface Incident {
   code: string;
   subject: string;
   incidentDate: Date;
-  incidentLocation: string;
+  roomId?: string;
+  room?: RoomDTO;
   areaId: string;
   area?: AreaDTO;
   incidentType: IncidentTypeEnum;
@@ -235,7 +224,6 @@ export interface Incident {
 
 // Create DTOs
 export interface CreateIncidentInjuredPersonDTO {
-  hasInjuredPerson: HasInjuredPersonEnum;
   injuredPersonName?: string;
   gender?: GenderEnum;
   levelOfInjury?: LevelOfInjuryEnum;
@@ -247,7 +235,6 @@ export interface CreateIncidentInjuredPersonDTO {
 }
 
 export interface CreateIncidentWitnessDTO {
-  hasWitness: HasWitnessEnum;
   witnessName?: string;
   gender?: GenderEnum;
   departmentId?: string;
@@ -275,7 +262,7 @@ export interface CreateIncidentDTO {
   code: string;
   subject: string;
   incidentDate: Date;
-  incidentLocation: string;
+  roomId?: string;
   areaId: string;
   incidentType: IncidentTypeEnum;
   incidentClassification: IncidentClassificationEnum;

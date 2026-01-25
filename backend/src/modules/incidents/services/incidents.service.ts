@@ -83,6 +83,10 @@ export class IncidentsService {
 
     // Initialize incident mapper with all nested relations
     this.incidentMapper = this.dtoMapper.createRelationMapper(IncidentDto, {
+      room: {
+        mapper: (room: any) => room,
+        isArray: false,
+      },
       area: {
         mapper: (area: any) => area,
         isArray: false,
@@ -294,6 +298,7 @@ export class IncidentsService {
           this.prisma.incident.findMany({
             where,
             include: {
+              room: true,
               area: true,
               riskCategory: true,
               requester: true,
@@ -353,6 +358,7 @@ export class IncidentsService {
     const incident = await this.prisma.incident.findUnique({
       where: { id },
       include: {
+        room: true,
         area: true,
         riskCategory: true,
         requester: true,
@@ -450,6 +456,7 @@ export class IncidentsService {
             }),
           },
           include: {
+            room: true,
             area: true,
             riskCategory: true,
             requester: true,
@@ -494,6 +501,7 @@ export class IncidentsService {
           where: { id },
           data: { isActive: false },
           include: {
+            room: true,
             area: true,
             riskCategory: true,
             requester: true,
