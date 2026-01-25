@@ -19,9 +19,15 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Badge } from '@/core/components/ui/badge';
 
-import { Incident } from '../types/incident.types';
+import { Incident, IncidentTypeEnum, IncidentClassificationEnum, PriorityEnum, SourceEnum } from '../types/incident.types';
 import incidentsService from '../services/incidentsService';
 import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
+import areaService from '@/modules/master-data/services/areaService';
+import { riskCategoryService, departmentService } from '@/modules/master-data';
+import userService from '@/modules/users/services/userService';
+import { AreaDTO } from '@/modules/master-data/types/master-data.types';
+import { RiskCategory, Department } from '@/core/lib/types';
+import { User } from '@/core/lib/types';
 
 const IncidentsPage = () => {
   const navigate = useNavigate();
@@ -37,21 +43,135 @@ const IncidentsPage = () => {
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
+  // Filter options state
+  const [areas, setAreas] = useState<AreaDTO[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoadingFilterOptions, setIsLoadingFilterOptions] = useState(true);
+
+  // Fetch filter options
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      setIsLoadingFilterOptions(true);
+      try {
+        const [areasRes, departmentsRes, riskCategoriesRes, usersRes] = await Promise.all([
+          areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true } }),
+          departmentService.getDepartments({ page: 1, limit: 100 }),
+          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true }),
+          userService.getUsers({ page: 1, limit: 100 }),
+        ]);
+
+        setAreas(areasRes.data);
+        setDepartments(departmentsRes.data);
+        setRiskCategories(riskCategoriesRes.data);
+        setUsers(usersRes.data);
+      } catch (error) {
+        console.error('Failed to fetch filter options:', error);
+        toast.error('Failed to load filter options');
+      } finally {
+        setIsLoadingFilterOptions(false);
+      }
+    };
+
+    fetchFilterOptions();
+  }, []);
+
   // Define filter fields
   const filterFields: FilterField[] = [
     {
       id: 'code',
       label: 'Incident Code',
       type: 'text',
+      placeholder: 'Search by incident code...',
     },
     {
       id: 'status',
       label: 'Status',
-      type: 'select',
+      type: 'multiSelectSearchable',
       options: GENERAL_STATUS_OPTIONS.map(option => ({
         label: option.label,
         value: option.value,
       })),
+    },
+    {
+      id: 'priority',
+      label: 'Priority',
+      type: 'multiSelectSearchable',
+      options: [
+        { label: 'Not Specified', value: PriorityEnum.NOT_SPECIFIED },
+        { label: 'Normal', value: PriorityEnum.NORMAL },
+        { label: 'High', value: PriorityEnum.HIGH },
+        { label: 'Vendor', value: PriorityEnum.VENDOR },
+        { label: 'Longer Term', value: PriorityEnum.LONGER_TERM },
+      ],
+    },
+    {
+      id: 'incidentType',
+      label: 'Incident Type',
+      type: 'multiSelectSearchable',
+      options: [
+        { label: 'Near Miss', value: IncidentTypeEnum.NEAR_MISS },
+        { label: 'Accident', value: IncidentTypeEnum.ACCIDENT },
+        { label: 'Dangerous or Hazardous Occurrence', value: IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE },
+      ],
+    },
+    {
+      id: 'incidentClassification',
+      label: 'Classification',
+      type: 'select',
+      options: [
+        { label: 'Major', value: IncidentClassificationEnum.MAJOR },
+        { label: 'Minor', value: IncidentClassificationEnum.MINOR },
+        { label: 'Fatality', value: IncidentClassificationEnum.FATALITY },
+      ],
+    },
+    {
+      id: 'areaId',
+      label: 'Area',
+      type: 'multiSelectSearchable',
+      options: areas.map(area => ({
+        label: area.name,
+        value: area.id,
+      })),
+    },
+    {
+      id: 'assignedDepartmentId',
+      label: 'Assigned Department',
+      type: 'multiSelectSearchable',
+      options: departments.map(dept => ({
+        label: dept.name,
+        value: dept.id,
+      })),
+    },
+    {
+      id: 'assigneeId',
+      label: 'Assignee',
+      type: 'multiSelectSearchable',
+      options: users.map(user => ({
+        label: user.firstName && user.lastName 
+          ? `${user.firstName} ${user.lastName}` 
+          : user.name || user.email || 'Unknown User',
+        value: user.id,
+      })),
+    },
+    {
+      id: 'riskCategoryId',
+      label: 'Risk Category',
+      type: 'multiSelectSearchable',
+      options: riskCategories.map(category => ({
+        label: category.name,
+        value: category.id,
+      })),
+    },
+    {
+      id: 'source',
+      label: 'Source',
+      type: 'select',
+      options: [
+        { label: 'System', value: SourceEnum.SYSTEM },
+        { label: 'Zoho', value: SourceEnum.ZOHO },
+      ],
     },
   ];
 
@@ -63,7 +183,11 @@ const IncidentsPage = () => {
         limit,
       };
 
-      if (searchTerm) {
+      // Use code filter if set, otherwise use searchTerm
+      // Code filter takes precedence as it's more specific
+      if (activeFilters.code?.value) {
+        params.search = activeFilters.code.value;
+      } else if (searchTerm) {
         params.search = searchTerm;
       }
 
@@ -71,15 +195,79 @@ const IncidentsPage = () => {
         params.isActive = activeFilters.isActive.value;
       }
 
+      // Handle status filter (supports multiple values)
       if (activeFilters.status?.value) {
-        params.status = activeFilters.status.value;
+        if (Array.isArray(activeFilters.status.value)) {
+          params.status = activeFilters.status.value;
+        } else {
+          params.status = activeFilters.status.value;
+        }
       }
 
-      Object.entries(activeFilters).forEach(([key, filter]) => {
-        if (key !== 'status' && key !== 'isActive') {
-          params[key] = filter.value;
+      // Handle priority filter (supports multiple values)
+      if (activeFilters.priority?.value) {
+        if (Array.isArray(activeFilters.priority.value)) {
+          params.priority = activeFilters.priority.value;
+        } else {
+          params.priority = activeFilters.priority.value;
         }
-      });
+      }
+
+      // Handle incident type filter (supports multiple values)
+      if (activeFilters.incidentType?.value) {
+        if (Array.isArray(activeFilters.incidentType.value)) {
+          params.incidentType = activeFilters.incidentType.value;
+        } else {
+          params.incidentType = activeFilters.incidentType.value;
+        }
+      }
+
+      // Handle incident classification filter
+      if (activeFilters.incidentClassification?.value) {
+        params.incidentClassification = activeFilters.incidentClassification.value;
+      }
+
+      // Handle area filter (supports multiple values)
+      if (activeFilters.areaId?.value) {
+        if (Array.isArray(activeFilters.areaId.value)) {
+          params.areaId = activeFilters.areaId.value;
+        } else {
+          params.areaId = activeFilters.areaId.value;
+        }
+      }
+
+      // Handle assigned department filter (supports multiple values)
+      if (activeFilters.assignedDepartmentId?.value) {
+        if (Array.isArray(activeFilters.assignedDepartmentId.value)) {
+          params.assignedDepartmentId = activeFilters.assignedDepartmentId.value;
+        } else {
+          params.assignedDepartmentId = activeFilters.assignedDepartmentId.value;
+        }
+      }
+
+      // Handle assignee filter (supports multiple values)
+      if (activeFilters.assigneeId?.value) {
+        if (Array.isArray(activeFilters.assigneeId.value)) {
+          params.assigneeId = activeFilters.assigneeId.value;
+        } else {
+          params.assigneeId = activeFilters.assigneeId.value;
+        }
+      }
+
+      // Handle risk category filter (supports multiple values)
+      if (activeFilters.riskCategoryId?.value) {
+        if (Array.isArray(activeFilters.riskCategoryId.value)) {
+          params.riskCategoryId = activeFilters.riskCategoryId.value;
+        } else {
+          params.riskCategoryId = activeFilters.riskCategoryId.value;
+        }
+      }
+
+      // Handle source filter
+      if (activeFilters.source?.value) {
+        params.source = activeFilters.source.value;
+      }
+
 
       const response = await incidentsService.getAll(params);
       setIncidents(response.data);
@@ -122,13 +310,187 @@ const IncidentsPage = () => {
     const newActiveFilters: Record<string, { value: any; label: string }> = {};
 
     filters.forEach(filter => {
+      // Handle status filter (supports multiple values)
       if (filter.id === 'status') {
-        const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === filter.value);
+        if (Array.isArray(filter.value)) {
+          const labels = filter.value.map(val => {
+            const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === val);
+            return statusOption?.label || String(val);
+          });
+          newActiveFilters[filter.id] = {
+            value: filter.value,
+            label: labels.join(', '),
+          };
+        } else {
+          const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === filter.value);
+          newActiveFilters[filter.id] = {
+            value: filter.value,
+            label: statusOption?.label || String(filter.value),
+          };
+        }
+      }
+      // Handle priority filter (supports multiple values)
+      else if (filter.id === 'priority') {
+        const priorityOptions = [
+          { label: 'Not Specified', value: PriorityEnum.NOT_SPECIFIED },
+          { label: 'Normal', value: PriorityEnum.NORMAL },
+          { label: 'High', value: PriorityEnum.HIGH },
+          { label: 'Vendor', value: PriorityEnum.VENDOR },
+          { label: 'Longer Term', value: PriorityEnum.LONGER_TERM },
+        ];
+        if (Array.isArray(filter.value)) {
+          const labels = filter.value.map(val => {
+            const priorityOption = priorityOptions.find(opt => opt.value === val);
+            return priorityOption?.label || String(val);
+          });
+          newActiveFilters[filter.id] = {
+            value: filter.value,
+            label: labels.join(', '),
+          };
+        } else {
+          const priorityOption = priorityOptions.find(opt => opt.value === filter.value);
+          newActiveFilters[filter.id] = {
+            value: filter.value,
+            label: priorityOption?.label || String(filter.value),
+          };
+        }
+      }
+      // Handle incident type filter (supports multiple values)
+      else if (filter.id === 'incidentType') {
+        const typeOptions = [
+          { label: 'Near Miss', value: IncidentTypeEnum.NEAR_MISS },
+          { label: 'Accident', value: IncidentTypeEnum.ACCIDENT },
+          { label: 'Dangerous or Hazardous Occurrence', value: IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE },
+        ];
+        if (Array.isArray(filter.value)) {
+          const labels = filter.value.map(val => {
+            const typeOption = typeOptions.find(opt => opt.value === val);
+            return typeOption?.label || String(val);
+          });
+          newActiveFilters[filter.id] = {
+            value: filter.value,
+            label: labels.join(', '),
+          };
+        } else {
+          const typeOption = typeOptions.find(opt => opt.value === filter.value);
+          newActiveFilters[filter.id] = {
+            value: filter.value,
+            label: typeOption?.label || String(filter.value),
+          };
+        }
+      }
+      // Handle incident classification filter
+      else if (filter.id === 'incidentClassification') {
+        const classificationOptions = [
+          { label: 'Major', value: IncidentClassificationEnum.MAJOR },
+          { label: 'Minor', value: IncidentClassificationEnum.MINOR },
+          { label: 'Fatality', value: IncidentClassificationEnum.FATALITY },
+        ];
+        const classificationOption = classificationOptions.find(opt => opt.value === filter.value);
         newActiveFilters[filter.id] = {
           value: filter.value,
-          label: statusOption?.label || String(filter.value),
+          label: classificationOption?.label || String(filter.value),
         };
-      } else {
+      }
+      // Handle area filter (supports multiple values)
+      else if (filter.id === 'areaId') {
+        if (Array.isArray(filter.value)) {
+          const labels = filter.value.map(val => {
+            const area = areas.find(a => a.id === val);
+            return area?.name || String(val);
+          });
+          newActiveFilters[filter.id] = {
+            value: filter.value,
+            label: labels.join(', '),
+          };
+        } else {
+          const area = areas.find(a => a.id === filter.value);
+          newActiveFilters[filter.id] = {
+            value: filter.value,
+            label: area?.name || String(filter.value),
+          };
+        }
+      }
+      // Handle assigned department filter (supports multiple values)
+      else if (filter.id === 'assignedDepartmentId') {
+        if (Array.isArray(filter.value)) {
+          const labels = filter.value.map(val => {
+            const department = departments.find(d => d.id === val);
+            return department?.name || String(val);
+          });
+          newActiveFilters[filter.id] = {
+            value: filter.value,
+            label: labels.join(', '),
+          };
+        } else {
+          const department = departments.find(d => d.id === filter.value);
+          newActiveFilters[filter.id] = {
+            value: filter.value,
+            label: department?.name || String(filter.value),
+          };
+        }
+      }
+      // Handle assignee filter (supports multiple values)
+      else if (filter.id === 'assigneeId') {
+        if (Array.isArray(filter.value)) {
+          const labels = filter.value.map(val => {
+            const user = users.find(u => u.id === val);
+            return user 
+              ? (user.firstName && user.lastName 
+                  ? `${user.firstName} ${user.lastName}` 
+                  : user.name || user.email || 'Unknown User')
+              : String(val);
+          });
+          newActiveFilters[filter.id] = {
+            value: filter.value,
+            label: labels.join(', '),
+          };
+        } else {
+          const user = users.find(u => u.id === filter.value);
+          const userLabel = user 
+            ? (user.firstName && user.lastName 
+                ? `${user.firstName} ${user.lastName}` 
+                : user.name || user.email || 'Unknown User')
+            : String(filter.value);
+          newActiveFilters[filter.id] = {
+            value: filter.value,
+            label: userLabel,
+          };
+        }
+      }
+      // Handle risk category filter (supports multiple values)
+      else if (filter.id === 'riskCategoryId') {
+        if (Array.isArray(filter.value)) {
+          const labels = filter.value.map(val => {
+            const category = riskCategories.find(c => c.id === val);
+            return category?.name || String(val);
+          });
+          newActiveFilters[filter.id] = {
+            value: filter.value,
+            label: labels.join(', '),
+          };
+        } else {
+          const category = riskCategories.find(c => c.id === filter.value);
+          newActiveFilters[filter.id] = {
+            value: filter.value,
+            label: category?.name || String(filter.value),
+          };
+        }
+      }
+      // Handle source filter
+      else if (filter.id === 'source') {
+        const sourceOptions = [
+          { label: 'System', value: SourceEnum.SYSTEM },
+          { label: 'Zoho', value: SourceEnum.ZOHO },
+        ];
+        const sourceOption = sourceOptions.find(opt => opt.value === filter.value);
+        newActiveFilters[filter.id] = {
+          value: filter.value,
+          label: sourceOption?.label || String(filter.value),
+        };
+      }
+      // Handle text filters (code)
+      else {
         newActiveFilters[filter.id] = {
           value: filter.value,
           label: String(filter.value),

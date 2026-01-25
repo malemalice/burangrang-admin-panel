@@ -36,24 +36,24 @@ export class FindIncidentsDto {
   isActive?: boolean;
 
   @IsOptional()
-  @IsUUID()
-  @ApiProperty({ required: false, description: 'Filter by area ID' })
-  areaId?: string;
+  @IsUUID(undefined, { each: true })
+  @ApiProperty({ required: false, description: 'Filter by area ID (supports multiple values)', isArray: true })
+  areaId?: string | string[];
 
   @IsOptional()
-  @IsUUID()
-  @ApiProperty({ required: false, description: 'Filter by risk category ID' })
-  riskCategoryId?: string;
+  @IsUUID(undefined, { each: true })
+  @ApiProperty({ required: false, description: 'Filter by risk category ID (supports multiple values)', isArray: true })
+  riskCategoryId?: string | string[];
 
   @IsOptional()
-  @IsEnum(GeneralStatusEnum)
-  @ApiProperty({ required: false, enum: GeneralStatusEnum, description: 'Filter by status' })
-  status?: GeneralStatusEnum;
+  @IsEnum(GeneralStatusEnum, { each: true })
+  @ApiProperty({ required: false, enum: GeneralStatusEnum, isArray: true, description: 'Filter by status (supports multiple values)' })
+  status?: GeneralStatusEnum | GeneralStatusEnum[];
 
   @IsOptional()
-  @IsEnum(IncidentTypeEnum)
-  @ApiProperty({ required: false, enum: IncidentTypeEnum, description: 'Filter by incident type' })
-  incidentType?: IncidentTypeEnum;
+  @IsEnum(IncidentTypeEnum, { each: true })
+  @ApiProperty({ required: false, enum: IncidentTypeEnum, isArray: true, description: 'Filter by incident type (supports multiple values)' })
+  incidentType?: IncidentTypeEnum | IncidentTypeEnum[];
 
   @IsOptional()
   @IsEnum(IncidentClassificationEnum)
@@ -65,9 +65,9 @@ export class FindIncidentsDto {
   incidentClassification?: IncidentClassificationEnum;
 
   @IsOptional()
-  @IsEnum(PriorityEnum)
-  @ApiProperty({ required: false, enum: PriorityEnum, description: 'Filter by priority' })
-  priority?: PriorityEnum;
+  @IsEnum(PriorityEnum, { each: true })
+  @ApiProperty({ required: false, enum: PriorityEnum, isArray: true, description: 'Filter by priority (supports multiple values)' })
+  priority?: PriorityEnum | PriorityEnum[];
 
   @IsOptional()
   @IsEnum(SourceEnum)
@@ -75,14 +75,14 @@ export class FindIncidentsDto {
   source?: SourceEnum;
 
   @IsOptional()
-  @IsUUID()
-  @ApiProperty({ required: false, description: 'Filter by assigned department ID' })
-  assignedDepartmentId?: string;
+  @IsUUID(undefined, { each: true })
+  @ApiProperty({ required: false, description: 'Filter by assigned department ID (supports multiple values)', isArray: true })
+  assignedDepartmentId?: string | string[];
 
   @IsOptional()
-  @IsUUID()
-  @ApiProperty({ required: false, description: 'Filter by assignee ID' })
-  assigneeId?: string;
+  @IsUUID(undefined, { each: true })
+  @ApiProperty({ required: false, description: 'Filter by assignee ID (supports multiple values)', isArray: true })
+  assigneeId?: string | string[];
 
   @IsOptional()
   @IsString()

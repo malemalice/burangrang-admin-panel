@@ -10,19 +10,34 @@ const incidentsService = {
   getAll: async (
     params: PaginationParams & {
       isActive?: boolean;
-      areaId?: string;
-      riskCategoryId?: string;
-      status?: string;
-      incidentType?: string;
+      areaId?: string | string[];
+      riskCategoryId?: string | string[];
+      status?: string | string[];
+      incidentType?: string | string[];
       incidentClassification?: string;
-      priority?: string;
+      priority?: string | string[];
       source?: string;
-      assignedDepartmentId?: string;
-      assigneeId?: string;
+      assignedDepartmentId?: string | string[];
+      assigneeId?: string | string[];
       search?: string;
     },
   ): Promise<PaginatedResponse<Incident>> => {
-    const response = await api.get('/incidents', { params });
+    // Serialize arrays for NestJS compatibility (NestJS expects ?status=OPEN&status=DRAFT format)
+    const serializedParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (Array.isArray(value)) {
+          // For arrays, add each value with the same key
+          value.forEach(item => {
+            serializedParams.append(key, String(item));
+          });
+        } else {
+          serializedParams.append(key, String(value));
+        }
+      }
+    });
+    
+    const response = await api.get(`/incidents?${serializedParams.toString()}`);
     return response.data;
   },
 

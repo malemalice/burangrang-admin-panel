@@ -29,15 +29,15 @@ interface FindAllOptions {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
-  areaId?: string;
-  riskCategoryId?: string;
-  status?: GeneralStatusEnum;
-  incidentType?: IncidentTypeEnum;
+  areaId?: string | string[];
+  riskCategoryId?: string | string[];
+  status?: GeneralStatusEnum | GeneralStatusEnum[];
+  incidentType?: IncidentTypeEnum | IncidentTypeEnum[];
   incidentClassification?: IncidentClassificationEnum;
-  priority?: PriorityEnum;
+  priority?: PriorityEnum | PriorityEnum[];
   source?: SourceEnum;
-  assignedDepartmentId?: string;
-  assigneeId?: string;
+  assignedDepartmentId?: string | string[];
+  assigneeId?: string | string[];
   search?: string;
 }
 
@@ -258,31 +258,59 @@ export class IncidentsService {
       where.isActive = isActive;
     }
     if (areaId) {
-      where.areaId = areaId;
+      if (Array.isArray(areaId)) {
+        where.areaId = { in: areaId };
+      } else {
+        where.areaId = areaId;
+      }
     }
     if (riskCategoryId) {
-      where.riskCategoryId = riskCategoryId;
+      if (Array.isArray(riskCategoryId)) {
+        where.riskCategoryId = { in: riskCategoryId };
+      } else {
+        where.riskCategoryId = riskCategoryId;
+      }
     }
     if (status) {
-      where.status = status;
+      if (Array.isArray(status)) {
+        where.status = { in: status };
+      } else {
+        where.status = status;
+      }
     }
     if (incidentType) {
-      where.incidentType = incidentType;
+      if (Array.isArray(incidentType)) {
+        where.incidentType = { in: incidentType };
+      } else {
+        where.incidentType = incidentType;
+      }
     }
     if (incidentClassification) {
       where.incidentClassification = incidentClassification;
     }
     if (priority) {
-      where.priority = priority;
+      if (Array.isArray(priority)) {
+        where.priority = { in: priority };
+      } else {
+        where.priority = priority;
+      }
     }
     if (source) {
       where.source = source;
     }
     if (assignedDepartmentId) {
-      where.assignedDepartmentId = assignedDepartmentId;
+      if (Array.isArray(assignedDepartmentId)) {
+        where.assignedDepartmentId = { in: assignedDepartmentId };
+      } else {
+        where.assignedDepartmentId = assignedDepartmentId;
+      }
     }
     if (assigneeId) {
-      where.assigneeId = assigneeId;
+      if (Array.isArray(assigneeId)) {
+        where.assigneeId = { in: assigneeId };
+      } else {
+        where.assigneeId = assigneeId;
+      }
     }
     if (search) {
       where.OR = [
