@@ -435,8 +435,10 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
     label: room.name,
   }));
 
+  // Images: image files only (JPEG, PNG, GIF, WebP)
   const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-  const ATTACHMENT_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+  // Attachments: PDF and ZIP only
+  const ATTACHMENT_TYPES = ['application/pdf', 'application/zip', 'application/x-zip-compressed'];
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
   const handleImageFiles = useCallback((files: FileList | null) => {
@@ -471,19 +473,16 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
     const next: AttachmentUploadItem[] = [];
     Array.from(files).forEach((file) => {
       if (!ATTACHMENT_TYPES.includes(file.type)) {
-        toast.error(`Invalid type for ${file.name}. Use JPEG, PNG, GIF, WebP, or PDF.`);
+        toast.error(`Invalid type for ${file.name}. Use PDF or ZIP only.`);
         return;
       }
       if (file.size > MAX_FILE_SIZE) {
         toast.error(`${file.name} exceeds 5MB`);
         return;
       }
-      const previewUrl = file.type.startsWith('image/')
-        ? URL.createObjectURL(file)
-        : ''; // PDF no preview
       next.push({
         id: `att-${Date.now()}-${Math.random()}`,
-        url: previewUrl || file.name,
+        url: file.name,
         file,
         isNew: true,
         name: file.name,
@@ -1711,7 +1710,7 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Drag and drop images here, or click to browse. JPEG, PNG, GIF, WebP. Max 5MB each.
+                  Images only: JPEG, PNG, GIF, or WebP. Max 5MB each.
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1792,14 +1791,14 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Drag and drop files here, or click to browse. Images (JPEG, PNG, GIF, WebP) or PDF. Max 5MB each.
+                  Attachments only: PDF or ZIP. Max 5MB each.
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <input
                   ref={attachmentInputRef}
                   type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+                  accept="application/pdf,application/zip,.pdf,.zip"
                   multiple
                   className="hidden"
                   onChange={(e) => handleAttachmentFiles(e.target.files)}
@@ -1824,36 +1823,29 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                 </div>
                 {attachmentUploads.length > 0 && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {attachmentUploads.map((att) => {
-                      const isImage = !!(att.file?.type.startsWith('image/') || att.url.startsWith('blob:') || /\.(jpe?g|png|gif|webp)(\?|$)/i.test(att.url ?? ''));
-                      return (
-                        <div key={att.id} className="relative border rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-900">
-                          <div className="aspect-video relative flex items-center justify-center min-h-[120px]">
-                            {isImage ? (
-                              <img src={att.url} alt={att.name ?? 'Attachment'} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                                <FileText className="h-10 w-10" />
-                                <span className="text-xs truncate max-w-full px-2">{att.name ?? 'File'}</span>
-                              </div>
-                            )}
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="icon"
-                              className="absolute top-2 right-2 h-8 w-8"
-                              onClick={(e) => { e.stopPropagation(); removeAttachment(att.id); }}
-                              disabled={isLoading || isUploadingFiles}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                            {att.isNew && (
-                              <span className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">New</span>
-                            )}
+                    {attachmentUploads.map((att) => (
+                      <div key={att.id} className="relative border rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-900">
+                        <div className="aspect-video relative flex items-center justify-center min-h-[120px]">
+                          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                            <FileText className="h-10 w-10" />
+                            <span className="text-xs truncate max-w-full px-2">{att.name ?? 'File'}</span>
                           </div>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-2 right-2 h-8 w-8"
+                            onClick={(e) => { e.stopPropagation(); removeAttachment(att.id); }}
+                            disabled={isLoading || isUploadingFiles}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                          {att.isNew && (
+                            <span className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">New</span>
+                          )}
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>
