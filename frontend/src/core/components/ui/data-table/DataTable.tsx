@@ -229,8 +229,8 @@ const DataTable = <T extends Record<string, any>>({
             </TableHeader>
             <TableBody>
               {data.length > 0 ? (
-                data.map((item, index) => (
-                  <TableRow key={index}>
+                data.map((item) => (
+                  <TableRow key={item.id || JSON.stringify(item)}>
                     {columns.map((column) => (
                       <TableCell key={column.id}>
                         {column.cell(item)}

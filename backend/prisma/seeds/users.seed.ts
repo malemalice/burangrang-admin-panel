@@ -30,6 +30,36 @@ export const users = [
     departmentName: 'Administration',
     jobPositionName: 'Head',
   },
+  {
+    email: 'technician1@mailinator.com',
+    password: 'admin123',
+    firstName: 'Technician',
+    lastName: '1',
+    isActive: true,
+    roleName: 'Technician',
+    departmentName: 'Technician',
+    jobPositionName: 'Technician',
+  },
+  {
+    email: 'technician2@mailinator.com',
+    password: 'admin123',
+    firstName: 'Technician',
+    lastName: '2',
+    isActive: true,
+    roleName: 'Technician',
+    departmentName: 'Technician',
+    jobPositionName: 'Technician',
+  },
+  {
+    email: 'technician3@mailinator.com',
+    password: 'admin123',
+    firstName: 'Technician',
+    lastName: '3',
+    isActive: true,
+    roleName: 'Technician',
+    departmentName: 'Technician',
+    jobPositionName: 'Technician',
+  },
 ];
 
 export async function seedUsers(

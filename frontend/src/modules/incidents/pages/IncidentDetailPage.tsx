@@ -2,14 +2,23 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import incidentsService from '../services/incidentsService';
-import { Incident } from '../types/incident.types';
+import { 
+  Incident, 
+  StopActivityEnum, 
+  TreatmentEnum, 
+  AbsenceEnum,
+  LevelOfInjuryEnum,
+  InjuredBodyPartEnum,
+  TypeOfInjuryEnum,
+  MechanismOfInjuryEnum
+} from '../types/incident.types';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 
 const IncidentDetailPage = () => {
@@ -143,75 +152,81 @@ const IncidentDetailPage = () => {
         }
       />
 
-      <div className="container mx-auto py-6 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Incident Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+      <div className="container mx-auto py-6 space-y-8">
+        {/* Basic Information */}
+        <Card className="border-l-4 border-l-blue-500 bg-blue-50/30 dark:bg-blue-950/10">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              Basic Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Code</h3>
-                <p className="mt-1">{incident.code}</p>
+                <h3 className="text-sm font-medium text-muted-foreground">Code</h3>
+                <p className="mt-1 text-sm">{incident.code}</p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Subject</h3>
-                <p className="mt-1">{incident.subject}</p>
+                <h3 className="text-sm font-medium text-muted-foreground">Subject</h3>
+                <p className="mt-1 text-sm">{incident.subject}</p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Incident Date</h3>
-                <p className="mt-1">{format(new Date(incident.incidentDate), 'dd MMM yyyy')}</p>
+                <h3 className="text-sm font-medium text-muted-foreground">Incident Date</h3>
+                <p className="mt-1 text-sm">{format(new Date(incident.incidentDate), 'dd MMM yyyy')}</p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Location</h3>
-                <p className="mt-1">{incident.incidentLocation}</p>
+                <h3 className="text-sm font-medium text-muted-foreground">Location</h3>
+                <p className="mt-1 text-sm">{incident.incidentLocation}</p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Type</h3>
-                <p className="mt-1">{incident.incidentType.replace(/_/g, ' ')}</p>
+                <h3 className="text-sm font-medium text-muted-foreground">Area</h3>
+                <p className="mt-1 text-sm">{incident.area?.name || '-'}</p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Classification</h3>
-                <p className="mt-1">{incident.incidentClassification}</p>
+                <h3 className="text-sm font-medium text-muted-foreground">Risk Category</h3>
+                <p className="mt-1 text-sm">{incident.riskCategory?.name || '-'}</p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Priority</h3>
-                <p className="mt-1">{incident.priority}</p>
+                <h3 className="text-sm font-medium text-muted-foreground">Type</h3>
+                <p className="mt-1 text-sm">{incident.incidentType.replace(/_/g, ' ')}</p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Status</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">Classification</h3>
+                <p className="mt-1 text-sm">{incident.incidentClassification}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">Priority</h3>
+                <p className="mt-1 text-sm">{incident.priority}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
                 <div className="mt-1">{getStatusBadge(incident.status)}</div>
               </div>
-              {incident.description && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Description</h3>
-                  <p className="mt-1 whitespace-pre-wrap">{incident.description}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            </div>
+            {incident.description && (
+              <div className="mt-6">
+                <h3 className="text-sm font-medium text-muted-foreground mb-2">Description</h3>
+                <p className="text-sm whitespace-pre-wrap">{incident.description}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Additional Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {incident.area && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Area</h3>
-                  <p className="mt-1">{incident.area.name}</p>
-                </div>
-              )}
-              {incident.riskCategory && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Risk Category</h3>
-                  <p className="mt-1">{incident.riskCategory.name}</p>
-                </div>
-              )}
+        {/* People Involved */}
+        <Card className="border-l-4 border-l-purple-500 bg-purple-50/30 dark:bg-purple-950/10">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              People Involved
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {incident.requester && (
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Requester</h3>
-                  <p className="mt-1">
+                  <h3 className="text-sm font-medium text-muted-foreground">Requester</h3>
+                  <p className="mt-1 text-sm">
                     {incident.requester.name ??
                       [incident.requester.firstName, incident.requester.lastName].filter(Boolean).join(' ').trim() ||
                       '-'}
@@ -220,41 +235,380 @@ const IncidentDetailPage = () => {
               )}
               {incident.reporter && (
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Reporter</h3>
-                  <p className="mt-1">
+                  <h3 className="text-sm font-medium text-muted-foreground">Reporter</h3>
+                  <p className="mt-1 text-sm">
                     {incident.reporter.name ??
                       [incident.reporter.firstName, incident.reporter.lastName].filter(Boolean).join(' ').trim() ||
                       '-'}
                   </p>
                 </div>
               )}
+              {incident.technician && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Technician</h3>
+                  <p className="mt-1 text-sm">
+                    {incident.technician.name ??
+                      [incident.technician.firstName, incident.technician.lastName].filter(Boolean).join(' ').trim() ||
+                      '-'}
+                  </p>
+                </div>
+              )}
               {incident.assignedDepartment && (
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Assigned Department</h3>
-                  <p className="mt-1">{incident.assignedDepartment.name}</p>
+                  <h3 className="text-sm font-medium text-muted-foreground">Assigned Department</h3>
+                  <p className="mt-1 text-sm">{incident.assignedDepartment.name}</p>
                 </div>
               )}
               {incident.assignee && (
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Assignee</h3>
-                  <p className="mt-1">
+                  <h3 className="text-sm font-medium text-muted-foreground">Assignee</h3>
+                  <p className="mt-1 text-sm">
                     {incident.assignee.name ??
                       [incident.assignee.firstName, incident.assignee.lastName].filter(Boolean).join(' ').trim() ||
                       '-'}
                   </p>
                 </div>
               )}
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Created</h3>
-                <p className="mt-1">{incident.createdAt ? new Date(incident.createdAt).toLocaleString() : '-'}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Control Measures & Outcomes */}
+        {(incident.controlMeasure || incident.expectedOutcome || incident.resolution || 
+          incident.stopActivityDescription || incident.treatmentDescription || incident.dueDate ||
+          incident.needToStopActivity !== StopActivityEnum.NOT_SPECIFIED || incident.treatment !== TreatmentEnum.NOT_SPECIFIED || 
+          incident.absence !== AbsenceEnum.NOT_SPECIFIED) && (
+          <Card className="border-l-4 border-l-green-500 bg-green-50/30 dark:bg-green-950/10">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
+                Control Measures & Outcomes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {incident.dueDate && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Due Date</h3>
+                    <p className="mt-1 text-sm">{format(new Date(incident.dueDate), 'dd MMM yyyy')}</p>
+                  </div>
+                )}
+                {incident.needToStopActivity !== StopActivityEnum.NOT_SPECIFIED && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Need to Stop Activity</h3>
+                    <p className="mt-1 text-sm">{incident.needToStopActivity.replace(/_/g, ' ')}</p>
+                  </div>
+                )}
+                {incident.treatment !== TreatmentEnum.NOT_SPECIFIED && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Treatment</h3>
+                    <p className="mt-1 text-sm">{incident.treatment.replace(/_/g, ' ')}</p>
+                  </div>
+                )}
+                {incident.absence !== AbsenceEnum.NOT_SPECIFIED && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Absence</h3>
+                    <p className="mt-1 text-sm">{incident.absence.replace(/_/g, ' ')}</p>
+                  </div>
+                )}
               </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Last Updated</h3>
-                <p className="mt-1">{incident.updatedAt ? new Date(incident.updatedAt).toLocaleString() : '-'}</p>
-              </div>
+              {incident.controlMeasure && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Control Measure</h3>
+                  <p className="text-sm whitespace-pre-wrap">{incident.controlMeasure}</p>
+                </div>
+              )}
+              {incident.expectedOutcome && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Expected Outcome</h3>
+                  <p className="text-sm whitespace-pre-wrap">{incident.expectedOutcome}</p>
+                </div>
+              )}
+              {incident.stopActivityDescription && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Stop Activity Description</h3>
+                  <p className="text-sm whitespace-pre-wrap">{incident.stopActivityDescription}</p>
+                </div>
+              )}
+              {incident.treatmentDescription && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Treatment Description</h3>
+                  <p className="text-sm whitespace-pre-wrap">{incident.treatmentDescription}</p>
+                </div>
+              )}
+              {incident.resolution && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Resolution</h3>
+                  <p className="text-sm whitespace-pre-wrap">{incident.resolution}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
-        </div>
+        )}
+
+        {/* Injured Persons */}
+        {incident.injuredPersons && incident.injuredPersons.length > 0 && (
+          <Card className="border-l-4 border-l-red-500 bg-red-50/30 dark:bg-red-950/10">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                  Injured Persons
+                </CardTitle>
+                <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                  {incident.injuredPersons.length} {incident.injuredPersons.length === 1 ? 'person' : 'people'}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {incident.injuredPersons.map((person, index) => (
+                <Card key={person.id} className="bg-white dark:bg-gray-900">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Injured Person {index + 1}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {person.injuredPersonName && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Name</h3>
+                          <p className="mt-1 text-sm">{person.injuredPersonName}</p>
+                        </div>
+                      )}
+                      {person.gender && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Gender</h3>
+                          <p className="mt-1 text-sm">{person.gender}</p>
+                        </div>
+                      )}
+                      {person.department && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Department</h3>
+                          <p className="mt-1 text-sm">{person.department.name}</p>
+                        </div>
+                      )}
+                      {person.levelOfInjury !== LevelOfInjuryEnum.NOT_SPECIFIED && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Level of Injury</h3>
+                          <p className="mt-1 text-sm">{person.levelOfInjury.replace(/_/g, ' ')}</p>
+                        </div>
+                      )}
+                      {person.injuredBodyPart !== InjuredBodyPartEnum.NOT_SPECIFIED && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Injured Body Part</h3>
+                          <p className="mt-1 text-sm">{person.injuredBodyPart.replace(/_/g, ' ')}</p>
+                        </div>
+                      )}
+                      {person.typeOfInjury !== TypeOfInjuryEnum.NOT_SPECIFIED && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Type of Injury</h3>
+                          <p className="mt-1 text-sm">{person.typeOfInjury.replace(/_/g, ' ')}</p>
+                        </div>
+                      )}
+                      {person.mechanismOfInjury !== MechanismOfInjuryEnum.NOT_SPECIFIED && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Mechanism of Injury</h3>
+                          <p className="mt-1 text-sm">{person.mechanismOfInjury.replace(/_/g, ' ')}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Witnesses */}
+        {incident.witnesses && incident.witnesses.length > 0 && (
+          <Card className="border-l-4 border-l-orange-500 bg-orange-50/30 dark:bg-orange-950/10">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Eye className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                  Witnesses
+                </CardTitle>
+                <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
+                  {incident.witnesses.length} {incident.witnesses.length === 1 ? 'witness' : 'witnesses'}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {incident.witnesses.map((witness, index) => (
+                <Card key={witness.id} className="bg-white dark:bg-gray-900">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Witness {index + 1}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {witness.witnessName && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Name</h3>
+                          <p className="mt-1 text-sm">{witness.witnessName}</p>
+                        </div>
+                      )}
+                      {witness.gender && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Gender</h3>
+                          <p className="mt-1 text-sm">{witness.gender}</p>
+                        </div>
+                      )}
+                      {witness.department && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Department</h3>
+                          <p className="mt-1 text-sm">{witness.department.name}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Assets */}
+        {incident.assets && incident.assets.length > 0 && (
+          <Card className="border-l-4 border-l-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/10">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Package className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                  Assets
+                </CardTitle>
+                <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
+                  {incident.assets.length} {incident.assets.length === 1 ? 'asset' : 'assets'}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {incident.assets.map((asset, index) => (
+                <Card key={asset.id} className="bg-white dark:bg-gray-900">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Asset {index + 1}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground">Asset Name</h3>
+                        <p className="mt-1 text-sm">{asset.assetName}</p>
+                      </div>
+                      {asset.assetCode && (
+                        <div>
+                          <h3 className="text-sm font-medium text-muted-foreground">Asset Code</h3>
+                          <p className="mt-1 text-sm">{asset.assetCode}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Images */}
+        {incident.images && incident.images.length > 0 && (
+          <Card className="border-l-4 border-l-teal-500 bg-teal-50/30 dark:bg-teal-950/10">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Image className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                  Images
+                </CardTitle>
+                <Badge variant="secondary" className="bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300">
+                  {incident.images.length} {incident.images.length === 1 ? 'image' : 'images'}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {incident.images.map((img, index) => (
+                <Card key={img.id} className="bg-white dark:bg-gray-900">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Image {index + 1}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-2">Image URL</h3>
+                      <a href={img.imageUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline break-all">
+                        {img.imageUrl}
+                      </a>
+                    </div>
+                    {img.caption && (
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Caption</h3>
+                        <p className="text-sm">{img.caption}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Attachments */}
+        {incident.attachments && incident.attachments.length > 0 && (
+          <Card className="border-l-4 border-l-slate-500 bg-slate-50/30 dark:bg-slate-950/10">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Paperclip className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                  Attachments
+                </CardTitle>
+                <Badge variant="secondary" className="bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-300">
+                  {incident.attachments.length} {incident.attachments.length === 1 ? 'attachment' : 'attachments'}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {incident.attachments.map((attachment, index) => (
+                <Card key={attachment.id} className="bg-white dark:bg-gray-900">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Attachment {index + 1}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-2">Attachment URL</h3>
+                      <a href={attachment.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline break-all">
+                        {attachment.attachmentUrl}
+                      </a>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Metadata */}
+        <Card className="border-l-4 border-l-gray-500 bg-gray-50/30 dark:bg-gray-950/10">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FileText className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+              Metadata
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">Created</h3>
+                <p className="mt-1 text-sm">{incident.createdAt ? new Date(incident.createdAt).toLocaleString() : '-'}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">Last Updated</h3>
+                <p className="mt-1 text-sm">{incident.updatedAt ? new Date(incident.updatedAt).toLocaleString() : '-'}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">Source</h3>
+                <p className="mt-1 text-sm">{incident.source}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
+                <div className="mt-1">{incident.isActive ? <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Active</Badge> : <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200">Inactive</Badge>}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <ConfirmDialog

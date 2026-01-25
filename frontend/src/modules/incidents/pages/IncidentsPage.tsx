@@ -191,17 +191,15 @@ const IncidentsPage = () => {
 
   const columns = [
     {
-      key: 'code',
+      id: 'code',
       header: 'Code',
-      width: 150,
       cell: (row: Incident) => (
         <span className="font-medium text-blue-600 dark:text-blue-400">{row.code}</span>
       ),
     },
     {
-      key: 'subject',
+      id: 'subject',
       header: 'Subject',
-      width: 250,
       cell: (row: Incident) => (
         <div className="truncate max-w-[250px]" title={row.subject}>
           {row.subject}
@@ -209,23 +207,20 @@ const IncidentsPage = () => {
       ),
     },
     {
-      key: 'incidentDate',
+      id: 'incidentDate',
       header: 'Incident Date',
-      width: 150,
       cell: (row: Incident) => format(new Date(row.incidentDate), 'dd MMM yyyy'),
     },
     {
-      key: 'incidentType',
+      id: 'incidentType',
       header: 'Type',
-      width: 150,
       cell: (row: Incident) => (
         <span className="text-sm">{row.incidentType.replace(/_/g, ' ')}</span>
       ),
     },
     {
-      key: 'priority',
+      id: 'priority',
       header: 'Priority',
-      width: 120,
       cell: (row: Incident) => (
         <Badge
           className={
@@ -241,15 +236,13 @@ const IncidentsPage = () => {
       ),
     },
     {
-      key: 'status',
+      id: 'status',
       header: 'Status',
-      width: 150,
       cell: (row: Incident) => getStatusBadge(row.status),
     },
     {
-      key: 'actions',
+      id: 'actions',
       header: 'Actions',
-      width: 80,
       cell: (row: Incident) => (
         <DropdownMenu
           open={openDropdownId === row.id}
@@ -318,17 +311,19 @@ const IncidentsPage = () => {
         columns={columns}
         data={incidents}
         isLoading={isLoading}
-        pageIndex={pageIndex}
-        pageSize={limit}
-        totalCount={totalIncidents}
-        onPageChange={setPageIndex}
-        onPageSizeChange={setLimit}
+        pagination={{
+          pageIndex,
+          limit,
+          pageCount: Math.ceil(totalIncidents / limit),
+          onPageChange: setPageIndex,
+          onPageSizeChange: setLimit,
+          total: totalIncidents,
+        }}
         onSearch={handleSearch}
         searchPlaceholder="Search incidents..."
         filterFields={filterFields}
         onApplyFilters={handleApplyFilters}
         activeFilters={activeFilters}
-        onRowClick={(row) => navigate(`/incidents/${row.id}`)}
       />
 
       <ConfirmDialog
