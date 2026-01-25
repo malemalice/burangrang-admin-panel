@@ -1,7 +1,23 @@
-import { IsString, IsOptional, IsNotEmpty, IsInt } from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty, IsInt, IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
+export enum EquipmentEntityEnum {
+  ASSET = 'ASSET',
+  HEAVY_EQUIPMENT = 'HEAVY_EQUIPMENT',
+  SAFETY_EQUIPMENT = 'SAFETY_EQUIPMENT',
+}
+
 export class CreateIncidentAssetDto {
+  @IsEnum(EquipmentEntityEnum)
+  @IsOptional()
+  @ApiProperty({ enum: EquipmentEntityEnum, required: false })
+  entity?: EquipmentEntityEnum;
+
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  entityId?: string;
+
   @IsString()
   @IsNotEmpty()
   @ApiProperty()
@@ -11,6 +27,11 @@ export class CreateIncidentAssetDto {
   @IsOptional()
   @ApiProperty({ required: false })
   assetCode?: string;
+
+  @IsInt()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  quantity?: number;
 
   @IsInt()
   @IsNotEmpty()

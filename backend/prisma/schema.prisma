@@ -868,6 +868,7 @@ model SafetyEquipment {
   updatedAt             DateTime                      @updatedAt
   ppeStockItems         PPEStockItem[]
   workPermits           WorkPermitToSafetyEquipment[]
+  // Note: Polymorphic relation handled manually - see IncidentAsset.entity and entityId
 
   @@map("m_safety_equipment")
 }
@@ -1317,8 +1318,24 @@ model HeavyEquipment {
   createdAt   DateTime                   @default(now())
   updatedAt   DateTime                   @updatedAt
   workPermits WorkPermitHeavyEquipment[]
+  // Note: Polymorphic relation handled manually - see IncidentAsset.entity and entityId
 
   @@map("m_heavy_equipment")
+}
+
+// Asset - Master Data
+model Asset {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  brand       String?
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  // Note: Polymorphic relation handled manually - see IncidentAsset.entity and entityId
+
+  @@map("m_assets")
 }
 
 model Tool {
@@ -2020,6 +2037,12 @@ enum HasWitnessEnum {
   NO
 }
 
+enum EquipmentEntityEnum {
+  ASSET
+  HEAVY_EQUIPMENT
+  SAFETY_EQUIPMENT
+}
+
 // ============================================================
 // INCIDENT REPORT SYSTEM - Transactional Data
 // ============================================================
@@ -2131,19 +2154,31 @@ model IncidentWitness {
   @@map("t_incident_witnesses")
 }
 
-// Incident Asset - Transactional Data
+// Incident Asset - Transactional Data (Polymorphic)
+// Supports ASSET, HEAVY_EQUIPMENT, and SAFETY_EQUIPMENT entity types
+// Can reference m_assets (entity='ASSET'), m_heavy_equipment (entity='HEAVY_EQUIPMENT'), or m_safety_equipment (entity='SAFETY_EQUIPMENT')
+// Free-text fallback: If entity is null, assetName and assetCode are used
 model IncidentAsset {
-  id          String   @id @default(uuid())
-  incidentId String
+  id          String                @id @default(uuid())
+  incidentId  String
+  // Polymorphic reference
+  entity      EquipmentEntityEnum?  // Entity type identifier (ASSET, HEAVY_EQUIPMENT, SAFETY_EQUIPMENT)
+  entityId    String?               // Entity ID - references m_assets.id, m_heavy_equipment.id, or m_safety_equipment.id
+  // Free-text fields (used when entity is null or as fallback)
   assetName   String
   assetCode   String?
+  quantity    Int?                     // Quantity of the asset
   order       Int
-  createdAt   DateTime @default(now())
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
 
   // Relations
-  incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  incident        Incident          @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  // Note: Polymorphic relations (asset, heavyEquipment, safetyEquipment) are handled manually in application code
+  // Prisma doesn't support multiple foreign keys on the same field, so we load these relations manually
 
   @@index([incidentId])
+  @@index([entity, entityId])
   @@map("t_incident_assets")
 }
 

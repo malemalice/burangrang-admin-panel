@@ -344,8 +344,53 @@ export class IncidentsService {
       this.incidentMapper(incident),
     );
 
+    // Load polymorphic asset relations
+    const incidentsWithAssets = await Promise.all(
+      mappedIncidents.map(async (incident) => {
+        if (incident.assets && incident.assets.length > 0) {
+          const assetsWithRelations = await Promise.all(
+            incident.assets.map(async (asset) => {
+              if (asset.entity && asset.entityId) {
+                try {
+                  if (asset.entity === 'ASSET') {
+                    const assetData = await this.prisma.asset.findUnique({
+                      where: { id: asset.entityId },
+                    });
+                    if (assetData) {
+                      (asset as any).asset = assetData;
+                    }
+                  } else if (asset.entity === 'HEAVY_EQUIPMENT') {
+                    const heavyEquipment = await this.prisma.heavyEquipment.findUnique({
+                      where: { id: asset.entityId },
+                    });
+                    if (heavyEquipment) {
+                      (asset as any).heavyEquipment = heavyEquipment;
+                    }
+                  } else if (asset.entity === 'SAFETY_EQUIPMENT') {
+                    const safetyEquipment = await this.prisma.safetyEquipment.findUnique({
+                      where: { id: asset.entityId },
+                      include: { safetyEquipmentType: true },
+                    });
+                    if (safetyEquipment) {
+                      (asset as any).safetyEquipment = safetyEquipment;
+                    }
+                  }
+                } catch (error) {
+                  // Silently fail if entity doesn't exist
+                  console.warn(`Failed to load ${asset.entity} with id ${asset.entityId}:`, error);
+                }
+              }
+              return asset;
+            }),
+          );
+          return { ...incident, assets: assetsWithRelations };
+        }
+        return incident;
+      }),
+    );
+
     return {
-      data: mappedIncidents,
+      data: incidentsWithAssets,
       meta: {
         total,
         page,
@@ -393,7 +438,49 @@ export class IncidentsService {
 
     this.errorHandler.throwIfNotFoundById('Incident', id, incident);
 
-    return this.incidentMapper(incident);
+    const mappedIncident = this.incidentMapper(incident);
+
+    // Load polymorphic asset relations
+    if (mappedIncident.assets && mappedIncident.assets.length > 0) {
+      const assetsWithRelations = await Promise.all(
+        mappedIncident.assets.map(async (asset) => {
+          if (asset.entity && asset.entityId) {
+            try {
+              if (asset.entity === 'ASSET') {
+                const assetData = await this.prisma.asset.findUnique({
+                  where: { id: asset.entityId },
+                });
+                if (assetData) {
+                  (asset as any).asset = assetData;
+                }
+              } else if (asset.entity === 'HEAVY_EQUIPMENT') {
+                const heavyEquipment = await this.prisma.heavyEquipment.findUnique({
+                  where: { id: asset.entityId },
+                });
+                if (heavyEquipment) {
+                  (asset as any).heavyEquipment = heavyEquipment;
+                }
+              } else if (asset.entity === 'SAFETY_EQUIPMENT') {
+                const safetyEquipment = await this.prisma.safetyEquipment.findUnique({
+                  where: { id: asset.entityId },
+                  include: { safetyEquipmentType: true },
+                });
+                if (safetyEquipment) {
+                  (asset as any).safetyEquipment = safetyEquipment;
+                }
+              }
+            } catch (error) {
+              // Silently fail if entity doesn't exist
+              console.warn(`Failed to load ${asset.entity} with id ${asset.entityId}:`, error);
+            }
+          }
+          return asset;
+        }),
+      );
+      mappedIncident.assets = assetsWithRelations;
+    }
+
+    return mappedIncident;
   }
 
   async update(

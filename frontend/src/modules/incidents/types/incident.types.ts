@@ -147,13 +147,43 @@ export interface IncidentWitness {
   updatedAt: Date;
 }
 
+export enum EquipmentEntityEnum {
+  ASSET = 'ASSET',
+  HEAVY_EQUIPMENT = 'HEAVY_EQUIPMENT',
+  SAFETY_EQUIPMENT = 'SAFETY_EQUIPMENT',
+}
+
 export interface IncidentAsset {
   id: string;
   incidentId: string;
+  entity?: EquipmentEntityEnum;
+  entityId?: string;
   assetName: string;
   assetCode?: string;
+  quantity?: number;
   order: number;
   createdAt: Date;
+  updatedAt: Date;
+  // Relations (optional, populated when fetched with includes)
+  asset?: {
+    id: string;
+    name: string;
+    code: string;
+    brand?: string;
+    description?: string;
+  };
+  heavyEquipment?: {
+    id: string;
+    name: string;
+    code: string;
+    description?: string;
+  };
+  safetyEquipment?: {
+    id: string;
+    name: string;
+    code: string;
+    description?: string;
+  };
 }
 
 export interface IncidentImage {
@@ -242,8 +272,11 @@ export interface CreateIncidentWitnessDTO {
 }
 
 export interface CreateIncidentAssetDTO {
+  entity?: EquipmentEntityEnum;
+  entityId?: string;
   assetName: string;
   assetCode?: string;
+  quantity?: number;
   order: number;
 }
 

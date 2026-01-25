@@ -29,6 +29,8 @@ import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import { Plus, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip, X } from 'lucide-react';
 import incidentsService from '../services/incidentsService';
 import uploadService, { FileCategory } from '@/modules/uploads/services/uploadService';
+import safetyEquipmentService from '@/modules/ppe/services/safetyEquipmentService';
+import api from '@/core/lib/api';
 import {
   CreateIncidentDTO,
   UpdateIncidentDTO,
@@ -50,6 +52,7 @@ import {
   CreateIncidentAssetDTO,
   CreateIncidentImageDTO,
   CreateIncidentAttachmentDTO,
+  EquipmentEntityEnum,
 } from '../types/incident.types';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import areaService from '@/modules/master-data/services/areaService';
@@ -93,8 +96,11 @@ const witnessSchema = z.object({
 
 // Schema for asset
 const assetSchema = z.object({
+  entity: z.nativeEnum(EquipmentEntityEnum),
+  entityId: z.string().min(1, 'Asset selection is required'),
   assetName: z.string().min(1, 'Asset name is required'),
   assetCode: z.string().optional(),
+  quantity: z.number().int().positive().optional(),
 });
 
 // Main form schema
@@ -151,6 +157,11 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [technicians, setTechnicians] = useState<User[]>([]);
+  
+  // Equipment data
+  const [assets, setAssets] = useState<Array<{ id: string; name: string; code: string; brand?: string }>>([]);
+  const [heavyEquipments, setHeavyEquipments] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [safetyEquipments, setSafetyEquipments] = useState<Array<{ id: string; name: string; code: string }>>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -249,8 +260,8 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
         const rolesRes = await roleService.getRoles({ page: 1, limit: 100 });
         const technicianRole = rolesRes.data.find(role => role.code === 'TECHNICIAN');
         
-        // Fetch users and technicians in parallel
-        const [areasRes, riskCategoriesRes, departmentsRes, usersRes, techniciansRes] = await Promise.all([
+        // Fetch users, technicians, and equipment data in parallel
+        const [areasRes, riskCategoriesRes, departmentsRes, usersRes, techniciansRes, safetyEquipmentsRes, workPermitsMasterDataRes, assetsRes] = await Promise.all([
           areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true } }),
           riskCategoryService.getAll({ page: 1, limit: 100, isActive: true }),
           departmentService.getDepartments({ page: 1, limit: 100 }),
@@ -263,6 +274,12 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                 filters: { roleId: technicianRole.id } 
               })
             : Promise.resolve({ data: [], meta: { total: 0 } }),
+          // Fetch safety equipments
+          safetyEquipmentService.getSafetyEquipments({ page: 1, limit: 100, filters: { isActive: true } }),
+          // Fetch work permits master data for heavy equipment
+          api.get('/work-permits/master-data').catch(() => ({ data: { heavyEquipment: [] } })),
+          // Fetch master assets
+          api.get('/assets?page=1&limit=100&isActive=true').catch(() => ({ data: { data: [], meta: { total: 0 } } })),
         ]);
 
         setAreas(areasRes.data);
@@ -273,6 +290,25 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
         // Filter technicians to only those with job position
         const techniciansWithJob = techniciansRes.data.filter(user => user.jobPositionId);
         setTechnicians(techniciansWithJob);
+        
+        // Set equipment data
+        setSafetyEquipments(safetyEquipmentsRes.data.map((eq: any) => ({
+          id: eq.id,
+          name: eq.name,
+          code: eq.code,
+        })));
+        setHeavyEquipments(workPermitsMasterDataRes.data?.heavyEquipment?.map((eq: any) => ({
+          id: eq.id,
+          name: eq.name,
+          code: eq.code,
+        })) || []);
+        // Set master assets
+        setAssets(assetsRes.data?.data?.map((asset: any) => ({
+          id: asset.id,
+          name: asset.name,
+          code: asset.code,
+          brand: asset.brand,
+        })) || []);
 
         // If editing, populate form with incident data
         if (incident && mode === 'edit') {
@@ -324,8 +360,11 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
               })) || [],
             assets:
               incident.assets?.map((a) => ({
+                entity: a.entity || EquipmentEntityEnum.ASSET,
+                entityId: a.entityId || '',
                 assetName: a.assetName,
                 assetCode: a.assetCode || '',
+                quantity: a.quantity,
               })) || [],
           });
         }
@@ -602,8 +641,11 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
           })) || undefined,
         assets:
           data.assets?.map((a, index) => ({
+            entity: a.entity,
+            entityId: a.entityId || undefined,
             assetName: a.assetName,
             assetCode: a.assetCode || undefined,
+            quantity: a.quantity || undefined,
             order: index,
           })) || undefined,
         images: images.length ? images : undefined,
@@ -1618,8 +1660,11 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                     className="bg-indigo-600 hover:bg-indigo-700 text-white"
                     onClick={() =>
                       appendAsset({
+                        entity: EquipmentEntityEnum.ASSET, // Default, will be overwritten when asset is selected
+                        entityId: '',
                         assetName: '',
                         assetCode: '',
+                        quantity: undefined,
                       })
                     }
                   >
@@ -1661,32 +1706,128 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
-                        name={`assets.${index}.assetName`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Asset Name <span className="text-red-500">*</span></FormLabel>
-                            <FormControl>
-                              <Input placeholder="Enter asset name" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                        name={`assets.${index}.entityId`}
+                        render={({ field }) => {
+                          // Combined asset options with entity type information
+                          const combinedAssetOptions: Array<{
+                            value: string;
+                            label: string;
+                            entity: EquipmentEntityEnum;
+                            entityId: string;
+                            name: string;
+                            code: string;
+                          }> = [
+                            ...assets.map(asset => ({
+                              value: `${EquipmentEntityEnum.ASSET}:${asset.id}`,
+                              label: `${asset.name} (${asset.code})${asset.brand ? ` - ${asset.brand}` : ''}`,
+                              entity: EquipmentEntityEnum.ASSET,
+                              entityId: asset.id,
+                              name: asset.name,
+                              code: asset.code,
+                            })),
+                            ...heavyEquipments.map(eq => ({
+                              value: `${EquipmentEntityEnum.HEAVY_EQUIPMENT}:${eq.id}`,
+                              label: `${eq.name} (${eq.code})`,
+                              entity: EquipmentEntityEnum.HEAVY_EQUIPMENT,
+                              entityId: eq.id,
+                              name: eq.name,
+                              code: eq.code,
+                            })),
+                            ...safetyEquipments.map(eq => ({
+                              value: `${EquipmentEntityEnum.SAFETY_EQUIPMENT}:${eq.id}`,
+                              label: `${eq.name} (${eq.code})`,
+                              entity: EquipmentEntityEnum.SAFETY_EQUIPMENT,
+                              entityId: eq.id,
+                              name: eq.name,
+                              code: eq.code,
+                            })),
+                          ];
+
+                          // Get current value and find the matching option
+                          const currentEntity = form.watch(`assets.${index}.entity`);
+                          const currentEntityId = field.value || '';
+                          const currentOption = combinedAssetOptions.find(opt => 
+                            opt.entityId === currentEntityId && opt.entity === currentEntity
+                          );
+                          const selectValue = currentOption ? currentOption.value : '';
+
+                          return (
+                            <FormItem className="md:col-span-2">
+                              <FormLabel>Select Asset <span className="text-red-500">*</span></FormLabel>
+                              <FormControl>
+                                <SearchableSelect
+                                  options={combinedAssetOptions.map(opt => ({
+                                    value: opt.value,
+                                    label: opt.label,
+                                  }))}
+                                  value={selectValue}
+                                  onValueChange={(value) => {
+                                    const selectedOption = combinedAssetOptions.find(opt => opt.value === value);
+                                    if (selectedOption) {
+                                      // Auto-fill all fields from selected asset
+                                      form.setValue(`assets.${index}.entity`, selectedOption.entity);
+                                      form.setValue(`assets.${index}.entityId`, selectedOption.entityId);
+                                      form.setValue(`assets.${index}.assetName`, selectedOption.name);
+                                      form.setValue(`assets.${index}.assetCode`, selectedOption.code);
+                                      field.onChange(selectedOption.entityId);
+                                    }
+                                  }}
+                                  placeholder="Search and select asset by name"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          );
+                        }}
                       />
 
                       <FormField
                         control={form.control}
-                        name={`assets.${index}.assetCode`}
+                        name={`assets.${index}.quantity`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Asset Code</FormLabel>
+                            <FormLabel>Quantity</FormLabel>
                             <FormControl>
-                              <Input placeholder="Enter asset code" {...field} />
+                              <Input 
+                                type="number"
+                                min="1"
+                                placeholder="Enter quantity" 
+                                {...field}
+                                value={field.value || ''}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  field.onChange(value === '' ? undefined : parseInt(value, 10));
+                                }}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
+
+                    {/* Hidden fields for entity, assetName, and assetCode - auto-filled when asset is selected */}
+                    <FormField
+                      control={form.control}
+                      name={`assets.${index}.entity`}
+                      render={({ field }) => (
+                        <input type="hidden" {...field} />
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`assets.${index}.assetName`}
+                      render={({ field }) => (
+                        <input type="hidden" {...field} />
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`assets.${index}.assetCode`}
+                      render={({ field }) => (
+                        <input type="hidden" {...field} />
+                      )}
+                    />
                   </CardContent>
                     </Card>
                   ))}
