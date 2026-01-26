@@ -22,6 +22,9 @@ import { IncidentWitnessDto } from '../dto/incident-witness.dto';
 import { IncidentAssetDto } from '../dto/incident-asset.dto';
 import { IncidentImageDto } from '../dto/incident-image.dto';
 import { IncidentAttachmentDto } from '../dto/incident-attachment.dto';
+import { MasterApprovalsService } from '../../approvals/master-approvals.service';
+import { NotificationsService } from '../../notifications/services/notifications.service';
+import { ApprovalStatus } from '../../approvals/dto/submit-approval.dto';
 
 interface FindAllOptions {
   page?: number;
@@ -55,6 +58,8 @@ export class IncidentsService {
     private readonly prisma: PrismaService,
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
+    private readonly masterApprovalsService: MasterApprovalsService,
+    private readonly notificationsService: NotificationsService,
   ) {
     // Initialize related entity mappers
     this.injuredPersonMapper = this.dtoMapper.createRelationMapper(
@@ -652,5 +657,623 @@ export class IncidentsService {
     );
 
     return this.incidentMapper(incident);
+  }
+
+  /**
+   * Helper to get full user details for master approvals
+   */
+  private async getFullUser(userId: string): Promise<any> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: true,
+        department: true,
+        jobPosition: true,
+        office: true,
+      },
+    });
+
+    if (!user) {
+      this.errorHandler.throwBadRequest('User not found');
+    }
+
+    return {
+      ...user,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
+      role: user.role?.name || '',
+      department: user.department ? {
+        id: user.department.id,
+        name: user.department.name,
+      } : undefined,
+      jobPosition: user.jobPosition ? {
+        id: user.jobPosition.id,
+        name: user.jobPosition.name,
+      } : undefined,
+    };
+  }
+
+  /**
+   * Check approval rights for an incident
+   */
+  async checkApprovalRights(id: string, userId: string) {
+    const incident = await this.prisma.incident.findUnique({ where: { id } });
+    this.errorHandler.throwIfNotFoundById('Incident', id, incident);
+
+    // If not in WAITING_APPROVAL status, no one can approve
+    if (incident.status !== GeneralStatusEnum.WAITING_APPROVAL) {
+      return { canApprove: false, canReject: false, nextApprover: null };
+    }
+
+    const user = await this.getFullUser(userId);
+
+    try {
+      const approvalRights = await this.masterApprovalsService.checkApprovalRights(
+        id,
+        user,
+        'INCIDENT',
+      );
+
+      const approvalStatus = await this.masterApprovalsService.checkApprovalStatus(
+        id,
+        'INCIDENT',
+      );
+
+      return {
+        canApprove: approvalRights.canApprove,
+        canReject: approvalRights.canApprove, // Approver can also reject
+        nextApprover: approvalStatus.nextApprover,
+      };
+    } catch (error) {
+      console.warn(`Master approval check failed for Incident ${id}:`, error.message);
+      // Fallback: block approvals if configuration is missing/invalid
+      return { canApprove: false, canReject: false, nextApprover: null };
+    }
+  }
+
+  /**
+   * Submit incident for approval
+   */
+  async submit(id: string, userId: string): Promise<IncidentDto> {
+    return this.errorHandler.safeExecute(async () => {
+      const incident = await this.prisma.incident.findUnique({
+        where: { id },
+        include: {
+          creator: true,
+        },
+      });
+
+      this.errorHandler.throwIfNotFoundById('Incident', id, incident);
+
+      // Business rule: Only OPEN status can be submitted
+      if (incident.status !== GeneralStatusEnum.OPEN) {
+        this.errorHandler.throwBadRequest(`Cannot submit incident with status ${incident.status}. Only OPEN incidents can be submitted.`);
+      }
+
+      // Update status to WAITING_APPROVAL
+      const updated = await this.prisma.incident.update({
+        where: { id },
+        data: {
+          status: GeneralStatusEnum.WAITING_APPROVAL,
+        },
+        include: {
+          room: true,
+          area: true,
+          riskCategory: true,
+          requester: true,
+          reporter: true,
+          technician: true,
+          assignedDepartment: true,
+          assignee: true,
+          creator: true,
+          injuredPersons: {
+            include: {
+              department: true,
+            },
+            orderBy: { order: 'asc' },
+          },
+          witnesses: {
+            include: {
+              department: true,
+            },
+            orderBy: { order: 'asc' },
+          },
+          assets: {
+            orderBy: { order: 'asc' },
+          },
+          images: {
+            orderBy: { order: 'asc' },
+          },
+          attachments: {
+            orderBy: { order: 'asc' },
+          },
+        },
+      });
+
+      // Send notification to approvers
+      await this.sendSubmissionNotification(id, updated);
+
+      return this.incidentMapper(updated);
+    }, 'Submitting incident for approval');
+  }
+
+  /**
+   * Approve incident
+   */
+  async approve(id: string, notes: string, userId: string): Promise<IncidentDto> {
+    return this.errorHandler.safeExecute(async () => {
+      const incident = await this.prisma.incident.findUnique({
+        where: { id },
+        include: {
+          creator: true,
+        },
+      });
+
+      this.errorHandler.throwIfNotFoundById('Incident', id, incident);
+
+      const user = await this.getFullUser(userId);
+
+      // Check approval rights
+      const approvalRights = await this.masterApprovalsService.checkApprovalRights(
+        id,
+        user,
+        'INCIDENT',
+      );
+
+      if (!approvalRights.canApprove) {
+        this.errorHandler.throwForbidden('You do not have permission to approve this incident');
+      }
+
+      // Submit approval record
+      await this.masterApprovalsService.submitApproval(
+        {
+          entity: 'INCIDENT',
+          dataId: id,
+          status: ApprovalStatus.APPROVED,
+          notes: notes || '',
+        },
+        user,
+      );
+
+      // Check approval status to determine next step
+      const approvalStatus = await this.masterApprovalsService.checkApprovalStatus(
+        id,
+        'INCIDENT',
+      );
+
+      let nextStatus: GeneralStatusEnum;
+      if (approvalStatus.currentStatus === 'COMPLETED') {
+        nextStatus = GeneralStatusEnum.CLOSE;
+      } else {
+        nextStatus = GeneralStatusEnum.WAITING_APPROVAL;
+      }
+
+      // Update status
+      const updated = await this.prisma.incident.update({
+        where: { id },
+        data: {
+          status: nextStatus,
+        },
+        include: {
+          room: true,
+          area: true,
+          riskCategory: true,
+          requester: true,
+          reporter: true,
+          technician: true,
+          assignedDepartment: true,
+          assignee: true,
+          creator: true,
+          injuredPersons: {
+            include: {
+              department: true,
+            },
+            orderBy: { order: 'asc' },
+          },
+          witnesses: {
+            include: {
+              department: true,
+            },
+            orderBy: { order: 'asc' },
+          },
+          assets: {
+            orderBy: { order: 'asc' },
+          },
+          images: {
+            orderBy: { order: 'asc' },
+          },
+          attachments: {
+            orderBy: { order: 'asc' },
+          },
+        },
+      });
+
+      // Send notifications
+      if (nextStatus === GeneralStatusEnum.CLOSE) {
+        await this.sendApprovalCompletedNotification(id, updated);
+      } else {
+        await this.sendApprovalProgressNotification(id, updated);
+      }
+
+      return this.incidentMapper(updated);
+    }, 'Approving incident');
+  }
+
+  /**
+   * Reject incident
+   */
+  async reject(id: string, reason: string, userId: string): Promise<IncidentDto> {
+    return this.errorHandler.safeExecute(async () => {
+      const incident = await this.prisma.incident.findUnique({
+        where: { id },
+        include: {
+          creator: true,
+        },
+      });
+
+      this.errorHandler.throwIfNotFoundById('Incident', id, incident);
+
+      const user = await this.getFullUser(userId);
+
+      // Check approval rights (approvers can reject)
+      const approvalRights = await this.masterApprovalsService.checkApprovalRights(
+        id,
+        user,
+        'INCIDENT',
+      );
+
+      if (!approvalRights.canApprove) {
+        this.errorHandler.throwForbidden('You do not have permission to reject this incident');
+      }
+
+      // Submit rejection record
+      await this.masterApprovalsService.submitApproval(
+        {
+          entity: 'INCIDENT',
+          dataId: id,
+          status: ApprovalStatus.REJECTED,
+          notes: reason,
+        },
+        user,
+      );
+
+      // Update status to REJECTED
+      const updated = await this.prisma.incident.update({
+        where: { id },
+        data: {
+          status: GeneralStatusEnum.REJECTED,
+        },
+        include: {
+          room: true,
+          area: true,
+          riskCategory: true,
+          requester: true,
+          reporter: true,
+          technician: true,
+          assignedDepartment: true,
+          assignee: true,
+          creator: true,
+          injuredPersons: {
+            include: {
+              department: true,
+            },
+            orderBy: { order: 'asc' },
+          },
+          witnesses: {
+            include: {
+              department: true,
+            },
+            orderBy: { order: 'asc' },
+          },
+          assets: {
+            orderBy: { order: 'asc' },
+          },
+          images: {
+            orderBy: { order: 'asc' },
+          },
+          attachments: {
+            orderBy: { order: 'asc' },
+          },
+        },
+      });
+
+      // Send rejection notification
+      await this.sendRejectionNotification(id, updated, reason);
+
+      return this.incidentMapper(updated);
+    }, 'Rejecting incident');
+  }
+
+  /**
+   * Get approval timeline/history
+   */
+  async getTimeline(id: string): Promise<any[]> {
+    return this.errorHandler.safeExecute(async () => {
+      const incident = await this.prisma.incident.findUnique({
+        where: { id },
+      });
+
+      this.errorHandler.throwIfNotFoundById('Incident', id, incident);
+
+      // Get approval records
+      const approvals = await this.prisma.approval.findMany({
+        where: {
+          entityId: id,
+        },
+        include: {
+          creator: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          department: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
+          jobPosition: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+      });
+
+      return approvals.map((approval) => ({
+        id: approval.id,
+        status: approval.status,
+        notes: approval.notes,
+        createdAt: approval.createdAt,
+        createdBy: approval.creator
+          ? {
+            id: approval.creator.id,
+            firstName: approval.creator.firstName,
+            lastName: approval.creator.lastName,
+            email: approval.creator.email,
+          }
+          : null,
+        department: approval.department
+          ? {
+            id: approval.department.id,
+            name: approval.department.name,
+            code: approval.department.code,
+          }
+          : null,
+        jobPosition: approval.jobPosition
+          ? {
+            id: approval.jobPosition.id,
+            name: approval.jobPosition.name,
+            code: approval.jobPosition.code,
+          }
+          : null,
+      }));
+    }, 'Fetching approval timeline');
+  }
+
+  /**
+   * Send notification when incident is submitted for approval
+   */
+  private async sendSubmissionNotification(incidentId: string, incident: any): Promise<void> {
+    try {
+      let notificationType = await this.prisma.notificationType.findFirst({
+        where: { name: 'INCIDENT_SUBMITTED' },
+      });
+
+      if (!notificationType) {
+        notificationType = await this.prisma.notificationType.create({
+          data: {
+            name: 'INCIDENT_SUBMITTED',
+            description: 'Incident submitted for approval',
+          },
+        });
+      }
+
+      // Get HSE department
+      const hseDept = await this.prisma.department.findFirst({
+        where: {
+          code: 'HSE',
+          isActive: true,
+        },
+      });
+
+      if (hseDept) {
+        // Get HEAD position in HSE department
+        const headPosition = await this.prisma.jobPosition.findFirst({
+          where: {
+            code: 'HEAD',
+            isActive: true,
+          },
+        });
+
+        if (headPosition) {
+          // Get users with HEAD position in HSE department
+          const approvers = await this.prisma.user.findMany({
+            where: {
+              departmentId: hseDept.id,
+              jobPositionId: headPosition.id,
+              isActive: true,
+            },
+            select: {
+              id: true,
+              roleId: true,
+            },
+          });
+
+          if (approvers.length > 0) {
+            const userIds = approvers.map(u => u.id);
+            const roleIds = Array.from(new Set(approvers.map(u => u.roleId)));
+
+            await this.notificationsService.createNotificationForRoles(
+              {
+                title: `Incident Submitted: ${incident.code}`,
+                message: `Incident "${incident.subject}" (${incident.code}) has been submitted for approval.`,
+                context: 'incident',
+                contextId: incidentId,
+                typeId: notificationType.id,
+                roleIds,
+                userIds,
+              },
+              incident.createdBy,
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to send submission notification:', error);
+    }
+  }
+
+  /**
+   * Send notification when approval is completed (all approvers approved)
+   */
+  private async sendApprovalCompletedNotification(incidentId: string, incident: any): Promise<void> {
+    try {
+      let notificationType = await this.prisma.notificationType.findFirst({
+        where: { name: 'INCIDENT_APPROVED' },
+      });
+
+      if (!notificationType) {
+        notificationType = await this.prisma.notificationType.create({
+          data: {
+            name: 'INCIDENT_APPROVED',
+            description: 'Incident approval completed',
+          },
+        });
+      }
+
+      // Get creator's role for notification
+      const creatorUser = await this.prisma.user.findUnique({
+        where: { id: incident.createdBy },
+        select: { roleId: true },
+      });
+
+      // Notify creator
+      await this.notificationsService.createNotificationForRoles(
+        {
+          title: `Incident Approved: ${incident.code}`,
+          message: `Incident "${incident.subject}" (${incident.code}) has been approved and closed.`,
+          context: 'incident',
+          contextId: incidentId,
+          typeId: notificationType.id,
+          roleIds: creatorUser ? [creatorUser.roleId] : [],
+          userIds: [incident.createdBy],
+        },
+        incident.createdBy,
+      );
+    } catch (error) {
+      console.error('Failed to send approval completed notification:', error);
+    }
+  }
+
+  /**
+   * Send notification when approval progresses to next approver
+   */
+  private async sendApprovalProgressNotification(incidentId: string, incident: any): Promise<void> {
+    try {
+      let notificationType = await this.prisma.notificationType.findFirst({
+        where: { name: 'INCIDENT_APPROVAL_PROGRESS' },
+      });
+
+      if (!notificationType) {
+        notificationType = await this.prisma.notificationType.create({
+          data: {
+            name: 'INCIDENT_APPROVAL_PROGRESS',
+            description: 'Incident approval in progress',
+          },
+        });
+      }
+
+      // Get next approver info
+      const approvalStatus = await this.masterApprovalsService.checkApprovalStatus(
+        incidentId,
+        'INCIDENT',
+      );
+
+      if (approvalStatus.nextApprover) {
+        // Find users with matching department and job position
+        const nextApprovers = await this.prisma.user.findMany({
+          where: {
+            departmentId: approvalStatus.nextApprover.department.id,
+            jobPositionId: approvalStatus.nextApprover.jobPosition.id,
+            isActive: true,
+          },
+          select: {
+            id: true,
+            roleId: true,
+          },
+        });
+
+        if (nextApprovers.length > 0) {
+          const userIds = nextApprovers.map(u => u.id);
+          const roleIds = Array.from(new Set(nextApprovers.map(u => u.roleId)));
+
+          await this.notificationsService.createNotificationForRoles(
+            {
+              title: `Incident Awaiting Approval: ${incident.code}`,
+              message: `Incident "${incident.subject}" (${incident.code}) is awaiting your approval.`,
+              context: 'incident',
+              contextId: incidentId,
+              typeId: notificationType.id,
+              roleIds,
+              userIds,
+            },
+            incident.createdBy,
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Failed to send approval progress notification:', error);
+    }
+  }
+
+  /**
+   * Send rejection notification
+   */
+  private async sendRejectionNotification(incidentId: string, incident: any, reason: string): Promise<void> {
+    try {
+      let notificationType = await this.prisma.notificationType.findFirst({
+        where: { name: 'INCIDENT_REJECTED' },
+      });
+
+      if (!notificationType) {
+        notificationType = await this.prisma.notificationType.create({
+          data: {
+            name: 'INCIDENT_REJECTED',
+            description: 'Incident rejected',
+          },
+        });
+      }
+
+      // Get creator's role for notification
+      const creatorUser = await this.prisma.user.findUnique({
+        where: { id: incident.createdBy },
+        select: { roleId: true },
+      });
+
+      await this.notificationsService.createNotificationForRoles(
+        {
+          title: `Incident Rejected: ${incident.code}`,
+          message: `Incident "${incident.subject}" (${incident.code}) has been rejected. Reason: ${reason}`,
+          context: 'incident',
+          contextId: incidentId,
+          typeId: notificationType.id,
+          roleIds: creatorUser ? [creatorUser.roleId] : [],
+          userIds: [incident.createdBy],
+        },
+        incident.createdBy,
+      );
+    } catch (error) {
+      console.error('Failed to send rejection notification:', error);
+    }
   }
 }

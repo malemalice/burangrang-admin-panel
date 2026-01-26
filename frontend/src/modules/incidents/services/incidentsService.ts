@@ -59,6 +59,35 @@ const incidentsService = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/incidents/${id}`);
   },
+
+  submit: async (id: string): Promise<Incident> => {
+    const response = await api.post(`/incidents/${id}/submit`);
+    return response.data;
+  },
+
+  approve: async (id: string, notes?: string): Promise<Incident> => {
+    const response = await api.post(`/incidents/${id}/approve`, { notes });
+    return response.data;
+  },
+
+  reject: async (id: string, reason: string): Promise<Incident> => {
+    const response = await api.post(`/incidents/${id}/reject`, { reason });
+    return response.data;
+  },
+
+  checkApprovalRights: async (id: string): Promise<{
+    canApprove: boolean;
+    canReject: boolean;
+    nextApprover: any;
+  }> => {
+    const response = await api.get(`/incidents/${id}/approval-rights`);
+    return response.data;
+  },
+
+  getTimeline: async (id: string): Promise<any[]> => {
+    const response = await api.get(`/incidents/${id}/timeline`);
+    return response.data;
+  },
 };
 
 export default incidentsService;

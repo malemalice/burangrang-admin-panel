@@ -361,6 +361,7 @@ const IncidentsPage = () => {
     fetchUserData();
   }, [currentUser]);
 
+
   // Helper to determine which mode-specific actions to show for an incident
   const getModeActions = (incident: Incident) => {
     const actions: Array<{ label: string; onClick: () => void; variant?: 'default' | 'outline' | 'destructive'; icon: React.ReactNode }> = [];

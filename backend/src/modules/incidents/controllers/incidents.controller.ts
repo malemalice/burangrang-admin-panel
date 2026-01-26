@@ -78,4 +78,53 @@ export class IncidentsController {
   async remove(@Param('id') id: string): Promise<IncidentDto> {
     return this.incidentsService.remove(id);
   }
+
+  @Post(':id/submit')
+  @ApiOperation({ summary: 'Submit incident for approval' })
+  @ApiResponse({ status: 200, type: IncidentDto })
+  async submit(
+    @Request() req: RequestWithUser,
+    @Param('id') id: string,
+  ): Promise<IncidentDto> {
+    return this.incidentsService.submit(id, req.user.id);
+  }
+
+  @Post(':id/approve')
+  @ApiOperation({ summary: 'Approve incident' })
+  @ApiResponse({ status: 200, type: IncidentDto })
+  async approve(
+    @Request() req: RequestWithUser,
+    @Param('id') id: string,
+    @Body() body: { notes?: string },
+  ): Promise<IncidentDto> {
+    return this.incidentsService.approve(id, body.notes || '', req.user.id);
+  }
+
+  @Post(':id/reject')
+  @ApiOperation({ summary: 'Reject incident' })
+  @ApiResponse({ status: 200, type: IncidentDto })
+  async reject(
+    @Request() req: RequestWithUser,
+    @Param('id') id: string,
+    @Body() body: { reason: string },
+  ): Promise<IncidentDto> {
+    return this.incidentsService.reject(id, body.reason, req.user.id);
+  }
+
+  @Get(':id/approval-rights')
+  @ApiOperation({ summary: 'Check if user can approve/reject incident' })
+  @ApiResponse({ status: 200 })
+  async checkApprovalRights(
+    @Request() req: RequestWithUser,
+    @Param('id') id: string,
+  ) {
+    return this.incidentsService.checkApprovalRights(id, req.user.id);
+  }
+
+  @Get(':id/timeline')
+  @ApiOperation({ summary: 'Get approval timeline for incident' })
+  @ApiResponse({ status: 200 })
+  async getTimeline(@Param('id') id: string) {
+    return this.incidentsService.getTimeline(id);
+  }
 }

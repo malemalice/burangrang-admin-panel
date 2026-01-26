@@ -269,9 +269,15 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
     const fetchData = async () => {
       setIsLoadingData(true);
       try {
-        // First, fetch roles to find TECHNICIAN role
-        const rolesRes = await roleService.getRoles({ page: 1, limit: 100 });
-        const technicianRole = rolesRes.data.find(role => role.code === 'TECHNICIAN');
+        // First, fetch roles to find TECHNICIAN role (handle 403 gracefully)
+        let technicianRole = null;
+        try {
+          const rolesRes = await roleService.getRoles({ page: 1, limit: 100 });
+          technicianRole = rolesRes.data.find(role => role.code === 'TECHNICIAN');
+        } catch (error) {
+          console.warn('Failed to fetch roles (may not have permission):', error);
+          // Continue without technician role filtering
+        }
         
         // Fetch users, technicians, and equipment data in parallel
         const [areasRes, riskCategoriesRes, departmentsRes, usersRes, techniciansRes, safetyEquipmentsRes, workPermitsMasterDataRes, assetsRes] = await Promise.all([
@@ -407,6 +413,13 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
     loadCategory();
   }, []);
 
+  // Set resolvedMode immediately when entryMode is provided (before data is ready)
+  useEffect(() => {
+    if (entryMode) {
+      setResolvedMode(entryMode);
+    }
+  }, [entryMode]);
+
   // Check user permissions and resolve form mode (creator / investigator / approver)
   useEffect(() => {
     const checkPermissions = async () => {
@@ -418,10 +431,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
           setResolvedMode(entryMode);
           if (entryMode === 'approver' && incident) {
             try {
-              const approvalResponse = await approvalService.checkApprovalRights(
-                incident.id,
-                APPROVAL_ENTITIES.INCIDENT,
-              );
+              const approvalResponse = await incidentsService.checkApprovalRights(incident.id);
               setCanApprove(approvalResponse.canApprove);
             } catch (error) {
               console.error('Failed to check approval rights:', error);
@@ -455,10 +465,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             let hasApprovalRights = false;
             if (incident.status === GeneralStatusEnum.WAITING_APPROVAL) {
               try {
-                const approvalResponse = await approvalService.checkApprovalRights(
-                  incident.id,
-                  APPROVAL_ENTITIES.INCIDENT,
-                );
+                const approvalResponse = await incidentsService.checkApprovalRights(incident.id);
                 hasApprovalRights = approvalResponse.canApprove;
                 setCanApprove(hasApprovalRights);
               } catch (error) {
@@ -747,28 +754,18 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
     try {
       setIsApproving(true);
       
-      // Submit approval
-      await approvalService.submitApproval({
-        entityId: incident.id,
-        entity: APPROVAL_ENTITIES.INCIDENT,
-        status,
-        notes,
-      });
+      if (status === ApprovalStatus.APPROVED) {
+        await incidentsService.approve(incident.id, notes);
+        toast.success('Incident approved successfully');
+      } else {
+        await incidentsService.reject(incident.id, notes);
+        toast.success('Incident rejected');
+      }
 
-      // Update incident status based on approval result
-      const newStatus = status === ApprovalStatus.APPROVED 
-        ? GeneralStatusEnum.CLOSE 
-        : GeneralStatusEnum.OPEN;
-      
-      await incidentsService.update(incident.id, {
-        status: newStatus,
-      } as UpdateIncidentDTO);
-
-      toast.success(status === ApprovalStatus.APPROVED ? 'Incident approved successfully' : 'Incident rejected');
       navigate('/incidents');
     } catch (error: any) {
       console.error('Failed to submit approval:', error);
-      toast.error('Failed to submit approval');
+      toast.error(error?.response?.data?.message || 'Failed to submit approval');
     } finally {
       setIsApproving(false);
     }
@@ -2288,7 +2285,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     : isUploadingFiles 
                     ? 'Uploading...' 
                     : resolvedMode === 'investigator'
-                    ? 'Submit for Approval'
+                    ? 'Submit'
                     : mode === 'create' 
                     ? 'Create Incident' 
                     : 'Update Incident'}

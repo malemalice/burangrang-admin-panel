@@ -654,6 +654,10 @@ export class MasterApprovalsService {
     if (entityName === 'AUDIT_ITEM') {
       return 'CLOSE';
     }
+    // Incident uses CLOSE as the terminal state (not DONE)
+    if (entityName === 'INCIDENT') {
+      return 'CLOSE';
+    }
     return 'DONE';
   }
 
