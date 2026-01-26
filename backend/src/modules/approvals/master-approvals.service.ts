@@ -455,6 +455,26 @@ export class MasterApprovalsService {
     entityName: string,
   ): Promise<{ departmentId: string } | null> {
     try {
+      // Special handling: AUDIT_ITEM stores departments in a junction table
+      // (`_AuditItemToDepartment` → Prisma model `auditItemToDepartment`)
+      // so there is no direct department FK column on `t_audit_items`.
+      if (entityName === 'AUDIT_ITEM') {
+        const result = await this.prisma.auditItemToDepartment.findFirst({
+          where: { auditItemId: entityId },
+          select: { departmentId: true },
+          orderBy: { createdAt: 'asc' }, // Take the first assigned department
+        });
+
+        if (!result?.departmentId) {
+          console.warn(
+            `[getEntityData] Audit item ${entityId} has no assigned departments`,
+          );
+          return null;
+        }
+
+        return { departmentId: result.departmentId };
+      }
+
       const tableName =
         APPROVAL_ENTITY_TO_TABLE[
           entityName as keyof typeof APPROVAL_ENTITY_TO_TABLE
@@ -623,6 +643,22 @@ export class MasterApprovalsService {
       createdAt: approval.createdAt,
       updatedAt: approval.updatedAt,
     };
+  }
+
+  /**
+   * Source entity status when an approval chain completes.
+   * Some entities use a different "final" status than DONE.
+   */
+  private getCompletedSourceStatus(entityName: string): string {
+    // Audit item uses CLOSE as the terminal state (not DONE)
+    if (entityName === 'AUDIT_ITEM') {
+      return 'CLOSE';
+    }
+    // Incident uses CLOSE as the terminal state (not DONE)
+    if (entityName === 'INCIDENT') {
+      return 'CLOSE';
+    }
+    return 'DONE';
   }
 
   async checkApprovalRights(
@@ -943,7 +979,7 @@ export class MasterApprovalsService {
     );
 
     // If approval is rejected, set entity status to REJECTED
-    let sourceStatus = 'DONE';
+    let sourceStatus = this.getCompletedSourceStatus(submitApprovalDto.entity);
     if (submitApprovalDto.status === ApprovalStatus.REJECTED) {
       sourceStatus = 'REJECTED';
     } else if (checkApprovalStatus.nextApprover) {

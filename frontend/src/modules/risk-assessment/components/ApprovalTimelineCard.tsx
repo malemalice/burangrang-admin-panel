@@ -26,9 +26,22 @@ interface ApprovalTimelineCardProps {
   approvalHistory: ApprovalStatusHistory | null;
   isLoading: boolean;
   assessmentStatus?: string; // Assessment status to check if DONE
+  /**
+   * Optional entity context for dynamic approval configuration.
+   * When approval lines are configured as "From Entity Data", these values are used
+   * to display the expected department/position instead of the placeholder labels.
+   */
+  entityDepartmentName?: string;
+  entityJobPositionName?: string;
 }
 
-export const ApprovalTimelineCard = ({ approvalHistory, isLoading, assessmentStatus }: ApprovalTimelineCardProps) => {
+export const ApprovalTimelineCard = ({
+  approvalHistory,
+  isLoading,
+  assessmentStatus,
+  entityDepartmentName,
+  entityJobPositionName,
+}: ApprovalTimelineCardProps) => {
   const [scrollTop, setScrollTop] = useState(0);
   const [scrollHeight, setScrollHeight] = useState(0);
   const [clientHeight, setClientHeight] = useState(0);
@@ -112,6 +125,35 @@ export const ApprovalTimelineCard = ({ approvalHistory, isLoading, assessmentSta
   // Find completed approvals for each line
   const getApprovalForLine = (lineNumber: number) => {
     return allApprovals.find((item) => item.line === lineNumber);
+  };
+
+  const isDynamicDepartment = (dept?: { id: string; name: string }) => {
+    if (!dept) return false;
+    return (
+      dept.id === APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT ||
+      dept.name === APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT ||
+      dept.name === 'Dynamic: From Entity Data'
+    );
+  };
+
+  const isDynamicJobPosition = (pos?: { id: string; name: string }) => {
+    if (!pos) return false;
+    return (
+      pos.id === APPROVAL_FIELD_MARKERS.FROM_ENTITY_JOB_POSITION ||
+      pos.name === APPROVAL_FIELD_MARKERS.FROM_ENTITY_JOB_POSITION ||
+      pos.name === 'Dynamic: From Entity Data (Department Head)'
+    );
+  };
+
+  const resolveDepartmentName = (dept: { id: string; name: string }) => {
+    if (isDynamicDepartment(dept) && entityDepartmentName) return entityDepartmentName;
+    // Fall back to any "dynamic" label provided by backend/marker mapping
+    return getDisplayLabel(dept.id, dept.name);
+  };
+
+  const resolveJobPositionName = (pos: { id: string; name: string }) => {
+    if (isDynamicJobPosition(pos)) return entityJobPositionName || 'Department Head';
+    return getDisplayLabel(pos.id, pos.name);
   };
 
   return (
@@ -214,11 +256,15 @@ export const ApprovalTimelineCard = ({ approvalHistory, isLoading, assessmentSta
                         <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
                           <div className="flex items-center gap-1.5">
                             <span className="text-blue-700 dark:text-blue-300">Dept:</span>
-                            <span className="font-medium text-blue-900 dark:text-blue-100">{line.department.name}</span>
+                            <span className="font-medium text-blue-900 dark:text-blue-100">
+                              {resolveDepartmentName(line.department)}
+                            </span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <span className="text-blue-700 dark:text-blue-300">Pos:</span>
-                            <span className="font-medium text-blue-900 dark:text-blue-100">{line.jobPosition.name}</span>
+                            <span className="font-medium text-blue-900 dark:text-blue-100">
+                              {resolveJobPositionName(line.jobPosition)}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -238,11 +284,11 @@ export const ApprovalTimelineCard = ({ approvalHistory, isLoading, assessmentSta
                         <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
                           <div className="flex items-center gap-1.5">
                             <span>Dept:</span>
-                            <span className="font-medium">{line.department.name}</span>
+                            <span className="font-medium">{resolveDepartmentName(line.department)}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <span>Pos:</span>
-                            <span className="font-medium">{line.jobPosition.name}</span>
+                            <span className="font-medium">{resolveJobPositionName(line.jobPosition)}</span>
                           </div>
                         </div>
                       </div>

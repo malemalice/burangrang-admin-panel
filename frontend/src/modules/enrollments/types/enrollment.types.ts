@@ -131,3 +131,9 @@ export interface PaginatedResponse<T> {
     totalPages: number;
   };
 }
+
+export interface AssignCourseResponse {
+  enrollment: Enrollment;
+  emailStatus: 'sent' | 'skipped' | 'failed' | 'not_requested';
+  emailMessage?: string;
+}

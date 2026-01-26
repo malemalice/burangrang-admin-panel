@@ -2,15 +2,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
     ArrowLeft, 
     Edit, 
-    Shield, 
-    Package, 
     Info,
     History
 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { useSafetyEquipment } from '../../hooks/useSafetyEquipments';
 import StockMovementHistory from '../../components/StockMovementHistory';
@@ -123,26 +120,17 @@ const SafetyEquipmentDetailPage = () => {
                 </div>
 
                 <div className="lg:col-span-2">
-                    <Tabs defaultValue="history" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="history" className="flex items-center gap-2">
-                                <History className="h-4 w-4" /> Movement History
-                            </TabsTrigger>
-                            <TabsTrigger value="details" className="flex items-center gap-2">
-                                <Shield className="h-4 w-4" /> Technical Specs
-                            </TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="history" className="mt-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <History className="h-5 w-5 text-blue-500" />
+                                Movement History
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
                             <StockMovementHistory safetyEquipmentId={equipment.id} />
-                        </TabsContent>
-                        <TabsContent value="details" className="mt-6">
-                            <Card>
-                                <CardContent className="pt-6">
-                                    <p className="text-muted-foreground text-center py-8">Technical specifications not available for this item.</p>
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-                    </Tabs>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </div>

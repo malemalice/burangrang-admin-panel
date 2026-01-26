@@ -552,6 +552,7 @@ export class CertificatesService {
     async update(
         id: string,
         updateCertificateDto: UpdateCertificateDto,
+        updatedBy?: string,
     ): Promise<CertificateDto> {
         const existingCertificate = await this.prisma.certificate.findFirst({
             where: {
@@ -564,13 +565,25 @@ export class CertificatesService {
 
         return this.errorHandler.safeExecute(async () => {
             const updateData: any = { ...updateCertificateDto };
+            let shouldUpdateReminders = false;
 
             if (updateCertificateDto.issuedDate) {
                 updateData.issuedDate = new Date(updateCertificateDto.issuedDate);
             }
 
             if (updateCertificateDto.validityDate) {
-                updateData.validityDate = new Date(updateCertificateDto.validityDate);
+                const newValidityDate = new Date(updateCertificateDto.validityDate);
+                // Check if validity date changed
+                if (newValidityDate.getTime() !== existingCertificate.validityDate.getTime()) {
+                    updateData.validityDate = newValidityDate;
+                    shouldUpdateReminders = true;
+                }
+            }
+
+            if (updateCertificateDto.reminderDays) {
+                if (updateCertificateDto.reminderDays !== existingCertificate.reminderDays) {
+                    shouldUpdateReminders = true;
+                }
             }
 
             // Validate category if provided
@@ -625,6 +638,26 @@ export class CertificatesService {
                     creator: true,
                 },
             });
+
+            // If validity date or reminder days changed, recreate reminders
+            if (shouldUpdateReminders && updatedBy) {
+                // 1. Cancel existing pending reminders for this certificate
+                await this.prisma.reminder.updateMany({
+                    where: {
+                        entity: 't_certificates',
+                        entityId: id,
+                        status: 'PENDING',
+                    },
+                    data: {
+                        status: 'CANCELLED',
+                    },
+                });
+
+                // 2. Create new chained reminders based on new dates
+                // Use the original creator as the target for reminders to maintain consistency
+                // But use the current user (updatedBy) as the creator of the reminder record
+                await this.createChainedReminders(updatedCertificate, updatedCertificate.createdBy);
+            }
 
             return this.certificateMapper(updatedCertificate);
         }, 'update certificate');

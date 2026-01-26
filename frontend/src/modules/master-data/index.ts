@@ -63,6 +63,7 @@ export { default as riskService } from './services/riskService';
 export { default as riskMitigationService } from './services/riskMitigationService';
 export { default as approvalService } from './services/approvalService';
 export { default as DashboardService } from './services/dashboard.service';
+export { default as roomService } from './services/roomService';
 
 // Types
 export type {

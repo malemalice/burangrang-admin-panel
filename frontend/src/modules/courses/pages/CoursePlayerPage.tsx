@@ -267,10 +267,36 @@ const CoursePlayerPage = () => {
               <QuizPlayer
                 quizId={currentQuiz.id}
                 enrollmentId={learningContext.enrollment.id}
-                onComplete={() => {
-                  // Reload context to update status in sidebar
-                  // Ideally we should optimistically update, but reloading is safer for now
-                  loadContext();
+                onComplete={async () => {
+                  const ctx = await loadContext();
+                  if (!ctx) return;
+                  
+                  const chapters = ctx.course.chapters || [];
+                  const quizzes = ctx.quizzes || [];
+                  
+                  const currentQuizData = quizzes.find(q => q.id === currentQuizId);
+                  
+                  if (currentQuizData?.entity === 'CHAPTER' && currentQuizData?.entityId) {
+                    const chapterIndex = chapters.findIndex(c => c.id === currentQuizData.entityId);
+                    if (chapterIndex >= 0 && chapterIndex < chapters.length - 1) {
+                      setCurrentQuizId('');
+                      setCurrentChapterId(chapters[chapterIndex + 1].id);
+                      return;
+                    }
+                  }
+                  
+                  const firstIncomplete = chapters.find((ch) => {
+                    const p = ctx.progress.find((p) => p.chapterId === ch.id);
+                    return !p || p.status !== ProgressStatus.COMPLETED;
+                  });
+                  
+                  if (firstIncomplete) {
+                    setCurrentQuizId('');
+                    setCurrentChapterId(firstIncomplete.id);
+                  } else if (chapters.length > 0) {
+                    setCurrentQuizId('');
+                    setCurrentChapterId(chapters[0].id);
+                  }
                 }}
               />
             ) : (

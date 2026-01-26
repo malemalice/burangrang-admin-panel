@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, Check, Filter, Search, ChevronDown } from 'lucide-react';
+import { X, Calendar, Check, Filter, ChevronDown } from 'lucide-react';
 import { Button, ThemeButton } from './button';
 import { Input } from './input';
 import { Badge } from './badge';
@@ -17,6 +17,8 @@ export type FilterField = {
   label: string;
   type: 'text' | 'date' | 'dateRange' | 'select' | 'searchableSelect' | 'multiSelectSearchable';
   options?: { label: string; value: string | boolean }[];
+  /** Optional placeholder for text fields; describes what the field searches/filters. */
+  placeholder?: string;
 };
 
 export type FilterValue = {
@@ -162,7 +164,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                     console.warn(`[FilterDrawer] Input onChange ${field.id}:`, e.target.value);
                     updateFilterValue(field.id, e.target.value);
                   }}
-                  placeholder={`Enter ${field.label.toLowerCase()}`}
+                  placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}`}
                   className="w-full"
                 />
               )}

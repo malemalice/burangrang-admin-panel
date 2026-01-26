@@ -11,7 +11,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { CompliantStatusEnum } from '@prisma/client';
+import { CompliantStatusEnum, GeneralStatusEnum } from '@prisma/client';
 
 class AuditImageDto {
   @ApiProperty()
@@ -33,6 +33,11 @@ export class CreateAuditItemDto {
   @ApiProperty()
   @IsUUID()
   auditCriteriaId: string;
+
+  @ApiProperty({ enum: GeneralStatusEnum, required: false })
+  @IsOptional()
+  @IsEnum(GeneralStatusEnum)
+  status?: GeneralStatusEnum;
 
   @ApiProperty({ enum: CompliantStatusEnum })
   @IsEnum(CompliantStatusEnum)
