@@ -246,12 +246,12 @@ export const seedMenus = async () => {
       },
     });
 
-    // Environmental Measurements menu
+    // Incidents menu (top-level)
     await prisma.menu.create({
       data: {
-        name: 'Environmental Measurements',
-        path: '/environmental-measurements',
-        icon: 'Thermometer',
+        name: 'Incidents',
+        path: '/incidents',
+        icon: 'AlertTriangle',
         order: 6,
         isActive: true,
         roles: {
@@ -265,12 +265,12 @@ export const seedMenus = async () => {
       },
     });
 
-    // Incidents menu (top-level)
+    // Environmental Measurements menu
     await prisma.menu.create({
       data: {
-        name: 'Incidents',
-        path: '/incidents',
-        icon: 'AlertTriangle',
+        name: 'Environmental Measurements',
+        path: '/environmental-measurements',
+        icon: 'Thermometer',
         order: 7,
         isActive: true,
         roles: {

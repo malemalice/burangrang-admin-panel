@@ -100,6 +100,12 @@ export async function seedDepartments(prisma: PrismaClient) {
       description: 'Department for incident technicians and HSE field technicians',
       isActive: true,
     },
+    {
+      name: 'HSE',
+      code: 'HSE',
+      description: 'Health, Safety, and Environment department',
+      isActive: true,
+    },
   ];
 
   // Clear existing departments

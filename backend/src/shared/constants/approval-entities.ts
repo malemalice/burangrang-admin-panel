@@ -14,6 +14,7 @@ export const APPROVAL_ENTITIES = {
   INSPECTION: 'INSPECTION',
   INSPECTION_ITEM: 'INSPECTION_ITEM',
   AUDIT_ITEM: 'AUDIT_ITEM',
+  INCIDENT: 'INCIDENT',
   // Add more entities as modules are added
   // CERTIFICATE: 'CERTIFICATE',
   // PPE_WITHDRAWAL: 'PPE_WITHDRAWAL',
@@ -39,6 +40,7 @@ export const APPROVAL_ENTITY_TO_TABLE: Record<ApprovalEntityName, string> = {
   [APPROVAL_ENTITIES.INSPECTION]: 't_inspections',
   [APPROVAL_ENTITIES.INSPECTION_ITEM]: 't_inspection_items',
   [APPROVAL_ENTITIES.AUDIT_ITEM]: 't_audit_items',
+  [APPROVAL_ENTITIES.INCIDENT]: 't_incidents',
   // Add more mappings as modules are added
   // [APPROVAL_ENTITIES.CERTIFICATE]: 't_certificates',
   // [APPROVAL_ENTITIES.PPE_WITHDRAWAL]: 't_ppe_withdrawals',
@@ -59,6 +61,7 @@ export const APPROVAL_ENTITY_TO_DEPARTMENT_COLUMN: Record<
   [APPROVAL_ENTITIES.INSPECTION]: null,
   [APPROVAL_ENTITIES.INSPECTION_ITEM]: 'assignedDepartmentId',
   [APPROVAL_ENTITIES.AUDIT_ITEM]: null,
+  [APPROVAL_ENTITIES.INCIDENT]: 'assignedDepartmentId',
 };
 
 /**

@@ -1,18 +1,25 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Eye, Plus, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
+import { Eye, Plus, Edit, Trash2, CheckCircle2, Info, ArrowRight, FileText, ShieldCheck } from 'lucide-react';
+import { useAuth } from '@/core/lib/auth';
+import approvalService from '@/modules/master-data/services/approvalService';
+import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
+import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
+import api from '@/core/lib/api';
+import roleService from '@/modules/roles/services/roleService';
 
 import { Button } from '@/core/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/tooltip';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/core/components/ui/dropdown-menu';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/core/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
@@ -31,6 +38,7 @@ import { User } from '@/core/lib/types';
 
 const IncidentsPage = () => {
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -41,7 +49,9 @@ const IncidentsPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [approvalRights, setApprovalRights] = useState<Record<string, boolean>>({});
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
 
   // Filter options state
   const [areas, setAreas] = useState<AreaDTO[]>([]);
@@ -284,6 +294,165 @@ const IncidentsPage = () => {
     fetchIncidents();
   }, [fetchIncidents]);
 
+  // Check approval rights for incidents waiting approval
+  useEffect(() => {
+    const checkApprovalRights = async () => {
+      if (!currentUser?.id) return;
+
+      const rights: Record<string, boolean> = {};
+      for (const incident of incidents) {
+        if (incident.status === GeneralStatusEnum.WAITING_APPROVAL) {
+          try {
+            const response = await approvalService.checkApprovalRights(
+              incident.id,
+              APPROVAL_ENTITIES.INCIDENT,
+            );
+            rights[incident.id] = response.canApprove;
+          } catch (error) {
+            console.error(`Failed to check approval rights for incident ${incident.id}:`, error);
+            rights[incident.id] = false;
+          }
+        }
+      }
+      setApprovalRights(rights);
+    };
+
+    if (incidents.length > 0 && currentUser) {
+      checkApprovalRights();
+    }
+  }, [incidents, currentUser]);
+
+  // Store user data for action determination
+  const [userData, setUserData] = useState<{ departmentId?: string } | null>(null);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!currentUser?.id) return;
+      try {
+        const response = await api.get('/users/me');
+        const userDataResponse = response.data;
+        setUserData(userDataResponse);
+        
+        // Check if user is super_admin
+        let roleCode: string | null = null;
+        
+        // Try to get role code from the role object in the response
+        if (userDataResponse.role && typeof userDataResponse.role === 'object') {
+          if ('code' in userDataResponse.role) {
+            roleCode = userDataResponse.role.code;
+          }
+        }
+        
+        // If role code is not directly available, fetch it using roleId
+        if (!roleCode && userDataResponse.roleId) {
+          try {
+            const role = await roleService.getRoleById(userDataResponse.roleId);
+            roleCode = role.code;
+          } catch (roleError) {
+            console.error('Failed to fetch role by ID:', roleError);
+          }
+        }
+        
+        setIsSuperAdmin(roleCode === ROLE_CODES.SUPER_ADMIN);
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+      }
+    };
+    fetchUserData();
+  }, [currentUser]);
+
+  // Helper to determine which mode-specific actions to show for an incident
+  const getModeActions = (incident: Incident) => {
+    const actions: Array<{ label: string; onClick: () => void; variant?: 'default' | 'outline' | 'destructive'; icon: React.ReactNode }> = [];
+
+    if (!currentUser?.id) {
+      return actions;
+    }
+
+    // If super_admin, show all buttons regardless of conditions
+    if (isSuperAdmin) {
+      // Edit button
+      if (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN) {
+        actions.push({
+          label: 'Edit',
+          onClick: () => navigate(`/incidents/${incident.id}/edit?mode=creator`),
+          variant: 'default',
+          icon: <Edit className="mr-2 h-4 w-4" />,
+        });
+      }
+      
+      // Submit button
+      if (incident.status === GeneralStatusEnum.OPEN) {
+        actions.push({
+          label: 'Submit',
+          onClick: () => navigate(`/incidents/${incident.id}/edit?mode=investigator`),
+          variant: 'default',
+          icon: <CheckCircle2 className="mr-2 h-4 w-4" />,
+        });
+      }
+      
+      // Approve button
+      if (incident.status === GeneralStatusEnum.WAITING_APPROVAL) {
+        actions.push({
+          label: 'Approve',
+          onClick: () => navigate(`/incidents/${incident.id}/edit?mode=approver`),
+          variant: 'default',
+          icon: <CheckCircle2 className="mr-2 h-4 w-4" />,
+        });
+      }
+      
+      return actions;
+    }
+
+    // Normal user logic
+    // Check if user is creator
+    const isCreator = incident.createdBy === currentUser.id;
+    
+    // Check if user has same department as creator
+    const hasSameDeptAsCreator = userData?.departmentId && incident.creator?.departmentId
+      ? userData.departmentId === incident.creator.departmentId
+      : false;
+    
+    // Check if user is in HSE department (for investigator mode)
+    const userInHSEDept = userData?.departmentId && departments.length > 0
+      ? departments.find(dept => dept.id === userData.departmentId)?.code === 'HSE'
+      : false;
+
+    // Edit button (creator mode) - for DRAFT or OPEN status
+    // Show if: user is creator OR user has same department as creator OR user is super_admin
+    if ((isCreator || hasSameDeptAsCreator || isSuperAdmin) && 
+        (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN)) {
+      actions.push({
+        label: 'Edit',
+        onClick: () => navigate(`/incidents/${incident.id}/edit?mode=creator`),
+        variant: 'default',
+        icon: <Edit className="mr-2 h-4 w-4" />,
+      });
+    }
+
+    // Submit button (investigator mode) - for OPEN status and user is in HSE department
+    if (userInHSEDept && incident.status === GeneralStatusEnum.OPEN) {
+      actions.push({
+        label: 'Submit',
+        onClick: () => navigate(`/incidents/${incident.id}/edit?mode=investigator`),
+        variant: 'default',
+        icon: <CheckCircle2 className="mr-2 h-4 w-4" />,
+      });
+    }
+
+    // Approve button (approver mode) - for WAITING_APPROVAL status and user has approval rights
+    if (incident.status === GeneralStatusEnum.WAITING_APPROVAL && approvalRights[incident.id]) {
+      actions.push({
+        label: 'Approve',
+        onClick: () => navigate(`/incidents/${incident.id}/edit?mode=approver`),
+        variant: 'default',
+        icon: <CheckCircle2 className="mr-2 h-4 w-4" />,
+      });
+    }
+
+    return actions;
+  };
+
   const handleSearch = (term: string) => {
     setSearchTerm(term);
     setPageIndex(0);
@@ -512,7 +681,6 @@ const IncidentsPage = () => {
 
   const handleDeleteClick = (incident: Incident, event?: React.MouseEvent) => {
     event?.stopPropagation();
-    setOpenDropdownId(null);
     setIncidentToDelete(incident);
     setDeleteDialogOpen(true);
   };
@@ -524,7 +692,6 @@ const IncidentsPage = () => {
     try {
       await incidentsService.delete(incidentToDelete.id);
       toast.success('Incident has been deleted');
-      setOpenDropdownId(null);
       fetchIncidents();
     } catch (error) {
       console.error('Failed to delete incident:', error);
@@ -605,46 +772,97 @@ const IncidentsPage = () => {
     {
       id: 'actions',
       header: 'Actions',
-      cell: (row: Incident) => (
-        <DropdownMenu
-          open={openDropdownId === row.id}
-          onOpenChange={(isOpen) => {
-            setOpenDropdownId(isOpen ? row.id : null);
-          }}
-        >
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={(e) => {
-              e.stopPropagation();
-              setOpenDropdownId(null);
-              navigate(`/incidents/${row.id}`);
-            }}>
-              <Eye className="mr-2 h-4 w-4" />
-              View Details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={(e) => {
-              e.stopPropagation();
-              setOpenDropdownId(null);
-              navigate(`/incidents/${row.id}/edit`);
-            }}>
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => handleDeleteClick(row, e)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      cell: (row: Incident) => {
+        const modeActions = getModeActions(row);
+
+        return (
+          <div className="flex items-center gap-2">
+            {/* View button - always shown, icon-only with tooltip */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/incidents/${row.id}`);
+                  }}
+                  className="text-primary hover:text-primary hover:bg-primary/10"
+                  aria-label={`View details for ${row.code}`}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>View</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            {/* Mode-specific action buttons: Edit, Submit, Approve - icon-only with tooltips */}
+            {modeActions.map((action, index) => {
+              // Determine color based on action type
+              let colorClass = '';
+              let IconComponent: React.ElementType;
+              
+              if (action.label === 'Edit') {
+                colorClass = 'text-blue-600 hover:text-blue-700 hover:bg-blue-50';
+                IconComponent = Edit;
+              } else if (action.label === 'Submit') {
+                colorClass = 'text-orange-600 hover:text-orange-700 hover:bg-orange-50';
+                IconComponent = CheckCircle2;
+              } else if (action.label === 'Approve') {
+                colorClass = 'text-green-600 hover:text-green-700 hover:bg-green-50';
+                IconComponent = CheckCircle2;
+              } else {
+                IconComponent = Edit; // fallback
+              }
+              
+              return (
+                <Tooltip key={`mode-${index}`}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        action.onClick();
+                      }}
+                      className={colorClass}
+                    >
+                      <IconComponent className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{action.label}</p>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+            
+            {/* Delete button - shown directly for super_admin, icon-only with tooltip */}
+            {isSuperAdmin && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteClick(row, e);
+                    }}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Delete</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -654,10 +872,28 @@ const IncidentsPage = () => {
         title="Incidents"
         subtitle="Manage incident reports and tracking"
         actions={
-          <Button onClick={() => navigate('/incidents/new')}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Incident
-          </Button>
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsWorkflowInfoDialogOpen(true)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <Info className="h-4 w-4" />
+                  <span className="sr-only">View workflow information</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>View Incident Workflow</p>
+              </TooltipContent>
+            </Tooltip>
+            <Button onClick={() => navigate('/incidents/new')}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Incident
+            </Button>
+          </div>
         }
       >
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
@@ -697,6 +933,115 @@ const IncidentsPage = () => {
         confirmText="Delete"
         variant="destructive"
       />
+
+      {/* Workflow Information Dialog */}
+      <Dialog open={isWorkflowInfoDialogOpen} onOpenChange={setIsWorkflowInfoDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Incident Workflow</DialogTitle>
+            <DialogDescription>
+              The incident goes through three main stages before reaching completion
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-2">
+              {/* Step 1: Creator */}
+              <div className="flex flex-col items-center text-center flex-1">
+                <div className="relative flex items-center justify-center mb-4">
+                  <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+                    <FileText className="h-8 w-8 text-blue-600" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-semibold flex items-center justify-center">
+                    1
+                  </div>
+                </div>
+                <h3 className="font-semibold text-lg mb-1">Creator</h3>
+                <p className="text-sm text-muted-foreground mb-4 max-w-[200px]">
+                  Create incident and fill all sections except Control Measures & Outcomes. Status becomes OPEN.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                  onClick={() => {
+                    setIsWorkflowInfoDialogOpen(false);
+                    toast.info('Click "Create Incident" button or "Edit" button on an existing incident to create/edit as creator');
+                  }}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Create/Edit as Creator
+                </Button>
+              </div>
+
+              {/* Arrow Connector 1 */}
+              <div className="hidden md:flex items-center justify-center px-4">
+                <ArrowRight className="h-6 w-6 text-muted-foreground" />
+              </div>
+
+              {/* Step 2: Investigator */}
+              <div className="flex flex-col items-center text-center flex-1">
+                <div className="relative flex items-center justify-center mb-4">
+                  <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center">
+                    <ShieldCheck className="h-8 w-8 text-orange-600" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-orange-600 text-white text-xs font-semibold flex items-center justify-center">
+                    2
+                  </div>
+                </div>
+                <h3 className="font-semibold text-lg mb-1">Investigator</h3>
+                <p className="text-sm text-muted-foreground mb-4 max-w-[200px]">
+                  HSE department users can only update Control Measures & Outcomes section. Submits for approval. Status becomes WAITING_APPROVAL.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700"
+                  onClick={() => {
+                    setIsWorkflowInfoDialogOpen(false);
+                    toast.info('Click "Submit" button on an incident with OPEN status (only visible for HSE department users)');
+                  }}
+                >
+                  <ShieldCheck className="h-4 w-4 mr-2" />
+                  Submit as Investigator
+                </Button>
+              </div>
+
+              {/* Arrow Connector 2 */}
+              <div className="hidden md:flex items-center justify-center px-4">
+                <ArrowRight className="h-6 w-6 text-muted-foreground" />
+              </div>
+
+              {/* Step 3: Approver */}
+              <div className="flex flex-col items-center text-center flex-1">
+                <div className="relative flex items-center justify-center mb-4">
+                  <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+                    <CheckCircle2 className="h-8 w-8 text-green-600" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-semibold flex items-center justify-center">
+                    3
+                  </div>
+                </div>
+                <h3 className="font-semibold text-lg mb-1">Approver</h3>
+                <p className="text-sm text-muted-foreground mb-4 max-w-[200px]">
+                  HSE Department Head reviews and approves/rejects. If approved, status becomes CLOSE. If rejected, status returns to OPEN.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
+                  onClick={() => {
+                    setIsWorkflowInfoDialogOpen(false);
+                    toast.info('Click "Approve" button on an incident with WAITING_APPROVAL status (only visible for HSE Department Head)');
+                  }}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Approve/Reject
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

@@ -20,6 +20,9 @@ import {
   MechanismOfInjuryEnum
 } from '../types/incident.types';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { approvalService, type ApprovalStatusHistory } from '@/modules/master-data';
+import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
+import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 
 const IncidentDetailPage = () => {
   const navigate = useNavigate();
@@ -28,6 +31,8 @@ const IncidentDetailPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   useEffect(() => {
     const fetchIncident = async () => {
@@ -48,6 +53,43 @@ const IncidentDetailPage = () => {
 
     fetchIncident();
   }, [id, navigate]);
+
+  // Fetch approval status/history
+  useEffect(() => {
+    const fetchApprovalStatus = async () => {
+      if (!id) return;
+
+      setIsLoadingHistory(true);
+      try {
+        const approvalStatus = await approvalService.checkApprovalStatus(id, APPROVAL_ENTITIES.INCIDENT);
+        // Handle backend error response (backend returns { error: true, message: string } on errors)
+        if (approvalStatus && !(approvalStatus as any).error) {
+          setApprovalHistory(approvalStatus);
+        } else {
+          // Backend returned an error response, but still set empty history
+          setApprovalHistory({
+            history: [],
+            nextApprover: null,
+            allApprovalLines: [],
+            currentStatus: 'UNKNOWN',
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch approval status:', error);
+        // Set empty history instead of null, so component can still render
+        setApprovalHistory({
+          history: [],
+          nextApprover: null,
+          allApprovalLines: [],
+          currentStatus: 'UNKNOWN',
+        });
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    fetchApprovalStatus();
+  }, [id]);
 
   const handleDeleteClick = () => {
     setDeleteDialogOpen(true);
@@ -153,7 +195,7 @@ const IncidentDetailPage = () => {
       />
 
       <div className="container mx-auto py-6 space-y-8">
-        {/* Basic Information */}
+        {/* Basic Information and Approval Timeline */}
         <Card className="border-l-4 border-l-blue-500 bg-blue-50/30 dark:bg-blue-950/10">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -162,46 +204,59 @@ const IncidentDetailPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Code</h3>
-                <p className="mt-1 text-sm">{incident.code}</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Code</h3>
+                  <p className="mt-1 text-sm">{incident.code}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Subject</h3>
+                  <p className="mt-1 text-sm">{incident.subject}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Incident Date</h3>
+                  <p className="mt-1 text-sm">{format(new Date(incident.incidentDate), 'dd MMM yyyy')}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Location</h3>
+                  <p className="mt-1 text-sm">{incident.room?.name || '-'}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Area</h3>
+                  <p className="mt-1 text-sm">{incident.area?.name || '-'}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Risk Category</h3>
+                  <p className="mt-1 text-sm">{incident.riskCategory?.name || '-'}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Type</h3>
+                  <p className="mt-1 text-sm">{incident.incidentType.replace(/_/g, ' ')}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Classification</h3>
+                  <p className="mt-1 text-sm">{incident.incidentClassification}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Priority</h3>
+                  <p className="mt-1 text-sm">{incident.priority}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
+                  <div className="mt-1">{getStatusBadge(incident.status)}</div>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Subject</h3>
-                <p className="mt-1 text-sm">{incident.subject}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Incident Date</h3>
-                <p className="mt-1 text-sm">{format(new Date(incident.incidentDate), 'dd MMM yyyy')}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Location</h3>
-                <p className="mt-1 text-sm">{incident.room?.name || '-'}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Area</h3>
-                <p className="mt-1 text-sm">{incident.area?.name || '-'}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Risk Category</h3>
-                <p className="mt-1 text-sm">{incident.riskCategory?.name || '-'}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Type</h3>
-                <p className="mt-1 text-sm">{incident.incidentType.replace(/_/g, ' ')}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Classification</h3>
-                <p className="mt-1 text-sm">{incident.incidentClassification}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Priority</h3>
-                <p className="mt-1 text-sm">{incident.priority}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
-                <div className="mt-1">{getStatusBadge(incident.status)}</div>
+              
+              {/* Approval Timeline */}
+              <div className="lg:border-l lg:pl-6 flex flex-col">
+                <ApprovalTimelineCard
+                  approvalHistory={approvalHistory}
+                  isLoading={isLoadingHistory}
+                  assessmentStatus={incident.status === GeneralStatusEnum.DONE ? 'DONE' : incident.status}
+                  entityDepartmentName={incident.assignedDepartment?.name}
+                  entityJobPositionName="Department Head"
+                />
               </div>
             </div>
             {incident.description && (
@@ -228,8 +283,7 @@ const IncidentDetailPage = () => {
                   <h3 className="text-sm font-medium text-muted-foreground">Requester</h3>
                   <p className="mt-1 text-sm">
                     {incident.requester.name ??
-                      [incident.requester.firstName, incident.requester.lastName].filter(Boolean).join(' ').trim() ||
-                      '-'}
+                      ([incident.requester.firstName, incident.requester.lastName].filter(Boolean).join(' ').trim() || '-')}
                   </p>
                 </div>
               )}
@@ -238,8 +292,7 @@ const IncidentDetailPage = () => {
                   <h3 className="text-sm font-medium text-muted-foreground">Reporter</h3>
                   <p className="mt-1 text-sm">
                     {incident.reporter.name ??
-                      [incident.reporter.firstName, incident.reporter.lastName].filter(Boolean).join(' ').trim() ||
-                      '-'}
+                      ([incident.reporter.firstName, incident.reporter.lastName].filter(Boolean).join(' ').trim() || '-')}
                   </p>
                 </div>
               )}
@@ -248,8 +301,7 @@ const IncidentDetailPage = () => {
                   <h3 className="text-sm font-medium text-muted-foreground">Technician</h3>
                   <p className="mt-1 text-sm">
                     {incident.technician.name ??
-                      [incident.technician.firstName, incident.technician.lastName].filter(Boolean).join(' ').trim() ||
-                      '-'}
+                      ([incident.technician.firstName, incident.technician.lastName].filter(Boolean).join(' ').trim() || '-')}
                   </p>
                 </div>
               )}
@@ -264,87 +316,13 @@ const IncidentDetailPage = () => {
                   <h3 className="text-sm font-medium text-muted-foreground">Assignee</h3>
                   <p className="mt-1 text-sm">
                     {incident.assignee.name ??
-                      [incident.assignee.firstName, incident.assignee.lastName].filter(Boolean).join(' ').trim() ||
-                      '-'}
+                      ([incident.assignee.firstName, incident.assignee.lastName].filter(Boolean).join(' ').trim() || '-')}
                   </p>
                 </div>
               )}
             </div>
           </CardContent>
         </Card>
-
-        {/* Control Measures & Outcomes */}
-        {(incident.controlMeasure || incident.expectedOutcome || incident.resolution || 
-          incident.stopActivityDescription || incident.treatmentDescription || incident.dueDate ||
-          incident.needToStopActivity !== StopActivityEnum.NOT_SPECIFIED || incident.treatment !== TreatmentEnum.NOT_SPECIFIED || 
-          incident.absence !== AbsenceEnum.NOT_SPECIFIED) && (
-          <Card className="border-l-4 border-l-green-500 bg-green-50/30 dark:bg-green-950/10">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
-                Control Measures & Outcomes
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {incident.dueDate && (
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Due Date</h3>
-                    <p className="mt-1 text-sm">{format(new Date(incident.dueDate), 'dd MMM yyyy')}</p>
-                  </div>
-                )}
-                {incident.needToStopActivity !== StopActivityEnum.NOT_SPECIFIED && (
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Need to Stop Activity</h3>
-                    <p className="mt-1 text-sm">{incident.needToStopActivity.replace(/_/g, ' ')}</p>
-                  </div>
-                )}
-                {incident.treatment !== TreatmentEnum.NOT_SPECIFIED && (
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Treatment</h3>
-                    <p className="mt-1 text-sm">{incident.treatment.replace(/_/g, ' ')}</p>
-                  </div>
-                )}
-                {incident.absence !== AbsenceEnum.NOT_SPECIFIED && (
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Absence</h3>
-                    <p className="mt-1 text-sm">{incident.absence.replace(/_/g, ' ')}</p>
-                  </div>
-                )}
-              </div>
-              {incident.controlMeasure && (
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Control Measure</h3>
-                  <p className="text-sm whitespace-pre-wrap">{incident.controlMeasure}</p>
-                </div>
-              )}
-              {incident.expectedOutcome && (
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Expected Outcome</h3>
-                  <p className="text-sm whitespace-pre-wrap">{incident.expectedOutcome}</p>
-                </div>
-              )}
-              {incident.stopActivityDescription && (
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Stop Activity Description</h3>
-                  <p className="text-sm whitespace-pre-wrap">{incident.stopActivityDescription}</p>
-                </div>
-              )}
-              {incident.treatmentDescription && (
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Treatment Description</h3>
-                  <p className="text-sm whitespace-pre-wrap">{incident.treatmentDescription}</p>
-                </div>
-              )}
-              {incident.resolution && (
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Resolution</h3>
-                  <p className="text-sm whitespace-pre-wrap">{incident.resolution}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
 
         {/* Injured Persons */}
         {incident.injuredPersons && incident.injuredPersons.length > 0 && (
@@ -576,6 +554,79 @@ const IncidentDetailPage = () => {
                   </CardContent>
                 </Card>
               ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Control Measures & Outcomes */}
+        {(incident.controlMeasure || incident.expectedOutcome || incident.resolution || 
+          incident.stopActivityDescription || incident.treatmentDescription || incident.dueDate ||
+          incident.needToStopActivity !== StopActivityEnum.NOT_SPECIFIED || incident.treatment !== TreatmentEnum.NOT_SPECIFIED || 
+          incident.absence !== AbsenceEnum.NOT_SPECIFIED) && (
+          <Card className="border-l-4 border-l-green-500 bg-green-50/30 dark:bg-green-950/10">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
+                Control Measures & Outcomes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {incident.dueDate && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Due Date</h3>
+                    <p className="mt-1 text-sm">{format(new Date(incident.dueDate), 'dd MMM yyyy')}</p>
+                  </div>
+                )}
+                {incident.needToStopActivity !== StopActivityEnum.NOT_SPECIFIED && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Need to Stop Activity</h3>
+                    <p className="mt-1 text-sm">{incident.needToStopActivity.replace(/_/g, ' ')}</p>
+                  </div>
+                )}
+                {incident.treatment !== TreatmentEnum.NOT_SPECIFIED && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Treatment</h3>
+                    <p className="mt-1 text-sm">{incident.treatment.replace(/_/g, ' ')}</p>
+                  </div>
+                )}
+                {incident.absence !== AbsenceEnum.NOT_SPECIFIED && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Absence</h3>
+                    <p className="mt-1 text-sm">{incident.absence.replace(/_/g, ' ')}</p>
+                  </div>
+                )}
+              </div>
+              {incident.controlMeasure && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Control Measure</h3>
+                  <p className="text-sm whitespace-pre-wrap">{incident.controlMeasure}</p>
+                </div>
+              )}
+              {incident.expectedOutcome && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Expected Outcome</h3>
+                  <p className="text-sm whitespace-pre-wrap">{incident.expectedOutcome}</p>
+                </div>
+              )}
+              {incident.stopActivityDescription && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Stop Activity Description</h3>
+                  <p className="text-sm whitespace-pre-wrap">{incident.stopActivityDescription}</p>
+                </div>
+              )}
+              {incident.treatmentDescription && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Treatment Description</h3>
+                  <p className="text-sm whitespace-pre-wrap">{incident.treatmentDescription}</p>
+                </div>
+              )}
+              {incident.resolution && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Resolution</h3>
+                  <p className="text-sm whitespace-pre-wrap">{incident.resolution}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

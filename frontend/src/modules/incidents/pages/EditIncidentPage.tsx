@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
@@ -11,8 +11,15 @@ import IncidentForm from '../components/IncidentForm';
 const EditIncidentPage = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const [incident, setIncident] = useState<Incident | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Get entryMode from query params
+  const modeParam = searchParams.get('mode');
+  const entryMode = modeParam && ['creator', 'investigator', 'approver'].includes(modeParam) 
+    ? (modeParam as 'creator' | 'investigator' | 'approver')
+    : undefined;
 
   useEffect(() => {
     const fetchIncident = async () => {
@@ -74,7 +81,7 @@ const EditIncidentPage = () => {
         }
       />
       <div className="max-w-4xl mx-auto">
-        <IncidentForm incident={incident} mode="edit" />
+        <IncidentForm incident={incident} mode="edit" entryMode={entryMode} />
       </div>
     </>
   );

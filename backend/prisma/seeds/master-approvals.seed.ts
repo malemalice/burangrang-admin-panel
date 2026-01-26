@@ -177,12 +177,52 @@ export async function seedMasterApprovals(prisma: PrismaClient) {
     `✅ Created Audit Item approval workflow (Dynamic → Lead in Academic Department)`,
   );
 
+  // 5. Incident Approval Workflow
+  const incidentApproval = await prisma.masterApproval.create({
+    data: {
+      entity: APPROVAL_ENTITIES.INCIDENT,
+      isActive: true,
+    },
+  });
+
+  // Find HSE department and Head position
+  const hseDept = departments.find((d) => d.code === 'HSE');
+  const headPos = headPosition || jobPositions.find((j) => j.code === 'HEAD');
+
+  if (!hseDept) {
+    console.log('⚠️  HSE department not found. Using fallback department for incident approval.');
+  }
+  if (!headPos) {
+    console.log('⚠️  HEAD position not found. Using fallback position for incident approval.');
+  }
+
+  const finalHseDept = hseDept || dept1;
+  const finalHeadPos = headPos || jobPositions[0]!;
+
+  // Incident: 1-step approval (HSE Department Head)
+  await prisma.masterApprovalItem.createMany({
+    data: [
+      {
+        mApprovalId: incidentApproval.id,
+        order: 0,
+        jobPositionId: finalHeadPos.id,
+        departmentId: finalHseDept.id,
+        createdBy: creator.id,
+      },
+    ],
+  });
+
+  console.log(
+    `✅ Created Incident approval workflow (${finalHseDept.name} - ${finalHeadPos.name})`,
+  );
+
   console.log('✅ Master Approvals seeding completed');
   return {
     riskAssessmentApproval,
     workPermitApproval,
     inspectionItemApproval,
     auditItemApproval,
+    incidentApproval,
   };
 }
 

@@ -4,6 +4,10 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { useAuth } from '@/core/lib/auth';
+import approvalService from '@/modules/master-data/services/approvalService';
+import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
+import { ApprovalStatus } from '@/core/lib/types';
 import { Button } from '@/core/components/ui/button';
 import {
   Form,
@@ -26,7 +30,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/c
 import { Badge } from '@/core/components/ui/badge';
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
-import { Plus, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip, X } from 'lucide-react';
+import { Plus, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip, X, CheckCircle2, XCircle } from 'lucide-react';
 import incidentsService from '../services/incidentsService';
 import uploadService, { FileCategory } from '@/modules/uploads/services/uploadService';
 import safetyEquipmentService from '@/modules/ppe/services/safetyEquipmentService';
@@ -139,16 +143,25 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+type IncidentFormMode = 'creator' | 'investigator' | 'approver';
+
 interface IncidentFormProps {
   incident?: Incident;
   mode: 'create' | 'edit';
+  entryMode?: IncidentFormMode;
 }
 
-const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
+const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [dataReady, setDataReady] = useState(false);
+  const [resolvedMode, setResolvedMode] = useState<IncidentFormMode>('creator');
+  const [canApprove, setCanApprove] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
+  const [approvalNotes, setApprovalNotes] = useState('');
 
   // Reference data
   const [areas, setAreas] = useState<AreaDTO[]>([]);
@@ -394,6 +407,103 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
     loadCategory();
   }, []);
 
+  // Check user permissions and resolve form mode (creator / investigator / approver)
+  useEffect(() => {
+    const checkPermissions = async () => {
+      if (!currentUser?.id) return;
+
+      try {
+        // If explicit entryMode is provided, use it
+        if (entryMode) {
+          setResolvedMode(entryMode);
+          if (entryMode === 'approver' && incident) {
+            try {
+              const approvalResponse = await approvalService.checkApprovalRights(
+                incident.id,
+                APPROVAL_ENTITIES.INCIDENT,
+              );
+              setCanApprove(approvalResponse.canApprove);
+            } catch (error) {
+              console.error('Failed to check approval rights:', error);
+              setCanApprove(false);
+            }
+          }
+          return;
+        }
+
+        // Auto-resolve mode based on incident status and user role
+        if (incident) {
+          // Check if user is the creator
+          const isCreator = incident.createdBy === currentUser.id;
+
+          // Check if user is in HSE department (for investigator mode)
+          let userInHSEDept = false;
+
+          try {
+            const response = await api.get('/users/me');
+            const userData = response.data;
+
+            // Check if user's department code is 'HSE'
+            if (userData.departmentId && departments.length > 0) {
+              const userDepartment = departments.find(dept => dept.id === userData.departmentId);
+              if (userDepartment && userDepartment.code === 'HSE') {
+                userInHSEDept = true;
+              }
+            }
+
+            // Check approval rights if item is waiting for approval
+            let hasApprovalRights = false;
+            if (incident.status === GeneralStatusEnum.WAITING_APPROVAL) {
+              try {
+                const approvalResponse = await approvalService.checkApprovalRights(
+                  incident.id,
+                  APPROVAL_ENTITIES.INCIDENT,
+                );
+                hasApprovalRights = approvalResponse.canApprove;
+                setCanApprove(hasApprovalRights);
+              } catch (error) {
+                console.error('Failed to check approval rights:', error);
+                setCanApprove(false);
+              }
+            }
+
+            // Resolve mode:
+            // 1) Approval mode if waiting approval and user has approval rights
+            if (incident.status === GeneralStatusEnum.WAITING_APPROVAL && hasApprovalRights) {
+              setResolvedMode('approver');
+            }
+            // 2) Investigator mode for HSE department users (status is OPEN)
+            else if (
+              userInHSEDept &&
+              incident.status === GeneralStatusEnum.OPEN
+            ) {
+              setResolvedMode('investigator');
+            }
+            // 3) Creator mode for creator (status is DRAFT or OPEN)
+            else if (isCreator && (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN)) {
+              setResolvedMode('creator');
+            }
+            // Default to creator if no match
+            else {
+              setResolvedMode('creator');
+            }
+          } catch (error) {
+            console.error('Failed to check user permissions:', error);
+          }
+        } else {
+          // Create mode: always creator
+          setResolvedMode('creator');
+        }
+      } catch (error) {
+        console.error('Failed to check user permissions:', error);
+      }
+    };
+
+    if (dataReady) {
+      checkPermissions();
+    }
+  }, [currentUser, incident, entryMode, dataReady, departments]);
+
   // Populate image/attachment uploads when editing
   useEffect(() => {
     if (incident && mode === 'edit' && dataReady) {
@@ -585,6 +695,85 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
     return { images: imagePayload, attachments: attachmentPayload };
   }, [fileCategory, imageUploads, attachmentUploads]);
 
+  // Determine if field should be disabled based on mode
+  const isFieldDisabled = (fieldName: string): boolean => {
+    if (isLoading || isApproving) return true;
+    
+    if (resolvedMode === 'creator') {
+      // Creator: cannot fill 'Control Measures & Outcomes' section
+      const controlMeasureFields = [
+        'controlMeasure',
+        'dueDate',
+        'expectedOutcome',
+        'needToStopActivity',
+        'stopActivityDescription',
+        'treatment',
+        'treatmentDescription',
+        'absence',
+        'resolution',
+      ];
+      return controlMeasureFields.includes(fieldName);
+    }
+    
+    if (resolvedMode === 'investigator') {
+      // Investigator: only can update 'Control Measures & Outcomes' sections
+      const controlMeasureFields = [
+        'controlMeasure',
+        'dueDate',
+        'expectedOutcome',
+        'needToStopActivity',
+        'stopActivityDescription',
+        'treatment',
+        'treatmentDescription',
+        'absence',
+        'resolution',
+      ];
+      return !controlMeasureFields.includes(fieldName);
+    }
+    
+    // Approver: all fields are read-only (approval handled separately)
+    return true;
+  };
+
+  // Determine if field should be hidden based on mode
+  const isFieldHidden = (fieldName: string): boolean => {
+    // All fields are visible in all modes (investigator sees all sections as read-only)
+    return false;
+  };
+
+  const handleApprove = async (status: ApprovalStatus, notes: string) => {
+    if (!incident) return;
+    
+    try {
+      setIsApproving(true);
+      
+      // Submit approval
+      await approvalService.submitApproval({
+        entityId: incident.id,
+        entity: APPROVAL_ENTITIES.INCIDENT,
+        status,
+        notes,
+      });
+
+      // Update incident status based on approval result
+      const newStatus = status === ApprovalStatus.APPROVED 
+        ? GeneralStatusEnum.CLOSE 
+        : GeneralStatusEnum.OPEN;
+      
+      await incidentsService.update(incident.id, {
+        status: newStatus,
+      } as UpdateIncidentDTO);
+
+      toast.success(status === ApprovalStatus.APPROVED ? 'Incident approved successfully' : 'Incident rejected');
+      navigate('/incidents');
+    } catch (error: any) {
+      console.error('Failed to submit approval:', error);
+      toast.error('Failed to submit approval');
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
     try {
@@ -592,6 +781,19 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
       [...imageUploads, ...attachmentUploads].forEach((x) => {
         if ('url' in x && x.url.startsWith('blob:')) URL.revokeObjectURL(x.url);
       });
+
+      // Determine status based on mode
+      let statusToSet = data.status;
+      if (resolvedMode === 'creator') {
+        // Creator: submit updates status to OPEN (for both create and edit)
+        statusToSet = GeneralStatusEnum.OPEN;
+      } else if (resolvedMode === 'investigator') {
+        // Investigator: submit changes status to WAITING_APPROVAL
+        statusToSet = GeneralStatusEnum.WAITING_APPROVAL;
+      } else if (resolvedMode === 'approver') {
+        // Approver: status handled by approval handler (should not submit via main form)
+        return;
+      }
 
       const dto: CreateIncidentDTO | UpdateIncidentDTO = {
         code: data.code,
@@ -618,7 +820,7 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
         resolution: data.resolution || undefined,
         assignedDepartmentId: data.assignedDepartmentId,
         assigneeId: data.assigneeId || undefined,
-        status: data.status,
+        status: statusToSet,
         source: data.source,
         isActive: data.isActive,
         injuredPersons:
@@ -702,7 +904,12 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                     <FormItem>
                       <FormLabel>Code <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter incident code" {...field} />
+                        <Input 
+                          placeholder="Enter incident code" 
+                          {...field} 
+                          disabled={isFieldDisabled('code')}
+                          readOnly={isFieldDisabled('code')}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -716,7 +923,12 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                     <FormItem>
                       <FormLabel>Subject <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter incident subject" {...field} />
+                        <Input 
+                          placeholder="Enter incident subject" 
+                          {...field} 
+                          disabled={isFieldDisabled('subject')}
+                          readOnly={isFieldDisabled('subject')}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -906,6 +1118,8 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                           placeholder="Enter incident description"
                           className="min-h-[100px]"
                           {...field}
+                          disabled={isFieldDisabled('description')}
+                          readOnly={isFieldDisabled('description')}
                         />
                       </FormControl>
                       <FormMessage />
@@ -1014,200 +1228,6 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
                           value={field.value || ''}
                           onValueChange={field.onChange}
                           placeholder="Select assignee"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Control Measures & Outcomes */}
-            <Card className="border-l-4 border-l-green-500 bg-green-50/30 dark:bg-green-950/10">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  Control Measures & Outcomes
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="dueDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Due Date</FormLabel>
-                      <FormControl>
-                        <DateTimePicker mode="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="needToStopActivity"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Need to Stop Activity</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select option" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={StopActivityEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
-                          <SelectItem value={StopActivityEnum.YES}>Yes</SelectItem>
-                          <SelectItem value={StopActivityEnum.NO}>No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="treatment"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Treatment</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select treatment" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={TreatmentEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
-                          <SelectItem value={TreatmentEnum.FIRST_AID}>First Aid</SelectItem>
-                          <SelectItem value={TreatmentEnum.MEDICAL_TREATMENT}>Medical Treatment</SelectItem>
-                          <SelectItem value={TreatmentEnum.HOSPITALIZATION}>Hospitalization</SelectItem>
-                          <SelectItem value={TreatmentEnum.NO_TREATMENT}>No Treatment</SelectItem>
-                          <SelectItem value={TreatmentEnum.OTHER}>Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="absence"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Absence</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select absence" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={AbsenceEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
-                          <SelectItem value={AbsenceEnum.NOT_YET_KNOWN}>Not Yet Known</SelectItem>
-                          <SelectItem value={AbsenceEnum.RETURNED_AFTER_TREATMENT}>
-                            Returned After Treatment
-                          </SelectItem>
-                          <SelectItem value={AbsenceEnum.MORE_THAN_THREE_DAYS}>
-                            More Than Three Days
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="controlMeasure"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Control Measure</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter control measures"
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="expectedOutcome"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Expected Outcome</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter expected outcome"
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="stopActivityDescription"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Stop Activity Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter stop activity description"
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="treatmentDescription"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Treatment Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter treatment description"
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="resolution"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Resolution</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter resolution"
-                          className="min-h-[100px]"
-                          {...field}
                         />
                       </FormControl>
                       <FormMessage />
@@ -1992,19 +2012,288 @@ const IncidentForm = ({ incident, mode }: IncidentFormProps) => {
               </CardContent>
             </Card>
 
+            {/* Control Measures & Outcomes */}
+            <Card className="border-l-4 border-l-green-500 bg-green-50/30 dark:bg-green-950/10">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <ShieldCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  Control Measures & Outcomes
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="dueDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Due Date</FormLabel>
+                      <FormControl>
+                        <DateTimePicker mode="date" {...field} disabled={isFieldDisabled('dueDate')} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="needToStopActivity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Need to Stop Activity</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isFieldDisabled('needToStopActivity')}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select option" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={StopActivityEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
+                          <SelectItem value={StopActivityEnum.YES}>Yes</SelectItem>
+                          <SelectItem value={StopActivityEnum.NO}>No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="treatment"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Treatment</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isFieldDisabled('treatment')}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select treatment" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={TreatmentEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
+                          <SelectItem value={TreatmentEnum.FIRST_AID}>First Aid</SelectItem>
+                          <SelectItem value={TreatmentEnum.MEDICAL_TREATMENT}>Medical Treatment</SelectItem>
+                          <SelectItem value={TreatmentEnum.HOSPITALIZATION}>Hospitalization</SelectItem>
+                          <SelectItem value={TreatmentEnum.NO_TREATMENT}>No Treatment</SelectItem>
+                          <SelectItem value={TreatmentEnum.OTHER}>Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="absence"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Absence</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isFieldDisabled('absence')}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select absence" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={AbsenceEnum.NOT_SPECIFIED}>Not Specified</SelectItem>
+                          <SelectItem value={AbsenceEnum.NOT_YET_KNOWN}>Not Yet Known</SelectItem>
+                          <SelectItem value={AbsenceEnum.RETURNED_AFTER_TREATMENT}>
+                            Returned After Treatment
+                          </SelectItem>
+                          <SelectItem value={AbsenceEnum.MORE_THAN_THREE_DAYS}>
+                            More Than Three Days
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="controlMeasure"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Control Measure</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter control measures"
+                          className="min-h-[100px]"
+                          {...field}
+                          disabled={isFieldDisabled('controlMeasure')}
+                          readOnly={isFieldDisabled('controlMeasure')}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="expectedOutcome"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Expected Outcome</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter expected outcome"
+                          className="min-h-[100px]"
+                          {...field}
+                          disabled={isFieldDisabled('expectedOutcome')}
+                          readOnly={isFieldDisabled('expectedOutcome')}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="stopActivityDescription"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Stop Activity Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter stop activity description"
+                          className="min-h-[100px]"
+                          {...field}
+                          disabled={isFieldDisabled('stopActivityDescription')}
+                          readOnly={isFieldDisabled('stopActivityDescription')}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="treatmentDescription"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Treatment Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter treatment description"
+                          className="min-h-[100px]"
+                          {...field}
+                          disabled={isFieldDisabled('treatmentDescription')}
+                          readOnly={isFieldDisabled('treatmentDescription')}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="resolution"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Resolution</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter resolution"
+                          className="min-h-[100px]"
+                          {...field}
+                          disabled={isFieldDisabled('resolution')}
+                          readOnly={isFieldDisabled('resolution')}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Approval Notes (only in approver mode) */}
+            {resolvedMode === 'approver' && (
+              <Card className="border-l-4 border-l-blue-500 bg-blue-50/30 dark:bg-blue-950/10">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <ShieldCheck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    Approval Notes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <FormItem>
+                    <FormLabel>Approval Notes <span className="text-red-500">*</span></FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Enter your approval notes..."
+                        value={approvalNotes}
+                        onChange={(e) => setApprovalNotes(e.target.value)}
+                        className="min-h-[100px]"
+                        disabled={isApproving}
+                      />
+                    </FormControl>
+                  </FormItem>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Form Actions */}
             <div className="flex justify-end gap-4 pt-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => navigate('/incidents')}
-                disabled={isLoading || isUploadingFiles}
+                disabled={isLoading || isUploadingFiles || isApproving}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isLoading || isUploadingFiles}>
-                {isLoading ? 'Saving...' : isUploadingFiles ? 'Uploading...' : mode === 'create' ? 'Create Incident' : 'Update Incident'}
-              </Button>
+              
+              {resolvedMode === 'approver' ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={async () => {
+                      setApprovalStatus(ApprovalStatus.REJECTED);
+                      await handleApprove(ApprovalStatus.REJECTED, approvalNotes);
+                    }}
+                    disabled={isApproving || !approvalNotes.trim()}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />
+                    {isApproving ? 'Submitting...' : 'Reject'}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      setApprovalStatus(ApprovalStatus.APPROVED);
+                      await handleApprove(ApprovalStatus.APPROVED, approvalNotes);
+                    }}
+                    disabled={isApproving || !approvalNotes.trim()}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    {isApproving ? 'Submitting...' : 'Approve'}
+                  </Button>
+                </>
+              ) : (
+                <Button type="submit" disabled={isLoading || isUploadingFiles}>
+                  {isLoading 
+                    ? 'Saving...' 
+                    : isUploadingFiles 
+                    ? 'Uploading...' 
+                    : resolvedMode === 'investigator'
+                    ? 'Submit for Approval'
+                    : mode === 'create' 
+                    ? 'Create Incident' 
+                    : 'Update Incident'}
+                </Button>
+              )}
             </div>
           </form>
         </Form>
