@@ -1,9 +1,7 @@
 import { format } from 'date-fns';
 import { RiskAssessment, RiskAssessmentItem } from '@/core/lib/types';
 import { ApprovalStatusHistory } from '@/modules/master-data';
-import { getRiskBadge } from '../utils/riskBadgeHelpers';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
-import { CheckCircle2, XCircle, AlertCircle, Clock, Circle } from 'lucide-react';
 
 interface RiskAssessmentPDFTemplateProps {
   assessment: RiskAssessment;
@@ -16,39 +14,21 @@ export const RiskAssessmentPDFTemplate = ({
   items,
   approvalHistory,
 }: RiskAssessmentPDFTemplateProps) => {
-  const getStatusConfig = (status: string) => {
-    switch (status) {
-      case 'APPROVED':
-        return {
-          badge: 'bg-green-100 text-green-800 border-green-200',
-          icon: CheckCircle2,
-          iconColor: 'text-green-600',
-          dot: 'bg-green-500',
-          label: 'APPROVED',
-        };
-      case 'REJECTED':
-        return {
-          badge: 'bg-red-100 text-red-800 border-red-200',
-          icon: XCircle,
-          iconColor: 'text-red-600',
-          dot: 'bg-red-500',
-          label: 'REJECTED',
-        };
-      default:
-        return {
-          badge: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-          icon: AlertCircle,
-          iconColor: 'text-yellow-600',
-          dot: 'bg-yellow-500',
-          label: 'PENDING',
-        };
-    }
+  const getStatusTextClass = (status?: string) => {
+    const normalized = (status || '').toUpperCase();
+    if (normalized === 'APPROVED') return 'text-green-700';
+    if (normalized === 'REJECTED') return 'text-red-700';
+    if (normalized.includes('WAIT')) return 'text-blue-700';
+    if (normalized === 'PENDING') return 'text-gray-700';
+    return 'text-yellow-700';
   };
 
   // Get all approvals sorted by createdAt (chronological order)
   const allApprovals = approvalHistory?.history?.slice().sort((a, b) => 
     new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   ) || [];
+
+  const approvalLines = approvalHistory?.allApprovalLines || [];
 
   const isDone = assessment.status === GeneralStatusEnum.DONE;
 
@@ -187,13 +167,13 @@ export const RiskAssessmentPDFTemplate = ({
                       {item.riskMatrixRating || 'N/A'}
                     </td>
                     <td className="border border-gray-300 px-3 py-2 text-xs">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        item.interpretation === 'LOW' ? 'bg-green-100 text-green-800' :
-                        item.interpretation === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
-                        item.interpretation === 'HIGH' ? 'bg-orange-100 text-orange-800' :
-                        item.interpretation === 'CRITICAL' ? 'bg-red-100 text-red-800' :
-                        item.interpretation === 'EXTREME' ? 'bg-purple-100 text-purple-800' :
-                        'bg-gray-100 text-gray-800'
+                      <span className={`font-medium ${
+                        item.interpretation === 'LOW' ? 'text-green-700' :
+                        item.interpretation === 'MEDIUM' ? 'text-yellow-700' :
+                        item.interpretation === 'HIGH' ? 'text-orange-700' :
+                        item.interpretation === 'CRITICAL' ? 'text-red-700' :
+                        item.interpretation === 'EXTREME' ? 'text-purple-700' :
+                        'text-gray-700'
                       }`}>
                         {item.interpretation}
                       </span>
@@ -203,13 +183,13 @@ export const RiskAssessmentPDFTemplate = ({
                     </td>
                     <td className="border border-gray-300 px-3 py-2 text-xs">
                       {item.postInterpretation ? (
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          item.postInterpretation === 'LOW' ? 'bg-green-100 text-green-800' :
-                          item.postInterpretation === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
-                          item.postInterpretation === 'HIGH' ? 'bg-orange-100 text-orange-800' :
-                          item.postInterpretation === 'CRITICAL' ? 'bg-red-100 text-red-800' :
-                          item.postInterpretation === 'EXTREME' ? 'bg-purple-100 text-purple-800' :
-                          'bg-gray-100 text-gray-800'
+                        <span className={`font-medium ${
+                          item.postInterpretation === 'LOW' ? 'text-green-700' :
+                          item.postInterpretation === 'MEDIUM' ? 'text-yellow-700' :
+                          item.postInterpretation === 'HIGH' ? 'text-orange-700' :
+                          item.postInterpretation === 'CRITICAL' ? 'text-red-700' :
+                          item.postInterpretation === 'EXTREME' ? 'text-purple-700' :
+                          'text-gray-700'
                         }`}>
                           {item.postInterpretation}
                         </span>
@@ -230,108 +210,116 @@ export const RiskAssessmentPDFTemplate = ({
         <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-300 pb-2">
           Approval Timeline
         </h2>
-        
-        {!approvalHistory || !approvalHistory.allApprovalLines || approvalHistory.allApprovalLines.length === 0 ? (
-          <p className="text-sm text-gray-600">No approval workflow configured.</p>
-        ) : (
-          <div className="space-y-4">
-            {/* Show all approvals in chronological order */}
-            {allApprovals.map((approval) => {
-              const statusConfig = getStatusConfig(approval.status);
-              const StatusIcon = statusConfig.icon;
 
-              return (
-                <div key={approval.id} className="border border-gray-300 rounded p-4 bg-gray-50">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <StatusIcon className={`h-4 w-4 ${statusConfig.iconColor}`} />
-                      <span className={`px-2 py-1 rounded text-xs font-medium border ${statusConfig.badge}`}>
-                        {approval.status}
-                      </span>
-                    </div>
-                    <span className="text-xs text-gray-600">
-                      {format(new Date(approval.createdAt), 'dd MMM yyyy HH:mm')}
-                    </span>
-                  </div>
-                  
-                  {approval.notes && (
-                    <div className="mb-2">
-                      <p className="text-xs text-gray-700">{approval.notes}</p>
-                    </div>
-                  )}
-                  
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-gray-600">By:</span>
-                      <span className="font-medium text-gray-900">{approval.creator.name}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-gray-600">Dept:</span>
-                      <span className="font-medium text-gray-900">{approval.department.name}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-gray-600">Pos:</span>
-                      <span className="font-medium text-gray-900">{approval.jobPosition.name}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+        {/* Summary row */}
+        <div className="mb-3 text-sm text-gray-800">
+          <span className="font-semibold">Current Status:</span>{' '}
+          <span className="font-medium">{approvalHistory?.currentStatus || 'N/A'}</span>
+          {!isDone && approvalHistory?.nextApprover && (
+            <>
+              <span className="mx-2 text-gray-400">|</span>
+              <span className="font-semibold">Next:</span>{' '}
+              <span className="font-medium">
+                {approvalHistory.nextApprover.department.name} / {approvalHistory.nextApprover.jobPosition.name}
+              </span>
+            </>
+          )}
+        </div>
 
-            {/* Show current workflow approval lines only if not DONE */}
-            {!isDone && approvalHistory.allApprovalLines.map((line) => {
-              const approval = allApprovals.find((item) => item.line === line.line);
-              const isCompleted = line.status === 'completed';
+        {/* Workflow table (preferred when configured) */}
+        {approvalLines.length > 0 && (
+          <div className="mb-6">
+            <p className="text-sm font-semibold text-gray-900 mb-2">Workflow</p>
+            <div className="overflow-x-auto">
+              <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Step</th>
+                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Department</th>
+                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Position</th>
+                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Status</th>
+                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">By</th>
+                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {approvalLines.map((line) => {
+                    const approvalsForLine = allApprovals.filter((a) => a.line === line.line);
+                    const lastApproval = approvalsForLine.length > 0 ? approvalsForLine[approvalsForLine.length - 1] : null;
 
-              // Skip completed lines - they're already shown in approvals above
-              if (isCompleted) {
-                return null;
-              }
+                    const statusLabel =
+                      line.status === 'completed'
+                        ? (lastApproval?.status || 'COMPLETED')
+                        : line.status === 'current'
+                          ? 'WAITING APPROVAL'
+                          : 'PENDING';
 
-              if (line.status === 'current') {
-                return (
-                  <div key={`line-${line.line}`} className="border border-blue-300 rounded p-4 bg-blue-50">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Clock className="h-4 w-4 text-blue-600" />
-                      <span className="text-xs font-semibold text-blue-900">Waiting for Approval</span>
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-blue-700">Dept:</span>
-                        <span className="font-medium text-blue-900">{line.department.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-blue-700">Pos:</span>
-                        <span className="font-medium text-blue-900">{line.jobPosition.name}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              } else if (line.status === 'pending') {
-                return (
-                  <div key={`line-${line.line}`} className="border border-gray-300 border-dashed rounded p-4 bg-gray-50 opacity-75">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Circle className="h-4 w-4 text-gray-400" />
-                      <span className="text-xs font-medium text-gray-600">Pending</span>
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
-                      <div className="flex items-center gap-1.5">
-                        <span>Dept:</span>
-                        <span className="font-medium">{line.department.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span>Pos:</span>
-                        <span className="font-medium">{line.jobPosition.name}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-
-              return null;
-            })}
+                    return (
+                      <tr key={`wf-${line.line}`}>
+                        <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{line.line}</td>
+                        <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{line.department.name}</td>
+                        <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{line.jobPosition.name}</td>
+                        <td className="border border-gray-300 px-3 py-2 text-xs">
+                          <span className={`font-semibold ${getStatusTextClass(statusLabel)}`}>{statusLabel}</span>
+                        </td>
+                        <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{lastApproval?.creator?.name || '-'}</td>
+                        <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
+                          {lastApproval?.createdAt ? format(new Date(lastApproval.createdAt), 'dd MMM yyyy HH:mm') : '-'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
+
+        {/* Approval history table (always show if we have data) */}
+        {allApprovals.length > 0 ? (
+          <div>
+            <p className="text-sm font-semibold text-gray-900 mb-2">Approval History</p>
+            <div className="overflow-x-auto">
+              <table className="min-w-full border border-gray-300" style={{ borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">No</th>
+                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Status</th>
+                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Line</th>
+                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">By</th>
+                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Department</th>
+                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Position</th>
+                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Date</th>
+                    <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-700">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allApprovals.map((approval, idx) => (
+                    <tr key={`ah-${approval.id}`}>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{idx + 1}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-xs">
+                        <span className={`font-semibold ${getStatusTextClass(approval.status)}`}>{approval.status}</span>
+                      </td>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{approval.line}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{approval.creator?.name || '-'}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{approval.department?.name || '-'}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">{approval.jobPosition?.name || '-'}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
+                        {approval.createdAt ? format(new Date(approval.createdAt), 'dd MMM yyyy HH:mm') : '-'}
+                      </td>
+                      <td className="border border-gray-300 px-3 py-2 text-xs text-gray-900">
+                        {approval.notes || '-'}
+                        {approval.isHistorical ? ' (Historical)' : ''}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : approvalLines.length === 0 ? (
+          <p className="text-sm text-gray-900">No approval information available.</p>
+        ) : null}
       </div>
     </div>
   );

@@ -42,11 +42,13 @@ interface DataTableProps<T> {
   };
   filterFields?: FilterField[];
   activeFilters?: Record<string, { value: any; label: string }>;
+  searchValue?: string;
   onSearch?: (searchTerm: string) => void;
   onApplyFilters?: (filters: FilterValue[]) => void;
   sorting?: { id: string; desc: boolean } | null;
   onSortingChange?: (sorting: { id: string; desc: boolean } | null) => void;
   hideSearch?: boolean;
+  searchPlaceholder?: string;
 }
 
 const DataTable = <T extends Record<string, any>>({
@@ -56,15 +58,24 @@ const DataTable = <T extends Record<string, any>>({
   pagination,
   filterFields = [],
   activeFilters = {},
+  searchValue,
   onSearch,
   onApplyFilters,
   sorting,
   onSortingChange,
   hideSearch = false,
+  searchPlaceholder = 'Search...',
 }: DataTableProps<T>) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchValue ?? '');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [localActiveFilters, setLocalActiveFilters] = useState<FilterValue[]>([]);
+
+  // Keep internal state in sync when controlled
+  useEffect(() => {
+    if (searchValue !== undefined) {
+      setSearchTerm(searchValue);
+    }
+  }, [searchValue]);
 
   // Create a stable string representation of activeFilters for comparison
   const activeFiltersKey = useMemo(() => {
@@ -92,7 +103,10 @@ const DataTable = <T extends Record<string, any>>({
   // Search handler
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
-    setSearchTerm(term);
+    // If uncontrolled, update internal state. If controlled, parent drives value.
+    if (searchValue === undefined) {
+      setSearchTerm(term);
+    }
     
     // If external search handler is provided, use it
     if (onSearch) {
@@ -153,8 +167,8 @@ const DataTable = <T extends Record<string, any>>({
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
             <Input
-              placeholder="Search..."
-              value={searchTerm}
+              placeholder={searchPlaceholder}
+              value={searchValue ?? searchTerm}
               onChange={handleSearch}
               className="pl-10 pr-4"
             />
@@ -215,8 +229,8 @@ const DataTable = <T extends Record<string, any>>({
             </TableHeader>
             <TableBody>
               {data.length > 0 ? (
-                data.map((item, index) => (
-                  <TableRow key={index}>
+                data.map((item) => (
+                  <TableRow key={item.id || JSON.stringify(item)}>
                     {columns.map((column) => (
                       <TableCell key={column.id}>
                         {column.cell(item)}

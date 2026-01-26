@@ -3,12 +3,9 @@
  */
 
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { CompliantStatusEnum, COMPLIANT_STATUS_OPTIONS } from '@/shared/constants/compliant-status.enum';
 
-export enum CompliantStatusEnum {
-  COMPLY = 'COMPLY',
-  NOT_COMPLY_MAJOR = 'NOT_COMPLY_MAJOR',
-  NOT_COMPLY_MINOR = 'NOT_COMPLY_MINOR',
-}
+export { CompliantStatusEnum, COMPLIANT_STATUS_OPTIONS };
 
 export interface AuditElement {
   id: string;
@@ -47,9 +44,3 @@ export interface AuditResult {
   departmentIds?: string[];
   userIds?: string[];
 }
-
-export const COMPLIANT_STATUS_OPTIONS = [
-  { label: 'Comply', value: CompliantStatusEnum.COMPLY },
-  { label: 'Not Comply - Major', value: CompliantStatusEnum.NOT_COMPLY_MAJOR },
-  { label: 'Not Comply - Minor', value: CompliantStatusEnum.NOT_COMPLY_MINOR },
-];

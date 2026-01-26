@@ -14,6 +14,8 @@ const mapUserDtoToUser = (userDto: UserDTO): User => {
     id: userDto.id,
     name: `${userDto.firstName} ${userDto.lastName}`,
     email: userDto.email,
+    firstName: userDto.firstName,
+    lastName: userDto.lastName,
     roleId: userDto.roleId,
     officeId: userDto.officeId,
     departmentId: userDto.departmentId,
@@ -23,7 +25,9 @@ const mapUserDtoToUser = (userDto: UserDTO): User => {
     department: userDto.department?.name,
     position: userDto.jobPosition?.name,
     status: userDto.isActive ? 'active' : 'inactive',
+    isActive: userDto.isActive,
     lastLogin: userDto.lastLoginAt || undefined,
+    lastLoginAt: userDto.lastLoginAt ? new Date(userDto.lastLoginAt) : undefined,
     createdAt: userDto.createdAt,
     updatedAt: userDto.updatedAt
   };
