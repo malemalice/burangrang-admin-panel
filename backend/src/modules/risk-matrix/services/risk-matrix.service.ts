@@ -54,17 +54,12 @@ export class RiskMatrixService {
     likelihoodLevel: string,
     consequenceLevel: number,
   ): Promise<RiskRating> {
-    // Convert likelihood level letter (A, B, C, D, E, etc.) to number (1, 2, 3, 4, 5, etc.)
-    // A = 1, B = 2, C = 3, D = 4, E = 5, etc.
-    const likelihoodLevelNum = likelihoodLevel.charCodeAt(0) - 64; // 'A'.charCodeAt(0) = 65, so A becomes 1
-
     // Query RiskMatrix table to find matching risk rating
-    // Note: In the database, likelihoodLevel is stored as Int and consequenceLevel is stored as String
-    // So we need to convert: likelihoodLevel (A-Z) -> number, consequenceLevel (1-N) -> string
+    // Database stores: likelihoodLevel as String (A, B, C, D, E, etc.), consequenceLevel as Int (1, 2, 3, 4, 5, etc.)
     const riskMatrix = await this.prisma.riskMatrix.findFirst({
       where: {
-        likelihoodLevel: likelihoodLevelNum,
-        consequenceLevel: consequenceLevel.toString(),
+        likelihoodLevel: likelihoodLevel,
+        consequenceLevel: consequenceLevel,
         isActive: true,
       },
     });
@@ -77,6 +72,8 @@ export class RiskMatrixService {
     );
 
     // Calculate risk score (likelihoodLevel number * consequenceLevel)
+    // Convert likelihood letter to number for score calculation: A=1, B=2, C=3, D=4, E=5, etc.
+    const likelihoodLevelNum = likelihoodLevel.charCodeAt(0) - 64; // 'A'.charCodeAt(0) = 65, so A becomes 1
     const score = likelihoodLevelNum * consequenceLevel;
 
     // Map RiskRatingEnum to RiskLevel
@@ -198,9 +195,14 @@ export class RiskMatrixService {
     });
     this.errorHandler.throwIfNotFoundById('RiskMatrix', id, existing);
 
+    // Build update data with only defined fields so risk_rating and other optional fields are persisted correctly
+    const data = Object.fromEntries(
+      Object.entries(updateRiskMatrixDto).filter(([_, v]) => v !== undefined),
+    );
+
     const updated = await this.prisma.riskMatrix.update({
       where: { id },
-      data: updateRiskMatrixDto,
+      data,
     });
     return this.riskMatrixMapper(updated);
   }

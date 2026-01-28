@@ -119,7 +119,7 @@ export function SearchableSelect({
           )}
           {...props}
         >
-          {displayValue}
+          <span className="truncate">{displayValue}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>

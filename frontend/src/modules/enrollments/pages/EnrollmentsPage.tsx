@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -55,6 +55,17 @@ const EnrollmentsPage = () => {
   // Check if user is admin or super admin
   const isAdmin = currentUser?.role === 'Administrator' || currentUser?.role === 'Super Admin';
   const userRole = typeof currentUser?.role === 'string' ? currentUser.role : currentUser?.role?.name || '';
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setRefreshKey(prev => prev + 1);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   // Fetch courses and users for filter options
   useEffect(() => {

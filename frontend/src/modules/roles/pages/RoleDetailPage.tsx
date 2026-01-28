@@ -151,6 +151,11 @@ const RoleDetailPage = () => {
             </div>
             
             <div>
+              <h3 className="text-sm font-medium text-gray-500">Code</h3>
+              <p className="mt-1 font-mono text-sm">{role.code}</p>
+            </div>
+            
+            <div>
               <h3 className="text-sm font-medium text-gray-500">Description</h3>
               <p className="mt-1">{role.description || 'No description available'}</p>
             </div>

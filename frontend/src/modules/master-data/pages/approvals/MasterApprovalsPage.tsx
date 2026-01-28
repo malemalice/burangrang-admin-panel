@@ -19,6 +19,23 @@ import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import masterApprovalService from '../../services/masterApprovalService';
 import { MasterApproval } from '@/core/lib/types';
 
+// Sentinel values for dynamic approval fields
+const APPROVAL_FIELD_MARKERS = {
+  FROM_ENTITY_DEPARTMENT: '@ENTITY_DEPARTMENT',
+  FROM_ENTITY_JOB_POSITION: '@ENTITY_JOB_POSITION',
+} as const;
+
+// Helper function to get display label (handles sentinel values)
+const getDisplayLabel = (value: string, fallback: string): string => {
+  if (value === APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT) {
+    return 'Dynamic: From Entity Data';
+  }
+  if (value === APPROVAL_FIELD_MARKERS.FROM_ENTITY_JOB_POSITION) {
+    return 'Dynamic: From Entity Data (Department Head)';
+  }
+  return fallback;
+};
+
 const MasterApprovalsPage = () => {
   const navigate = useNavigate();
   const [approvals, setApprovals] = useState<MasterApproval[]>([]);
@@ -180,9 +197,9 @@ const MasterApprovalsPage = () => {
           {approval.items.map((item, index) => (
             <div key={item.id} className="flex items-center gap-2 text-sm">
               <span className="text-gray-500">{index + 1}.</span>
-              <span>{item.jobPosition.name}</span>
+              <span>{getDisplayLabel(item.jobPositionId, item.jobPosition.name)}</span>
               <span className="text-gray-500">-</span>
-              <span>{item.department.name}</span>
+              <span>{getDisplayLabel(item.departmentId, item.department.name)}</span>
             </div>
           ))}
         </div>

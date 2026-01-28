@@ -13,21 +13,23 @@ import { Label } from '@/core/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
 import { Textarea } from '@/core/components/ui/textarea';
 import { ApprovalStatus } from '@/core/lib/types';
-import { approvalService, APPROVAL_ENTITIES } from '@/modules/master-data';
+import auditSchedulesService from '../services/auditSchedulesService';
 import { toast } from 'sonner';
 
 interface ApprovalDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  inspectionId: string;
+  auditId: string;
+  itemId: string;
   onApprovalSubmitted: () => void;
   initialStatus?: ApprovalStatus;
 }
 
-export const ApprovalDialog = ({ 
-  open, 
-  onOpenChange, 
-  inspectionId,
+export const ApprovalDialog = ({
+  open,
+  onOpenChange,
+  auditId,
+  itemId,
   onApprovalSubmitted,
   initialStatus = ApprovalStatus.APPROVED,
 }: ApprovalDialogProps) => {
@@ -44,18 +46,19 @@ export const ApprovalDialog = ({
   }, [open, initialStatus]);
 
   const handleSubmit = async () => {
-    if (!inspectionId) return;
+    if (!auditId || !itemId) return;
 
     try {
       setIsSubmitting(true);
-      await approvalService.submitApproval({
-        dataId: inspectionId,
-        entity: APPROVAL_ENTITIES.INSPECTION,
-        status: approvalStatus,
-        notes: approvalNotes,
-      });
 
-      toast.success('Approval submitted successfully');
+      if (approvalStatus === ApprovalStatus.APPROVED) {
+        await auditSchedulesService.approveAuditItem(auditId, itemId, approvalNotes);
+        toast.success('Audit item approved successfully');
+      } else if (approvalStatus === ApprovalStatus.REJECTED) {
+        await auditSchedulesService.rejectAuditItem(auditId, itemId, approvalNotes);
+        toast.success('Audit item rejected successfully');
+      }
+
       onOpenChange(false);
       setApprovalNotes('');
       onApprovalSubmitted();
@@ -72,7 +75,7 @@ export const ApprovalDialog = ({
         <DialogHeader>
           <DialogTitle>Submit Approval</DialogTitle>
           <DialogDescription>
-            Review and submit your approval for this inspection.
+            Review and submit your approval for this audit item.
           </DialogDescription>
         </DialogHeader>
 
@@ -131,4 +134,3 @@ export const ApprovalDialog = ({
     </Dialog>
   );
 };
-

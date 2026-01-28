@@ -56,6 +56,50 @@ export const seedQuizzes = async () => {
     // Define quizzes
     const quizzesData = [
       {
+        title: 'safety quiz',
+        description: 'Safety awareness, PPE, hazard, fire safety, emergency response, ergonomics',
+        instructions: 'choose one correct answer',
+        entity: null as 'COURSE' | 'CHAPTER' | null,
+        entityId: null,
+        duration: 30,
+        passingScore: 80,
+        maxAttempts: 2,
+        shuffleQuestions: true,
+        shuffleOptions: true,
+        showCorrectAnswer: true,
+        isPublished: true,
+        publishedAt: new Date(),
+        isActive: true,
+        questions: [
+          {
+            questionType: 'MULTIPLE_CHOICE',
+            questionText: 'What is the primary purpose of Personal Protective Equipment (PPE)?',
+            explanation: 'PPE is designed to reduce exposure to workplace hazards when engineering and administrative controls are not feasible or effective.',
+            points: 10,
+            order: 1,
+            options: [
+              { optionText: 'To replace engineering controls', isCorrect: false, order: 1 },
+              { optionText: 'To eliminate all hazards', isCorrect: false, order: 2 },
+              { optionText: 'To reduce exposure to workplace hazards', isCorrect: true, order: 3 },
+              { optionText: 'To increase productivity', isCorrect: false, order: 4 },
+            ],
+          },
+          {
+            questionType: 'MULTIPLE_CHOICE',
+            questionText: 'Which of the following is considered a physical hazard?',
+            explanation: 'Physical hazards include factors within the environment that can harm the body without necessarily touching it, such as noise, radiation, and extreme temperatures.',
+            points: 10,
+            order: 2,
+            options: [
+              { optionText: 'Chemicals', isCorrect: false, order: 1 },
+              { optionText: 'Noise', isCorrect: true, order: 2 },
+              { optionText: 'Biological agents', isCorrect: false, order: 3 },
+              { optionText: 'Stress', isCorrect: false, order: 4 },
+            ],
+          },
+        ],
+      },
+      {
         title: 'Basic Safety Knowledge Quiz',
         description: 'Test your understanding of basic safety principles and workplace safety protocols.',
         instructions: 'Answer all questions. You have 30 minutes to complete this quiz. Passing score is 70%.',

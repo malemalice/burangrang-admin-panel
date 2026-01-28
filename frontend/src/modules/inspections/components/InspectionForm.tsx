@@ -52,7 +52,7 @@ const generateInspectionCode = (): string => {
 // Form schema for validation
 const formSchema = z.object({
   code: z.string().min(1, 'Code is required'),
-  areaId: z.string().min(1, 'Area is required'),
+  areaIds: z.array(z.string()).min(1, 'At least one area is required'),
   inspectionDate: z.string().min(1, 'Inspection date is required'),
   status: z.nativeEnum(GeneralStatusEnum),
   isActive: z.boolean().default(true),
@@ -84,13 +84,28 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
     label: `${user.firstName} ${user.lastName}`
   }));
 
+  // Filter status options to only show SCHEDULED and DONE for inspections
+  const inspectionStatusOptions = GENERAL_STATUS_OPTIONS.filter(
+    option => option.value === GeneralStatusEnum.SCHEDULED || option.value === GeneralStatusEnum.DONE
+  );
+
+  // Helper function to determine default status based on inspection date
+  const getDefaultStatus = (inspectionDate: string): GeneralStatusEnum => {
+    if (!inspectionDate) return GeneralStatusEnum.SCHEDULED;
+    const date = new Date(inspectionDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    date.setHours(0, 0, 0, 0);
+    return date > today ? GeneralStatusEnum.SCHEDULED : GeneralStatusEnum.DONE;
+  };
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       code: mode === 'create' ? generateInspectionCode() : '',
-      areaId: '',
+      areaIds: [],
       inspectionDate: new Date().toISOString().split('T')[0],
-      status: GeneralStatusEnum.DRAFT,
+      status: getDefaultStatus(new Date().toISOString().split('T')[0]),
       isActive: true,
       inspectorIds: [],
     },
@@ -126,25 +141,47 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
   useEffect(() => {
     if (inspection && mode === 'edit' && dataReady) {
       const inspectorIds = inspection.inspectors?.map(inspector => inspector.inspectorId) || [];
+      const areaIds = inspection.areaIds || (inspection.areaId ? [inspection.areaId] : []);
+      const inspectionDateStr = inspection.inspectionDate
+        ? new Date(inspection.inspectionDate).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
       form.reset({
         code: inspection.code,
-        areaId: inspection.areaId,
-        inspectionDate: inspection.inspectionDate
-          ? new Date(inspection.inspectionDate).toISOString().split('T')[0]
-          : new Date().toISOString().split('T')[0],
-        status: inspection.status,
+        areaIds,
+        inspectionDate: inspectionDateStr,
+        // Ensure status is either SCHEDULED or DONE
+        status: inspection.status === GeneralStatusEnum.SCHEDULED || inspection.status === GeneralStatusEnum.DONE
+          ? inspection.status
+          : getDefaultStatus(inspectionDateStr),
         isActive: inspection.isActive,
         inspectorIds,
       });
     }
   }, [inspection, mode, dataReady, form]);
 
+  // Auto-select SCHEDULED when inspection date is newer than today
+  // Only triggers when inspectionDate field changes, not when status is manually changed
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      // Only auto-update status when inspectionDate changes (not when status changes)
+      if (name === 'inspectionDate' && value.inspectionDate) {
+        const newStatus = getDefaultStatus(value.inspectionDate);
+        // Auto-select SCHEDULED when date is in the future
+        // User can still manually change to DONE afterwards
+        if (newStatus === GeneralStatusEnum.SCHEDULED) {
+          form.setValue('status', GeneralStatusEnum.SCHEDULED, { shouldValidate: true });
+        }
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
   const onSubmit = async (data: FormValues) => {
     try {
       // Transform the date if provided
       let inspectionData: CreateInspectionDTO = {
         code: data.code as string,
-        areaId: data.areaId as string,
+        areaIds: data.areaIds as string[],
         inspectionDate: new Date(data.inspectionDate),
         status: data.status,
         ...(data.isActive !== undefined && { isActive: data.isActive }),
@@ -222,19 +259,19 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
 
                 <FormField
                   control={form.control}
-                  name="areaId"
+                  name="areaIds"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Area <span className="text-destructive">*</span>
+                        Areas <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
-                        <SearchableSelect
+                        <MultiSelectSearchable
                           options={areaOptions}
-                          value={field.value}
+                          value={field.value || []}
                           onValueChange={field.onChange}
-                          placeholder="Select an area"
-                          searchPlaceholder="Search area..."
+                          placeholder="Select areas"
+                          searchPlaceholder="Search areas..."
                         />
                       </FormControl>
                       <FormMessage />
@@ -275,7 +312,7 @@ const InspectionForm = ({ inspection, mode }: InspectionFormProps) => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {GENERAL_STATUS_OPTIONS.map((option) => (
+                          {inspectionStatusOptions.map((option) => (
                             <SelectItem key={option.value} value={option.value}>
                               {option.label}
                             </SelectItem>

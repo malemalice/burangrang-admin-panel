@@ -15,13 +15,13 @@ export class InspectionDto {
   @Expose()
   code: string;
 
-  @ApiProperty()
+  @ApiProperty({ type: [String], description: 'Array of area IDs' })
   @Expose()
-  areaId: string;
+  areaIds: string[];
 
-  @ApiProperty({ type: AreaDto })
+  @ApiProperty({ type: [AreaDto], description: 'Array of areas' })
   @Expose()
-  area: AreaDto;
+  areas: AreaDto[];
 
   @ApiProperty()
   @Expose()

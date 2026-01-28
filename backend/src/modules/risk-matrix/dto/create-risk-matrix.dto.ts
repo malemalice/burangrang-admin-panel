@@ -3,11 +3,11 @@ import { ApiProperty } from '@nestjs/swagger';
 import { RiskRatingEnum } from '@prisma/client';
 
 export class CreateRiskMatrixDto {
-  @ApiProperty({ description: 'The numeric likelihood level (1-99)', minimum: 1, maximum: 99 })
-  @IsInt()
-  @Min(1)
-  @Max(99)
-  likelihoodLevel: number;
+  @ApiProperty({ description: 'The likelihood level as uppercase alphabet (A-Z)', example: 'A' })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^[A-Z]{1,2}$/, { message: 'Likelihood level must be 1-2 uppercase letters (A-Z or AA-ZZ)' })
+  likelihoodLevel: string;
 
   @ApiProperty({ description: 'The name of the likelihood level' })
   @IsString()
@@ -19,11 +19,11 @@ export class CreateRiskMatrixDto {
   @IsNotEmpty()
   likelihoodDesc: string;
 
-  @ApiProperty({ description: 'The consequence level identifier (A-Z or AA-ZZ, 1-2 uppercase letters)' })
-  @IsString()
-  @IsNotEmpty()
-  @Matches(/^[A-Z]{1,2}$/, { message: 'Consequence level must be 1-2 uppercase letters (A-Z or AA-ZZ)' })
-  consequenceLevel: string;
+  @ApiProperty({ description: 'The numeric consequence level (1-99)', minimum: 1, maximum: 99 })
+  @IsInt()
+  @Min(1)
+  @Max(99)
+  consequenceLevel: number;
 
   @ApiProperty({ description: 'The name of the consequence level' })
   @IsString()

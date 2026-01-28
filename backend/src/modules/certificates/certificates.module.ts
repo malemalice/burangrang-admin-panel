@@ -3,9 +3,10 @@ import { CertificatesService } from './certificates.service';
 import { CertificatesController } from './certificates.controller';
 import { PrismaModule } from '../../core/prisma/prisma.module';
 import { SharedModule } from '../../shared/shared.module';
+import { RemindersModule } from '../reminders/reminders.module';
 
 @Module({
-  imports: [PrismaModule, SharedModule],
+  imports: [PrismaModule, SharedModule, RemindersModule],
   controllers: [CertificatesController],
   providers: [CertificatesService],
   exports: [CertificatesService],

@@ -70,7 +70,7 @@ const CoursesPage = () => {
     {
       id: 'instructorId',
       label: 'Instructor',
-      type: 'searchableSelect',
+      type: 'select',
       options: instructors.map(instructor => ({
         label: instructor.name,
         value: instructor.id
@@ -260,8 +260,8 @@ const CoursesPage = () => {
               <BookOpen className="h-4 w-4" />
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
-            <div className="font-medium text-gray-900 truncate">{course.title}</div>
+          <div className="flex-1 min-w-0 max-w-[250px]">
+            <div className="font-medium text-gray-900 truncate" title={course.title}>{course.title}</div>
             <div className="text-sm text-gray-500 truncate">
               by {course.instructor?.firstName} {course.instructor?.lastName}
             </div>
@@ -317,10 +317,6 @@ const CoursesPage = () => {
             <Clock className="h-3 w-3 text-gray-400" />
             <span>{formatDuration(course.totalDuration)}</span>
           </div>
-          <div className="flex items-center gap-1">
-            <Users className="h-3 w-3 text-gray-400" />
-            <span>{course.studentCount} students</span>
-          </div>
           {Number(course.rating) > 0 && (
             <div className="flex items-center gap-1">
               <Star className="h-3 w-3 text-yellow-400 fill-current" />
@@ -335,36 +331,42 @@ const CoursesPage = () => {
       id: 'actions',
       header: 'Actions',
       cell: (course: Course) => (
-        <DropdownMenu
-          open={openDropdownId === course.id}
-          onOpenChange={(open) => {
-            setOpenDropdownId(open ? course.id : null);
-          }}
-        >
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}`)}>
-              <Eye className="mr-2 h-4 w-4" /> View details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit course
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}?tab=chapters`)}>
-              <BookOpen className="mr-2 h-4 w-4" /> Manage chapters
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => handleDeleteClick(course, e)}
-              className="text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/courses/${course.id}`)}
+          >
+            <Eye className="mr-2 h-4 w-4" /> View
+          </Button>
+          <DropdownMenu
+            open={openDropdownId === course.id}
+            onOpenChange={(open) => {
+              setOpenDropdownId(open ? course.id : null);
+            }}
+          >
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}/edit`)}>
+                <Edit className="mr-2 h-4 w-4" /> Edit course
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}?tab=chapters`)}>
+                <BookOpen className="mr-2 h-4 w-4" /> Manage chapters
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={(e) => handleDeleteClick(course, e)}
+                className="text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       ),
       isSortable: false
     }
@@ -384,7 +386,7 @@ const CoursesPage = () => {
 
       {/* Statistics Cards */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white p-4 rounded-lg border">
             <div className="flex items-center">
               <BookOpen className="h-8 w-8 text-blue-600" />
@@ -409,17 +411,6 @@ const CoursesPage = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Draft</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.draft}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center">
-              <Users className="h-8 w-8 text-purple-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Students</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {courses.reduce((sum, course) => sum + course.studentCount, 0)}
-                </p>
               </div>
             </div>
           </div>

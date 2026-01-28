@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Edit, Trash2, Plus, Shield, MoreHorizontal } from 'lucide-react';
+import { Edit, Trash2, Plus, Shield, MoreHorizontal, Eye } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
     DropdownMenu,
@@ -191,8 +191,11 @@ export default function SafetyEquipmentsPage() {
             id: 'name',
             header: 'Equipment Name',
             cell: (equipment: SafetyEquipment) => (
-                <div>
-                    <div className="font-medium">{equipment.name}</div>
+                <div 
+                    className="cursor-pointer group"
+                    onClick={() => navigate(`/master/safety-equipments/${equipment.id}`)}
+                >
+                    <div className="font-medium group-hover:text-blue-600 transition-colors">{equipment.name}</div>
                     <div className="text-xs text-gray-500 mt-1">
                         Code: {equipment.code} | Type: {equipment.safetyEquipmentType?.name || '-'}
                     </div>
@@ -252,6 +255,9 @@ export default function SafetyEquipmentsPage() {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => navigate(`/master/safety-equipments/${equipment.id}`)}>
+                            <Eye className="mr-2 h-4 w-4" /> View Details
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => navigate(`/master/safety-equipments/${equipment.id}/edit`)}>
                             <Edit className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
@@ -321,4 +327,3 @@ export default function SafetyEquipmentsPage() {
         </>
     );
 }
-

@@ -377,6 +377,68 @@ When designing UI/UX for **back-office systems** (ERP, Internal Dashboards), the
    - Handle API errors gracefully
    - Allow retry on failure
 
+7. **Dynamic Approval Options**
+   - Master approval items can use sentinel values (`@ENTITY_DEPARTMENT`, `@ENTITY_JOB_POSITION`) for dynamic resolution
+   - Display sentinel values with human-readable labels: "Dynamic: From Entity Data" / "Dynamic: From Entity Data (Department Head)"
+   - Form selects include sentinel options alongside regular department/job position options
+   - Approval timeline displays resolved approver info (sentinel values resolved by backend before approval record creation)
+
+8. **Approval Timeline Rendering Principles**
+
+**Understanding Approval Data Sources**:
+- **`history[]`**: Actual approval actions from `t_approvals` (records created AFTER approvers take action)
+  - Contains completed approvals/rejections with status, notes, creator, timestamps
+  - Represents execution history of the approval workflow
+- **`allApprovalLines[]`**: Workflow configuration from `m_approvals` (defines pending/current lines)
+  - Shows all configured approval lines with status: `completed`, `current`, or `pending`
+  - Represents the workflow definition, not execution records
+  - Source of truth for what approvals are expected
+
+**Timeline Rendering Guidelines**:
+
+1. **Render History First**: Display all items from `history` array in chronological order
+   - These are actual actions taken by approvers
+   - Show status badges, notes, creator info, timestamps
+   - Use proper icons/colors based on status (approved/rejected/pending)
+
+2. **Render Pending/Current Lines Second**: Display items from `allApprovalLines` that are not yet completed
+   - Show lines with status `current` (waiting for approval - highlight with pulse animation)
+   - Show lines with status `pending` (not yet reached - show with muted/dashed style)
+   - **Skip lines with status `completed`** - they're already shown in history
+
+3. **Avoid Duplication**: When rendering `allApprovalLines`, check if a specific combination already exists in history
+   - Match by `department.id` + `jobPosition.id` + `line` number
+   - If a matching history entry exists, don't render the corresponding line from `allApprovalLines`
+   - This prevents showing the same approval line twice (once as history, once as pending)
+
+4. **Key Matching Logic**:
+   ```typescript
+   // Check if a specific department/job position combo already has history
+   const getApprovalForLine = (lineNumber: number, departmentId: string, jobPositionId: string) => {
+     return allApprovals.find((item) => 
+       item.line === lineNumber &&
+       item.department.id === departmentId &&
+       item.jobPosition.id === jobPositionId
+     );
+   };
+   
+   // When rendering allApprovalLines
+   approvalHistory.allApprovalLines
+     .filter(line => line.status !== 'completed')
+     .filter(line => {
+       const existingHistory = getApprovalForLine(line.line, line.department.id, line.jobPosition.id);
+       return !existingHistory; // Only show if no history entry exists
+     })
+     .map(line => {
+       // Render pending/current line
+     });
+   ```
+
+5. **Visual Distinction**:
+   - **History items**: Full cards with status badges, notes, creator info (completed actions)
+   - **Current lines**: Highlighted with blue background, pulse animation (waiting for action)
+   - **Pending lines**: Muted appearance with dashed border (future steps)
+
 **Implementation Pattern**:
 
 ```typescript

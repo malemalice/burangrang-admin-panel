@@ -1,4 +1,4 @@
-import api from '@/core/lib/api';
+import api from '../../../core/lib/api';
 import {
   Enrollment,
   EnrollmentDTO,
@@ -8,6 +8,7 @@ import {
   EnrollmentSearchParams,
   PaginatedResponse,
   EnrollmentStatus,
+  AssignCourseResponse,
 } from '../types/enrollment.types';
 
 // Data transformation functions
@@ -77,15 +78,30 @@ const enrollmentService = {
   },
 
   // ASSIGN course to user (Admin only)
-  assignCourse: async (assignData: AssignEnrollmentDTO): Promise<Enrollment> => {
+  assignCourse: async (assignData: AssignEnrollmentDTO): Promise<AssignCourseResponse> => {
     const response = await api.post('/enrollments/assign', assignData);
-    return mapEnrollmentDtoToEnrollment(response.data);
+    return {
+      enrollment: mapEnrollmentDtoToEnrollment(response.data.enrollment),
+      emailStatus: response.data.emailStatus,
+      emailMessage: response.data.emailMessage,
+    };
   },
 
   // UPDATE enrollment
   updateEnrollment: async (id: string, updateData: UpdateEnrollmentDTO): Promise<Enrollment> => {
     const response = await api.patch(`/enrollments/${id}`, updateData);
     return mapEnrollmentDtoToEnrollment(response.data);
+  },
+
+  // GET learning context (enrollment + course + chapters + progress)
+  getLearningContext: async (id: string): Promise<any> => {
+    const response = await api.get(`/enrollments/${id}/learning-context`);
+    return {
+      enrollment: mapEnrollmentDtoToEnrollment(response.data.enrollment),
+      course: response.data.course,
+      quizzes: response.data.quizzes,
+      progress: response.data.progress,
+    };
   },
 
   // Helper function to get status color

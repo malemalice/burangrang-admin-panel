@@ -1,419 +1,171 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
-import { ErrorHandlingService } from '../../shared/services/error-handling.service';
-import { DtoMapperService } from '../../shared/services/dto-mapper.service';
-import { ActivityLoggerService } from '../../shared/services/activity-logger.service';
-import { ProgressDto } from './dto/progress.dto';
-import { EnrollmentProgressDto, ChapterProgressSummary } from './dto/enrollment-progress.dto';
+import { ProgressDto, ProgressStatus } from './dto/progress.dto';
+import { UpdateProgressDto } from './dto/update-progress.dto';
 
 @Injectable()
 export class ProgressService {
-  private progressMapper: (entity: any) => ProgressDto;
+  constructor(private prisma: PrismaService) {}
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly errorHandler: ErrorHandlingService,
-    private readonly dtoMapper: DtoMapperService,
-    private readonly activityLogger: ActivityLoggerService,
-  ) {
-    // Initialize simple mapper for progress
-    this.progressMapper = this.dtoMapper.createRelationMapper(ProgressDto, {
-      chapter: {
-        mapper: (chapter: any) => ({
-          id: chapter.id,
-          title: chapter.title,
-          order: chapter.order,
-          duration: chapter.duration,
-          contentType: chapter.contentType,
-          contentUrl: chapter.contentUrl,
-          youtubeVideoId: chapter.youtubeVideoId,
-        }),
-        isArray: false,
-      },
-      enrollment: {
-        mapper: (enrollment: any) => ({
-          id: enrollment.id,
-          userId: enrollment.userId,
-          courseId: enrollment.courseId,
-          progress: Number(enrollment.progress),
-        }),
-        isArray: false,
-      },
-    });
-  }
-
-  /**
-   * Mark a chapter as complete for the current user
-   * Creates or updates progress record and updates enrollment progress
-   */
-  async markChapterComplete(chapterId: string, userId: string, timeSpent?: number): Promise<ProgressDto> {
-    // Find the chapter
-    const chapter = await this.prisma.chapter.findUnique({
-      where: { id: chapterId },
-      include: { course: true },
-    });
-
-    this.errorHandler.throwIfNotFoundById('Chapter', chapterId, chapter);
-
-    // Find user's active enrollment for this course
-    const enrollment = await this.prisma.enrollment.findFirst({
-      where: {
-        userId: userId,
-        courseId: chapter.courseId,
-        status: 'ACTIVE',
-      },
-    });
-
-    this.errorHandler.throwIfNotFound(
-      'Enrollment',
-      `for user ${userId} and course ${chapter.courseId}`,
-      enrollment,
-    );
-
-    // Create or update progress record
-    const progress = await this.prisma.progress.upsert({
+  async getProgress(enrollmentId: string, chapterId: string): Promise<ProgressDto> {
+    const progress = await this.prisma.progress.findUnique({
       where: {
         enrollmentId_chapterId: {
-          enrollmentId: enrollment.id,
-          chapterId: chapterId,
-        },
-      },
-      update: {
-        status: 'COMPLETED',
-        completedAt: new Date(),
-        lastAccessedAt: new Date(),
-        progress: 100,
-        timeSpent: timeSpent !== undefined ? timeSpent : undefined,
-      },
-      create: {
-        enrollmentId: enrollment.id,
-        chapterId: chapterId,
-        status: 'COMPLETED',
-        startedAt: new Date(),
-        completedAt: new Date(),
-        lastAccessedAt: new Date(),
-        progress: 100,
-        timeSpent: timeSpent || 0,
-      },
-      include: {
-        chapter: true,
-        enrollment: true,
-      },
-    });
-
-    // Update enrollment overall progress
-    await this.updateEnrollmentProgress(enrollment.id);
-
-    // Log activity
-    await this.activityLogger.logActivity(
-      'CHAPTER_COMPLETED',
-      progress.id,
-      `User completed chapter: ${chapter.title} in course: ${chapter.course.title}`,
-      [],
-      userId,
-    );
-
-    return this.progressMapper(progress);
-  }
-
-  /**
-   * Unmark a chapter as complete (for review/retry)
-   * Sets status back to IN_PROGRESS
-   */
-  async unmarkChapterComplete(chapterId: string, userId: string): Promise<ProgressDto> {
-    // Find the chapter
-    const chapter = await this.prisma.chapter.findUnique({
-      where: { id: chapterId },
-      include: { course: true },
-    });
-
-    this.errorHandler.throwIfNotFoundById('Chapter', chapterId, chapter);
-
-    // Find user's active enrollment
-    const enrollment = await this.prisma.enrollment.findFirst({
-      where: {
-        userId: userId,
-        courseId: chapter.courseId,
-        status: 'ACTIVE',
-      },
-    });
-
-    this.errorHandler.throwIfNotFound(
-      'Enrollment',
-      `for user ${userId} and course ${chapter.courseId}`,
-      enrollment,
-    );
-
-    // Find existing progress record
-    const existingProgress = await this.prisma.progress.findUnique({
-      where: {
-        enrollmentId_chapterId: {
-          enrollmentId: enrollment.id,
-          chapterId: chapterId,
+          enrollmentId,
+          chapterId,
         },
       },
     });
 
-    this.errorHandler.throwIfNotFound(
-      'Progress',
-      `for chapter ${chapterId}`,
-      existingProgress,
-    );
-
-    // Update progress record to IN_PROGRESS
-    const progress = await this.prisma.progress.update({
-      where: {
-        enrollmentId_chapterId: {
-          enrollmentId: enrollment.id,
-          chapterId: chapterId,
-        },
-      },
-      data: {
-        status: 'IN_PROGRESS',
-        completedAt: null,
-        lastAccessedAt: new Date(),
-        progress: 50, // Set to halfway
-      },
-      include: {
-        chapter: true,
-        enrollment: true,
-      },
-    });
-
-    // Update enrollment overall progress
-    await this.updateEnrollmentProgress(enrollment.id);
-
-    // Log activity
-    await this.activityLogger.logActivity(
-      'CHAPTER_UNMARKED',
-      progress.id,
-      `User unmarked chapter: ${chapter.title} in course: ${chapter.course.title}`,
-      [],
-      userId,
-    );
-
-    return this.progressMapper(progress);
-  }
-
-  /**
-   * Get user's progress for a specific enrollment
-   * Returns overall progress and chapter-by-chapter status
-   */
-  async getEnrollmentProgress(enrollmentId: string, userId: string): Promise<EnrollmentProgressDto> {
-    const enrollment = await this.prisma.enrollment.findUnique({
-      where: { id: enrollmentId },
-      include: {
-        course: {
-          include: {
-            chapters: {
-              where: {
-                isActive: true,
-                isPublished: true,
-              },
-              orderBy: {
-                order: 'asc',
-              },
-            },
-          },
-        },
-        progressRecords: {
-          include: {
-            chapter: true,
-          },
-        },
-      },
-    });
-
-    this.errorHandler.throwIfNotFoundById('Enrollment', enrollmentId, enrollment);
-
-    // Verify user owns this enrollment
-    if (enrollment.userId !== userId) {
-      this.errorHandler.throwForbidden('Unauthorized access to enrollment');
+    if (!progress) {
+      // Create new progress record if not exists
+      return this.createInitialProgress(enrollmentId, chapterId);
     }
 
-    // Calculate progress
-    const totalChapters = enrollment.course.chapters.length;
-    const completedChapters = enrollment.progressRecords.filter(
-      (p) => p.status === 'COMPLETED',
-    ).length;
-
-    const progressPercentage =
-      totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
-
-    // Find current chapter (first uncompleted)
-    const currentChapter = enrollment.course.chapters.find((chapter) => {
-      const chapterProgress = enrollment.progressRecords.find(
-        (p) => p.chapterId === chapter.id,
-      );
-      return !chapterProgress || chapterProgress.status !== 'COMPLETED';
+    // Update lastAccessedAt
+    const updated = await this.prisma.progress.update({
+      where: { id: progress!.id },
+      data: { lastAccessedAt: new Date() },
     });
 
-    // Map chapters with progress status
-    const chaptersWithProgress: ChapterProgressSummary[] = enrollment.course.chapters.map(
-      (chapter) => {
-        const chapterProgress = enrollment.progressRecords.find(
-          (p) => p.chapterId === chapter.id,
-        );
-
-        return new ChapterProgressSummary({
-          id: chapter.id,
-          title: chapter.title,
-          order: chapter.order,
-          duration: chapter.duration,
-          contentType: chapter.contentType,
-          contentUrl: chapter.contentUrl ?? undefined,
-          youtubeVideoId: chapter.youtubeVideoId ?? undefined,
-          status: chapterProgress?.status || 'NOT_STARTED',
-          isCompleted: chapterProgress?.status === 'COMPLETED',
-          completedAt: chapterProgress?.completedAt ?? undefined,
-        });
-      },
-    );
-
-    return new EnrollmentProgressDto({
-      enrollmentId: enrollment.id,
-      courseId: enrollment.courseId,
-      courseTitle: enrollment.course.title,
-      progress: progressPercentage,
-      completedChapters,
-      totalChapters,
-      lastAccessedAt: enrollment.lastAccessedAt ?? undefined,
-      completedAt: enrollment.completedAt ?? undefined,
-      currentChapterId: currentChapter?.id,
-      chapters: chaptersWithProgress,
-    });
+    return this.mapToDto(updated);
   }
 
-  /**
-   * Get all enrollments with progress for a user
-   */
-  async getUserProgress(userId: string): Promise<EnrollmentProgressDto[]> {
-    const enrollments = await this.prisma.enrollment.findMany({
-      where: {
-        userId: userId,
-        status: 'ACTIVE',
-      },
-      include: {
-        course: {
-          include: {
-            chapters: {
-              where: {
-                isActive: true,
-                isPublished: true,
-              },
-              orderBy: {
-                order: 'asc',
-              },
-            },
-          },
-        },
-        progressRecords: {
-          include: {
-            chapter: true,
-          },
-        },
-      },
-      orderBy: {
-        enrolledAt: 'desc',
-      },
-    });
-
-    return Promise.all(
-      enrollments.map(async (enrollment) => {
-        const totalChapters = enrollment.course.chapters.length;
-        const completedChapters = enrollment.progressRecords.filter(
-          (p) => p.status === 'COMPLETED',
-        ).length;
-
-        const progressPercentage =
-          totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
-
-        const currentChapter = enrollment.course.chapters.find((chapter) => {
-          const chapterProgress = enrollment.progressRecords.find(
-            (p) => p.chapterId === chapter.id,
-          );
-          return !chapterProgress || chapterProgress.status !== 'COMPLETED';
-        });
-
-        const chaptersWithProgress: ChapterProgressSummary[] = enrollment.course.chapters.map(
-          (chapter) => {
-            const chapterProgress = enrollment.progressRecords.find(
-              (p) => p.chapterId === chapter.id,
-            );
-
-            return new ChapterProgressSummary({
-              id: chapter.id,
-              title: chapter.title,
-              order: chapter.order,
-              duration: chapter.duration,
-              contentType: chapter.contentType,
-              contentUrl: chapter.contentUrl ?? undefined,
-              youtubeVideoId: chapter.youtubeVideoId ?? undefined,
-              status: chapterProgress?.status || 'NOT_STARTED',
-              isCompleted: chapterProgress?.status === 'COMPLETED',
-              completedAt: chapterProgress?.completedAt ?? undefined,
-            });
-          },
-        );
-
-        return new EnrollmentProgressDto({
-          enrollmentId: enrollment.id,
-          courseId: enrollment.courseId,
-          courseTitle: enrollment.course.title,
-          progress: progressPercentage,
-          completedChapters,
-          totalChapters,
-          lastAccessedAt: enrollment.lastAccessedAt ?? undefined,
-          completedAt: enrollment.completedAt ?? undefined,
-          currentChapterId: currentChapter?.id,
-          chapters: chaptersWithProgress,
-        });
-      }),
-    );
+  private mapToDto(progress: any): ProgressDto {
+    return {
+      id: progress.id,
+      enrollmentId: progress.enrollmentId,
+      chapterId: progress.chapterId,
+      status: progress.status,
+      timeSpent: progress.timeSpent,
+      progress: Number(progress.progress),
+      startedAt: progress.startedAt,
+      completedAt: progress.completedAt,
+      lastAccessedAt: progress.lastAccessedAt,
+    };
   }
 
-  /**
-   * Private helper: Update enrollment overall progress
-   */
-  private async updateEnrollmentProgress(enrollmentId: string): Promise<void> {
+  async createInitialProgress(enrollmentId: string, chapterId: string): Promise<ProgressDto> {
+    // Verify enrollment and chapter exist
     const enrollment = await this.prisma.enrollment.findUnique({
       where: { id: enrollmentId },
-      include: {
-        course: {
-          include: {
-            chapters: {
-              where: {
-                isActive: true,
-                isPublished: true,
-              },
-            },
-          },
-        },
-        progressRecords: true,
+    });
+    if (!enrollment) throw new NotFoundException('Enrollment not found');
+
+    const chapter = await this.prisma.chapter.findUnique({
+      where: { id: chapterId },
+    });
+    if (!chapter) throw new NotFoundException('Chapter not found');
+
+    const progress = await this.prisma.progress.create({
+      data: {
+        enrollmentId,
+        chapterId,
+        status: ProgressStatus.NOT_STARTED,
+        progress: 0,
+        timeSpent: 0,
+        lastAccessedAt: new Date(),
       },
+    });
+
+    return this.mapToDto(progress);
+  }
+
+  async updateProgress(
+    enrollmentId: string,
+    chapterId: string,
+    updateDto: UpdateProgressDto,
+  ): Promise<ProgressDto> {
+    let progress = await this.prisma.progress.findUnique({
+      where: {
+        enrollmentId_chapterId: {
+          enrollmentId,
+          chapterId,
+        },
+      },
+    });
+
+    if (!progress) {
+      progress = await this.createInitialProgress(enrollmentId, chapterId) as any;
+    }
+
+    const data: any = {
+      ...updateDto,
+      lastAccessedAt: new Date(),
+    };
+
+    if (updateDto.status === ProgressStatus.IN_PROGRESS && !progress!.startedAt) {
+      data.startedAt = new Date();
+    }
+
+    if (updateDto.status === ProgressStatus.COMPLETED && !progress!.completedAt) {
+      data.completedAt = new Date();
+      data.progress = 100; // Force 100% if completed
+    }
+
+    const updated = await this.prisma.progress.update({
+      where: { id: progress!.id },
+      data,
+    });
+
+    // Recalculate overall enrollment progress asynchronously
+    this.recalculateEnrollmentProgress(enrollmentId);
+
+    return this.mapToDto(updated);
+  }
+
+  async completeChapter(enrollmentId: string, chapterId: string): Promise<ProgressDto> {
+    return this.updateProgress(enrollmentId, chapterId, {
+      status: ProgressStatus.COMPLETED,
+      progress: 100,
+    });
+  }
+
+  private async recalculateEnrollmentProgress(enrollmentId: string) {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      include: { course: true },
     });
 
     if (!enrollment) return;
 
-    const totalChapters = enrollment.course.chapters.length;
-    const completedChapters = enrollment.progressRecords.filter(
-      (p) => p.status === 'COMPLETED',
-    ).length;
+    const totalChapters = await this.prisma.chapter.count({
+      where: {
+        courseId: enrollment.courseId,
+        isActive: true,
+      },
+    });
 
-    const progressPercentage =
-      totalChapters > 0 ? (completedChapters / totalChapters) * 100 : 0;
+    if (totalChapters === 0) return;
 
-    const isCompleted = progressPercentage === 100;
+    const progressRecords = await this.prisma.progress.findMany({
+      where: { enrollmentId },
+    });
+
+    const totalProgressSum = progressRecords.reduce((sum, record) => {
+      const p = Number(record.progress);
+      return sum + (p > 100 ? 100 : p);
+    }, 0);
+
+    const overallProgress = Math.min(100, Math.round((totalProgressSum / totalChapters) * 100) / 100);
+
+    const updateData: any = {
+      progress: overallProgress,
+    };
+
+    if (overallProgress === 100 && enrollment.status !== 'COMPLETED') {
+      updateData.status = 'COMPLETED';
+      updateData.completedAt = new Date();
+    } else if (enrollment.status === 'INVITED') {
+      updateData.status = 'ACTIVE';
+      if (!enrollment.enrolledAt) {
+        updateData.enrolledAt = new Date();
+      }
+    }
 
     await this.prisma.enrollment.update({
       where: { id: enrollmentId },
-      data: {
-        progress: progressPercentage,
-        status: isCompleted ? 'COMPLETED' : 'ACTIVE',
-        completedAt: isCompleted ? new Date() : null,
-        lastAccessedAt: new Date(),
-      },
+      data: updateData,
     });
   }
 }
-

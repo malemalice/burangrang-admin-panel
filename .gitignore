@@ -30,6 +30,7 @@ ehthumbs.db
 *.tmp
 *.bak
 *.swp
+refs/*
 
 # Database
 *.sqlite
@@ -59,3 +60,5 @@ playwright/test-results
 backend/uploads
 .agent
 .kilocode
+plans/
+AGENTS.md

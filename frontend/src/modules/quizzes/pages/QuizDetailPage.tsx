@@ -54,6 +54,7 @@ const QuizDetailPage = () => {
     if (quiz) {
       try {
         await deleteQuiz(quiz.id);
+        toast.success('Quiz deleted successfully');
         navigate('/quizzes');
       } catch (error) {
         console.error('Failed to delete quiz:', error);
@@ -571,6 +572,7 @@ const QuizDetailPage = () => {
         onConfirm={handleDeleteConfirm}
         title="Delete Quiz"
         description={`Are you sure you want to delete "${quiz.title}"? This action cannot be undone.`}
+        variant="destructive"
       />
     </div>
   );

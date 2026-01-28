@@ -17,13 +17,7 @@ import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Switch } from '@/core/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/core/components/ui/select';
+import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { riskService, riskCategoryService } from '@/modules/master-data';
 import { Risk, RiskCategory } from '@/core/lib/types';
 
@@ -58,13 +52,13 @@ const RiskForm = ({ risk, mode }: RiskFormProps) => {
     },
   });
 
-  // Fetch risk categories for the dropdown
+  // Fetch risk categories for the dropdown. In edit mode include inactive so selected category appears (MDR-006, MDR-007).
   useEffect(() => {
     const fetchRiskCategories = async () => {
       try {
         const response = await riskCategoryService.getAll({
           limit: 100,
-          isActive: true,
+          isActive: mode === 'edit' ? undefined : true,
         });
         setRiskCategories(response.data);
       } catch (error) {
@@ -74,16 +68,16 @@ const RiskForm = ({ risk, mode }: RiskFormProps) => {
     };
 
     fetchRiskCategories();
-  }, []);
+  }, [mode]);
 
-  // Set form values when editing an existing risk
+  // Set form values when editing an existing risk (MDR-006, MDR-007: ensure riskCategoryId is set)
   useEffect(() => {
     if (risk) {
       form.reset({
         name: risk.name,
         code: risk.code,
         description: risk.description || '',
-        riskCategoryId: risk.riskCategoryId,
+        riskCategoryId: risk.riskCategoryId || risk.riskCategory?.id || '',
         isActive: risk.isActive,
       });
     }
@@ -121,25 +115,16 @@ const RiskForm = ({ risk, mode }: RiskFormProps) => {
               name="riskCategoryId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Risk Category</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    defaultValue={field.value}
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a risk category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {riskCategories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>Risk Category <span className="text-destructive">*</span></FormLabel>
+                  <FormControl>
+                    <SearchableSelect
+                      options={riskCategories.map((c) => ({ value: c.id, label: c.name }))}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      placeholder="Select a risk category"
+                      searchPlaceholder="Search risk category..."
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -150,7 +135,7 @@ const RiskForm = ({ risk, mode }: RiskFormProps) => {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>Name <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
                     <Input placeholder="Enter risk name" {...field} />
                   </FormControl>
@@ -164,7 +149,7 @@ const RiskForm = ({ risk, mode }: RiskFormProps) => {
               name="code"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Code</FormLabel>
+                  <FormLabel>Code <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
                     <Input placeholder="Enter risk code" {...field} />
                   </FormControl>

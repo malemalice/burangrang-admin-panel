@@ -311,6 +311,8 @@ const RiskDetailPage = () => {
         title="Delete Risk"
         description={`Are you sure you want to delete the risk "${risk?.name}"? This action cannot be undone. Note that risks with associated mitigations cannot be deleted.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
+        confirmText="Delete"
       />
     </>
   );

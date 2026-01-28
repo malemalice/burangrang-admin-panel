@@ -9,6 +9,8 @@ interface PaginationParams {
   isActive?: boolean;
   search?: string;
   riskCategoryId?: string;
+  name?: string;
+  code?: string;
 }
 
 interface PaginatedResponse<T> {

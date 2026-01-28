@@ -21,6 +21,8 @@ import { UpdateSafetyEquipmentDto } from './dto/update-safety-equipment.dto';
 import { SafetyEquipmentDto } from './dto/safety-equipment.dto';
 import { FindSafetyEquipmentTypeDto } from './dto/find-safety-equipment-type.dto';
 import { FindSafetyEquipmentDto } from './dto/find-safety-equipment.dto';
+import { FindMovementsDto } from './dto/find-movements.dto';
+import { StockMovementDto } from './dto/stock-movement.dto';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -1224,19 +1226,6 @@ export class PPEService {
                         },
                     });
 
-                    // Create stock adjustment for audit trail
-                    await tx["pPEStockAdjustment"].create({
-                        data: {
-                            stockItemId: item.stockItemId,
-                            adjustmentType: 'RETURN', // Actually it's withdrawal, but using RETURN type
-                            quantityBefore: stockItem.currentQuantity,
-                            quantityAfter: newCurrentQuantity,
-                            quantityChange: -issuedQty,
-                            reason: `Withdrawal ${withdrawal.withdrawalCode} - Item collected`,
-                            adjustedBy: updateDto.collectedBy || withdrawal.requestedBy,
-                        },
-                    });
-
                     // Update withdrawal item
                     await tx["pPEWithdrawalItem"].update({
                         where: { id: item.id },
@@ -1308,19 +1297,29 @@ export class PPEService {
 
             this.errorHandler.throwIfNotFoundById('PPEStockItem', item.stockItemId, stockItem);
 
-            // Allow AVAILABLE and EXPIRED status for withdrawal (EXPIRED for disposal)
-            if (stockItem.status !== 'AVAILABLE' && stockItem.status !== 'EXPIRED') {
-                this.errorHandler.throwBadRequest(
-                    `Stock item ${item.stockItemId} is not available for withdrawal. Current status: ${stockItem.status}`,
-                );
-            }
-
             // Calculate available quantity (considering current reserved quantity from this withdrawal)
             const currentReservedFromThis = withdrawal.items
                 .filter((wi: any) => wi.stockItemId === item.stockItemId)
                 .reduce((sum: number, wi: any) => sum + wi.requestedQuantity, 0);
 
             const availableQuantity = stockItem.currentQuantity - (stockItem.reservedQuantity - currentReservedFromThis);
+
+            // Allow AVAILABLE and EXPIRED status for withdrawal (EXPIRED for disposal)
+            // Also allow RESERVED status if the item is reserved by this withdrawal (partially or fully)
+            // We verify this by checking if we have any reservation from this withdrawal (currentReservedFromThis > 0)
+            const isReservedByThisWithdrawal = currentReservedFromThis > 0;
+
+            if (stockItem.status !== 'AVAILABLE' && stockItem.status !== 'EXPIRED') {
+                // If status is RESERVED, it's only valid if it's reserved by THIS withdrawal
+                if (stockItem.status === 'RESERVED' && isReservedByThisWithdrawal) {
+                    // Valid case: The item is RESERVED, but because we (this withdrawal) hold some reservation
+                    // We can proceed to check quantity
+                } else {
+                    this.errorHandler.throwBadRequest(
+                        `Stock item ${item.stockItemId} is not available for withdrawal. Current status: ${stockItem.status}`,
+                    );
+                }
+            }
 
             if (item.requestedQuantity > availableQuantity) {
                 this.errorHandler.throwBadRequest(
@@ -2061,6 +2060,198 @@ export class PPEService {
         this.errorHandler.throwIfNotFoundByField('Safety Equipment', 'code', code, safetyEquipment);
 
         return this.safetyEquipmentMapper(safetyEquipment);
+    }
+
+    /**
+     * Get stock movement history for a specific safety equipment
+     */
+    async findMovementsBySafetyEquipmentId(
+        safetyEquipmentId: string,
+        params: FindMovementsDto,
+    ): Promise<{
+        data: StockMovementDto[];
+        meta: { total: number; page: number; limit: number; totalPages: number };
+        summary: { totalIn: number; totalOut: number; currentStock: number };
+    }> {
+        const { page = 1, limit = 20, movementType, dateFrom, dateTo, search } = params;
+
+        // 1. Get all stock items linked to this safety equipment
+        const stockItems = await this.prisma['pPEStockItem'].findMany({
+            where: {
+                safetyEquipmentId,
+                stock: {
+                    deletedAt: null,
+                },
+            },
+            include: {
+                stock: {
+                    include: {
+                        creator: true,
+                    }
+                },
+            },
+        });
+
+        const stockItemIds = stockItems.map((item) => item.id);
+
+        const movements: any[] = [];
+
+        // 2. Add Stock In (Initial quantity)
+        for (const item of stockItems) {
+            movements.push({
+                id: `in-${item.id}`,
+                movementType: 'STOCK_IN',
+                quantity: item.initialQuantity,
+                date: item.createdAt,
+                referenceCode: item.stock.stockCode,
+                notes: item.stock.notes,
+                performedBy: {
+                    id: item.stock.createdBy,
+                    name: item.stock.creator ? `${item.stock.creator.firstName} ${item.stock.creator.lastName}` : 'Admin',
+                },
+                metadata: {
+                    stockCode: item.stock.stockCode,
+                    expiryDate: item.expiryDate,
+                },
+            });
+        }
+
+        // 3. Add Withdrawals (only COLLECTED)
+        const withdrawalItems = await this.prisma['pPEWithdrawalItem'].findMany({
+            where: {
+                stockItemId: { in: stockItemIds },
+                withdrawal: {
+                    status: 'COLLECTED',
+                    deletedAt: null,
+                },
+            },
+            include: {
+                withdrawal: {
+                    include: {
+                        collector: true,
+                        department: true,
+                        requestedForUser: true,
+                    },
+                },
+            },
+        });
+
+        for (const item of withdrawalItems) {
+            movements.push({
+                id: `wd-${item.id}`,
+                movementType: 'WITHDRAWAL',
+                quantity: -(item.issuedQuantity || 0),
+                date: item.withdrawal.collectedDate || item.withdrawal.updatedAt,
+                referenceCode: item.withdrawal.withdrawalCode,
+                notes: item.withdrawal.notes,
+                performedBy: {
+                    id: item.withdrawal.collectedBy,
+                    name: item.withdrawal.collector ? `${item.withdrawal.collector.firstName} ${item.withdrawal.collector.lastName}` : 'System',
+                },
+                metadata: {
+                    departmentName: item.withdrawal.department?.name,
+                    requestedForName: item.withdrawal.requestedForName || (item.withdrawal.requestedForUser ? `${item.withdrawal.requestedForUser.firstName} ${item.withdrawal.requestedForUser.lastName}` : null),
+                },
+            });
+        }
+
+        // 4. Add Adjustments
+        const adjustments = await this.prisma['pPEStockAdjustment'].findMany({
+            where: {
+                stockItemId: { in: stockItemIds },
+            },
+            include: {
+                adjuster: true,
+            },
+        });
+
+        for (const adj of adjustments) {
+            // We use standard adjustment types from schema
+            movements.push({
+                id: `adj-${adj.id}`,
+                movementType: 'ADJUSTMENT',
+                adjustmentType: adj.adjustmentType,
+                quantity: adj.quantityChange,
+                date: adj.adjustedAt,
+                notes: adj.reason,
+                performedBy: {
+                    id: adj.adjustedBy,
+                    name: `${adj.adjuster.firstName} ${adj.adjuster.lastName}`,
+                },
+                metadata: {
+                    reason: adj.reason,
+                },
+            });
+        }
+
+        // 5. Calculate summary and running balance
+        // Sort by date ascending to calculate balance correctly
+        movements.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        let currentBalance = 0;
+        let totalIn = 0;
+        let totalOut = 0;
+
+        const movementsWithBalance = movements.map((m) => {
+            currentBalance += m.quantity;
+            if (m.quantity > 0) totalIn += m.quantity;
+            else totalOut += Math.abs(m.quantity);
+            
+            return {
+                ...m,
+                runningBalance: currentBalance,
+            };
+        });
+
+        // 6. Apply filters
+        let filteredMovements = movementsWithBalance;
+
+        if (movementType) {
+            filteredMovements = filteredMovements.filter((m) => m.movementType === movementType);
+        }
+
+        if (dateFrom) {
+            const from = new Date(dateFrom);
+            filteredMovements = filteredMovements.filter((m) => new Date(m.date) >= from);
+        }
+
+        if (dateTo) {
+            const to = new Date(dateTo);
+            filteredMovements = filteredMovements.filter((m) => new Date(m.date) <= to);
+        }
+
+        if (search) {
+            const s = search.toLowerCase();
+            filteredMovements = filteredMovements.filter(
+                (m) =>
+                    (m.referenceCode && m.referenceCode.toLowerCase().includes(s)) ||
+                    (m.notes && m.notes.toLowerCase().includes(s)) ||
+                    (m.performedBy.name && m.performedBy.name.toLowerCase().includes(s)),
+            );
+        }
+
+        // 7. Sort by date descending for display
+        filteredMovements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        // 8. Pagination
+        const total = filteredMovements.length;
+        const start = (page - 1) * limit;
+        const paginatedData = filteredMovements.slice(start, start + limit);
+
+        return {
+            data: paginatedData.map((m) => new StockMovementDto(m)),
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+            summary: {
+                totalIn,
+                totalOut,
+                currentStock: currentBalance,
+            },
+        };
     }
 }
 

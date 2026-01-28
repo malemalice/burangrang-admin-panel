@@ -44,7 +44,6 @@ export const useQuizzes = () => {
       const newQuiz = await quizService.createQuiz(quizData);
       setQuizzes(prev => [newQuiz, ...prev]);
       setTotalQuizzes(prev => prev + 1);
-      toast.success('Quiz created successfully');
       return newQuiz;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create quiz';
@@ -58,7 +57,6 @@ export const useQuizzes = () => {
     try {
       const updatedQuiz = await quizService.updateQuiz(id, quizData);
       setQuizzes(prev => prev.map(item => item.id === id ? updatedQuiz : item));
-      toast.success('Quiz updated successfully');
       return updatedQuiz;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update quiz';
@@ -73,7 +71,6 @@ export const useQuizzes = () => {
       await quizService.deleteQuiz(id);
       setQuizzes(prev => prev.filter(item => item.id !== id));
       setTotalQuizzes(prev => prev - 1);
-      toast.success('Quiz deleted successfully');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete quiz';
       toast.error(errorMessage);
@@ -85,7 +82,6 @@ export const useQuizzes = () => {
   const assignQuiz = async (quizId: string, assignData: AssignQuizDTO) => {
     try {
       await quizService.assignQuiz(quizId, assignData);
-      toast.success('Quiz assigned successfully');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to assign quiz';
       toast.error(errorMessage);

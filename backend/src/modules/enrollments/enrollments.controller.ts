@@ -59,7 +59,18 @@ export class EnrollmentsController {
   @Post('assign')
   @ApiOperation({ summary: 'Assign course to user (Admin only)' })
   @ApiBody({ type: AssignEnrollmentDto })
-  @ApiResponse({ status: 201, type: EnrollmentDto, description: 'Course assigned successfully' })
+  @ApiResponse({ 
+    status: 201, 
+    description: 'Course assigned successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        enrollment: { $ref: '#/components/schemas/EnrollmentDto' },
+        emailStatus: { type: 'string', enum: ['sent', 'skipped', 'failed', 'not_requested'] },
+        emailMessage: { type: 'string', nullable: true },
+      },
+    },
+  })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin access required' })
@@ -69,7 +80,11 @@ export class EnrollmentsController {
   async assignCourse(
     @Body() assignEnrollmentDto: AssignEnrollmentDto,
     @Request() req: any,
-  ): Promise<EnrollmentDto> {
+  ): Promise<{
+    enrollment: EnrollmentDto;
+    emailStatus: 'sent' | 'skipped' | 'failed' | 'not_requested';
+    emailMessage?: string;
+  }> {
     const assignedBy = req.user.id;
     return this.enrollmentsService.assignCourse(assignEnrollmentDto, assignedBy);
   }
@@ -116,6 +131,22 @@ export class EnrollmentsController {
     const userId = req.user.id;
     const userRole = req.user.role;
     return this.enrollmentsService.findAll(query, userId, userRole);
+  }
+
+  @Get(':id/learning-context')
+  @ApiOperation({ summary: 'Get enrollment learning context (course, chapters, progress)' })
+  @ApiParam({ name: 'id', type: String, description: 'Enrollment ID' })
+  @ApiResponse({ status: 200, description: 'Learning context retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Enrollment not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @Roles(Role.USER, Role.ADMIN, Role.SUPER_ADMIN)
+  async getLearningContext(
+    @Param('id') id: string,
+    @Request() req: any,
+  ): Promise<any> {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    return this.enrollmentsService.getLearningContext(id, userId, userRole);
   }
 
   @Get(':id')

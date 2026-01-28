@@ -263,21 +263,21 @@ export default function ManHourReportPage() {
               <table className="w-full text-sm border-collapse">
                 <thead className="sticky top-0">
                   <tr className="bg-blue-600 text-white">
-                    <th className="sticky left-0 bg-blue-600 px-4 py-3 text-left font-semibold min-w-[150px] border-r border-blue-500">
+                    <th className="sticky left-0 top-0 z-30 bg-blue-600 px-4 py-3 text-left font-semibold min-w-[150px] border-r">
                       Classes
                     </th>
-                    <th className="px-4 py-3 text-right font-semibold min-w-[80px] border-r border-blue-500">
+                    <th className="sticky top-0 z-20 px-4 py-3 text-right font-semibold min-w-[80px] border-r">
                       Study Hour
                     </th>
                     {columnHeaders.map(({ key, label }) => (
                       <th
                         key={key}
-                        className="px-3 py-3 text-right font-semibold min-w-[80px] whitespace-nowrap border-r border-blue-500"
+                        className="sticky top-0 z-20 px-3 py-3 text-right font-semibold min-w-[80px] whitespace-nowrap border-r"
                       >
                         {label}
                       </th>
                     ))}
-                    <th className="px-4 py-3 text-right font-semibold min-w-[100px]">
+                    <th className="sticky top-0 z-20 px-4 py-3 text-right font-semibold min-w-[100px]">
                       Total
                     </th>
                   </tr>
@@ -288,7 +288,7 @@ export default function ManHourReportPage() {
                       key={`${row.name}-${row.group}`}
                       className={index % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800'}
                     >
-                      <td className="sticky left-0 px-4 py-2 font-medium border-b border-r bg-inherit">
+                      <td className="left-0 z-10 px-4 py-2 font-medium border-b border-r bg-inherit">
                         {row.name}
                       </td>
                       <td className="px-4 py-2 text-right border-b border-r">
@@ -309,7 +309,7 @@ export default function ManHourReportPage() {
 
                   {/* Totals Row */}
                   <tr className="bg-blue-100 dark:bg-blue-900/50 font-bold sticky bottom-0">
-                    <td className="sticky left-0 bg-blue-100 dark:bg-blue-900/50 px-4 py-3 border-t-2 border-r">
+                    <td className="sticky left-0 z-10 bg-blue-100 dark:bg-blue-900/50 px-4 py-3 border-t-2 border-r">
                       Total
                     </td>
                     <td className="px-4 py-3 text-right border-t-2 border-r">-</td>

@@ -3,6 +3,7 @@ import { Expose } from 'class-transformer';
 import { RiskRatingEnum } from '@prisma/client';
 import { RiskCategoryDto } from 'src/modules/risk-categories/dto/risk-category.dto';
 import { RiskDto } from 'src/modules/risks/dto/risk.dto';
+import { RiskMitigationRecordDto } from './risk-mitigation-data.dto';
 
 export class RiskAssessmentItemDto {
   @ApiProperty()
@@ -31,7 +32,7 @@ export class RiskAssessmentItemDto {
 
   @ApiProperty()
   @Expose()
-  likelihoodLevel: number;
+  likelihoodLevel: string;
 
   @ApiProperty()
   @Expose()
@@ -47,7 +48,7 @@ export class RiskAssessmentItemDto {
 
   @ApiProperty()
   @Expose()
-  postLikelihoodLevel: number;
+  postLikelihoodLevel: string;
 
   @ApiProperty()
   @Expose()
@@ -60,6 +61,10 @@ export class RiskAssessmentItemDto {
   @ApiProperty({ enum: RiskRatingEnum })
   @Expose()
   postInterpretation: RiskRatingEnum;
+
+  @ApiProperty({ type: RiskMitigationRecordDto, required: false, description: 'Risk mitigation record' })
+  @Expose()
+  mitigation?: RiskMitigationRecordDto;
 
   constructor(partial: Partial<RiskAssessmentItemDto>) {
     Object.assign(this, partial);

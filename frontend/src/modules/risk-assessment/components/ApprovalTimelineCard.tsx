@@ -5,13 +5,43 @@ import { Badge } from '@/core/components/ui/badge';
 import { ApprovalStatusHistory } from '@/modules/master-data';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 
+// Sentinel values for dynamic approval fields
+const APPROVAL_FIELD_MARKERS = {
+  FROM_ENTITY_DEPARTMENT: '@ENTITY_DEPARTMENT',
+  FROM_ENTITY_JOB_POSITION: '@ENTITY_JOB_POSITION',
+} as const;
+
+// Helper function to get display label (handles sentinel values - backend should already return labels, but this is a fallback)
+const getDisplayLabel = (value: string, fallback: string): string => {
+  if (value === APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT) {
+    return 'Dynamic: From Entity Data';
+  }
+  if (value === APPROVAL_FIELD_MARKERS.FROM_ENTITY_JOB_POSITION) {
+    return 'Dynamic: From Entity Data (Department Head)';
+  }
+  return fallback;
+};
+
 interface ApprovalTimelineCardProps {
   approvalHistory: ApprovalStatusHistory | null;
   isLoading: boolean;
   assessmentStatus?: string; // Assessment status to check if DONE
+  /**
+   * Optional entity context for dynamic approval configuration.
+   * When approval lines are configured as "From Entity Data", these values are used
+   * to display the expected department/position instead of the placeholder labels.
+   */
+  entityDepartmentName?: string;
+  entityJobPositionName?: string;
 }
 
-export const ApprovalTimelineCard = ({ approvalHistory, isLoading, assessmentStatus }: ApprovalTimelineCardProps) => {
+export const ApprovalTimelineCard = ({
+  approvalHistory,
+  isLoading,
+  assessmentStatus,
+  entityDepartmentName,
+  entityJobPositionName,
+}: ApprovalTimelineCardProps) => {
   const [scrollTop, setScrollTop] = useState(0);
   const [scrollHeight, setScrollHeight] = useState(0);
   const [clientHeight, setClientHeight] = useState(0);
@@ -97,27 +127,47 @@ export const ApprovalTimelineCard = ({ approvalHistory, isLoading, assessmentSta
     return allApprovals.find((item) => item.line === lineNumber);
   };
 
+  const isDynamicDepartment = (dept?: { id: string; name: string }) => {
+    if (!dept) return false;
+    return (
+      dept.id === APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT ||
+      dept.name === APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT ||
+      dept.name === 'Dynamic: From Entity Data'
+    );
+  };
+
+  const isDynamicJobPosition = (pos?: { id: string; name: string }) => {
+    if (!pos) return false;
+    return (
+      pos.id === APPROVAL_FIELD_MARKERS.FROM_ENTITY_JOB_POSITION ||
+      pos.name === APPROVAL_FIELD_MARKERS.FROM_ENTITY_JOB_POSITION ||
+      pos.name === 'Dynamic: From Entity Data (Department Head)'
+    );
+  };
+
+  const resolveDepartmentName = (dept: { id: string; name: string }) => {
+    if (isDynamicDepartment(dept) && entityDepartmentName) return entityDepartmentName;
+    // Fall back to any "dynamic" label provided by backend/marker mapping
+    return getDisplayLabel(dept.id, dept.name);
+  };
+
+  const resolveJobPositionName = (pos: { id: string; name: string }) => {
+    if (isDynamicJobPosition(pos)) return entityJobPositionName || 'Department Head';
+    return getDisplayLabel(pos.id, pos.name);
+  };
+
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col">
       <div className="mb-4 flex-shrink-0">
         <h3 className="text-base font-semibold text-foreground mb-1">Approval Timeline</h3>
         <p className="text-xs text-muted-foreground">Track the approval progress and workflow</p>
       </div>
       
-      <div className="flex-1 min-h-0 relative max-h-[500px]">
-        {/* Top fade gradient - visible when scrolled down */}
-        <div 
-          className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-background via-background/80 to-transparent pointer-events-none z-10"
-          style={{
-            opacity: scrollTop > 10 ? 1 : 0,
-            transition: 'opacity 0.2s ease-in-out'
-          }}
-        />
-        
+      <div className="relative">
         {/* Scrollable content */}
         <div 
           ref={scrollRef}
-          className="absolute inset-0 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/30"
+          className="overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/30 max-h-[400px]"
           onScroll={(e) => {
             const target = e.target as HTMLElement;
             setScrollTop(target.scrollTop);
@@ -125,7 +175,7 @@ export const ApprovalTimelineCard = ({ approvalHistory, isLoading, assessmentSta
             setClientHeight(target.clientHeight);
           }}
         >
-          <div className="relative min-h-full">
+          <div className="relative">
             <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
             <div className="space-y-4 pb-4">
               {/* Show all approvals in chronological order */}
@@ -206,11 +256,15 @@ export const ApprovalTimelineCard = ({ approvalHistory, isLoading, assessmentSta
                         <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
                           <div className="flex items-center gap-1.5">
                             <span className="text-blue-700 dark:text-blue-300">Dept:</span>
-                            <span className="font-medium text-blue-900 dark:text-blue-100">{line.department.name}</span>
+                            <span className="font-medium text-blue-900 dark:text-blue-100">
+                              {resolveDepartmentName(line.department)}
+                            </span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <span className="text-blue-700 dark:text-blue-300">Pos:</span>
-                            <span className="font-medium text-blue-900 dark:text-blue-100">{line.jobPosition.name}</span>
+                            <span className="font-medium text-blue-900 dark:text-blue-100">
+                              {resolveJobPositionName(line.jobPosition)}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -230,11 +284,11 @@ export const ApprovalTimelineCard = ({ approvalHistory, isLoading, assessmentSta
                         <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
                           <div className="flex items-center gap-1.5">
                             <span>Dept:</span>
-                            <span className="font-medium">{line.department.name}</span>
+                            <span className="font-medium">{resolveDepartmentName(line.department)}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <span>Pos:</span>
-                            <span className="font-medium">{line.jobPosition.name}</span>
+                            <span className="font-medium">{resolveJobPositionName(line.jobPosition)}</span>
                           </div>
                         </div>
                       </div>
@@ -247,15 +301,6 @@ export const ApprovalTimelineCard = ({ approvalHistory, isLoading, assessmentSta
               </div>
             </div>
           </div>
-        
-        {/* Bottom fade gradient - visible when more content below */}
-        <div 
-          className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none z-10"
-          style={{
-            opacity: scrollHeight - scrollTop - clientHeight > 10 ? 1 : 0,
-            transition: 'opacity 0.2s ease-in-out'
-          }}
-        />
       </div>
     </div>
   );

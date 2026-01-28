@@ -15,6 +15,7 @@ const mapRoleDtoToRole = (roleDto: RoleDTO): Role => {
   return {
     id: roleDto.id,
     name: roleDto.name,
+    code: roleDto.code,
     description: roleDto.description || '',
     status: roleDto.isActive ? 'active' : 'inactive',
     isActive: roleDto.isActive,
@@ -38,14 +39,15 @@ const filterAndPaginateRoles = (
 ): PaginatedResponse<Role> => {
   let filteredRoles = [...roles];
   
-  // Apply search if provided
-  if (search) {
-    const searchLower = search.toLowerCase();
-    filteredRoles = filteredRoles.filter(role => 
-      role.name.toLowerCase().includes(searchLower) ||
-      (role.description && role.description.toLowerCase().includes(searchLower))
-    );
-  }
+    // Apply search if provided
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredRoles = filteredRoles.filter(role => 
+        role.name.toLowerCase().includes(searchLower) ||
+        (role.code && role.code.toLowerCase().includes(searchLower)) ||
+        (role.description && role.description.toLowerCase().includes(searchLower))
+      );
+    }
   
   // Apply filters if provided
   if (filters) {

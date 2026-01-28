@@ -21,10 +21,10 @@ import riskMatrixService from '../services/riskMatrixService';
 import { CreateRiskMatrixDTO, UpdateRiskMatrixDTO, RiskMatrix, RiskRatingEnum } from '../types/risk-matrix.types';
 
 const formSchema = z.object({
-  likelihoodLevel: z.number().min(1).max(99),
+  likelihoodLevel: z.string().min(1, 'Likelihood level is required').max(2, 'Likelihood level must be 1-2 characters'),
   likelihoodName: z.string().min(1, 'Likelihood name is required'),
   likelihoodDesc: z.string().min(1, 'Likelihood description is required'),
-  consequenceLevel: z.string().min(1, 'Consequence level is required').max(2, 'Consequence level must be 1-2 characters'),
+  consequenceLevel: z.number().min(1).max(99),
   consequenceName: z.string().min(1, 'Consequence name is required'),
   consequenceDesc: z.string().min(1, 'Consequence description is required'),
   risk_rating: z.nativeEnum(RiskRatingEnum),
@@ -46,10 +46,10 @@ const RiskMatrixForm = ({ riskMatrix, mode }: RiskMatrixFormProps) => {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      likelihoodLevel: 1,
+      likelihoodLevel: 'A',
       likelihoodName: '',
       likelihoodDesc: '',
-      consequenceLevel: 'A',
+      consequenceLevel: 1,
       consequenceName: '',
       consequenceDesc: '',
       risk_rating: RiskRatingEnum.LOW,
@@ -124,18 +124,18 @@ const RiskMatrixForm = ({ riskMatrix, mode }: RiskMatrixFormProps) => {
                       <FormControl>
                         <Input
                           type="text"
-                          inputMode="numeric"
-                          placeholder="1-99"
-                          value={field.value?.toString() || ''}
+                          placeholder="A-Z, AA-ZZ"
+                          value={field.value || ''}
                           onChange={(e) => {
-                            const value = e.target.value;
-                            // Only allow up to 2 digits
+                            const value = e.target.value.toUpperCase();
+                            // Only allow up to 2 characters
                             if (value.length > 2) return;
-                            // Validate: allow empty, single digit (1-9), or two digits (10-99)
-                            if (value && !/^([1-9]|[1-9][0-9])$/.test(value)) return;
-                            field.onChange(value ? parseInt(value, 10) : undefined);
+                            // Validate: allow empty, single letter (A-Z), or two letters (AA-ZZ)
+                            if (value && !/^[A-Z]{1,2}$/.test(value)) return;
+                            field.onChange(value);
                           }}
                           maxLength={2}
+                          className="uppercase"
                         />
                       </FormControl>
                       <FormMessage />
@@ -190,18 +190,18 @@ const RiskMatrixForm = ({ riskMatrix, mode }: RiskMatrixFormProps) => {
                       <FormControl>
                         <Input
                           type="text"
-                          placeholder="A-Z, AA-ZZ"
-                          value={field.value || ''}
+                          inputMode="numeric"
+                          placeholder="1-99"
+                          value={field.value?.toString() || ''}
                           onChange={(e) => {
-                            const value = e.target.value.toUpperCase();
-                            // Only allow up to 2 characters
+                            const value = e.target.value;
+                            // Only allow up to 2 digits
                             if (value.length > 2) return;
-                            // Validate: allow empty, single letter (A-Z), or two letters (AA-ZZ)
-                            if (value && !/^[A-Z]{1,2}$/.test(value)) return;
-                            field.onChange(value);
+                            // Validate: allow empty, single digit (1-9), or two digits (10-99)
+                            if (value && !/^([1-9]|[1-9][0-9])$/.test(value)) return;
+                            field.onChange(value ? parseInt(value, 10) : undefined);
                           }}
                           maxLength={2}
-                          className="uppercase"
                         />
                       </FormControl>
                       <FormMessage />
