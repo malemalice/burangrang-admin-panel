@@ -82,7 +82,7 @@ export class RiskMatrixController {
     description: 'Return all risk matrix entries.',
     type: [RiskMatrixDto],
   })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  // @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
   findAllRiskMatrices(
     @Query('page') page?: string,
     @Query('limit') limit?: string,

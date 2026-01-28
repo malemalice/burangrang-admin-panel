@@ -39,6 +39,7 @@ interface SearchableSelectProps {
   // Create new option props
   onCreateNew?: (searchQuery: string) => Promise<string | void> | string | void;
   createNewText?: string;
+  disabled?: boolean;
 }
 
 export function SearchableSelect({
@@ -56,6 +57,7 @@ export function SearchableSelect({
   debounceMs = 300,
   onCreateNew,
   createNewText = "Create new",
+  disabled = false,
   ...props
 }: SearchableSelectProps & React.HTMLAttributes<HTMLButtonElement>) {
   const [open, setOpen] = useState(false);
@@ -112,6 +114,7 @@ export function SearchableSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          disabled={disabled}
           className={cn(
             "w-full justify-between",
             !value || value === 'none' ? "text-muted-foreground" : "",
