@@ -70,7 +70,7 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
               </div>
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Risk Rating</p>
-                <div>{getRiskBadge(item.riskMatrixRating)}</div>
+                <div>{getRiskBadge(item.interpretation)}</div>
               </div>
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Interpretation</p>
@@ -143,7 +143,7 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
               </div>
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Post Risk Rating</p>
-                <div>{getRiskBadge(item.postRiskMatrixRating)}</div>
+                <div>{getRiskBadge(item.postInterpretation)}</div>
               </div>
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Post Interpretation</p>

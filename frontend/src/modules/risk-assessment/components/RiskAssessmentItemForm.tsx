@@ -807,18 +807,13 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
               control={form.control}
               name="riskMatrixRating"
               render={({ field }) => {
-                const riskCode = getRiskRatingCode(likelihoodLevel, consequenceLevel);
-                
+                const interpretation = form.watch('interpretation');
                 return (
                   <FormItem>
                     <FormLabel>Risk Rating</FormLabel>
                     <FormControl>
                       <div className="pt-2">
-                        {riskCode && (
-                          <span className="px-2 py-1 rounded-md text-xs font-medium border bg-gray-100 text-gray-800 border-gray-800">
-                            {riskCode}
-                          </span>
-                        )}
+                        {interpretation && getRiskBadge(interpretation)}
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -1042,18 +1037,13 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
               control={form.control}
               name="postRiskMatrixRating"
               render={({ field }) => {
-                const postRiskCode = getRiskRatingCode(postLikelihoodLevel, postConsequenceLevel);
-                
+                const postInterpretation = form.watch('postInterpretation');
                 return (
                   <FormItem>
                     <FormLabel>Post Risk Rating</FormLabel>
                     <FormControl>
                       <div className="pt-2">
-                        {postRiskCode && (
-                          <span className="px-2 py-1 rounded-md text-xs font-medium border bg-gray-100 text-gray-800 border-gray-800">
-                            {postRiskCode}
-                          </span>
-                        )}
+                        {postInterpretation && getRiskBadge(postInterpretation)}
                       </div>
                     </FormControl>
                     <FormMessage />
