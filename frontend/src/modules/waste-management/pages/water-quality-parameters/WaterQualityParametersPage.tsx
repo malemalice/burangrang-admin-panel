@@ -105,6 +105,12 @@ export default function WaterQualityParametersPage() {
       isSortable: true,
     },
     {
+      id: 'dateSampleTaken',
+      header: 'Date Sample Taken',
+      cell: (item: WaterQualityParameter) => new Date(item.dateSampleTaken).toLocaleDateString(),
+      isSortable: true,
+    },
+    {
       id: 'unit',
       header: 'Unit',
       cell: (item: WaterQualityParameter) => item.unit,
