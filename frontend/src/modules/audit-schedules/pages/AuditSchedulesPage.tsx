@@ -29,6 +29,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/to
 import { AuditSchedule } from '../types/audit-schedule.types';
 import auditSchedulesService from '../services/auditSchedulesService';
 import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
+import { CompliantStatusEnum } from '@/shared/constants/compliant-status.enum';
 import api from '@/core/lib/api';
 import areaService from '@/modules/master-data/services/areaService';
 import { userService } from '@/modules/users';
@@ -140,11 +141,6 @@ const AuditSchedulesPage = () => {
   // Define filter fields
   const filterFields: FilterField[] = [
     {
-      id: 'code',
-      label: 'Audit Code',
-      type: 'text',
-    },
-    {
       id: 'auditElementId',
       label: 'Audit Element',
       type: 'multiSelectSearchable',
@@ -244,9 +240,10 @@ const AuditSchedulesPage = () => {
             const items = auditItems.filter((item: any) => item.auditId === schedule.id);
             const total = criteriaCounts[schedule.auditElementId] || 0;
             const filled = items.length;
-            const comply = items.filter((item: any) => item.compliantStatus === 'COMPLY').length;
+            const comply = items.filter((item: any) => item.compliantStatus === CompliantStatusEnum.COMPLY).length;
             const notComply = items.filter((item: any) => 
-              item.compliantStatus === 'NOT_COMPLY_MAJOR' || item.compliantStatus === 'NOT_COMPLY_MINOR'
+              item.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MAJOR ||
+              item.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MINOR
             ).length;
 
             stats[schedule.id] = {
@@ -294,10 +291,11 @@ const AuditSchedulesPage = () => {
         limit,
       };
 
-      // Add search term if exists
-      if (searchTerm) {
-        params.search = searchTerm;
-      }
+      // Note: Backend doesn't support search parameter for audit schedules list endpoint
+      // Search functionality would need to be implemented in the backend
+      // if (searchTerm) {
+      //   params.search = searchTerm;
+      // }
 
       // Add isActive filter from filters (for active/inactive tabs)
       if (activeFilters.isActive?.value !== undefined) {
@@ -346,8 +344,9 @@ const AuditSchedulesPage = () => {
       }
 
       // Add other filters (excluding handled ones)
+      // Note: 'code' filter removed as backend doesn't support it
       Object.entries(activeFilters).forEach(([key, filter]) => {
-        if (!['status', 'isActive', 'auditElementId', 'areaIds', 'auditorIds', 'createdAt'].includes(key)) {
+        if (!['status', 'isActive', 'auditElementId', 'areaIds', 'auditorIds', 'createdAt', 'code'].includes(key)) {
           params[key] = filter.value;
         }
       });
@@ -401,6 +400,11 @@ const AuditSchedulesPage = () => {
 
   const handleApplyFilters = (filters: FilterValue[]) => {
     const newActiveFilters: Record<string, { value: any; label: string }> = {};
+    
+    // Preserve isActive filter from current tab state (not in filter drawer)
+    if (activeFilters.isActive) {
+      newActiveFilters.isActive = activeFilters.isActive;
+    }
     
     filters.forEach(filter => {
       if (filter.id === 'status') {
@@ -488,17 +492,18 @@ const AuditSchedulesPage = () => {
     setOpenDropdownId(null);
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: GeneralStatusEnum | string) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
       [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
       [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'outline' },
       [GeneralStatusEnum.OPEN]: { label: 'Open', variant: 'secondary' },
-      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Approval', variant: 'secondary' },
+      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
       [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
       [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
     };
 
-    const statusInfo = statusMap[status] || { label: status, variant: 'outline' };
+    const statusKey = String(status);
+    const statusInfo = statusMap[statusKey] || { label: statusKey, variant: 'outline' };
 
     return (
       <Badge variant={statusInfo.variant}>
@@ -666,6 +671,7 @@ const AuditSchedulesPage = () => {
         activeFilters={activeFilters}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+        searchPlaceholder="Search by code or element name..."
       />
 
       <ConfirmDialog

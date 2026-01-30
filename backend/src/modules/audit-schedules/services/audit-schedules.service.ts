@@ -9,6 +9,8 @@ import { AuditScheduleDto } from '../dto/audit-schedule.dto';
 import { CreateAuditItemDto } from '../dto/create-audit-item.dto';
 import { AuditItemDto } from '../dto/audit-item.dto';
 import { AuditResultDto } from '../dto/audit-result.dto';
+import { ApproveAuditItemDto } from '../dto/approve-audit-item.dto';
+import { RejectAuditItemDto } from '../dto/reject-audit-item.dto';
 import { Prisma, GeneralStatusEnum, CompliantStatusEnum } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
 import { RemindersService } from '../../reminders/reminders.service';
@@ -16,6 +18,10 @@ import {
   ReminderRepeatTypeEnum,
   ReminderTargetTypeEnum,
 } from '../../reminders/dto/reminder.dto';
+import { ApprovalsService } from '../../approvals/approvals.service';
+import { MasterApprovalsService } from '../../approvals/master-approvals.service';
+import { APPROVAL_ENTITIES } from '../../../shared/constants/approval-entities';
+import { ApprovalStatus } from '../../approvals/dto/submit-approval.dto';
 
 interface FindAllOptions {
   page?: number;
@@ -54,6 +60,8 @@ export class AuditSchedulesService {
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
     private readonly remindersService: RemindersService,
+    private readonly approvalsService: ApprovalsService,
+    private readonly masterApprovalsService: MasterApprovalsService,
   ) {
     // Initialize audit schedule mapper with nested relations
     this.auditScheduleMapper = this.dtoMapper.createRelationMapper(
@@ -624,13 +632,19 @@ export class AuditSchedulesService {
       ...itemData
     } = createAuditItemDto;
 
+    // If compliant status is COMPLY, set status to DONE (skip approval workflow)
+    // Otherwise, default to OPEN
+    const initialStatus = itemData.compliantStatus === CompliantStatusEnum.COMPLY
+      ? GeneralStatusEnum.DONE
+      : (itemData.status || GeneralStatusEnum.OPEN);
+
     // Create audit item with relations
     const auditItem = await this.prisma.auditItem.create({
       data: {
         ...itemData,
         auditId,
         dueDate: new Date(itemData.dueDate),
-        status: GeneralStatusEnum.OPEN,
+        status: initialStatus,
         ...(departmentIds && departmentIds.length > 0 && {
           departments: {
             create: departmentIds.map((departmentId) => ({
@@ -684,6 +698,44 @@ export class AuditSchedulesService {
       itemId,
       auditItem,
     );
+
+    // Enforce status transition rules
+    const currentStatus = auditItem.status as string;
+    const newStatus = updateAuditItemDto.status as string | undefined;
+    const compliantStatus = updateAuditItemDto.compliantStatus;
+    
+    if (newStatus !== undefined) {
+      // Allow direct change to DONE if compliant status is COMPLY (skip approval workflow)
+      const isComplyStatus = compliantStatus === CompliantStatusEnum.COMPLY;
+      
+      if (newStatus === GeneralStatusEnum.DONE && !isComplyStatus) {
+        // Only allow DONE if compliant status is COMPLY
+        this.errorHandler.throwBadRequest(
+          `Cannot directly change status to DONE. Use approve method or set compliant status to COMPLY.`,
+        );
+      }
+      
+      if (newStatus === GeneralStatusEnum.REJECTED) {
+        this.errorHandler.throwBadRequest(
+          `Cannot directly change status to REJECTED. Use reject method instead.`,
+        );
+      }
+
+      // Only allow changing to WAITING_APPROVAL from OPEN
+      if (newStatus === GeneralStatusEnum.WAITING_APPROVAL && currentStatus !== GeneralStatusEnum.OPEN) {
+        this.errorHandler.throwBadRequest(
+          `Cannot change status to WAITING_APPROVAL from ${currentStatus}. Only OPEN items can be submitted for approval.`,
+        );
+      }
+    }
+
+    // Only allow updates when status is OPEN
+    // Items in WAITING_APPROVAL, DONE, or REJECTED cannot be updated (except via approval workflow)
+    if (currentStatus !== GeneralStatusEnum.OPEN && newStatus === undefined) {
+      this.errorHandler.throwBadRequest(
+        `Cannot update audit item with status ${currentStatus}. Only OPEN items can be updated by assigned users.`,
+      );
+    }
 
     const {
       departmentIds,
@@ -975,5 +1027,261 @@ export class AuditSchedulesService {
       departmentIds: item.departments?.map((d: any) => d.departmentId) || [],
       userIds: item.users?.map((u: any) => u.userId) || [],
     });
+  }
+
+  /**
+   * Submit audit item for approval
+   */
+  async submitForApproval(itemId: string, userId: string): Promise<AuditItemDto> {
+    return this.errorHandler.safeExecute(async () => {
+      // Validate audit item exists
+      const auditItem = await this.prisma.auditItem.findUnique({
+        where: { id: itemId },
+        include: {
+          departments: true,
+          users: true,
+        },
+      });
+
+      this.errorHandler.throwIfNotFoundById('Audit Item', itemId, auditItem);
+
+      // Validate status is OPEN
+      if (auditItem.status !== GeneralStatusEnum.OPEN) {
+        this.errorHandler.throwBadRequest(
+          `Cannot submit for approval: audit item status is ${auditItem.status}. Only OPEN items can be submitted.`,
+        );
+      }
+
+      // Check if user has SUPER_ADMIN role
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { role: true },
+      });
+
+      const isSuperAdmin = user?.role?.code === 'SUPER_ADMIN';
+
+      // Validate user is assigned to the audit item (via department or user assignment)
+      // Bypass this check if user is SUPER_ADMIN
+      if (!isSuperAdmin) {
+        const isAssigned = await this.isUserAssignedToAuditItem(userId, auditItem);
+        if (!isAssigned) {
+          this.errorHandler.throwForbidden(
+            'You are not assigned to this audit item and cannot submit it for approval.',
+          );
+        }
+      }
+
+      // Update status to WAITING_APPROVAL
+      const updatedItem = await this.prisma.auditItem.update({
+        where: { id: itemId },
+        data: {
+          status: GeneralStatusEnum.WAITING_APPROVAL,
+        },
+        include: {
+          departments: true,
+          users: true,
+          images: {
+            orderBy: { order: 'asc' },
+          },
+        },
+      });
+
+      return this.mapAuditItemToDto(updatedItem);
+    }, 'Submitting audit item for approval');
+  }
+
+  /**
+   * Approve audit item
+   */
+  async approve(
+    itemId: string,
+    approveDto: ApproveAuditItemDto,
+    userId: string,
+  ): Promise<AuditItemDto> {
+    return this.errorHandler.safeExecute(async () => {
+      // Validate audit item exists
+      const auditItem = await this.prisma.auditItem.findUnique({
+        where: { id: itemId },
+      });
+
+      this.errorHandler.throwIfNotFoundById('Audit Item', itemId, auditItem);
+
+      const user = await this.getFullUser(userId);
+
+      // Check approval rights
+      const approvalRights = await this.masterApprovalsService.checkApprovalRights(
+        itemId,
+        user,
+        APPROVAL_ENTITIES.AUDIT_ITEM,
+      );
+
+      if (!approvalRights.canApprove) {
+        this.errorHandler.throwForbidden('You do not have permission to approve this audit item');
+      }
+
+      // Submit approval
+      await this.masterApprovalsService.submitApproval({
+        entity: APPROVAL_ENTITIES.AUDIT_ITEM,
+        dataId: itemId,
+        status: ApprovalStatus.APPROVED,
+        notes: approveDto.notes || '',
+      }, user);
+
+      // Check if all approvals are complete
+      const approvalStatus = await this.masterApprovalsService.checkApprovalStatus(
+        itemId,
+        APPROVAL_ENTITIES.AUDIT_ITEM,
+      );
+
+      let newStatus = auditItem.status;
+      if (approvalStatus.currentStatus === 'COMPLETED') {
+        newStatus = GeneralStatusEnum.CLOSE;
+      }
+
+      // Update status if changed
+      const updatedItem = await this.prisma.auditItem.update({
+        where: { id: itemId },
+        data: {
+          status: newStatus,
+        },
+        include: {
+          departments: true,
+          users: true,
+          images: {
+            orderBy: { order: 'asc' },
+          },
+        },
+      });
+
+      return this.mapAuditItemToDto(updatedItem);
+    }, 'Approving audit item');
+  }
+
+  /**
+   * Reject audit item
+   */
+  async reject(
+    itemId: string,
+    rejectDto: RejectAuditItemDto,
+    userId: string,
+  ): Promise<AuditItemDto> {
+    return this.errorHandler.safeExecute(async () => {
+      // Validate audit item exists
+      const auditItem = await this.prisma.auditItem.findUnique({
+        where: { id: itemId },
+      });
+
+      this.errorHandler.throwIfNotFoundById('Audit Item', itemId, auditItem);
+
+      const user = await this.getFullUser(userId);
+
+      // Check approval rights (approvers can reject)
+      const approvalRights = await this.masterApprovalsService.checkApprovalRights(
+        itemId,
+        user,
+        APPROVAL_ENTITIES.AUDIT_ITEM,
+      );
+
+      if (!approvalRights.canApprove) {
+        this.errorHandler.throwForbidden('You do not have permission to reject this audit item');
+      }
+
+      // Update status to REJECTED
+      const updatedItem = await this.prisma.auditItem.update({
+        where: { id: itemId },
+        data: {
+          status: GeneralStatusEnum.REJECTED,
+        },
+        include: {
+          departments: true,
+          users: true,
+          images: {
+            orderBy: { order: 'asc' },
+          },
+        },
+      });
+
+      return this.mapAuditItemToDto(updatedItem);
+    }, 'Rejecting audit item');
+  }
+
+  /**
+   * Check approval rights for audit item
+   */
+  async checkApprovalRights(itemId: string, userId: string) {
+    return this.errorHandler.safeExecute(async () => {
+      // Validate audit item exists
+      const auditItem = await this.prisma.auditItem.findUnique({
+        where: { id: itemId },
+      });
+
+      this.errorHandler.throwIfNotFoundById('Audit Item', itemId, auditItem);
+
+      const user = await this.getFullUser(userId);
+
+      const approvalRights = await this.masterApprovalsService.checkApprovalRights(
+        itemId,
+        user,
+        APPROVAL_ENTITIES.AUDIT_ITEM,
+      );
+
+      const approvalStatus = await this.masterApprovalsService.checkApprovalStatus(
+        itemId,
+        APPROVAL_ENTITIES.AUDIT_ITEM,
+      );
+
+      return {
+        canApprove: approvalRights.canApprove,
+        canReject: approvalRights.canApprove, // Approver can also reject
+        canRequestInfo: approvalRights.canApprove, // Approver can request info
+        nextApprover: approvalStatus.nextApprover,
+      };
+    }, 'Checking approval rights');
+  }
+
+  /**
+   * Helper method to check if user is assigned to audit item
+   */
+  private async isUserAssignedToAuditItem(userId: string, auditItem: any): Promise<boolean> {
+    // Check if user is directly assigned via userIds
+    if (auditItem.users?.some((u: any) => u.userId === userId)) {
+      return true;
+    }
+
+    // Check if user belongs to one of the assigned departments
+    if (auditItem.departments?.length > 0) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { departmentId: true },
+      });
+
+      if (user?.departmentId) {
+        return auditItem.departments.some((d: any) => d.departmentId === user.departmentId);
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Helper to get full user details for master approvals
+   */
+  private async getFullUser(userId: string): Promise<any> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: true,
+        department: true,
+        jobPosition: true,
+        office: true,
+      },
+    });
+
+    if (!user) {
+      this.errorHandler.throwBadRequest('User not found');
+    }
+
+    // Return as any to satisfy MasterApprovalsService which expects specific User interface
+    return user;
   }
 }

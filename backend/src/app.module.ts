@@ -45,6 +45,7 @@ import { AuditPolicyModule } from './modules/audit-policy/audit-policy.module';
 import { AuditSchedulesModule } from './modules/audit-schedules/audit-schedules.module';
 import { ZohoWebhooksModule } from './modules/zoho-webhooks/zoho-webhooks.module';
 import { RiskRegisterModule } from './modules/risk-register/risk-register.module';
+import { IncidentsModule } from './modules/incidents/incidents.module';
 
 @Module({
   imports: [
@@ -98,6 +99,8 @@ import { RiskRegisterModule } from './modules/risk-register/risk-register.module
     ZohoWebhooksModule,
     // Risk Register Module
     RiskRegisterModule,
+    // Incidents Module
+    IncidentsModule,
   ],
   providers: [
     Reflector,

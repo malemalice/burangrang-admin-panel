@@ -218,6 +218,8 @@ const ViewInspectionItemPage = () => {
                   approvalHistory={approvalHistory}
                   isLoading={isLoadingHistory}
                   assessmentStatus={item.status === GeneralStatusEnum.CLOSE ? 'DONE' : item.status}
+                  entityDepartmentName={item.assignedDepartment?.name}
+                  entityJobPositionName="Department Head"
                 />
               </div>
             </div>

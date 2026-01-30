@@ -26,6 +26,8 @@ import {
   CreateAuditItemDto,
   AuditItemDto,
   AuditResultDto,
+  ApproveAuditItemDto,
+  RejectAuditItemDto,
 } from '../dto';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
@@ -204,5 +206,56 @@ export class AuditSchedulesController {
       itemId,
       updateAuditItemDto,
     );
+  }
+
+  // Approval workflow endpoints
+  @Post(':id/items/:itemId/submit-for-approval')
+  @ApiOperation({ summary: 'Submit audit item for approval' })
+  @ApiResponse({ status: 200, type: AuditItemDto })
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  async submitForApproval(
+    @Request() req: RequestWithUser,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+  ): Promise<AuditItemDto> {
+    return this.auditSchedulesService.submitForApproval(itemId, req.user.id);
+  }
+
+  @Post(':id/items/:itemId/approve')
+  @ApiOperation({ summary: 'Approve audit item' })
+  @ApiResponse({ status: 200, type: AuditItemDto })
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  async approveItem(
+    @Request() req: RequestWithUser,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Body() approveDto: ApproveAuditItemDto,
+  ): Promise<AuditItemDto> {
+    return this.auditSchedulesService.approve(itemId, approveDto, req.user.id);
+  }
+
+  @Post(':id/items/:itemId/reject')
+  @ApiOperation({ summary: 'Reject audit item' })
+  @ApiResponse({ status: 200, type: AuditItemDto })
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  async rejectItem(
+    @Request() req: RequestWithUser,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Body() rejectDto: RejectAuditItemDto,
+  ): Promise<AuditItemDto> {
+    return this.auditSchedulesService.reject(itemId, rejectDto, req.user.id);
+  }
+
+  @Get(':id/items/:itemId/approval-rights')
+  @ApiOperation({ summary: 'Check approval rights for audit item' })
+  @ApiResponse({ status: 200 })
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  async checkApprovalRights(
+    @Request() req: RequestWithUser,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+  ) {
+    return this.auditSchedulesService.checkApprovalRights(itemId, req.user.id);
   }
 }

@@ -58,6 +58,26 @@ export const roles = [
         .filter((p) => p.name === 'auth:login' || p.name === 'auth:logout')
         .map((p) => p.id),
   },
+  {
+    name: 'Technician',
+    code: 'TECHNICIAN',
+    description: 'Can log in and manage assigned incidents. Has access to incident technician features.',
+    permissions: (permissions: Permission[]) =>
+      permissions
+        .filter(
+          (p) =>
+            p.name === 'auth:login' ||
+            p.name === 'auth:logout' ||
+            p.name === 'auth:change-password' ||
+            p.name === 'user:read' ||
+            p.name === 'notification:read' ||
+            p.name === 'notification:mark-read' ||
+            p.name === 'notification:mark-all-read' ||
+            p.name === 'notification:unread-count' ||
+            p.name === 'notification:types'
+        )
+        .map((p) => p.id),
+  },
 ];
 
 export async function seedRoles(prisma: PrismaClient, permissions: Permission[]) {

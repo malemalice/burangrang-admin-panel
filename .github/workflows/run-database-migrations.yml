@@ -12,6 +12,11 @@ on:
           - deploy
           - dev
         default: 'deploy'
+      branch:
+        description: 'Branch or ref to run migrations from (leave empty to use workflow ref)'
+        required: false
+        type: string
+        default: ''
       confirm:
         description: 'Type "yes" to confirm running migrations'
         required: true
@@ -32,10 +37,21 @@ jobs:
           fi
           echo "✅ Confirmation received. Proceeding with migrations..."
 
-      - name: Checkout latest main branch
+      - name: Determine branch/ref to use
+        id: branch
+        run: |
+          if [ -n "${{ github.event.inputs.branch }}" ]; then
+            echo "branch=${{ github.event.inputs.branch }}" >> $GITHUB_OUTPUT
+            echo "Using specified branch: ${{ github.event.inputs.branch }}"
+          else
+            echo "branch=${{ github.ref }}" >> $GITHUB_OUTPUT
+            echo "Using workflow ref: ${{ github.ref }}"
+          fi
+
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ steps.branch.outputs.branch }}
           fetch-depth: 0
 
       - name: Setup SSH
@@ -65,13 +81,34 @@ jobs:
             fi
           ENDSSH
 
-      - name: Pull latest main branch on VPS
+      - name: Extract branch name from ref
+        id: branch_name
+        run: |
+          BRANCH_REF="${{ steps.branch.outputs.branch }}"
+          # Extract branch name from refs/heads/branch-name or refs/pull/123/merge
+          if [[ "$BRANCH_REF" == refs/heads/* ]]; then
+            BRANCH_NAME="${BRANCH_REF#refs/heads/}"
+          elif [[ "$BRANCH_REF" == refs/pull/* ]]; then
+            echo "⚠️  Pull request ref detected. Using default branch or specified input."
+            if [ -n "${{ github.event.inputs.branch }}" ]; then
+              BRANCH_NAME="${{ github.event.inputs.branch }}"
+            else
+              BRANCH_NAME="main"
+            fi
+          else
+            BRANCH_NAME="$BRANCH_REF"
+          fi
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "Branch name extracted: $BRANCH_NAME"
+
+      - name: Pull selected branch on VPS
         env:
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
+          BRANCH_NAME: ${{ steps.branch_name.outputs.branch_name }}
         run: |
-          echo "📥 Pulling latest main branch code on VPS..."
+          echo "📥 Pulling latest code from branch: $BRANCH_NAME"
           ssh $VPS_USER@$VPS_HOST << ENDSSH
             set -e
             
@@ -87,27 +124,31 @@ jobs:
               }
               
               echo "📥 Fetching latest changes from remote..."
-              git fetch origin main || {
-                echo "⚠️  Failed to fetch from remote. Continuing..."
-                exit 0
+              git fetch origin "$BRANCH_NAME" || {
+                echo "⚠️  Failed to fetch branch $BRANCH_NAME from remote. Trying to fetch all..."
+                git fetch origin || {
+                  echo "⚠️  Failed to fetch from remote. Continuing..."
+                  exit 0
+                }
               }
               
-              echo "🔄 Checking out main branch..."
-              git checkout main || {
-                echo "⚠️  Failed to checkout main branch. Continuing..."
+              echo "🔄 Checking out branch: $BRANCH_NAME"
+              git checkout "$BRANCH_NAME" || {
+                echo "⚠️  Failed to checkout branch $BRANCH_NAME. Continuing..."
                 exit 0
               }
               
               echo "📦 Pulling latest changes..."
-              git pull origin main || {
+              git pull origin "$BRANCH_NAME" || {
                 echo "⚠️  Failed to pull latest changes. Continuing..."
                 exit 0
               }
               
               echo "📋 Current commit:"
               git log -1 --oneline
+              echo "📋 Current branch: $(git branch --show-current)"
               echo ""
-              echo "✅ Latest main branch code pulled successfully!"
+              echo "✅ Latest code from branch $BRANCH_NAME pulled successfully!"
             fi
           ENDSSH
 
@@ -172,6 +213,7 @@ jobs:
           echo "## 🗄️  Database Migration Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Migration Type:** \`${{ github.event.inputs.migration_type }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch/Ref:** \`${{ steps.branch.outputs.branch }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "**Timestamp:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

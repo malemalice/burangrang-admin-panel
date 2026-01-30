@@ -54,7 +54,7 @@ export default function DispatchOrderDetailPage() {
       [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
       [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'secondary' },
       [GeneralStatusEnum.OPEN]: { label: 'Open', variant: 'default' },
-      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Approval', variant: 'secondary' },
+      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
       [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
       [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
     };

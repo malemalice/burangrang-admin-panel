@@ -33,7 +33,7 @@ export class RiskMitigationsController {
   @Get()
   @ApiOperation({ summary: 'Get all risk mitigations with pagination' })
   @ApiResponse({ status: 200, description: 'Return all risk mitigations.', type: [RiskMitigationDto] })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by risk name/code or mitigation text fields' })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by risk name only' })
   @ApiQuery({ name: 'riskId', required: false, description: 'Filter mitigations by risk ID' })
   findAll(
     @Query('page') page?: string,
