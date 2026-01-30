@@ -13,23 +13,42 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/core/components/ui/dialog';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/core/components/ui/select';
+import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Label } from '@/core/components/ui/label';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { useCertificate } from '../hooks/useCertificates';
 import { useCertificateRenewals } from '../hooks/useCertificates';
 import { useCertificateReminders } from '../hooks/useCertificates';
+import { CertificateRenewal } from '../types/certificate.types';
 
 const CertificateDetailPage = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { certificate, isLoading } = useCertificate(id || null);
-    const { renewals, isLoading: isLoadingRenewals, createRenewal } = useCertificateRenewals(id || null);
+    const { renewals, isLoading: isLoadingRenewals, createRenewal, updateRenewal } = useCertificateRenewals(id || null);
     const { reminders, isLoading: isLoadingReminders } = useCertificateReminders(id || null);
 
     const [isRenewalOpen, setIsRenewalOpen] = useState(false);
     const [renewalNotes, setRenewalNotes] = useState('');
     const [isSubmittingRenewal, setIsSubmittingRenewal] = useState(false);
+
+    // Process Renewal State
+    const [isProcessRenewalOpen, setIsProcessRenewalOpen] = useState(false);
+    const [selectedRenewal, setSelectedRenewal] = useState<CertificateRenewal | null>(null);
+    const [processRenewalData, setProcessRenewalData] = useState({
+        status: 'IN_PROGRESS' as 'IN_PROGRESS' | 'COMPLETED' | 'REJECTED',
+        newValidityDate: '',
+        notes: '',
+    });
+    const [isProcessingRenewal, setIsProcessingRenewal] = useState(false);
 
     const handleCreateRenewal = async () => {
         if (!id) return;
@@ -42,6 +61,25 @@ const CertificateDetailPage = () => {
             console.error('Failed to create renewal:', error);
         } finally {
             setIsSubmittingRenewal(false);
+        }
+    };
+
+    const handleProcessRenewal = async () => {
+        if (!selectedRenewal || !updateRenewal) return;
+        try {
+            setIsProcessingRenewal(true);
+            await updateRenewal(selectedRenewal.id, {
+                status: processRenewalData.status,
+                newValidityDate: processRenewalData.newValidityDate || undefined,
+                notes: processRenewalData.notes || undefined,
+            });
+            setIsProcessRenewalOpen(false);
+            setSelectedRenewal(null);
+            setProcessRenewalData({ status: 'IN_PROGRESS', newValidityDate: '', notes: '' });
+        } catch (error) {
+            console.error('Failed to process renewal:', error);
+        } finally {
+            setIsProcessingRenewal(false);
         }
     };
 
@@ -285,7 +323,27 @@ const CertificateDetailPage = () => {
                                                         </p>
                                                     )}
                                                 </div>
-                                                {getStatusBadge(renewal.status)}
+                                                <div className="flex items-center gap-2">
+                                                    {getStatusBadge(renewal.status)}
+                                                    {(renewal.status === 'PENDING' ||
+                                                        renewal.status === 'REQUESTED' ||
+                                                        renewal.status === 'IN_PROGRESS') && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() => {
+                                                                    setSelectedRenewal(renewal);
+                                                                    setProcessRenewalData((prev) => ({
+                                                                        ...prev,
+                                                                        status: renewal.status === 'IN_PROGRESS' ? 'COMPLETED' : 'IN_PROGRESS',
+                                                                    }));
+                                                                    setIsProcessRenewalOpen(true);
+                                                                }}
+                                                            >
+                                                                Process
+                                                            </Button>
+                                                        )}
+                                                </div>
                                             </div>
                                             {renewal.processedDate && (
                                                 <p className="text-sm text-gray-500">
@@ -387,6 +445,80 @@ const CertificateDetailPage = () => {
                             disabled={isSubmittingRenewal}
                         >
                             {isSubmittingRenewal ? 'Submitting...' : 'Submit Request'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isProcessRenewalOpen} onOpenChange={setIsProcessRenewalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Process Renewal Request</DialogTitle>
+                        <DialogDescription>
+                            Update the status and provide new validity date if approved.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="status">Status</Label>
+                            <Select
+                                value={processRenewalData.status}
+                                onValueChange={(value) =>
+                                    setProcessRenewalData((prev) => ({ ...prev, status: value as any }))
+                                }
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                                    <SelectItem value="COMPLETED">Completed (Approved)</SelectItem>
+                                    <SelectItem value="REJECTED">Rejected</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        {processRenewalData.status === 'COMPLETED' && (
+                            <div className="space-y-2">
+                                <Label htmlFor="newValidityDate">New Validity Date *</Label>
+                                <DateTimePicker
+                                    mode="date"
+                                    value={processRenewalData.newValidityDate}
+                                    onChange={(value) =>
+                                        setProcessRenewalData((prev) => ({ ...prev, newValidityDate: value as string }))
+                                    }
+                                    placeholder="Select new validity date"
+                                />
+                            </div>
+                        )}
+                        <div className="space-y-2">
+                            <Label htmlFor="processNotes">Notes</Label>
+                            <Textarea
+                                id="processNotes"
+                                placeholder="Enter processing notes..."
+                                value={processRenewalData.notes}
+                                onChange={(e) =>
+                                    setProcessRenewalData((prev) => ({ ...prev, notes: e.target.value }))
+                                }
+                                rows={3}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsProcessRenewalOpen(false)}
+                            disabled={isProcessingRenewal}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleProcessRenewal}
+                            disabled={
+                                isProcessingRenewal ||
+                                (processRenewalData.status === 'COMPLETED' && !processRenewalData.newValidityDate)
+                            }
+                        >
+                            {isProcessingRenewal ? 'Processing...' : 'Update Status'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
