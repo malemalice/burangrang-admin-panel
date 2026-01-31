@@ -29,6 +29,7 @@ interface DataTableProps<T> {
     isSortable?: boolean;
     isFilterable?: boolean;
     headerClassName?: string;
+    cellClassName?: string;
   }[];
   data: T[];
   isLoading?: boolean;
@@ -49,6 +50,8 @@ interface DataTableProps<T> {
   onSortingChange?: (sorting: { id: string; desc: boolean } | null) => void;
   hideSearch?: boolean;
   searchPlaceholder?: string;
+  tableContainerClassName?: string;
+  tableClassName?: string;
 }
 
 const DataTable = <T extends Record<string, any>>({
@@ -65,6 +68,8 @@ const DataTable = <T extends Record<string, any>>({
   onSortingChange,
   hideSearch = false,
   searchPlaceholder = 'Search...',
+  tableContainerClassName,
+  tableClassName,
 }: DataTableProps<T>) => {
   const [searchTerm, setSearchTerm] = useState(searchValue ?? '');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -202,8 +207,8 @@ const DataTable = <T extends Record<string, any>>({
           </div>
         )}
         
-        <div className="overflow-x-auto">
-          <Table>
+        <div className={cn('overflow-x-auto', tableContainerClassName)}>
+          <Table className={tableClassName}>
             <TableHeader>
               <TableRow>
                 {columns.map((column) => (
@@ -211,7 +216,8 @@ const DataTable = <T extends Record<string, any>>({
                     key={column.id}
                     className={cn(
                       column.isSortable && "cursor-pointer hover:bg-muted",
-                      sorting?.id === column.id && "bg-muted"
+                      sorting?.id === column.id && "bg-muted",
+                      column.headerClassName
                     )}
                     onClick={() => column.isSortable && handleSort(column.id)}
                   >
@@ -232,7 +238,7 @@ const DataTable = <T extends Record<string, any>>({
                 data.map((item) => (
                   <TableRow key={item.id || JSON.stringify(item)}>
                     {columns.map((column) => (
-                      <TableCell key={column.id}>
+                      <TableCell key={column.id} className={column.cellClassName}>
                         {column.cell(item)}
                       </TableCell>
                     ))}
