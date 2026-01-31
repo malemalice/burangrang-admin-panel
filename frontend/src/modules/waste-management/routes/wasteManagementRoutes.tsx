@@ -4,25 +4,30 @@ import { RouteConfig } from '@/core/routes/types';
 import TreatmentPlantsPage from '../pages/treatment-plants/TreatmentPlantsPage';
 import CreateTreatmentPlantPage from '../pages/treatment-plants/CreateTreatmentPlantPage';
 import EditTreatmentPlantPage from '../pages/treatment-plants/EditTreatmentPlantPage';
+import TreatmentPlantDetailPage from '../pages/treatment-plants/TreatmentPlantDetailPage';
 
 // Water Quality Parameters
 import WaterQualityParametersPage from '../pages/water-quality-parameters/WaterQualityParametersPage';
 import CreateWaterQualityParameterPage from '../pages/water-quality-parameters/CreateWaterQualityParameterPage';
+import WaterQualityParameterDetailPage from '../pages/water-quality-parameters/WaterQualityParameterDetailPage';
 import EditWaterQualityParameterPage from '../pages/water-quality-parameters/EditWaterQualityParameterPage';
 
 // Waste Types
 import WasteTypesPage from '../pages/waste-types/WasteTypesPage';
 import CreateWasteTypePage from '../pages/waste-types/CreateWasteTypePage';
 import EditWasteTypePage from '../pages/waste-types/EditWasteTypePage';
+import WasteTypeDetailPage from '../pages/waste-types/WasteTypeDetailPage';
 
 // Waste Sources
 import WasteSourcesPage from '../pages/waste-sources/WasteSourcesPage';
 import CreateWasteSourcePage from '../pages/waste-sources/CreateWasteSourcePage';
 import EditWasteSourcePage from '../pages/waste-sources/EditWasteSourcePage';
+import WasteSourceDetailPage from '../pages/waste-sources/WasteSourceDetailPage';
 
 // Storage Locations
 import StorageLocationsPage from '../pages/storage-locations/StorageLocationsPage';
 import CreateStorageLocationPage from '../pages/storage-locations/CreateStorageLocationPage';
+import StorageLocationDetailPage from '../pages/storage-locations/StorageLocationDetailPage';
 import EditStorageLocationPage from '../pages/storage-locations/EditStorageLocationPage';
 
 // Monthly Flow Reports
@@ -53,26 +58,31 @@ const wasteManagementRoutes: RouteConfig[] = [
   // Treatment Plants
   { path: '/waste-management/treatment-plants', component: TreatmentPlantsPage },
   { path: '/waste-management/treatment-plants/create', component: CreateTreatmentPlantPage },
+  { path: '/waste-management/treatment-plants/:id', component: TreatmentPlantDetailPage },
   { path: '/waste-management/treatment-plants/:id/edit', component: EditTreatmentPlantPage },
 
   // Water Quality Parameters
   { path: '/waste-management/water-quality-parameters', component: WaterQualityParametersPage },
   { path: '/waste-management/water-quality-parameters/create', component: CreateWaterQualityParameterPage },
+  { path: '/waste-management/water-quality-parameters/:id', component: WaterQualityParameterDetailPage },
   { path: '/waste-management/water-quality-parameters/:id/edit', component: EditWaterQualityParameterPage },
 
   // Waste Types
   { path: '/waste-management/waste-types', component: WasteTypesPage },
   { path: '/waste-management/waste-types/create', component: CreateWasteTypePage },
+  { path: '/waste-management/waste-types/:id', component: WasteTypeDetailPage },
   { path: '/waste-management/waste-types/:id/edit', component: EditWasteTypePage },
 
   // Waste Sources
   { path: '/waste-management/waste-sources', component: WasteSourcesPage },
   { path: '/waste-management/waste-sources/create', component: CreateWasteSourcePage },
+  { path: '/waste-management/waste-sources/:id', component: WasteSourceDetailPage },
   { path: '/waste-management/waste-sources/:id/edit', component: EditWasteSourcePage },
 
   // Storage Locations
   { path: '/waste-management/storage-locations', component: StorageLocationsPage },
   { path: '/waste-management/storage-locations/create', component: CreateStorageLocationPage },
+  { path: '/waste-management/storage-locations/:id', component: StorageLocationDetailPage },
   { path: '/waste-management/storage-locations/:id/edit', component: EditStorageLocationPage },
 
   // Monthly Flow Reports (Waste Water Flow Recording)

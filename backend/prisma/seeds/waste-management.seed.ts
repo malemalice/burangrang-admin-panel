@@ -105,6 +105,7 @@ export const seedWasteManagement = async () => {
           description: 'Tingkat keasaman air (6-9)',
           testMethod: 'pH Meter',
           isActive: true,
+          dateSampleTaken: new Date(),
         },
       }),
       prisma.waterQualityParameter.create({
@@ -117,6 +118,7 @@ export const seedWasteManagement = async () => {
           description: 'Biological Oxygen Demand (max 30 mg/L)',
           testMethod: 'Titrimetri',
           isActive: true,
+          dateSampleTaken: new Date(),
         },
       }),
       prisma.waterQualityParameter.create({
@@ -129,6 +131,7 @@ export const seedWasteManagement = async () => {
           description: 'Chemical Oxygen Demand (max 100 mg/L)',
           testMethod: 'Spektrofotometri',
           isActive: true,
+          dateSampleTaken: new Date(),
         },
       }),
       prisma.waterQualityParameter.create({
@@ -141,6 +144,7 @@ export const seedWasteManagement = async () => {
           description: 'Total Suspended Solid (max 50 mg/L)',
           testMethod: 'Gravimetri',
           isActive: true,
+          dateSampleTaken: new Date(),
         },
       }),
       prisma.waterQualityParameter.create({
@@ -153,6 +157,7 @@ export const seedWasteManagement = async () => {
           description: 'Kadar Ammonia (max 5 mg/L)',
           testMethod: 'Spektrofotometri',
           isActive: true,
+          dateSampleTaken: new Date(),
         },
       }),
     ]);
