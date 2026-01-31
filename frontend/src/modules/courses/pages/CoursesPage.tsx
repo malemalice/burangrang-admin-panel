@@ -260,10 +260,12 @@ const CoursesPage = () => {
               <BookOpen className="h-4 w-4" />
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
-            <div className="font-medium text-gray-900 truncate">{course.title}</div>
+          <div className="flex-1 min-w-0 max-w-[250px]">
+            <div className="font-medium text-gray-900 truncate" title={course.title}>{course.title}</div>
             <div className="text-sm text-gray-500 truncate">
-              by {course.instructor?.firstName} {course.instructor?.lastName}
+              by {course.instructor?.firstName || course.instructor?.lastName
+                ? `${course.instructor?.firstName || ''} ${course.instructor?.lastName || ''}`.trim()
+                : 'Unknown Instructor'}
             </div>
             {course.categories && course.categories.length > 0 && (
               <div className="flex gap-1 mt-1">
@@ -386,7 +388,7 @@ const CoursesPage = () => {
 
       {/* Statistics Cards */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white p-4 rounded-lg border">
             <div className="flex items-center">
               <BookOpen className="h-8 w-8 text-blue-600" />
@@ -411,17 +413,6 @@ const CoursesPage = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Draft</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.draft}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center">
-              <Users className="h-8 w-8 text-purple-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Students</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {courses.reduce((sum, course) => sum + course.studentCount, 0)}
-                </p>
               </div>
             </div>
           </div>

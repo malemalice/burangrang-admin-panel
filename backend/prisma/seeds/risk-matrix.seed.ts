@@ -14,7 +14,7 @@ export const riskMatrix = [
     consequenceLevel: 1,
     consequenceName: 'Insignificant',
     consequenceDesc: 'Incident without injury and can continue to work again',
-    risk_rating: 'LOW' as RiskRating 
+    interpretation: 'LOW' as RiskRating 
   },
   { 
     likelihoodLevel: 'A', 
@@ -23,7 +23,7 @@ export const riskMatrix = [
     consequenceLevel: 2,
     consequenceName: 'Minor',
     consequenceDesc: 'Incident without loss of time injury but require medical treatment at medical',
-    risk_rating: 'LOW' as RiskRating 
+    interpretation: 'LOW' as RiskRating 
   },
   { 
     likelihoodLevel: 'A', 
@@ -32,7 +32,7 @@ export const riskMatrix = [
     consequenceLevel: 3,
     consequenceName: 'Moderate',
     consequenceDesc: 'Incident with loss time injury but not stopping the work process/activities',
-    risk_rating: 'MEDIUM' as RiskRating 
+    interpretation: 'MEDIUM' as RiskRating 
   },
   { 
     likelihoodLevel: 'A', 
@@ -41,7 +41,7 @@ export const riskMatrix = [
     consequenceLevel: 4,
     consequenceName: 'Major',
     consequenceDesc: 'Incidents with loss time injury and stopping the work process/activities. Causes large and extensive environmental damage',
-    risk_rating: 'MEDIUM' as RiskRating 
+    interpretation: 'MEDIUM' as RiskRating 
   },
   { 
     likelihoodLevel: 'A', 
@@ -50,7 +50,7 @@ export const riskMatrix = [
     consequenceLevel: 5,
     consequenceName: 'Extreme',
     consequenceDesc: 'Incidents that could result in death or permanent disability',
-    risk_rating: 'HIGH' as RiskRating 
+    interpretation: 'HIGH' as RiskRating 
   },
 
   // Likelihood Level B (Less likely to occur)
@@ -61,7 +61,7 @@ export const riskMatrix = [
     consequenceLevel: 1,
     consequenceName: 'Insignificant',
     consequenceDesc: 'Incident without injury and can continue to work again',
-    risk_rating: 'LOW' as RiskRating 
+    interpretation: 'LOW' as RiskRating 
   },
   { 
     likelihoodLevel: 'B', 
@@ -70,7 +70,7 @@ export const riskMatrix = [
     consequenceLevel: 2,
     consequenceName: 'Minor',
     consequenceDesc: 'Incident without loss of time injury but require medical treatment at medical',
-    risk_rating: 'MEDIUM' as RiskRating 
+    interpretation: 'MEDIUM' as RiskRating 
   },
   { 
     likelihoodLevel: 'B', 
@@ -79,7 +79,7 @@ export const riskMatrix = [
     consequenceLevel: 3,
     consequenceName: 'Moderate',
     consequenceDesc: 'Incident with loss time injury but not stopping the work process/activities',
-    risk_rating: 'MEDIUM' as RiskRating 
+    interpretation: 'MEDIUM' as RiskRating 
   },
   { 
     likelihoodLevel: 'B', 
@@ -88,7 +88,7 @@ export const riskMatrix = [
     consequenceLevel: 4,
     consequenceName: 'Major',
     consequenceDesc: 'Incidents with loss time injury and stopping the work process/activities. Causes large and extensive environmental damage',
-    risk_rating: 'HIGH' as RiskRating 
+    interpretation: 'HIGH' as RiskRating 
   },
   { 
     likelihoodLevel: 'B', 
@@ -97,7 +97,7 @@ export const riskMatrix = [
     consequenceLevel: 5,
     consequenceName: 'Extreme',
     consequenceDesc: 'Incidents that could result in death or permanent disability',
-    risk_rating: 'EXTREME' as RiskRating 
+    interpretation: 'EXTREME' as RiskRating 
   },
 
   // Likelihood Level C (Probably)
@@ -108,7 +108,7 @@ export const riskMatrix = [
     consequenceLevel: 1,
     consequenceName: 'Insignificant',
     consequenceDesc: 'Incident without injury and can continue to work again',
-    risk_rating: 'MEDIUM' as RiskRating 
+    interpretation: 'MEDIUM' as RiskRating 
   },
   { 
     likelihoodLevel: 'C', 
@@ -117,7 +117,7 @@ export const riskMatrix = [
     consequenceLevel: 2,
     consequenceName: 'Minor',
     consequenceDesc: 'Incident without loss of time injury but require medical treatment at medical',
-    risk_rating: 'MEDIUM' as RiskRating 
+    interpretation: 'MEDIUM' as RiskRating 
   },
   { 
     likelihoodLevel: 'C', 
@@ -126,7 +126,7 @@ export const riskMatrix = [
     consequenceLevel: 3,
     consequenceName: 'Moderate',
     consequenceDesc: 'Incident with loss time injury but not stopping the work process/activities',
-    risk_rating: 'HIGH' as RiskRating 
+    interpretation: 'HIGH' as RiskRating 
   },
   { 
     likelihoodLevel: 'C', 
@@ -135,7 +135,7 @@ export const riskMatrix = [
     consequenceLevel: 4,
     consequenceName: 'Major',
     consequenceDesc: 'Incidents with loss time injury and stopping the work process/activities. Causes large and extensive environmental damage',
-    risk_rating: 'EXTREME' as RiskRating 
+    interpretation: 'EXTREME' as RiskRating 
   },
   { 
     likelihoodLevel: 'C', 
@@ -144,7 +144,7 @@ export const riskMatrix = [
     consequenceLevel: 5,
     consequenceName: 'Extreme',
     consequenceDesc: 'Incidents that could result in death or permanent disability',
-    risk_rating: 'EXTREME' as RiskRating 
+    interpretation: 'EXTREME' as RiskRating 
   },
 
   // Likelihood Level D (Likely to occur)
@@ -155,7 +155,7 @@ export const riskMatrix = [
     consequenceLevel: 1,
     consequenceName: 'Insignificant',
     consequenceDesc: 'Incident without injury and can continue to work again',
-    risk_rating: 'MEDIUM' as RiskRating 
+    interpretation: 'MEDIUM' as RiskRating 
   },
   { 
     likelihoodLevel: 'D', 
@@ -164,7 +164,7 @@ export const riskMatrix = [
     consequenceLevel: 2,
     consequenceName: 'Minor',
     consequenceDesc: 'Incident without loss of time injury but require medical treatment at medical',
-    risk_rating: 'HIGH' as RiskRating 
+    interpretation: 'HIGH' as RiskRating 
   },
   { 
     likelihoodLevel: 'D', 
@@ -173,7 +173,7 @@ export const riskMatrix = [
     consequenceLevel: 3,
     consequenceName: 'Moderate',
     consequenceDesc: 'Incident with loss time injury but not stopping the work process/activities',
-    risk_rating: 'HIGH' as RiskRating 
+    interpretation: 'HIGH' as RiskRating 
   },
   { 
     likelihoodLevel: 'D', 
@@ -182,7 +182,7 @@ export const riskMatrix = [
     consequenceLevel: 4,
     consequenceName: 'Major',
     consequenceDesc: 'Incidents with loss time injury and stopping the work process/activities. Causes large and extensive environmental damage',
-    risk_rating: 'EXTREME' as RiskRating 
+    interpretation: 'EXTREME' as RiskRating 
   },
   { 
     likelihoodLevel: 'D', 
@@ -191,7 +191,7 @@ export const riskMatrix = [
     consequenceLevel: 5,
     consequenceName: 'Extreme',
     consequenceDesc: 'Incidents that could result in death or permanent disability',
-    risk_rating: 'EXTREME' as RiskRating 
+    interpretation: 'EXTREME' as RiskRating 
   },
 
   // Likelihood Level E (Most likely)
@@ -202,7 +202,7 @@ export const riskMatrix = [
     consequenceLevel: 1,
     consequenceName: 'Insignificant',
     consequenceDesc: 'Incident without injury and can continue to work again',
-    risk_rating: 'HIGH' as RiskRating 
+    interpretation: 'HIGH' as RiskRating 
   },
   { 
     likelihoodLevel: 'E', 
@@ -211,7 +211,7 @@ export const riskMatrix = [
     consequenceLevel: 2,
     consequenceName: 'Minor',
     consequenceDesc: 'Incident without loss of time injury but require medical treatment at medical',
-    risk_rating: 'HIGH' as RiskRating 
+    interpretation: 'HIGH' as RiskRating 
   },
   { 
     likelihoodLevel: 'E', 
@@ -220,7 +220,7 @@ export const riskMatrix = [
     consequenceLevel: 3,
     consequenceName: 'Moderate',
     consequenceDesc: 'Incident with loss time injury but not stopping the work process/activities',
-    risk_rating: 'EXTREME' as RiskRating 
+    interpretation: 'EXTREME' as RiskRating 
   },
   { 
     likelihoodLevel: 'E', 
@@ -229,7 +229,7 @@ export const riskMatrix = [
     consequenceLevel: 4,
     consequenceName: 'Major',
     consequenceDesc: 'Incidents with loss time injury and stopping the work process/activities. Causes large and extensive environmental damage',
-    risk_rating: 'EXTREME' as RiskRating 
+    interpretation: 'EXTREME' as RiskRating 
   },
   { 
     likelihoodLevel: 'E', 
@@ -238,7 +238,7 @@ export const riskMatrix = [
     consequenceLevel: 5,
     consequenceName: 'Extreme',
     consequenceDesc: 'Incidents that could result in death or permanent disability',
-    risk_rating: 'EXTREME' as RiskRating 
+    interpretation: 'EXTREME' as RiskRating 
   },
 ];
 

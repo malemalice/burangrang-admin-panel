@@ -17,6 +17,8 @@ import { riskMatrixRoutes } from '@/modules/risk-matrix';
 import { manHourRoutes } from '@/modules/man-hours';
 import { emailTemplateRoutes } from '@/modules/mail-templates';
 import { auditCriteriaRoutes } from '@/modules/audit-criteria';
+import auditSchedulesRoutes from '@/modules/audit-schedules/routes/auditSchedulesRoutes';
+import auditResultsRoutes from '@/modules/audit-results/routes/auditResultsRoutes';
 
 /**
  * Application routes registry
@@ -41,6 +43,8 @@ const routes: RouteConfig[] = [
   ...moduleRoutes,
   ...emailTemplateRoutes,
   ...auditCriteriaRoutes,
+  ...auditSchedulesRoutes,
+  ...auditResultsRoutes,
 ];
 
 // Public routes that don't require authentication

@@ -41,8 +41,10 @@ const getDisplayNameFromEntity = (entity: Record<string, unknown>): string | nul
  * Handles URL to API endpoint mapping:
  * - Removes '/master' prefix
  * - Maps 'certificate-categories' -> 'certificates/categories'
+ * - Maps 'audit-schedules/{id}/clauses/{clauseId}' -> 'audit-clauses/{clauseId}'
  * Example: ['master', 'risk-categories', '123-uuid'] -> '/risk-categories/123-uuid'
  * Example: ['master', 'certificate-categories', '123-uuid'] -> '/certificates/categories/123-uuid'
+ * Example: ['audit-schedules', 'id', 'clauses', 'clauseId'] -> '/audit-clauses/clauseId'
  */
 const buildEndpoint = (pathSegments: string[], index: number): string => {
   let segments = pathSegments.slice(0, index + 1);
@@ -50,6 +52,15 @@ const buildEndpoint = (pathSegments: string[], index: number): string => {
   // Remove 'master' prefix if present
   if (segments[0] === 'master') {
     segments = segments.slice(1);
+  }
+  
+  // Handle audit-schedules/clauses special case
+  // If path is audit-schedules/{id}/clauses/{clauseId}, map to audit-clauses/{clauseId}
+  if (segments.length >= 4 && 
+      segments[0] === 'audit-schedules' && 
+      segments[2] === 'clauses') {
+    // Return /audit-clauses/{clauseId}
+    return `/audit-clauses/${segments[3]}`;
   }
   
   // Handle special mappings

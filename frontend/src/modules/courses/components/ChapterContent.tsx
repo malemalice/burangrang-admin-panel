@@ -1,4 +1,5 @@
 import { Chapter } from '../types/course.types';
+import { extractYoutubeVideoId, containsHtmlTags } from '@/core/lib/media-utils';
 
 interface ChapterContentProps {
   chapter: Chapter;
@@ -29,21 +30,23 @@ const ChapterContent = ({ chapter }: ChapterContentProps) => {
       );
 
     case 'youtube':
+      const videoId = extractYoutubeVideoId(chapter.youtubeVideoId || chapter.contentUrl);
       return (
         <div className="aspect-video w-full bg-black rounded-lg overflow-hidden">
-          {chapter.youtubeVideoId ? (
+          {videoId ? (
             <iframe
               width="100%"
               height="100%"
-              src={`https://www.youtube.com/embed/${chapter.youtubeVideoId}`}
+              src={`https://www.youtube.com/embed/${videoId}`}
               title={chapter.title}
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />
           ) : (
-            <div className="flex items-center justify-center h-full text-white">
-              YouTube Video ID missing
+            <div className="flex flex-col items-center justify-center h-full text-white gap-2">
+              <p>Invalid YouTube Video</p>
+              <p className="text-sm text-gray-400">Please check the video URL</p>
             </div>
           )}
         </div>
@@ -99,10 +102,13 @@ const ChapterContent = ({ chapter }: ChapterContentProps) => {
     case 'text':
       return (
         <div className="prose max-w-none dark:prose-invert">
-          {/* Using dangerouslySetInnerHTML for rich text content */}
-          {/* In a real app, sanitize this content! */}
-          <div dangerouslySetInnerHTML={{ __html: chapter.content || '' }} />
-          {!chapter.content && (
+          {chapter.content ? (
+            containsHtmlTags(chapter.content) ? (
+              <div dangerouslySetInnerHTML={{ __html: chapter.content }} />
+            ) : (
+              <div className="whitespace-pre-wrap">{chapter.content}</div>
+            )
+          ) : (
             <p className="text-muted-foreground italic">No text content available.</p>
           )}
         </div>

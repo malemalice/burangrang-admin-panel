@@ -32,7 +32,7 @@ interface MatrixRow {
   consequenceLevel: number | null;
   consequenceName: string;
   consequenceDesc: string;
-  riskRating: RiskRatingEnum;
+  interpretation: RiskRatingEnum;
   isActive: boolean;
   isNew?: boolean;
   isModified?: boolean;
@@ -131,7 +131,7 @@ const RiskMatrixManagementPage = () => {
         consequenceLevel: matrix.consequenceLevel,
         consequenceName: matrix.consequenceName,
         consequenceDesc: matrix.consequenceDesc,
-        riskRating: matrix.riskRating,
+        interpretation: matrix.interpretation,
         isActive: matrix.isActive,
         isNew: false,
         isModified: false,
@@ -154,7 +154,7 @@ const RiskMatrixManagementPage = () => {
       consequenceLevel: null,
       consequenceName: '',
       consequenceDesc: '',
-      riskRating: RiskRatingEnum.LOW,
+      interpretation: RiskRatingEnum.LOW,
       isActive: true,
       isNew: true,
       isModified: false,
@@ -309,7 +309,7 @@ const RiskMatrixManagementPage = () => {
             consequenceLevel: row.consequenceLevel,
             consequenceName: row.consequenceName,
             consequenceDesc: row.consequenceDesc,
-            risk_rating: row.riskRating,
+            interpretation: row.interpretation,
             isActive: row.isActive,
           };
           createPromises.push(riskMatrixService.createRiskMatrix(createDto));
@@ -321,7 +321,7 @@ const RiskMatrixManagementPage = () => {
             consequenceLevel: row.consequenceLevel,
             consequenceName: row.consequenceName,
             consequenceDesc: row.consequenceDesc,
-            risk_rating: row.riskRating,
+            interpretation: row.interpretation,
             isActive: row.isActive,
           };
           updatePromises.push(riskMatrixService.updateRiskMatrix(row.id, updateDto));
@@ -562,8 +562,8 @@ const RiskMatrixManagementPage = () => {
                         </td>
                         <td className="p-4">
                           <Select
-                            value={row.riskRating}
-                            onValueChange={(value) => updateRow(index, 'riskRating', value as RiskRatingEnum)}
+                            value={row.interpretation}
+                            onValueChange={(value) => updateRow(index, 'interpretation', value as RiskRatingEnum)}
                           >
                             <SelectTrigger className="w-full">
                               <SelectValue />
@@ -677,12 +677,12 @@ const RiskMatrixManagementPage = () => {
                               <td
                                 key={consequence}
                                 className={`border p-4 text-center align-middle min-w-[100px] ${
-                                  cell ? getRiskRatingColor(cell.riskRating) : 'bg-background'
+                                  cell ? getRiskRatingColor(cell.interpretation) : 'bg-background'
                                 }`}
                               >
                                 {cell ? (
                                   <div className="font-medium">
-                                    {cell.riskRating}
+                                    {cell.interpretation}
                                   </div>
                                 ) : (
                                   <span className="text-muted-foreground text-sm">-</span>

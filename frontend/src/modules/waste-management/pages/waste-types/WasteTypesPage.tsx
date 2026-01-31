@@ -146,6 +146,9 @@ export default function WasteTypesPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => navigate(`/waste-management/waste-types/${item.id}`)}>
+              <MoreHorizontal className="mr-2 h-4 w-4" /> View Details
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/waste-management/waste-types/${item.id}/edit`)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
@@ -189,7 +192,7 @@ export default function WasteTypesPage() {
           </TabsList>
         </Tabs>
       </PageHeader>
-      
+
       <DataTable
         columns={columns}
         data={data}

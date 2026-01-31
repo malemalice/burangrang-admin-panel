@@ -646,7 +646,7 @@ Table m_risk_matrix {
   consequenceLevel int [not null, note: 'Int type to match Schema']
   consequenceName varchar [not null, default: '']
   consequenceDesc text [not null, default: '']
-  risk_rating RiskRatingEnum [not null]
+  interpretation RiskRatingEnum [not null]
   isActive boolean [not null, default: true]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
@@ -733,7 +733,7 @@ Table t_inspection_items {
   riskId varchar [not null, ref: > m_risk.id]
   assignedDepartmentId varchar [not null, ref: > m_departments.id]
   assigneeId varchar [null, ref: > t_users.id]
-  status IssueStatus [not null]
+  status GeneralStatusEnum [not null, default: 'OPEN']
   findings text [null]
   description text [null]
   followUpNotes text [null]
@@ -845,7 +845,6 @@ Table m_audit_criteria {
 Table t_audits {
   id varchar [pk, default: `uuid()`]
   code varchar [unique, not null]
-  areaId varchar [not null, ref: > m_areas.id]
   auditDate timestamp [not null]
   auditElementId varchar [not null, ref: > m_audit_element.id]
   status GeneralStatusEnum [not null]
@@ -854,10 +853,9 @@ Table t_audits {
   updatedAt timestamp [not null, default: `now()`]
   createdBy varchar [not null, ref: > t_users.id]
   
-  Note: 'Audit records - supports multiple auditors via junction table'
+  Note: 'Audit records - supports multiple areas via _AuditToArea junction table and multiple auditors via _AuditToUser junction table'
   indexes {
     code [unique]
-    areaId
     auditElementId
     status
   }
@@ -867,22 +865,21 @@ Table t_audit_items {
   id varchar [pk, default: `uuid()`]
   auditId varchar [not null, ref: > t_audits.id, note: 'onDelete: Cascade']
   auditCriteriaId varchar [not null, ref: > m_audit_criteria.id]
-  assignedDepartmentId varchar [not null, ref: > m_departments.id]
-  assigneeId varchar [null, ref: > t_users.id]
+  status GeneralStatusEnum [not null, default: 'OPEN']
   compliantStatus CompliantStatusEnum [not null]
   evidence text [null]
   recommendation text [null]
+  actionRealization text [null]
   order int [not null]
   dueDate timestamp [not null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
-  Note: 'Individual audit item findings - tracks compliance status for each audit criteria'
+  Note: 'Individual audit item findings - tracks compliance status for each audit criteria. Many-to-many relationship with m_departments via _AuditItemToDepartment and t_users via _AuditItemToUser junction tables'
   indexes {
     auditId
     auditCriteriaId
-    assignedDepartmentId
-    assigneeId
+    status
   }
 }
 
@@ -898,6 +895,62 @@ Table t_audit_images {
   indexes {
     auditItemId
     order
+  }
+}
+
+Table _AuditItemToDepartment {
+  id varchar [pk, default: `uuid()`]
+  auditItemId varchar [not null, ref: > t_audit_items.id, note: 'onDelete: Cascade']
+  departmentId varchar [not null, ref: > m_departments.id]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Many-to-many: Audit Items and Departments - junction table linking audit items to assigned departments'
+  indexes {
+    (auditItemId, departmentId) [unique]
+    auditItemId
+    departmentId
+  }
+}
+
+Table _AuditItemToUser {
+  id varchar [pk, default: `uuid()`]
+  auditItemId varchar [not null, ref: > t_audit_items.id, note: 'onDelete: Cascade']
+  userId varchar [not null, ref: > t_users.id]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Many-to-many: Audit Items and Users - junction table linking audit items to assigned users (optional)'
+  indexes {
+    (auditItemId, userId) [unique]
+    auditItemId
+    userId
+  }
+}
+
+Table _AuditToArea {
+  id varchar [pk, default: `uuid()`]
+  auditId varchar [not null, ref: > t_audits.id, note: 'onDelete: Cascade']
+  areaId varchar [not null, ref: > m_areas.id]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Many-to-many: Audits and Areas - junction table linking audits to areas'
+  indexes {
+    (auditId, areaId) [unique]
+    auditId
+    areaId
+  }
+}
+
+Table _AuditToUser {
+  id varchar [pk, default: `uuid()`]
+  auditId varchar [not null, ref: > t_audits.id, note: 'onDelete: Cascade']
+  userId varchar [not null, ref: > t_users.id]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Many-to-many: Audits and Auditors (Users) - junction table linking audits to auditors'
+  indexes {
+    (auditId, userId) [unique]
+    auditId
+    userId
   }
 }
 
@@ -2524,12 +2577,16 @@ Table _AuditToUser {
 }
 
 Table _InspectionToArea {
-  A varchar [ref: > t_inspections.id]
-  B varchar [ref: > m_areas.id]
+  id varchar [pk, default: `uuid()`]
+  inspectionId varchar [not null, ref: > t_inspections.id, note: 'onDelete: Cascade']
+  areaId varchar [not null, ref: > m_areas.id]
+  createdAt timestamp [not null, default: `now()`]
   
-  Note: 'Many-to-many: Inspections and Areas'
+  Note: 'Many-to-many: Inspections and Areas - junction table linking inspections to areas'
   indexes {
-    (A, B) [pk]
+    (inspectionId, areaId) [unique]
+    inspectionId
+    areaId
   }
 }
 
@@ -2587,6 +2644,7 @@ TableGroup inspection_system {
   t_inspection_items
   t_inspection_images
   t_inspection_inspectors
+  _InspectionToArea
   t_environmental_measurements
 }
 
@@ -2597,6 +2655,9 @@ TableGroup audit_system {
   t_audits
   t_audit_items
   t_audit_images
+  _AuditItemToDepartment
+  _AuditItemToUser
+  _AuditToArea
   _AuditToUser
 }
 

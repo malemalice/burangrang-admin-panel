@@ -77,7 +77,7 @@ export class RiskMatrixService {
     const score = likelihoodLevelNum * consequenceLevel;
 
     // Map RiskRatingEnum to RiskLevel
-    const riskLevel = this.mapRiskRatingToRiskLevel(riskMatrix.risk_rating);
+    const riskLevel = this.mapRiskRatingToRiskLevel(riskMatrix.interpretation);
 
     return {
       riskLevel,
@@ -195,7 +195,7 @@ export class RiskMatrixService {
     });
     this.errorHandler.throwIfNotFoundById('RiskMatrix', id, existing);
 
-    // Build update data with only defined fields so risk_rating and other optional fields are persisted correctly
+    // Build update data with only defined fields so interpretation and other optional fields are persisted correctly
     const data = Object.fromEntries(
       Object.entries(updateRiskMatrixDto).filter(([_, v]) => v !== undefined),
     );

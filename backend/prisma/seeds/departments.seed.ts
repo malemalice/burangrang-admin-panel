@@ -94,6 +94,18 @@ export async function seedDepartments(prisma: PrismaClient) {
       description: 'Manages public relations, branding, and internal communication',
       isActive: true,
     },
+    {
+      name: 'Technician',
+      code: 'TECH',
+      description: 'Department for incident technicians and HSE field technicians',
+      isActive: true,
+    },
+    {
+      name: 'HSE',
+      code: 'HSE',
+      description: 'Health, Safety, and Environment department',
+      isActive: true,
+    },
   ];
 
   // Clear existing departments

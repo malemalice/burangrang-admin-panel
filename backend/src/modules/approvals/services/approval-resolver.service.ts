@@ -82,7 +82,7 @@ export class ApprovalResolverService {
 
   /**
    * Retrieve entity data (specifically departmentId) from the database
-   * 
+   *
    * @param entityId - ID of the entity
    * @param entityName - Name of the entity (e.g., 'RISK_ASSESSMENT')
    * @returns Entity data containing departmentId
@@ -98,6 +98,30 @@ export class ApprovalResolverService {
       throw new BadRequestException(
         `Entity ${entityName} not found in approval entity mapping`,
       );
+    }
+
+    // Special handling for AUDIT_ITEM since it uses junction table
+    if (entityName === 'AUDIT_ITEM') {
+      // Query the first assigned department from AuditItemToDepartment junction table
+      const result = await this.prisma.auditItemToDepartment.findFirst({
+        where: {
+          auditItemId: entityId,
+        },
+        select: {
+          departmentId: true,
+        },
+        orderBy: {
+          createdAt: 'asc', // Take the first assigned department
+        },
+      });
+
+      if (!result) {
+        throw new NotFoundException(
+          `Audit item ${entityId} not found or has no assigned departments`,
+        );
+      }
+
+      return { departmentId: result.departmentId };
     }
 
     // Query entity to get departmentId

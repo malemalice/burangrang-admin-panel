@@ -31,6 +31,9 @@ import { seedMailTemplates } from './seeds/mail-templates.seed';
 import { seedMasterApprovals } from './seeds/master-approvals.seed';
 import { seedAuditPolicy } from './seeds/audit-policy.seed';
 import { seedRiskAssessmentsAndInspections } from './seeds/risk-assessments-inspections.seed';
+import { seedAuditSchedules } from './seeds/audit-schedules.seed';
+import { seedWorkPermitApprovalTest } from './seeds/work-permit-approval-test.seed';
+import { seedIncidents } from './seeds/incidents.seed';
 
 const prisma = new PrismaClient();
 
@@ -97,11 +100,26 @@ async function main() {
       await prisma.workPermitSupervisorToGuest.deleteMany();
       await prisma.workPermit.deleteMany();
       await prisma.guest.deleteMany();
+      // Clear Incident data (before User deletion)
+      await prisma.incidentAttachment.deleteMany();
+      await prisma.incidentImage.deleteMany();
+      await prisma.incidentAsset.deleteMany();
+      await prisma.incidentWitness.deleteMany();
+      await prisma.incidentInjuredPerson.deleteMany();
+      await prisma.incident.deleteMany();
       // Clear Inspection data (before User deletion)
       await prisma.inspectionImage.deleteMany();
       await prisma.inspectionInspector.deleteMany();
       await prisma.inspectionItem.deleteMany();
       await prisma.inspection.deleteMany();
+      // Clear Audit Schedule data (before User deletion)
+      await prisma.auditImage.deleteMany();
+      await prisma.auditItemToDepartment.deleteMany();
+      await prisma.auditItemToUser.deleteMany();
+      await prisma.auditItem.deleteMany();
+      await prisma.auditToUser.deleteMany();
+      await prisma.auditToArea.deleteMany();
+      await prisma.audit.deleteMany();
       // Clear Environmental Measurements and Rooms
       await prisma.environmentalMeasurement.deleteMany();
       await prisma.room.deleteMany();
@@ -212,6 +230,13 @@ async function main() {
           await prisma.workPermitToUser.deleteMany();
           await prisma.workPermitSupervisorToGuest.deleteMany();
           await prisma.workPermit.deleteMany();
+          // Clear Incident data
+          await prisma.incidentAttachment.deleteMany();
+          await prisma.incidentImage.deleteMany();
+          await prisma.incidentAsset.deleteMany();
+          await prisma.incidentWitness.deleteMany();
+          await prisma.incidentInjuredPerson.deleteMany();
+          await prisma.incident.deleteMany();
           // Clear Inspection data
           await prisma.inspectionImage.deleteMany();
           await prisma.inspectionInspector.deleteMany();
@@ -405,6 +430,21 @@ async function main() {
           await prisma.auditClause.deleteMany();
           await prisma.auditElement.deleteMany();
           break;
+        case 'audit_schedules':
+        case 'audit-schedules':
+          // Clear audit schedule data first (foreign key dependencies)
+          await prisma.auditImage.deleteMany();
+          await prisma.auditItemToDepartment.deleteMany();
+          await prisma.auditItemToUser.deleteMany();
+          await prisma.auditItem.deleteMany();
+          await prisma.auditToUser.deleteMany();
+          await prisma.auditToArea.deleteMany();
+          await prisma.audit.deleteMany();
+          break;
+        case 'work_permit_approvals':
+        case 'work-permit-approvals':
+          // Data clearing is handled inside the seeder itself
+          break;
         case 'master_approvals':
         case 'master-approvals':
         case 'approvals':
@@ -426,10 +466,19 @@ async function main() {
           await prisma.riskAssessmentItem.deleteMany();
           await prisma.riskAssessment.deleteMany();
           break;
+        case 'incidents':
+          // Clear incident data (foreign key dependencies)
+          await prisma.incidentAttachment.deleteMany();
+          await prisma.incidentImage.deleteMany();
+          await prisma.incidentAsset.deleteMany();
+          await prisma.incidentWitness.deleteMany();
+          await prisma.incidentInjuredPerson.deleteMany();
+          await prisma.incident.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
           console.log(
-            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, audit-policy, approvals, master-approvals, risk-assessments, inspections, risk-assessments-inspections',
+            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, audit-policy, audit-schedules, approvals, master-approvals, risk-assessments, inspections, risk-assessments-inspections, incidents',
           );
           process.exit(1);
       }
@@ -483,7 +532,9 @@ async function main() {
       await seedWasteManagement();
       await seedManHours();
       await seedAuditPolicy(prisma);
+      await seedAuditSchedules(prisma);
       await seedRiskAssessmentsAndInspections(prisma);
+      await seedIncidents();
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -674,6 +725,22 @@ async function main() {
           await prisma.auditElement.deleteMany();
           await seedAuditPolicy(prisma);
           break;
+        case 'audit_schedules':
+        case 'audit-schedules':
+          // Clear audit schedule data first (foreign key dependencies)
+          await prisma.auditImage.deleteMany();
+          await prisma.auditItemToDepartment.deleteMany();
+          await prisma.auditItemToUser.deleteMany();
+          await prisma.auditItem.deleteMany();
+          await prisma.auditToUser.deleteMany();
+          await prisma.auditToArea.deleteMany();
+          await prisma.audit.deleteMany();
+          await seedAuditSchedules(prisma);
+          break;
+        case 'work_permit_approvals':
+        case 'work-permit-approvals':
+          await seedWorkPermitApprovalTest(prisma);
+          break;
         case 'risk_assessments':
         case 'risk-assessments':
         case 'inspections':
@@ -688,6 +755,16 @@ async function main() {
           await prisma.riskAssessmentItem.deleteMany();
           await prisma.riskAssessment.deleteMany();
           await seedRiskAssessmentsAndInspections(prisma);
+          break;
+        case 'incidents':
+          // Clear incident data (foreign key dependencies)
+          await prisma.incidentAttachment.deleteMany();
+          await prisma.incidentImage.deleteMany();
+          await prisma.incidentAsset.deleteMany();
+          await prisma.incidentWitness.deleteMany();
+          await prisma.incidentInjuredPerson.deleteMany();
+          await prisma.incident.deleteMany();
+          await seedIncidents();
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

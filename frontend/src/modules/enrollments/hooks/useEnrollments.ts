@@ -8,6 +8,7 @@ import {
   AssignEnrollmentDTO,
   UpdateEnrollmentDTO,
   CreateEnrollmentDTO,
+  AssignCourseResponse,
 } from '../types/enrollment.types';
 
 /**
@@ -54,13 +55,23 @@ export const useEnrollments = () => {
   };
 
   // Assign course to user (Admin only)
-  const assignCourse = async (assignData: AssignEnrollmentDTO) => {
+  const assignCourse = async (assignData: AssignEnrollmentDTO): Promise<AssignCourseResponse> => {
     try {
-      const newEnrollment = await enrollmentService.assignCourse(assignData);
-      setEnrollments(prev => [newEnrollment, ...prev]);
+      const result = await enrollmentService.assignCourse(assignData);
+      setEnrollments(prev => [result.enrollment, ...prev]);
       setTotalEnrollments(prev => prev + 1);
-      toast.success('Course assigned successfully');
-      return newEnrollment;
+      
+      if (result.emailStatus === 'sent') {
+        toast.success('Course assigned successfully. Email notification sent.');
+      } else if (result.emailStatus === 'skipped') {
+        toast.warning('Course assigned successfully. Email notification skipped - SMTP not configured.');
+      } else if (result.emailStatus === 'failed') {
+        toast.warning(`Course assigned successfully. Email notification failed: ${result.emailMessage || 'Unknown error'}`);
+      } else {
+        toast.success('Course assigned successfully.');
+      }
+      
+      return result;
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message ||
         err?.response?.data?.error ||

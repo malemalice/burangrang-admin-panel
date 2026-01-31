@@ -9,6 +9,7 @@ import PageHeader from '@/core/components/ui/PageHeader';
 
 import { useRiskRegisterDetail } from '../hooks/useRiskRegister';
 import { RiskRegisterSourceBadge } from '../components/RiskRegisterSourceBadge';
+import { getRiskRegisterStatusLabel } from '../utils/riskRegisterStatus';
 
 const Field = ({ label, value }: { label: string; value: React.ReactNode }) => (
   <div className="space-y-1.5">
@@ -36,6 +37,9 @@ const ViewRiskRegisterPage = () => {
 
   const isRiskAssessment = item.entity === 'RISK_ASSESSMENT_ITEM';
   const source = item.source;
+  const statusLabel = isRiskAssessment
+    ? getRiskRegisterStatusLabel('status' in source ? source.status : 'OPEN')
+    : getRiskRegisterStatusLabel(source.inspectionItem.status);
 
   return (
     <>
@@ -45,7 +49,7 @@ const ViewRiskRegisterPage = () => {
         actions={
           <Button
             variant="outline"
-            onClick={() => navigate('/risk-register')}
+            onClick={() => navigate(-1)}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Risk Register
@@ -142,8 +146,16 @@ const ViewRiskRegisterPage = () => {
               </div>
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Status</p>
-                <Badge variant={item.isActive ? 'default' : 'secondary'}>
-                  {item.isActive ? 'Active' : 'Inactive'}
+                <Badge
+                  variant={
+                    statusLabel === 'Open'
+                      ? 'default'
+                      : statusLabel === 'Close'
+                        ? 'secondary'
+                        : 'outline'
+                  }
+                >
+                  {statusLabel}
                 </Badge>
               </div>
             </div>
@@ -196,7 +208,7 @@ const ViewRiskRegisterPage = () => {
                 <>
                   <div className="space-y-1.5">
                     <p className="text-sm font-medium text-muted-foreground">Status</p>
-                    <Badge variant="outline">{source.inspectionItem.status}</Badge>
+                    <Badge variant="outline">{statusLabel}</Badge>
                   </div>
                   {source.inspectionItem.findings && (
                     <div className="space-y-1.5 md:col-span-2">
@@ -258,6 +270,7 @@ const ViewRiskRegisterPage = () => {
           <CardContent className="space-y-6">
             {isRiskAssessment && 'riskAssessmentItem' in source && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Field label="Status" value={<Badge variant="outline">{statusLabel}</Badge>} />
                 <Field label="Entity ID" value={source.riskAssessmentItem.id} />
                 <Field label="Risk" value={source.riskAssessmentItem.mRisk?.name} />
                 <Field label="Risk Category" value={source.riskAssessmentItem.mRiskCategory?.name} />
@@ -277,7 +290,7 @@ const ViewRiskRegisterPage = () => {
                   <Field label="Entity ID" value={source.inspectionItem.id} />
                   <Field label="Risk" value={source.inspectionItem.risk?.name} />
                   <Field label="Risk Category" value={source.inspectionItem.riskCategory?.name} />
-                  <Field label="Status" value={<Badge variant="outline">{source.inspectionItem.status}</Badge>} />
+                  <Field label="Status" value={<Badge variant="outline">{statusLabel}</Badge>} />
                   <div className="space-y-1.5 md:col-span-2">
                     <p className="text-sm font-medium text-muted-foreground">Findings</p>
                     <p className="text-sm text-muted-foreground whitespace-pre-wrap">{source.inspectionItem.findings ?? '—'}</p>
