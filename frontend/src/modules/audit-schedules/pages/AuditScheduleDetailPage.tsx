@@ -237,6 +237,7 @@ const AuditScheduleDetailPage = () => {
       [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
       [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
       [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
+      [GeneralStatusEnum.CLOSE]: { label: 'Close', variant: 'default' },
     };
 
     const statusKey = String(status);

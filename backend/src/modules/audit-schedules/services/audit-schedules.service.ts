@@ -934,12 +934,13 @@ export class AuditSchedulesService {
       where.status = status;
     }
 
-    if (search) {
+    const searchTrimmed = search?.trim();
+    if (searchTrimmed) {
       where.OR = [
         {
           audit: {
             code: {
-              contains: search,
+              contains: searchTrimmed,
               mode: 'insensitive',
             },
           },
@@ -947,7 +948,7 @@ export class AuditSchedulesService {
         {
           auditCriteria: {
             name: {
-              contains: search,
+              contains: searchTrimmed,
               mode: 'insensitive',
             },
           },
@@ -956,7 +957,7 @@ export class AuditSchedulesService {
           auditCriteria: {
             auditClause: {
               name: {
-                contains: search,
+                contains: searchTrimmed,
                 mode: 'insensitive',
               },
             },
@@ -967,7 +968,7 @@ export class AuditSchedulesService {
             auditClause: {
               auditElement: {
                 name: {
-                  contains: search,
+                  contains: searchTrimmed,
                   mode: 'insensitive',
                 },
               },

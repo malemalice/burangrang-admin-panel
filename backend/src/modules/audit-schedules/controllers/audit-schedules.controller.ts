@@ -135,7 +135,7 @@ export class AuditSchedulesController {
       auditCriteriaId,
       compliantStatus,
       status,
-      search,
+      search: search?.trim() || undefined,
     });
   }
 

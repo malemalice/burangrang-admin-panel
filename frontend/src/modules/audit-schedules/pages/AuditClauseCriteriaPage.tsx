@@ -759,6 +759,8 @@ const AuditClauseCriteriaPage = () => {
             return <Badge className="bg-green-100 text-green-800">Done</Badge>;
           case GeneralStatusEnum.REJECTED:
             return <Badge className="bg-red-100 text-red-800">Rejected</Badge>;
+          case GeneralStatusEnum.CLOSE:
+            return <Badge variant="outline" className="bg-gray-100 text-gray-800">Close</Badge>;
           default:
             return <Badge variant="outline">{status}</Badge>;
         }
