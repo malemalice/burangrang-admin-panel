@@ -29,11 +29,12 @@ import { riskCategoryService, riskService } from '@/modules/master-data';
 import { createRiskCategoryFromQuery } from '@/modules/master-data/pages/risk-categories';
 import { createRiskFromQuery } from '@/modules/master-data/pages/risks';
 
-// Normalize likelihood to 1-2 uppercase letters (A-Z or AA-ZZ) for backend validation
+// Normalize likelihood: only accept single letter A-E (risk matrix format). Reject names/abbreviations like "Medium"->"ME" or "Low"->"LO".
+// Risk matrix pattern: likelihoodLevel + consequenceLevel (e.g. A1, A4, B4)
 const normalizeLikelihood = (value: string | number | undefined): string => {
   const s = String(value ?? '').trim().toUpperCase();
-  const match = s.match(/^[A-Z]{1,2}/);
-  return match ? match[0] : '';
+  const single = s.charAt(0);
+  return single && /^[A-E]$/.test(single) ? single : '';
 };
 
 // Mitigation schema for validation
@@ -195,7 +196,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
       mRiskId: initialItem?.mRiskId || '',
       mRiskCategoryId: initialItem?.mRiskCategoryId || '',
       likelihoodLevel: normalizeLikelihood(initialItem?.likelihoodLevel) || 'A',
-      consequenceLevel: initialItem?.consequenceLevel || 1,
+      consequenceLevel: initialItem?.consequenceLevel ?? 1,
       riskMatrixRating: initialItem?.riskMatrixRating || '',
       interpretation: initialItem?.interpretation || RiskRatingEnum.LOW,
       postLikelihoodLevel: normalizeLikelihood(initialItem?.postLikelihoodLevel) || normalizeLikelihood(initialItem?.likelihoodLevel) || 'A',
@@ -823,9 +824,6 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
                       )}
                     </div>
                   </FormControl>
-                  <FormDescription className="text-xs">
-                    Format: Likelihood (A-E) + Consequence (1-5), e.g., A1, D2
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -1055,16 +1053,12 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
                           <span className="inline-flex items-center rounded-md border border-input bg-muted px-2 py-1 text-sm font-medium font-mono">
                             {field.value}
                           </span>
-                          {getRiskBadge(form.watch('postInterpretation'))}
                         </>
                       ) : (
                         <span className="text-sm text-muted-foreground">—</span>
                       )}
                     </div>
                   </FormControl>
-                  <FormDescription className="text-xs">
-                    Format: Likelihood (A-E) + Consequence (1-5), e.g., A1, D2
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
