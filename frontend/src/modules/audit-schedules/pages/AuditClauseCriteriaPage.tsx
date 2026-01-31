@@ -96,6 +96,7 @@ const AuditClauseCriteriaPage = () => {
   const [departmentMap, setDepartmentMap] = useState<Record<string, string>>({});
   const [isApprovalFormOpen, setIsApprovalFormOpen] = useState(false);
   const [selectedItemForApprovalForm, setSelectedItemForApprovalForm] = useState<MergedCriteriaItem | null>(null);
+  const [criteriaSearchTerm, setCriteriaSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -257,6 +258,18 @@ const AuditClauseCriteriaPage = () => {
     // Convert map to array and sort by order
     return Array.from(criteriaMap.values()).sort((a, b) => a.order - b.order);
   }, [masterCriteria, auditItems]);
+
+  // Filter criteria by search term (client-side)
+  const filteredMergedCriteria = useMemo(() => {
+    if (!criteriaSearchTerm?.trim()) return mergedCriteria;
+    const term = criteriaSearchTerm.trim().toLowerCase();
+    return mergedCriteria.filter(
+      (item) =>
+        item.code?.toLowerCase().includes(term) ||
+        item.name?.toLowerCase().includes(term) ||
+        (item.description && item.description.toLowerCase().includes(term))
+    );
+  }, [mergedCriteria, criteriaSearchTerm]);
 
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
@@ -947,11 +960,13 @@ const AuditClauseCriteriaPage = () => {
         <CardContent>
           <DataTable
             columns={auditCriteriaColumns}
-            data={mergedCriteria}
+            data={filteredMergedCriteria}
             isLoading={isLoadingCriteria}
             filterFields={[]}
-            onSearch={() => {}}
+            searchValue={criteriaSearchTerm}
+            onSearch={(term) => setCriteriaSearchTerm(term)}
             onApplyFilters={() => {}}
+            searchPlaceholder="Search criteria by code or name..."
           />
         </CardContent>
       </Card>

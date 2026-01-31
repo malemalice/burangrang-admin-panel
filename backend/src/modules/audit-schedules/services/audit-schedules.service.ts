@@ -23,11 +23,14 @@ import { MasterApprovalsService } from '../../approvals/master-approvals.service
 import { APPROVAL_ENTITIES } from '../../../shared/constants/approval-entities';
 import { ApprovalStatus } from '../../approvals/dto/submit-approval.dto';
 
+const AUDIT_SORT_FIELDS = ['code', 'auditDate', 'createdAt', 'updatedAt', 'status'] as const;
+
 interface FindAllOptions {
   page?: number;
   limit?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  search?: string;
   isActive?: boolean;
   areaIds?: string[];
   auditElementIds?: string[];
@@ -211,8 +214,9 @@ export class AuditSchedulesService {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'code',
-      sortOrder = 'asc',
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      search,
       isActive,
       areaIds,
       auditElementIds,
@@ -224,6 +228,21 @@ export class AuditSchedulesService {
 
     const where: Prisma.AuditWhereInput = {};
 
+    if (search && search.trim()) {
+      where.OR = [
+        { code: { contains: search.trim(), mode: 'insensitive' } },
+        {
+          auditElement: {
+            name: { contains: search.trim(), mode: 'insensitive' },
+          },
+        },
+        {
+          auditElement: {
+            code: { contains: search.trim(), mode: 'insensitive' },
+          },
+        },
+      ];
+    }
     if (isActive !== undefined) {
       where.isActive = isActive;
     }
@@ -266,6 +285,11 @@ export class AuditSchedulesService {
       }
     }
 
+    const safeSortBy = AUDIT_SORT_FIELDS.includes(sortBy as (typeof AUDIT_SORT_FIELDS)[number])
+      ? sortBy
+      : 'createdAt';
+    const safeSortOrder = sortOrder === 'asc' || sortOrder === 'desc' ? sortOrder : 'desc';
+
     const [audits, total] = await Promise.all([
       this.prisma.audit.findMany({
         where,
@@ -286,7 +310,7 @@ export class AuditSchedulesService {
           items: true,
         },
         orderBy: {
-          [sortBy]: sortOrder,
+          [safeSortBy]: safeSortOrder,
         },
         skip: (page - 1) * limit,
         take: limit,

@@ -289,13 +289,13 @@ const AuditSchedulesPage = () => {
       const params: any = {
         page: pageIndex + 1, // API expects 1-based page index
         limit,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
       };
 
-      // Note: Backend doesn't support search parameter for audit schedules list endpoint
-      // Search functionality would need to be implemented in the backend
-      // if (searchTerm) {
-      //   params.search = searchTerm;
-      // }
+      if (searchTerm?.trim()) {
+        params.search = searchTerm.trim();
+      }
 
       // Add isActive filter from filters (for active/inactive tabs)
       if (activeFilters.isActive?.value !== undefined) {
@@ -669,6 +669,7 @@ const AuditSchedulesPage = () => {
         }}
         filterFields={filterFields}
         activeFilters={activeFilters}
+        searchValue={searchTerm}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
         searchPlaceholder="Search by code or element name..."
