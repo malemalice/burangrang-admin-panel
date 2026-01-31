@@ -43,13 +43,71 @@ export class RiskRegisterService {
       createdAtTo,
     } = options || {};
 
+    const hasSearchOrFilters =
+      !!search || !!departmentId || !!riskId || !!riskCategoryId || status !== undefined;
+
+    let matchingRiskAssessmentItemIds: string[] = [];
+    let matchingInspectionItemIds: string[] = [];
+
+    // Pre-filter: when search or filters are applied, find matching entity IDs first
+    // so pagination and total count reflect the filtered result set (RR-016, RR-017)
+    if (hasSearchOrFilters) {
+      const shouldIncludeRiskAssessment =
+        !entityType || entityType === RISK_ASSESSMENT_ITEM_ENTITY;
+      const shouldIncludeInspection =
+        !entityType || entityType === INSPECTION_ITEM_ENTITY;
+
+      if (shouldIncludeRiskAssessment) {
+        const riskAssessmentWhere: Prisma.RiskAssessmentItemWhereInput = {
+          ...(riskId && { mRiskId: riskId }),
+          ...(riskCategoryId && { mRiskCategoryId: riskCategoryId }),
+          ...(status && {
+            riskAssessment: { status: status as GeneralStatusEnum },
+          }),
+          ...(departmentId && {
+            riskAssessment: { departmentId },
+          }),
+          ...(search && {
+            OR: [
+              { riskAssessment: { code: { contains: search, mode: 'insensitive' } } },
+              { mRisk: { name: { contains: search, mode: 'insensitive' } } },
+            ],
+          }),
+        };
+        const items = await this.prisma.riskAssessmentItem.findMany({
+          where: riskAssessmentWhere,
+          select: { id: true },
+        });
+        matchingRiskAssessmentItemIds = items.map((i) => i.id);
+      }
+
+      if (shouldIncludeInspection) {
+        const inspectionWhere: Prisma.InspectionItemWhereInput = {
+          ...(riskId && { riskId }),
+          ...(riskCategoryId && { riskCategoryId }),
+          ...(status && { status }),
+          ...(departmentId && { assignedDepartmentId: departmentId }),
+          ...(search && {
+            OR: [
+              { inspection: { code: { contains: search, mode: 'insensitive' } } },
+              { risk: { name: { contains: search, mode: 'insensitive' } } },
+            ],
+          }),
+        };
+        const items = await this.prisma.inspectionItem.findMany({
+          where: inspectionWhere,
+          select: { id: true },
+        });
+        matchingInspectionItemIds = items.map((i) => i.id);
+      }
+    }
+
     // Build where clause for RiskMitigationRecord
     const where: Prisma.RiskMitigationRecordWhereInput = {};
 
     if (entityType) {
       where.entity = entityType;
     } else {
-      // If no entityType specified, include both types
       where.OR = [
         { entity: RISK_ASSESSMENT_ITEM_ENTITY },
         { entity: INSPECTION_ITEM_ENTITY },
@@ -70,7 +128,34 @@ export class RiskRegisterService {
       }
     }
 
-    // Get all mitigation records matching filters
+    // Restrict to matching entity IDs when search/filters applied
+    if (hasSearchOrFilters) {
+      const entityIdConditions: Prisma.RiskMitigationRecordWhereInput[] = [];
+      if (matchingRiskAssessmentItemIds.length > 0) {
+        entityIdConditions.push({
+          entity: RISK_ASSESSMENT_ITEM_ENTITY,
+          entityId: { in: matchingRiskAssessmentItemIds },
+        });
+      }
+      if (matchingInspectionItemIds.length > 0) {
+        entityIdConditions.push({
+          entity: INSPECTION_ITEM_ENTITY,
+          entityId: { in: matchingInspectionItemIds },
+        });
+      }
+      if (entityIdConditions.length === 0) {
+        return {
+          data: [],
+          meta: { total: 0, page, limit },
+        };
+      }
+      where.AND = [
+        ...(where.AND as Prisma.RiskMitigationRecordWhereInput[] || []),
+        { OR: entityIdConditions },
+      ];
+    }
+
+    // Get mitigation records with correct pagination and total
     const [mitigationRecords, total] = await Promise.all([
       this.prisma.riskMitigationRecord.findMany({
         where,
@@ -83,7 +168,6 @@ export class RiskRegisterService {
       this.prisma.riskMitigationRecord.count({ where }),
     ]);
 
-    // Separate records by entity type
     const riskAssessmentItemIds: string[] = [];
     const inspectionItemIds: string[] = [];
 
@@ -95,90 +179,45 @@ export class RiskRegisterService {
       }
     });
 
-    // Fetch Risk Assessment Items with relations
-    const riskAssessmentItems = riskAssessmentItemIds.length > 0
-      ? await this.prisma.riskAssessmentItem.findMany({
-          where: {
-            id: { in: riskAssessmentItemIds },
-            ...(riskId && { mRiskId: riskId }),
-            ...(riskCategoryId && { mRiskCategoryId: riskCategoryId }),
-            ...(status && {
+    // Fetch Risk Assessment Items with relations (no need to re-apply filters here;
+    // records are already pre-filtered)
+    const riskAssessmentItems =
+      riskAssessmentItemIds.length > 0
+        ? await this.prisma.riskAssessmentItem.findMany({
+            where: { id: { in: riskAssessmentItemIds } },
+            include: {
               riskAssessment: {
-                status: status as GeneralStatusEnum,
-              },
-            }),
-            ...(departmentId && {
-              riskAssessment: {
-                departmentId,
-              },
-            }),
-            ...(search && {
-              OR: [
-                {
-                  riskAssessment: {
-                    code: { contains: search, mode: 'insensitive' },
-                  },
+                include: {
+                  department: true,
+                  creator: true,
+                  assignee: true,
                 },
-                {
-                  mRisk: {
-                    name: { contains: search, mode: 'insensitive' },
-                  },
-                },
-              ],
-            }),
-          },
-          include: {
-            riskAssessment: {
-              include: {
-                department: true,
-                creator: true,
-                assignee: true,
               },
+              mRisk: true,
+              mRiskCategory: true,
             },
-            mRisk: true,
-            mRiskCategory: true,
-          },
-        })
-      : [];
+          })
+        : [];
 
     // Fetch Inspection Items with relations
-    const inspectionItems = inspectionItemIds.length > 0
-      ? await this.prisma.inspectionItem.findMany({
-          where: {
-            id: { in: inspectionItemIds },
-            ...(riskId && { riskId }),
-            ...(riskCategoryId && { riskCategoryId }),
-            ...(status && { status }),
-            ...(departmentId && { assignedDepartmentId: departmentId }),
-            ...(search && {
-              OR: [
-                {
-                  inspection: {
-                    code: { contains: search, mode: 'insensitive' },
-                  },
+    const inspectionItems =
+      inspectionItemIds.length > 0
+        ? await this.prisma.inspectionItem.findMany({
+            where: { id: { in: inspectionItemIds } },
+            include: {
+              inspection: {
+                include: {
+                  creator: true,
                 },
-                {
-                  risk: {
-                    name: { contains: search, mode: 'insensitive' },
-                  },
-                },
-              ],
-            }),
-          },
-          include: {
-            inspection: {
-              include: {
-                creator: true,
               },
+              area: true,
+              riskCategory: true,
+              risk: true,
+              assignedDepartment: true,
+              assignee: true,
             },
-            area: true,
-            riskCategory: true,
-            risk: true,
-            assignedDepartment: true,
-            assignee: true,
-          },
-        })
-      : [];
+          })
+        : [];
 
     // Create maps for quick lookup
     const riskAssessmentItemMap = new Map(
@@ -201,6 +240,7 @@ export class RiskRegisterService {
               code: item.riskAssessment.code,
               description: item.riskAssessment.description || undefined,
               assessmentDate: item.riskAssessment.assessmentDate,
+              status: item.riskAssessment.status,
               riskAssessmentItem: {
                 id: item.id,
                 mRiskId: (item as any).mRiskId,
@@ -304,6 +344,7 @@ export class RiskRegisterService {
           code: item.riskAssessment.code,
           description: item.riskAssessment.description || undefined,
           assessmentDate: item.riskAssessment.assessmentDate,
+          status: item.riskAssessment.status,
           riskAssessmentItem: {
             id: item.id,
             mRiskId: (item as any).mRiskId,

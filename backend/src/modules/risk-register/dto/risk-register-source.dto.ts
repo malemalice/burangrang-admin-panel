@@ -27,6 +27,10 @@ export class RiskRegisterSourceRiskAssessmentDto {
   @Expose()
   assessmentDate: Date;
 
+  @ApiProperty({ description: 'Parent Risk Assessment status (DONE = close)' })
+  @Expose()
+  status: string;
+
   @ApiProperty({ type: () => Object, description: 'Risk Assessment Item details' })
   @Expose()
   riskAssessmentItem: {
