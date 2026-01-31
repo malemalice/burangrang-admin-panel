@@ -9,6 +9,7 @@ import TreatmentPlantDetailPage from '../pages/treatment-plants/TreatmentPlantDe
 // Water Quality Parameters
 import WaterQualityParametersPage from '../pages/water-quality-parameters/WaterQualityParametersPage';
 import CreateWaterQualityParameterPage from '../pages/water-quality-parameters/CreateWaterQualityParameterPage';
+import WaterQualityParameterDetailPage from '../pages/water-quality-parameters/WaterQualityParameterDetailPage';
 import EditWaterQualityParameterPage from '../pages/water-quality-parameters/EditWaterQualityParameterPage';
 
 // Waste Types
@@ -63,6 +64,7 @@ const wasteManagementRoutes: RouteConfig[] = [
   // Water Quality Parameters
   { path: '/waste-management/water-quality-parameters', component: WaterQualityParametersPage },
   { path: '/waste-management/water-quality-parameters/create', component: CreateWaterQualityParameterPage },
+  { path: '/waste-management/water-quality-parameters/:id', component: WaterQualityParameterDetailPage },
   { path: '/waste-management/water-quality-parameters/:id/edit', component: EditWaterQualityParameterPage },
 
   // Waste Types

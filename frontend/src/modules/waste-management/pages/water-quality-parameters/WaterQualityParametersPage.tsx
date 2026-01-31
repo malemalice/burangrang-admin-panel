@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Eye, Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
@@ -49,6 +49,8 @@ export default function WaterQualityParametersPage() {
         limit,
         search: search || undefined,
         isActive: activeFilters.isActive?.value === 'true' ? true : activeFilters.isActive?.value === 'false' ? false : undefined,
+        sortBy: 'createdAt',
+        sortOrder: 'desc' as 'desc',
       };
       const response = await waterQualityParameterService.getAll(params);
       const result = response.data as PaginatedResponse<WaterQualityParameter>;
@@ -107,7 +109,7 @@ export default function WaterQualityParametersPage() {
     {
       id: 'dateSampleTaken',
       header: 'Date Sample Taken',
-      cell: (item: WaterQualityParameter) => new Date(item.dateSampleTaken).toLocaleDateString(),
+      cell: (item: WaterQualityParameter) => new Date(item.dateSampleTaken || '').toLocaleDateString(),
       isSortable: true,
     },
     {
@@ -149,6 +151,9 @@ export default function WaterQualityParametersPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => navigate(`/waste-management/water-quality-parameters/${item.id}`)}>
+              <Eye className="mr-2 h-4 w-4" /> View
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/waste-management/water-quality-parameters/${item.id}/edit`)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
@@ -192,7 +197,7 @@ export default function WaterQualityParametersPage() {
           </TabsList>
         </Tabs>
       </PageHeader>
-      
+
       <DataTable
         columns={columns}
         data={data}
@@ -205,6 +210,8 @@ export default function WaterQualityParametersPage() {
           onPageSizeChange: setLimit,
           total,
         }}
+        // @ts-ignore - The types in DataTable are generic and TS struggles with the prop intersection
+        onRowClick={(item: WaterQualityParameter) => navigate(`/waste-management/water-quality-parameters/${item.id}`)}
         filterFields={filterFields}
         activeFilters={activeFilters}
         onSearch={(term) => {

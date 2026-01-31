@@ -87,6 +87,7 @@ export interface WaterQualityParameter {
   testMethod?: string;
   description?: string;
   isActive: boolean;
+  dateSampleTaken: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -388,7 +389,7 @@ export interface TreatmentPlantFilters extends PaginationParams {
   officeId?: string;
 }
 
-export interface WaterQualityParameterFilters extends PaginationParams {}
+export interface WaterQualityParameterFilters extends PaginationParams { }
 
 export interface WasteTypeFilters extends PaginationParams {
   wasteType?: WasteTypeEnum;
