@@ -14,6 +14,7 @@ import EditWaterQualityParameterPage from '../pages/water-quality-parameters/Edi
 import WasteTypesPage from '../pages/waste-types/WasteTypesPage';
 import CreateWasteTypePage from '../pages/waste-types/CreateWasteTypePage';
 import EditWasteTypePage from '../pages/waste-types/EditWasteTypePage';
+import WasteTypeDetailPage from '../pages/waste-types/WasteTypeDetailPage';
 
 // Waste Sources
 import WasteSourcesPage from '../pages/waste-sources/WasteSourcesPage';
@@ -65,6 +66,7 @@ const wasteManagementRoutes: RouteConfig[] = [
   // Waste Types
   { path: '/waste-management/waste-types', component: WasteTypesPage },
   { path: '/waste-management/waste-types/create', component: CreateWasteTypePage },
+  { path: '/waste-management/waste-types/:id', component: WasteTypeDetailPage },
   { path: '/waste-management/waste-types/:id/edit', component: EditWasteTypePage },
 
   // Waste Sources
