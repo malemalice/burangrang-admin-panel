@@ -4,6 +4,7 @@ import { RouteConfig } from '@/core/routes/types';
 import TreatmentPlantsPage from '../pages/treatment-plants/TreatmentPlantsPage';
 import CreateTreatmentPlantPage from '../pages/treatment-plants/CreateTreatmentPlantPage';
 import EditTreatmentPlantPage from '../pages/treatment-plants/EditTreatmentPlantPage';
+import TreatmentPlantDetailPage from '../pages/treatment-plants/TreatmentPlantDetailPage';
 
 // Water Quality Parameters
 import WaterQualityParametersPage from '../pages/water-quality-parameters/WaterQualityParametersPage';
@@ -56,6 +57,7 @@ const wasteManagementRoutes: RouteConfig[] = [
   // Treatment Plants
   { path: '/waste-management/treatment-plants', component: TreatmentPlantsPage },
   { path: '/waste-management/treatment-plants/create', component: CreateTreatmentPlantPage },
+  { path: '/waste-management/treatment-plants/:id', component: TreatmentPlantDetailPage },
   { path: '/waste-management/treatment-plants/:id/edit', component: EditTreatmentPlantPage },
 
   // Water Quality Parameters
