@@ -93,6 +93,17 @@ export class AuditCriteriaService {
       auditClause,
     );
 
+    // Check for duplicate order within the same clause
+    const existingWithOrder = await this.prisma.auditCriteria.findFirst({
+      where: {
+        auditClauseId: createAuditCriteriaDto.auditClauseId,
+        order: createAuditCriteriaDto.order,
+      },
+    });
+    if (existingWithOrder) {
+      this.errorHandler.throwConflictCustom('Order number already exists');
+    }
+
     // Auto-generate code if not provided
     const code = createAuditCriteriaDto.code || this.generateCriteriaCode(
       auditClause.code,
@@ -111,9 +122,17 @@ export class AuditCriteriaService {
       },
     };
 
-    const criteria = await this.prisma.auditCriteria.create({
-      data,
-    });
+    let criteria;
+    try {
+      criteria = await this.prisma.auditCriteria.create({
+        data,
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        this.errorHandler.throwConflictCustom('Order number already exists');
+      }
+      throw error;
+    }
 
     // Regenerate all criteria codes to ensure consistency
     await this.regenerateCriteriaCodes(auditClause.id);
@@ -264,6 +283,17 @@ export class AuditCriteriaService {
       updateData.transitionType = updateAuditCriteriaDto.transitionType;
     }
     if (updateAuditCriteriaDto.order !== undefined) {
+      // Check for duplicate order within the same clause (excluding current criteria)
+      const existingWithOrder = await this.prisma.auditCriteria.findFirst({
+        where: {
+          auditClauseId,
+          order: updateAuditCriteriaDto.order,
+          id: { not: id },
+        },
+      });
+      if (existingWithOrder) {
+        this.errorHandler.throwConflictCustom('Order number already exists');
+      }
       updateData.order = updateAuditCriteriaDto.order;
     }
     if (updateAuditCriteriaDto.isActive !== undefined) {

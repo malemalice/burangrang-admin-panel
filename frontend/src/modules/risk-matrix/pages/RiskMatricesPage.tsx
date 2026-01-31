@@ -44,7 +44,7 @@ const RiskMatricesPage = () => {
       type: 'text',
     },
     {
-      id: 'riskRating',
+      id: 'interpretation',
       label: 'Risk Rating',
       type: 'select',
       options: [
@@ -168,11 +168,11 @@ const RiskMatricesPage = () => {
       isSortable: true,
     },
     {
-      id: 'riskRating',
+      id: 'interpretation',
       header: 'Risk Rating',
       cell: (riskMatrix: RiskMatrix) => (
-        <Badge variant="outline" className={getRiskRatingBadgeVariant(riskMatrix.riskRating)}>
-          {riskMatrix.riskRating}
+        <Badge variant="outline" className={getRiskRatingBadgeVariant(riskMatrix.interpretation)}>
+          {riskMatrix.interpretation}
         </Badge>
       ),
       isSortable: true,

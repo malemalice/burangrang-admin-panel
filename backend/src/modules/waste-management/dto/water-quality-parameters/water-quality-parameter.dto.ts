@@ -40,6 +40,10 @@ export class WaterQualityParameterDto {
 
   @ApiProperty()
   @Expose()
+  dateSampleTaken: Date;
+
+  @ApiProperty()
+  @Expose()
   createdAt: Date;
 
   @ApiProperty()

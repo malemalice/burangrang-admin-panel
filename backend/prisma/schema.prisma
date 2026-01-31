@@ -103,6 +103,13 @@ model User {
   auditItemsAssigned              AuditItemToUser[]       @relation("AuditItemAssignee")
   auditsAsAuditor                 AuditToUser[]           @relation("AuditAuditor")
 
+  // Incident Relations
+  incidentsAsRequester            Incident[]              @relation("IncidentRequester")
+  incidentsAsReporter             Incident[]              @relation("IncidentReporter")
+  incidentsAsTechnician          Incident[]              @relation("IncidentTechnician")
+  incidentsAsAssignee             Incident[]              @relation("IncidentAssignee")
+  incidentsCreated                Incident[]               @relation("IncidentCreator")
+
   @@map("t_users")
 }
 
@@ -213,6 +220,9 @@ model Department {
   notificationRecipients NotificationRecipient[]
   inspectionItems      InspectionItem[]
   auditItemToDepartments AuditItemToDepartment[]
+  incidentsAssigned    Incident[]
+  incidentInjuredPersons IncidentInjuredPerson[] @relation("IncidentInjuredPersonDepartment")
+  incidentWitnesses    IncidentWitness[] @relation("IncidentWitnessDepartment")
 
   @@map("m_departments")
 }
@@ -245,6 +255,7 @@ model RiskCategory {
   risks               Risk[]
   riskAssessmentItems RiskAssessmentItem[]
   inspectionItems     InspectionItem[]
+  incidents           Incident[]
 
   @@map("m_risk_categories")
 }
@@ -338,7 +349,7 @@ model RiskMatrix {
   consequenceLevel Int
   consequenceName  String         @default("")
   consequenceDesc  String         @default("") @db.Text
-  risk_rating      RiskRatingEnum
+  interpretation   RiskRatingEnum
   isActive         Boolean        @default(true)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
@@ -383,8 +394,28 @@ model RiskAssessmentItem {
   postConsequenceLevel Int
   postRiskMatrixRating String
   postInterpretation   RiskRatingEnum
+  images              RiskAssessmentItemImage[]
 
   @@map("t_risk_assessment_item")
+}
+
+// Risk Assessment Item Image - Transactional Data
+// Supports before/after action plan tracking (same pattern as InspectionImage)
+model RiskAssessmentItemImage {
+  id                     String                            @id @default(uuid())
+  riskAssessmentItemId    String
+  imageUrl                String
+  caption                 String?                            @db.Text
+  type                    RiskAssessmentItemImageTypeEnum   @default(GENERAL) // BEFORE: before action plan, AFTER: after action plan, GENERAL: general image
+  order                   Int
+  createdAt               DateTime                          @default(now())
+
+  riskAssessmentItem      RiskAssessmentItem                @relation(fields: [riskAssessmentItemId], references: [id], onDelete: Cascade)
+
+  @@index([riskAssessmentItemId])
+  @@index([riskAssessmentItemId, type])
+  @@index([order])
+  @@map("t_risk_assessment_item_images")
 }
 
 model MasterApproval {
@@ -857,6 +888,7 @@ model SafetyEquipment {
   updatedAt             DateTime                      @updatedAt
   ppeStockItems         PPEStockItem[]
   workPermits           WorkPermitToSafetyEquipment[]
+  // Note: Polymorphic relation handled manually - see IncidentAsset.entity and entityId
 
   @@map("m_safety_equipment")
 }
@@ -1306,8 +1338,24 @@ model HeavyEquipment {
   createdAt   DateTime                   @default(now())
   updatedAt   DateTime                   @updatedAt
   workPermits WorkPermitHeavyEquipment[]
+  // Note: Polymorphic relation handled manually - see IncidentAsset.entity and entityId
 
   @@map("m_heavy_equipment")
+}
+
+// Asset - Master Data
+model Asset {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  brand       String?
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  // Note: Polymorphic relation handled manually - see IncidentAsset.entity and entityId
+
+  @@map("m_assets")
 }
 
 model Tool {
@@ -1394,6 +1442,7 @@ model Area {
   inspectionItems  InspectionItem[]
   inspections      InspectionToArea[]
   audits           AuditToArea[]
+  incidents        Incident[]
 
   @@map("m_areas")
 }
@@ -1526,6 +1575,7 @@ model Room {
   updatedAt                 DateTime                   @updatedAt
   area                      Area                       @relation(fields: [areaId], references: [id])
   environmentalMeasurements EnvironmentalMeasurement[]
+  incident                  Incident?
 
   @@map("m_rooms")
 }
@@ -1885,6 +1935,312 @@ enum InspectionImageTypeEnum {
   GENERAL // General inspection image
 }
 
+enum RiskAssessmentItemImageTypeEnum {
+  BEFORE  // Image taken before action plan
+  AFTER   // Image taken after action plan
+  GENERAL // General risk assessment item image
+}
+
+// ============================================================
+// INCIDENT REPORT SYSTEM - Enums
+// ============================================================
+
+enum IncidentClassificationEnum {
+  MAJOR
+  MINOR
+  FATALITY
+}
+
+enum SourceEnum {
+  SYSTEM
+  ZOHO
+}
+
+enum IncidentTypeEnum {
+  NEAR_MISS
+  ACCIDENT
+  DANGEROUS_OR_HAZARDOUS_OCCURRENCE
+}
+
+enum GenderEnum {
+  MALE
+  FEMALE
+}
+
+enum LevelOfInjuryEnum {
+  NOT_SPECIFIED
+  MINOR
+  MODERATE
+  SEVERE
+  FATAL
+}
+
+enum InjuredBodyPartEnum {
+  NOT_SPECIFIED
+  HEAD
+  NECK
+  ABDOMENT
+  ARM
+  FEET
+  SHOULDER
+  HAND
+  LEG
+  BACK
+  SKIN
+  CHEST
+  EYE
+  INTERNAL_ORGAN
+  OTHER
+}
+
+enum TypeOfInjuryEnum {
+  NOT_SPECIFIED
+  CUT
+  BRUISE
+  FRACTURE
+  BURN
+  SPRAIN
+  STRAIN
+  LACERATION
+  CONCUSSION
+  OTHER
+}
+
+enum MechanismOfInjuryEnum {
+  NOT_SPECIFIED
+  STRUCK_BY
+  FAILING_OBJECT
+  TRIP
+  SLIP
+  FALL
+  CHEMICAL
+  VEHICLES
+  MECHINARY
+  ELECTRICITY
+  HAND_TOOLS
+  FALL_FROM_HEIGHT
+  FLYING_OBJECT
+  OTHER
+}
+
+enum StopActivityEnum {
+  NOT_SPECIFIED
+  YES
+  NO
+}
+
+enum TreatmentEnum {
+  NOT_SPECIFIED
+  FIRST_AID
+  MEDICAL_TREATMENT
+  HOSPITALIZATION
+  NO_TREATMENT
+  OTHER
+}
+
+enum AbsenceEnum {
+  NOT_YET_KNOWN
+  RETURNED_AFTER_TREATMENT
+  MORE_THAN_THREE_DAYS
+  NOT_SPECIFIED
+}
+
+enum PriorityEnum {
+  NOT_SPECIFIED
+  NORMAL
+  HIGH
+  VENDOR
+  LONGER_TERM
+}
+
+enum HasInjuredPersonEnum {
+  YES
+  NO
+}
+
+enum HasWitnessEnum {
+  YES
+  NO
+}
+
+enum EquipmentEntityEnum {
+  ASSET
+  HEAVY_EQUIPMENT
+  SAFETY_EQUIPMENT
+}
+
+// ============================================================
+// INCIDENT REPORT SYSTEM - Transactional Data
+// ============================================================
+
+// Incident - Transactional Data
+model Incident {
+  id                    String                    @id @default(uuid())
+  code                  String                    @unique
+  subject               String
+  incidentDate          DateTime
+  roomId                String?                   @unique
+  areaId                String
+  incidentType          IncidentTypeEnum
+  incidentClassification IncidentClassificationEnum
+  requesterId           String
+  reportedBy            String
+  technicianId          String?
+  priority              PriorityEnum              @default(NORMAL)
+  riskCategoryId        String
+  description           String?                   @db.Text
+  controlMeasure        String?                  @db.Text
+  dueDate               DateTime?
+  expectedOutcome       String?                  @db.Text
+  needToStopActivity    StopActivityEnum         @default(NOT_SPECIFIED)
+  stopActivityDescription String?                 @db.Text
+  treatment             TreatmentEnum            @default(NOT_SPECIFIED)
+  treatmentDescription  String?                  @db.Text
+  absence               AbsenceEnum              @default(NOT_SPECIFIED)
+  resolution            String?                  @db.Text
+  assignedDepartmentId  String
+  assigneeId            String?
+  status                GeneralStatusEnum
+  source                SourceEnum               @default(SYSTEM)
+  isActive              Boolean                  @default(true)
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  createdBy             String
+
+  // Relations
+  room                  Room?                    @relation(fields: [roomId], references: [id])
+  area                  Area                     @relation(fields: [areaId], references: [id])
+  riskCategory          RiskCategory             @relation(fields: [riskCategoryId], references: [id])
+  requester             User                     @relation("IncidentRequester", fields: [requesterId], references: [id])
+  reporter              User                     @relation("IncidentReporter", fields: [reportedBy], references: [id])
+  technician            User?                    @relation("IncidentTechnician", fields: [technicianId], references: [id])
+  assignedDepartment    Department               @relation(fields: [assignedDepartmentId], references: [id])
+  assignee              User?                    @relation("IncidentAssignee", fields: [assigneeId], references: [id])
+  creator               User                     @relation("IncidentCreator", fields: [createdBy], references: [id])
+  injuredPersons        IncidentInjuredPerson[]
+  witnesses             IncidentWitness[]
+  assets                IncidentAsset[]
+  images                IncidentImage[]
+  attachments           IncidentAttachment[]
+
+  @@index([code])
+  @@index([roomId])
+  @@index([areaId])
+  @@index([riskCategoryId])
+  @@index([requesterId])
+  @@index([reportedBy])
+  @@index([assignedDepartmentId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([source])
+  @@map("t_incidents")
+}
+
+// Incident Injured Person - Transactional Data
+model IncidentInjuredPerson {
+  id                String                @id @default(uuid())
+  incidentId        String
+  injuredPersonName String?
+  gender            GenderEnum?
+  levelOfInjury     LevelOfInjuryEnum     @default(NOT_SPECIFIED)
+  injuredBodyPart   InjuredBodyPartEnum   @default(NOT_SPECIFIED)
+  typeOfInjury      TypeOfInjuryEnum      @default(NOT_SPECIFIED)
+  mechanismOfInjury MechanismOfInjuryEnum  @default(NOT_SPECIFIED)
+  departmentId      String?
+  order             Int
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  // Relations
+  incident          Incident              @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  department        Department?           @relation("IncidentInjuredPersonDepartment", fields: [departmentId], references: [id])
+
+  @@index([incidentId])
+  @@index([departmentId])
+  @@map("t_incident_injured_persons")
+}
+
+// Incident Witness - Transactional Data
+model IncidentWitness {
+  id          String        @id @default(uuid())
+  incidentId String
+  witnessName String?
+  gender      GenderEnum?
+  departmentId String?
+  order       Int
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  incident    Incident      @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  department  Department?    @relation("IncidentWitnessDepartment", fields: [departmentId], references: [id])
+
+  @@index([incidentId])
+  @@index([departmentId])
+  @@map("t_incident_witnesses")
+}
+
+// Incident Asset - Transactional Data (Polymorphic)
+// Supports ASSET, HEAVY_EQUIPMENT, and SAFETY_EQUIPMENT entity types
+// Can reference m_assets (entity='ASSET'), m_heavy_equipment (entity='HEAVY_EQUIPMENT'), or m_safety_equipment (entity='SAFETY_EQUIPMENT')
+// Free-text fallback: If entity is null, assetName and assetCode are used
+model IncidentAsset {
+  id          String                @id @default(uuid())
+  incidentId  String
+  // Polymorphic reference
+  entity      EquipmentEntityEnum?  // Entity type identifier (ASSET, HEAVY_EQUIPMENT, SAFETY_EQUIPMENT)
+  entityId    String?               // Entity ID - references m_assets.id, m_heavy_equipment.id, or m_safety_equipment.id
+  // Free-text fields (used when entity is null or as fallback)
+  assetName   String
+  assetCode   String?
+  quantity    Int?                     // Quantity of the asset
+  order       Int
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  // Relations
+  incident        Incident          @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  // Note: Polymorphic relations (asset, heavyEquipment, safetyEquipment) are handled manually in application code
+  // Prisma doesn't support multiple foreign keys on the same field, so we load these relations manually
+
+  @@index([incidentId])
+  @@index([entity, entityId])
+  @@map("t_incident_assets")
+}
+
+// Incident Image - Transactional Data
+model IncidentImage {
+  id          String   @id @default(uuid())
+  incidentId  String
+  imageUrl    String
+  caption     String?  @db.Text
+  order       Int
+  createdAt   DateTime @default(now())
+
+  // Relations
+  incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@index([order])
+  @@map("t_incident_images")
+}
+
+// Incident Attachment - Transactional Data
+model IncidentAttachment {
+  id            String   @id @default(uuid())
+  incidentId    String
+  attachmentUrl String
+  order         Int
+  createdAt     DateTime @default(now())
+
+  // Relations
+  incident      Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@index([order])
+  @@map("t_incident_attachments")
+}
+
 // ============================================================
 // AUDIT SYSTEM - Master Data
 // ============================================================
@@ -2134,6 +2490,7 @@ model WaterQualityParameter {
   testMethod      String?
   description     String?  @db.Text
   isActive        Boolean  @default(true)
+  dateSampleTaken DateTime
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

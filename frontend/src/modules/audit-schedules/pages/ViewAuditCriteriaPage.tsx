@@ -8,6 +8,11 @@ import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import PageHeader from '@/core/components/ui/PageHeader';
+import { approvalService, type ApprovalStatusHistory } from '@/modules/master-data';
+import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
+import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { CompliantStatusEnum } from '@/shared/constants/compliant-status.enum';
+import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 
 // Reusable Field component for consistent layout
 const Field = ({ label, value, spanFull = false }: { label: string; value: React.ReactNode; spanFull?: boolean }) => (
@@ -24,13 +29,14 @@ import { AuditSchedule } from '../types/audit-schedule.types';
 import api from '@/core/lib/api';
 import departmentService from '@/modules/master-data/services/departmentService';
 import { Department } from '@/modules/master-data/types/master-data.types';
+import { userService } from '@/modules/users';
 
 interface AuditItem {
   id: string;
   auditId: string;
   auditCriteriaId: string;
-  status: string;
-  compliantStatus: string;
+  status: GeneralStatusEnum;
+  compliantStatus: CompliantStatusEnum;
   evidence?: string;
   recommendation?: string;
   actionRealization?: string;
@@ -60,6 +66,17 @@ const ViewAuditCriteriaPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [departmentMap, setDepartmentMap] = useState<Record<string, string>>({});
+  const [userMap, setUserMap] = useState<Record<string, string>>({});
+  const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  const entityDepartmentName =
+    auditItem?.departmentIds && auditItem.departmentIds.length > 0
+      ? auditItem.departmentIds
+          .map((deptId) => departmentMap[deptId])
+          .filter(Boolean)
+          .join(', ') || undefined
+      : undefined;
 
   // Determine where to navigate back to
   const getBackPath = () => {
@@ -144,7 +161,65 @@ const ViewAuditCriteriaPage = () => {
     fetchDepartments();
   }, []);
 
-  const getCompliantStatusBadge = (status?: string) => {
+  // Fetch users for user name lookup
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await userService.getAll({ page: 1, limit: 1000 });
+        const map: Record<string, string> = {};
+        response.data.forEach((user: any) => {
+          const firstLast = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+          map[user.id] = firstLast || user.name || user.email || 'Unknown user';
+        });
+        setUserMap(map);
+      } catch (error) {
+        console.error('Failed to fetch users:', error);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+  // Fetch approval status/history for audit item
+  useEffect(() => {
+    const fetchApprovalStatus = async () => {
+      if (!auditItem?.id) return;
+
+      setIsLoadingHistory(true);
+      try {
+        const approvalStatus = await approvalService.checkApprovalStatus(
+          auditItem.id,
+          APPROVAL_ENTITIES.AUDIT_ITEM,
+        );
+        // Handle backend error response (backend returns { error: true, message: string } on errors)
+        if (approvalStatus && !(approvalStatus as any).error) {
+          setApprovalHistory(approvalStatus);
+        } else {
+          // Backend returned an error response, but still set empty history
+          setApprovalHistory({
+            history: [],
+            nextApprover: null,
+            allApprovalLines: [],
+            currentStatus: 'UNKNOWN',
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch approval status:', error);
+        // Set empty history instead of null, so component can still render
+        setApprovalHistory({
+          history: [],
+          nextApprover: null,
+          allApprovalLines: [],
+          currentStatus: 'UNKNOWN',
+        });
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    fetchApprovalStatus();
+  }, [auditItem?.id]);
+
+  const getCompliantStatusBadge = (status?: CompliantStatusEnum) => {
     if (!status) {
       return (
         <Badge variant="outline" className="bg-gray-100 text-gray-600">
@@ -154,19 +229,19 @@ const ViewAuditCriteriaPage = () => {
     }
     
     switch (status) {
-      case 'COMPLY':
+      case CompliantStatusEnum.COMPLY:
         return (
           <Badge className="bg-green-100 text-green-800 border-green-800">
             Comply
           </Badge>
         );
-      case 'NOT_COMPLY_MAJOR':
+      case CompliantStatusEnum.NOT_COMPLY_MAJOR:
         return (
           <Badge className="bg-red-100 text-red-800 border-red-800">
             Not Comply (Major)
           </Badge>
         );
-      case 'NOT_COMPLY_MINOR':
+      case CompliantStatusEnum.NOT_COMPLY_MINOR:
         return (
           <Badge className="bg-yellow-100 text-yellow-800 border-yellow-800">
             Not Comply (Minor)
@@ -339,54 +414,67 @@ const ViewAuditCriteriaPage = () => {
               <CardDescription>Filled audit item information</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Field 
-                  label="Compliant Status" 
-                  value={getCompliantStatusBadge(auditItem.compliantStatus)} 
-                />
-                <Field 
-                  label="Due Date" 
-                  value={format(new Date(auditItem.dueDate), 'dd MMM yyyy')} 
-                />
-                <Field 
-                  label="Evidence" 
-                  value={
-                    auditItem.evidence ? (
-                      <p className="whitespace-pre-wrap text-muted-foreground">
-                        {auditItem.evidence}
-                      </p>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )
-                  } 
-                  spanFull 
-                />
-                <Field 
-                  label="Recommendation" 
-                  value={
-                    auditItem.recommendation ? (
-                      <p className="whitespace-pre-wrap text-muted-foreground">
-                        {auditItem.recommendation}
-                      </p>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )
-                  } 
-                  spanFull 
-                />
-                <Field 
-                  label="Action Realization" 
-                  value={
-                    auditItem.actionRealization ? (
-                      <p className="whitespace-pre-wrap text-muted-foreground">
-                        {auditItem.actionRealization}
-                      </p>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )
-                  } 
-                  spanFull 
-                />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Field 
+                    label="Compliant Status" 
+                    value={getCompliantStatusBadge(auditItem.compliantStatus)} 
+                  />
+                  <Field 
+                    label="Due Date" 
+                    value={format(new Date(auditItem.dueDate), 'dd MMM yyyy')} 
+                  />
+                  <Field 
+                    label="Evidence" 
+                    value={
+                      auditItem.evidence ? (
+                        <p className="whitespace-pre-wrap text-muted-foreground">
+                          {auditItem.evidence}
+                        </p>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )
+                    } 
+                    spanFull 
+                  />
+                  <Field 
+                    label="Recommendation" 
+                    value={
+                      auditItem.recommendation ? (
+                        <p className="whitespace-pre-wrap text-muted-foreground">
+                          {auditItem.recommendation}
+                        </p>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )
+                    } 
+                    spanFull 
+                  />
+                  <Field 
+                    label="Action Realization" 
+                    value={
+                      auditItem.actionRealization ? (
+                        <p className="whitespace-pre-wrap text-muted-foreground">
+                          {auditItem.actionRealization}
+                        </p>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )
+                    } 
+                    spanFull 
+                  />
+                </div>
+
+                {/* Approval Timeline */}
+                <div className="lg:border-l lg:pl-6 flex flex-col">
+                  <ApprovalTimelineCard
+                    approvalHistory={approvalHistory}
+                    isLoading={isLoadingHistory}
+                    assessmentStatus={auditItem.status === GeneralStatusEnum.CLOSE ? GeneralStatusEnum.DONE : auditItem.status}
+                    entityDepartmentName={entityDepartmentName}
+                    entityJobPositionName="Department Head"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -423,14 +511,17 @@ const ViewAuditCriteriaPage = () => {
                   </label>
                   {auditItem.userIds && auditItem.userIds.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
-                      {auditItem.userIds.map((userId) => (
-                        <Badge key={userId} variant="outline">
-                          {userId}
-                        </Badge>
-                      ))}
+                      {auditItem.userIds.map((userId) => {
+                        const userName = userMap[userId] || 'Unknown user';
+                        return (
+                          <Badge key={userId} variant="outline">
+                            {userName}
+                          </Badge>
+                        );
+                      })}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No users assigned</p>
+                    <p className="text-sm text-muted-foreground">N/A</p>
                   )}
                 </div>
               </div>

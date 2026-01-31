@@ -69,6 +69,35 @@ const auditSchedulesService = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/audit-schedules/${id}`);
   },
+
+  // Approval workflow methods
+  submitForApproval: async (auditId: string, itemId: string): Promise<any> => {
+    const response = await api.post(`/audit-schedules/${auditId}/items/${itemId}/submit-for-approval`);
+    return response.data;
+  },
+
+  approveAuditItem: async (
+    auditId: string,
+    itemId: string,
+    notes?: string,
+  ): Promise<any> => {
+    const response = await api.post(`/audit-schedules/${auditId}/items/${itemId}/approve`, { notes });
+    return response.data;
+  },
+
+  rejectAuditItem: async (
+    auditId: string,
+    itemId: string,
+    notes: string,
+  ): Promise<any> => {
+    const response = await api.post(`/audit-schedules/${auditId}/items/${itemId}/reject`, { notes });
+    return response.data;
+  },
+
+  checkApprovalRights: async (auditId: string, itemId: string): Promise<any> => {
+    const response = await api.get(`/audit-schedules/${auditId}/items/${itemId}/approval-rights`);
+    return response.data;
+  },
 };
 
 export default auditSchedulesService;

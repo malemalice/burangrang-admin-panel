@@ -145,11 +145,84 @@ export async function seedMasterApprovals(prisma: PrismaClient) {
     `✅ Created Inspection Item approval workflow (Dynamic → Lead in Academic Department)`,
   );
 
+  // 4. Audit Item Approval Workflow
+  const auditItemApproval = await prisma.masterApproval.create({
+    data: {
+      entity: APPROVAL_ENTITIES.AUDIT_ITEM,
+      isActive: true,
+    },
+  });
+
+  // Audit Item: 2-step approval (Dynamic → Lead in Academic Department)
+  await prisma.masterApprovalItem.createMany({
+    data: [
+      {
+        mApprovalId: auditItemApproval.id,
+        order: 0,
+        jobPositionId: APPROVAL_FIELD_MARKERS.FROM_ENTITY_JOB_POSITION,
+        departmentId: APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT,
+        createdBy: creator.id,
+      },
+      {
+        mApprovalId: auditItemApproval.id,
+        order: 1,
+        jobPositionId: leadPos.id,
+        departmentId: academicDept.id,
+        createdBy: creator.id,
+      },
+    ],
+  });
+
+  console.log(
+    `✅ Created Audit Item approval workflow (Dynamic → Lead in Academic Department)`,
+  );
+
+  // 5. Incident Approval Workflow
+  const incidentApproval = await prisma.masterApproval.create({
+    data: {
+      entity: APPROVAL_ENTITIES.INCIDENT,
+      isActive: true,
+    },
+  });
+
+  // Find HSE department and Head position
+  const hseDept = departments.find((d) => d.code === 'HSE');
+  const headPos = headPosition || jobPositions.find((j) => j.code === 'HEAD');
+
+  if (!hseDept) {
+    console.log('⚠️  HSE department not found. Using fallback department for incident approval.');
+  }
+  if (!headPos) {
+    console.log('⚠️  HEAD position not found. Using fallback position for incident approval.');
+  }
+
+  const finalHseDept = hseDept || dept1;
+  const finalHeadPos = headPos || jobPositions[0]!;
+
+  // Incident: 1-step approval (HSE Department Head)
+  await prisma.masterApprovalItem.createMany({
+    data: [
+      {
+        mApprovalId: incidentApproval.id,
+        order: 0,
+        jobPositionId: finalHeadPos.id,
+        departmentId: finalHseDept.id,
+        createdBy: creator.id,
+      },
+    ],
+  });
+
+  console.log(
+    `✅ Created Incident approval workflow (${finalHseDept.name} - ${finalHeadPos.name})`,
+  );
+
   console.log('✅ Master Approvals seeding completed');
   return {
     riskAssessmentApproval,
     workPermitApproval,
     inspectionItemApproval,
+    auditItemApproval,
+    incidentApproval,
   };
 }
 

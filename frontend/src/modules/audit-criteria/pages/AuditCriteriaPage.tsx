@@ -420,6 +420,7 @@ const AuditCriteriaPage = () => {
         onApplyFilters={handleApplyFilters}
         sorting={sorting}
         onSortingChange={handleSortingChange}
+        searchPlaceholder="Search by name, code, or description..."
       />
 
       <ConfirmDialog

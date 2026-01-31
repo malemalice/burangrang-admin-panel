@@ -263,7 +263,9 @@ const CoursesPage = () => {
           <div className="flex-1 min-w-0 max-w-[250px]">
             <div className="font-medium text-gray-900 truncate" title={course.title}>{course.title}</div>
             <div className="text-sm text-gray-500 truncate">
-              by {course.instructor?.firstName} {course.instructor?.lastName}
+              by {course.instructor?.firstName || course.instructor?.lastName
+                ? `${course.instructor?.firstName || ''} ${course.instructor?.lastName || ''}`.trim()
+                : 'Unknown Instructor'}
             </div>
             {course.categories && course.categories.length > 0 && (
               <div className="flex gap-1 mt-1">

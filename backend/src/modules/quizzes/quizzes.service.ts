@@ -10,6 +10,7 @@ import { AssignQuizDto } from './dto/assign-quiz.dto';
 import { Prisma } from '@prisma/client';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { ActivityLoggerService } from '../../shared/services/activity-logger.service';
 
 @Injectable()
@@ -22,6 +23,7 @@ export class QuizzesService {
     private prisma: PrismaService,
     private errorHandler: ErrorHandlingService,
     private dtoMapper: DtoMapperService,
+    private enrollmentsService: EnrollmentsService,
     private activityLogger: ActivityLoggerService,
   ) {
     // Initialize mappers
@@ -1067,6 +1069,10 @@ export class QuizzesService {
         },
       },
     });
+
+    if (updatedAttempt.enrollmentId) {
+      await this.enrollmentsService.updateScore(updatedAttempt.enrollmentId);
+    }
 
     return {
       id: updatedAttempt.id,

@@ -24,6 +24,7 @@ interface ModalComboboxProps {
   // Create new option props
   onCreateNew?: (searchQuery: string) => Promise<string | void> | string | void;
   createNewText?: string;
+  disabled?: boolean;
 }
 
 /**
@@ -46,6 +47,7 @@ export function ModalCombobox({
   debounceMs = 300,
   onCreateNew,
   createNewText = "Create new",
+  disabled = false,
 }: ModalComboboxProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -195,6 +197,7 @@ export function ModalCombobox({
         ref={buttonRef}
         id={id}
         type="button"
+        disabled={disabled}
         onClick={handleToggle}
         className={cn(
           "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",

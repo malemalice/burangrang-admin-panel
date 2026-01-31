@@ -63,7 +63,6 @@ const EditAuditCriteriaPage = () => {
     <>
       <PageHeader
         title="Edit Audit Criteria"
-        subtitle={`Modify the details of "${criteria.name}"`}
         actions={
           <Button variant="outline" onClick={() => navigate('/audit-criteria')}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Audit Criteria

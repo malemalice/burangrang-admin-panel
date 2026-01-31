@@ -399,6 +399,32 @@ export class EnrollmentsService {
     }, 'Finding all enrollments');
   }
 
+  async updateScore(enrollmentId: string): Promise<void> {
+    // Get all completed quiz attempts for this enrollment
+    const attempts = await this.prisma.quizAttempt.findMany({
+      where: {
+        enrollmentId,
+        status: 'COMPLETED',
+      },
+      orderBy: {
+        score: 'desc',
+      },
+    });
+
+    if (attempts.length === 0) return;
+
+    // Calculate average score from all completed attempts
+    // Or use highest score - depends on business requirement
+    const totalScore = attempts.reduce((sum, a) => sum + Number(a.score || 0), 0);
+    const averageScore = totalScore / attempts.length;
+
+    // Update enrollment score
+    await this.prisma.enrollment.update({
+      where: { id: enrollmentId },
+      data: { score: averageScore },
+    });
+  }
+
   async update(
     id: string,
     updateDto: UpdateEnrollmentDto,
@@ -598,7 +624,7 @@ export class EnrollmentsService {
 
       // Fetch quizzes (both course-level and chapter-level)
       const chapterIds = courseWithChapters.chapters.map(ch => ch.id);
-      
+
       const quizzes = await this.prisma.quiz.findMany({
         where: {
           OR: [

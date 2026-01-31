@@ -34,6 +34,7 @@ export interface RiskRegisterSourceRiskAssessment {
   code: string;
   description?: string;
   assessmentDate: Date;
+  status: string;
   riskAssessmentItem: {
     id: string;
     mRiskId: string;

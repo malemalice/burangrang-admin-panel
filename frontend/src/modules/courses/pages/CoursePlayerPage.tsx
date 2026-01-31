@@ -14,13 +14,13 @@ const CoursePlayerPage = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  
+
   // Get enrollmentId from query params if available, or fetch user enrollments to find it
   // Since we don't have enrollmentId in URL params, we might need to find it
   // The backend getLearningContext expects ENROLLMENT ID, not COURSE ID
   // But our route is /courses/:courseId/learn
   // So we first need to find the enrollment ID for this course and user
-  
+
   const [learningContext, setLearningContext] = useState<LearningContext | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentChapterId, setCurrentChapterId] = useState<string>('');
@@ -31,7 +31,7 @@ const CoursePlayerPage = () => {
       // 1. Find enrollment for this course
       const userEnrollments = await enrollmentService.getUserEnrollments();
       const enrollment = userEnrollments.find(e => e.courseId === courseId);
-      
+
       if (!enrollment) {
         toast.error('You are not enrolled in this course');
         navigate(`/courses/${courseId}`);
@@ -65,12 +65,12 @@ const CoursePlayerPage = () => {
           // Find first incomplete chapter
           const chapters = context.course.chapters || [];
           const progress = context.progress || [];
-          
+
           const firstIncomplete = chapters.find((ch: any) => {
             const p = progress.find((p: any) => p.chapterId === ch.id);
             return !p || p.status !== ProgressStatus.COMPLETED;
           });
-          
+
           if (firstIncomplete) {
             setCurrentChapterId(firstIncomplete.id);
           } else if (chapters.length > 0) {
@@ -89,7 +89,7 @@ const CoursePlayerPage = () => {
   useEffect(() => {
     if (currentChapterId) {
       setSearchParams({ chapter: currentChapterId });
-      
+
       // Also trigger start progress if not started
       if (learningContext) {
         const p = learningContext.progress.find(p => p.chapterId === currentChapterId);
@@ -98,18 +98,18 @@ const CoursePlayerPage = () => {
           progressService.updateProgress(learningContext.enrollment.id, currentChapterId, {
             status: ProgressStatus.IN_PROGRESS
           }).then(updatedProgress => {
-             // Update local state
-             setLearningContext(prev => {
-               if (!prev) return null;
-               const newProgress = [...prev.progress];
-               const idx = newProgress.findIndex(p => p.chapterId === currentChapterId);
-               if (idx >= 0) {
-                 newProgress[idx] = updatedProgress;
-               } else {
-                 newProgress.push(updatedProgress);
-               }
-               return { ...prev, progress: newProgress };
-             });
+            // Update local state
+            setLearningContext(prev => {
+              if (!prev) return null;
+              const newProgress = [...prev.progress];
+              const idx = newProgress.findIndex(p => p.chapterId === currentChapterId);
+              if (idx >= 0) {
+                newProgress[idx] = updatedProgress;
+              } else {
+                newProgress.push(updatedProgress);
+              }
+              return { ...prev, progress: newProgress };
+            });
           });
         }
       }
@@ -128,13 +128,13 @@ const CoursePlayerPage = () => {
 
   const handleComplete = async () => {
     if (!learningContext || !currentChapterId) return;
-    
+
     try {
       const updatedProgress = await progressService.completeChapter(
         learningContext.enrollment.id,
         currentChapterId
       );
-      
+
       setLearningContext(prev => {
         if (!prev) return null;
         const newProgress = [...prev.progress];
@@ -146,16 +146,16 @@ const CoursePlayerPage = () => {
         }
         return { ...prev, progress: newProgress };
       });
-      
+
       toast.success('Chapter completed!');
-      
+
       // Auto-advance logic could go here
       const chapters = learningContext.course.chapters || [];
       const currentIndex = chapters.findIndex(c => c.id === currentChapterId);
       if (currentIndex < chapters.length - 1) {
         setCurrentChapterId(chapters[currentIndex + 1].id);
       }
-      
+
     } catch (error) {
       toast.error('Failed to update progress');
     }
@@ -181,7 +181,9 @@ const CoursePlayerPage = () => {
         <Button variant="ghost" size="icon" onClick={() => navigate(`/courses/${courseId}`)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="font-semibold">{learningContext.course.title}</h1>
+        <h1 className="font-semibold truncate max-w-md" title={learningContext.course.title}>
+          {learningContext.course.title}
+        </h1>
         <div className="ml-auto">
           {/* Progress bar could go here */}
         </div>
@@ -221,7 +223,7 @@ const CoursePlayerPage = () => {
                       const chapters = learningContext.course.chapters || [];
                       const currentIndex = chapters.findIndex(c => c.id === currentChapterId);
                       const prevChapter = currentIndex > 0 ? chapters[currentIndex - 1] : null;
-                      
+
                       return (
                         <Button
                           variant="outline"
@@ -241,7 +243,7 @@ const CoursePlayerPage = () => {
                       const currentIndex = chapters.findIndex(c => c.id === currentChapterId);
                       const nextChapter = currentIndex < chapters.length - 1 ? chapters[currentIndex + 1] : null;
                       const isCompleted = learningContext.progress.find(p => p.chapterId === currentChapterId)?.status === ProgressStatus.COMPLETED;
-                      
+
                       return (
                         <>
                           {!isCompleted && (
@@ -249,7 +251,7 @@ const CoursePlayerPage = () => {
                               Mark as Complete
                             </Button>
                           )}
-                          
+
                           <Button
                             variant={isCompleted ? "default" : "outline"}
                             disabled={!nextChapter}
@@ -270,12 +272,12 @@ const CoursePlayerPage = () => {
                 onComplete={async () => {
                   const ctx = await loadContext();
                   if (!ctx) return;
-                  
+
                   const chapters = ctx.course.chapters || [];
                   const quizzes = ctx.quizzes || [];
-                  
+
                   const currentQuizData = quizzes.find(q => q.id === currentQuizId);
-                  
+
                   if (currentQuizData?.entity === 'CHAPTER' && currentQuizData?.entityId) {
                     const chapterIndex = chapters.findIndex(c => c.id === currentQuizData.entityId);
                     if (chapterIndex >= 0 && chapterIndex < chapters.length - 1) {
@@ -284,12 +286,12 @@ const CoursePlayerPage = () => {
                       return;
                     }
                   }
-                  
+
                   const firstIncomplete = chapters.find((ch) => {
                     const p = ctx.progress.find((p) => p.chapterId === ch.id);
                     return !p || p.status !== ProgressStatus.COMPLETED;
                   });
-                  
+
                   if (firstIncomplete) {
                     setCurrentQuizId('');
                     setCurrentChapterId(firstIncomplete.id);
