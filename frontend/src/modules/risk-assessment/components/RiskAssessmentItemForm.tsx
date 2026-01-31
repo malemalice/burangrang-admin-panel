@@ -13,6 +13,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/core/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
@@ -98,7 +99,7 @@ interface RiskMatrixEntry {
   consequenceLevel: number; // Stored as Int in DB (1, 2, 3, 4, 5, etc.)
   consequenceName: string;
   consequenceDesc: string;
-  risk_rating: string;
+  interpretation: string;
   isActive: boolean;
 }
 
@@ -806,20 +807,28 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
             <FormField
               control={form.control}
               name="riskMatrixRating"
-              render={({ field }) => {
-                const interpretation = form.watch('interpretation');
-                return (
-                  <FormItem>
-                    <FormLabel>Risk Rating</FormLabel>
-                    <FormControl>
-                      <div className="pt-2">
-                        {interpretation && getRiskBadge(interpretation)}
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                );
-              }}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Risk Matrix Rating</FormLabel>
+                  <FormControl>
+                    <div className="pt-2 flex items-center gap-2">
+                      {field.value ? (
+                        <>
+                          <span className="inline-flex items-center rounded-md border border-input bg-muted px-2 py-1 text-sm font-medium font-mono">
+                            {field.value}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </div>
+                  </FormControl>
+                  <FormDescription className="text-xs">
+                    Format: Likelihood (A-E) + Consequence (1-5), e.g., A1, D2
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
             <FormField
               control={form.control}
@@ -1036,20 +1045,29 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
             <FormField
               control={form.control}
               name="postRiskMatrixRating"
-              render={({ field }) => {
-                const postInterpretation = form.watch('postInterpretation');
-                return (
-                  <FormItem>
-                    <FormLabel>Post Risk Rating</FormLabel>
-                    <FormControl>
-                      <div className="pt-2">
-                        {postInterpretation && getRiskBadge(postInterpretation)}
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                );
-              }}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Post Risk Matrix Rating</FormLabel>
+                  <FormControl>
+                    <div className="pt-2 flex items-center gap-2">
+                      {field.value ? (
+                        <>
+                          <span className="inline-flex items-center rounded-md border border-input bg-muted px-2 py-1 text-sm font-medium font-mono">
+                            {field.value}
+                          </span>
+                          {getRiskBadge(form.watch('postInterpretation'))}
+                        </>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </div>
+                  </FormControl>
+                  <FormDescription className="text-xs">
+                    Format: Likelihood (A-E) + Consequence (1-5), e.g., A1, D2
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
             <FormField
               control={form.control}

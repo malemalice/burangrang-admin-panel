@@ -43,7 +43,7 @@ export interface RiskMatrixDTO {
   consequenceLevel: number;
   consequenceName: string;
   consequenceDesc: string;
-  risk_rating: RiskRatingEnum;
+  interpretation: RiskRatingEnum;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -58,7 +58,7 @@ export interface RiskMatrix {
   consequenceLevel: number;
   consequenceName: string;
   consequenceDesc: string;
-  riskRating: RiskRatingEnum;
+  interpretation: RiskRatingEnum;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -72,7 +72,7 @@ export interface CreateRiskMatrixDTO {
   consequenceLevel: number;
   consequenceName: string;
   consequenceDesc: string;
-  risk_rating: RiskRatingEnum;
+  interpretation: RiskRatingEnum;
   isActive?: boolean;
 }
 
@@ -84,7 +84,7 @@ export interface UpdateRiskMatrixDTO {
   consequenceLevel?: number;
   consequenceName?: string;
   consequenceDesc?: string;
-  risk_rating?: RiskRatingEnum;
+  interpretation?: RiskRatingEnum;
   isActive?: boolean;
 }
 
@@ -120,7 +120,7 @@ export interface MatrixCell {
   id?: string;
   likelihoodLevel: string;
   consequenceLevel: number;
-  riskRating: RiskRatingEnum;
+  interpretation: RiskRatingEnum;
   isActive: boolean;
   isNew?: boolean;
   isModified?: boolean;

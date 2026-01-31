@@ -69,8 +69,18 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
                 <p className="text-sm">{item.consequenceLevel}</p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-sm font-medium text-muted-foreground">Risk Rating</p>
-                <div>{getRiskBadge(item.interpretation)}</div>
+                <p className="text-sm font-medium text-muted-foreground">Risk Matrix Rating</p>
+                <div className="flex items-center gap-2">
+                  {item.riskMatrixRating ? (
+                    <>
+                      <span className="inline-flex items-center rounded-md border border-input bg-muted px-2 py-1 text-sm font-medium font-mono">
+                        {item.riskMatrixRating}
+                      </span>
+                    </>
+                  ) : (
+                    'N/A'
+                  )}
+                </div>
               </div>
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Interpretation</p>
@@ -142,8 +152,18 @@ export const ViewItemDialog = ({ open, onOpenChange, item }: ViewItemDialogProps
                 <p className="text-sm">{item.postConsequenceLevel}</p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-sm font-medium text-muted-foreground">Post Risk Rating</p>
-                <div>{getRiskBadge(item.postInterpretation)}</div>
+                <p className="text-sm font-medium text-muted-foreground">Post Risk Matrix Rating</p>
+                <div className="flex items-center gap-2">
+                  {item.postRiskMatrixRating ? (
+                    <>
+                      <span className="inline-flex items-center rounded-md border border-input bg-muted px-2 py-1 text-sm font-medium font-mono">
+                        {item.postRiskMatrixRating}
+                      </span>
+                    </>
+                  ) : (
+                    'N/A'
+                  )}
+                </div>
               </div>
               <div className="space-y-1.5">
                 <p className="text-sm font-medium text-muted-foreground">Post Interpretation</p>

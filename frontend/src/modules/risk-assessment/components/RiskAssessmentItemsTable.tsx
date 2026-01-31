@@ -84,8 +84,10 @@ export const RiskAssessmentItemsTable = ({
       id: 'riskRating',
       header: 'Risk Matrix Rating',
       cell: (item: RiskAssessmentItem) => (
-        <div className="font-medium">
-          {item.riskMatrixRating || 'N/A'}
+        <div className="flex items-center gap-2">
+          <span className="font-medium font-mono">
+            {item.riskMatrixRating || 'N/A'}
+          </span>
         </div>
       ),
       isSortable: true,
@@ -100,8 +102,10 @@ export const RiskAssessmentItemsTable = ({
       id: 'postRiskMatrixRating',
       header: 'Post Risk Matrix Rating',
       cell: (item: RiskAssessmentItem) => (
-        <div className="font-medium">
-          {item.postRiskMatrixRating || 'N/A'}
+        <div className="flex items-center gap-2">
+          <span className="font-medium font-mono">
+            {item.postRiskMatrixRating || 'N/A'}
+          </span>
         </div>
       ),
       isSortable: true,

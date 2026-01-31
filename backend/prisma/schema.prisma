@@ -349,7 +349,7 @@ model RiskMatrix {
   consequenceLevel Int
   consequenceName  String         @default("")
   consequenceDesc  String         @default("") @db.Text
-  risk_rating      RiskRatingEnum
+  interpretation   RiskRatingEnum
   isActive         Boolean        @default(true)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt

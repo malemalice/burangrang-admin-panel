@@ -646,7 +646,7 @@ Table m_risk_matrix {
   consequenceLevel int [not null, note: 'Int type to match Schema']
   consequenceName varchar [not null, default: '']
   consequenceDesc text [not null, default: '']
-  risk_rating RiskRatingEnum [not null]
+  interpretation RiskRatingEnum [not null]
   isActive boolean [not null, default: true]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]

@@ -48,8 +48,17 @@ const generateMitigationCode = (date: Date, sequence?: number): string => {
   return `RSK${year}${month}${day}${hour}${minute}${second}${seq}`;
 };
 
+// Map likelihood label to matrix letter (1=A, 2=B, ... 5=E)
+const LIKELIHOOD_TO_LETTER: Record<string, string> = {
+  'Very Low': 'A',
+  'Low': 'B',
+  'Medium': 'C',
+  'High': 'D',
+  'Very High': 'E',
+};
+
 /**
- * Calculate risk matrix rating from likelihood and consequence
+ * Calculate risk matrix rating (likelihood+consequence code e.g. A1, B2) and interpretation from likelihood and consequence
  */
 const calculateRiskRating = (
   likelihood: string,
@@ -66,14 +75,17 @@ const calculateRiskRating = (
   const likelihoodValue = likelihoodMap[likelihood] || 3;
   const score = likelihoodValue * consequence;
 
+  const letter = LIKELIHOOD_TO_LETTER[likelihood] ?? String.fromCharCode(64 + (likelihoodValue || 3));
+  const rating = `${letter}${consequence}`;
+
   if (score <= 5) {
-    return { rating: 'LOW', interpretation: RiskRatingEnum.LOW };
+    return { rating, interpretation: RiskRatingEnum.LOW };
   } else if (score <= 10) {
-    return { rating: 'MEDIUM', interpretation: RiskRatingEnum.MEDIUM };
+    return { rating, interpretation: RiskRatingEnum.MEDIUM };
   } else if (score <= 15) {
-    return { rating: 'HIGH', interpretation: RiskRatingEnum.HIGH };
+    return { rating, interpretation: RiskRatingEnum.HIGH };
   } else {
-    return { rating: 'EXTREME', interpretation: RiskRatingEnum.EXTREME };
+    return { rating, interpretation: RiskRatingEnum.EXTREME };
   }
 };
 
