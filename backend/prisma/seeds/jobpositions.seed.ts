@@ -81,6 +81,12 @@ export async function seedJobPositions(prisma: PrismaClient) {
             "code": "INTERN",
             "description": "Temporary role, usually for students or trainees",
             "level": 13
+        },
+        {
+            "name": "Technician",
+            "code": "TECHNICIAN",
+            "description": "Responsible for investigating and resolving incidents. Handles incident response and follow-up actions.",
+            "level": 9
         }
     ];
 

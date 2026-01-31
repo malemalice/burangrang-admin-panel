@@ -10,6 +10,8 @@ import {
     SafetyEquipment,
     CreateSafetyEquipmentDTO,
     UpdateSafetyEquipmentDTO,
+    StockMovement,
+    StockMovementSearchParams,
 } from '../types/ppe-master-data.types';
 
 export const useSafetyEquipments = () => {
@@ -145,3 +147,37 @@ export const useSafetyEquipment = (id: string | null = null) => {
     };
 };
 
+export const useStockMovements = () => {
+    const [movements, setMovements] = useState<StockMovement[]>([]);
+    const [totalMovements, setTotalMovements] = useState(0);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [summary, setSummary] = useState<{ totalIn: number; totalOut: number; currentStock: number } | null>(null);
+
+    const fetchMovements = useCallback(async (equipmentId: string, params: StockMovementSearchParams) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const response = await safetyEquipmentService.getStockMovements(equipmentId, params);
+            setMovements(response.data || []);
+            setTotalMovements(response.meta?.total || 0);
+            setSummary(response.summary);
+        } catch (err) {
+            const errorMessage =
+                err instanceof Error ? err.message : 'Failed to fetch stock movements';
+            setError(errorMessage);
+            toast.error(errorMessage);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    return {
+        movements,
+        totalMovements,
+        isLoading,
+        error,
+        summary,
+        fetchMovements,
+    };
+};

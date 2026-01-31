@@ -82,7 +82,7 @@ export class RiskMatrixController {
     description: 'Return all risk matrix entries.',
     type: [RiskMatrixDto],
   })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  // @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
   findAllRiskMatrices(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -148,7 +148,7 @@ export class RiskMatrixController {
     description: 'The risk matrix entry has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Risk matrix entry not found.' })
-  @Roles(Role.SUPER_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   removeRiskMatrix(@Param('id') id: string): Promise<void> {
     return this.riskMatrixService.removeRiskMatrix(id);
   }

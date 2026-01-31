@@ -12,6 +12,8 @@ interface FindAllOptions {
   isActive?: boolean;
   search?: string;
   riskCategoryId?: string;
+  name?: string;
+  code?: string;
 }
 
 @Injectable()
@@ -48,17 +50,18 @@ export class RisksService {
       isActive,
       search,
       riskCategoryId,
+      name,
+      code,
     } = options || {};
 
     // Using 'any' as a workaround until the Prisma client is regenerated
     const where: any = {};
     
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { code: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ];
+    // MDR-013: Search name field only. Filter 'name' takes precedence over search bar for name.
+    if (name) {
+      where.name = { contains: name, mode: 'insensitive' };
+    } else if (search) {
+      where.name = { contains: search, mode: 'insensitive' };
     }
 
     if (isActive !== undefined) {
@@ -67,6 +70,10 @@ export class RisksService {
 
     if (riskCategoryId) {
       where.riskCategoryId = riskCategoryId;
+    }
+
+    if (code) {
+      where.code = { contains: code, mode: 'insensitive' };
     }
 
     const [risks, total] = await Promise.all([

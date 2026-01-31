@@ -38,8 +38,9 @@ const AuditPolicyPage = () => {
   const filterFields: FilterField[] = useMemo(() => [
     {
       id: 'code',
-      label: 'Element Code',
+      label: 'Search by element code',
       type: 'text',
+      placeholder: 'Search by code, name, or description...',
     },
     {
       id: 'isActive',
@@ -60,8 +61,9 @@ const AuditPolicyPage = () => {
         limit,
       };
 
-      if (searchTerm) {
-        params.search = searchTerm;
+      const searchValue = searchTerm || (activeFilters.code?.value as string) || '';
+      if (searchValue) {
+        params.search = searchValue;
       }
 
       if (activeFilters.isActive?.value === 'active') {
@@ -71,7 +73,7 @@ const AuditPolicyPage = () => {
       }
 
       Object.entries(activeFilters).forEach(([key, filter]) => {
-        if (key !== 'isActive') {
+        if (key !== 'isActive' && key !== 'code') {
           params[key] = filter.value;
         }
       });
@@ -259,6 +261,7 @@ const AuditPolicyPage = () => {
         filterFields={filterFields}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+        searchPlaceholder="Search by code, name, or description..."
       />
 
       <ConfirmDialog

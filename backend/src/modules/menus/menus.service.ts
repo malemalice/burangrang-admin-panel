@@ -213,7 +213,11 @@ export class MenusService {
       },
       include: {
         parent: true,
-        children: true,
+        children: {
+          orderBy: {
+            order: 'asc',
+          },
+        },
         roles: true,
       },
       orderBy: {
@@ -231,8 +235,15 @@ export class MenusService {
       },
       include: {
         children: {
+          orderBy: {
+            order: 'asc',
+          },
           include: {
-            children: true,
+            children: {
+              orderBy: {
+                order: 'asc',
+              },
+            },
             roles: true,
           },
         },
@@ -269,6 +280,9 @@ export class MenusService {
               },
             },
           },
+          orderBy: {
+            order: 'asc',
+          },
           include: {
             children: {
               where: {
@@ -279,6 +293,9 @@ export class MenusService {
                     isActive: true,
                   },
                 },
+              },
+              orderBy: {
+                order: 'asc',
               },
               include: {
                 children: {
@@ -291,6 +308,9 @@ export class MenusService {
                       },
                     },
                   },
+                  orderBy: {
+                    order: 'asc',
+                  },
                   include: {
                     children: {
                       where: {
@@ -302,8 +322,15 @@ export class MenusService {
                           },
                         },
                       },
+                      orderBy: {
+                        order: 'asc',
+                      },
                       include: {
-                        children: true,
+                        children: {
+                          orderBy: {
+                            order: 'asc',
+                          },
+                        },
                         roles: true,
                       },
                     },

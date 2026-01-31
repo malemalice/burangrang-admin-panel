@@ -38,6 +38,8 @@ export class RisksController {
   @ApiOperation({ summary: 'Get all risks with pagination' })
   @ApiResponse({ status: 200, description: 'Return all risks.', type: [RiskDto] })
   @ApiQuery({ name: 'riskCategoryId', required: false, description: 'Filter risks by risk category ID' })
+  @ApiQuery({ name: 'name', required: false, description: 'Filter risks by name (contains)' })
+  @ApiQuery({ name: 'code', required: false, description: 'Filter risks by code (contains)' })
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -46,6 +48,8 @@ export class RisksController {
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
     @Query('riskCategoryId') riskCategoryId?: string,
+    @Query('name') name?: string,
+    @Query('code') code?: string,
   ): Promise<{ data: RiskDto[]; meta: { total: number } }> {
     // Convert string parameters to their proper types
     const pageNumber = page ? parseInt(page, 10) : undefined;
@@ -60,6 +64,8 @@ export class RisksController {
       isActive: isActiveBoolean,
       search,
       riskCategoryId,
+      name,
+      code,
     });
   }
 

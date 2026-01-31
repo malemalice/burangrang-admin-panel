@@ -31,6 +31,7 @@ const formSchema = z.object({
   testMethod: z.string().optional(),
   description: z.string().optional(),
   isActive: z.boolean().default(true),
+  dateSampleTaken: z.string().min(1, 'Date sample taken is required'),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -56,6 +57,7 @@ export default function WaterQualityParameterForm({ mode }: WaterQualityParamete
       testMethod: '',
       description: '',
       isActive: true,
+      dateSampleTaken: '',
     },
   });
 
@@ -75,6 +77,7 @@ export default function WaterQualityParameterForm({ mode }: WaterQualityParamete
             testMethod: data.testMethod || '',
             description: data.description || '',
             isActive: data.isActive,
+            dateSampleTaken: data.dateSampleTaken ? data.dateSampleTaken.split('T')[0] : '',
           });
         } catch (error) {
           toast.error('Failed to fetch data');
@@ -126,10 +129,23 @@ export default function WaterQualityParameterForm({ mode }: WaterQualityParamete
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="name"
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="dateSampleTaken"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date Sample Taken *</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="name"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Name *</FormLabel>

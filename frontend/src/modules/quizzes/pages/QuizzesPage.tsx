@@ -196,6 +196,7 @@ const QuizzesPage = () => {
     if (quizToDelete) {
       try {
         await deleteQuiz(quizToDelete.id);
+        toast.success('Quiz deleted successfully');
         setOpenDropdownId(null); // Ensure dropdown is closed
         setDeleteDialogOpen(false);
         setQuizToDelete(null);

@@ -9,7 +9,7 @@ export const getStatusBadge = (status: string) => {
     [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
     [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'outline' },
     [GeneralStatusEnum.OPEN]: { label: 'Open', variant: 'secondary' },
-    [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Approval', variant: 'secondary' },
+    [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
     [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
     [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
   };

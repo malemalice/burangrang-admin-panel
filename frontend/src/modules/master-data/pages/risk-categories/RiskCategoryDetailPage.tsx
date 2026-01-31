@@ -245,6 +245,8 @@ const RiskCategoryDetailPage = () => {
         title="Delete Risk Category"
         description={`Are you sure you want to delete the risk category "${riskCategory?.name}"? This action cannot be undone. Note that categories with associated risks cannot be deleted.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
+        confirmText="Delete"
       />
     </>
   );

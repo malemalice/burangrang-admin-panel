@@ -7,6 +7,7 @@ import {
   Save,
   Send,
 } from 'lucide-react';
+import { detectMediaType, extractYoutubeVideoId } from '@/core/lib/media-utils';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
@@ -89,22 +90,24 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
         // First, check if there's an existing in-progress attempt to resume
         const existingAttempt = await quizService.getCurrentAttempt(quiz.id, enrollmentId);
         
-        if (existingAttempt && existingAttempt.status === 'IN_PROGRESS') {
-          // Resume existing attempt
-          setAttempt(existingAttempt);
-          if (existingAttempt.quiz?.duration) {
-            const startTime = new Date(existingAttempt.startedAt).getTime();
-            const now = Date.now();
-            const elapsedSeconds = Math.floor((now - startTime) / 1000);
-            const remainingSeconds = (existingAttempt.quiz.duration * 60) - elapsedSeconds;
-            setTimeRemaining(Math.max(0, remainingSeconds));
+        if (existingAttempt) {
+          if (existingAttempt.status === 'IN_PROGRESS') {
+            setAttempt(existingAttempt);
+            if (existingAttempt.quiz?.duration) {
+              const startTime = new Date(existingAttempt.startedAt).getTime();
+              const now = Date.now();
+              const elapsedSeconds = Math.floor((now - startTime) / 1000);
+              const remainingSeconds = (existingAttempt.quiz.duration * 60) - elapsedSeconds;
+              setTimeRemaining(Math.max(0, remainingSeconds));
+            }
+            return;
           }
-          return;
+          
+          if (existingAttempt.status === 'COMPLETED') {
+            setAttempt(existingAttempt);
+            return;
+          }
         }
-
-        // Start new attempt only if explicitly requested (usually via a "Start" button)
-        // But for embedded player, we might show a "Start Quiz" UI first.
-        // For now, let's auto-check existing, but if none, show Start UI state.
       } catch (error) {
         console.error('Failed to initialize quiz:', error);
         toast.error('Failed to load quiz attempt');
@@ -329,12 +332,50 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Media */}
-          {currentQuestion.mediaUrl && (
-            <div className="rounded-lg overflow-hidden border bg-black/5 flex justify-center">
-               {/* Simplified media rendering */}
-               <img src={currentQuestion.mediaUrl} alt="Question Media" className="max-h-64 object-contain" />
-            </div>
-          )}
+          {currentQuestion.mediaUrl && (() => {
+            const mediaType = detectMediaType(currentQuestion.mediaUrl, currentQuestion.mediaType);
+            
+            if (mediaType === 'audio') {
+              return (
+                <div className="rounded-lg overflow-hidden border bg-muted/50 p-4">
+                  <audio src={currentQuestion.mediaUrl} controls className="w-full" />
+                </div>
+              );
+            }
+            
+            if (mediaType === 'video') {
+              return (
+                <div className="rounded-lg overflow-hidden border bg-black">
+                  <video src={currentQuestion.mediaUrl} controls className="w-full max-h-64" />
+                </div>
+              );
+            }
+            
+            if (mediaType === 'youtube') {
+              const videoId = extractYoutubeVideoId(currentQuestion.mediaUrl);
+              if (videoId) {
+                return (
+                  <div className="rounded-lg overflow-hidden border bg-black aspect-video">
+                    <iframe
+                      width="100%"
+                      height="100%"
+                      src={`https://www.youtube.com/embed/${videoId}`}
+                      title="Question Media"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                );
+              }
+            }
+            
+            return (
+              <div className="rounded-lg overflow-hidden border bg-black/5 flex justify-center">
+                <img src={currentQuestion.mediaUrl} alt="Question Media" className="max-h-64 object-contain" />
+              </div>
+            );
+          })()}
 
           {/* Options */}
           <div className="space-y-4">

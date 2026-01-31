@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, Check, Filter, Search, ChevronDown } from 'lucide-react';
+import { X, Calendar, Check, Filter, ChevronDown } from 'lucide-react';
 import { Button, ThemeButton } from './button';
 import { Input } from './input';
 import { Badge } from './badge';
@@ -8,15 +8,17 @@ import { format } from 'date-fns';
 import { useTheme } from '@/core/lib/theme';
 
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
-import { SearchableSelect, SearchableSelectOption } from './searchable-select';
+import { SearchableSelect, SearchableSelectOption, MultiSelectSearchable } from './searchable-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { DateTimePicker } from './datetime-picker';
 
 export type FilterField = {
   id: string;
   label: string;
-  type: 'text' | 'date' | 'dateRange' | 'select' | 'searchableSelect';
+  type: 'text' | 'date' | 'dateRange' | 'select' | 'searchableSelect' | 'multiSelectSearchable';
   options?: { label: string; value: string | boolean }[];
+  /** Optional placeholder for text fields; describes what the field searches/filters. */
+  placeholder?: string;
 };
 
 export type FilterValue = {
@@ -162,7 +164,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                     console.warn(`[FilterDrawer] Input onChange ${field.id}:`, e.target.value);
                     updateFilterValue(field.id, e.target.value);
                   }}
-                  placeholder={`Enter ${field.label.toLowerCase()}`}
+                  placeholder={field.placeholder ?? `Enter ${field.label.toLowerCase()}`}
                   className="w-full"
                 />
               )}
@@ -228,6 +230,25 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              )}
+
+              {field.type === 'multiSelectSearchable' && field.options && (
+                <div className="relative w-full">
+                  <MultiSelectSearchable
+                    options={field.options.map(opt => ({
+                      label: opt.label,
+                      value: typeof opt.value === 'boolean' ? opt.value.toString() : String(opt.value)
+                    }))}
+                    value={(getFilterValue(field.id) as string[]) || []}
+                    onValueChange={(value) => {
+                      updateFilterValue(field.id, value);
+                    }}
+                    placeholder={`Select ${field.label}...`}
+                    searchPlaceholder={`Search ${field.label.toLowerCase()}...`}
+                    emptyText={`No ${field.label.toLowerCase()} found`}
+                    className="w-full"
+                  />
                 </div>
               )}
 

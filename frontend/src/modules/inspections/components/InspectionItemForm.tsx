@@ -121,8 +121,8 @@ const FIELD_PERMISSIONS: Record<FormMode, Record<string, FieldPermission>> = {
     status: 'hidden',
     riskCategoryId: 'editable',
     riskId: 'editable',
-    assignedDepartmentId: 'hidden',
-    assigneeId: 'hidden',
+    assignedDepartmentId: 'editable',
+    assigneeId: 'editable',
     description: 'editable',
     findings: 'editable',
     dueDateAt: 'editable',
@@ -1101,74 +1101,72 @@ const InspectionItemForm = ({
                 </ConditionalField>
               </div>
 
-              {(showVerifierSection || formMode === 'updater') && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <ConditionalField
-                    fieldName="assignedDepartmentId"
-                    formMode={formMode}
-                    readOnlyComponent={
-                      <ReadOnlyField
-                        label="Assigned Department"
-                        value={getDisplayValue('assignedDepartmentId', form.watch('assignedDepartmentId'))}
-                        required
-                      />
-                    }
-                  >
-                    <FormField
-                      control={form.control}
-                      name="assignedDepartmentId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            Assigned Department <span className="text-destructive">*</span>
-                          </FormLabel>
-                          <FormControl>
-                            <ModalCombobox
-                              options={departmentOptions}
-                              value={field.value}
-                              onValueChange={field.onChange}
-                              placeholder="Select department"
-                              searchPlaceholder="Search department..."
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <ConditionalField
+                  fieldName="assignedDepartmentId"
+                  formMode={formMode}
+                  readOnlyComponent={
+                    <ReadOnlyField
+                      label="Assigned Department"
+                      value={getDisplayValue('assignedDepartmentId', form.watch('assignedDepartmentId'))}
+                      required
                     />
-                  </ConditionalField>
+                  }
+                >
+                  <FormField
+                    control={form.control}
+                    name="assignedDepartmentId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Assigned Department <span className="text-destructive">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <ModalCombobox
+                            options={departmentOptions}
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            placeholder="Select department"
+                            searchPlaceholder="Search department..."
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </ConditionalField>
 
-                  <ConditionalField
-                    fieldName="assigneeId"
-                    formMode={formMode}
-                    readOnlyComponent={
-                      <ReadOnlyField
-                        label="Assignee"
-                        value={getDisplayValue('assigneeId', form.watch('assigneeId'))}
-                      />
-                    }
-                  >
-                    <FormField
-                      control={form.control}
-                      name="assigneeId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Assignee</FormLabel>
-                          <FormControl>
-                            <ModalCombobox
-                              options={userOptions}
-                              value={field.value || ''}
-                              onValueChange={(value) => field.onChange(value || undefined)}
-                              placeholder="Select assignee (optional)"
-                              searchPlaceholder="Search user..."
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                <ConditionalField
+                  fieldName="assigneeId"
+                  formMode={formMode}
+                  readOnlyComponent={
+                    <ReadOnlyField
+                      label="Assignee"
+                      value={getDisplayValue('assigneeId', form.watch('assigneeId'))}
                     />
-                  </ConditionalField>
-                </div>
-              )}
+                  }
+                >
+                  <FormField
+                    control={form.control}
+                    name="assigneeId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Assignee</FormLabel>
+                        <FormControl>
+                          <ModalCombobox
+                            options={userOptions}
+                            value={field.value || ''}
+                            onValueChange={(value) => field.onChange(value || undefined)}
+                            placeholder="Select assignee (optional)"
+                            searchPlaceholder="Search user..."
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </ConditionalField>
+              </div>
 
               <ConditionalField
                 fieldName="description"

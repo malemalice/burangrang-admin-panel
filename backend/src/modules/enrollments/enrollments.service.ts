@@ -119,18 +119,20 @@ export class EnrollmentsService {
     }, 'Getting user enrollments');
   }
 
-  async assignCourse(assignDto: AssignEnrollmentDto, assignedBy: string): Promise<EnrollmentDto> {
+  async assignCourse(assignDto: AssignEnrollmentDto, assignedBy: string): Promise<{
+    enrollment: EnrollmentDto;
+    emailStatus: 'sent' | 'skipped' | 'failed' | 'not_requested';
+    emailMessage?: string;
+  }> {
     return this.errorHandler.safeExecute(async () => {
       const { userId, courseId, dueDate, isRequired = false, notes, sendEmail = true } = assignDto;
 
-      // Check if course exists
       const course = await this.prisma.course.findUnique({
         where: { id: courseId },
       });
 
       this.errorHandler.throwIfNotFoundById('Course', courseId, course);
 
-      // Check if user exists
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         include: { role: true },
@@ -138,7 +140,6 @@ export class EnrollmentsService {
 
       this.errorHandler.throwIfNotFoundById('User', userId, user);
 
-      // Check if user already has an ACTIVE or INVITED enrollment for this course
       const existingEnrollment = await this.prisma.enrollment.findFirst({
         where: {
           userId,
@@ -153,7 +154,6 @@ export class EnrollmentsService {
         this.errorHandler.throwConflictCustom('User already has an active or invited enrollment in this course');
       }
 
-      // Create enrollment with INVITED status
       const enrollment = await this.prisma.enrollment.create({
         data: {
           userId,
@@ -194,10 +194,11 @@ export class EnrollmentsService {
         },
       });
 
-      // Send notification if requested
+      let emailStatus: 'sent' | 'skipped' | 'failed' | 'not_requested' = 'not_requested';
+      let emailMessage: string | undefined;
+
       if (sendEmail) {
         try {
-          // Get or create notification type
           let notificationType = await this.prisma.notificationType.findFirst({
             where: { name: 'COURSE_ENROLLMENT' },
           });
@@ -211,7 +212,6 @@ export class EnrollmentsService {
             });
           }
 
-          // Create notification
           await this.notificationsService.createNotificationForRoles(
             {
               title: `Course Assignment: ${course.title}`,
@@ -225,7 +225,6 @@ export class EnrollmentsService {
             assignedBy,
           );
 
-          // Send email notification using MailService
           const emailResult = await this.mailService.sendTemplatedMailWithResult({
             template: 'course-assignment',
             email: user.email,
@@ -240,32 +239,27 @@ export class EnrollmentsService {
             },
           });
 
-          if (!emailResult.success) {
-            if (emailResult.skipped) {
-              console.warn(
-                `Email notification skipped for ${user.email}: ${emailResult.error}`,
-              );
-            } else {
-              console.error(
-                `Failed to send email to ${user.email}: ${emailResult.error}`,
-              );
-            }
+          if (emailResult.success && !emailResult.skipped) {
+            emailStatus = 'sent';
           } else if (emailResult.skipped) {
-            console.warn(
-              `Email notification SKIPPED for ${user.email} (SMTP not configured) - Check server logs for details`,
-            );
+            emailStatus = 'skipped';
+            emailMessage = 'SMTP not configured - email notification was skipped';
           } else {
-            console.log(
-              `Email notification sent successfully to ${user.email} for course "${course.title}"`,
-            );
+            emailStatus = 'failed';
+            emailMessage = emailResult.error;
           }
         } catch (error) {
-          // Log error but don't fail enrollment creation
+          emailStatus = 'failed';
+          emailMessage = String(error);
           console.error('Failed to send notification:', error);
         }
       }
 
-      return this.enrollmentMapper(enrollment);
+      return {
+        enrollment: this.enrollmentMapper(enrollment),
+        emailStatus,
+        emailMessage,
+      };
     }, 'Assigning course');
   }
 
@@ -403,6 +397,32 @@ export class EnrollmentsService {
         },
       };
     }, 'Finding all enrollments');
+  }
+
+  async updateScore(enrollmentId: string): Promise<void> {
+    // Get all completed quiz attempts for this enrollment
+    const attempts = await this.prisma.quizAttempt.findMany({
+      where: {
+        enrollmentId,
+        status: 'COMPLETED',
+      },
+      orderBy: {
+        score: 'desc',
+      },
+    });
+
+    if (attempts.length === 0) return;
+
+    // Calculate average score from all completed attempts
+    // Or use highest score - depends on business requirement
+    const totalScore = attempts.reduce((sum, a) => sum + Number(a.score || 0), 0);
+    const averageScore = totalScore / attempts.length;
+
+    // Update enrollment score
+    await this.prisma.enrollment.update({
+      where: { id: enrollmentId },
+      data: { score: averageScore },
+    });
   }
 
   async update(
@@ -604,7 +624,7 @@ export class EnrollmentsService {
 
       // Fetch quizzes (both course-level and chapter-level)
       const chapterIds = courseWithChapters.chapters.map(ch => ch.id);
-      
+
       const quizzes = await this.prisma.quiz.findMany({
         where: {
           OR: [

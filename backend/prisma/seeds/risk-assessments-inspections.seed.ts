@@ -48,32 +48,39 @@ const generateMitigationCode = (date: Date, sequence?: number): string => {
   return `RSK${year}${month}${day}${hour}${minute}${second}${seq}`;
 };
 
+// Likelihood levels: A (Unlikely), B (Less likely), C (Probably), D (Likely), E (Most likely) - same as risk-matrix.seed.ts
+const LIKELIHOOD_LEVELS = ['A', 'B', 'C', 'D', 'E'] as const;
+type LikelihoodLevel = (typeof LIKELIHOOD_LEVELS)[number];
+
+// Consequence levels: 1-5 - same as risk-matrix.seed.ts
+const CONSEQUENCE_LEVELS = [1, 2, 3, 4, 5] as const;
+
+/** Letter to numeric value for score: A=1, B=2, C=3, D=4, E=5 */
+const likelihoodLetterToValue = (letter: string): number => {
+  const v = letter.charCodeAt(0) - 64; // A=1, B=2, ...
+  return v >= 1 && v <= 5 ? v : 3;
+};
+
 /**
- * Calculate risk matrix rating from likelihood and consequence
+ * Calculate risk matrix rating (e.g. A1, B2) and interpretation from likelihood letter and consequence level.
+ * Matches risk-matrix.seed.ts types: likelihoodLevel 'A'|'B'|'C'|'D'|'E', consequenceLevel 1-5.
  */
 const calculateRiskRating = (
-  likelihood: string,
-  consequence: number,
+  likelihoodLevel: LikelihoodLevel,
+  consequenceLevel: number,
 ): { rating: string; interpretation: RiskRatingEnum } => {
-  const likelihoodMap: Record<string, number> = {
-    'Very Low': 1,
-    'Low': 2,
-    'Medium': 3,
-    'High': 4,
-    'Very High': 5,
-  };
-
-  const likelihoodValue = likelihoodMap[likelihood] || 3;
-  const score = likelihoodValue * consequence;
+  const likelihoodValue = likelihoodLetterToValue(likelihoodLevel);
+  const score = likelihoodValue * consequenceLevel;
+  const rating = `${likelihoodLevel}${consequenceLevel}`;
 
   if (score <= 5) {
-    return { rating: 'LOW', interpretation: RiskRatingEnum.LOW };
+    return { rating, interpretation: RiskRatingEnum.LOW };
   } else if (score <= 10) {
-    return { rating: 'MEDIUM', interpretation: RiskRatingEnum.MEDIUM };
+    return { rating, interpretation: RiskRatingEnum.MEDIUM };
   } else if (score <= 15) {
-    return { rating: 'HIGH', interpretation: RiskRatingEnum.HIGH };
+    return { rating, interpretation: RiskRatingEnum.HIGH };
   } else {
-    return { rating: 'EXTREME', interpretation: RiskRatingEnum.EXTREME };
+    return { rating, interpretation: RiskRatingEnum.EXTREME };
   }
 };
 
@@ -97,13 +104,18 @@ export const seedRiskAssessmentsAndInspections = async (
       return;
     }
 
+    // Only assign departments that are Academics or Administration
     const departments = await client.department.findMany({
-      where: { isActive: true },
-      take: 5,
+      where: {
+        isActive: true,
+        name: { in: ['Academics', 'Administration'] },
+      },
     });
 
     if (departments.length === 0) {
-      console.log('⚠️  No departments found. Please run departments seed first.');
+      console.log(
+        '⚠️  No Academic or Administration departments found. Please run departments seed first.',
+      );
       return;
     }
 
@@ -239,24 +251,20 @@ export const seedRiskAssessmentsAndInspections = async (
         const risk = risks[j % risks.length];
         const riskCategory = risk.riskCategory || riskCategories[j % riskCategories.length];
 
-        const likelihoodLevels = ['Very Low', 'Low', 'Medium', 'High', 'Very High'];
-        const consequenceLevels = [1, 2, 3, 4, 5];
-
-        const likelihoodLevel =
-          likelihoodLevels[Math.floor(Math.random() * likelihoodLevels.length)];
+        const likelihoodLevel: LikelihoodLevel =
+          LIKELIHOOD_LEVELS[Math.floor(Math.random() * LIKELIHOOD_LEVELS.length)];
         const consequenceLevel =
-          consequenceLevels[Math.floor(Math.random() * consequenceLevels.length)];
+          CONSEQUENCE_LEVELS[Math.floor(Math.random() * CONSEQUENCE_LEVELS.length)];
 
         const { rating: riskMatrixRating, interpretation } = calculateRiskRating(
           likelihoodLevel,
           consequenceLevel,
         );
 
-        // Post-mitigation values (improved)
-        const postLikelihoodLevel =
-          likelihoodLevels[
-            Math.max(0, likelihoodLevels.indexOf(likelihoodLevel) - 1)
-          ];
+        // Post-mitigation values (improved): one step down for likelihood letter and consequence level
+        const likelihoodIndex = LIKELIHOOD_LEVELS.indexOf(likelihoodLevel);
+        const postLikelihoodLevel: LikelihoodLevel =
+          LIKELIHOOD_LEVELS[Math.max(0, likelihoodIndex - 1)];
         const postConsequenceLevel = Math.max(1, consequenceLevel - 1);
         const {
           rating: postRiskMatrixRating,

@@ -75,6 +75,7 @@ const courseService = {
     if (params.instructorId) queryParams.append('instructorId', params.instructorId);
     if (params.categoryId) queryParams.append('categoryId', params.categoryId);
     if (params.language) queryParams.append('language', params.language);
+    if (params.title) queryParams.append('title', params.title);
 
     const response = await api.get(`/courses?${queryParams.toString()}`);
     return {

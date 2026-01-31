@@ -102,7 +102,7 @@
 - **WorkPermit** ↔ **SafetyEquipment** (many-to-many for safety equipment)
 
 ### Risk Assessment
-- **RiskMatrix** (id, likelihoodLevel, consequenceLevel, risk_rating)
+- **RiskMatrix** (id, likelihoodLevel, consequenceLevel, interpretation)
 - **RiskAssessment** (id, code, description, departmentId, assessmentDate, createdBy, status, assigneeId?, actionPlan?)
 - **RiskAssessmentItem** (id, riskAssessmentId, mThreatId, mHseCategoryId, likelihoodLevel, consequenceLevel, riskMatrixRating)
 

@@ -12,7 +12,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth, ApiParam, 
 @Controller('dispatch-orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DispatchOrdersController {
-  constructor(private readonly service: DispatchOrdersService) {}
+  constructor(private readonly service: DispatchOrdersService) { }
 
   @Post()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
@@ -34,6 +34,7 @@ export class DispatchOrdersController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiQuery({ name: 'isActive', required: false, type: String })
   @ApiResponse({ status: 200, description: 'Return all dispatch orders.', type: [DispatchOrderDto] })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findAll(
@@ -41,12 +42,14 @@ export class DispatchOrdersController {
     @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
+    @Query('isActive') isActive?: string,
   ) {
     return this.service.findAll({
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
       search,
       status,
+      isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
     });
   }
 

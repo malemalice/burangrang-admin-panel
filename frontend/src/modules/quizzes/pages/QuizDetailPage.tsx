@@ -54,6 +54,7 @@ const QuizDetailPage = () => {
     if (quiz) {
       try {
         await deleteQuiz(quiz.id);
+        toast.success('Quiz deleted successfully');
         navigate('/quizzes');
       } catch (error) {
         console.error('Failed to delete quiz:', error);

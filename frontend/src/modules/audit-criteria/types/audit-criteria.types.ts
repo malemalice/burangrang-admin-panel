@@ -2,6 +2,8 @@
  * Audit Criteria module types
  */
 
+import type { TransitionType } from '../constants/audit-criteria.constants';
+
 // Re-export core types that are used by audit criteria module
 export type { PaginatedResponse, PaginationParams } from '@/core/lib/types';
 
@@ -12,7 +14,7 @@ export interface AuditCriteriaDTO {
   code: string;
   description: string | null;
   auditClauseId: string;
-  transitionType: 'INITIAL' | 'TRANSITION_LEVEL' | 'ADVANCE_LEVEL';
+  transitionType: TransitionType;
   order: number;
   isActive: boolean;
   createdAt: string;
@@ -45,7 +47,7 @@ export interface AuditCriteria {
   clauseName: string;
   auditElementId: string;
   elementName: string;
-  transitionType: 'INITIAL' | 'TRANSITION_LEVEL' | 'ADVANCE_LEVEL';
+  transitionType: TransitionType;
   order: number;
   isActive: boolean;
   createdAt: string;
@@ -58,7 +60,7 @@ export interface CreateAuditCriteriaDTO {
   code?: string;
   description?: string;
   auditClauseId: string;
-  transitionType: 'INITIAL' | 'TRANSITION_LEVEL' | 'ADVANCE_LEVEL';
+  transitionType: TransitionType;
   order: number;
   isActive?: boolean;
 }
@@ -68,14 +70,14 @@ export interface UpdateAuditCriteriaDTO {
   name?: string;
   description?: string;
   auditClauseId?: string;
-  transitionType?: 'INITIAL' | 'TRANSITION_LEVEL' | 'ADVANCE_LEVEL';
+  transitionType?: TransitionType;
   order?: number;
   isActive?: boolean;
 }
 
 // Audit criteria filter options
 export interface AuditCriteriaFilters {
-  transitionType?: 'INITIAL' | 'TRANSITION_LEVEL' | 'ADVANCE_LEVEL';
+  transitionType?: TransitionType;
   criteriaName?: string;
   auditClauseId?: string;
   auditElementId?: string;
