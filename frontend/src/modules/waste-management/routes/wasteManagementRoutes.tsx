@@ -23,6 +23,7 @@ import EditWasteSourcePage from '../pages/waste-sources/EditWasteSourcePage';
 // Storage Locations
 import StorageLocationsPage from '../pages/storage-locations/StorageLocationsPage';
 import CreateStorageLocationPage from '../pages/storage-locations/CreateStorageLocationPage';
+import StorageLocationDetailPage from '../pages/storage-locations/StorageLocationDetailPage';
 import EditStorageLocationPage from '../pages/storage-locations/EditStorageLocationPage';
 
 // Monthly Flow Reports
@@ -73,6 +74,7 @@ const wasteManagementRoutes: RouteConfig[] = [
   // Storage Locations
   { path: '/waste-management/storage-locations', component: StorageLocationsPage },
   { path: '/waste-management/storage-locations/create', component: CreateStorageLocationPage },
+  { path: '/waste-management/storage-locations/:id', component: StorageLocationDetailPage },
   { path: '/waste-management/storage-locations/:id/edit', component: EditStorageLocationPage },
 
   // Monthly Flow Reports (Waste Water Flow Recording)
