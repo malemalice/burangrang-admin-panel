@@ -1,13 +1,12 @@
 import { Module } from '@nestjs/common';
-import { ProgressController } from './progress.controller';
 import { ProgressService } from './progress.service';
-import { SharedModule } from '../../shared/shared.module';
+import { ProgressController } from './progress.controller';
+import { PrismaModule } from '../../core/prisma/prisma.module';
 
 @Module({
-  imports: [SharedModule],
+  imports: [PrismaModule],
   controllers: [ProgressController],
   providers: [ProgressService],
   exports: [ProgressService],
 })
 export class ProgressModule {}
-

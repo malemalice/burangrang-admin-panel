@@ -72,12 +72,11 @@ export const seedMenus = async () => {
       },
     });
 
-    // Inspections menu
     await prisma.menu.create({
       data: {
-        name: 'Inspections',
-        path: '/inspections',
-        icon: 'Search',
+        name: 'Risk Register',
+        path: '/risk-register',
+        icon: 'ShieldAlert',
         order: 3,
         isActive: true,
         roles: {
@@ -91,12 +90,11 @@ export const seedMenus = async () => {
       },
     });
 
-    // Audit Policy menu
-    await prisma.menu.create({
+    // Inspection menu group
+    const inspectionMenu = await prisma.menu.create({
       data: {
-        name: 'Audit Policy',
-        path: '/audit-policy',
-        icon: 'FileCheck',
+        name: 'Inspection',
+        icon: 'Search',
         order: 4,
         isActive: true,
         roles: {
@@ -110,13 +108,151 @@ export const seedMenus = async () => {
       },
     });
 
-    // Audit Criteria menu
+    // Inspection Schedules submenu
+    await prisma.menu.create({
+      data: {
+        name: 'Inspection Schedules',
+        path: '/inspections',
+        icon: 'Calendar',
+        parentId: inspectionMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Inspection Items submenu
+    await prisma.menu.create({
+      data: {
+        name: 'Inspection Items',
+        path: '/inspections/items',
+        icon: 'ClipboardList',
+        parentId: inspectionMenu.id,
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Audit menu group
+    const auditMenu = await prisma.menu.create({
+      data: {
+        name: 'Audit',
+        icon: 'FileCheck',
+        order: 5,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Audit Schedules submenu
+    await prisma.menu.create({
+      data: {
+        name: 'Audit Schedules',
+        path: '/audit-schedules',
+        icon: 'Calendar',
+        parentId: auditMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Audit Results submenu
+    await prisma.menu.create({
+      data: {
+        name: 'Audit Results',
+        path: '/audit-results',
+        icon: 'FileCheck2',
+        parentId: auditMenu.id,
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Audit Policy submenu
+    await prisma.menu.create({
+      data: {
+        name: 'Audit Policy',
+        path: '/audit-policy',
+        icon: 'FileCheck',
+        parentId: auditMenu.id,
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Audit Criteria submenu
     await prisma.menu.create({
       data: {
         name: 'Audit Criteria',
         path: '/audit-criteria',
         icon: 'ClipboardList',
-        order: 5,
+        parentId: auditMenu.id,
+        order: 4,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    // Incidents menu (top-level)
+    await prisma.menu.create({
+      data: {
+        name: 'Incidents',
+        path: '/incidents',
+        icon: 'AlertTriangle',
+        order: 6,
         isActive: true,
         roles: {
           connect: [
@@ -135,7 +271,7 @@ export const seedMenus = async () => {
         name: 'Environmental Measurements',
         path: '/environmental-measurements',
         icon: 'Thermometer',
-        order: 6,
+        order: 7,
         isActive: true,
         roles: {
           connect: [
@@ -211,7 +347,7 @@ export const seedMenus = async () => {
       data: {
         name: 'PPE Management',
         icon: 'Shield',
-        order: 9,
+        order: 10,
         isActive: true,
         roles: {
           connect: [
@@ -228,7 +364,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Certificate Management',
         icon: 'Award',
-        order: 10,
+        order: 11,
         isActive: true,
         roles: {
           connect: [
@@ -245,7 +381,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Training',
         icon: 'GraduationCap',
-        order: 11,
+        order: 12,
         isActive: true,
         roles: {
           connect: [
@@ -630,7 +766,7 @@ export const seedMenus = async () => {
         name: 'Quizzes',
         path: '/quizzes',
         icon: 'FileQuestion',
-        order: 12,
+        order: 13,
         isActive: true,
         roles: {
           connect: [
@@ -648,7 +784,7 @@ export const seedMenus = async () => {
         name: 'Work Permit',
         icon: 'FileText',
         path: '/work-permits',
-        order: 13,
+        order: 14,
         isActive: true,
         roles: {
           connect: [
@@ -714,7 +850,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Waste Management',
         icon: 'Recycle',
-        order: 7,
+        order: 8,
         isActive: true,
         roles: {
           connect: [
@@ -896,7 +1032,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Man Hour',
         icon: 'Clock',
-        order: 8,
+        order: 9,
         isActive: true,
         roles: {
           connect: [
@@ -945,9 +1081,11 @@ export const seedMenus = async () => {
     });
 
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
-    console.log(`   - Top-level menus: 13`);
+    console.log(`   - Top-level menus: 15`);
     console.log(`   - Master Data submenus: 9`);
     console.log(`   - User Management submenus: 3`);
+    console.log(`   - Audit submenus: 4`);
+    console.log(`   - Inspection submenus: 2`);
     console.log(`   - PPE Management submenus: 2`);
     console.log(`   - Certificate Management submenus: 2`);
     console.log(`   - Work Permit submenus: 2`);

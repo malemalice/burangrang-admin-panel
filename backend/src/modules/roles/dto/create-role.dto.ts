@@ -6,6 +6,10 @@ export class CreateRoleDto {
   @IsString()
   name: string;
 
+  @ApiProperty({ description: 'Code of the role' })
+  @IsString()
+  code: string;
+
   @ApiProperty({ description: 'Description of the role', required: false })
   @IsString()
   @IsOptional()

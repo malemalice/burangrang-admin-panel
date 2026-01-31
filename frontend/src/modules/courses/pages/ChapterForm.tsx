@@ -17,26 +17,24 @@ import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
-import { Checkbox } from '@/core/components/ui/checkbox';
-import { Play, FileText, Youtube, Clock, ArrowLeft, FileQuestion, Plus, ExternalLink } from 'lucide-react';
+import { Play, FileText, Youtube, Clock, ArrowLeft, FileQuestion, Plus, ExternalLink, Image as ImageIcon, Music } from 'lucide-react';
 import { useChapter } from '../hooks/useChapters';
 import { useCourse } from '../hooks/useCourses';
 import chapterService from '../services/chapterService';
 import courseService from '../services/courseService';
 import quizService from '@/modules/quizzes/services/quizService';
 import { Quiz } from '@/modules/quizzes/types/quiz.types';
+import { ImageUpload, uploadService } from '@/modules/uploads';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
   order: z.number().min(1, 'Order must be at least 1'),
   duration: z.number().min(0, 'Duration must be positive'),
-  contentType: z.enum(['video', 'youtube', 'text']),
+  contentType: z.enum(['video', 'youtube', 'text', 'pdf', 'image', 'audio']),
   contentUrl: z.string().optional(),
   youtubeVideoId: z.string().optional(),
   content: z.string().optional(),
-  isFree: z.boolean(),
-  isPublished: z.boolean(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -55,6 +53,7 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
   const [nextOrder, setNextOrder] = useState(1);
   const [chapterQuizzes, setChapterQuizzes] = useState<Quiz[]>([]);
   const [quizzesLoading, setQuizzesLoading] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -67,8 +66,6 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
       contentUrl: '',
       youtubeVideoId: '',
       content: '',
-      isFree: false,
-      isPublished: false,
     },
   });
 
@@ -103,12 +100,10 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
         description: chapter.description || '',
         order: chapter.order,
         duration: chapter.duration,
-        contentType: chapter.contentType as 'video' | 'youtube' | 'text',
+        contentType: chapter.contentType as 'video' | 'youtube' | 'text' | 'pdf' | 'image' | 'audio',
         contentUrl: chapter.contentUrl || '',
         youtubeVideoId: chapter.youtubeVideoId || '',
         content: chapter.content || '',
-        isFree: chapter.isFree,
-        isPublished: chapter.isPublished,
       });
     }
   }, [chapter, mode]);
@@ -140,6 +135,17 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
     try {
       setIsSubmitting(true);
 
+      let contentUrl = data.contentUrl;
+
+      // Handle file upload if present
+      if (uploadFile) {
+        const category = await uploadService.getCategoryByName('course-materials');
+        // Use true for isPublic as chapters usually need public access for students
+        // unless signed URL mechanism is fully implemented in frontend player
+        const response = await uploadService.uploadFile(uploadFile, category.id, true);
+        contentUrl = uploadService.getPublicFileUrl(response.id);
+      }
+
       if (mode === 'create') {
         await chapterService.createChapter({
           courseId,
@@ -148,11 +154,11 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
           order: data.order,
           duration: data.duration,
           contentType: data.contentType,
-          contentUrl: data.contentUrl || undefined,
+          contentUrl: contentUrl || undefined,
           youtubeVideoId: data.youtubeVideoId || undefined,
           content: data.content || undefined,
-          isFree: data.isFree,
-          isPublished: data.isPublished,
+          isFree: false, // Default to false
+          isPublished: false, // Default to false
         });
         toast.success('Chapter created successfully');
       } else if (chapterId) {
@@ -162,11 +168,12 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
           order: data.order,
           duration: data.duration,
           contentType: data.contentType,
-          contentUrl: data.contentUrl || undefined,
+          contentUrl: contentUrl || undefined,
           youtubeVideoId: data.youtubeVideoId || undefined,
           content: data.content || undefined,
-          isFree: data.isFree,
-          isPublished: data.isPublished,
+          // Maintain existing values or defaults
+          isFree: chapter?.isFree,
+          isPublished: chapter?.isPublished,
         });
         toast.success('Chapter updated successfully');
       }
@@ -186,8 +193,14 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
         return <Play className="h-4 w-4" />;
       case 'youtube':
         return <Youtube className="h-4 w-4" />;
+      case 'pdf':
+        return <FileText className="h-4 w-4" />;
       case 'text':
         return <FileText className="h-4 w-4" />;
+      case 'image':
+        return <ImageIcon className="h-4 w-4" />;
+      case 'audio':
+        return <Music className="h-4 w-4" />;
       default:
         return <FileText className="h-4 w-4" />;
     }
@@ -349,6 +362,24 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                                 Video File
                               </div>
                             </SelectItem>
+                            <SelectItem value="audio">
+                              <div className="flex items-center gap-2">
+                                <Music className="h-4 w-4" />
+                                Audio File
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="image">
+                              <div className="flex items-center gap-2">
+                                <ImageIcon className="h-4 w-4" />
+                                Image
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="pdf">
+                              <div className="flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                PDF Document
+                              </div>
+                            </SelectItem>
                             <SelectItem value="youtube">
                               <div className="flex items-center gap-2">
                                 <Youtube className="h-4 w-4" />
@@ -362,17 +393,33 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                     )}
                   />
 
-                  {form.watch('contentType') === 'video' && (
+                  {['video', 'audio', 'image', 'pdf'].includes(form.watch('contentType')) && (
                     <FormField
                       control={form.control}
                       name="contentUrl"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Video URL</FormLabel>
+                          <FormLabel>Upload File</FormLabel>
                           <FormControl>
-                            <Input 
-                              placeholder="https://example.com/video.mp4" 
-                              {...field} 
+                            <ImageUpload
+                              key={form.watch('contentType')} // Force remount on type change to ensure clean state
+                              value={field.value}
+                              onChange={field.onChange}
+                              categoryName="course-materials"
+                              onFileSelect={setUploadFile}
+                              mediaType={
+                                form.watch('contentType') === 'video' ? 'video/' :
+                                form.watch('contentType') === 'audio' ? 'audio/' :
+                                form.watch('contentType') === 'image' ? 'image/' :
+                                'application/pdf'
+                              }
+                              allowedTypes={
+                                form.watch('contentType') === 'video' ? ['video/mp4', 'video/webm'] :
+                                form.watch('contentType') === 'audio' ? ['audio/mpeg', 'audio/mp3', 'audio/wav'] :
+                                form.watch('contentType') === 'image' ? ['image/jpeg', 'image/png', 'image/webp'] :
+                                ['application/pdf']
+                              }
+                              placeholder={`Upload ${form.watch('contentType')} file`}
                             />
                           </FormControl>
                           <FormMessage />
@@ -425,56 +472,7 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
 
             {/* Sidebar */}
             <div className="space-y-6">
-              {/* Chapter Settings */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Chapter Settings</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="isFree"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>Free Chapter</FormLabel>
-                          <p className="text-sm text-gray-600">
-                            Make this chapter available for free
-                          </p>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="isPublished"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>Published</FormLabel>
-                          <p className="text-sm text-gray-600">
-                            Make this chapter visible to students
-                          </p>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-
+              
               {/* Course Information */}
               {course && (
                 <Card>
@@ -552,25 +550,29 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                           Add Quiz
                         </Button>
                       </div>
-                    ) : (
-                      // Show only the first quiz (1 chapter = 1 quiz)
-                      <div className="flex items-center justify-between p-2 rounded-md border hover:bg-gray-50 transition-colors">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{chapterQuizzes[0].title}</p>
-                          <p className="text-xs text-gray-500">
-                            {chapterQuizzes[0].questions?.length || 0} questions
-                          </p>
+                      ) : (
+                        // Show all linked quizzes
+                        <div className="space-y-2">
+                          {chapterQuizzes.map((quiz) => (
+                            <div key={quiz.id} className="flex items-center justify-between p-2 rounded-md border hover:bg-gray-50 transition-colors">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{quiz.title}</p>
+                                <p className="text-xs text-gray-500">
+                                  {quiz.questions?.length || 0} questions
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => navigate(`/quizzes/${quiz.id}`)}
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => navigate(`/quizzes/${chapterQuizzes[0].id}`)}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
+                      )}
                   </CardContent>
                 </Card>
               )}

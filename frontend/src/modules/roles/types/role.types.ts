@@ -9,6 +9,7 @@ export type { Role, Permission, PaginatedResponse, PaginationParams } from '@/co
 export interface RoleDTO {
   id: string;
   name: string;
+  code: string;
   description: string | null;
   isActive: boolean;
   permissions: PermissionDTO[];
@@ -29,6 +30,7 @@ export interface PermissionDTO {
 // Interface for creating a role
 export interface CreateRoleDTO {
   name: string;
+  code: string;
   description?: string;
   permissions?: string[];
   isActive?: boolean;
@@ -37,6 +39,7 @@ export interface CreateRoleDTO {
 // Interface for updating a role
 export interface UpdateRoleDTO {
   name?: string;
+  code?: string;
   description?: string;
   permissions?: string[];
   isActive?: boolean;
@@ -45,6 +48,7 @@ export interface UpdateRoleDTO {
 // Role form data for frontend forms
 export interface RoleFormData {
   name: string;
+  code: string;
   description: string;
   permissions: string[];
   isActive: boolean;

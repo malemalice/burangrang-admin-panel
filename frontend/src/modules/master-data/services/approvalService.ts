@@ -1,5 +1,6 @@
 import api from '@/core/lib/api';
 import { SubmitApprovalDto } from '@/core/lib/types';
+import type { ApprovalEntity } from '@/shared/constants/approval-entity.constants';
 
 export interface ApprovalHistory {
   id: string;
@@ -32,7 +33,7 @@ export interface ApprovalStatusHistory {
 }
 
 const approvalService = {
-  async checkApprovalRights(dataId: string, entity?: string) {
+  async checkApprovalRights(dataId: string, entity?: ApprovalEntity) {
     const params = entity ? { entity } : {};
     const response = await api.get(`/master-approvals/check-approval/${dataId}`, { params });
     return response.data;
@@ -43,7 +44,7 @@ const approvalService = {
     return response.data;
   },
 
-  async checkApprovalStatus(dataId: string, entity?: string): Promise<ApprovalStatusHistory> {
+  async checkApprovalStatus(dataId: string, entity?: ApprovalEntity): Promise<ApprovalStatusHistory> {
     const params = entity ? { entity } : {};
     const response = await api.get(`/master-approvals/check-approval-status/${dataId}`, { params });
     return response.data;

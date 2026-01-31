@@ -3,241 +3,242 @@ import { PrismaClient } from '@prisma/client';
 type RiskRating = 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME';
 
 // Risk Matrix data following a 5x5 matrix pattern
-// Consequence levels: A (Insignificant), B (Minor), C (Moderate), D (Major), E (Extreme)
+// Likelihood levels: A (Unlikely), B (Less likely), C (Probably), D (Likely), E (Most likely)
+// Consequence levels: 1 (Insignificant), 2 (Minor), 3 (Moderate), 4 (Major), 5 (Extreme)
 export const riskMatrix = [
-  // Likelihood Level 1 (Unlikely)
+  // Likelihood Level A (Unlikely)
   { 
-    likelihoodLevel: 1, 
+    likelihoodLevel: 'A', 
     likelihoodName: 'Unlikely',
     likelihoodDesc: 'occur one time in three year of the work cycle',
-    consequenceLevel: 'A',
+    consequenceLevel: 1,
     consequenceName: 'Insignificant',
     consequenceDesc: 'Incident without injury and can continue to work again',
-    risk_rating: 'LOW' as RiskRating 
+    interpretation: 'LOW' as RiskRating 
   },
   { 
-    likelihoodLevel: 1, 
+    likelihoodLevel: 'A', 
     likelihoodName: 'Unlikely',
     likelihoodDesc: 'occur one time in three year of the work cycle',
-    consequenceLevel: 'B',
+    consequenceLevel: 2,
     consequenceName: 'Minor',
     consequenceDesc: 'Incident without loss of time injury but require medical treatment at medical',
-    risk_rating: 'LOW' as RiskRating 
+    interpretation: 'LOW' as RiskRating 
   },
   { 
-    likelihoodLevel: 1, 
+    likelihoodLevel: 'A', 
     likelihoodName: 'Unlikely',
     likelihoodDesc: 'occur one time in three year of the work cycle',
-    consequenceLevel: 'C',
+    consequenceLevel: 3,
     consequenceName: 'Moderate',
     consequenceDesc: 'Incident with loss time injury but not stopping the work process/activities',
-    risk_rating: 'MEDIUM' as RiskRating 
+    interpretation: 'MEDIUM' as RiskRating 
   },
   { 
-    likelihoodLevel: 1, 
+    likelihoodLevel: 'A', 
     likelihoodName: 'Unlikely',
     likelihoodDesc: 'occur one time in three year of the work cycle',
-    consequenceLevel: 'D',
+    consequenceLevel: 4,
     consequenceName: 'Major',
     consequenceDesc: 'Incidents with loss time injury and stopping the work process/activities. Causes large and extensive environmental damage',
-    risk_rating: 'MEDIUM' as RiskRating 
+    interpretation: 'MEDIUM' as RiskRating 
   },
   { 
-    likelihoodLevel: 1, 
+    likelihoodLevel: 'A', 
     likelihoodName: 'Unlikely',
     likelihoodDesc: 'occur one time in three year of the work cycle',
-    consequenceLevel: 'E',
+    consequenceLevel: 5,
     consequenceName: 'Extreme',
     consequenceDesc: 'Incidents that could result in death or permanent disability',
-    risk_rating: 'HIGH' as RiskRating 
+    interpretation: 'HIGH' as RiskRating 
   },
 
-  // Likelihood Level 2 (Less likely to occur)
+  // Likelihood Level B (Less likely to occur)
   { 
-    likelihoodLevel: 2, 
+    likelihoodLevel: 'B', 
     likelihoodName: 'Less likely to occur',
     likelihoodDesc: 'occur one time in a year of the work cycle',
-    consequenceLevel: 'A',
+    consequenceLevel: 1,
     consequenceName: 'Insignificant',
     consequenceDesc: 'Incident without injury and can continue to work again',
-    risk_rating: 'LOW' as RiskRating 
+    interpretation: 'LOW' as RiskRating 
   },
   { 
-    likelihoodLevel: 2, 
+    likelihoodLevel: 'B', 
     likelihoodName: 'Less likely to occur',
     likelihoodDesc: 'occur one time in a year of the work cycle',
-    consequenceLevel: 'B',
+    consequenceLevel: 2,
     consequenceName: 'Minor',
     consequenceDesc: 'Incident without loss of time injury but require medical treatment at medical',
-    risk_rating: 'MEDIUM' as RiskRating 
+    interpretation: 'MEDIUM' as RiskRating 
   },
   { 
-    likelihoodLevel: 2, 
+    likelihoodLevel: 'B', 
     likelihoodName: 'Less likely to occur',
     likelihoodDesc: 'occur one time in a year of the work cycle',
-    consequenceLevel: 'C',
+    consequenceLevel: 3,
     consequenceName: 'Moderate',
     consequenceDesc: 'Incident with loss time injury but not stopping the work process/activities',
-    risk_rating: 'MEDIUM' as RiskRating 
+    interpretation: 'MEDIUM' as RiskRating 
   },
   { 
-    likelihoodLevel: 2, 
+    likelihoodLevel: 'B', 
     likelihoodName: 'Less likely to occur',
     likelihoodDesc: 'occur one time in a year of the work cycle',
-    consequenceLevel: 'D',
+    consequenceLevel: 4,
     consequenceName: 'Major',
     consequenceDesc: 'Incidents with loss time injury and stopping the work process/activities. Causes large and extensive environmental damage',
-    risk_rating: 'HIGH' as RiskRating 
+    interpretation: 'HIGH' as RiskRating 
   },
   { 
-    likelihoodLevel: 2, 
+    likelihoodLevel: 'B', 
     likelihoodName: 'Less likely to occur',
     likelihoodDesc: 'occur one time in a year of the work cycle',
-    consequenceLevel: 'E',
+    consequenceLevel: 5,
     consequenceName: 'Extreme',
     consequenceDesc: 'Incidents that could result in death or permanent disability',
-    risk_rating: 'EXTREME' as RiskRating 
+    interpretation: 'EXTREME' as RiskRating 
   },
 
-  // Likelihood Level 3 (Probably)
+  // Likelihood Level C (Probably)
   { 
-    likelihoodLevel: 3, 
+    likelihoodLevel: 'C', 
     likelihoodName: 'Probably',
     likelihoodDesc: 'occur more than one time in a year of the work cycle',
-    consequenceLevel: 'A',
+    consequenceLevel: 1,
     consequenceName: 'Insignificant',
     consequenceDesc: 'Incident without injury and can continue to work again',
-    risk_rating: 'MEDIUM' as RiskRating 
+    interpretation: 'MEDIUM' as RiskRating 
   },
   { 
-    likelihoodLevel: 3, 
+    likelihoodLevel: 'C', 
     likelihoodName: 'Probably',
     likelihoodDesc: 'occur more than one time in a year of the work cycle',
-    consequenceLevel: 'B',
+    consequenceLevel: 2,
     consequenceName: 'Minor',
     consequenceDesc: 'Incident without loss of time injury but require medical treatment at medical',
-    risk_rating: 'MEDIUM' as RiskRating 
+    interpretation: 'MEDIUM' as RiskRating 
   },
   { 
-    likelihoodLevel: 3, 
+    likelihoodLevel: 'C', 
     likelihoodName: 'Probably',
     likelihoodDesc: 'occur more than one time in a year of the work cycle',
-    consequenceLevel: 'C',
+    consequenceLevel: 3,
     consequenceName: 'Moderate',
     consequenceDesc: 'Incident with loss time injury but not stopping the work process/activities',
-    risk_rating: 'HIGH' as RiskRating 
+    interpretation: 'HIGH' as RiskRating 
   },
   { 
-    likelihoodLevel: 3, 
+    likelihoodLevel: 'C', 
     likelihoodName: 'Probably',
     likelihoodDesc: 'occur more than one time in a year of the work cycle',
-    consequenceLevel: 'D',
+    consequenceLevel: 4,
     consequenceName: 'Major',
     consequenceDesc: 'Incidents with loss time injury and stopping the work process/activities. Causes large and extensive environmental damage',
-    risk_rating: 'EXTREME' as RiskRating 
+    interpretation: 'EXTREME' as RiskRating 
   },
   { 
-    likelihoodLevel: 3, 
+    likelihoodLevel: 'C', 
     likelihoodName: 'Probably',
     likelihoodDesc: 'occur more than one time in a year of the work cycle',
-    consequenceLevel: 'E',
+    consequenceLevel: 5,
     consequenceName: 'Extreme',
     consequenceDesc: 'Incidents that could result in death or permanent disability',
-    risk_rating: 'EXTREME' as RiskRating 
+    interpretation: 'EXTREME' as RiskRating 
   },
 
-  // Likelihood Level 4 (Likely to occur)
+  // Likelihood Level D (Likely to occur)
   { 
-    likelihoodLevel: 4, 
+    likelihoodLevel: 'D', 
     likelihoodName: 'Likely to occur',
     likelihoodDesc: 'occur more than one time in a month of the work cycle',
-    consequenceLevel: 'A',
+    consequenceLevel: 1,
     consequenceName: 'Insignificant',
     consequenceDesc: 'Incident without injury and can continue to work again',
-    risk_rating: 'MEDIUM' as RiskRating 
+    interpretation: 'MEDIUM' as RiskRating 
   },
   { 
-    likelihoodLevel: 4, 
+    likelihoodLevel: 'D', 
     likelihoodName: 'Likely to occur',
     likelihoodDesc: 'occur more than one time in a month of the work cycle',
-    consequenceLevel: 'B',
+    consequenceLevel: 2,
     consequenceName: 'Minor',
     consequenceDesc: 'Incident without loss of time injury but require medical treatment at medical',
-    risk_rating: 'HIGH' as RiskRating 
+    interpretation: 'HIGH' as RiskRating 
   },
   { 
-    likelihoodLevel: 4, 
+    likelihoodLevel: 'D', 
     likelihoodName: 'Likely to occur',
     likelihoodDesc: 'occur more than one time in a month of the work cycle',
-    consequenceLevel: 'C',
+    consequenceLevel: 3,
     consequenceName: 'Moderate',
     consequenceDesc: 'Incident with loss time injury but not stopping the work process/activities',
-    risk_rating: 'HIGH' as RiskRating 
+    interpretation: 'HIGH' as RiskRating 
   },
   { 
-    likelihoodLevel: 4, 
+    likelihoodLevel: 'D', 
     likelihoodName: 'Likely to occur',
     likelihoodDesc: 'occur more than one time in a month of the work cycle',
-    consequenceLevel: 'D',
+    consequenceLevel: 4,
     consequenceName: 'Major',
     consequenceDesc: 'Incidents with loss time injury and stopping the work process/activities. Causes large and extensive environmental damage',
-    risk_rating: 'EXTREME' as RiskRating 
+    interpretation: 'EXTREME' as RiskRating 
   },
   { 
-    likelihoodLevel: 4, 
+    likelihoodLevel: 'D', 
     likelihoodName: 'Likely to occur',
     likelihoodDesc: 'occur more than one time in a month of the work cycle',
-    consequenceLevel: 'E',
+    consequenceLevel: 5,
     consequenceName: 'Extreme',
     consequenceDesc: 'Incidents that could result in death or permanent disability',
-    risk_rating: 'EXTREME' as RiskRating 
+    interpretation: 'EXTREME' as RiskRating 
   },
 
-  // Likelihood Level 5 (Most likely)
+  // Likelihood Level E (Most likely)
   { 
-    likelihoodLevel: 5, 
+    likelihoodLevel: 'E', 
     likelihoodName: 'Most likely',
     likelihoodDesc: 'occur more than one time in a week of the work cycle',
-    consequenceLevel: 'A',
+    consequenceLevel: 1,
     consequenceName: 'Insignificant',
     consequenceDesc: 'Incident without injury and can continue to work again',
-    risk_rating: 'HIGH' as RiskRating 
+    interpretation: 'HIGH' as RiskRating 
   },
   { 
-    likelihoodLevel: 5, 
+    likelihoodLevel: 'E', 
     likelihoodName: 'Most likely',
     likelihoodDesc: 'occur more than one time in a week of the work cycle',
-    consequenceLevel: 'B',
+    consequenceLevel: 2,
     consequenceName: 'Minor',
     consequenceDesc: 'Incident without loss of time injury but require medical treatment at medical',
-    risk_rating: 'HIGH' as RiskRating 
+    interpretation: 'HIGH' as RiskRating 
   },
   { 
-    likelihoodLevel: 5, 
+    likelihoodLevel: 'E', 
     likelihoodName: 'Most likely',
     likelihoodDesc: 'occur more than one time in a week of the work cycle',
-    consequenceLevel: 'C',
+    consequenceLevel: 3,
     consequenceName: 'Moderate',
     consequenceDesc: 'Incident with loss time injury but not stopping the work process/activities',
-    risk_rating: 'EXTREME' as RiskRating 
+    interpretation: 'EXTREME' as RiskRating 
   },
   { 
-    likelihoodLevel: 5, 
+    likelihoodLevel: 'E', 
     likelihoodName: 'Most likely',
     likelihoodDesc: 'occur more than one time in a week of the work cycle',
-    consequenceLevel: 'D',
+    consequenceLevel: 4,
     consequenceName: 'Major',
     consequenceDesc: 'Incidents with loss time injury and stopping the work process/activities. Causes large and extensive environmental damage',
-    risk_rating: 'EXTREME' as RiskRating 
+    interpretation: 'EXTREME' as RiskRating 
   },
   { 
-    likelihoodLevel: 5, 
+    likelihoodLevel: 'E', 
     likelihoodName: 'Most likely',
     likelihoodDesc: 'occur more than one time in a week of the work cycle',
-    consequenceLevel: 'E',
+    consequenceLevel: 5,
     consequenceName: 'Extreme',
     consequenceDesc: 'Incidents that could result in death or permanent disability',
-    risk_rating: 'EXTREME' as RiskRating 
+    interpretation: 'EXTREME' as RiskRating 
   },
 ];
 

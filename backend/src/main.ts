@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import * as cookieParser from 'cookie-parser';
 import * as session from 'express-session';
+import * as express from 'express';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { JwtAuthGuard } from './shared/guards/jwt-auth.guard';
@@ -11,7 +12,9 @@ import { Reflector } from '@nestjs/core';
 import { PrismaService } from './core/prisma/prisma.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true, // Enable raw body for webhook signature verification
+  });
   const configService = app.get(ConfigService);
   const reflector = app.get(Reflector);
   const prismaService = app.get(PrismaService);
@@ -23,6 +26,30 @@ async function bootstrap() {
     methods: corsConfig.methods,
     credentials: corsConfig.credentials,
     allowedHeaders: corsConfig.allowedHeaders,
+  });
+
+  // Custom middleware for webhook routes to preserve raw body and parse JSON
+  app.use('/webhooks/zoho', (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.headers['content-type']?.includes('application/json')) {
+      let data = '';
+      req.setEncoding('utf8');
+      req.on('data', (chunk) => {
+        data += chunk;
+      });
+      req.on('end', () => {
+        // Store raw body for signature verification
+        (req as any).rawBody = data;
+        // Parse JSON for NestJS validation
+        try {
+          req.body = JSON.parse(data);
+        } catch (e) {
+          req.body = {};
+        }
+        next();
+      });
+    } else {
+      next();
+    }
   });
 
   // Use cookie parser

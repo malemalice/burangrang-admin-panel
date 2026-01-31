@@ -24,13 +24,7 @@ import { Input } from '@/core/components/ui/input';
 import { Button } from '@/core/components/ui/button';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Switch } from '@/core/components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/core/components/ui/select';
+import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { riskMitigationService, riskService } from '@/modules/master-data';
 import { RiskMitigation, Risk } from '@/core/lib/types';
 
@@ -69,11 +63,14 @@ const RiskMitigationForm = ({ riskMitigation, mode }: RiskMitigationFormProps) =
     },
   });
 
-  // Fetch risks for dropdown
+  // Fetch risks for dropdown. In edit mode include inactive so selected risk appears (MDRMG-003).
   useEffect(() => {
     const fetchRisks = async () => {
       try {
-        const response = await riskService.getAll({ limit: 100, isActive: true });
+        const response = await riskService.getAll({
+          limit: 100,
+          isActive: mode === 'edit' ? undefined : true,
+        });
         setRisks(response.data);
       } catch (error) {
         toast.error('Failed to fetch risks');
@@ -81,7 +78,7 @@ const RiskMitigationForm = ({ riskMitigation, mode }: RiskMitigationFormProps) =
     };
 
     fetchRisks();
-  }, []);
+  }, [mode]);
 
   // Form submission handler
   const onSubmit = async (values: FormValues) => {
@@ -123,25 +120,16 @@ const RiskMitigationForm = ({ riskMitigation, mode }: RiskMitigationFormProps) =
               name="riskId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Risk</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a risk" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {risks.map((risk) => (
-                        <SelectItem key={risk.id} value={risk.id}>
-                          {risk.name} ({risk.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>Risk <span className="text-destructive">*</span></FormLabel>
+                  <FormControl>
+                    <SearchableSelect
+                      options={risks.map((r) => ({ value: r.id, label: `${r.name} (${r.code})` }))}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      placeholder="Select a risk"
+                      searchPlaceholder="Search risk..."
+                    />
+                  </FormControl>
                   <FormDescription>
                     Select the risk for which this mitigation applies
                   </FormDescription>

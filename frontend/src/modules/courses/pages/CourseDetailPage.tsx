@@ -59,6 +59,7 @@ const CourseDetailPage = () => {
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [quizzesLoading, setQuizzesLoading] = useState(false);
+  const [chapterQuizCounts, setChapterQuizCounts] = useState<Record<string, number>>({});
 
   // Load course data
   useEffect(() => {
@@ -73,6 +74,32 @@ const CourseDetailPage = () => {
       fetchChapters({ courseId: course.id, page: 1, limit: 100 });
     }
   }, [course]);
+
+  // Load quiz counts for each chapter
+  useEffect(() => {
+    const loadChapterQuizCounts = async () => {
+      if (chapters.length > 0) {
+        const counts: Record<string, number> = {};
+        await Promise.all(
+          chapters.map(async (chapter) => {
+            try {
+              const response = await quizService.getQuizzes({
+                page: 1,
+                limit: 1,
+                entity: 'CHAPTER',
+                entityId: chapter.id,
+              });
+              counts[chapter.id] = response.meta.total;
+            } catch (error) {
+              counts[chapter.id] = 0;
+            }
+          })
+        );
+        setChapterQuizCounts(counts);
+      }
+    };
+    loadChapterQuizCounts();
+  }, [chapters]);
 
   // Load quizzes when course is loaded
   useEffect(() => {
@@ -192,15 +219,21 @@ const CourseDetailPage = () => {
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <h1 className="text-2xl font-bold">{course.title}</h1>
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <h1 className="text-2xl font-bold line-clamp-2 break-words max-w-3xl" title={course.title}>
+                  {course.title}
+                </h1>
                 <Badge variant="outline" className={`${getStatusColor(course.status)} border-0 capitalize`}>
                   {course.status}
                 </Badge>
               </div>
               <p className="text-gray-600 mb-2">{course.shortDescription || course.description}</p>
               <div className="flex items-center gap-4 text-sm text-gray-500">
-                <span>by {course.instructor?.firstName} {course.instructor?.lastName}</span>
+                <span>
+                  by {course.instructor?.firstName || course.instructor?.lastName
+                    ? `${course.instructor?.firstName || ''} ${course.instructor?.lastName || ''}`.trim()
+                    : 'Unknown Instructor'}
+                </span>
                 <span>•</span>
                 <span>{formatDuration(course.totalDuration)}</span>
                 <span>•</span>
@@ -220,21 +253,9 @@ const CourseDetailPage = () => {
             </div>
           </div>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit Course
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}/chapters`)}>
-              <BookOpen className="mr-2 h-4 w-4" /> Manage Chapters
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button onClick={() => navigate(`/courses/${course.id}/edit`)}>
+          <Edit className="mr-2 h-4 w-4" /> Edit Course
+        </Button>
       </div>
 
       {/* Tabs */}
@@ -242,7 +263,7 @@ const CourseDetailPage = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="chapters">Chapters ({totalChapters})</TabsTrigger>
-          <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
+          <TabsTrigger value="quizzes">Quizzes ({quizzes.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -358,30 +379,6 @@ const CourseDetailPage = () => {
                   )}
                 </CardContent>
               </Card>
-
-              {/* Actions */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Button
-                    className="w-full"
-                    onClick={() => navigate(`/courses/${course.id}/edit`)}
-                  >
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit Course
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => navigate(`/courses/${course.id}/chapters`)}
-                  >
-                    <BookOpen className="mr-2 h-4 w-4" />
-                    Manage Chapters
-                  </Button>
-                </CardContent>
-              </Card>
             </div>
           </div>
         </TabsContent>
@@ -447,6 +444,12 @@ const CourseDetailPage = () => {
                               <Clock className="h-3 w-3" />
                               <span>{formatDuration(chapter.duration)}</span>
                             </div>
+                            {chapterQuizCounts[chapter.id] > 0 && (
+                              <div className="flex items-center gap-1">
+                                <FileQuestion className="h-3 w-3" />
+                                <span>{chapterQuizCounts[chapter.id]} quiz{chapterQuizCounts[chapter.id] > 1 ? 'zes' : ''}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

@@ -1,17 +1,35 @@
 import { RiskAssessment, PaginatedResponse, PaginationParams } from '@/core/lib/types';
 import api from '@/core/lib/api';
 
+export interface RiskMitigationData {
+  eliminate?: string;
+  transfer?: string;
+  reduce?: string;
+  accept?: string;
+  legalAspect?: string;
+}
+
+export interface RiskMitigationRecord extends RiskMitigationData {
+  id: string;
+  entity: string;
+  entityId: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface CreateRiskAssessmentItemDTO {
   mRiskId: string;
   mRiskCategoryId: string;
-  likelihoodLevel: number;
+  likelihoodLevel: string;
   consequenceLevel: number;
   riskMatrixRating: string;
   interpretation: string;
-  postLikelihoodLevel: number;
+  postLikelihoodLevel: string;
   postConsequenceLevel: number;
   postRiskMatrixRating: string;
   postInterpretation: string;
+  mitigation?: RiskMitigationData;
 }
 
 export interface CreateRiskAssessmentDTO {

@@ -34,9 +34,23 @@ export class MailService {
     });
   }
 
+  // Add method to check SMTP configuration
+  async isSmtpConfigured(): Promise<boolean> {
+    const user = await this.settings.getWithDefault(
+      'mail.user',
+      this.config.get<string>('app.mail.user') ?? '',
+    );
+    const pass = await this.settings.getWithDefault(
+      'mail.password',
+      this.config.get<string>('app.mail.password') ?? '',
+    );
+    return !!(user && pass);
+  }
+
   private async buildTransporter(): Promise<{
     transporter: nodemailer.Transporter;
     from: string;
+    isRealTransport: boolean;
   }> {
     // Resolve provider and defaults
     const provider =
@@ -88,19 +102,26 @@ export class MailService {
     const useStreamTransport =
       (!user || !pass) && host === 'localhost' && port === 1025;
 
+    if (useStreamTransport) {
+      this.logger.warn(
+        'SMTP not configured - using stream transport. Emails will NOT be delivered! ' +
+        'Set MAIL_USER and MAIL_PASSWORD environment variables for real email delivery.',
+      );
+    }
+
     const transporter = useStreamTransport
       ? nodemailer.createTransport({
-          streamTransport: true,
-          buffer: true,
-        } as any)
+        streamTransport: true,
+        buffer: true,
+      } as any)
       : nodemailer.createTransport({
-          host,
-          port,
-          secure,
-          auth: user && pass ? { user, pass } : undefined,
-        } as any);
+        host,
+        port,
+        secure,
+        auth: user && pass ? { user, pass } : undefined,
+      } as any);
 
-    return { transporter, from };
+    return { transporter, from, isRealTransport: !useStreamTransport };
   }
 
   async sendVerificationEmail(
@@ -150,6 +171,29 @@ export class MailService {
       payload.context,
       payload.subject,
     );
+  }
+
+  async sendTemplatedMailWithResult(payload: SendTemplatedEmailDto): Promise<{
+    success: boolean;
+    error?: string;
+    skipped?: boolean;
+  }> {
+    try {
+      const { isRealTransport } = await this.buildTransporter();
+      if (!isRealTransport) {
+        // Still try to send to stream transport for testing, but mark as skipped for delivery
+        await this.sendTemplatedMail(payload);
+        return {
+          success: true,
+          skipped: true,
+          error: 'SMTP not configured - email buffered in memory',
+        };
+      }
+      await this.sendTemplatedMail(payload);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
   }
 
   /**
@@ -267,17 +311,17 @@ export class MailService {
         params.isActive === undefined ? {} : { isActive: params.isActive },
         params.search
           ? {
-              OR: [
-                { code: { contains: params.search, mode: 'insensitive' } },
-                { name: { contains: params.search, mode: 'insensitive' } },
-                {
-                  subjectTemplate: {
-                    contains: params.search,
-                    mode: 'insensitive',
-                  },
+            OR: [
+              { code: { contains: params.search, mode: 'insensitive' } },
+              { name: { contains: params.search, mode: 'insensitive' } },
+              {
+                subjectTemplate: {
+                  contains: params.search,
+                  mode: 'insensitive',
                 },
-              ],
-            }
+              },
+            ],
+          }
           : {},
       ],
     };

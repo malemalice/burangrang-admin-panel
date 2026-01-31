@@ -28,6 +28,7 @@ export interface User {
 export interface Role {
   id: string;
   name: string;
+  code: string;
   description: string;
   status: 'active' | 'inactive';
   isActive: boolean;
@@ -208,14 +209,27 @@ export interface RiskAssessmentItem {
   mRisk?: Risk;
   mRiskCategoryId: string;
   mRiskCategory?: RiskCategory;
-  likelihoodLevel: number;
+  likelihoodLevel: string;
   consequenceLevel: number;
-  riskMatrixRating: RiskRatingEnum;
+  riskMatrixRating: string; // Format: "A1", "D2", etc. (likelihoodLevel + consequenceLevel)
   interpretation: RiskRatingEnum;
-  postLikelihoodLevel: number;
+  postLikelihoodLevel: string;
   postConsequenceLevel: number;
-  postRiskMatrixRating: RiskRatingEnum;
+  postRiskMatrixRating: string; // Format: "A1", "D2", etc. (postLikelihoodLevel + postConsequenceLevel)
   postInterpretation: RiskRatingEnum;
+  mitigation?: {
+    id: string;
+    entity: string;
+    entityId: string;
+    eliminate?: string;
+    transfer?: string;
+    reduce?: string;
+    accept?: string;
+    legalAspect?: string;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  };
 }
 
 export interface RiskControl {

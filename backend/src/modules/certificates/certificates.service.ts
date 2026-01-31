@@ -14,6 +14,11 @@ import { CreateCertificateRenewalDto } from './dto/create-certificate-renewal.dt
 import { UpdateCertificateRenewalDto } from './dto/update-certificate-renewal.dto';
 import { CertificateRenewalDto } from './dto/certificate-renewal.dto';
 import { CertificateReminderDto } from './dto/certificate-reminder.dto';
+import { RemindersService } from '../reminders/reminders.service';
+import {
+    ReminderRepeatTypeEnum,
+    ReminderTargetTypeEnum,
+} from '../reminders/dto/reminder.dto';
 
 @Injectable()
 export class CertificatesService {
@@ -41,6 +46,7 @@ export class CertificatesService {
         private prisma: PrismaService,
         private errorHandler: ErrorHandlingService,
         private dtoMapper: DtoMapperService,
+        private remindersService: RemindersService,
     ) {
         // Initialize mappers
         this.categoryMapper = this.dtoMapper.createSimpleMapper(CertificateCategoryDto);
@@ -314,26 +320,115 @@ export class CertificatesService {
                 },
             });
 
-            // Create reminder for certificate expiry
-            const reminderDays = createCertificateDto.reminderDays || 30;
-            const validityDate = new Date(createCertificateDto.validityDate);
-            const reminderDate = new Date(validityDate);
-            reminderDate.setDate(validityDate.getDate() - reminderDays);
-
-            // Only create reminder if reminder date is in the future
-            if (reminderDate > new Date()) {
-                await this.prisma.certificateReminder.create({
-                    data: {
-                        certificateId: certificate.id,
-                        reminderDate: reminderDate,
-                        recipientId: createdBy,
-                        isSent: false,
-                    },
-                });
-            }
+            // Create chained reminders using General Reminder System
+            await this.createChainedReminders(certificate, createdBy);
 
             return this.certificateMapper(certificate);
         }, 'create certificate');
+    }
+
+    private async createChainedReminders(certificate: any, userId: string) {
+        // Validate user exists before creating reminders
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+        });
+
+        if (!user) {
+            console.warn(`User ${userId} not found, skipping reminder creation for certificate ${certificate.id}`);
+            return;
+        }
+
+        const validityDate = new Date(certificate.validityDate);
+        const now = new Date();
+        const certificateTitle = certificate.certificateName || certificate.certificateNumber;
+
+        // Calculate thresholds
+        const oneMonthBefore = new Date(validityDate);
+        oneMonthBefore.setMonth(validityDate.getMonth() - 1);
+
+        const oneDayBefore = new Date(validityDate);
+        oneDayBefore.setDate(validityDate.getDate() - 1);
+
+        // 1. Monthly Reminder: > 1 month remaining
+        // Repeats monthly until 1 month before expiry
+        if (oneMonthBefore > now) {
+            // Ensure remindAt is in future (e.g., +1 hour from now for safety, or tomorrow)
+            // Strategy: Start reminder cycle soon, repeat monthly
+            const startMonthly = new Date(now);
+            startMonthly.setHours(startMonthly.getHours() + 1);
+
+            await this.remindersService.create(
+                {
+                    targetType: ReminderTargetTypeEnum.USER,
+                    targetId: userId,
+                    message: `Certificate "${certificateTitle}" will expire on ${validityDate.toLocaleDateString()} (Monthly Check)`,
+                    remindAt: startMonthly.toISOString(),
+                    repeatType: ReminderRepeatTypeEnum.MONTHLY,
+                    repeatUntil: oneMonthBefore.toISOString(),
+                    entity: 't_certificates',
+                    entityId: certificate.id,
+                },
+                userId,
+            );
+        }
+
+        // 2. Weekly Reminder: < 1 month remaining
+        // Repeats weekly from (Validity - 1 Month) until (Validity - 1 Day)
+        if (oneDayBefore > now) {
+            let startWeekly = new Date(oneMonthBefore);
+
+            // If we are already past the 1-month mark, start weekly reminder soon
+            if (startWeekly <= now) {
+                startWeekly = new Date(now);
+                startWeekly.setHours(startWeekly.getHours() + 1);
+            }
+
+            // Only create if repeatUntil (oneDayBefore) is after startWeekly
+            if (oneDayBefore > startWeekly) {
+                await this.remindersService.create(
+                    {
+                        targetType: ReminderTargetTypeEnum.USER,
+                        targetId: userId,
+                        message: `Certificate "${certificateTitle}" expires soon! Due: ${validityDate.toLocaleDateString()} (Weekly Warning)`,
+                        remindAt: startWeekly.toISOString(),
+                        repeatType: ReminderRepeatTypeEnum.WEEKLY,
+                        repeatUntil: oneDayBefore.toISOString(),
+                        entity: 't_certificates',
+                        entityId: certificate.id,
+                    },
+                    userId,
+                );
+            }
+        }
+
+        // 3. Daily Reminder: < 1 day remaining
+        // Repeats daily from (Validity - 1 Day) until Validity
+        if (validityDate > now) {
+            let startDaily = new Date(oneDayBefore);
+
+            // If we are already past the 1-day mark, start daily reminder soon
+            if (startDaily <= now) {
+                startDaily = new Date(now);
+                startDaily.setHours(startDaily.getHours() + 1);
+            }
+
+            // Only create if validityDate is after startDaily
+            if (validityDate > startDaily) {
+                await this.remindersService.create(
+                    {
+                        targetType: ReminderTargetTypeEnum.USER,
+                        targetId: userId,
+                        message: `URGENT: Certificate "${certificateTitle}" expires on ${validityDate.toLocaleDateString()} (Daily Alert)`,
+                        remindAt: startDaily.toISOString(),
+                        repeatType: ReminderRepeatTypeEnum.DAILY,
+                        repeatUntil: validityDate.toISOString(),
+                        entity: 't_certificates',
+                        entityId: certificate.id,
+                    },
+                    userId,
+                );
+            }
+        }
     }
 
     async findAll(options?: FindCertificatesOptions): Promise<{
@@ -367,6 +462,9 @@ export class CertificatesService {
                     { certificateName: { contains: searchTerm, mode: 'insensitive' } },
                     { personnelName: { contains: searchTerm, mode: 'insensitive' } },
                     { equipmentName: { contains: searchTerm, mode: 'insensitive' } },
+                    // Add search in personnel relation
+                    { personnel: { firstName: { contains: searchTerm, mode: 'insensitive' } } },
+                    { personnel: { lastName: { contains: searchTerm, mode: 'insensitive' } } },
                 ];
             }
         }
@@ -391,20 +489,24 @@ export class CertificatesService {
             where.personnelId = personnelId;
         }
 
-        // Filter expired certificates
-        if (expired === true) {
+        // Filter expired and expiring soon certificates
+        const now = new Date();
+        const reminderDays = 30; // Default reminder days
+        const futureDate = new Date();
+        futureDate.setDate(now.getDate() + reminderDays);
+
+        if (expired === true && expiringSoon === true) {
+            // Both filters: Use OR condition
+            where.OR = [
+                ...(where.OR || []),
+                { validityDate: { lt: now } },
+                { validityDate: { gte: now, lte: futureDate } },
+            ];
+        } else if (expired === true) {
             where.validityDate = {
-                lt: new Date(),
+                lt: now,
             };
-        }
-
-        // Filter expiring soon certificates
-        if (expiringSoon === true) {
-            const now = new Date();
-            const reminderDays = 30; // Default reminder days
-            const futureDate = new Date();
-            futureDate.setDate(now.getDate() + reminderDays);
-
+        } else if (expiringSoon === true) {
             where.validityDate = {
                 gte: now,
                 lte: futureDate,
@@ -455,14 +557,7 @@ export class CertificatesService {
                         createdAt: 'desc',
                     },
                 },
-                reminders: {
-                    include: {
-                        recipient: true,
-                    },
-                    orderBy: {
-                        reminderDate: 'desc',
-                    },
-                },
+                // Removed reminders include - use findRemindersByCertificateId() instead for general Reminder system
             },
         });
 
@@ -474,6 +569,7 @@ export class CertificatesService {
     async update(
         id: string,
         updateCertificateDto: UpdateCertificateDto,
+        updatedBy?: string,
     ): Promise<CertificateDto> {
         const existingCertificate = await this.prisma.certificate.findFirst({
             where: {
@@ -486,13 +582,25 @@ export class CertificatesService {
 
         return this.errorHandler.safeExecute(async () => {
             const updateData: any = { ...updateCertificateDto };
+            let shouldUpdateReminders = false;
 
             if (updateCertificateDto.issuedDate) {
                 updateData.issuedDate = new Date(updateCertificateDto.issuedDate);
             }
 
             if (updateCertificateDto.validityDate) {
-                updateData.validityDate = new Date(updateCertificateDto.validityDate);
+                const newValidityDate = new Date(updateCertificateDto.validityDate);
+                // Check if validity date changed
+                if (newValidityDate.getTime() !== existingCertificate.validityDate.getTime()) {
+                    updateData.validityDate = newValidityDate;
+                    shouldUpdateReminders = true;
+                }
+            }
+
+            if (updateCertificateDto.reminderDays) {
+                if (updateCertificateDto.reminderDays !== existingCertificate.reminderDays) {
+                    shouldUpdateReminders = true;
+                }
             }
 
             // Validate category if provided
@@ -547,6 +655,33 @@ export class CertificatesService {
                     creator: true,
                 },
             });
+
+            // If validity date or reminder days changed, recreate reminders
+            if (shouldUpdateReminders && updatedBy) {
+                try {
+                    // 1. Cancel existing pending reminders for this certificate
+                    await this.prisma.reminder.updateMany({
+                        where: {
+                            entity: 't_certificates',
+                            entityId: id,
+                            status: 'PENDING',
+                        },
+                        data: {
+                            status: 'CANCELLED',
+                        },
+                    });
+
+                    // 2. Create new chained reminders based on new dates
+                    // Use updatedBy as fallback if createdBy user doesn't exist
+                    const reminderTargetUser = updatedBy || updatedCertificate.createdBy;
+                    await this.createChainedReminders(updatedCertificate, reminderTargetUser);
+                } catch (reminderError) {
+                    // Log error but don't fail the certificate update
+                    console.error('Failed to update reminders for certificate:', id, reminderError);
+                    // Certificate update was successful, reminder update failed
+                    // This is non-critical, so we continue
+                }
+            }
 
             return this.certificateMapper(updatedCertificate);
         }, 'update certificate');
@@ -709,20 +844,52 @@ export class CertificatesService {
 
         this.errorHandler.throwIfNotFoundById('Certificate', certificateId, certificate);
 
-        const reminders = await this.prisma.certificateReminder.findMany({
+        // Fetch from general Reminder system instead of deprecated CertificateReminder
+        const reminders = await this.prisma.reminder.findMany({
             where: {
-                certificateId,
-            },
-            include: {
-                certificate: true,
-                recipient: true,
+                entity: 't_certificates',
+                entityId: certificateId,
             },
             orderBy: {
-                reminderDate: 'desc',
+                remindAt: 'desc',
             },
         });
 
-        return this.reminderArrayMapper(reminders);
+        // Fetch recipients for USER type reminders
+        const recipientIds = reminders
+            .filter((r: any) => r.targetType === 'USER')
+            .map((r: any) => r.targetId);
+
+        const recipients = recipientIds.length > 0
+            ? await this.prisma.user.findMany({
+                where: {
+                    id: { in: recipientIds },
+                },
+            })
+            : [];
+
+        const recipientMap = new Map(recipients.map((u: any) => [u.id, u]));
+
+        // Map general Reminder to CertificateReminderDto structure to maintain frontend compatibility
+        return reminders.map((reminder: any) => {
+            // For USER type, use targetId as recipientId, otherwise use targetId (for future support of ROLE/DEPARTMENT)
+            const recipientId = reminder.targetType === 'USER' ? reminder.targetId : reminder.targetId;
+            const recipient = reminder.targetType === 'USER' ? recipientMap.get(reminder.targetId) : null;
+
+            const certReminder = new CertificateReminderDto({
+                id: reminder.id,
+                certificateId: reminder.entityId ?? '',
+                reminderDate: reminder.remindAt,
+                isSent: reminder.status === 'SENT',
+                sentAt: reminder.lastSentAt,
+                recipientId,
+                recipient,
+                createdAt: reminder.createdAt,
+            });
+            // Attach certificate object as it's expected by DTO but not strictly required by frontend list
+            certReminder.certificate = certificate;
+            return certReminder;
+        });
     }
 }
 

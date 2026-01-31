@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { FileEdit, ArrowLeft, FileDown, CheckCircle2, Send, XCircle } from 'lucide-react';
+import { FileEdit, ArrowLeft, FileDown, Send } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
 import { toast } from 'sonner';
 
@@ -20,15 +20,13 @@ import { InspectionItem } from '../types/inspection.types';
 import { type CreateInspectionItemDTO } from '../types/inspection.types';
 import inspectionsService from '../services/inspectionsService';
 import InspectionItemForm from '../components/InspectionItemForm';
+import inspectionItemsService from '../inspection-items/services/inspectionItemsService';
+import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import { InspectionDetailsCard } from '../components/InspectionDetailsCard';
-import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
-import { ApprovalDialog } from '../components/ApprovalDialog';
 import { ViewItemDialog } from '../components/ViewItemDialog';
 import { InspectionItemsTable } from '../components/InspectionItemsTable';
 import { useInspectionDetail } from '../hooks/useInspectionDetail';
 import { getStatusBadge } from '../utils/inspectionBadgeHelpers';
-import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
-import { ApprovalStatus } from '@/core/lib/types';
 
 const InspectionDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -40,9 +38,6 @@ const InspectionDetailPage = () => {
     items,
     isLoading,
     isLoadingItems,
-    isLoadingHistory,
-    canApprove,
-    approvalHistory,
     pageIndex,
     limit,
     totalItems,
@@ -53,21 +48,18 @@ const InspectionDetailPage = () => {
     handleAddItem,
     handleUpdateItem,
     handleDeleteItem,
-    handleApprovalSubmitted,
     refreshInspection,
   } = useInspectionDetail(id);
-
-  // Dialog states
-  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
-  const [approvalInitialStatus, setApprovalInitialStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
   const [isViewItemDialogOpen, setIsViewItemDialogOpen] = useState(false);
   const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false);
+  const [editingFormMode, setEditingFormMode] = useState<'creator' | 'updater' | 'verifier' | null>(null);
   const [viewingItem, setViewingItem] = useState<InspectionItem | null>(null);
   const [editingItem, setEditingItem] = useState<InspectionItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<InspectionItem | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [approvalRights, setApprovalRights] = useState<Record<string, boolean>>({});
 
   const handleSubmit = async () => {
     if (!id || !inspection) return;
@@ -82,24 +74,6 @@ const InspectionDetailPage = () => {
     } catch (error) {
       console.error('Failed to submit inspection:', error);
       toast.error('Failed to submit inspection');
-    } finally {
-      setIsUpdatingStatus(false);
-    }
-  };
-
-  const handleRequestApproval = async () => {
-    if (!id || !inspection) return;
-
-    try {
-      setIsUpdatingStatus(true);
-      await inspectionsService.update(id, {
-        status: GeneralStatusEnum.WAITING_APPROVAL,
-      });
-      toast.success('Approval requested successfully');
-      await refreshInspection();
-    } catch (error) {
-      console.error('Failed to request approval:', error);
-      toast.error('Failed to request approval');
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -122,7 +96,37 @@ const InspectionDetailPage = () => {
 
   const handleEditItem = (item: InspectionItem) => {
     setEditingItem(item);
+    setEditingFormMode(null);
     setIsEditItemDialogOpen(true);
+  };
+
+  const handleEditItemAsCreator = (item: InspectionItem) => {
+    setEditingItem(item);
+    setEditingFormMode('creator');
+    setIsEditItemDialogOpen(true);
+  };
+
+  const handleEditItemAsUpdater = (item: InspectionItem) => {
+    setEditingItem(item);
+    setEditingFormMode('updater');
+    setIsEditItemDialogOpen(true);
+  };
+
+  const handleEditItemAsVerifier = async (item: InspectionItem) => {
+    // Check approval rights before allowing verifier mode
+    try {
+      const rights = await inspectionItemsService.checkApprovalRights(item.id);
+      if (!rights.canApprove) {
+        toast.error('You do not have approval rights for this inspection item');
+        return;
+      }
+      setEditingItem(item);
+      setEditingFormMode('verifier');
+      setIsEditItemDialogOpen(true);
+    } catch (error) {
+      console.error('Failed to check approval rights:', error);
+      toast.error('Failed to check approval rights');
+    }
   };
 
   const handleUpdateItemSubmit = async (itemData: CreateInspectionItemDTO) => {
@@ -131,6 +135,7 @@ const InspectionDetailPage = () => {
     if (success) {
       setIsEditItemDialogOpen(false);
       setEditingItem(null);
+      setEditingFormMode(null);
     }
   };
 
@@ -153,6 +158,36 @@ const InspectionDetailPage = () => {
       setItemToDelete(null);
     }
   };
+
+  // Check approval rights for items with WAITING_APPROVAL status
+  useEffect(() => {
+    const checkApprovalRights = async () => {
+      const waitingApprovalItems = items.filter(item => item.status === GeneralStatusEnum.WAITING_APPROVAL);
+      if (waitingApprovalItems.length === 0) {
+        setApprovalRights({});
+        return;
+      }
+
+      const rightsMap: Record<string, boolean> = {};
+      await Promise.all(
+        waitingApprovalItems.map(async (item) => {
+          try {
+            const rights = await inspectionItemsService.checkApprovalRights(item.id);
+            rightsMap[item.id] = rights.canApprove || false;
+          } catch (error) {
+            console.error(`Failed to check approval rights for item ${item.id}:`, error);
+            rightsMap[item.id] = false;
+          }
+        })
+      );
+      
+      setApprovalRights(prev => ({ ...prev, ...rightsMap }));
+    };
+
+    if (items.length > 0) {
+      checkApprovalRights();
+    }
+  }, [items]);
 
   if (isLoading) {
     return (
@@ -198,43 +233,6 @@ const InspectionDetailPage = () => {
               </Button>
             )}
 
-            {inspection.status === GeneralStatusEnum.OPEN && (
-              <Button 
-                variant="default"
-                onClick={handleRequestApproval}
-                disabled={isUpdatingStatus}
-              >
-                <Send className="h-4 w-4 mr-2" />
-                {isUpdatingStatus ? 'Requesting...' : 'Request Approval'}
-              </Button>
-            )}
-
-            {inspection.status === GeneralStatusEnum.WAITING_APPROVAL && canApprove && (
-              <>
-                <Button 
-                  variant="default"
-                  onClick={() => {
-                    setApprovalInitialStatus(ApprovalStatus.APPROVED);
-                    setIsApprovalModalOpen(true);
-                  }}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Approve
-                </Button>
-                <Button 
-                  variant="destructive"
-                  onClick={() => {
-                    setApprovalInitialStatus(ApprovalStatus.REJECTED);
-                    setIsApprovalModalOpen(true);
-                  }}
-                >
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Reject
-                </Button>
-              </>
-            )}
-
             {/* Standard action buttons */}
             <Button 
               variant="outline"
@@ -245,8 +243,7 @@ const InspectionDetailPage = () => {
             </Button>
             
             {inspection.status !== GeneralStatusEnum.DONE && 
-             inspection.status !== GeneralStatusEnum.REJECTED &&
-             inspection.status !== GeneralStatusEnum.WAITING_APPROVAL && (
+             inspection.status !== GeneralStatusEnum.REJECTED && (
               <Button 
                 variant="outline"
                 onClick={() => navigate(`/inspections/${id}/edit`)}
@@ -263,21 +260,42 @@ const InspectionDetailPage = () => {
         </div>
       </PageHeader>
 
-      {/* Inspection Details & Approval Timeline Card - Side by Side */}
+      {/* Inspection Details & Items Summary Card - Side by Side */}
       <div ref={targetRef}>
         <Card>
           <CardHeader>
             <CardTitle>Inspection Details</CardTitle>
-            <CardDescription>Basic information and approval progress of this inspection</CardDescription>
+            <CardDescription>Basic information and summary of this inspection</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:auto-rows-fr">
               <InspectionDetailsCard inspection={inspection} />
-              <ApprovalTimelineCard 
-                approvalHistory={approvalHistory} 
-                isLoading={isLoadingHistory}
-                assessmentStatus={inspection?.status}
-              />
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Items Summary</h3>
+                </div>
+                <div className="p-4 border rounded-lg bg-muted/50">
+                  <h3 className="text-lg font-semibold mb-2">Total Items</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Total:</span>
+                      <span className="text-2xl font-bold">{totalItems}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Open:</span>
+                      <span className="text-lg font-semibold text-blue-600">
+                        {items.filter(item => item.status === 'OPEN').length}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Closed:</span>
+                      <span className="text-lg font-semibold text-green-600">
+                        {items.filter(item => item.status === 'CLOSE').length}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -297,6 +315,9 @@ const InspectionDetailPage = () => {
         onAddItem={() => setIsAddItemDialogOpen(true)}
         onViewItem={handleViewItem}
         onEditItem={handleEditItem}
+        onEditItemAsCreator={handleEditItemAsCreator}
+        onEditItemAsUpdater={handleEditItemAsUpdater}
+        onEditItemAsVerifier={handleEditItemAsVerifier}
         onDeleteItem={handleDeleteItemClick}
         onDeleteConfirm={handleDeleteItemConfirm}
         itemToDelete={itemToDelete}
@@ -307,7 +328,8 @@ const InspectionDetailPage = () => {
             setItemToDelete(null);
           }
         }}
-        hideActions={inspection.status === GeneralStatusEnum.WAITING_APPROVAL || inspection.status === GeneralStatusEnum.DONE}
+        hideActions={inspection.status === GeneralStatusEnum.DONE}
+        approvalRights={approvalRights}
       />
 
       {/* Add Item Dialog */}
@@ -325,7 +347,6 @@ const InspectionDetailPage = () => {
             onCancel={() => setIsAddItemDialogOpen(false)}
             showCard={false}
             inspectionStatus={inspection?.status}
-            canApprove={canApprove}
           />
         </DialogContent>
       </Dialog>
@@ -335,54 +356,65 @@ const InspectionDetailPage = () => {
         setIsEditItemDialogOpen(open);
         if (!open) {
           setEditingItem(null);
+          setEditingFormMode(null);
         }
       }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Inspection Item</DialogTitle>
+            <DialogTitle>
+              {editingFormMode === 'creator' && 'Edit as Creator'}
+              {editingFormMode === 'updater' && 'Update Action Item'}
+              {editingFormMode === 'verifier' && 'Verify Inspection Item'}
+              {!editingFormMode && 'Edit Inspection Item'}
+            </DialogTitle>
             <DialogDescription>
-              Update the inspection item details.
+              {editingFormMode === 'creator' && 'Edit inspection item details (Area, Risk, Findings, Description, Due Date, Risk Mitigation)'}
+              {editingFormMode === 'updater' && 'Update action item progress (After Images, Follow-up Notes)'}
+              {editingFormMode === 'verifier' && 'Verify and adjust all inspection item fields'}
+              {!editingFormMode && 'Update the inspection item details.'}
             </DialogDescription>
           </DialogHeader>
           {editingItem && (
             <InspectionItemForm
               inspectionId={id}
               initialItem={{
+                id: editingItem.id, // Include id for approval rights check in verifier mode
+                areaId: editingItem.areaId,
+                status: editingItem.status,
                 riskCategoryId: editingItem.riskCategoryId,
                 riskId: editingItem.riskId,
                 assignedDepartmentId: editingItem.assignedDepartmentId,
                 assigneeId: editingItem.assigneeId,
                 description: editingItem.description,
                 followUpNotes: editingItem.followUpNotes,
+                findings: editingItem.findings,
+                dueDateAt: editingItem.dueDateAt ? new Date(editingItem.dueDateAt).toISOString().split('T')[0] : undefined,
                 images: editingItem.images?.map(img => ({
                   imageUrl: img.imageUrl,
                   caption: img.caption,
                   order: img.order,
                 })),
+                mitigation: editingItem.mitigation ? {
+                  eliminate: editingItem.mitigation.eliminate,
+                  transfer: editingItem.mitigation.transfer,
+                  reduce: editingItem.mitigation.reduce,
+                  accept: editingItem.mitigation.accept,
+                  legalAspect: editingItem.mitigation.legalAspect,
+                } : undefined,
               }}
               onSubmit={handleUpdateItemSubmit}
               onCancel={() => {
                 setIsEditItemDialogOpen(false);
                 setEditingItem(null);
+                setEditingFormMode(null);
               }}
               showCard={false}
               inspectionStatus={inspection?.status}
-              canApprove={canApprove}
+              formMode={editingFormMode || 'creator'}
             />
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Approval Dialog */}
-      {id && (
-        <ApprovalDialog
-          open={isApprovalModalOpen}
-          onOpenChange={setIsApprovalModalOpen}
-          inspectionId={id}
-          onApprovalSubmitted={handleApprovalSubmitted}
-          initialStatus={approvalInitialStatus}
-        />
-      )}
 
       {/* View Item Dialog */}
       <ViewItemDialog

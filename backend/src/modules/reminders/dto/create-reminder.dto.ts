@@ -1,8 +1,28 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, IsEnum, IsDateString, ValidateIf } from 'class-validator';
-import { ReminderRepeatTypeEnum } from './reminder.dto';
+import { ReminderRepeatTypeEnum, ReminderTargetTypeEnum } from './reminder.dto';
 
 export class CreateReminderDto {
+  @ApiProperty({ 
+    description: 'Target type - who receives this reminder (USER, ROLE, DEPARTMENT, OFFICE)',
+    enum: ReminderTargetTypeEnum,
+    example: ReminderTargetTypeEnum.USER,
+    required: false,
+    default: ReminderTargetTypeEnum.USER
+  })
+  @IsOptional()
+  @IsEnum(ReminderTargetTypeEnum)
+  targetType?: ReminderTargetTypeEnum;
+
+  @ApiProperty({ 
+    description: 'Target ID - userId, roleId, departmentId, or officeId based on targetType',
+    example: 'uuid-of-user-role-department-or-office',
+    required: true
+  })
+  @IsString()
+  @IsNotEmpty()
+  targetId: string;
+
   @ApiProperty({ 
     description: 'Context/module name (e.g., t_incidents, t_audits)',
     example: 't_incidents',

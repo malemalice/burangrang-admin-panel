@@ -2,11 +2,11 @@
 ## Frontend Modular Architecture Restructuring
 
 ### 📋 Document Information
-- **Version**: 1.6
+- **Version**: 1.7
 - **Date**: 2024-12-20
 - **Status**: Active
 - **Author**: Development Team
-- **Last Updated**: Searchable Select/Combobox Inside Dialog Pattern Added
+- **Last Updated**: List page state persistence (index → view → back) pattern added
 
 ---
 
@@ -14,6 +14,7 @@
 
 This document outlines the technical requirements and architectural principles for restructuring the frontend application from a traditional layered architecture to a modular, feature-based architecture. The restructuring aims to improve maintainability, scalability, and developer experience while following modern frontend best practices.
 
+**Version 1.7 Updates**: Added "List page state persistence (index → view → back)" under Search & Filters: URL as source of truth for list state, derive state from `useSearchParams`, sync URL on list actions, Back button uses `navigate(-1)`. Reference: AuditResultsPage, RiskRegisterPage, RisksPage.
 **Version 1.6 Updates**: Added "Searchable Select/Combobox Inside Dialog Pattern" documenting critical aria-hidden conflicts when using portaled components (Popover, Select) inside Dialog modals. Provides solution using ModalCombobox component with absolute positioning (no portals) for guaranteed interactivity. Includes root cause analysis, failed solution attempts, implementation principles, and usage patterns.
 **Version 1.5 Updates**: Added Dropdown + Dialog pattern to prevent focus trap issues when dropdown menus interact with dialogs. Includes state management, event handling, and cleanup patterns to ensure proper dropdown closing and prevent `aria-hidden` focus traps that block user interactions.
 **Version 1.4 Updates**: Merged form layout principles from `frontend-form-general-layout.md`, including page structure patterns (PageHeader → max-w-4xl wrapper → Form Component), component hierarchy guidelines, layout patterns (two-column grid, spacing standards), state patterns (loading/error states), and action button patterns. Enhanced "Form Page Specific Guidelines" and "Form Component Patterns" sections with complete implementation examples and quick reference checklist.
@@ -315,6 +316,8 @@ When designing UI/UX for **back-office systems** (ERP, Internal Dashboards), the
   - Save filter presets for reuse
 - **Filter persistence**: Remember filters across sessions
 
+**List page state persistence (index → view → back)** — For list pages with search/filters that link to a detail/view page, keep list state so "Back" returns to the same results. **Principles:** (1) **URL as source of truth**: Persist pagination, search, and filters in query params (`page`, `limit`, `search`, plus filter keys). (2) **Derive state from URL**: Use `useSearchParams()`; derive `pageIndex`, `limit`, `searchTerm`, `activeFilters` from `searchParams` in `useMemo` (not only `useState`). (3) **Sync URL on every list action**: When user changes search, filters, page, or page size, call `setSearchParams` (or an `updateSearchParams` helper) so the address bar matches list state. (4) **Back = history back**: On the detail page, the Back button MUST use `navigate(-1)` so the user returns to the previous URL (with query params); the list page then remounts with that URL and restores state. **Reference implementations:** `AuditResultsPage`, `RiskRegisterPage`, `RisksPage` (master-data).
+
 #### Modal vs Page Decision
 - **Use Modals for**:
   - Quick edits (single field changes)
@@ -376,6 +379,68 @@ When designing UI/UX for **back-office systems** (ERP, Internal Dashboards), the
    - Display toast notifications for success/error
    - Handle API errors gracefully
    - Allow retry on failure
+
+7. **Dynamic Approval Options**
+   - Master approval items can use sentinel values (`@ENTITY_DEPARTMENT`, `@ENTITY_JOB_POSITION`) for dynamic resolution
+   - Display sentinel values with human-readable labels: "Dynamic: From Entity Data" / "Dynamic: From Entity Data (Department Head)"
+   - Form selects include sentinel options alongside regular department/job position options
+   - Approval timeline displays resolved approver info (sentinel values resolved by backend before approval record creation)
+
+8. **Approval Timeline Rendering Principles**
+
+**Understanding Approval Data Sources**:
+- **`history[]`**: Actual approval actions from `t_approvals` (records created AFTER approvers take action)
+  - Contains completed approvals/rejections with status, notes, creator, timestamps
+  - Represents execution history of the approval workflow
+- **`allApprovalLines[]`**: Workflow configuration from `m_approvals` (defines pending/current lines)
+  - Shows all configured approval lines with status: `completed`, `current`, or `pending`
+  - Represents the workflow definition, not execution records
+  - Source of truth for what approvals are expected
+
+**Timeline Rendering Guidelines**:
+
+1. **Render History First**: Display all items from `history` array in chronological order
+   - These are actual actions taken by approvers
+   - Show status badges, notes, creator info, timestamps
+   - Use proper icons/colors based on status (approved/rejected/pending)
+
+2. **Render Pending/Current Lines Second**: Display items from `allApprovalLines` that are not yet completed
+   - Show lines with status `current` (waiting for approval - highlight with pulse animation)
+   - Show lines with status `pending` (not yet reached - show with muted/dashed style)
+   - **Skip lines with status `completed`** - they're already shown in history
+
+3. **Avoid Duplication**: When rendering `allApprovalLines`, check if a specific combination already exists in history
+   - Match by `department.id` + `jobPosition.id` + `line` number
+   - If a matching history entry exists, don't render the corresponding line from `allApprovalLines`
+   - This prevents showing the same approval line twice (once as history, once as pending)
+
+4. **Key Matching Logic**:
+   ```typescript
+   // Check if a specific department/job position combo already has history
+   const getApprovalForLine = (lineNumber: number, departmentId: string, jobPositionId: string) => {
+     return allApprovals.find((item) => 
+       item.line === lineNumber &&
+       item.department.id === departmentId &&
+       item.jobPosition.id === jobPositionId
+     );
+   };
+   
+   // When rendering allApprovalLines
+   approvalHistory.allApprovalLines
+     .filter(line => line.status !== 'completed')
+     .filter(line => {
+       const existingHistory = getApprovalForLine(line.line, line.department.id, line.jobPosition.id);
+       return !existingHistory; // Only show if no history entry exists
+     })
+     .map(line => {
+       // Render pending/current line
+     });
+   ```
+
+5. **Visual Distinction**:
+   - **History items**: Full cards with status badges, notes, creator info (completed actions)
+   - **Current lines**: Highlighted with blue background, pulse animation (waiting for action)
+   - **Pending lines**: Muted appearance with dashed border (future steps)
 
 **Implementation Pattern**:
 
@@ -2470,6 +2535,7 @@ const columns = [
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.7 | 2024-12-20 | Development Team | Added "List page state persistence (index → view → back)" under Search & Filters: URL as source of truth for list state, derive state from useSearchParams, sync URL on list actions, Back uses navigate(-1). Reference: AuditResultsPage, RiskRegisterPage, RisksPage. |
 | 1.6 | 2024-12-20 | Development Team | Added "Searchable Select/Combobox Inside Dialog Pattern" to Module Interaction Patterns section. Documents critical issue where portaled components (Popover, Select) inside Dialog modals cause aria-hidden conflicts that block all interactions. Provides solution using ModalCombobox component with absolute positioning (no portals) for guaranteed interactivity inside Dialogs. Includes failed solution attempts, root cause analysis, implementation principles, and usage patterns. Updated Form Components section with warning about using ModalCombobox inside dialogs. |
 | 1.5 | 2024-12-XX | Development Team | Merged form layout principles from `frontend-form-general-layout.md`, including page structure patterns (PageHeader → max-w-4xl wrapper → Form Component), component hierarchy guidelines, layout patterns (two-column grid, spacing standards), state patterns (loading/error states), and action button patterns. Enhanced "Form Page Specific Guidelines" and "Form Component Patterns" sections with complete implementation examples and quick reference checklist. |
 | 1.4 | 2024-12-XX | Development Team | Added Dropdown + Dialog pattern to Table Display Patterns section. Includes critical pattern for preventing focus trap issues when dropdown menus interact with dialogs, with state management, event handling, and cleanup best practices. |

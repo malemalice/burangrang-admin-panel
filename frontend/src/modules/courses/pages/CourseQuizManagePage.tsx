@@ -63,6 +63,7 @@ const CourseQuizManagePage = () => {
           limit: 100,
           search: searchTerm || undefined,
           isPublished: true,
+          isActive: true, // Exclude soft-deleted quizzes (Q-055 fix)
         });
         // Filter to show only standalone quizzes (entity is null)
         const standaloneQuizzes = response.data.filter(

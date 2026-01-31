@@ -129,11 +129,31 @@ export default function DispatchOrdersPage() {
       isSortable: true,
     },
     {
+      id: 'memo',
+      header: 'Description',
+      cell: (item: DispatchOrder) => (
+        <span className="max-w-[200px] truncate block" title={item.memo}>
+          {item.memo || '-'}
+        </span>
+      ),
+      isSortable: false,
+    },
+    {
       id: 'status',
       header: 'Status',
       cell: (item: DispatchOrder) => (
         <Badge variant={item.status === GeneralStatusEnum.DONE ? 'default' : 'secondary'}>
           {item.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+        </Badge>
+      ),
+      isSortable: true,
+    },
+    {
+      id: 'isActive',
+      header: 'Active',
+      cell: (item: DispatchOrder) => (
+        <Badge variant={item.isActive ? 'default' : 'secondary'}>
+          {item.isActive ? 'Active' : 'Inactive'}
         </Badge>
       ),
       isSortable: true,
@@ -155,7 +175,7 @@ export default function DispatchOrdersPage() {
             <DropdownMenuItem onClick={() => navigate(`/waste-management/dispatch-orders/${item.id}`)}>
               <Eye className="mr-2 h-4 w-4" /> View Details
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/waste-management/dispatch-orders/${item.id}`)}>
+            <DropdownMenuItem onClick={() => navigate(`/waste-management/dispatch-orders/${item.id}?print=true`)}>
               <Printer className="mr-2 h-4 w-4" /> Print PDF
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/waste-management/dispatch-orders/${item.id}/edit`)}>

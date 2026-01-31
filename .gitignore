@@ -60,3 +60,6 @@ playwright/test-results
 backend/uploads
 .agent
 .kilocode
+plans/
+AGENTS.md
+.sisyphus

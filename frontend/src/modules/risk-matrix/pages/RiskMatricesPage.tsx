@@ -44,7 +44,7 @@ const RiskMatricesPage = () => {
       type: 'text',
     },
     {
-      id: 'riskRating',
+      id: 'interpretation',
       label: 'Risk Rating',
       type: 'select',
       options: [
@@ -150,7 +150,7 @@ const RiskMatricesPage = () => {
       header: 'Likelihood',
       cell: (riskMatrix: RiskMatrix) => (
         <div>
-          <div className="font-medium">Level {riskMatrix.likelihoodLevel}: {riskMatrix.likelihoodName}</div>
+          <div className="font-medium">{riskMatrix.likelihoodLevel} - {riskMatrix.likelihoodName}</div>
           <div className="text-sm text-muted-foreground">{riskMatrix.likelihoodDesc}</div>
         </div>
       ),
@@ -161,18 +161,18 @@ const RiskMatricesPage = () => {
       header: 'Consequence',
       cell: (riskMatrix: RiskMatrix) => (
         <div>
-          <div className="font-medium">Level {riskMatrix.consequenceLevel}: {riskMatrix.consequenceName}</div>
+          <div className="font-medium">{riskMatrix.consequenceLevel} - {riskMatrix.consequenceName}</div>
           <div className="text-sm text-muted-foreground">{riskMatrix.consequenceDesc}</div>
         </div>
       ),
       isSortable: true,
     },
     {
-      id: 'riskRating',
+      id: 'interpretation',
       header: 'Risk Rating',
       cell: (riskMatrix: RiskMatrix) => (
-        <Badge variant="outline" className={getRiskRatingBadgeVariant(riskMatrix.riskRating)}>
-          {riskMatrix.riskRating}
+        <Badge variant="outline" className={getRiskRatingBadgeVariant(riskMatrix.interpretation)}>
+          {riskMatrix.interpretation}
         </Badge>
       ),
       isSortable: true,

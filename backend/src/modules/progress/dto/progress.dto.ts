@@ -1,10 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsInt, IsEnum, IsDateString } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsEnum, IsDateString } from 'class-validator';
 import { Expose } from 'class-transformer';
-import { Decimal } from '@prisma/client/runtime/library';
+
+export enum ProgressStatus {
+  NOT_STARTED = 'NOT_STARTED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+}
 
 export class ProgressDto {
-  @ApiProperty({ description: 'Progress record unique identifier' })
+  @ApiProperty({ description: 'Progress ID' })
   @Expose()
   @IsString()
   id: string;
@@ -19,30 +24,28 @@ export class ProgressDto {
   @IsString()
   chapterId: string;
 
-  @ApiProperty({ 
-    description: 'Progress status', 
-    enum: ['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED'] 
-  })
+  @ApiProperty({ description: 'Progress status', enum: ProgressStatus })
   @Expose()
-  @IsEnum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED'])
+  @IsEnum(ProgressStatus)
   status: string;
 
-  @ApiProperty({ description: 'Time spent on chapter in seconds' })
+  @ApiProperty({ description: 'Time spent in seconds' })
   @Expose()
-  @IsInt()
+  @IsNumber()
   timeSpent: number;
 
   @ApiProperty({ description: 'Progress percentage (0-100)' })
   @Expose()
+  @IsNumber()
   progress: number;
 
-  @ApiProperty({ description: 'Chapter started date', required: false })
+  @ApiProperty({ description: 'Started at date', required: false })
   @Expose()
   @IsOptional()
   @IsDateString()
   startedAt?: Date;
 
-  @ApiProperty({ description: 'Chapter completed date', required: false })
+  @ApiProperty({ description: 'Completed at date', required: false })
   @Expose()
   @IsOptional()
   @IsDateString()
@@ -53,48 +56,4 @@ export class ProgressDto {
   @IsOptional()
   @IsDateString()
   lastAccessedAt?: Date;
-
-  @ApiProperty({ description: 'Progress record creation date' })
-  @Expose()
-  @IsDateString()
-  createdAt: Date;
-
-  @ApiProperty({ description: 'Progress record last update date' })
-  @Expose()
-  @IsDateString()
-  updatedAt: Date;
-
-  // Relations (optional, included when requested)
-  @ApiProperty({ description: 'Chapter information', required: false })
-  @Expose()
-  @IsOptional()
-  chapter?: {
-    id: string;
-    title: string;
-    order: number;
-    duration: number;
-    contentType: string;
-    contentUrl?: string;
-    youtubeVideoId?: string;
-  };
-
-  @ApiProperty({ description: 'Enrollment information', required: false })
-  @Expose()
-  @IsOptional()
-  enrollment?: {
-    id: string;
-    userId: string;
-    courseId: string;
-    progress: number;
-  };
-
-  constructor(partial: Partial<ProgressDto>) {
-    Object.assign(this, partial);
-    
-    // Convert Decimal to number for API response
-    if (partial.progress !== undefined && typeof partial.progress !== 'number') {
-      this.progress = Number(partial.progress);
-    }
-  }
 }
-

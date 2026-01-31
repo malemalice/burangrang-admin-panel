@@ -9,6 +9,7 @@ import PPEWithdrawalDetailPage from '../pages/withdrawals/PPEWithdrawalDetailPag
 import EditPPEWithdrawalPage from '../pages/withdrawals/EditPPEWithdrawalPage';
 import SafetyEquipmentTypesPage from '../pages/SafetyEquipmentTypesPage';
 import SafetyEquipmentsPage from '../pages/SafetyEquipmentsPage';
+import SafetyEquipmentDetailPage from '../pages/safety-equipments/SafetyEquipmentDetailPage';
 import CreateSafetyEquipmentTypePage from '../pages/safety-equipment-types/CreateSafetyEquipmentTypePage';
 import EditSafetyEquipmentTypePage from '../pages/safety-equipment-types/EditSafetyEquipmentTypePage';
 import CreateSafetyEquipmentPage from '../pages/safety-equipments/CreateSafetyEquipmentPage';
@@ -65,6 +66,10 @@ const ppeRoutes: RouteConfig[] = [
     {
         path: '/master/safety-equipments',
         component: SafetyEquipmentsPage,
+    },
+    {
+        path: '/master/safety-equipments/:id',
+        component: SafetyEquipmentDetailPage,
     },
     {
         path: '/master/safety-equipments/new',

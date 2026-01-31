@@ -37,6 +37,7 @@ const EditRolePage = () => {
   const [isLoadingPermissions, setIsLoadingPermissions] = useState(true);
   const [formData, setFormData] = useState<UpdateRoleDTO>({
     name: '',
+    code: '',
     description: '',
     permissions: [],
     isActive: true,
@@ -66,6 +67,7 @@ const EditRolePage = () => {
         // Set form data with role data
         setFormData({
           name: roleData.name,
+          code: roleData.code,
           description: roleData.description || '',
           permissions: roleData.permissions.map(p => p.id),
           isActive: roleData.isActive,
@@ -115,8 +117,13 @@ const EditRolePage = () => {
 
   const validateForm = (): boolean => {
     // Basic form validation
-    if (!formData.name.trim()) {
+    if (!formData.name?.trim()) {
       setError('Role name is required');
+      return false;
+    }
+    
+    if (!formData.code?.trim()) {
+      setError('Role code is required');
       return false;
     }
     
@@ -208,6 +215,19 @@ const EditRolePage = () => {
                     placeholder="Admin"
                     required
                   />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="code">Role Code</Label>
+                  <Input
+                    id="code"
+                    name="code"
+                    value={formData.code}
+                    onChange={handleChange}
+                    placeholder="ADMIN"
+                    required
+                  />
+                  <p className="text-xs text-gray-500">Unique code identifier for the role (e.g., ADMIN, USER)</p>
                 </div>
                 
                 <div className="space-y-2">

@@ -62,7 +62,7 @@ const formSchema = z.object({
             path: ['requestedForName'],
         });
     }
-    
+
     // Validate jobPositionId or jobPositionName
     if (!data.jobPositionId && !data.jobPositionName) {
         ctx.addIssue({
@@ -76,7 +76,7 @@ const formSchema = z.object({
             path: ['jobPositionName'],
         });
     }
-    
+
     // Validate items - ensure all items have stockItemId
     data.items.forEach((item, index) => {
         if (!item.stockItemId) {
@@ -442,9 +442,10 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                 toast.success('Withdrawal updated successfully');
                 navigate(`/ppe/withdrawals/${withdrawal!.id}`);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving withdrawal:', error);
-            toast.error(`Failed to ${mode} withdrawal`);
+            const errorMessage = error.response?.data?.message || `Failed to ${mode} withdrawal`;
+            toast.error(errorMessage);
         } finally {
             setIsLoading(false);
         }

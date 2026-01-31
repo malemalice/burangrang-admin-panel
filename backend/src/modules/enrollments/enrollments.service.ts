@@ -119,18 +119,20 @@ export class EnrollmentsService {
     }, 'Getting user enrollments');
   }
 
-  async assignCourse(assignDto: AssignEnrollmentDto, assignedBy: string): Promise<EnrollmentDto> {
+  async assignCourse(assignDto: AssignEnrollmentDto, assignedBy: string): Promise<{
+    enrollment: EnrollmentDto;
+    emailStatus: 'sent' | 'skipped' | 'failed' | 'not_requested';
+    emailMessage?: string;
+  }> {
     return this.errorHandler.safeExecute(async () => {
       const { userId, courseId, dueDate, isRequired = false, notes, sendEmail = true } = assignDto;
 
-      // Check if course exists
       const course = await this.prisma.course.findUnique({
         where: { id: courseId },
       });
 
       this.errorHandler.throwIfNotFoundById('Course', courseId, course);
 
-      // Check if user exists
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         include: { role: true },
@@ -138,7 +140,6 @@ export class EnrollmentsService {
 
       this.errorHandler.throwIfNotFoundById('User', userId, user);
 
-      // Check if user already has an ACTIVE or INVITED enrollment for this course
       const existingEnrollment = await this.prisma.enrollment.findFirst({
         where: {
           userId,
@@ -153,7 +154,6 @@ export class EnrollmentsService {
         this.errorHandler.throwConflictCustom('User already has an active or invited enrollment in this course');
       }
 
-      // Create enrollment with INVITED status
       const enrollment = await this.prisma.enrollment.create({
         data: {
           userId,
@@ -194,10 +194,11 @@ export class EnrollmentsService {
         },
       });
 
-      // Send notification if requested
+      let emailStatus: 'sent' | 'skipped' | 'failed' | 'not_requested' = 'not_requested';
+      let emailMessage: string | undefined;
+
       if (sendEmail) {
         try {
-          // Get or create notification type
           let notificationType = await this.prisma.notificationType.findFirst({
             where: { name: 'COURSE_ENROLLMENT' },
           });
@@ -211,7 +212,6 @@ export class EnrollmentsService {
             });
           }
 
-          // Create notification
           await this.notificationsService.createNotificationForRoles(
             {
               title: `Course Assignment: ${course.title}`,
@@ -225,8 +225,7 @@ export class EnrollmentsService {
             assignedBy,
           );
 
-          // Send email notification using MailService
-          await this.mailService.sendTemplatedMail({
+          const emailResult = await this.mailService.sendTemplatedMailWithResult({
             template: 'course-assignment',
             email: user.email,
             context: {
@@ -239,13 +238,28 @@ export class EnrollmentsService {
               isRequired: isRequired ? 'Yes' : 'No',
             },
           });
+
+          if (emailResult.success && !emailResult.skipped) {
+            emailStatus = 'sent';
+          } else if (emailResult.skipped) {
+            emailStatus = 'skipped';
+            emailMessage = 'SMTP not configured - email notification was skipped';
+          } else {
+            emailStatus = 'failed';
+            emailMessage = emailResult.error;
+          }
         } catch (error) {
-          // Log error but don't fail enrollment creation
+          emailStatus = 'failed';
+          emailMessage = String(error);
           console.error('Failed to send notification:', error);
         }
       }
 
-      return this.enrollmentMapper(enrollment);
+      return {
+        enrollment: this.enrollmentMapper(enrollment),
+        emailStatus,
+        emailMessage,
+      };
     }, 'Assigning course');
   }
 
@@ -383,6 +397,32 @@ export class EnrollmentsService {
         },
       };
     }, 'Finding all enrollments');
+  }
+
+  async updateScore(enrollmentId: string): Promise<void> {
+    // Get all completed quiz attempts for this enrollment
+    const attempts = await this.prisma.quizAttempt.findMany({
+      where: {
+        enrollmentId,
+        status: 'COMPLETED',
+      },
+      orderBy: {
+        score: 'desc',
+      },
+    });
+
+    if (attempts.length === 0) return;
+
+    // Calculate average score from all completed attempts
+    // Or use highest score - depends on business requirement
+    const totalScore = attempts.reduce((sum, a) => sum + Number(a.score || 0), 0);
+    const averageScore = totalScore / attempts.length;
+
+    // Update enrollment score
+    await this.prisma.enrollment.update({
+      where: { id: enrollmentId },
+      data: { score: averageScore },
+    });
   }
 
   async update(
@@ -529,5 +569,82 @@ export class EnrollmentsService {
 
       return this.enrollmentMapper(enrollment);
     }, 'Finding enrollment');
+  }
+
+  async getLearningContext(id: string, userId: string, userRole: string): Promise<any> {
+    return this.errorHandler.safeExecute(async () => {
+      // Get enrollment with basic course info (no chapters yet)
+      const enrollment = await this.prisma.enrollment.findUnique({
+        where: { id },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          course: true, // Get course to check instructor
+          progressRecords: true,
+        },
+      });
+
+      this.errorHandler.throwIfNotFoundById('Enrollment', id, enrollment);
+
+      // Access control
+      if (userRole !== Role.ADMIN && userRole !== Role.SUPER_ADMIN && enrollment.userId !== userId) {
+        this.errorHandler.throwForbidden('You can only access your own learning context');
+      }
+
+      // Fetch chapters separately
+      // Based on feedback: if course is published, all active chapters should be visible.
+      // We rely on 'isActive' status and remove 'isPublished' filter for chapters.
+      const chapters = await this.prisma.chapter.findMany({
+        where: {
+          courseId: enrollment.courseId,
+          isActive: true,
+        },
+        orderBy: {
+          order: 'asc',
+        },
+      });
+
+      // Attach chapters to course object
+      const courseWithChapters = {
+        ...enrollment.course,
+        chapters,
+      };
+
+      // Determine visibility for quizzes
+      const canViewDrafts =
+        userRole === Role.ADMIN ||
+        userRole === Role.SUPER_ADMIN ||
+        enrollment.course.instructorId === userId;
+
+      // Fetch quizzes (both course-level and chapter-level)
+      const chapterIds = courseWithChapters.chapters.map(ch => ch.id);
+
+      const quizzes = await this.prisma.quiz.findMany({
+        where: {
+          OR: [
+            { entity: 'COURSE', entityId: enrollment.courseId },
+            { entity: 'CHAPTER', entityId: { in: chapterIds } }
+          ],
+          isActive: true,
+          ...(canViewDrafts ? {} : { isPublished: true }),
+        },
+        orderBy: {
+          createdAt: 'asc', // Or order if available
+        },
+      });
+
+      return {
+        enrollment: this.enrollmentMapper(enrollment),
+        course: courseWithChapters,
+        quizzes,
+        progress: enrollment.progressRecords,
+      };
+    }, 'Getting learning context');
   }
 }

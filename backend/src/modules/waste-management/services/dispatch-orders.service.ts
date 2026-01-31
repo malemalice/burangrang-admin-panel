@@ -57,7 +57,7 @@ export class DispatchOrdersService {
   }
 
   async findAll(options?: FindAllOptions): Promise<{ data: DispatchOrderDto[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
-    const { page = 1, limit = 10, sortBy = 'dispatchDate', sortOrder = 'desc', isActive, search, status } = options || {};
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', isActive, search, status } = options || {};
     const where: any = {};
 
     if (search) {
