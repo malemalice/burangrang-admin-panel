@@ -74,6 +74,21 @@ export class AuditClausesController {
     });
   }
 
+  @Post('reorder')
+  @ApiOperation({ summary: 'Reorder clauses within an audit element' })
+  @ApiResponse({
+    status: 200,
+    description: 'Clauses reordered successfully.',
+  })
+  @ApiResponse({ status: 404, description: 'Audit element not found.' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  async reorder(
+    @Body() body: { auditElementId: string; clauseIds: string[] },
+  ): Promise<{ message: string }> {
+    await this.auditClausesService.reorder(body.auditElementId, body.clauseIds);
+    return { message: 'Clause reordered successfully' };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get an audit clause by id' })
   @ApiResponse({

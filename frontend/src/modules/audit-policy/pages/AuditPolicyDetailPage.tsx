@@ -173,19 +173,9 @@ const AuditPolicyDetailPage = () => {
     newClauses.splice(draggedClauseIndex, 1);
     newClauses.splice(targetIndex, 0, draggedClause);
 
-    // Update orders
     setIsSubmitting(true);
     try {
-      await Promise.all(
-        newClauses.map((clause, index) => 
-          auditPolicyService.updateClause(clause.id, { order: index })
-        )
-      );
-      
-      // Regenerate all clause codes (which will also regenerate criteria codes)
-      await auditPolicyService.regenerateClauseCodes(id!);
-      
-      // Refresh data to get updated codes
+      await auditPolicyService.reorderClauses(id!, newClauses.map(c => c.id));
       await fetchAllData();
       toast.success('Clauses reordered successfully');
     } catch (error) {
@@ -238,19 +228,9 @@ const AuditPolicyDetailPage = () => {
 
     newClauses[clauseIndex] = { ...clause, criteria: newCriteria };
 
-    // Update orders
     setIsSubmitting(true);
     try {
-      await Promise.all(
-        newCriteria.map((criterion, index) => 
-          auditPolicyService.updateCriterion(criterion.id, { order: index })
-        )
-      );
-      
-      // Regenerate criteria codes for this clause
-      await auditPolicyService.regenerateCriteriaCodes(clause.id);
-      
-      // Refresh data to get updated codes
+      await auditPolicyService.reorderCriteria(clause.id, newCriteria.map(c => c.id));
       await fetchAllData();
       toast.success('Criteria reordered successfully');
     } catch (error) {
@@ -444,10 +424,14 @@ const AuditPolicyDetailPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl">
       <PageHeader
         title={`${element.code} - ${element.name}`}
-        subtitle={element.description || `Created on ${format(new Date(element.createdAt), 'dd MMM yyyy')}`}
+        subtitle={
+          <span className="block break-words max-w-3xl text-muted-foreground">
+            {element.description || `Created on ${format(new Date(element.createdAt), 'dd MMM yyyy')}`}
+          </span>
+        }
         actions={
           <Button 
             variant="outline"
@@ -517,7 +501,7 @@ const AuditPolicyDetailPage = () => {
                             </h3>
                           </div>
                           {clause.description && (
-                            <p className="text-sm text-gray-600 mt-1">{clause.description}</p>
+                            <p className="text-sm text-gray-600 mt-1 break-words min-w-0">{clause.description}</p>
                           )}
                         </div>
                       </div>
@@ -800,6 +784,7 @@ const AuditPolicyDetailPage = () => {
         title="Delete Clause"
         description={`Are you sure you want to delete "${clauseToDelete?.name}"? This action cannot be undone and will also delete all associated criteria.`}
         onConfirm={handleDeleteClauseConfirm}
+        confirmText="Delete"
         variant="destructive"
       />
 
@@ -815,6 +800,7 @@ const AuditPolicyDetailPage = () => {
         title="Delete Criteria"
         description={`Are you sure you want to delete "${criterionToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteCriterionConfirm}
+        confirmText="Delete"
         variant="destructive"
       />
     </div>

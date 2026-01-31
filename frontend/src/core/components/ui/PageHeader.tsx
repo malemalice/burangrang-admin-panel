@@ -5,7 +5,7 @@ import { cn } from "@/core/lib/utils";
 
 interface PageHeaderProps {
   title: string;
-  subtitle?: string;
+  subtitle?: string | ReactNode;
   children?: ReactNode;
   actions?: ReactNode;
 }
@@ -20,9 +20,13 @@ const PageHeader = ({ title, subtitle, children, actions }: PageHeaderProps) => 
       {/* Main header row: Left (title/subtitle) and Right (actions/tabs) */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         {/* Left side: Title and Subtitle */}
-        <div className="flex-shrink-0">
-          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-          {subtitle && <p className="text-muted-foreground mt-1">{subtitle}</p>}
+        <div className="flex-shrink-0 min-w-0 max-w-full">
+          <h1 className="text-2xl font-bold tracking-tight break-words">{title}</h1>
+          {subtitle != null && (
+            <div className="text-muted-foreground mt-1 break-words min-w-0">
+              {typeof subtitle === 'string' ? <p>{subtitle}</p> : subtitle}
+            </div>
+          )}
         </div>
 
         {/* Right side: Actions and Tabs */}
