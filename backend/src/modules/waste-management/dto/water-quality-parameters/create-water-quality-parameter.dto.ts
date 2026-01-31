@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsNumber } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsNumber, IsDateString } from 'class-validator';
 
 export class CreateWaterQualityParameterDto {
   @ApiProperty()
@@ -41,4 +41,9 @@ export class CreateWaterQualityParameterDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiProperty()
+  @IsDateString()
+  @IsNotEmpty()
+  dateSampleTaken: Date;
 }

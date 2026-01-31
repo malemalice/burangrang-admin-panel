@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Plus, MoreHorizontal, Pencil, Trash2, Eye } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
@@ -137,6 +137,9 @@ export default function WasteSourcesPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => navigate(`/waste-management/waste-sources/${item.id}`)}>
+              <Eye className="mr-2 h-4 w-4" /> View
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/waste-management/waste-sources/${item.id}/edit`)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
@@ -180,7 +183,7 @@ export default function WasteSourcesPage() {
           </TabsList>
         </Tabs>
       </PageHeader>
-      
+
       <DataTable
         columns={columns}
         data={data}

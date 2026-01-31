@@ -2490,6 +2490,7 @@ model WaterQualityParameter {
   testMethod      String?
   description     String?  @db.Text
   isActive        Boolean  @default(true)
+  dateSampleTaken DateTime
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { FileEdit, ArrowLeft, FileDown } from 'lucide-react';
@@ -18,6 +18,7 @@ import { DispatchOrder, GeneralStatusEnum } from '../../types/waste-management.t
 export default function DispatchOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [dispatchOrder, setDispatchOrder] = useState<DispatchOrder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toPDF, targetRef } = usePDF({ filename: 'dispatch-order.pdf' });
@@ -48,6 +49,18 @@ export default function DispatchOrderDetailPage() {
       toast.error('Failed to export PDF');
     }
   };
+
+  useEffect(() => {
+    if (dispatchOrder && searchParams.get('print') === 'true') {
+      // Small delay to ensure render is complete before printing
+      setTimeout(() => {
+        handleExportPDF();
+        // Remove print param from URL
+        searchParams.delete('print');
+        setSearchParams(searchParams, { replace: true });
+      }, 500);
+    }
+  }, [dispatchOrder, searchParams, setSearchParams]);
 
   const getStatusBadge = (status: GeneralStatusEnum) => {
     const statusMap: Record<GeneralStatusEnum, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
@@ -132,7 +145,7 @@ export default function DispatchOrderDetailPage() {
                 </TableRow>
                 <TableRow>
                   <TableHead className="w-1/3 bg-muted/50 font-semibold">Status</TableHead>
-                  <TableCell>{getStatusBadge(dispatchOrder.status)}</TableCell>
+                  <TableCell className="align-middle">{getStatusBadge(dispatchOrder.status)}</TableCell>
                 </TableRow>
               </TableBody>
             </Table>
@@ -236,79 +249,85 @@ export default function DispatchOrderDetailPage() {
             <p className="mt-1">Halaman 1 dari 1</p>
           </div>
         </div>
-
-        {/* Screen View - Card Format */}
-        <Card className="mt-6">
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle className="text-2xl">Dispatch Order: {dispatchOrder.dispatchCode}</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Created on {format(new Date(dispatchOrder.createdAt), 'dd MMM yyyy')}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                {getStatusBadge(dispatchOrder.status)}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Dispatch Code</p>
-                <p className="font-mono">{dispatchOrder.dispatchCode}</p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Dispatch Date</p>
-                <p>{format(new Date(dispatchOrder.dispatchDate), 'dd MMM yyyy, HH:mm')}</p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Quantity</p>
-                <p className="font-semibold">{dispatchOrder.quantity.toLocaleString('id-ID')}</p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Status</p>
-                {getStatusBadge(dispatchOrder.status)}
-              </div>
-              {dispatchOrder.memo && (
-                <div className="space-y-2 md:col-span-2">
-                  <p className="text-sm font-medium text-muted-foreground">Memo</p>
-                  <p className="whitespace-pre-wrap">{dispatchOrder.memo}</p>
-                </div>
-              )}
-            </div>
-
-            <Separator />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Ordered By</p>
-                <p>
-                  {dispatchOrder.orderer
-                    ? `${dispatchOrder.orderer.firstName} ${dispatchOrder.orderer.lastName}`
-                    : 'N/A'}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Created By</p>
-                <p>
-                  {dispatchOrder.creator
-                    ? `${dispatchOrder.creator.firstName} ${dispatchOrder.creator.lastName}`
-                    : 'N/A'}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Created At</p>
-                <p>{format(new Date(dispatchOrder.createdAt), 'dd MMM yyyy, HH:mm')}</p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Last Updated</p>
-                <p>{format(new Date(dispatchOrder.updatedAt), 'dd MMM yyyy, HH:mm')}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Screen View - Card Format */}
+      <Card className="mt-6">
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="text-2xl">Dispatch Order: {dispatchOrder.dispatchCode}</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Created on {format(new Date(dispatchOrder.createdAt), 'dd MMM yyyy')}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {getStatusBadge(dispatchOrder.status)}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Dispatch Code</p>
+              <p className="font-mono">{dispatchOrder.dispatchCode}</p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Dispatch Date</p>
+              <p>{format(new Date(dispatchOrder.dispatchDate), 'dd MMM yyyy, HH:mm')}</p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Quantity</p>
+              <p className="font-semibold">{dispatchOrder.quantity.toLocaleString('id-ID')}</p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Status</p>
+              {getStatusBadge(dispatchOrder.status)}
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Active Status</p>
+              <Badge variant={dispatchOrder.isActive ? 'default' : 'secondary'}>
+                {dispatchOrder.isActive ? 'Active' : 'Inactive'}
+              </Badge>
+            </div>
+            {dispatchOrder.memo && (
+              <div className="space-y-2 md:col-span-2">
+                <p className="text-sm font-medium text-muted-foreground">Memo</p>
+                <p className="whitespace-pre-wrap">{dispatchOrder.memo}</p>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Ordered By</p>
+              <p>
+                {dispatchOrder.orderer
+                  ? `${dispatchOrder.orderer.firstName} ${dispatchOrder.orderer.lastName}`
+                  : 'N/A'}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Created By</p>
+              <p>
+                {dispatchOrder.creator
+                  ? `${dispatchOrder.creator.firstName} ${dispatchOrder.creator.lastName}`
+                  : 'N/A'}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Created At</p>
+              <p>{format(new Date(dispatchOrder.createdAt), 'dd MMM yyyy, HH:mm')}</p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Last Updated</p>
+              <p>{format(new Date(dispatchOrder.updatedAt), 'dd MMM yyyy, HH:mm')}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
