@@ -16,6 +16,7 @@ interface RiskRegisterTableProps {
   totalItems: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
+  searchValue?: string;
   onSearch: (term: string) => void;
   onView: (item: RiskRegister) => void;
   filterFields?: FilterField[];
@@ -31,6 +32,7 @@ export const RiskRegisterTable = ({
   totalItems,
   onPageChange,
   onPageSizeChange,
+  searchValue,
   onSearch,
   onView,
   filterFields = [],
@@ -153,7 +155,8 @@ export const RiskRegisterTable = ({
     },
   ];
 
-  const pageCount = Math.ceil(totalItems / limit);
+  // RR-016: When search returns empty, show only page 1 (not all pages)
+  const pageCount = totalItems === 0 ? 1 : Math.ceil(totalItems / limit);
 
   return (
     <DataTable
@@ -168,6 +171,7 @@ export const RiskRegisterTable = ({
         onPageChange,
         onPageSizeChange,
       }}
+      searchValue={searchValue}
       filterFields={filterFields}
       activeFilters={activeFilters}
       onSearch={onSearch}

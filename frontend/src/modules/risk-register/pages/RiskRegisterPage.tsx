@@ -228,6 +228,7 @@ const RiskRegisterPage = () => {
           totalItems={meta.total}
           onPageChange={handlePageChange}
           onPageSizeChange={handlePageSizeChange}
+          searchValue={searchTerm}
           onSearch={handleSearch}
           onView={handleView}
           filterFields={filterFields}
