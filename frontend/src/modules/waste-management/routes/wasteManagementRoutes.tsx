@@ -19,6 +19,7 @@ import EditWasteTypePage from '../pages/waste-types/EditWasteTypePage';
 import WasteSourcesPage from '../pages/waste-sources/WasteSourcesPage';
 import CreateWasteSourcePage from '../pages/waste-sources/CreateWasteSourcePage';
 import EditWasteSourcePage from '../pages/waste-sources/EditWasteSourcePage';
+import WasteSourceDetailPage from '../pages/waste-sources/WasteSourceDetailPage';
 
 // Storage Locations
 import StorageLocationsPage from '../pages/storage-locations/StorageLocationsPage';
@@ -69,6 +70,7 @@ const wasteManagementRoutes: RouteConfig[] = [
   // Waste Sources
   { path: '/waste-management/waste-sources', component: WasteSourcesPage },
   { path: '/waste-management/waste-sources/create', component: CreateWasteSourcePage },
+  { path: '/waste-management/waste-sources/:id', component: WasteSourceDetailPage },
   { path: '/waste-management/waste-sources/:id/edit', component: EditWasteSourcePage },
 
   // Storage Locations
