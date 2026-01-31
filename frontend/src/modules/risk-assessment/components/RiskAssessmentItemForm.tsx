@@ -13,6 +13,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/core/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
@@ -27,6 +28,14 @@ import riskMitigationService, { type RiskMitigation } from '../services/riskMiti
 import { riskCategoryService, riskService } from '@/modules/master-data';
 import { createRiskCategoryFromQuery } from '@/modules/master-data/pages/risk-categories';
 import { createRiskFromQuery } from '@/modules/master-data/pages/risks';
+
+// Normalize likelihood: only accept single letter A-E (risk matrix format). Reject names/abbreviations like "Medium"->"ME" or "Low"->"LO".
+// Risk matrix pattern: likelihoodLevel + consequenceLevel (e.g. A1, A4, B4)
+const normalizeLikelihood = (value: string | number | undefined): string => {
+  const s = String(value ?? '').trim().toUpperCase();
+  const single = s.charAt(0);
+  return single && /^[A-E]$/.test(single) ? single : '';
+};
 
 // Mitigation schema for validation
 const mitigationSchema = z.object({
@@ -72,9 +81,12 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+export type RiskAssessmentItemFormMode = 'creator' | 'updater';
+
 interface RiskAssessmentItemFormProps {
   assessmentId?: string;
   initialItem?: Partial<CreateRiskAssessmentItemDTO>;
+  mode?: RiskAssessmentItemFormMode; // creator: edit basic, pre-control, mitigation; read post-control, legal. updater: inverse.
   onSubmit?: (item: CreateRiskAssessmentItemDTO) => void;
   onCancel?: () => void;
   showCard?: boolean; // Optional: whether to show Card wrapper (default: true)
@@ -88,11 +100,16 @@ interface RiskMatrixEntry {
   consequenceLevel: number; // Stored as Int in DB (1, 2, 3, 4, 5, etc.)
   consequenceName: string;
   consequenceDesc: string;
-  risk_rating: string;
+  interpretation: string;
   isActive: boolean;
 }
 
-const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel, showCard = true }: RiskAssessmentItemFormProps) => {
+const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', onSubmit, onCancel, showCard = true }: RiskAssessmentItemFormProps) => {
+  const isCreatorMode = mode === 'creator';
+  const isUpdaterMode = mode === 'updater';
+  const canEditBasicAndPreControl = isCreatorMode;
+  const canEditMitigation = isCreatorMode;
+  const canEditPostControlAndLegal = isUpdaterMode;
   const [risks, setRisks] = useState<Risk[]>([]);
   const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
   const [riskMatrixData, setRiskMatrixData] = useState<RiskMatrixEntry[]>([]);
@@ -178,43 +195,44 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
     defaultValues: {
       mRiskId: initialItem?.mRiskId || '',
       mRiskCategoryId: initialItem?.mRiskCategoryId || '',
-      likelihoodLevel: initialItem?.likelihoodLevel || 'A',
-      consequenceLevel: initialItem?.consequenceLevel || 1,
+      likelihoodLevel: normalizeLikelihood(initialItem?.likelihoodLevel) || 'A',
+      consequenceLevel: initialItem?.consequenceLevel ?? 1,
       riskMatrixRating: initialItem?.riskMatrixRating || '',
       interpretation: initialItem?.interpretation || RiskRatingEnum.LOW,
-      postLikelihoodLevel: initialItem?.postLikelihoodLevel || initialItem?.likelihoodLevel || 'A',
-      postConsequenceLevel: initialItem?.postConsequenceLevel || initialItem?.consequenceLevel || 1,
+      postLikelihoodLevel: normalizeLikelihood(initialItem?.postLikelihoodLevel) || normalizeLikelihood(initialItem?.likelihoodLevel) || 'A',
+      postConsequenceLevel: initialItem?.postConsequenceLevel ?? initialItem?.consequenceLevel ?? 1,
       postRiskMatrixRating: initialItem?.postRiskMatrixRating || initialItem?.riskMatrixRating || '',
       postInterpretation: initialItem?.postInterpretation || initialItem?.interpretation || RiskRatingEnum.LOW,
-      mitigation: initialItem?.mitigation || {
-        eliminate: '',
-        transfer: '',
-        reduce: '',
-        accept: '',
+      mitigation: {
+        eliminate: initialItem?.mitigation?.eliminate ?? '',
+        transfer: initialItem?.mitigation?.transfer ?? '',
+        reduce: initialItem?.mitigation?.reduce ?? '',
+        accept: initialItem?.mitigation?.accept ?? '',
+        legalAspect: initialItem?.mitigation?.legalAspect ?? '',
       },
     },
   });
 
-  // Reset form when initialItem changes (for edit mode)
+  // Reset form when initialItem changes (for edit mode and updater mode - same pre-filled shape)
   useEffect(() => {
     if (initialItem) {
       form.reset({
         mRiskId: initialItem.mRiskId || '',
         mRiskCategoryId: initialItem.mRiskCategoryId || '',
-        likelihoodLevel: initialItem.likelihoodLevel || 'A',
-        consequenceLevel: initialItem.consequenceLevel || 1,
+        likelihoodLevel: normalizeLikelihood(initialItem.likelihoodLevel) || 'A',
+        consequenceLevel: initialItem.consequenceLevel ?? 1,
         riskMatrixRating: initialItem.riskMatrixRating || '',
         interpretation: initialItem.interpretation || RiskRatingEnum.LOW,
-        postLikelihoodLevel: initialItem.postLikelihoodLevel || initialItem.likelihoodLevel || 'A',
-        postConsequenceLevel: initialItem.postConsequenceLevel || initialItem.consequenceLevel || 1,
+        postLikelihoodLevel: normalizeLikelihood(initialItem.postLikelihoodLevel) || normalizeLikelihood(initialItem.likelihoodLevel) || 'A',
+        postConsequenceLevel: initialItem.postConsequenceLevel ?? initialItem.consequenceLevel ?? 1,
         postRiskMatrixRating: initialItem.postRiskMatrixRating || initialItem.riskMatrixRating || '',
         postInterpretation: initialItem.postInterpretation || initialItem.interpretation || RiskRatingEnum.LOW,
-        mitigation: initialItem.mitigation || {
-          eliminate: '',
-          transfer: '',
-          reduce: '',
-          accept: '',
-          legalAspect: '',
+        mitigation: {
+          eliminate: initialItem.mitigation?.eliminate ?? '',
+          transfer: initialItem.mitigation?.transfer ?? '',
+          reduce: initialItem.mitigation?.reduce ?? '',
+          accept: initialItem.mitigation?.accept ?? '',
+          legalAspect: initialItem.mitigation?.legalAspect ?? '',
         },
       });
       // Reset initial mount flag when switching items
@@ -466,21 +484,20 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
     });
   }, [form]);
 
-  // Calculate risk rating when likelihood or consequence changes
+  // Calculate risk rating when likelihood or consequence changes (same mechanism for pre and post control)
   const calculateRiskRating = async (isPostControl = false) => {
-    const likelihoodLevel = form.getValues(isPostControl ? 'postLikelihoodLevel' : 'likelihoodLevel');
+    const rawLikelihood = form.getValues(isPostControl ? 'postLikelihoodLevel' : 'likelihoodLevel');
     const consequenceLevel = form.getValues(isPostControl ? 'postConsequenceLevel' : 'consequenceLevel');
+    const normalizedLikelihood = normalizeLikelihood(rawLikelihood);
 
-    if (!likelihoodLevel || !consequenceLevel) return;
+    if (!normalizedLikelihood || consequenceLevel == null) return;
 
     try {
-      // Pass likelihood as string (A, B, C, etc.) and consequence as number (1, 2, 3, etc.)
-      const response = await riskAssessmentService.calculateRiskRating(likelihoodLevel.toUpperCase(), consequenceLevel);
+      // Pass likelihood as 1-2 uppercase letters (A-Z or AA-ZZ) per backend validation
+      const response = await riskAssessmentService.calculateRiskRating(normalizedLikelihood, consequenceLevel);
       const interpretation = response.interpretation || response.riskLevel?.description?.split(' ')[0].toUpperCase();
-      
-      // Generate the combination code (e.g., A3, B2, B4) - format: {likelihoodLetter}{consequenceNumber}
-      const riskMatrixCode = getRiskRatingCode(likelihoodLevel, consequenceLevel);
-      
+      // Generate the combination code (e.g., A3, B2) - format: {likelihoodLetter}{consequenceNumber}
+      const riskMatrixCode = getRiskRatingCode(normalizedLikelihood, consequenceLevel);
       if (isPostControl) {
         form.setValue('postRiskMatrixRating', riskMatrixCode);
         form.setValue('postInterpretation', interpretation);
@@ -510,11 +527,11 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
       await onSubmit({
         mRiskId: data.mRiskId,
         mRiskCategoryId: data.mRiskCategoryId,
-        likelihoodLevel: data.likelihoodLevel,
+        likelihoodLevel: normalizeLikelihood(data.likelihoodLevel) || data.likelihoodLevel,
         consequenceLevel: data.consequenceLevel,
         riskMatrixRating: data.riskMatrixRating,
         interpretation: data.interpretation,
-        postLikelihoodLevel: data.postLikelihoodLevel,
+        postLikelihoodLevel: normalizeLikelihood(data.postLikelihoodLevel) || data.postLikelihoodLevel,
         postConsequenceLevel: data.postConsequenceLevel,
         postRiskMatrixRating: data.postRiskMatrixRating,
         postInterpretation: data.postInterpretation,
@@ -552,14 +569,10 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
   // Format: {likelihoodLetter}{consequenceNumber} e.g., "A3" means likelihood A (level 1) and consequence 3
   const getRiskRatingCode = useCallback((likelihoodLevel: string, consequenceLevel: number): string => {
     if (!riskMatrixData || riskMatrixData.length === 0) return '';
-
-    // Find matching entry in risk matrix (DB stores likelihoodLevel as String, consequenceLevel as Int)
-    const matrixEntry = riskMatrixData.find(
-      (entry) => entry.likelihoodLevel === likelihoodLevel && entry.consequenceLevel === consequenceLevel
-    );
-    
-    // Format: {likelihoodLetter}{consequenceNumber} e.g., "A3"
-    return `${likelihoodLevel}${consequenceLevel}`;
+    const normalized = normalizeLikelihood(likelihoodLevel);
+    if (!normalized) return '';
+    // Format: {likelihoodLetter}{consequenceNumber} e.g., "A3" (DB stores likelihoodLevel as String, consequenceLevel as Int)
+    return `${normalized}${consequenceLevel}`;
   }, [riskMatrixData]);
 
   // Sync risk rating when likelihood or consequence changes (pre-control)
@@ -645,7 +658,10 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
   const formContent = (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Basic Information - editable in creator mode, read-only in updater mode */}
+        <div>
+          <h3 className="text-lg font-medium mb-4">Basic Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
             name="mRiskCategoryId"
@@ -666,6 +682,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                       isLoading={isLoadingRiskCategories}
                       onCreateNew={handleCreateNewRiskCategory}
                       createNewText="Create new risk category"
+                      disabled={!canEditBasicAndPreControl}
                     />
                   ) : (
                     <ModalCombobox
@@ -678,6 +695,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                       isLoading={isLoadingRiskCategories}
                       onCreateNew={handleCreateNewRiskCategory}
                       createNewText="Create new risk category"
+                      disabled={!canEditBasicAndPreControl}
                     />
                   )}
                 </FormControl>
@@ -705,6 +723,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                       isLoading={isLoadingRisks}
                       onCreateNew={handleCreateNewRisk}
                       createNewText="Create new risk"
+                      disabled={!canEditBasicAndPreControl}
                     />
                   ) : (
                     <ModalCombobox
@@ -717,6 +736,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                       isLoading={isLoadingRisks}
                       onCreateNew={handleCreateNewRisk}
                       createNewText="Create new risk"
+                      disabled={!canEditBasicAndPreControl}
                     />
                   )}
                 </FormControl>
@@ -724,97 +744,106 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
               </FormItem>
             )}
           />
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <FormField
-            control={form.control}
-            name="likelihoodLevel"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Likelihood <span className="text-destructive">*</span>
-                </FormLabel>
-                <FormControl>
-                  <ModalCombobox
-                    options={likelihoodOptions}
-                    value={field.value.toString()}
-                    onValueChange={(value) => {
-                      field.onChange(value);
-                      calculateRiskRating(false);
-                    }}
-                    placeholder="Select level"
-                    searchPlaceholder="Search likelihood level..."
-                    emptyText="No likelihood levels found"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="consequenceLevel"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Consequence <span className="text-destructive">*</span>
-                </FormLabel>
-                <FormControl>
-                  <ModalCombobox
-                    options={consequenceOptions}
-                    value={field.value.toString()}
-                    onValueChange={(value) => {
-                      field.onChange(parseInt(value, 10));
-                      calculateRiskRating(false);
-                    }}
-                    placeholder="Select level"
-                    searchPlaceholder="Search consequence level..."
-                    emptyText="No consequence levels found"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="riskMatrixRating"
-            render={({ field }) => {
-              const riskCode = getRiskRatingCode(likelihoodLevel, consequenceLevel);
-              
-              return (
+        <Separator />
+
+        {/* Pre-Control Assessment - editable in creator mode, read-only in updater mode */}
+        <div>
+          <h3 className="text-lg font-medium mb-4">Pre-Control Assessment</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <FormField
+              control={form.control}
+              name="likelihoodLevel"
+              render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Risk Rating</FormLabel>
+                  <FormLabel>
+                    Likelihood <span className="text-destructive">*</span>
+                  </FormLabel>
                   <FormControl>
-                    <div className="pt-2">
-                      {riskCode && (
-                        <span className="px-2 py-1 rounded-md text-xs font-medium border bg-gray-100 text-gray-800 border-gray-800">
-                          {riskCode}
-                        </span>
+                    <ModalCombobox
+                      options={likelihoodOptions}
+                      value={field.value.toString()}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        calculateRiskRating(false);
+                      }}
+                      placeholder="Select level"
+                      searchPlaceholder="Search likelihood level..."
+                      emptyText="No likelihood levels found"
+                      disabled={!canEditBasicAndPreControl}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="consequenceLevel"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Consequence <span className="text-destructive">*</span>
+                  </FormLabel>
+                  <FormControl>
+                    <ModalCombobox
+                      options={consequenceOptions}
+                      value={field.value.toString()}
+                      onValueChange={(value) => {
+                        field.onChange(parseInt(value, 10));
+                        calculateRiskRating(false);
+                      }}
+                      placeholder="Select level"
+                      searchPlaceholder="Search consequence level..."
+                      emptyText="No consequence levels found"
+                      disabled={!canEditBasicAndPreControl}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="riskMatrixRating"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Risk Matrix Rating</FormLabel>
+                  <FormControl>
+                    <div className="pt-2 flex items-center gap-2">
+                      {field.value ? (
+                        <>
+                          <span className="inline-flex items-center rounded-md border border-input bg-muted px-2 py-1 text-sm font-medium font-mono">
+                            {field.value}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
                       )}
                     </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
-              );
-            }}
-          />
-          <FormField
-            control={form.control}
-            name="interpretation"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Interpretation</FormLabel>
-                <FormControl>
-                  <div className="pt-2">
-                    {field.value && getRiskBadge(field.value)}
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="interpretation"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Interpretation</FormLabel>
+                  <FormControl>
+                    <div className="pt-2">
+                      {field.value && getRiskBadge(field.value)}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </div>
 
         <Separator />
@@ -856,6 +885,8 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                         className="min-h-[120px] resize-y"
                         {...field}
                         value={field.value || ''}
+                        disabled={!canEditMitigation}
+                        readOnly={!canEditMitigation}
                       />
                     </FormControl>
                     <FormMessage />
@@ -874,6 +905,8 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                         className="min-h-[120px] resize-y"
                         {...field}
                         value={field.value || ''}
+                        disabled={!canEditMitigation}
+                        readOnly={!canEditMitigation}
                       />
                     </FormControl>
                     <FormMessage />
@@ -892,6 +925,8 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                         className="min-h-[120px] resize-y"
                         {...field}
                         value={field.value || ''}
+                        disabled={!canEditMitigation}
+                        readOnly={!canEditMitigation}
                       />
                     </FormControl>
                     <FormMessage />
@@ -910,12 +945,15 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                         className="min-h-[120px] resize-y"
                         {...field}
                         value={field.value || ''}
+                        disabled={!canEditMitigation}
+                        readOnly={!canEditMitigation}
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              {/* Legal Aspect - editable in updater mode, read-only in creator mode */}
               <FormField
                 control={form.control}
                 name="mitigation.legalAspect"
@@ -928,6 +966,8 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                         className="min-h-[120px] resize-y"
                         {...field}
                         value={field.value || ''}
+                        disabled={!canEditPostControlAndLegal}
+                        readOnly={!canEditPostControlAndLegal}
                       />
                     </FormControl>
                     <FormMessage />
@@ -944,6 +984,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
 
         <Separator />
 
+        {/* Post-Control Assessment - editable in updater mode, read-only in creator mode */}
         <div>
           <h3 className="text-lg font-medium mb-4">Post-Control Assessment</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -958,7 +999,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                   <FormControl>
                     <ModalCombobox
                       options={likelihoodOptions}
-                      value={field.value}
+                      value={field.value.toString()}
                       onValueChange={(value) => {
                         field.onChange(value);
                         calculateRiskRating(true);
@@ -966,6 +1007,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                       placeholder="Select level"
                       searchPlaceholder="Search likelihood level..."
                       emptyText="No likelihood levels found"
+                      disabled={!canEditPostControlAndLegal}
                     />
                   </FormControl>
                   <FormMessage />
@@ -991,6 +1033,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
                       placeholder="Select level"
                       searchPlaceholder="Search consequence level..."
                       emptyText="No consequence levels found"
+                      disabled={!canEditPostControlAndLegal}
                     />
                   </FormControl>
                   <FormMessage />
@@ -1000,25 +1043,25 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, onSubmit, onCancel,
             <FormField
               control={form.control}
               name="postRiskMatrixRating"
-              render={({ field }) => {
-                const postRiskCode = getRiskRatingCode(postLikelihoodLevel, postConsequenceLevel);
-                
-                return (
-                  <FormItem>
-                    <FormLabel>Post Risk Rating</FormLabel>
-                    <FormControl>
-                      <div className="pt-2">
-                        {postRiskCode && (
-                          <span className="px-2 py-1 rounded-md text-xs font-medium border bg-gray-100 text-gray-800 border-gray-800">
-                            {postRiskCode}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Post Risk Matrix Rating</FormLabel>
+                  <FormControl>
+                    <div className="pt-2 flex items-center gap-2">
+                      {field.value ? (
+                        <>
+                          <span className="inline-flex items-center rounded-md border border-input bg-muted px-2 py-1 text-sm font-medium font-mono">
+                            {field.value}
                           </span>
-                        )}
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                );
-              }}
+                        </>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
             <FormField
               control={form.control}

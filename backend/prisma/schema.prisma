@@ -349,7 +349,7 @@ model RiskMatrix {
   consequenceLevel Int
   consequenceName  String         @default("")
   consequenceDesc  String         @default("") @db.Text
-  risk_rating      RiskRatingEnum
+  interpretation   RiskRatingEnum
   isActive         Boolean        @default(true)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
@@ -394,8 +394,28 @@ model RiskAssessmentItem {
   postConsequenceLevel Int
   postRiskMatrixRating String
   postInterpretation   RiskRatingEnum
+  images              RiskAssessmentItemImage[]
 
   @@map("t_risk_assessment_item")
+}
+
+// Risk Assessment Item Image - Transactional Data
+// Supports before/after action plan tracking (same pattern as InspectionImage)
+model RiskAssessmentItemImage {
+  id                     String                            @id @default(uuid())
+  riskAssessmentItemId    String
+  imageUrl                String
+  caption                 String?                            @db.Text
+  type                    RiskAssessmentItemImageTypeEnum   @default(GENERAL) // BEFORE: before action plan, AFTER: after action plan, GENERAL: general image
+  order                   Int
+  createdAt               DateTime                          @default(now())
+
+  riskAssessmentItem      RiskAssessmentItem                @relation(fields: [riskAssessmentItemId], references: [id], onDelete: Cascade)
+
+  @@index([riskAssessmentItemId])
+  @@index([riskAssessmentItemId, type])
+  @@index([order])
+  @@map("t_risk_assessment_item_images")
 }
 
 model MasterApproval {
@@ -1913,6 +1933,12 @@ enum InspectionImageTypeEnum {
   BEFORE  // Image taken before fix/action plan
   AFTER   // Image taken after fix/action plan
   GENERAL // General inspection image
+}
+
+enum RiskAssessmentItemImageTypeEnum {
+  BEFORE  // Image taken before action plan
+  AFTER   // Image taken after action plan
+  GENERAL // General risk assessment item image
 }
 
 // ============================================================
