@@ -240,6 +240,7 @@ export class RiskRegisterService {
               code: item.riskAssessment.code,
               description: item.riskAssessment.description || undefined,
               assessmentDate: item.riskAssessment.assessmentDate,
+              status: item.riskAssessment.status,
               riskAssessmentItem: {
                 id: item.id,
                 mRiskId: (item as any).mRiskId,
@@ -343,6 +344,7 @@ export class RiskRegisterService {
           code: item.riskAssessment.code,
           description: item.riskAssessment.description || undefined,
           assessmentDate: item.riskAssessment.assessmentDate,
+          status: item.riskAssessment.status,
           riskAssessmentItem: {
             id: item.id,
             mRiskId: (item as any).mRiskId,

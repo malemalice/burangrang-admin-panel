@@ -7,6 +7,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { RiskRegister } from '../types/risk-register.types';
 import { RiskRegisterSourceBadge } from './RiskRegisterSourceBadge';
+import { getRiskRegisterStatusLabel } from '../utils/riskRegisterStatus';
 
 interface RiskRegisterTableProps {
   data: RiskRegister[];
@@ -107,24 +108,22 @@ export const RiskRegisterTable = ({
       id: 'status',
       header: 'Status',
       cell: (item: RiskRegister) => {
-        let status: string;
-        if ('inspectionItem' in item.source) {
-          // For inspection items, status is OPEN or CLOSE
-          status = item.source.inspectionItem.status;
-        } else {
-          // For risk assessment items, status is not in source - show N/A for now
-          status = 'N/A';
-        }
-
-        const isOpen = status === 'OPEN';
-        const isClose = status === 'CLOSE' || status === 'DONE';
+        const rawStatus =
+          'inspectionItem' in item.source
+            ? item.source.inspectionItem.status
+            : 'status' in item.source
+              ? item.source.status
+              : 'OPEN';
+        const label = getRiskRegisterStatusLabel(rawStatus);
+        const isOpen = label === 'Open';
+        const isClose = label === 'Close';
 
         return (
           <Badge
             variant={isOpen ? 'default' : isClose ? 'secondary' : 'outline'}
             className="text-xs"
           >
-            {isOpen ? 'Open' : isClose ? 'Close' : status}
+            {label}
           </Badge>
         );
       },
@@ -172,6 +171,7 @@ export const RiskRegisterTable = ({
         onPageSizeChange,
       }}
       searchValue={searchValue}
+      searchPlaceholder="Search by code or risk name..."
       filterFields={filterFields}
       activeFilters={activeFilters}
       onSearch={onSearch}
