@@ -104,13 +104,18 @@ export const seedRiskAssessmentsAndInspections = async (
       return;
     }
 
+    // Only assign departments that are Academics or Administration
     const departments = await client.department.findMany({
-      where: { isActive: true },
-      take: 5,
+      where: {
+        isActive: true,
+        name: { in: ['Academics', 'Administration'] },
+      },
     });
 
     if (departments.length === 0) {
-      console.log('⚠️  No departments found. Please run departments seed first.');
+      console.log(
+        '⚠️  No Academic or Administration departments found. Please run departments seed first.',
+      );
       return;
     }
 
