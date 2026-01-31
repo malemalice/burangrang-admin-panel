@@ -219,15 +219,21 @@ const CourseDetailPage = () => {
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <h1 className="text-2xl font-bold">{course.title}</h1>
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <h1 className="text-2xl font-bold line-clamp-2 break-words max-w-3xl" title={course.title}>
+                  {course.title}
+                </h1>
                 <Badge variant="outline" className={`${getStatusColor(course.status)} border-0 capitalize`}>
                   {course.status}
                 </Badge>
               </div>
               <p className="text-gray-600 mb-2">{course.shortDescription || course.description}</p>
               <div className="flex items-center gap-4 text-sm text-gray-500">
-                <span>by {course.instructor?.firstName} {course.instructor?.lastName}</span>
+                <span>
+                  by {course.instructor?.firstName || course.instructor?.lastName
+                    ? `${course.instructor?.firstName || ''} ${course.instructor?.lastName || ''}`.trim()
+                    : 'Unknown Instructor'}
+                </span>
                 <span>•</span>
                 <span>{formatDuration(course.totalDuration)}</span>
                 <span>•</span>
