@@ -16,11 +16,14 @@ import { BadRequestException } from '@nestjs/common';
 import { RemindersService } from '../../reminders/reminders.service';
 import {
   ReminderRepeatTypeEnum,
+  ReminderStatusEnum,
   ReminderTargetTypeEnum,
 } from '../../reminders/dto/reminder.dto';
 import { ApprovalsService } from '../../approvals/approvals.service';
 import { MasterApprovalsService } from '../../approvals/master-approvals.service';
 import { APPROVAL_ENTITIES } from '../../../shared/constants/approval-entities';
+import { APPROVAL_CHAIN_STATUS } from '../../../shared/constants/approval-status';
+import { ROLE_CODES } from '../../../shared/constants/role-codes';
 import { ApprovalStatus } from '../../approvals/dto/submit-approval.dto';
 
 const AUDIT_SORT_FIELDS = ['code', 'auditDate', 'createdAt', 'updatedAt', 'status'] as const;
@@ -619,15 +622,14 @@ export class AuditSchedulesService {
         where: {
           entity: 't_audits',
           entityId: auditId,
-          status: 'PENDING', // Only cancel pending reminders
+          status: ReminderStatusEnum.PENDING,
         },
       });
 
-      // Cancel each reminder by updating status to CANCELLED
       for (const reminder of reminders) {
         await this.prisma.reminder.update({
           where: { id: reminder.id },
-          data: { status: 'CANCELLED' },
+          data: { status: ReminderStatusEnum.CANCELLED },
         });
       }
     } catch (error) {
@@ -1095,7 +1097,7 @@ export class AuditSchedulesService {
         include: { role: true },
       });
 
-      const isSuperAdmin = user?.role?.code === 'SUPER_ADMIN';
+      const isSuperAdmin = user?.role?.code === ROLE_CODES.SUPER_ADMIN;
 
       // Validate user is assigned to the audit item (via department or user assignment)
       // Bypass this check if user is SUPER_ADMIN
@@ -1171,7 +1173,7 @@ export class AuditSchedulesService {
       );
 
       let newStatus = auditItem.status;
-      if (approvalStatus.currentStatus === 'COMPLETED') {
+      if (approvalStatus.currentStatus === APPROVAL_CHAIN_STATUS.COMPLETED) {
         newStatus = GeneralStatusEnum.CLOSE;
       }
 

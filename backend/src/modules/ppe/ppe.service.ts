@@ -23,7 +23,11 @@ import { FindSafetyEquipmentTypeDto } from './dto/find-safety-equipment-type.dto
 import { FindSafetyEquipmentDto } from './dto/find-safety-equipment.dto';
 import { FindMovementsDto } from './dto/find-movements.dto';
 import { StockMovementDto } from './dto/stock-movement.dto';
-import { Prisma } from '@prisma/client';
+import {
+  PPEStockStatusEnum,
+  PPEWithdrawalStatusEnum,
+  Prisma,
+} from '@prisma/client';
 
 @Injectable()
 export class PPEService {
@@ -177,7 +181,7 @@ export class PPEService {
                     lte: today,
                 },
                 status: {
-                    not: 'EXPIRED',
+                    not: PPEStockStatusEnum.EXPIRED,
                 },
                 stock: {
                     deletedAt: null,
@@ -185,7 +189,7 @@ export class PPEService {
                 },
             },
             data: {
-                status: 'EXPIRED' as any,
+                status: PPEStockStatusEnum.EXPIRED,
             },
         });
     }
@@ -222,7 +226,7 @@ export class PPEService {
                             initialQuantity: item.initialQuantity,
                             currentQuantity: item.initialQuantity,
                             reservedQuantity: 0,
-                            status: 'AVAILABLE' as any,
+                            status: PPEStockStatusEnum.AVAILABLE,
                             order: item.order || index + 1,
                         },
                     }),
@@ -430,7 +434,7 @@ export class PPEService {
                                 initialQuantity: itemDto.initialQuantity || 0,
                                 currentQuantity: itemDto.initialQuantity || 0,
                                 reservedQuantity: 0,
-                                status: 'AVAILABLE' as any,
+                                status: PPEStockStatusEnum.AVAILABLE,
                                 order: itemDto.order || 0,
                             },
                         });
@@ -480,7 +484,7 @@ export class PPEService {
         // Check if stock has active withdrawals
         const activeWithdrawals = stock.items.some((item: any) =>
             item.withdrawalItems.some((wi: any) =>
-                wi.withdrawal.status !== 'CANCELLED' && wi.withdrawal.deletedAt === null
+                wi.withdrawal.status !== PPEWithdrawalStatusEnum.CANCELLED && wi.withdrawal.deletedAt === null
             )
         );
 
@@ -617,14 +621,14 @@ export class PPEService {
 
         // Handle status filtering
         if (availableOnly && !includeExpired) {
-            where.status = 'AVAILABLE';
+            where.status = PPEStockStatusEnum.AVAILABLE;
             where.currentQuantity = {
                 gt: 0,
             };
         } else if (includeExpired) {
             // Include both AVAILABLE and EXPIRED items
             where.status = {
-                in: ['AVAILABLE', 'EXPIRED'],
+                in: [PPEStockStatusEnum.AVAILABLE, PPEStockStatusEnum.EXPIRED],
             };
             where.currentQuantity = {
                 gt: 0,
@@ -805,7 +809,7 @@ export class PPEService {
             this.errorHandler.throwIfNotFoundById('PPEStockItem', item.stockItemId, stockItem);
 
             // Allow AVAILABLE and EXPIRED status for withdrawal (EXPIRED for disposal)
-            if (stockItem.status !== 'AVAILABLE' && stockItem.status !== 'EXPIRED') {
+            if (stockItem.status !== PPEStockStatusEnum.AVAILABLE && stockItem.status !== PPEStockStatusEnum.EXPIRED) {
                 this.errorHandler.throwBadRequest(
                     `Stock item ${item.stockItemId} is not available for withdrawal. Current status: ${stockItem.status}`,
                 );
@@ -833,7 +837,7 @@ export class PPEService {
                     jobPositionName: createWithdrawalDto.jobPositionName || null,
                     withdrawalLetterUrl: createWithdrawalDto.withdrawalLetterUrl || null,
                     notes: createWithdrawalDto.notes || null,
-                    status: 'PENDING' as any,
+                    status: PPEWithdrawalStatusEnum.PENDING,
                     createdBy,
                 },
             });
@@ -856,15 +860,15 @@ export class PPEService {
 
                     // Determine new status
                     let newStatus = stockItem.status;
-                    if (stockItem.status === 'EXPIRED') {
+                    if (stockItem.status === PPEStockStatusEnum.EXPIRED) {
                         // Keep EXPIRED status for expired items
-                        newStatus = 'EXPIRED' as any;
+                        newStatus = PPEStockStatusEnum.EXPIRED;
                     } else if (availableQuantity <= 0) {
                         // All stock is reserved
-                        newStatus = 'RESERVED' as any;
-                    } else if (newReservedQuantity > 0 && stockItem.status === 'AVAILABLE') {
+                        newStatus = PPEStockStatusEnum.RESERVED;
+                    } else if (newReservedQuantity > 0 && stockItem.status === PPEStockStatusEnum.AVAILABLE) {
                         // Some stock is reserved, but not all
-                        newStatus = 'AVAILABLE' as any; // Keep as AVAILABLE if still has available stock
+                        newStatus = PPEStockStatusEnum.AVAILABLE; // Keep as AVAILABLE if still has available stock
                     }
 
                     // Reserve stock
@@ -1063,7 +1067,7 @@ export class PPEService {
 
         this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
 
-        if (withdrawal.status !== 'PENDING') {
+        if (withdrawal.status !== PPEWithdrawalStatusEnum.PENDING) {
             this.errorHandler.throwBadRequest(`Withdrawal ${id} cannot be approved. Current status: ${withdrawal.status}`);
         }
 
@@ -1103,11 +1107,11 @@ export class PPEService {
                             // Determine new status after reducing reservation
                             let newStatus: any;
                             if (newReservedQuantity === 0) {
-                                newStatus = 'AVAILABLE';
+                                newStatus = PPEStockStatusEnum.AVAILABLE;
                             } else if (newReservedQuantity >= stockItem.currentQuantity) {
-                                newStatus = 'RESERVED';
+                                newStatus = PPEStockStatusEnum.RESERVED;
                             } else {
-                                newStatus = 'AVAILABLE';
+                                newStatus = PPEStockStatusEnum.AVAILABLE;
                             }
 
                             await tx["pPEStockItem"].update({
@@ -1134,7 +1138,7 @@ export class PPEService {
             const updatedWithdrawal = await tx["pPEWithdrawal"].update({
                 where: { id },
                 data: {
-                    status: 'APPROVED' as any,
+                    status: PPEWithdrawalStatusEnum.APPROVED,
                     notes: updateDto.notes || withdrawal.notes,
                 },
                 include: {
@@ -1176,7 +1180,7 @@ export class PPEService {
 
         this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
 
-        if (withdrawal.status !== 'APPROVED') {
+        if (withdrawal.status !== PPEWithdrawalStatusEnum.APPROVED) {
             this.errorHandler.throwBadRequest(`Withdrawal ${id} cannot be collected. Current status: ${withdrawal.status}`);
         }
 
@@ -1210,11 +1214,11 @@ export class PPEService {
                     if (newCurrentQuantity === 0) {
                         newStatus = 'ISSUED';
                     } else if (newReservedQuantity > 0 && newReservedQuantity >= newCurrentQuantity) {
-                        newStatus = 'RESERVED';
+                        newStatus = PPEStockStatusEnum.RESERVED;
                     } else if (newReservedQuantity > 0) {
-                        newStatus = 'AVAILABLE'; // Has both available and reserved stock
+                        newStatus = PPEStockStatusEnum.AVAILABLE; // Has both available and reserved stock
                     } else {
-                        newStatus = 'AVAILABLE';
+                        newStatus = PPEStockStatusEnum.AVAILABLE;
                     }
 
                     await tx["pPEStockItem"].update({
@@ -1240,7 +1244,7 @@ export class PPEService {
             const updatedWithdrawal = await tx["pPEWithdrawal"].update({
                 where: { id },
                 data: {
-                    status: 'COLLECTED' as any,
+                    status: PPEWithdrawalStatusEnum.COLLECTED,
                     collectedDate: new Date(),
                     collectedBy: updateDto.collectedBy || withdrawal.requestedBy,
                     notes: updateDto.notes || withdrawal.notes,
@@ -1285,7 +1289,7 @@ export class PPEService {
 
         this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
 
-        if (withdrawal.status !== 'PENDING') {
+        if (withdrawal.status !== PPEWithdrawalStatusEnum.PENDING) {
             this.errorHandler.throwBadRequest(`Withdrawal ${id} cannot be updated. Current status: ${withdrawal.status}. Only PENDING withdrawals can be updated.`);
         }
 
@@ -1309,9 +1313,9 @@ export class PPEService {
             // We verify this by checking if we have any reservation from this withdrawal (currentReservedFromThis > 0)
             const isReservedByThisWithdrawal = currentReservedFromThis > 0;
 
-            if (stockItem.status !== 'AVAILABLE' && stockItem.status !== 'EXPIRED') {
+            if (stockItem.status !== PPEStockStatusEnum.AVAILABLE && stockItem.status !== PPEStockStatusEnum.EXPIRED) {
                 // If status is RESERVED, it's only valid if it's reserved by THIS withdrawal
-                if (stockItem.status === 'RESERVED' && isReservedByThisWithdrawal) {
+                if (stockItem.status === PPEStockStatusEnum.RESERVED && isReservedByThisWithdrawal) {
                     // Valid case: The item is RESERVED, but because we (this withdrawal) hold some reservation
                     // We can proceed to check quantity
                 } else {
@@ -1343,16 +1347,16 @@ export class PPEService {
                 const availableQuantity = stockItem.currentQuantity - newReservedQuantity;
 
                 // Determine new status after releasing reservation
-                let newStatus: any;
-                if (stockItem.status === 'EXPIRED') {
+                let newStatus: PPEStockStatusEnum;
+                if (stockItem.status === PPEStockStatusEnum.EXPIRED) {
                     // Keep EXPIRED status for expired items
-                    newStatus = 'EXPIRED';
+                    newStatus = PPEStockStatusEnum.EXPIRED;
                 } else if (newReservedQuantity === 0) {
-                    newStatus = 'AVAILABLE';
+                    newStatus = PPEStockStatusEnum.AVAILABLE;
                 } else if (newReservedQuantity >= stockItem.currentQuantity) {
-                    newStatus = 'RESERVED';
+                    newStatus = PPEStockStatusEnum.RESERVED;
                 } else {
-                    newStatus = 'AVAILABLE';
+                    newStatus = PPEStockStatusEnum.AVAILABLE;
                 }
 
                 await tx["pPEStockItem"].update({
@@ -1401,18 +1405,18 @@ export class PPEService {
                     const availableQuantity = stockItem.currentQuantity - newReservedQuantity;
 
                     // Determine new status
-                    let newStatus: any;
-                    if (stockItem.status === 'EXPIRED') {
+                    let newStatus: PPEStockStatusEnum;
+                    if (stockItem.status === PPEStockStatusEnum.EXPIRED) {
                         // Keep EXPIRED status for expired items
-                        newStatus = 'EXPIRED' as any;
+                        newStatus = PPEStockStatusEnum.EXPIRED;
                     } else if (availableQuantity <= 0) {
                         // All stock is reserved
-                        newStatus = 'RESERVED';
-                    } else if (newReservedQuantity > 0 && stockItem.status === 'AVAILABLE') {
+                        newStatus = PPEStockStatusEnum.RESERVED;
+                    } else if (newReservedQuantity > 0 && stockItem.status === PPEStockStatusEnum.AVAILABLE) {
                         // Some stock is reserved, but not all
-                        newStatus = 'AVAILABLE'; // Keep as AVAILABLE if still has available stock
+                        newStatus = PPEStockStatusEnum.AVAILABLE; // Keep as AVAILABLE if still has available stock
                     } else {
-                        newStatus = stockItem.status; // Preserve current status if already RESERVED or other
+                        newStatus = stockItem.status as PPEStockStatusEnum; // Preserve current status if already RESERVED or other
                     }
 
                     // Reserve stock
@@ -1480,7 +1484,7 @@ export class PPEService {
 
         this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
 
-        if (withdrawal.status === 'COLLECTED') {
+        if (withdrawal.status === PPEWithdrawalStatusEnum.COLLECTED) {
             this.errorHandler.throwBadRequest(`Withdrawal ${id} cannot be cancelled. It has already been collected.`);
         }
 
@@ -1503,16 +1507,16 @@ export class PPEService {
                     const availableQuantity = stockItem.currentQuantity - newReservedQuantity;
 
                     // Determine new status after releasing reservation
-                    let newStatus: any;
-                    if (stockItem.status === 'EXPIRED') {
+                    let newStatus: PPEStockStatusEnum;
+                    if (stockItem.status === PPEStockStatusEnum.EXPIRED) {
                         // Keep EXPIRED status for expired items
-                        newStatus = 'EXPIRED';
+                        newStatus = PPEStockStatusEnum.EXPIRED;
                     } else if (newReservedQuantity === 0) {
-                        newStatus = 'AVAILABLE';
+                        newStatus = PPEStockStatusEnum.AVAILABLE;
                     } else if (newReservedQuantity >= stockItem.currentQuantity) {
-                        newStatus = 'RESERVED';
+                        newStatus = PPEStockStatusEnum.RESERVED;
                     } else {
-                        newStatus = 'AVAILABLE';
+                        newStatus = PPEStockStatusEnum.AVAILABLE;
                     }
 
                     await tx["pPEStockItem"].update({
@@ -1529,7 +1533,7 @@ export class PPEService {
             const updatedWithdrawal = await tx["pPEWithdrawal"].update({
                 where: { id },
                 data: {
-                    status: 'CANCELLED' as any,
+                    status: PPEWithdrawalStatusEnum.CANCELLED,
                     notes: updateDto?.notes || withdrawal.notes,
                 },
                 include: {
@@ -1572,13 +1576,13 @@ export class PPEService {
         this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
 
         // Only allow delete if status is PENDING or CANCELLED
-        if (withdrawal.status !== 'PENDING' && withdrawal.status !== 'CANCELLED') {
+        if (withdrawal.status !== PPEWithdrawalStatusEnum.PENDING && withdrawal.status !== PPEWithdrawalStatusEnum.CANCELLED) {
             this.errorHandler.throwBadRequest(`Cannot delete withdrawal. Current status: ${withdrawal.status}. Only PENDING or CANCELLED withdrawals can be deleted.`);
         }
 
         return await this.prisma.$transaction(async (tx) => {
             // Release reserved stock if status is APPROVED
-            if (withdrawal.status === 'APPROVED') {
+            if (withdrawal.status === PPEWithdrawalStatusEnum.APPROVED) {
                 await Promise.all(
                     withdrawal.items.map(async (item: any) => {
                         const reservedQty = item.approvedQuantity || item.requestedQuantity;
@@ -1596,13 +1600,13 @@ export class PPEService {
                         const availableQuantity = stockItem.currentQuantity - newReservedQuantity;
 
                         // Determine new status after releasing reservation
-                        let newStatus: any;
+                        let newStatus: PPEStockStatusEnum;
                         if (newReservedQuantity === 0) {
-                            newStatus = 'AVAILABLE';
+                            newStatus = PPEStockStatusEnum.AVAILABLE;
                         } else if (newReservedQuantity >= stockItem.currentQuantity) {
-                            newStatus = 'RESERVED';
+                            newStatus = PPEStockStatusEnum.RESERVED;
                         } else {
-                            newStatus = 'AVAILABLE';
+                            newStatus = PPEStockStatusEnum.AVAILABLE;
                         }
 
                         await tx["pPEStockItem"].update({
@@ -2121,7 +2125,7 @@ export class PPEService {
             where: {
                 stockItemId: { in: stockItemIds },
                 withdrawal: {
-                    status: 'COLLECTED',
+                    status: PPEWithdrawalStatusEnum.COLLECTED,
                     deletedAt: null,
                 },
             },

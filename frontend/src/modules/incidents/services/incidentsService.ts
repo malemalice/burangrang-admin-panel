@@ -9,6 +9,8 @@ import api from '@/core/lib/api';
 const incidentsService = {
   getAll: async (
     params: PaginationParams & {
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
       isActive?: boolean;
       areaId?: string | string[];
       riskCategoryId?: string | string[];

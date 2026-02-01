@@ -6,6 +6,7 @@ import {
   IsEnum,
   IsInt,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import {
   GenderEnum,
@@ -21,6 +22,7 @@ export class CreateIncidentInjuredPersonDto {
   @ApiProperty({ required: false })
   injuredPersonName?: string;
 
+  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
   @IsEnum(GenderEnum)
   @IsOptional()
   @ApiProperty({ enum: GenderEnum, required: false })

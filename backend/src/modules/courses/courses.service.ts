@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ActivityLoggerService } from '../../shared/services/activity-logger.service';
+import { COURSE_STATUS } from './constants/course-status';
 
 @Injectable()
 export class CoursesService {
@@ -274,11 +275,11 @@ export class CoursesService {
     // Handle publishing
     if (updateCourseDto.isPublished === true && !existingCourse.isPublished) {
       updateCourseDto.publishedAt = new Date();
-      updateCourseDto.status = 'published';
+      updateCourseDto.status = COURSE_STATUS.PUBLISHED;
     } else if (updateCourseDto.isPublished === false && existingCourse.isPublished) {
       updateCourseDto.publishedAt = null;
-      if (existingCourse.status === 'published') {
-        updateCourseDto.status = 'draft';
+      if (existingCourse.status === COURSE_STATUS.PUBLISHED) {
+        updateCourseDto.status = COURSE_STATUS.DRAFT;
       }
     }
 

@@ -19,6 +19,7 @@ import { Prisma, GeneralStatusEnum, RiskMitigationRecord } from '@prisma/client'
 import { RemindersService } from '../../reminders/reminders.service';
 import {
   ReminderRepeatTypeEnum,
+  ReminderStatusEnum,
   ReminderTargetTypeEnum,
 } from '../../reminders/dto/reminder.dto';
 import { RiskMitigationDataDto, RiskMitigationRecordDto } from '../../risk-assessment/dto/risk-mitigation-data.dto';
@@ -1200,15 +1201,14 @@ export class InspectionsService {
         where: {
           entity: 't_inspections',
           entityId: inspectionId,
-          status: 'PENDING', // Only cancel pending reminders
+          status: ReminderStatusEnum.PENDING,
         },
       });
 
-      // Cancel each reminder by updating status to CANCELLED
       for (const reminder of reminders) {
         await this.prisma.reminder.update({
           where: { id: reminder.id },
-          data: { status: 'CANCELLED' },
+          data: { status: ReminderStatusEnum.CANCELLED },
         });
       }
     } catch (error) {

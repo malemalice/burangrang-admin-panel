@@ -4,6 +4,7 @@ import { CreateAuditCriteriaDto } from '../dto/create-audit-criteria.dto';
 import { UpdateAuditCriteriaDto } from '../dto/update-audit-criteria.dto';
 import { AuditCriteriaDto } from '../dto/audit-criteria.dto';
 import { Prisma, TransitionTypeEnum } from '@prisma/client';
+import { PRISMA_ERROR_CODES } from '../../../shared/constants/prisma-errors';
 import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
 
@@ -135,7 +136,7 @@ export class AuditCriteriaService {
         data,
       });
     } catch (error: any) {
-      if (error?.code === 'P2002') {
+      if (error?.code === PRISMA_ERROR_CODES.UNIQUE_VIOLATION) {
         this.errorHandler.throwConflictCustom('Order number already exists');
       }
       throw error;

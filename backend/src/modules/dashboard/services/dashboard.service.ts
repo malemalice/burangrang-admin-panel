@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
-import { RiskRatingEnum } from '@prisma/client';
+import { GeneralStatusEnum, RiskRatingEnum } from '@prisma/client';
 import {
   RiskOverview,
   DepartmentProfile,
@@ -87,7 +87,7 @@ export class DashboardService {
       {} as { [key in RiskRatingEnum]: number },
     );
 
-    const approvedAssessments = assessments.filter((a) => a.status === 'DONE').length;
+    const approvedAssessments = assessments.filter((a) => a.status === GeneralStatusEnum.DONE).length;
 
     return {
       departmentId,
@@ -189,13 +189,13 @@ export class DashboardService {
     ]);
 
     const totalAssessments = assessments.length;
-    const approvedAssessments = assessments.filter((a) => a.status === 'DONE').length;
-    const pendingAssessments = assessments.filter((a) => a.status === 'WAITING_APPROVAL').length;
-    const rejectedAssessments = assessments.filter((a) => a.status === 'REJECTED').length;
+    const approvedAssessments = assessments.filter((a) => a.status === GeneralStatusEnum.DONE).length;
+    const pendingAssessments = assessments.filter((a) => a.status === GeneralStatusEnum.WAITING_APPROVAL).length;
+    const rejectedAssessments = assessments.filter((a) => a.status === GeneralStatusEnum.REJECTED).length;
 
     const departmentCompliance = departments.map((dept) => {
       const deptAssessments = assessments.filter((a) => a.departmentId === dept.id);
-      const deptApproved = deptAssessments.filter((a) => a.status === 'DONE').length;
+      const deptApproved = deptAssessments.filter((a) => a.status === GeneralStatusEnum.DONE).length;
       
       return {
         departmentId: dept.id,

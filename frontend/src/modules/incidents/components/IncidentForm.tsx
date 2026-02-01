@@ -81,10 +81,10 @@ const generateIncidentCode = (): string => {
   return `ICD${year}${month}${date}${hour}${minute}${second}`;
 };
 
-// Schema for injured person
+// Schema for injured person - gender allows blank (empty string) to match create behavior
 const injuredPersonSchema = z.object({
   injuredPersonName: z.string().optional(),
-  gender: z.nativeEnum(GenderEnum).optional(),
+  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.undefined()]).optional().transform((val) => (val === '' ? undefined : val)),
   levelOfInjury: z.nativeEnum(LevelOfInjuryEnum).default(LevelOfInjuryEnum.NOT_SPECIFIED),
   injuredBodyPart: z.nativeEnum(InjuredBodyPartEnum).default(InjuredBodyPartEnum.NOT_SPECIFIED),
   typeOfInjury: z.nativeEnum(TypeOfInjuryEnum).default(TypeOfInjuryEnum.NOT_SPECIFIED),
@@ -92,20 +92,28 @@ const injuredPersonSchema = z.object({
   departmentId: z.string().optional(),
 });
 
-// Schema for witness
+// Schema for witness - gender allows blank (empty string) to match create behavior
 const witnessSchema = z.object({
   witnessName: z.string().optional(),
-  gender: z.nativeEnum(GenderEnum).optional(),
+  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.undefined()]).optional().transform((val) => (val === '' ? undefined : val)),
   departmentId: z.string().optional(),
 });
 
-// Schema for asset
+// Schema for asset - quantity allows blank (empty string) to match create behavior
 const assetSchema = z.object({
   entity: z.nativeEnum(EquipmentEntityEnum),
   entityId: z.string().min(1, 'Asset selection is required'),
   assetName: z.string().min(1, 'Asset name is required'),
   assetCode: z.string().optional(),
-  quantity: z.number().int().positive().optional(),
+  quantity: z.union([
+    z.number().int().positive(),
+    z.string(),
+    z.undefined(),
+  ]).optional().transform((val) => {
+    if (val === '' || val === undefined || val === null) return undefined;
+    const num = typeof val === 'number' ? val : Number(val);
+    return isNaN(num) || num < 1 ? undefined : Math.floor(num);
+  }),
 });
 
 // Main form schema

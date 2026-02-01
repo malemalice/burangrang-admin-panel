@@ -10,7 +10,7 @@ import {
   ApprovalStatusHistory,
   MasterApprovalDto,
 } from './dto/master-approval.dto';
-import { Prisma } from '@prisma/client';
+import { GeneralStatusEnum, Prisma } from '@prisma/client';
 import { SubmitApprovalDto, ApprovalStatus } from './dto/submit-approval.dto';
 import { User } from 'src/shared/types';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
@@ -21,6 +21,10 @@ import {
   APPROVAL_ENTITY_TO_DEPARTMENT_COLUMN,
   APPROVAL_ENTITY_TO_TABLE,
 } from '../../shared/constants/approval-entities';
+import {
+  APPROVAL_CHAIN_STATUS,
+  ApprovalChainStatus,
+} from '../../shared/constants/approval-status';
 import {
   APPROVAL_FIELD_MARKERS,
   isApprovalFieldMarker,
@@ -459,7 +463,7 @@ export class MasterApprovalsService {
       // Special handling: AUDIT_ITEM stores departments in a junction table
       // (`_AuditItemToDepartment` → Prisma model `auditItemToDepartment`)
       // so there is no direct department FK column on `t_audit_items`.
-      if (entityName === 'AUDIT_ITEM') {
+      if (entityName === APPROVAL_ENTITIES.AUDIT_ITEM) {
         const result = await this.prisma.auditItemToDepartment.findFirst({
           where: { auditItemId: entityId },
           select: { departmentId: true },
@@ -650,16 +654,16 @@ export class MasterApprovalsService {
    * Source entity status when an approval chain completes.
    * Some entities use a different "final" status than DONE.
    */
-  private getCompletedSourceStatus(entityName: string): string {
+  private getCompletedSourceStatus(entityName: string): GeneralStatusEnum {
     // Audit item uses CLOSE as the terminal state (not DONE)
-    if (entityName === 'AUDIT_ITEM') {
-      return 'CLOSE';
+    if (entityName === APPROVAL_ENTITIES.AUDIT_ITEM) {
+      return GeneralStatusEnum.CLOSE;
     }
     // Incident uses CLOSE as the terminal state (not DONE)
-    if (entityName === 'INCIDENT') {
-      return 'CLOSE';
+    if (entityName === APPROVAL_ENTITIES.INCIDENT) {
+      return GeneralStatusEnum.CLOSE;
     }
-    return 'DONE';
+    return GeneralStatusEnum.DONE;
   }
 
   async checkApprovalRights(
@@ -848,18 +852,18 @@ export class MasterApprovalsService {
     });
 
     // Determine current status and next approver
-    let currentStatus = 'PENDING';
+    let currentStatus: ApprovalChainStatus = APPROVAL_CHAIN_STATUS.PENDING;
     let nextApprover: ApprovalStatusHistory['nextApprover'] = null;
 
     if (history.length > 0) {
       const lastApproval = history[history.length - 1];
-      currentStatus = lastApproval.status;
+      currentStatus = lastApproval.status as ApprovalChainStatus;
 
         // If last approval was approved, find next approver
-      if (lastApproval.status === 'APPROVED') {
+      if (lastApproval.status === APPROVAL_CHAIN_STATUS.APPROVED) {
         // Find the highest approved line number to determine next approver
         const approvedLines = approvalHistory
-          .filter((a) => a.status === 'APPROVED')
+          .filter((a) => a.status === APPROVAL_CHAIN_STATUS.APPROVED)
           .map((a) => {
             const matchingItem = masterApproval.items.find((item) =>
               approvalMatchesItem(a, item),
@@ -889,9 +893,9 @@ export class MasterApprovalsService {
             },
           };
         } else {
-          currentStatus = 'COMPLETED';
+          currentStatus = APPROVAL_CHAIN_STATUS.COMPLETED;
         }
-      } else if (lastApproval.status === 'REJECTED') {
+      } else if (lastApproval.status === APPROVAL_CHAIN_STATUS.REJECTED) {
         // Handle resubmission: continue from the rejected line
         const rejectedLine = lastApproval.line;
         const rejectedItem = masterApproval.items.find(
@@ -935,7 +939,7 @@ export class MasterApprovalsService {
       // Check if this line has been completed (only APPROVED, not REJECTED)
       const completedApproval = approvalHistory.find(
         (approval) =>
-          approval.status === 'APPROVED' &&
+          approval.status === APPROVAL_CHAIN_STATUS.APPROVED &&
           approvalMatchesItem(approval, item),
       );
 
@@ -1023,9 +1027,9 @@ export class MasterApprovalsService {
     // If approval is rejected, set entity status to REJECTED
     let sourceStatus = this.getCompletedSourceStatus(submitApprovalDto.entity);
     if (submitApprovalDto.status === ApprovalStatus.REJECTED) {
-      sourceStatus = 'REJECTED';
+      sourceStatus = GeneralStatusEnum.REJECTED;
     } else if (checkApprovalStatus.nextApprover) {
-      sourceStatus = 'WAITING_APPROVAL';
+      sourceStatus = GeneralStatusEnum.WAITING_APPROVAL;
     }
     await this.updateSourceEntity(
       submitApprovalDto.dataId,

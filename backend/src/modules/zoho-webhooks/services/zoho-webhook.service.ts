@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ZOHO_EVENT_TYPES } from '../constants/zoho-event-types';
 import { ZohoWebhookDto } from '../dto/zoho-webhook.dto';
 
 @Injectable()
@@ -10,18 +11,18 @@ export class ZohoWebhookService {
 
     try {
       switch (eventType) {
-        case 'contact.created':
-        case 'contact.updated':
+        case ZOHO_EVENT_TYPES.CONTACT_CREATED:
+        case ZOHO_EVENT_TYPES.CONTACT_UPDATED:
           await this.handleContactEvent(payload);
           break;
 
-        case 'lead.created':
-        case 'lead.updated':
+        case ZOHO_EVENT_TYPES.LEAD_CREATED:
+        case ZOHO_EVENT_TYPES.LEAD_UPDATED:
           await this.handleLeadEvent(payload);
           break;
 
-        case 'deal.created':
-        case 'deal.updated':
+        case ZOHO_EVENT_TYPES.DEAL_CREATED:
+        case ZOHO_EVENT_TYPES.DEAL_UPDATED:
           await this.handleDealEvent(payload);
           break;
 

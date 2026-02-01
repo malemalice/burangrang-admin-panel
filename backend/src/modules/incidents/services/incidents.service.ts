@@ -10,13 +10,16 @@ import {
   FindIncidentsDto,
 } from '../dto';
 import {
-  Prisma,
+  EquipmentEntityEnum as PrismaEquipmentEntityEnum,
   GeneralStatusEnum,
   IncidentTypeEnum,
   IncidentClassificationEnum,
+  Prisma,
   PriorityEnum,
   SourceEnum,
 } from '@prisma/client';
+import { APPROVAL_CHAIN_STATUS } from '../../../shared/constants/approval-status';
+import { ROLE_CODES } from '../../../shared/constants/role-codes';
 import { IncidentInjuredPersonDto } from '../dto/incident-injured-person.dto';
 import { IncidentWitnessDto } from '../dto/incident-witness.dto';
 import { IncidentAssetDto } from '../dto/incident-asset.dto';
@@ -160,7 +163,7 @@ export class IncidentsService {
       where: { id: userId },
       include: { role: true },
     });
-    const isSuperAdmin = user?.role?.code === 'SUPER_ADMIN';
+    const isSuperAdmin = user?.role?.code === ROLE_CODES.SUPER_ADMIN;
     if (isSuperAdmin) return;
     const allowed = status === GeneralStatusEnum.OPEN || status === GeneralStatusEnum.CLOSE;
     if (!allowed) {
@@ -264,10 +267,11 @@ export class IncidentsService {
     data: IncidentDto[];
     meta: { total: number; page: number; limit: number };
   }> {
+    const VALID_SORT_FIELDS = ['code', 'subject', 'incidentDate', 'createdAt', 'updatedAt', 'status', 'priority'] as const;
     const {
       page = 1,
       limit = 10,
-      sortBy = 'code',
+      sortBy: rawSortBy = 'createdAt',
       sortOrder = 'desc',
       isActive,
       areaId,
@@ -281,6 +285,8 @@ export class IncidentsService {
       assigneeId,
       search,
     } = options || {};
+
+    const sortBy = VALID_SORT_FIELDS.includes(rawSortBy as any) ? rawSortBy : 'createdAt';
 
     const where: Prisma.IncidentWhereInput = {};
 
@@ -410,21 +416,21 @@ export class IncidentsService {
             incident.assets.map(async (asset) => {
               if (asset.entity && asset.entityId) {
                 try {
-                  if (asset.entity === 'ASSET') {
+                  if (asset.entity === PrismaEquipmentEntityEnum.ASSET) {
                     const assetData = await this.prisma.asset.findUnique({
                       where: { id: asset.entityId },
                     });
                     if (assetData) {
                       (asset as any).asset = assetData;
                     }
-                  } else if (asset.entity === 'HEAVY_EQUIPMENT') {
+                  } else if (asset.entity === PrismaEquipmentEntityEnum.HEAVY_EQUIPMENT) {
                     const heavyEquipment = await this.prisma.heavyEquipment.findUnique({
                       where: { id: asset.entityId },
                     });
                     if (heavyEquipment) {
                       (asset as any).heavyEquipment = heavyEquipment;
                     }
-                  } else if (asset.entity === 'SAFETY_EQUIPMENT') {
+                  } else if (asset.entity === PrismaEquipmentEntityEnum.SAFETY_EQUIPMENT) {
                     const safetyEquipment = await this.prisma.safetyEquipment.findUnique({
                       where: { id: asset.entityId },
                       include: { safetyEquipmentType: true },
@@ -504,21 +510,21 @@ export class IncidentsService {
         mappedIncident.assets.map(async (asset) => {
           if (asset.entity && asset.entityId) {
             try {
-              if (asset.entity === 'ASSET') {
+              if (asset.entity === PrismaEquipmentEntityEnum.ASSET) {
                 const assetData = await this.prisma.asset.findUnique({
                   where: { id: asset.entityId },
                 });
                 if (assetData) {
                   (asset as any).asset = assetData;
                 }
-              } else if (asset.entity === 'HEAVY_EQUIPMENT') {
+              } else if (asset.entity === PrismaEquipmentEntityEnum.HEAVY_EQUIPMENT) {
                 const heavyEquipment = await this.prisma.heavyEquipment.findUnique({
                   where: { id: asset.entityId },
                 });
                 if (heavyEquipment) {
                   (asset as any).heavyEquipment = heavyEquipment;
                 }
-              } else if (asset.entity === 'SAFETY_EQUIPMENT') {
+              } else if (asset.entity === PrismaEquipmentEntityEnum.SAFETY_EQUIPMENT) {
                 const safetyEquipment = await this.prisma.safetyEquipment.findUnique({
                   where: { id: asset.entityId },
                   include: { safetyEquipmentType: true },
@@ -872,7 +878,7 @@ export class IncidentsService {
       );
 
       let nextStatus: GeneralStatusEnum;
-      if (approvalStatus.currentStatus === 'COMPLETED') {
+      if (approvalStatus.currentStatus === APPROVAL_CHAIN_STATUS.COMPLETED) {
         nextStatus = GeneralStatusEnum.CLOSE;
       } else {
         nextStatus = GeneralStatusEnum.WAITING_APPROVAL;
