@@ -5,6 +5,10 @@ import { FileEdit, ArrowLeft, FileDown, Send } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
 import { toast } from 'sonner';
 
+import { useAuth } from '@/core/lib/auth';
+import api from '@/core/lib/api';
+import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
+import roleService from '@/modules/roles/services/roleService';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import PageHeader from '@/core/components/ui/PageHeader';
@@ -31,8 +35,10 @@ import { getStatusBadge } from '../utils/inspectionBadgeHelpers';
 const InspectionDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const { toPDF, targetRef } = usePDF({ filename: 'inspection.pdf' });
-  
+  const [isSuperUser, setIsSuperUser] = useState(false);
+
   const {
     inspection,
     items,
@@ -60,6 +66,28 @@ const InspectionDetailPage = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [approvalRights, setApprovalRights] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!currentUser?.id) return;
+      try {
+        const response = await api.get('/users/me');
+        const userData = response.data;
+        let roleCode: string | null = null;
+        if (userData.role && typeof userData.role === 'object' && 'code' in userData.role) {
+          roleCode = userData.role.code;
+        }
+        if (!roleCode && userData.roleId) {
+          const role = await roleService.getRoleById(userData.roleId);
+          roleCode = role.code;
+        }
+        setIsSuperUser(roleCode === ROLE_CODES.SUPER_ADMIN);
+      } catch (error) {
+        console.error('Failed to fetch user role:', error);
+      }
+    };
+    fetchUserRole();
+  }, [currentUser?.id]);
 
   const handleSubmit = async () => {
     if (!id || !inspection) return;
@@ -260,8 +288,17 @@ const InspectionDetailPage = () => {
         </div>
       </PageHeader>
 
-      {/* Inspection Details & Items Summary Card - Side by Side */}
       <div ref={targetRef}>
+        {/* PDF Export Header - Only visible in PDF */}
+        <div className="mb-6 print:block hidden">
+          <h1 className="text-2xl font-bold mb-2">Inspection Report: {inspection.code}</h1>
+          <p className="text-muted-foreground">Created on {format(new Date(inspection.createdAt), 'dd MMM yyyy')}</p>
+          <div className="mt-2">
+            {getStatusBadge(inspection.status)}
+          </div>
+        </div>
+
+        {/* Inspection Details & Items Summary Card - Side by Side */}
         <Card>
           <CardHeader>
             <CardTitle>Inspection Details</CardTitle>
@@ -299,38 +336,42 @@ const InspectionDetailPage = () => {
             </div>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Inspection Items Section */}
-      <InspectionItemsTable
-        items={items}
-        isLoading={isLoadingItems}
-        pageIndex={pageIndex}
-        limit={limit}
-        totalItems={totalItems}
-        onPageChange={setPageIndex}
-        onPageSizeChange={setLimit}
-        onSearch={handleSearch}
-        onApplyFilters={handleApplyFilters}
-        onAddItem={() => setIsAddItemDialogOpen(true)}
-        onViewItem={handleViewItem}
-        onEditItem={handleEditItem}
-        onEditItemAsCreator={handleEditItemAsCreator}
-        onEditItemAsUpdater={handleEditItemAsUpdater}
-        onEditItemAsVerifier={handleEditItemAsVerifier}
-        onDeleteItem={handleDeleteItemClick}
-        onDeleteConfirm={handleDeleteItemConfirm}
-        itemToDelete={itemToDelete}
-        deleteDialogOpen={deleteDialogOpen}
-        onDeleteDialogChange={(open) => {
-          if (!open) {
-            setDeleteDialogOpen(false);
-            setItemToDelete(null);
-          }
-        }}
-        hideActions={inspection.status === GeneralStatusEnum.DONE}
-        approvalRights={approvalRights}
-      />
+        {/* Inspection Items Section */}
+        <div className="mt-6">
+          <h2 className="text-xl font-bold mb-4">Inspection Items</h2>
+          <InspectionItemsTable
+            items={items}
+            isLoading={isLoadingItems}
+            pageIndex={pageIndex}
+            limit={limit}
+            totalItems={totalItems}
+            onPageChange={setPageIndex}
+            onPageSizeChange={setLimit}
+            onSearch={handleSearch}
+            onApplyFilters={handleApplyFilters}
+            onAddItem={() => setIsAddItemDialogOpen(true)}
+            onViewItem={handleViewItem}
+            onEditItem={handleEditItem}
+            onEditItemAsCreator={handleEditItemAsCreator}
+            onEditItemAsUpdater={handleEditItemAsUpdater}
+            onEditItemAsVerifier={handleEditItemAsVerifier}
+            onDeleteItem={handleDeleteItemClick}
+            onDeleteConfirm={handleDeleteItemConfirm}
+            itemToDelete={itemToDelete}
+            deleteDialogOpen={deleteDialogOpen}
+            onDeleteDialogChange={(open) => {
+              if (!open) {
+                setDeleteDialogOpen(false);
+                setItemToDelete(null);
+              }
+            }}
+            hideActions={inspection.status === GeneralStatusEnum.DONE}
+            approvalRights={approvalRights}
+            isSuperUser={isSuperUser}
+          />
+        </div>
+      </div>
 
       {/* Add Item Dialog */}
       <Dialog open={isAddItemDialogOpen} onOpenChange={setIsAddItemDialogOpen}>

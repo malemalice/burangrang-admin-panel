@@ -789,64 +789,23 @@ const InspectionItemForm = ({
     try {
       setIsSubmittingApproval(true);
       
-      // Submit approval
+      // Submit approval - backend handles status update based on approval workflow
+      // If there's a next approver, status stays WAITING_APPROVAL
+      // If all approvals are complete, status changes to CLOSE
       await inspectionItemsService.submitApproval(
         initialItem.id,
         'APPROVED',
         approvalNotes || 'Approved'
       );
 
-      // Update status to CLOSE and submit the form
-      form.setValue('status', GeneralStatusEnum.CLOSE);
-      
-      // Get form data and update status
-      const formData = form.getValues();
-      
-      // Upload images first if any
-      let uploadedImages: { imageUrl: string; caption: string; type: InspectionImageTypeEnum; order: number }[] = [];
-      if (beforeImages.length > 0 || afterImages.length > 0) {
-        uploadedImages = await uploadImages();
-      }
-
-      // Handle mitigation data
-      const hasMitigation = formData.mitigation && (
-        formData.mitigation.eliminate ||
-        formData.mitigation.transfer ||
-        formData.mitigation.reduce ||
-        formData.mitigation.accept ||
-        formData.mitigation.legalAspect
-      );
-
-      // Build updated data with all required fields
-      const updatedData: CreateInspectionItemDTO = {
-        areaId: formData.areaId,
-        riskCategoryId: formData.riskCategoryId,
-        riskId: formData.riskId,
-        assignedDepartmentId: formData.assignedDepartmentId,
-        assigneeId: formData.assigneeId || undefined,
-        status: GeneralStatusEnum.CLOSE,
-        description: formData.description || undefined,
-        followUpNotes: formData.followUpNotes || undefined,
-        findings: formData.findings || undefined,
-        dueDateAt: formData.dueDateAt || undefined,
-        images: uploadedImages,
-        mitigation: hasMitigation ? {
-          eliminate: formData.mitigation?.eliminate || undefined,
-          transfer: formData.mitigation?.transfer || undefined,
-          reduce: formData.mitigation?.reduce || undefined,
-          accept: formData.mitigation?.accept || undefined,
-          legalAspect: formData.mitigation?.legalAspect || undefined,
-        } : undefined,
-      };
-
-      // Submit the updated data
-      if (onSubmit) {
-        await onSubmit(updatedData);
-      }
-
-      toast.success('Inspection item approved and set to Close');
+      toast.success('Approval submitted successfully');
       setApproveDialogOpen(false);
       setApprovalNotes('');
+      
+      // Close the form/dialog and refresh parent view
+      if (onCancel) {
+        onCancel();
+      }
     } catch (error) {
       console.error('Failed to approve inspection item:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to approve inspection item');
@@ -873,6 +832,11 @@ const InspectionItemForm = ({
       toast.success('Inspection item rejected');
       setRejectDialogOpen(false);
       setApprovalNotes('');
+      
+      // Close the form/dialog and refresh parent view
+      if (onCancel) {
+        onCancel(); // This will close the form dialog
+      }
     } catch (error) {
       console.error('Failed to reject inspection item:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to reject inspection item');
