@@ -84,9 +84,7 @@ export class MasterApprovalsService {
       const item = sortedItems[i];
       // Use item.order if valid, otherwise fallback to index + 1
       const order = item.order && item.order > 0 ? item.order : i + 1;
-      
-      console.log(`[create] Creating item ${i + 1}: order=${order}, dept=${item.departmentId}, job=${item.jobPositionId}`);
-      
+
       await this.prisma.masterApprovalItem.create({
         data: {
           mApprovalId: masterApproval.id,
@@ -232,9 +230,7 @@ export class MasterApprovalsService {
         const item = sortedItems[i];
         // Use item.order if valid, otherwise fallback to index + 1
         const order = item.order && item.order > 0 ? item.order : i + 1;
-        
-        console.log(`[update] Creating item ${i + 1}: order=${order}, dept=${item.departmentId}, job=${item.jobPositionId}`);
-        
+
         await this.prisma.masterApprovalItem.create({
           data: {
             mApprovalId: id,
@@ -534,19 +530,7 @@ export class MasterApprovalsService {
       if (department) {
         return department;
       }
-      
-      // Entity has departmentId but department not found in database
-      console.error(
-        `[resolveSentinelDepartment] Department ${entityData.departmentId} not found in database`,
-      );
     }
-
-    // Cannot resolve sentinel - entity has no department data
-    // This should not happen if entity is properly configured
-    console.warn(
-      `[resolveSentinelDepartment] Cannot resolve sentinel ${sentinelValue}, entityData:`,
-      entityData,
-    );
 
     // Fallback to sentinel display label - this will prevent matching!
     return {
@@ -597,18 +581,7 @@ export class MasterApprovalsService {
       if (departmentHeadPosition) {
         return departmentHeadPosition;
       }
-      
-      // No suitable job position found
-      console.warn(
-        `[resolveSentinelJobPosition] No HEAD/Manager/Lead job position found for department ${resolvedDepartment.name}`,
-      );
     }
-
-    // Cannot resolve sentinel
-    console.warn(
-      `[resolveSentinelJobPosition] Cannot resolve sentinel ${sentinelValue}, entityData:`,
-      entityData,
-    );
 
     // Fallback to sentinel display label - this will prevent matching!
     return {
@@ -723,11 +696,8 @@ export class MasterApprovalsService {
     const currentStepItem = masterApproval?.items?.find(
       (i) => i.order === nextApprover.line,
     );
-    
+
     if (!currentStepItem) {
-      console.warn(
-        `[checkApprovalRights] No master approval item found for line ${nextApprover.line}`,
-      );
       return { canApprove: false };
     }
 
@@ -822,14 +792,6 @@ export class MasterApprovalsService {
       items: sortedItems,
     };
 
-    // DEBUG: Log master approval items with resolved values
-    console.log(`[checkApprovalStatus] Entity: ${entityName}, EntityId: ${entityId}`);
-    console.log(`[checkApprovalStatus] Master approval items (${sortedItems.length} items):`);
-    sortedItems.forEach((item) => {
-      console.log(`  - Order ${item.order}: dept=${item.department?.id || item.departmentId}, jobPos=${item.jobPosition?.id || item.jobPositionId}`);
-      console.log(`    Resolved dept name: ${item.department?.name}, jobPos name: ${item.jobPosition?.name}`);
-    });
-
     // For AUDIT_ITEM, get all assigned department IDs for matching approvals from any assigned dept
     let auditItemAssignedDeptIds: string[] = [];
     if (entityName === APPROVAL_ENTITIES.AUDIT_ITEM) {
@@ -870,10 +832,7 @@ export class MasterApprovalsService {
     ) => {
       const itemJobPosId = item.jobPosition?.id || item.jobPositionId;
       const itemDeptId = item.department?.id || item.departmentId;
-      
-      // DEBUG: Log matching attempt
-      console.log(`[approvalMatchesItem] Comparing approval (dept=${approval.departmentId}, jobPos=${approval.jobPositionId}) with item order ${item.order} (dept=${itemDeptId}, jobPos=${itemJobPosId})`);
-      
+
       // Check if item uses sentinel markers that couldn't be resolved
       // (resolved ID would still be the sentinel marker string)
       const jobPosIsSentinel = isApprovalFieldMarker(itemJobPosId);
@@ -883,19 +842,13 @@ export class MasterApprovalsService {
       // This means the entity data is missing or invalid
       // We should still try to match based on what we can verify
       if (jobPosIsSentinel || deptIsSentinel) {
-        console.warn(
-          `[approvalMatchesItem] Unresolved sentinels for item order ${item.order}: jobPos=${jobPosIsSentinel}, dept=${deptIsSentinel}`,
-        );
         // Cannot reliably match - return false
         // This will cause the approval to not be matched to this item
         return false;
       }
       
       // Standard matching: check job position first
-      if (itemJobPosId !== approval.jobPositionId) {
-        console.log(`[approvalMatchesItem] Job position mismatch: ${itemJobPosId} !== ${approval.jobPositionId}`);
-        return false;
-      }
+      if (itemJobPosId !== approval.jobPositionId) return false;
       
       // Special handling for AUDIT_ITEM which uses junction table for departments
       const usesDynamicDept =
@@ -903,15 +856,11 @@ export class MasterApprovalsService {
         isApprovalFieldMarker(item.departmentId); // Check original departmentId, not resolved
         
       if (usesDynamicDept) {
-        const result = auditItemAssignedDeptIds.includes(approval.departmentId);
-        console.log(`[approvalMatchesItem] AUDIT_ITEM dynamic dept match: ${result}`);
-        return result;
+        return auditItemAssignedDeptIds.includes(approval.departmentId);
       }
-      
+
       // Standard department match
-      const deptMatch = itemDeptId === approval.departmentId;
-      console.log(`[approvalMatchesItem] Dept match: ${deptMatch} (${itemDeptId} === ${approval.departmentId})`);
-      return deptMatch;
+      return itemDeptId === approval.departmentId;
     };
 
     // Map approval history with line numbers
@@ -953,12 +902,6 @@ export class MasterApprovalsService {
     let currentStatus: ApprovalChainStatus = APPROVAL_CHAIN_STATUS.PENDING;
     let nextApprover: ApprovalStatusHistory['nextApprover'] = null;
 
-    // DEBUG: Log approval history
-    console.log(`[checkApprovalStatus] Approval history (${approvalHistory.length} approvals):`);
-    approvalHistory.forEach((a) => {
-      console.log(`  - Approval: dept=${a.departmentId}, jobPos=${a.jobPositionId}, status=${a.status}`);
-    });
-
     if (history.length > 0) {
       const lastApproval = history[history.length - 1];
       currentStatus = lastApproval.status as ApprovalChainStatus;
@@ -969,29 +912,21 @@ export class MasterApprovalsService {
         const approvedLines = approvalHistory
           .filter((a) => a.status === APPROVAL_CHAIN_STATUS.APPROVED)
           .map((a) => {
-            console.log(`[checkApprovalStatus] Finding match for approval: dept=${a.departmentId}, jobPos=${a.jobPositionId}`);
             const matchingItem = masterApproval.items.find((item) =>
               approvalMatchesItem(a, item),
             );
-            console.log(`[checkApprovalStatus] Matching item found: ${matchingItem ? `order=${matchingItem.order}` : 'NONE'}`);
             return matchingItem?.order ?? -1;
           })
           .filter((order) => order !== -1); // Filter out invalid orders
 
-        console.log(`[checkApprovalStatus] Approved lines: ${JSON.stringify(approvedLines)}`);
-        
-        const maxApprovedLine = approvedLines.length > 0 
-          ? Math.max(...approvedLines) 
+        const maxApprovedLine = approvedLines.length > 0
+          ? Math.max(...approvedLines)
           : -1;
-
-        console.log(`[checkApprovalStatus] Max approved line: ${maxApprovedLine}`);
 
         // Find next approver after the last approved line
         const nextApprovalItem = masterApproval.items.find(
           (item) => item.order > maxApprovedLine,
         );
-
-        console.log(`[checkApprovalStatus] Next approval item: ${nextApprovalItem ? `order=${nextApprovalItem.order}` : 'NONE'}`);
 
         if (nextApprovalItem) {
           nextApprover = {
@@ -1011,9 +946,7 @@ export class MasterApprovalsService {
           const totalApprovalLines = masterApproval.items.length;
           // Count how many distinct lines have been approved
           const distinctApprovedLines = new Set(approvedLines).size;
-          
-          console.log(`[checkApprovalStatus] Total lines: ${totalApprovalLines}, Distinct approved: ${distinctApprovedLines}`);
-          
+
           if (distinctApprovedLines >= totalApprovalLines) {
             currentStatus = APPROVAL_CHAIN_STATUS.COMPLETED;
           } else {
@@ -1091,11 +1024,6 @@ export class MasterApprovalsService {
       };
     });
 
-    // DEBUG: Final result
-    console.log(`[checkApprovalStatus] FINAL RESULT:`);
-    console.log(`  - currentStatus: ${currentStatus}`);
-    console.log(`  - nextApprover: ${nextApprover ? `line=${nextApprover.line}, dept=${nextApprover.department.id}, jobPos=${nextApprover.jobPosition.id}` : 'NULL'}`);
-
     return {
       history,
       nextApprover,
@@ -1157,21 +1085,11 @@ export class MasterApprovalsService {
 
     // If approval is rejected, set entity status to REJECTED
     let sourceStatus = this.getCompletedSourceStatus(submitApprovalDto.entity);
-    console.log(`[submitApproval] Initial sourceStatus (completed): ${sourceStatus}`);
-    console.log(`[submitApproval] nextApprover exists: ${!!checkApprovalStatus.nextApprover}`);
-    
     if (submitApprovalDto.status === ApprovalStatus.REJECTED) {
       sourceStatus = GeneralStatusEnum.REJECTED;
-      console.log(`[submitApproval] Status set to REJECTED`);
     } else if (checkApprovalStatus.nextApprover) {
       sourceStatus = GeneralStatusEnum.WAITING_APPROVAL;
-      console.log(`[submitApproval] Status set to WAITING_APPROVAL (next approver exists)`);
-    } else {
-      console.log(`[submitApproval] Status remains ${sourceStatus} (no next approver - workflow complete)`);
     }
-    
-    console.log(`[submitApproval] FINAL sourceStatus: ${sourceStatus}`);
-    
     await this.updateSourceEntity(
       submitApprovalDto.dataId,
       submitApprovalDto.entity,
@@ -1204,15 +1122,11 @@ export class MasterApprovalsService {
         `Table name not found for entity ${entityName}`,
       );
     }
-    
-    console.log(`[updateSourceEntity] Updating ${tableName} id=${entityId} to status=${status}`);
-    
+
     // Update the source entity
-    const result = await this.prisma.$executeRaw(
+    await this.prisma.$executeRaw(
       Prisma.sql`UPDATE ${Prisma.raw(`"${tableName}"`)} SET status = ${Prisma.raw(`'${status}'::"GeneralStatusEnum"`)} WHERE id = ${entityId}`
     );
-    
-    console.log(`[updateSourceEntity] Rows affected: ${result}`);
   }
 
   /**
