@@ -17,6 +17,7 @@ import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
 import {
+  APPROVAL_ENTITIES,
   APPROVAL_ENTITY_TO_DEPARTMENT_COLUMN,
   APPROVAL_ENTITY_TO_TABLE,
 } from '../../shared/constants/approval-entities';
@@ -674,10 +675,41 @@ export class MasterApprovalsService {
       return { canApprove: false };
     }
 
-    // Check if user's department and job position match the next approver
+    const nextApprover = approvalStatus.nextApprover;
+
+    // AUDIT_ITEM with multiple assigned departments: allow approval if user is
+    // in ANY assigned department (and job position matches), not just the first
+    if (entityName === APPROVAL_ENTITIES.AUDIT_ITEM) {
+      const masterApproval = await this.prisma.masterApproval.findFirst({
+        where: { entity: entityName, isActive: true },
+        include: {
+          items: { orderBy: { order: 'asc' } },
+        },
+      });
+      const currentStepItem = masterApproval?.items?.find(
+        (i) => i.order === nextApprover.line,
+      );
+      const usesDynamicDepartment =
+        currentStepItem?.departmentId === APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT;
+
+      if (usesDynamicDepartment) {
+        const assignedDepts = await this.prisma.auditItemToDepartment.findMany({
+          where: { auditItemId: dataId },
+          select: { departmentId: true },
+        });
+        const assignedDeptIds = assignedDepts.map((d) => d.departmentId);
+        const canApprove =
+          user.departmentId != null &&
+          assignedDeptIds.includes(user.departmentId) &&
+          nextApprover.jobPosition.id === user.jobPositionId;
+        return { canApprove };
+      }
+    }
+
+    // Default: exact match on department and job position
     const canApprove =
-      approvalStatus.nextApprover.department.id === user.departmentId &&
-      approvalStatus.nextApprover.jobPosition.id === user.jobPositionId;
+      nextApprover.department.id === user.departmentId &&
+      nextApprover.jobPosition.id === user.jobPositionId;
 
     return { canApprove };
   }
@@ -730,6 +762,16 @@ export class MasterApprovalsService {
       items: sortedItems,
     };
 
+    // For AUDIT_ITEM, get all assigned department IDs for matching approvals from any assigned dept
+    let auditItemAssignedDeptIds: string[] = [];
+    if (entityName === APPROVAL_ENTITIES.AUDIT_ITEM) {
+      const assignedDepts = await this.prisma.auditItemToDepartment.findMany({
+        where: { auditItemId: entityId },
+        select: { departmentId: true },
+      });
+      auditItemAssignedDeptIds = assignedDepts.map((d) => d.departmentId);
+    }
+
     // Get ALL approval history for this entity, regardless of current m_approvals configuration
     // This ensures historical approvals are preserved even when m_approvals_item changes
     const approvalHistory = await this.prisma.approval.findMany({
@@ -753,18 +795,30 @@ export class MasterApprovalsService {
       },
     });
 
+    // Helper: check if approval matches master item (handles AUDIT_ITEM dynamic step)
+    const approvalMatchesItem = (
+      approval: { departmentId: string; jobPositionId: string },
+      item: any,
+    ) => {
+      const itemJobPosId = item.jobPosition?.id || item.jobPositionId;
+      if (itemJobPosId !== approval.jobPositionId) return false;
+      const usesDynamicDept =
+        entityName === APPROVAL_ENTITIES.AUDIT_ITEM &&
+        isApprovalFieldMarker(item.departmentId);
+      if (usesDynamicDept) {
+        return auditItemAssignedDeptIds.includes(approval.departmentId);
+      }
+      const itemDeptId = item.department?.id || item.departmentId;
+      return itemDeptId === approval.departmentId;
+    };
+
     // Map approval history with line numbers
     // Keep createdAt order for historical accuracy
     const history = approvalHistory.map((approval, index) => {
       // Find matching master approval item to get the order/line
-      // Match by resolved department/jobPosition IDs (not sentinel values)
-      const matchingItem = masterApproval.items.find((item) => {
-        // Compare resolved department and jobPosition IDs from the items
-        const itemDeptId = item.department?.id || item.departmentId;
-        const itemJobPosId = item.jobPosition?.id || item.jobPositionId;
-        const isMatch = itemDeptId === approval.departmentId && itemJobPosId === approval.jobPositionId;
-        return isMatch;
-      });
+      const matchingItem = masterApproval.items.find((item) =>
+        approvalMatchesItem(approval, item),
+      );
 
       // Mark as historical if it doesn't match current m_approvals configuration
       const isHistorical = !matchingItem;
@@ -807,15 +861,9 @@ export class MasterApprovalsService {
         const approvedLines = approvalHistory
           .filter((a) => a.status === 'APPROVED')
           .map((a) => {
-            // Match by resolved department/jobPosition IDs
-            const matchingItem = masterApproval.items.find((item) => {
-              const itemDeptId = item.department?.id || item.departmentId;
-              const itemJobPosId = item.jobPosition?.id || item.jobPositionId;
-              return (
-                itemDeptId === a.departmentId &&
-                itemJobPosId === a.jobPositionId
-              );
-            });
+            const matchingItem = masterApproval.items.find((item) =>
+              approvalMatchesItem(a, item),
+            );
             return matchingItem?.order ?? -1;
           });
 
@@ -884,17 +932,11 @@ export class MasterApprovalsService {
 
     // Build all approval lines with their status
     const allApprovalLines = masterApproval.items.map((item) => {
-      // Get resolved department and jobPosition IDs (handle sentinel values)
-      const itemDeptId = item.department?.id || item.departmentId;
-      const itemJobPosId = item.jobPosition?.id || item.jobPositionId;
-
       // Check if this line has been completed (only APPROVED, not REJECTED)
-      // Match by resolved IDs
       const completedApproval = approvalHistory.find(
         (approval) =>
           approval.status === 'APPROVED' &&
-          approval.departmentId === itemDeptId &&
-          approval.jobPositionId === itemJobPosId,
+          approvalMatchesItem(approval, item),
       );
 
       let status: 'completed' | 'current' | 'pending' = 'pending';

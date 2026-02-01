@@ -809,8 +809,8 @@ const AuditClauseCriteriaPage = () => {
               </TooltipContent>
             </Tooltip>
 
-            {/* Assess button - shown when no item exists or status is DRAFT/OPEN */}
-            {(hasNoItem || isDraft || isOpen) && (
+            {/* Assess button - shown when no item exists or status is DRAFT/OPEN/REJECTED */}
+            {(hasNoItem || isDraft || isOpen || isRejected) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -828,8 +828,8 @@ const AuditClauseCriteriaPage = () => {
               </Tooltip>
             )}
 
-            {/* Update Action Item button - shown when item exists and status is OPEN */}
-            {item.isFromAuditItem && isOpen && (
+            {/* Update Action Item button - shown when item exists and status is OPEN or REJECTED */}
+            {item.isFromAuditItem && (isOpen || isRejected) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button

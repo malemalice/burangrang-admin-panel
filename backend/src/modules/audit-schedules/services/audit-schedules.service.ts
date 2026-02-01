@@ -745,19 +745,28 @@ export class AuditSchedulesService {
         );
       }
 
-      // Only allow changing to WAITING_APPROVAL from OPEN
-      if (newStatus === GeneralStatusEnum.WAITING_APPROVAL && currentStatus !== GeneralStatusEnum.OPEN) {
+      // Only allow changing to WAITING_APPROVAL from OPEN or REJECTED
+      if (
+        newStatus === GeneralStatusEnum.WAITING_APPROVAL &&
+        currentStatus !== GeneralStatusEnum.OPEN &&
+        currentStatus !== GeneralStatusEnum.REJECTED
+      ) {
         this.errorHandler.throwBadRequest(
-          `Cannot change status to WAITING_APPROVAL from ${currentStatus}. Only OPEN items can be submitted for approval.`,
+          `Cannot change status to WAITING_APPROVAL from ${currentStatus}. Only OPEN or REJECTED items can be submitted for approval.`,
         );
       }
     }
 
-    // Only allow updates when status is OPEN
-    // Items in WAITING_APPROVAL, DONE, or REJECTED cannot be updated (except via approval workflow)
-    if (currentStatus !== GeneralStatusEnum.OPEN && newStatus === undefined) {
+    // Only allow updates when status is OPEN or REJECTED
+    // REJECTED items can be updated so assignees can make corrections and resubmit
+    // Items in WAITING_APPROVAL or DONE cannot be updated (except via approval workflow)
+    if (
+      currentStatus !== GeneralStatusEnum.OPEN &&
+      currentStatus !== GeneralStatusEnum.REJECTED &&
+      newStatus === undefined
+    ) {
       this.errorHandler.throwBadRequest(
-        `Cannot update audit item with status ${currentStatus}. Only OPEN items can be updated by assigned users.`,
+        `Cannot update audit item with status ${currentStatus}. Only OPEN or REJECTED items can be updated by assigned users.`,
       );
     }
 
@@ -1070,10 +1079,13 @@ export class AuditSchedulesService {
 
       this.errorHandler.throwIfNotFoundById('Audit Item', itemId, auditItem);
 
-      // Validate status is OPEN
-      if (auditItem.status !== GeneralStatusEnum.OPEN) {
+      // Validate status is OPEN or REJECTED (rejected items can be updated and resubmitted)
+      if (
+        auditItem.status !== GeneralStatusEnum.OPEN &&
+        auditItem.status !== GeneralStatusEnum.REJECTED
+      ) {
         this.errorHandler.throwBadRequest(
-          `Cannot submit for approval: audit item status is ${auditItem.status}. Only OPEN items can be submitted.`,
+          `Cannot submit for approval: audit item status is ${auditItem.status}. Only OPEN or REJECTED items can be submitted.`,
         );
       }
 

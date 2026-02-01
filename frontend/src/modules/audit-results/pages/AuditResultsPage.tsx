@@ -766,8 +766,8 @@ const AuditResultsPage = () => {
               </TooltipContent>
             </Tooltip>
 
-            {/* Assess button - shown when status is DRAFT or OPEN */}
-            {(isDraft || isOpen) && (
+            {/* Assess button - shown when status is DRAFT, OPEN, or REJECTED */}
+            {(isDraft || isOpen || isRejected) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -786,8 +786,8 @@ const AuditResultsPage = () => {
               </Tooltip>
             )}
 
-            {/* Update Action Item button - shown when status is OPEN */}
-            {isOpen && (
+            {/* Update Action Item button - shown when status is OPEN or REJECTED */}
+            {(isOpen || isRejected) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button

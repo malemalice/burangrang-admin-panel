@@ -247,13 +247,13 @@ export const AuditItemForm = ({
           if (auditItem.status === GeneralStatusEnum.WAITING_APPROVAL && hasApprovalRights) {
             nextMode = 'approval';
           }
-          // 2) Update action item mode for assigned users (OPEN or WAITING_APPROVAL)
+          // 2) Update action item mode for assigned users (OPEN or REJECTED)
           else if (
             userCanEditActionRealization &&
             !isUserSuperAdmin &&
             !userIsAuditor &&
             (auditItem.status === GeneralStatusEnum.OPEN ||
-              auditItem.status === GeneralStatusEnum.WAITING_APPROVAL)
+              auditItem.status === GeneralStatusEnum.REJECTED)
           ) {
             nextMode = 'update_action_item';
           }
@@ -871,11 +871,6 @@ export const AuditItemForm = ({
                   setApprovalStatus(ApprovalStatus.REJECTED);
                   setIsApproving(true);
                   try {
-                    // Save any form changes first
-                    const formData = form.getValues();
-                    await onSubmit({ ...formData, images });
-                    
-                    // Then handle rejection if handler is provided
                     if (onApprove) {
                       await onApprove(ApprovalStatus.REJECTED, approvalNotes);
                     }
@@ -898,11 +893,6 @@ export const AuditItemForm = ({
                   setApprovalStatus(ApprovalStatus.APPROVED);
                   setIsApproving(true);
                   try {
-                    // First, save any form changes with CLOSE status
-                    const formData = form.getValues();
-                    await onSubmit({ ...formData, images, status: GeneralStatusEnum.CLOSE });
-                    
-                    // Then handle approval if handler is provided
                     if (onApprove) {
                       await onApprove(ApprovalStatus.APPROVED, approvalNotes);
                     }
