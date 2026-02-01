@@ -126,7 +126,7 @@ export class SettingsController {
 
   @Patch('theme/color')
   @ApiOperation({ summary: 'Update theme color' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   @ApiBody({
     schema: {
       type: 'object',
@@ -149,7 +149,7 @@ export class SettingsController {
 
   @Patch('theme/mode')
   @ApiOperation({ summary: 'Update theme mode' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   @ApiBody({
     schema: {
       type: 'object',

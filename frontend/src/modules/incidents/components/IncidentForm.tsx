@@ -421,13 +421,22 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                 departmentId: w.departmentId || '',
               })) || [],
             assets:
-              incident.assets?.map((a) => ({
-                entity: a.entity || EquipmentEntityEnum.ASSET,
-                entityId: a.entityId || '',
-                assetName: a.assetName,
-                assetCode: a.assetCode || '',
-                quantity: a.quantity,
-              })) || [],
+              incident.assets?.map((a, index) => {
+                // Derive entityId from relation when present; otherwise use placeholder so dropdown can show prefilled label (API may return entity/entityId null for old data)
+                const resolvedEntityId =
+                  a.entityId ||
+                  (a as { asset?: { id: string }; heavyEquipment?: { id: string }; safetyEquipment?: { id: string } }).asset?.id ||
+                  (a as { heavyEquipment?: { id: string } }).heavyEquipment?.id ||
+                  (a as { safetyEquipment?: { id: string } }).safetyEquipment?.id;
+                const entityId = resolvedEntityId || `__prefilled_${index}`;
+                return {
+                  entity: a.entity || EquipmentEntityEnum.ASSET,
+                  entityId,
+                  assetName: a.assetName,
+                  assetCode: a.assetCode || '',
+                  quantity: a.quantity,
+                };
+              }) || [],
           });
         }
 
@@ -887,14 +896,35 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             order: index,
           })) || undefined,
         assets:
-          data.assets?.map((a, index) => ({
-            entity: a.entity,
-            entityId: a.entityId || undefined,
-            assetName: a.assetName,
-            assetCode: a.assetCode || undefined,
-            quantity: a.quantity || undefined,
-            order: index,
-          })) || undefined,
+          data.assets?.map((a, index) => {
+            // Resolve placeholder entityId (__prefilled_N) by looking up assetCode in master lists (for old incident data where API returned null)
+            let entityId = a.entityId || undefined;
+            let entity = a.entity;
+            if (entityId?.startsWith('__prefilled_') && a.assetCode) {
+              const byCode = a.assetCode.trim();
+              const assetMatch = assets.find((x) => x.code === byCode);
+              const heavyMatch = heavyEquipments.find((x) => x.code === byCode);
+              const safetyMatch = safetyEquipments.find((x) => x.code === byCode);
+              if (assetMatch) {
+                entityId = assetMatch.id;
+                entity = EquipmentEntityEnum.ASSET;
+              } else if (heavyMatch) {
+                entityId = heavyMatch.id;
+                entity = EquipmentEntityEnum.HEAVY_EQUIPMENT;
+              } else if (safetyMatch) {
+                entityId = safetyMatch.id;
+                entity = EquipmentEntityEnum.SAFETY_EQUIPMENT;
+              }
+            }
+            return {
+              entity,
+              entityId: entityId || undefined,
+              assetName: a.assetName,
+              assetCode: a.assetCode || undefined,
+              quantity: a.quantity || undefined,
+              order: index,
+            };
+          }) || undefined,
         images: images.length ? images : undefined,
         attachments: attachments.length ? attachments : undefined,
       };
@@ -1788,6 +1818,12 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                         name={`assets.${index}.entityId`}
                         render={({ field }) => {
                           // Combined asset options with entity type information
+                          const currentEntity = form.watch(`assets.${index}.entity`) || EquipmentEntityEnum.ASSET;
+                          const currentEntityId = field.value || '';
+                          const currentAssetName = form.watch(`assets.${index}.assetName`) || '';
+                          const currentAssetCode = form.watch(`assets.${index}.assetCode`) || '';
+
+                          // Build combined options from master lists
                           const combinedAssetOptions: Array<{
                             value: string;
                             label: string;
@@ -1822,10 +1858,23 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                             })),
                           ];
 
+                          // Include prefilled row in options so edit mode shows the selected asset (placeholder __prefilled_N, deactivated, or not in first page)
+                          if (currentEntityId && currentAssetName) {
+                            const existingOption = combinedAssetOptions.find(opt => opt.entityId === currentEntityId && opt.entity === currentEntity);
+                            if (!existingOption) {
+                              combinedAssetOptions.unshift({
+                                value: `${currentEntity}:${currentEntityId}`,
+                                label: `${currentAssetName}${currentAssetCode ? ` (${currentAssetCode})` : ''}`,
+                                entity: currentEntity,
+                                entityId: currentEntityId,
+                                name: currentAssetName,
+                                code: currentAssetCode,
+                              });
+                            }
+                          }
+
                           // Get current value and find the matching option
-                          const currentEntity = form.watch(`assets.${index}.entity`);
-                          const currentEntityId = field.value || '';
-                          const currentOption = combinedAssetOptions.find(opt => 
+                          const currentOption = combinedAssetOptions.find(opt =>
                             opt.entityId === currentEntityId && opt.entity === currentEntity
                           );
                           const selectValue = currentOption ? currentOption.value : '';
