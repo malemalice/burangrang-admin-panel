@@ -374,8 +374,8 @@ const IncidentsPage = () => {
 
     // If super_admin, show all buttons regardless of conditions
     if (isSuperAdmin) {
-      // Edit button
-      if (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN) {
+      // Edit button (DRAFT, OPEN, or REJECTED so investigator can edit again after rejection)
+      if (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
         actions.push({
           label: 'Edit',
           onClick: () => navigate(`/incidents/${incident.id}/edit?mode=creator`),
@@ -384,8 +384,8 @@ const IncidentsPage = () => {
         });
       }
       
-      // Submit button
-      if (incident.status === GeneralStatusEnum.OPEN) {
+      // Submit button (OPEN or REJECTED - investigator can submit again after rejection)
+      if (incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
         actions.push({
           label: 'Submit',
           onClick: () => navigate(`/incidents/${incident.id}/edit?mode=investigator`),
@@ -421,10 +421,10 @@ const IncidentsPage = () => {
       ? departments.find(dept => dept.id === userData.departmentId)?.code === 'HSE'
       : false;
 
-    // Edit button (creator mode) - for DRAFT or OPEN status
+    // Edit button (creator mode) - for DRAFT, OPEN, or REJECTED (edit again after rejection)
     // Show if: user is creator OR user has same department as creator OR user is super_admin
     if ((isCreator || hasSameDeptAsCreator || isSuperAdmin) && 
-        (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN)) {
+        (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED)) {
       actions.push({
         label: 'Edit',
         onClick: () => navigate(`/incidents/${incident.id}/edit?mode=creator`),
@@ -433,8 +433,8 @@ const IncidentsPage = () => {
       });
     }
 
-    // Submit button (investigator mode) - for OPEN status and user is in HSE department
-    if (userInHSEDept && incident.status === GeneralStatusEnum.OPEN) {
+    // Submit button (investigator mode) - for OPEN or REJECTED, user is in HSE department
+    if (userInHSEDept && (incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED)) {
       actions.push({
         label: 'Submit',
         onClick: () => navigate(`/incidents/${incident.id}/edit?mode=investigator`),

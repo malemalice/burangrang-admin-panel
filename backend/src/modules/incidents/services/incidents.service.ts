@@ -152,7 +152,7 @@ export class IncidentsService {
 
   /**
    * Only SUPER_ADMIN can create/update incident status to any value.
-   * Other users can only set status to OPEN or CLOSE.
+   * Other users can only set status to OPEN, CLOSE, or REJECTED.
    */
   private async assertStatusAllowedForUser(
     userId: string,
@@ -165,10 +165,13 @@ export class IncidentsService {
     });
     const isSuperAdmin = user?.role?.code === ROLE_CODES.SUPER_ADMIN;
     if (isSuperAdmin) return;
-    const allowed = status === GeneralStatusEnum.OPEN || status === GeneralStatusEnum.CLOSE;
+    const allowed =
+      status === GeneralStatusEnum.OPEN ||
+      status === GeneralStatusEnum.CLOSE ||
+      status === GeneralStatusEnum.REJECTED;
     if (!allowed) {
       this.errorHandler.throwBadRequest(
-        `Only Super Admin can ${action} incident status to "${status}". Other users can only set status to Open or Close.`,
+        `Only Super Admin can ${action} incident status to "${status}". Other users can only set status to Open, Close, or Rejected.`,
       );
     }
   }
@@ -781,9 +784,9 @@ export class IncidentsService {
 
       this.errorHandler.throwIfNotFoundById('Incident', id, incident);
 
-      // Business rule: Only OPEN status can be submitted
-      if (incident.status !== GeneralStatusEnum.OPEN) {
-        this.errorHandler.throwBadRequest(`Cannot submit incident with status ${incident.status}. Only OPEN incidents can be submitted.`);
+      // Business rule: Only OPEN or REJECTED status can be submitted (REJECTED so investigator can resubmit after rejection)
+      if (incident.status !== GeneralStatusEnum.OPEN && incident.status !== GeneralStatusEnum.REJECTED) {
+        this.errorHandler.throwBadRequest(`Cannot submit incident with status ${incident.status}. Only OPEN or REJECTED incidents can be submitted.`);
       }
 
       // Update status to WAITING_APPROVAL

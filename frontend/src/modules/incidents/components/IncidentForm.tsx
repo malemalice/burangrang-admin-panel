@@ -531,15 +531,15 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             if (incident.status === GeneralStatusEnum.WAITING_APPROVAL && hasApprovalRights) {
               setResolvedMode('approver');
             }
-            // 2) Investigator mode for HSE department users (status is OPEN)
+            // 2) Investigator mode for HSE department users (status is OPEN or REJECTED)
             else if (
               userInHSEDept &&
-              incident.status === GeneralStatusEnum.OPEN
+              (incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED)
             ) {
               setResolvedMode('investigator');
             }
-            // 3) Creator mode for creator (status is DRAFT or OPEN)
-            else if (isCreator && (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN)) {
+            // 3) Creator mode for creator (status is DRAFT, OPEN, or REJECTED)
+            else if (isCreator && (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED)) {
               setResolvedMode('creator');
             }
             // Default to creator if no match
@@ -832,8 +832,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       });
 
       // Non-super-user can only set status to OPEN or CLOSE
-      if (!isSuperUser && data.status !== GeneralStatusEnum.OPEN && data.status !== GeneralStatusEnum.CLOSE) {
-        toast.error('Only Open or Close status is allowed for your role.');
+      if (!isSuperUser && data.status !== GeneralStatusEnum.OPEN && data.status !== GeneralStatusEnum.CLOSE && data.status !== GeneralStatusEnum.REJECTED) {
+        toast.error('Only Open, Close, or Rejected status is allowed for your role.');
         return;
       }
       // Determine status based on mode and role: only SUPER_ADMIN can set any status; others only OPEN or CLOSE
@@ -842,12 +842,16 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
         if (resolvedMode === 'creator') {
           statusToSet = GeneralStatusEnum.OPEN;
         } else if (resolvedMode === 'investigator') {
-          statusToSet = GeneralStatusEnum.WAITING_APPROVAL;
+          // Investigator: keep OPEN in update; submit API will move to WAITING_APPROVAL after save
+          statusToSet = GeneralStatusEnum.OPEN;
         } else if (resolvedMode === 'approver') {
           return;
         }
+      } else if (resolvedMode === 'investigator') {
+        // Investigator (non-super_admin): cannot change status; keep current incident status
+        statusToSet = incident?.status ?? GeneralStatusEnum.OPEN;
       }
-      // Non-super-user: statusToSet stays data.status (only OPEN or CLOSE allowed by UI and backend)
+      // Non-super-user (creator): statusToSet stays data.status (only OPEN or CLOSE allowed by UI and backend)
 
       const dto: CreateIncidentDTO | UpdateIncidentDTO = {
         code: data.code,
@@ -934,7 +938,12 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
         toast.success('Incident created successfully');
       } else if (incident) {
         await incidentsService.update(incident.id, dto as UpdateIncidentDTO);
-        toast.success('Incident updated successfully');
+        if (resolvedMode === 'investigator') {
+          await incidentsService.submit(incident.id);
+          toast.success('Incident submitted for approval');
+        } else {
+          toast.success('Incident updated successfully');
+        }
       }
       navigate('/incidents');
     } catch (error: any) {
@@ -1161,7 +1170,11 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Status <span className="text-red-500">*</span></FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={resolvedMode === 'investigator' && !isSuperUser}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select status" />
