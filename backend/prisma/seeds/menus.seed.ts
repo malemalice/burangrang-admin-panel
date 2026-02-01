@@ -481,6 +481,7 @@ export const seedMenus = async () => {
             { id: superAdminRole.id },
             { id: adminRole.id },
             { id: managerRole.id },
+            { id: userRole.id },
           ],
         },
       },
@@ -500,6 +501,7 @@ export const seedMenus = async () => {
             { id: superAdminRole.id },
             { id: adminRole.id },
             { id: managerRole.id },
+            { id: userRole.id },
           ],
         },
       },
@@ -799,7 +801,7 @@ export const seedMenus = async () => {
       },
     });
 
-    // Create Quizzes menu - accessible to admins and managers for quiz management
+    // Create Quizzes menu - accessible to admins, managers and users
     await prisma.menu.create({
       data: {
         name: 'Quizzes',
@@ -812,6 +814,7 @@ export const seedMenus = async () => {
             { id: superAdminRole.id },
             { id: adminRole.id },
             { id: managerRole.id },
+            { id: userRole.id },
           ],
         },
       },
@@ -902,7 +905,7 @@ export const seedMenus = async () => {
       },
     });
 
-    // Waste Management - Wastewater submenus
+    // Waste Management - Wastewater submenus (Manager/User: read & list only)
     await prisma.menu.create({
       data: {
         name: 'Waste Water Flow Recording',
@@ -916,6 +919,7 @@ export const seedMenus = async () => {
             { id: superAdminRole.id },
             { id: adminRole.id },
             { id: managerRole.id },
+            { id: userRole.id },
           ],
         },
       },
@@ -934,12 +938,13 @@ export const seedMenus = async () => {
             { id: superAdminRole.id },
             { id: adminRole.id },
             { id: managerRole.id },
+            { id: userRole.id },
           ],
         },
       },
     });
 
-    // Waste Management - Solid Waste submenus
+    // Waste Management - Solid Waste submenus (Manager/User: read & list only)
     await prisma.menu.create({
       data: {
         name: 'Solid Waste Recording',
@@ -953,6 +958,7 @@ export const seedMenus = async () => {
             { id: superAdminRole.id },
             { id: adminRole.id },
             { id: managerRole.id },
+            { id: userRole.id },
           ],
         },
       },
@@ -971,12 +977,13 @@ export const seedMenus = async () => {
             { id: superAdminRole.id },
             { id: adminRole.id },
             { id: managerRole.id },
+            { id: userRole.id },
           ],
         },
       },
     });
 
-    // Waste Management - Master Data submenus
+    // Waste Management - Master Data submenus (Manager/User: read & list only)
     await prisma.menu.create({
       data: {
         name: 'Treatment Plants',
@@ -986,7 +993,12 @@ export const seedMenus = async () => {
         order: 5,
         isActive: true,
         roles: {
-          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
         },
       },
     });
@@ -1000,7 +1012,12 @@ export const seedMenus = async () => {
         order: 6,
         isActive: true,
         roles: {
-          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
         },
       },
     });
@@ -1014,7 +1031,12 @@ export const seedMenus = async () => {
         order: 7,
         isActive: true,
         roles: {
-          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
         },
       },
     });
@@ -1028,7 +1050,12 @@ export const seedMenus = async () => {
         order: 8,
         isActive: true,
         roles: {
-          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
         },
       },
     });
@@ -1042,7 +1069,12 @@ export const seedMenus = async () => {
         order: 9,
         isActive: true,
         roles: {
-          connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
         },
       },
     });
@@ -1059,6 +1091,7 @@ export const seedMenus = async () => {
             { id: superAdminRole.id },
             { id: adminRole.id },
             { id: managerRole.id },
+            { id: userRole.id },
           ],
         },
       },
@@ -1077,6 +1110,7 @@ export const seedMenus = async () => {
             { id: superAdminRole.id },
             { id: adminRole.id },
             { id: managerRole.id },
+            { id: userRole.id },
           ],
         },
       },
@@ -1095,6 +1129,7 @@ export const seedMenus = async () => {
             { id: superAdminRole.id },
             { id: adminRole.id },
             { id: managerRole.id },
+            { id: userRole.id },
           ],
         },
       },

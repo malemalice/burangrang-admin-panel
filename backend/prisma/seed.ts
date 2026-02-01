@@ -270,7 +270,8 @@ async function main() {
           await prisma.user.deleteMany();
           break;
         case 'roles':
-          await prisma.role.deleteMany();
+          // Do not delete roles: users reference roles (t_users_roleId_fkey).
+          // seedRoles uses upsert by name, so existing roles and their permissions are updated.
           break;
         case 'email_templates':
           await prisma.emailTemplate.deleteMany();

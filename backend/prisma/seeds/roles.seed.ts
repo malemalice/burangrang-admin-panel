@@ -1,5 +1,60 @@
 import { PrismaClient, Permission } from '@prisma/client';
 
+/** Permission names that belong to modules under the Settings menu (Admin excludes these). */
+const SETTINGS_PERMISSION_PREFIXES = ['setting:', 'mail-template:', 'reminder:'];
+
+/** Permission names allowed for Manager and User (same set for both). */
+function getManagerUserPermissionNames(): Set<string> {
+  const fullModules = [
+    'risk-assessment',
+    'risk-register',
+    'inspection',
+    'incident',
+    'ppe',
+    'safety-equipment',
+    'safety-equipment-type',
+    'course',
+    'chapter',
+    'enrollment',
+    'quiz',
+    'work-permit',
+    'risk',
+    'risk-mitigation',
+    'risk-category',
+    'risk-matrix',
+  ];
+  const readListOnlyModules = [
+    'audit-policy',
+    'audit-criteria',
+    'certificate',
+    'environmental-measurement',
+    'waste-management',
+    'man-hour',
+  ];
+  const actions = ['create', 'read', 'update', 'delete', 'list'] as const;
+  const readListActions = ['read', 'list'] as const;
+  const set = new Set<string>();
+  for (const mod of fullModules) {
+    for (const a of actions) set.add(`${mod}:${a}`);
+  }
+  for (const mod of readListOnlyModules) {
+    for (const a of readListActions) set.add(`${mod}:${a}`);
+  }
+  set.add('auth:login');
+  set.add('auth:logout');
+  set.add('auth:change-password');
+  set.add('auth:refresh-token');
+  set.add('user:read');
+  set.add('notification:read');
+  set.add('notification:mark-read');
+  set.add('notification:mark-all-read');
+  set.add('notification:unread-count');
+  set.add('notification:types');
+  return set;
+}
+
+const MANAGER_USER_PERMISSION_NAMES = getManagerUserPermissionNames();
+
 export const roles = [
   {
     name: 'Super Admin',
@@ -10,43 +65,33 @@ export const roles = [
   {
     name: 'Administrator',
     code: 'ADMIN',
-    description: 'Has access to manage users, roles, and basic system settings',
-    permissions: (permissions: Permission[]) =>
-      permissions.filter((p) => !p.name.startsWith('system:')).map((p) => p.id),
-  },
-  {
-    name: 'Manager',
-    code: 'MANAGER',
-    description: 'Can manage users and view reports',
+    description: 'All permissions to all modules except those under Settings menu',
     permissions: (permissions: Permission[]) =>
       permissions
         .filter(
           (p) =>
-            p.name.startsWith('user:') ||
-            p.name.startsWith('office:') ||
-            p.name.startsWith('auth:') ||
-            p.name.startsWith('notification:')
+            !SETTINGS_PERMISSION_PREFIXES.some((prefix) => p.name.startsWith(prefix))
         )
+        .map((p) => p.id),
+  },
+  {
+    name: 'Manager',
+    code: 'MANAGER',
+    description:
+      'Risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, certificates (read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, quizzes, work permit',
+    permissions: (permissions: Permission[]) =>
+      permissions
+        .filter((p) => MANAGER_USER_PERMISSION_NAMES.has(p.name))
         .map((p) => p.id),
   },
   {
     name: 'User',
     code: 'USER',
-    description: 'Basic user with limited access',
+    description:
+      'Same as Manager: risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, certificates (read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, quizzes, work permit',
     permissions: (permissions: Permission[]) =>
       permissions
-        .filter(
-          (p) =>
-            p.name === 'auth:login' ||
-            p.name === 'auth:logout' ||
-            p.name === 'auth:change-password' ||
-            p.name === 'user:read' ||
-            p.name === 'notification:read' ||
-            p.name === 'notification:mark-read' ||
-            p.name === 'notification:mark-all-read' ||
-            p.name === 'notification:unread-count' ||
-            p.name === 'notification:types'
-        )
+        .filter((p) => MANAGER_USER_PERMISSION_NAMES.has(p.name))
         .map((p) => p.id),
   },
   {

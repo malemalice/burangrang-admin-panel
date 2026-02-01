@@ -60,15 +60,19 @@ export class MenusController {
   }
 
   @Get('sidebar')
-  @ApiOperation({ summary: 'Get active menus for sidebar navigation filtered by user role' })
+  @ApiOperation({
+    summary: 'Get active menus for sidebar navigation filtered by user permissions',
+    description:
+      'Returns active menu hierarchy for sidebar. Visibility is driven by user permissions (path → permission convention in code). See backend/docs/sidebar-permission-lookup-trd.md.',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Return active menu hierarchy for sidebar filtered by user role.',
+    description: 'Return active menu hierarchy for sidebar filtered by user permissions.',
     type: [MenuDto],
   })
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async getSidebarMenus(@Req() req: RequestWithUser): Promise<MenuDto[]> {
-    return await this.menusService.getSidebarMenus(req.user.role);
+    return await this.menusService.getSidebarMenus(req.user.id);
   }
 
   @Get('hierarchy')
