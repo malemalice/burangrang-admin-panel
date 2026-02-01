@@ -32,6 +32,8 @@ interface FindAllOptions {
   limit?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  search?: string;
+  code?: string;
   isActive?: boolean;
   areaId?: string;
   status?: GeneralStatusEnum;
@@ -240,12 +242,20 @@ export class InspectionsService {
       limit = 10,
       sortBy = 'code',
       sortOrder = 'asc',
+      search,
+      code,
       isActive,
       areaId,
       status,
     } = options || {};
 
     const where: Prisma.InspectionWhereInput = {};
+
+    // Search / code filter: filter by inspection code (contains, case-insensitive)
+    const searchOrCode = (search?.trim() || code?.trim()) || undefined;
+    if (searchOrCode) {
+      where.code = { contains: searchOrCode, mode: 'insensitive' };
+    }
 
     if (isActive !== undefined) {
       where.isActive = isActive;
