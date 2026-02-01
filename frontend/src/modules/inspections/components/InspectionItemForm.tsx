@@ -289,7 +289,10 @@ const InspectionItemForm = ({
     resolver: zodResolver(formSchema),
     defaultValues: {
       areaId: initialItem?.areaId || '',
-      status: initialItem?.status || GeneralStatusEnum.OPEN,
+      status:
+        formMode === 'updater' && initialItem?.status === GeneralStatusEnum.REJECTED
+          ? GeneralStatusEnum.OPEN
+          : (initialItem?.status || GeneralStatusEnum.OPEN),
       riskCategoryId: initialItem?.riskCategoryId || '',
       riskId: initialItem?.riskId || '',
       assignedDepartmentId: initialItem?.assignedDepartmentId || '',
@@ -1853,10 +1856,10 @@ const InspectionItemForm = ({
               {isSubmitting || isUploadingImages ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isUploadingImages ? 'Uploading Images...' : formMode === 'updater' ? 'Requesting Approval...' : 'Submitting...'}
+                  {isUploadingImages ? 'Uploading Images...' : formMode === 'updater' ? 'Requesting Verification...' : 'Submitting...'}
                 </>
               ) : (
-                formMode === 'updater' ? 'Request for Approval' : 'Submit'
+                formMode === 'updater' ? 'Request Verification' : 'Submit'
               )}
             </Button>
           )}
