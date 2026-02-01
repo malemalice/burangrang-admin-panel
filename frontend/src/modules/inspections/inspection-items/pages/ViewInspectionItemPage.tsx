@@ -85,7 +85,7 @@ const ViewInspectionItemPage = () => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
       [GeneralStatusEnum.OPEN]: { label: 'Open Issue', variant: 'secondary' },
       [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
-      [GeneralStatusEnum.CLOSE]: { label: 'Closed', variant: 'default' },
+      [GeneralStatusEnum.CLOSE]: { label: 'Close', variant: 'default' },
     };
 
     const statusInfo = statusMap[status] || { label: status, variant: 'outline' };

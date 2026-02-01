@@ -51,6 +51,7 @@ const InspectionItemsPage = () => {
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -151,6 +152,10 @@ const InspectionItemsPage = () => {
         sortOrder: 'desc',
       };
 
+      // Add search term
+      if (searchTerm?.trim()) {
+        params.search = searchTerm.trim();
+      }
       // Add filters
       if (activeFilters.status?.value) {
         params.status = activeFilters.status.value as GeneralStatusEnum;
@@ -202,7 +207,7 @@ const InspectionItemsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, activeFilters]);
+  }, [pageIndex, limit, searchTerm, activeFilters]);
 
   useEffect(() => {
     fetchItems();
@@ -213,7 +218,7 @@ const InspectionItemsPage = () => {
     
     filters.forEach(filter => {
       if (filter.id === 'status') {
-        const statusOption = ISSUE_STATUS_OPTIONS.find(opt => opt.value === filter.value);
+        const statusOption = INSPECTION_ITEM_STATUS_OPTIONS.find(opt => opt.value === filter.value);
         newActiveFilters[filter.id] = {
           value: filter.value,
           label: statusOption?.label || String(filter.value)
@@ -259,7 +264,7 @@ const InspectionItemsPage = () => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
       [GeneralStatusEnum.OPEN]: { label: 'Open Issue', variant: 'secondary' },
       [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
-      [GeneralStatusEnum.CLOSE]: { label: 'Closed', variant: 'default' },
+      [GeneralStatusEnum.CLOSE]: { label: 'Close', variant: 'default' },
     };
 
     const statusInfo = statusMap[status] || { label: status, variant: 'outline' };
@@ -540,6 +545,12 @@ const InspectionItemsPage = () => {
         filterFields={filterFields}
         activeFilters={activeFilters}
         onApplyFilters={handleApplyFilters}
+        searchValue={searchTerm}
+        onSearch={(term) => {
+          setSearchTerm(term);
+          setPageIndex(0);
+        }}
+        searchPlaceholder="Search by inspection code, risk, description..."
       />
 
       {/* Edit Item Dialog */}

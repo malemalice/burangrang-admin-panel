@@ -300,7 +300,7 @@ const InspectionsPage = () => {
                 {openCount} Open
               </div>
               <div className={`text-xs whitespace-nowrap ${closedCount > 0 ? 'text-green-800 dark:text-green-400' : 'text-muted-foreground'}`}>
-                {closedCount} Closed
+                {closedCount} Close
               </div>
             </div>
           </div>

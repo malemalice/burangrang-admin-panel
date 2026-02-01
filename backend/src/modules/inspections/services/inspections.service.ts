@@ -1267,8 +1267,16 @@ export class InspectionsService {
     // Validate and sanitize sortBy
     const validatedSortBy = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
 
+    // Validate status is a valid GeneralStatusEnum before applying filter
+    const validStatus =
+      status && Object.values(GeneralStatusEnum).includes(status as GeneralStatusEnum)
+        ? (status as GeneralStatusEnum)
+        : undefined;
+
+    const trimmedSearch = typeof search === 'string' ? search.trim() : undefined;
+
     const where: Prisma.InspectionItemWhereInput = {
-      ...(status && { status }),
+      ...(validStatus && { status: validStatus }),
       ...(assignedDepartmentId && { assignedDepartmentId }),
       ...(assigneeId && { assigneeId }),
       ...(riskId && { riskId }),
@@ -1281,38 +1289,38 @@ export class InspectionsService {
           },
         },
       }),
-      ...(search && {
+      ...(trimmedSearch && trimmedSearch.length > 0 && {
         OR: [
           {
             risk: {
               OR: [
-                { name: { contains: search, mode: 'insensitive' } },
-                { code: { contains: search, mode: 'insensitive' } },
+                { name: { contains: trimmedSearch, mode: 'insensitive' } },
+                { code: { contains: trimmedSearch, mode: 'insensitive' } },
               ],
             },
           },
           {
             riskCategory: {
               OR: [
-                { name: { contains: search, mode: 'insensitive' } },
-                { code: { contains: search, mode: 'insensitive' } },
+                { name: { contains: trimmedSearch, mode: 'insensitive' } },
+                { code: { contains: trimmedSearch, mode: 'insensitive' } },
               ],
             },
           },
           {
             inspection: {
-              code: { contains: search, mode: 'insensitive' },
+              code: { contains: trimmedSearch, mode: 'insensitive' },
             },
           },
           {
             description: {
-              contains: search,
+              contains: trimmedSearch,
               mode: 'insensitive',
             },
           },
           {
             followUpNotes: {
-              contains: search,
+              contains: trimmedSearch,
               mode: 'insensitive',
             },
           },

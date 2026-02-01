@@ -112,6 +112,9 @@ type FormValues = z.infer<typeof formSchema>;
 
 type FormMode = 'creator' | 'updater' | 'verifier';
 
+const INSPECTION_IMAGE_MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const INSPECTION_IMAGE_SIZE_ERROR = 'Image size is more than 5 Mb';
+
 type FieldPermission = 'editable' | 'readonly' | 'hidden';
 
 // Field permissions configuration - centralized control over field visibility and editability
@@ -517,9 +520,8 @@ const InspectionItemForm = ({
       }
 
       // Validate file size (5MB max)
-      const maxSize = 5 * 1024 * 1024;
-      if (file.size > maxSize) {
-        toast.error(`File ${file.name} exceeds maximum size of 5MB`);
+      if (file.size > INSPECTION_IMAGE_MAX_SIZE) {
+        toast.error(INSPECTION_IMAGE_SIZE_ERROR);
         return;
       }
 
@@ -558,9 +560,8 @@ const InspectionItemForm = ({
       }
 
       // Validate file size (5MB max)
-      const maxSize = 5 * 1024 * 1024;
-      if (file.size > maxSize) {
-        toast.error(`File ${file.name} exceeds maximum size of 5MB`);
+      if (file.size > INSPECTION_IMAGE_MAX_SIZE) {
+        toast.error(INSPECTION_IMAGE_SIZE_ERROR);
         return;
       }
 
@@ -629,12 +630,23 @@ const InspectionItemForm = ({
 
     const uploadedImages: { imageUrl: string; caption: string; type: InspectionImageTypeEnum; order: number }[] = [];
     let orderCounter = 0;
+
+    const getUploadErrorMessage = (error: unknown): string => {
+      const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '';
+      if (typeof msg === 'string' && (msg.includes('File size exceeds') || msg.includes('maximum allowed size'))) {
+        return INSPECTION_IMAGE_SIZE_ERROR;
+      }
+      return (error as Error)?.message || 'Failed to upload image';
+    };
     
     // Upload before images first
     for (let i = 0; i < beforeImages.length; i++) {
       const image = beforeImages[i];
       
       if (image.isNew && image.file) {
+        if (image.file.size > INSPECTION_IMAGE_MAX_SIZE) {
+          throw new Error(INSPECTION_IMAGE_SIZE_ERROR);
+        }
         try {
           setIsUploadingImages(true);
           const response = await uploadService.uploadFile(
@@ -652,7 +664,7 @@ const InspectionItemForm = ({
           });
         } catch (error) {
           console.error(`Failed to upload image ${image.file.name}:`, error);
-          throw new Error(`Failed to upload image ${image.file.name}`);
+          throw new Error(getUploadErrorMessage(error));
         }
       } else {
         // Existing image, keep the URL
@@ -670,6 +682,9 @@ const InspectionItemForm = ({
       const image = afterImages[i];
       
       if (image.isNew && image.file) {
+        if (image.file.size > INSPECTION_IMAGE_MAX_SIZE) {
+          throw new Error(INSPECTION_IMAGE_SIZE_ERROR);
+        }
         try {
           setIsUploadingImages(true);
           const response = await uploadService.uploadFile(
@@ -687,7 +702,7 @@ const InspectionItemForm = ({
           });
         } catch (error) {
           console.error(`Failed to upload image ${image.file.name}:`, error);
-          throw new Error(`Failed to upload image ${image.file.name}`);
+          throw new Error(getUploadErrorMessage(error));
         }
       } else {
         // Existing image, keep the URL
@@ -829,7 +844,7 @@ const InspectionItemForm = ({
         await onSubmit(updatedData);
       }
 
-      toast.success('Inspection item approved and closed');
+      toast.success('Inspection item approved and set to Close');
       setApproveDialogOpen(false);
       setApprovalNotes('');
     } catch (error) {
@@ -1893,7 +1908,7 @@ const InspectionItemForm = ({
         <DialogHeader>
           <DialogTitle>Approve Inspection Item</DialogTitle>
           <DialogDescription>
-            Approve this inspection item. The status will be set to CLOSED.
+            Approve this inspection item. The status will be set to Close.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
