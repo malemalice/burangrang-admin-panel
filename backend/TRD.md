@@ -35,6 +35,7 @@ This Technical Reference Document (TRD) provides comprehensive guidance for the 
 - **Security First**: Comprehensive authentication and authorization
 - **Maintainability**: Clear separation of concerns and modular architecture
 - **Dynamic Resolution**: Use sentinel values for entity-based field resolution; resolve at runtime, never store sentinels in transactional data
+- **PDF Export**: PDF export for detail pages (e.g. risk assessment, inspection) is client-side only; the frontend uses `react-to-pdf` and fetches full data via existing list/approval APIs. No server-side PDF generation is required for this pattern.
 
 ## Architecture
 

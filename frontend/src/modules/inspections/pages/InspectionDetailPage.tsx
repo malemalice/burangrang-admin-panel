@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { FileEdit, ArrowLeft, FileDown, Send } from 'lucide-react';
@@ -27,6 +27,7 @@ import InspectionItemForm from '../components/InspectionItemForm';
 import inspectionItemsService from '../inspection-items/services/inspectionItemsService';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import { InspectionDetailsCard } from '../components/InspectionDetailsCard';
+import { InspectionPDFTemplate } from '../components/InspectionPDFTemplate';
 import { ViewItemDialog } from '../components/ViewItemDialog';
 import { InspectionItemsTable } from '../components/InspectionItemsTable';
 import { useInspectionDetail } from '../hooks/useInspectionDetail';
@@ -36,8 +37,8 @@ const InspectionDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
-  const { toPDF, targetRef } = usePDF({ filename: 'inspection.pdf' });
-  const [isSuperUser, setIsSuperUser] = useState(false);
+  const [allItemsForPDF, setAllItemsForPDF] = useState<InspectionItem[]>([]);
+  const [isLoadingAllItems, setIsLoadingAllItems] = useState(false);
 
   const {
     inspection,
@@ -56,6 +57,16 @@ const InspectionDetailPage = () => {
     handleDeleteItem,
     refreshInspection,
   } = useInspectionDetail(id);
+
+  const baseFilename = useMemo(() => {
+    return inspection?.code ?? 'inspection';
+  }, [inspection]);
+
+  const { toPDF, targetRef } = usePDF({
+    filename: `${baseFilename}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+  });
+
+  const [isSuperUser, setIsSuperUser] = useState(false);
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
   const [isViewItemDialogOpen, setIsViewItemDialogOpen] = useState(false);
   const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false);
@@ -108,10 +119,27 @@ const InspectionDetailPage = () => {
   };
 
   const handleExportPDF = async () => {
+    if (!id || !inspection) return;
+
     try {
+      setIsLoadingAllItems(true);
+
+      const itemsResponse = await inspectionsService.getItems(id, {
+        page: 1,
+        limit: 10000,
+      });
+
+      setAllItemsForPDF(itemsResponse.data);
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
       await toPDF();
+      toast.success('PDF exported successfully');
     } catch (error) {
       console.error('Failed to export PDF:', error);
+      toast.error('Failed to export PDF');
+    } finally {
+      setIsLoadingAllItems(false);
     }
   };
 
@@ -265,9 +293,10 @@ const InspectionDetailPage = () => {
             <Button 
               variant="outline"
               onClick={handleExportPDF}
+              disabled={isLoadingAllItems}
             >
               <FileDown className="h-4 w-4 mr-2" />
-              Export PDF
+              {isLoadingAllItems ? 'Preparing PDF...' : 'Export PDF'}
             </Button>
             
             {inspection.status !== GeneralStatusEnum.DONE && 
@@ -288,89 +317,92 @@ const InspectionDetailPage = () => {
         </div>
       </PageHeader>
 
-      <div ref={targetRef}>
-        {/* PDF Export Header - Only visible in PDF */}
-        <div className="mb-6 print:block hidden">
-          <h1 className="text-2xl font-bold mb-2">Inspection Report: {inspection.code}</h1>
-          <p className="text-muted-foreground">Created on {format(new Date(inspection.createdAt), 'dd MMM yyyy')}</p>
-          <div className="mt-2">
-            {getStatusBadge(inspection.status)}
-          </div>
+      {/* PDF Template - Hidden from screen, only used for PDF export */}
+      {inspection && (
+        <div
+          ref={targetRef}
+          style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+          aria-hidden="true"
+        >
+          <InspectionPDFTemplate
+            inspection={inspection}
+            items={allItemsForPDF.length > 0 ? allItemsForPDF : items}
+          />
         </div>
+      )}
 
-        {/* Inspection Details & Items Summary Card - Side by Side */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Inspection Details</CardTitle>
-            <CardDescription>Basic information and summary of this inspection</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:auto-rows-fr">
-              <InspectionDetailsCard inspection={inspection} />
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-semibold mb-3">Items Summary</h3>
-                </div>
-                <div className="p-4 border rounded-lg bg-muted/50">
-                  <h3 className="text-lg font-semibold mb-2">Total Items</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Total:</span>
-                      <span className="text-2xl font-bold">{totalItems}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Open:</span>
-                      <span className="text-lg font-semibold text-blue-600">
-                        {items.filter(item => item.status === 'OPEN').length}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Close:</span>
-                      <span className="text-lg font-semibold text-green-600">
-                        {items.filter(item => item.status === 'CLOSE').length}
-                      </span>
-                    </div>
+      {/* Inspection Details & Items Summary Card - Side by Side */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Inspection Details</CardTitle>
+          <CardDescription>Basic information and summary of this inspection</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:auto-rows-fr">
+            <InspectionDetailsCard inspection={inspection} />
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Items Summary</h3>
+              </div>
+              <div className="p-4 border rounded-lg bg-muted/50">
+                <h3 className="text-lg font-semibold mb-2">Total Items</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Total:</span>
+                    <span className="text-2xl font-bold">{totalItems}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Open:</span>
+                    <span className="text-lg font-semibold text-blue-600">
+                      {items.filter(item => item.status === 'OPEN').length}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Close:</span>
+                    <span className="text-lg font-semibold text-green-600">
+                      {items.filter(item => item.status === 'CLOSE').length}
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Inspection Items Section */}
-        <div className="mt-6">
-          <h2 className="text-xl font-bold mb-4">Inspection Items</h2>
-          <InspectionItemsTable
-            items={items}
-            isLoading={isLoadingItems}
-            pageIndex={pageIndex}
-            limit={limit}
-            totalItems={totalItems}
-            onPageChange={setPageIndex}
-            onPageSizeChange={setLimit}
-            onSearch={handleSearch}
-            onApplyFilters={handleApplyFilters}
-            onAddItem={() => setIsAddItemDialogOpen(true)}
-            onViewItem={handleViewItem}
-            onEditItem={handleEditItem}
-            onEditItemAsCreator={handleEditItemAsCreator}
-            onEditItemAsUpdater={handleEditItemAsUpdater}
-            onEditItemAsVerifier={handleEditItemAsVerifier}
-            onDeleteItem={handleDeleteItemClick}
-            onDeleteConfirm={handleDeleteItemConfirm}
-            itemToDelete={itemToDelete}
-            deleteDialogOpen={deleteDialogOpen}
-            onDeleteDialogChange={(open) => {
-              if (!open) {
-                setDeleteDialogOpen(false);
-                setItemToDelete(null);
-              }
-            }}
-            hideActions={inspection.status === GeneralStatusEnum.DONE}
-            approvalRights={approvalRights}
-            isSuperUser={isSuperUser}
-          />
-        </div>
+      {/* Inspection Items Section */}
+      <div className="mt-6">
+        <h2 className="text-xl font-bold mb-4">Inspection Items</h2>
+        <InspectionItemsTable
+          items={items}
+          isLoading={isLoadingItems}
+          pageIndex={pageIndex}
+          limit={limit}
+          totalItems={totalItems}
+          onPageChange={setPageIndex}
+          onPageSizeChange={setLimit}
+          onSearch={handleSearch}
+          onApplyFilters={handleApplyFilters}
+          onAddItem={() => setIsAddItemDialogOpen(true)}
+          onViewItem={handleViewItem}
+          onEditItem={handleEditItem}
+          onEditItemAsCreator={handleEditItemAsCreator}
+          onEditItemAsUpdater={handleEditItemAsUpdater}
+          onEditItemAsVerifier={handleEditItemAsVerifier}
+          onDeleteItem={handleDeleteItemClick}
+          onDeleteConfirm={handleDeleteItemConfirm}
+          itemToDelete={itemToDelete}
+          deleteDialogOpen={deleteDialogOpen}
+          onDeleteDialogChange={(open) => {
+            if (!open) {
+              setDeleteDialogOpen(false);
+              setItemToDelete(null);
+            }
+          }}
+          hideActions={inspection.status === GeneralStatusEnum.DONE}
+          approvalRights={approvalRights}
+          isSuperUser={isSuperUser}
+        />
       </div>
 
       {/* Add Item Dialog */}
