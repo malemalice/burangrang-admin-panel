@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
-import { Prisma, CertificateTypeEnum } from '@prisma/client';
+import {
+  CertificateRenewalStatusEnum,
+  CertificateTypeEnum,
+  Prisma,
+} from '@prisma/client';
 import { CreateCertificateCategoryDto } from './dto/create-certificate-category.dto';
 import { UpdateCertificateCategoryDto } from './dto/update-certificate-category.dto';
 import { CertificateCategoryDto } from './dto/certificate-category.dto';
@@ -17,6 +21,7 @@ import { CertificateReminderDto } from './dto/certificate-reminder.dto';
 import { RemindersService } from '../reminders/reminders.service';
 import {
     ReminderRepeatTypeEnum,
+    ReminderStatusEnum,
     ReminderTargetTypeEnum,
 } from '../reminders/dto/reminder.dto';
 
@@ -664,10 +669,10 @@ export class CertificatesService {
                         where: {
                             entity: 't_certificates',
                             entityId: id,
-                            status: 'PENDING',
+                            status: ReminderStatusEnum.PENDING,
                         },
                         data: {
-                            status: 'CANCELLED',
+                            status: ReminderStatusEnum.CANCELLED,
                         },
                     });
 
@@ -697,7 +702,11 @@ export class CertificatesService {
                 renewals: {
                     where: {
                         status: {
-                            in: ['PENDING', 'REQUESTED', 'IN_PROGRESS'],
+                            in: [
+                                CertificateRenewalStatusEnum.PENDING,
+                                CertificateRenewalStatusEnum.REQUESTED,
+                                CertificateRenewalStatusEnum.IN_PROGRESS,
+                            ],
                         },
                     },
                 },
@@ -803,7 +812,7 @@ export class CertificatesService {
             }
 
             // If status is being updated to COMPLETED, update certificate validity date
-            if (updateRenewalDto.status === 'COMPLETED' && updateRenewalDto.newValidityDate) {
+            if (updateRenewalDto.status === CertificateRenewalStatusEnum.COMPLETED && updateRenewalDto.newValidityDate) {
                 await this.prisma.certificate.update({
                     where: { id: existingRenewal.certificateId },
                     data: {
@@ -857,7 +866,7 @@ export class CertificatesService {
 
         // Fetch recipients for USER type reminders
         const recipientIds = reminders
-            .filter((r: any) => r.targetType === 'USER')
+            .filter((r: any) => r.targetType === ReminderTargetTypeEnum.USER)
             .map((r: any) => r.targetId);
 
         const recipients = recipientIds.length > 0
@@ -873,14 +882,14 @@ export class CertificatesService {
         // Map general Reminder to CertificateReminderDto structure to maintain frontend compatibility
         return reminders.map((reminder: any) => {
             // For USER type, use targetId as recipientId, otherwise use targetId (for future support of ROLE/DEPARTMENT)
-            const recipientId = reminder.targetType === 'USER' ? reminder.targetId : reminder.targetId;
-            const recipient = reminder.targetType === 'USER' ? recipientMap.get(reminder.targetId) : null;
+            const recipientId = reminder.targetType === ReminderTargetTypeEnum.USER ? reminder.targetId : reminder.targetId;
+            const recipient = reminder.targetType === ReminderTargetTypeEnum.USER ? recipientMap.get(reminder.targetId) : null;
 
             const certReminder = new CertificateReminderDto({
                 id: reminder.id,
                 certificateId: reminder.entityId ?? '',
                 reminderDate: reminder.remindAt,
-                isSent: reminder.status === 'SENT',
+                isSent: reminder.status === ReminderStatusEnum.SENT,
                 sentAt: reminder.lastSentAt,
                 recipientId,
                 recipient,

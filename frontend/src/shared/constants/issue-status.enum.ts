@@ -15,5 +15,5 @@ export enum IssueStatus {
 export const ISSUE_STATUS_OPTIONS = [
   { value: IssueStatus.OPEN, label: 'Open Issue' },
   { value: IssueStatus.WAITING_APPROVAL, label: 'Waiting Verification' },
-  { value: IssueStatus.CLOSE, label: 'Closed' },
+  { value: IssueStatus.CLOSE, label: 'Close' },
 ] as const;

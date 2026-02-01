@@ -6,6 +6,8 @@ import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import {
   ReminderDto,
   ReminderLogDto,
+  ReminderRepeatTypeEnum,
+  ReminderStatusEnum,
   ReminderTargetTypeEnum,
 } from './dto/reminder.dto';
 import { CreateReminderDto } from './dto/create-reminder.dto';
@@ -109,7 +111,7 @@ export class RemindersService {
           // @ts-ignore - Prisma types will be updated after running npx prisma generate
           repeatType: createDto.repeatType ?? null,
           repeatUntil,
-          status: 'PENDING',
+          status: ReminderStatusEnum.PENDING,
           createdBy: userId,
         },
       });
@@ -634,7 +636,7 @@ export class RemindersService {
 
       const reminders = await this.prisma.reminder.findMany({
         where: {
-          status: 'PENDING',
+          status: ReminderStatusEnum.PENDING,
           remindAt: {
             lte: now,
           },
@@ -689,37 +691,34 @@ export class RemindersService {
       };
 
       if (!success) {
-        updateData.status = 'FAILED';
-        // @ts-ignore - Prisma types will be updated after running npx prisma generate
-      } else if (reminder.repeatType === 'NONE' || !reminder.repeatType) {
+        updateData.status = ReminderStatusEnum.FAILED;
+      } else if (reminder.repeatType === ReminderRepeatTypeEnum.NONE || !reminder.repeatType) {
         // One-time reminder, mark as sent
-        updateData.status = 'SENT';
+        updateData.status = ReminderStatusEnum.SENT;
       } else {
         // Recurring reminder, calculate next execution
-        // Check if repeatType is a valid recurring type
-        const validRepeatTypes = ['DAILY', 'WEEKLY', 'MONTHLY'];
-        // @ts-ignore - Prisma types will be updated after running npx prisma generate
+        const validRepeatTypes = [
+          ReminderRepeatTypeEnum.DAILY,
+          ReminderRepeatTypeEnum.WEEKLY,
+          ReminderRepeatTypeEnum.MONTHLY,
+        ];
         if (
           reminder.repeatType &&
-          validRepeatTypes.includes(reminder.repeatType)
+          validRepeatTypes.includes(reminder.repeatType as ReminderRepeatTypeEnum)
         ) {
-          // @ts-ignore - Prisma types will be updated after running npx prisma generate
           const nextRemindAt = this.calculateNextRemindAt(
             reminder.remindAt,
             reminder.repeatType,
           );
 
-          // Check if next execution exceeds repeatUntil
-          // @ts-ignore - Prisma types will be updated after running npx prisma generate
           if (reminder.repeatUntil && nextRemindAt > reminder.repeatUntil) {
-            updateData.status = 'EXPIRED';
+            updateData.status = ReminderStatusEnum.EXPIRED;
           } else {
             updateData.remindAt = nextRemindAt;
-            updateData.status = 'PENDING';
+            updateData.status = ReminderStatusEnum.PENDING;
           }
         } else {
-          // Invalid repeatType, mark as failed
-          updateData.status = 'FAILED';
+          updateData.status = ReminderStatusEnum.FAILED;
         }
       }
 
@@ -740,11 +739,11 @@ export class RemindersService {
   ): Date {
     const next = new Date(currentRemindAt);
 
-    if (repeatType === 'DAILY') {
+    if (repeatType === ReminderRepeatTypeEnum.DAILY) {
       next.setDate(next.getDate() + 1);
-    } else if (repeatType === 'WEEKLY') {
+    } else if (repeatType === ReminderRepeatTypeEnum.WEEKLY) {
       next.setDate(next.getDate() + 7);
-    } else if (repeatType === 'MONTHLY') {
+    } else if (repeatType === ReminderRepeatTypeEnum.MONTHLY) {
       next.setMonth(next.getMonth() + 1);
     }
 

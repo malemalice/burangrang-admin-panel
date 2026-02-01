@@ -82,6 +82,21 @@ export class AuditCriteriaController {
     });
   }
 
+  @Post('reorder')
+  @ApiOperation({ summary: 'Reorder criteria within an audit clause' })
+  @ApiResponse({
+    status: 200,
+    description: 'Criteria reordered successfully.',
+  })
+  @ApiResponse({ status: 404, description: 'Audit clause not found.' })
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  async reorder(
+    @Body() body: { auditClauseId: string; criterionIds: string[] },
+  ): Promise<{ message: string }> {
+    await this.auditCriteriaService.reorder(body.auditClauseId, body.criterionIds);
+    return { message: 'Criteria reordered successfully' };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get an audit criteria by id' })
   @ApiResponse({

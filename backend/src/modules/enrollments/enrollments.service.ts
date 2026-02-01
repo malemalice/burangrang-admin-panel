@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { EnrollmentStatusEnum, QuizAttemptStatusEnum } from '@prisma/client';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
@@ -98,7 +99,7 @@ export class EnrollmentsService {
         data: {
           userId,
           courseId,
-          status: 'ACTIVE',
+          status: EnrollmentStatusEnum.ACTIVE,
           enrolledAt: new Date(),
           progress: 0,
         },
@@ -145,7 +146,7 @@ export class EnrollmentsService {
           userId,
           courseId,
           status: {
-            in: ['ACTIVE', 'INVITED'],
+            in: [EnrollmentStatusEnum.ACTIVE, EnrollmentStatusEnum.INVITED],
           },
         },
       });
@@ -158,7 +159,7 @@ export class EnrollmentsService {
         data: {
           userId,
           courseId,
-          status: 'INVITED',
+          status: EnrollmentStatusEnum.INVITED,
           assignedBy,
           assignedAt: new Date(),
           dueDate: dueDate ? new Date(dueDate) : null,
@@ -404,7 +405,7 @@ export class EnrollmentsService {
     const attempts = await this.prisma.quizAttempt.findMany({
       where: {
         enrollmentId,
-        status: 'COMPLETED',
+        status: QuizAttemptStatusEnum.COMPLETED,
       },
       orderBy: {
         score: 'desc',
@@ -476,7 +477,7 @@ export class EnrollmentsService {
       if (updateDto.status !== undefined) {
         updateData.status = updateDto.status;
         // Set completedAt if status is COMPLETED
-        if (updateDto.status === 'COMPLETED' && !enrollment.completedAt) {
+        if (updateDto.status === EnrollmentStatusEnum.COMPLETED && !enrollment.completedAt) {
           updateData.completedAt = new Date();
         }
       }

@@ -52,6 +52,7 @@ const IncidentsPage = () => {
   const [approvalRights, setApprovalRights] = useState<Record<string, boolean>>({});
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>({ id: 'incidentDate', desc: true });
 
   // Filter options state
   const [areas, setAreas] = useState<AreaDTO[]>([]);
@@ -191,7 +192,12 @@ const IncidentsPage = () => {
       const params: any = {
         page: pageIndex + 1,
         limit,
+        sortBy: sorting?.id ?? 'incidentDate',
+        sortOrder: sorting?.desc ? 'desc' : 'asc',
       };
+
+      // Show only active (non-deleted) incidents so soft-deleted items don't appear
+      params.isActive = true;
 
       // Use code filter if set, otherwise use searchTerm
       // Code filter takes precedence as it's more specific
@@ -199,10 +205,6 @@ const IncidentsPage = () => {
         params.search = activeFilters.code.value;
       } else if (searchTerm) {
         params.search = searchTerm;
-      }
-
-      if (activeFilters.isActive?.value !== undefined) {
-        params.isActive = activeFilters.isActive.value;
       }
 
       // Handle status filter (supports multiple values)
@@ -288,7 +290,7 @@ const IncidentsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, searchTerm, activeFilters]);
+  }, [pageIndex, limit, searchTerm, activeFilters, sorting]);
 
   useEffect(() => {
     fetchIncidents();
@@ -372,8 +374,8 @@ const IncidentsPage = () => {
 
     // If super_admin, show all buttons regardless of conditions
     if (isSuperAdmin) {
-      // Edit button
-      if (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN) {
+      // Edit button (DRAFT, OPEN, or REJECTED so investigator can edit again after rejection)
+      if (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
         actions.push({
           label: 'Edit',
           onClick: () => navigate(`/incidents/${incident.id}/edit?mode=creator`),
@@ -382,8 +384,8 @@ const IncidentsPage = () => {
         });
       }
       
-      // Submit button
-      if (incident.status === GeneralStatusEnum.OPEN) {
+      // Submit button (OPEN or REJECTED - investigator can submit again after rejection)
+      if (incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
         actions.push({
           label: 'Submit',
           onClick: () => navigate(`/incidents/${incident.id}/edit?mode=investigator`),
@@ -419,10 +421,10 @@ const IncidentsPage = () => {
       ? departments.find(dept => dept.id === userData.departmentId)?.code === 'HSE'
       : false;
 
-    // Edit button (creator mode) - for DRAFT or OPEN status
+    // Edit button (creator mode) - for DRAFT, OPEN, or REJECTED (edit again after rejection)
     // Show if: user is creator OR user has same department as creator OR user is super_admin
     if ((isCreator || hasSameDeptAsCreator || isSuperAdmin) && 
-        (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN)) {
+        (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED)) {
       actions.push({
         label: 'Edit',
         onClick: () => navigate(`/incidents/${incident.id}/edit?mode=creator`),
@@ -431,8 +433,8 @@ const IncidentsPage = () => {
       });
     }
 
-    // Submit button (investigator mode) - for OPEN status and user is in HSE department
-    if (userInHSEDept && incident.status === GeneralStatusEnum.OPEN) {
+    // Submit button (investigator mode) - for OPEN or REJECTED, user is in HSE department
+    if (userInHSEDept && (incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED)) {
       actions.push({
         label: 'Submit',
         onClick: () => navigate(`/incidents/${incident.id}/edit?mode=investigator`),
@@ -459,19 +461,24 @@ const IncidentsPage = () => {
     setPageIndex(0);
   };
 
+  const handleSortingChange = (newSorting: { id: string; desc: boolean } | null) => {
+    setSorting(newSorting);
+    setPageIndex(0);
+  };
+
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     setPageIndex(0);
 
     if (value === 'all') {
       setActiveFilters({});
-    } else if (value === 'active') {
+    } else {
+      const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === value);
       setActiveFilters({
-        isActive: { value: true, label: 'Active' },
-      });
-    } else if (value === 'inactive') {
-      setActiveFilters({
-        isActive: { value: false, label: 'Inactive' },
+        status: {
+          value: value,
+          label: statusOption?.label ?? value,
+        },
       });
     }
   };
@@ -671,11 +678,15 @@ const IncidentsPage = () => {
     setActiveFilters(newActiveFilters);
     setPageIndex(0);
 
-    if (newActiveFilters.isActive?.value === true) {
-      setActiveTab('active');
-    } else if (newActiveFilters.isActive?.value === false) {
-      setActiveTab('inactive');
-    } else if (!newActiveFilters.isActive && Object.keys(newActiveFilters).length === 0) {
+    // Sync tab with status filter (only All, Open, Close tabs)
+    if (newActiveFilters.status?.value) {
+      const statusVal = Array.isArray(newActiveFilters.status.value)
+        ? newActiveFilters.status.value[0]
+        : newActiveFilters.status.value;
+      if (statusVal === GeneralStatusEnum.OPEN || statusVal === GeneralStatusEnum.CLOSE) {
+        setActiveTab(statusVal);
+      }
+    } else if (Object.keys(newActiveFilters).length === 0) {
       setActiveTab('all');
     }
   };
@@ -712,7 +723,7 @@ const IncidentsPage = () => {
       [GeneralStatusEnum.WAITING_APPROVAL]: { className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200', label: 'Waiting Approval' },
       [GeneralStatusEnum.DONE]: { className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', label: 'Done' },
       [GeneralStatusEnum.REJECTED]: { className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200', label: 'Rejected' },
-      [GeneralStatusEnum.CLOSE]: { className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200', label: 'Closed' },
+      [GeneralStatusEnum.CLOSE]: { className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200', label: 'Close' },
     };
 
     const config = statusConfig[status] || { className: 'bg-gray-100 text-gray-800', label: status };
@@ -723,6 +734,7 @@ const IncidentsPage = () => {
     {
       id: 'code',
       header: 'Code',
+      isSortable: true,
       cell: (row: Incident) => (
         <span className="font-medium text-blue-600 dark:text-blue-400">{row.code}</span>
       ),
@@ -730,6 +742,7 @@ const IncidentsPage = () => {
     {
       id: 'subject',
       header: 'Subject',
+      isSortable: true,
       cell: (row: Incident) => (
         <div className="truncate max-w-[250px]" title={row.subject}>
           {row.subject}
@@ -739,6 +752,7 @@ const IncidentsPage = () => {
     {
       id: 'incidentDate',
       header: 'Incident Date',
+      isSortable: true,
       cell: (row: Incident) => format(new Date(row.incidentDate), 'dd MMM yyyy'),
     },
     {
@@ -751,6 +765,7 @@ const IncidentsPage = () => {
     {
       id: 'priority',
       header: 'Priority',
+      isSortable: true,
       cell: (row: Incident) => (
         <Badge
           className={
@@ -768,6 +783,7 @@ const IncidentsPage = () => {
     {
       id: 'status',
       header: 'Status',
+      isSortable: true,
       cell: (row: Incident) => getStatusBadge(row.status),
     },
     {
@@ -900,8 +916,8 @@ const IncidentsPage = () => {
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="active">Active</TabsTrigger>
-            <TabsTrigger value="inactive">Inactive</TabsTrigger>
+            <TabsTrigger value={GeneralStatusEnum.OPEN}>Open</TabsTrigger>
+            <TabsTrigger value={GeneralStatusEnum.CLOSE}>Close</TabsTrigger>
           </TabsList>
         </Tabs>
       </PageHeader>
@@ -919,10 +935,12 @@ const IncidentsPage = () => {
           total: totalIncidents,
         }}
         onSearch={handleSearch}
-        searchPlaceholder="Search incidents..."
+        searchPlaceholder="Search by code, subject, or description..."
         filterFields={filterFields}
         onApplyFilters={handleApplyFilters}
         activeFilters={activeFilters}
+        sorting={sorting}
+        onSortingChange={handleSortingChange}
       />
 
       <ConfirmDialog

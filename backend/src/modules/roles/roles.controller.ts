@@ -64,7 +64,7 @@ export class RolesController {
     type: RoleDto,
     isArray: false
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -94,7 +94,7 @@ export class RolesController {
   @ApiParam({ name: 'id', description: 'Role ID', type: String })
   @ApiResponse({ status: 200, description: 'Return the role.' })
   @ApiResponse({ status: 404, description: 'Role not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   findOne(@Param('id') id: string) {
     return this.rolesService.findOne(id);
   }

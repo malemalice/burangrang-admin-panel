@@ -8,6 +8,7 @@ import api from '@/core/lib/api';
 
 const auditSchedulesService = {
   getAll: async (params: PaginationParams & {
+    search?: string;
     isActive?: boolean;
     areaId?: string | string[];
     auditElementId?: string | string[];
@@ -23,6 +24,7 @@ const auditSchedulesService = {
     if (params.limit) queryParams.append('limit', params.limit.toString());
     if (params.sortBy) queryParams.append('sortBy', params.sortBy);
     if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    if (params.search?.trim()) queryParams.append('search', params.search.trim());
     if (params.isActive !== undefined) queryParams.append('isActive', params.isActive.toString());
     if (params.status) queryParams.append('status', params.status);
     if (params.createdAtFrom) queryParams.append('createdAtFrom', params.createdAtFrom);

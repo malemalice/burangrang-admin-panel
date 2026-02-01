@@ -16,6 +16,7 @@ import { Prisma } from '@prisma/client';
 import * as nodemailer from 'nodemailer';
 import { SettingsHelperService } from '../../shared/services/settings.service';
 import { ConfigService } from '@nestjs/config';
+import { MAIL_PROVIDERS } from './constants/mail-providers';
 
 @Injectable()
 export class MailService {
@@ -65,9 +66,9 @@ export class MailService {
       )) ?? 'no-reply@example.com';
 
     let defaults: { host: string; port: number; secure: boolean };
-    if (provider === 'gmail') {
+    if (provider === MAIL_PROVIDERS.GMAIL) {
       defaults = { host: 'smtp.gmail.com', port: 465, secure: true };
-    } else if (provider === 'mailgun') {
+    } else if (provider === MAIL_PROVIDERS.MAILGUN) {
       defaults = { host: 'smtp.mailgun.org', port: 587, secure: false };
     } else {
       defaults = { host: 'localhost', port: 1025, secure: false };

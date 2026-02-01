@@ -4,6 +4,7 @@ import { CreateAuditCriteriaDto } from '../dto/create-audit-criteria.dto';
 import { UpdateAuditCriteriaDto } from '../dto/update-audit-criteria.dto';
 import { AuditCriteriaDto } from '../dto/audit-criteria.dto';
 import { Prisma, TransitionTypeEnum } from '@prisma/client';
+import { PRISMA_ERROR_CODES } from '../../../shared/constants/prisma-errors';
 import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
 
@@ -46,10 +47,10 @@ export class AuditCriteriaService {
   }
 
   /**
-   * Regenerate codes for all criteria in an audit clause
+   * Regenerate codes for all criteria in an audit clause.
+   * Uses two-phase update to avoid unique constraint violations when reassigning codes.
    */
   async regenerateCriteriaCodes(auditClauseId: string): Promise<void> {
-    // Get the audit clause with its element to get the full code path
     const auditClause = await this.prisma.auditClause.findUnique({
       where: { id: auditClauseId },
       include: {
@@ -59,21 +60,28 @@ export class AuditCriteriaService {
 
     this.errorHandler.throwIfNotFoundById('AuditClause', auditClauseId, auditClause);
 
-    // Get all criteria ordered by order field
     const criteria = await this.prisma.auditCriteria.findMany({
       where: { auditClauseId },
       orderBy: { order: 'asc' },
     });
 
-    // Update criteria codes
-    for (let i = 0; i < criteria.length; i++) {
-      const criterion = criteria[i];
-      const newCriteriaCode = this.generateCriteriaCode(auditClause!.code, i);
-      await this.prisma.auditCriteria.update({
-        where: { id: criterion.id },
-        data: { code: newCriteriaCode },
-      });
-    }
+    await this.prisma.$transaction(async (tx) => {
+      // Phase 1: set all codes to temporary values to avoid unique constraint during reassignment
+      for (const criterion of criteria) {
+        await tx.auditCriteria.update({
+          where: { id: criterion.id },
+          data: { code: `__temp_${criterion.id}` },
+        });
+      }
+      // Phase 2: set final codes
+      for (let i = 0; i < criteria.length; i++) {
+        const newCriteriaCode = this.generateCriteriaCode(auditClause!.code, i);
+        await tx.auditCriteria.update({
+          where: { id: criteria[i].id },
+          data: { code: newCriteriaCode },
+        });
+      }
+    });
   }
 
   async create(
@@ -128,7 +136,7 @@ export class AuditCriteriaService {
         data,
       });
     } catch (error: any) {
-      if (error?.code === 'P2002') {
+      if (error?.code === PRISMA_ERROR_CODES.UNIQUE_VIOLATION) {
         this.errorHandler.throwConflictCustom('Order number already exists');
       }
       throw error;
@@ -343,5 +351,31 @@ export class AuditCriteriaService {
     this.errorHandler.throwIfNotFoundByField('AuditCriteria', 'code', code, criteria);
 
     return this.auditCriteriaMapper(criteria);
+  }
+
+  /**
+   * Reorder criteria by updating order field for each criterion in a single transaction.
+   * Prevents duplicate order conflicts that can occur when updating one-by-one.
+   */
+  async reorder(auditClauseId: string, criterionIds: string[]): Promise<void> {
+    if (!criterionIds?.length) return;
+    const auditClause = await this.prisma.auditClause.findUnique({
+      where: { id: auditClauseId },
+    });
+    this.errorHandler.throwIfNotFoundById('AuditClause', auditClauseId, auditClause);
+
+    await this.prisma.$transaction(async (tx) => {
+      for (let i = 0; i < criterionIds.length; i++) {
+        await tx.auditCriteria.updateMany({
+          where: {
+            id: criterionIds[i],
+            auditClauseId,
+          },
+          data: { order: i },
+        });
+      }
+    });
+
+    await this.regenerateCriteriaCodes(auditClauseId);
   }
 }

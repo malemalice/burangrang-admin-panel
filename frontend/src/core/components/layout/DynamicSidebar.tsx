@@ -47,22 +47,39 @@ const getNavStyles = (isDark: boolean, isActive = false, textColor?: string) => 
 
 const DynamicNavItem = ({ menu, isOpen, level = 0 }: DynamicNavItemProps) => {
   const { isDark } = useTheme();
-  const location = useLocation();
   
   // In dark mode, use light text; in light mode, use contrast text
   const textColor = isDark 
     ? 'hsl(240 4.8% 95.9%)' // Light text for dark sidebar
     : '#ffffff'; // White text for light sidebar with theme colors
 
-  const isActive = location.pathname === menu.path;
+  // Parent menus with no path (e.g. "Waste Management" when user has no child access)
+  // must not be rendered as NavLink to="#" — that can match current route and stay highlighted.
+  const hasValidPath = menu.path && menu.path !== '#';
+  if (!hasValidPath) {
+    return (
+      <span
+        className={cn(
+          "flex items-center text-sm py-2 px-4 rounded-md transition-all cursor-default",
+          getNavStyles(isDark, false),
+          !isOpen && "justify-center px-2",
+          level > 0 && "ml-4"
+        )}
+        style={{ color: textColor }}
+      >
+        {menu.icon && <Icon name={menu.icon} size={20} className={cn(!isOpen && "mx-auto")} />}
+        {isOpen && <span className={cn(menu.icon && "ml-3")}>{menu.name}</span>}
+      </span>
+    );
+  }
 
   return (
     <NavLink
-      to={menu.path || '#'}
+      to={menu.path}
       end // Use exact matching to avoid parent routes being highlighted
-      className={({ isActive }) => cn(
+      className={({ isActive: linkActive }) => cn(
         "flex items-center text-sm py-2 px-4 rounded-md transition-all",
-        getNavStyles(isDark, isActive),
+        getNavStyles(isDark, linkActive),
         !isOpen && "justify-center px-2",
         level > 0 && "ml-4" // Add indentation for nested items
       )}

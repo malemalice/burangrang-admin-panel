@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useState, useEffect, useRef } from 'react';
+import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X, Upload, Image as ImageIcon, ChevronRight, CheckCircle2, XCircle } from 'lucide-react';
@@ -247,13 +247,13 @@ export const AuditItemForm = ({
           if (auditItem.status === GeneralStatusEnum.WAITING_APPROVAL && hasApprovalRights) {
             nextMode = 'approval';
           }
-          // 2) Update action item mode for assigned users (OPEN or WAITING_APPROVAL)
+          // 2) Update action item mode for assigned users (OPEN or REJECTED)
           else if (
             userCanEditActionRealization &&
             !isUserSuperAdmin &&
             !userIsAuditor &&
             (auditItem.status === GeneralStatusEnum.OPEN ||
-              auditItem.status === GeneralStatusEnum.WAITING_APPROVAL)
+              auditItem.status === GeneralStatusEnum.REJECTED)
           ) {
             nextMode = 'update_action_item';
           }
@@ -419,6 +419,23 @@ export const AuditItemForm = ({
     ));
   };
 
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const scrollToFirstError = (errors: FieldErrors<FormValues>) => {
+    const firstKey = Object.keys(errors)[0] as keyof FormValues | undefined;
+    if (!firstKey || !formRef.current) return;
+    const el = formRef.current.querySelector(`[data-field="${firstKey}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const focusable = el.querySelector<HTMLElement>(
+        'input:not([type="hidden"]), select, textarea, [role="combobox"], button'
+      );
+      if (focusable && typeof focusable.focus === 'function') {
+        (focusable as HTMLElement).focus({ preventScroll: true });
+      }
+    }
+  };
+
   const handleSubmit = async (data: FormValues) => {
     // Determine status based on mode
     let statusToSet: string | undefined;
@@ -489,7 +506,11 @@ export const AuditItemForm = ({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form
+        ref={formRef}
+        onSubmit={form.handleSubmit(handleSubmit, scrollToFirstError)}
+        className="space-y-6"
+      >
         {/* Header Section */}
         <div className="space-y-4 pb-6 border-b">
           {/* Compact Breadcrumb */}
@@ -559,11 +580,12 @@ export const AuditItemForm = ({
           {/* Status and Due Date Section */}
           {!isFieldHidden('compliantStatus') && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="compliantStatus"
-                render={({ field }) => (
-                  <FormItem>
+              <div data-field="compliantStatus">
+                <FormField
+                  control={form.control}
+                  name="compliantStatus"
+                  render={({ field }) => (
+                    <FormItem>
                     <FormLabel>
                       Compliant Status <span className="text-destructive">*</span>
                     </FormLabel>
@@ -591,10 +613,12 @@ export const AuditItemForm = ({
                   </FormItem>
                 )}
               />
+              </div>
 
-              <FormField
-                control={form.control}
-                name="dueDate"
+              <div data-field="dueDate">
+                <FormField
+                  control={form.control}
+                  name="dueDate"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
@@ -616,15 +640,17 @@ export const AuditItemForm = ({
                   </FormItem>
                 )}
               />
+              </div>
             </div>
           )}
 
           {/* Assignment Section */}
           {!isFieldHidden('departmentIds') && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="departmentIds"
+              <div data-field="departmentIds">
+                <FormField
+                  control={form.control}
+                  name="departmentIds"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
@@ -648,10 +674,12 @@ export const AuditItemForm = ({
                   </FormItem>
                 )}
               />
+              </div>
 
-              <FormField
-                control={form.control}
-                name="userIds"
+              <div data-field="userIds">
+                <FormField
+                  control={form.control}
+                  name="userIds"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Assigned Users</FormLabel>
@@ -672,13 +700,15 @@ export const AuditItemForm = ({
                   </FormItem>
                 )}
               />
+              </div>
             </div>
           )}
 
           {!isFieldHidden('evidence') && (
-            <FormField
-              control={form.control}
-              name="evidence"
+            <div data-field="evidence">
+              <FormField
+                control={form.control}
+                name="evidence"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Evidence</FormLabel>
@@ -695,12 +725,14 @@ export const AuditItemForm = ({
                 </FormItem>
               )}
             />
+            </div>
           )}
 
           {!isFieldHidden('recommendation') && (
-            <FormField
-              control={form.control}
-              name="recommendation"
+            <div data-field="recommendation">
+              <FormField
+                control={form.control}
+                name="recommendation"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Recommendation</FormLabel>
@@ -717,12 +749,14 @@ export const AuditItemForm = ({
                 </FormItem>
               )}
             />
+            </div>
           )}
 
           {!isFieldHidden('actionRealization') && (
-            <FormField
-              control={form.control}
-              name="actionRealization"
+            <div data-field="actionRealization">
+              <FormField
+                control={form.control}
+                name="actionRealization"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Action Realization</FormLabel>
@@ -739,6 +773,7 @@ export const AuditItemForm = ({
                 </FormItem>
               )}
             />
+            </div>
           )}
 
           {/* Image Upload Section */}
@@ -836,11 +871,6 @@ export const AuditItemForm = ({
                   setApprovalStatus(ApprovalStatus.REJECTED);
                   setIsApproving(true);
                   try {
-                    // Save any form changes first
-                    const formData = form.getValues();
-                    await onSubmit({ ...formData, images });
-                    
-                    // Then handle rejection if handler is provided
                     if (onApprove) {
                       await onApprove(ApprovalStatus.REJECTED, approvalNotes);
                     }
@@ -863,11 +893,6 @@ export const AuditItemForm = ({
                   setApprovalStatus(ApprovalStatus.APPROVED);
                   setIsApproving(true);
                   try {
-                    // First, save any form changes with CLOSE status
-                    const formData = form.getValues();
-                    await onSubmit({ ...formData, images, status: GeneralStatusEnum.CLOSE });
-                    
-                    // Then handle approval if handler is provided
                     if (onApprove) {
                       await onApprove(ApprovalStatus.APPROVED, approvalNotes);
                     }

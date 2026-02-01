@@ -13,6 +13,7 @@ import * as crypto from 'crypto';
 import { SignupDto } from '../dto/signup.dto';
 import { ForgotPasswordDto } from '../dto/forgot-password.dto';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
+import { PRISMA_ERROR_CODES } from '../../../shared/constants/prisma-errors';
 import { MailService } from '../../mail/mail.service';
 
 interface AuthenticatedUser {
@@ -135,7 +136,7 @@ export class AuthService {
           error && typeof error === 'object' && 'code' in error
             ? String((error as { code: unknown }).code)
             : '';
-        if (errorCode === 'P2002') {
+        if (errorCode === PRISMA_ERROR_CODES.UNIQUE_VIOLATION) {
           this.logger.warn(
             `Token collision detected for user ${userId}, generating new token with extra randomness`,
           );

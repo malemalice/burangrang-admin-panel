@@ -88,6 +88,7 @@ const AuditScheduleDetailPage = () => {
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
   const [totalClauses, setTotalClauses] = useState(0);
+  const [clauseSearchTerm, setClauseSearchTerm] = useState('');
   const [auditItems, setAuditItems] = useState<AuditItem[]>([]);
   const [allCriteria, setAllCriteria] = useState<AuditCriteria[]>([]);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
@@ -122,6 +123,7 @@ const AuditScheduleDetailPage = () => {
           isActive: true,
           sortBy: 'order',
           sortOrder: 'asc',
+          search: clauseSearchTerm?.trim() || undefined,
         });
         setAuditClauses(response.data);
         setTotalClauses(response.meta.total);
@@ -134,7 +136,7 @@ const AuditScheduleDetailPage = () => {
     };
 
     fetchAuditClauses();
-  }, [auditSchedule?.auditElementId, pageIndex, limit]);
+  }, [auditSchedule?.auditElementId, pageIndex, limit, clauseSearchTerm]);
 
   // Fetch audit items and criteria for summary calculation
   useEffect(() => {
@@ -235,6 +237,7 @@ const AuditScheduleDetailPage = () => {
       [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
       [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
       [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
+      [GeneralStatusEnum.CLOSE]: { label: 'Close', variant: 'default' },
     };
 
     const statusKey = String(status);
@@ -469,8 +472,13 @@ const AuditScheduleDetailPage = () => {
               total: totalClauses,
             }}
             filterFields={[]}
-            onSearch={() => {}}
+            searchValue={clauseSearchTerm}
+            onSearch={(term) => {
+              setClauseSearchTerm(term);
+              setPageIndex(0);
+            }}
             onApplyFilters={() => {}}
+            searchPlaceholder="Search clauses by code or name..."
           />
         </CardContent>
       </Card>

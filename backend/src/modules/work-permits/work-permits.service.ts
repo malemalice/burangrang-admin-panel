@@ -12,6 +12,9 @@ import { RejectWorkPermitDto } from './dto/reject-work-permit.dto';
 import { RequestInfoWorkPermitDto } from './dto/request-info-work-permit.dto';
 import { ExtendWorkPermitDto } from './dto/extend-work-permit.dto';
 import { CloseWorkPermitDto } from './dto/close-work-permit.dto';
+import { WorkPermitStatusEnum } from './dto/work-permit.dto';
+import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
+import { APPROVAL_CHAIN_STATUS } from '../../shared/constants/approval-status';
 import { PaginatedResponse } from '../../shared/types/pagination-params';
 import { Prisma } from '@prisma/client';
 import { MasterApprovalsService } from '../approvals/master-approvals.service';
@@ -102,7 +105,12 @@ export class WorkPermitsService {
     this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
 
     // If not in review status, no one can approve
-    if (!['IN_REVIEW_HSE', 'IN_REVIEW_SECURITY', 'WAITING_APPROVAL', 'IN_REVIEW'].includes(workPermit.status)) {
+    const reviewStatuses = [
+      WorkPermitStatusEnum.IN_REVIEW_HSE,
+      WorkPermitStatusEnum.IN_REVIEW_SECURITY,
+      WorkPermitStatusEnum.WAITING_APPROVAL,
+    ];
+    if (!reviewStatuses.includes(workPermit.status as WorkPermitStatusEnum)) {
       return { canApprove: false, canReject: false, canRequestInfo: false, nextApprover: null };
     }
 
@@ -112,12 +120,12 @@ export class WorkPermitsService {
       const approvalRights = await this.masterApprovalsService.checkApprovalRights(
         id,
         user,
-        'WORK_PERMIT',
+        APPROVAL_ENTITIES.WORK_PERMIT,
       );
 
       const approvalStatus = await this.masterApprovalsService.checkApprovalStatus(
         id,
-        'WORK_PERMIT',
+        APPROVAL_ENTITIES.WORK_PERMIT,
       );
 
       return {
@@ -872,7 +880,7 @@ export class WorkPermitsService {
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, existing);
 
       // Business rule: Only can edit if status is DRAFT or NEED_INFO
-      if (existing.status !== 'DRAFT' && existing.status !== 'NEED_INFO') {
+      if (existing.status !== WorkPermitStatusEnum.DRAFT && existing.status !== WorkPermitStatusEnum.NEED_INFO) {
         this.errorHandler.throwBadRequest(`Cannot edit work permit with status ${existing.status}. Only DRAFT or NEED_INFO permits can be edited.`);
       }
 
@@ -916,8 +924,8 @@ export class WorkPermitsService {
       const updateData: any = {};
 
       // WP-049: If status is NEED_INFO, change to DRAFT after editing
-      if (existing.status === 'NEED_INFO') {
-        updateData.status = 'DRAFT';
+      if (existing.status === WorkPermitStatusEnum.NEED_INFO) {
+        updateData.status = WorkPermitStatusEnum.DRAFT;
       }
 
       if (updateDto.projectName !== undefined) updateData.projectName = updateDto.projectName;
@@ -1281,15 +1289,15 @@ export class WorkPermitsService {
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
 
       // Business rule: Only DRAFT status can be submitted
-      if (workPermit.status !== 'DRAFT') {
+      if (workPermit.status !== WorkPermitStatusEnum.DRAFT) {
         this.errorHandler.throwBadRequest(`Cannot submit work permit with status ${workPermit.status}. Only DRAFT permits can be submitted.`);
       }
 
-      // Update status to WAITING_APPROVAL
+      // Update status to IN_REVIEW_HSE
       const updated = await this.prisma.workPermit.update({
         where: { id },
         data: {
-          status: 'IN_REVIEW_HSE',
+          status: WorkPermitStatusEnum.IN_REVIEW_HSE,
         },
         include: {
           area: true,
@@ -1325,7 +1333,7 @@ export class WorkPermitsService {
       const approvalRights = await this.masterApprovalsService.checkApprovalRights(
         id,
         user,
-        'WORK_PERMIT',
+        APPROVAL_ENTITIES.WORK_PERMIT,
       );
 
       if (!approvalRights.canApprove) {
@@ -1335,7 +1343,7 @@ export class WorkPermitsService {
       // Submit approval record
       await this.masterApprovalsService.submitApproval(
         {
-          entity: 'WORK_PERMIT',
+          entity: APPROVAL_ENTITIES.WORK_PERMIT,
           dataId: id,
           status: ApprovalStatus.APPROVED,
           notes: approveDto.notes || '',
@@ -1346,23 +1354,23 @@ export class WorkPermitsService {
       // Check approval status to determine next step
       const approvalStatus = await this.masterApprovalsService.checkApprovalStatus(
         id,
-        'WORK_PERMIT',
+        APPROVAL_ENTITIES.WORK_PERMIT,
       );
 
-      let nextStatus: string;
-      if (approvalStatus.currentStatus === 'COMPLETED') {
-        nextStatus = 'APPROVED';
+      let nextStatus: WorkPermitStatusEnum;
+      if (approvalStatus.currentStatus === APPROVAL_CHAIN_STATUS.COMPLETED) {
+        nextStatus = WorkPermitStatusEnum.APPROVED;
       } else if (approvalStatus.nextApprover) {
         const nextDept = approvalStatus.nextApprover.department.name.toUpperCase();
         if (nextDept.includes('SECURITY')) {
-          nextStatus = 'IN_REVIEW_SECURITY';
+          nextStatus = WorkPermitStatusEnum.IN_REVIEW_SECURITY;
         } else if (nextDept.includes('HSE')) {
-          nextStatus = 'IN_REVIEW_HSE';
+          nextStatus = WorkPermitStatusEnum.IN_REVIEW_HSE;
         } else {
-          nextStatus = 'IN_REVIEW'; // Generic fallback
+          nextStatus = WorkPermitStatusEnum.OPEN; // Generic fallback (OPEN used as in-review)
         }
       } else {
-        nextStatus = 'APPROVED';
+        nextStatus = WorkPermitStatusEnum.APPROVED;
       }
 
       // Update status
@@ -1379,9 +1387,9 @@ export class WorkPermitsService {
       });
 
       // Send notifications
-      if (nextStatus === 'APPROVED') {
+      if (nextStatus === WorkPermitStatusEnum.APPROVED) {
         await this.sendApprovalNotifications(id, updated);
-      } else if (nextStatus === 'IN_REVIEW_SECURITY') {
+      } else if (nextStatus === WorkPermitStatusEnum.IN_REVIEW_SECURITY) {
         await this.sendNotificationToSecurity(id, updated);
       } else {
         // Generic notification for other steps could be added here
@@ -1411,7 +1419,7 @@ export class WorkPermitsService {
       const approvalRights = await this.masterApprovalsService.checkApprovalRights(
         id,
         user,
-        'WORK_PERMIT',
+        APPROVAL_ENTITIES.WORK_PERMIT,
       );
 
       if (!approvalRights.canApprove) {
@@ -1422,7 +1430,7 @@ export class WorkPermitsService {
       const updated = await this.prisma.workPermit.update({
         where: { id },
         data: {
-          status: 'REJECTED',
+          status: WorkPermitStatusEnum.REJECTED,
         },
         include: {
           area: true,
@@ -1434,7 +1442,7 @@ export class WorkPermitsService {
       // Submit rejection record
       await this.masterApprovalsService.submitApproval(
         {
-          entity: 'WORK_PERMIT',
+          entity: APPROVAL_ENTITIES.WORK_PERMIT,
           dataId: id,
           status: ApprovalStatus.REJECTED,
           notes: rejectDto.reason + (rejectDto.notes ? `\n\n${rejectDto.notes}` : ''),
@@ -1469,7 +1477,7 @@ export class WorkPermitsService {
       const approvalRights = await this.masterApprovalsService.checkApprovalRights(
         id,
         user,
-        'WORK_PERMIT',
+        APPROVAL_ENTITIES.WORK_PERMIT,
       );
 
       if (!approvalRights.canApprove) {
@@ -1480,7 +1488,7 @@ export class WorkPermitsService {
       const updated = await this.prisma.workPermit.update({
         where: { id },
         data: {
-          status: 'NEED_INFO',
+          status: WorkPermitStatusEnum.NEED_INFO,
         },
         include: {
           area: true,
@@ -1508,7 +1516,7 @@ export class WorkPermitsService {
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
 
       // Business rule: Only APPROVED permits can be extended
-      if (workPermit.status !== 'APPROVED') {
+      if (workPermit.status !== WorkPermitStatusEnum.APPROVED) {
         this.errorHandler.throwBadRequest(`Cannot extend work permit with status ${workPermit.status}. Only APPROVED permits can be extended.`);
       }
 
@@ -1525,7 +1533,7 @@ export class WorkPermitsService {
         where: { id },
         data: {
           proposedEndDate: newEndDate,
-          status: 'EXTENDED',
+          status: WorkPermitStatusEnum.EXTENDED,
         },
         include: {
           area: true,
@@ -1553,7 +1561,8 @@ export class WorkPermitsService {
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
 
       // Business rule: Only APPROVED or EXTENDED permits can be closed
-      if (!['APPROVED', 'EXTENDED'].includes(workPermit.status)) {
+      const closableStatuses = [WorkPermitStatusEnum.APPROVED, WorkPermitStatusEnum.EXTENDED];
+      if (!closableStatuses.includes(workPermit.status as WorkPermitStatusEnum)) {
         this.errorHandler.throwBadRequest(`Cannot close work permit with status ${workPermit.status}. Only APPROVED or EXTENDED permits can be closed.`);
       }
 

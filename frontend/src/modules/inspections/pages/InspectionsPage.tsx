@@ -51,6 +51,15 @@ const InspectionsPage = () => {
       type: 'text',
     },
     {
+      id: 'isActive',
+      label: 'Status (Active/Inactive)',
+      type: 'select',
+      options: [
+        { value: true, label: 'Active' },
+        { value: false, label: 'Inactive' },
+      ],
+    },
+    {
       id: 'areaId',
       label: 'Area',
       type: 'select',
@@ -58,13 +67,13 @@ const InspectionsPage = () => {
     },
     {
       id: 'status',
-      label: 'Status',
+      label: 'Inspection Status',
       type: 'select',
       options: GENERAL_STATUS_OPTIONS.map(option => ({
         label: option.label,
         value: option.value,
       })),
-    }
+    },
   ];
 
   const fetchInspections = useCallback(async () => {
@@ -149,12 +158,18 @@ const InspectionsPage = () => {
         const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === filter.value);
         newActiveFilters[filter.id] = {
           value: filter.value,
-          label: statusOption?.label || String(filter.value)
+          label: statusOption?.label || String(filter.value),
+        };
+      } else if (filter.id === 'isActive') {
+        const boolVal = filter.value === true || filter.value === 'true';
+        newActiveFilters[filter.id] = {
+          value: boolVal,
+          label: boolVal ? 'Active' : 'Inactive',
         };
       } else {
         newActiveFilters[filter.id] = {
           value: filter.value,
-          label: String(filter.value)
+          label: String(filter.value),
         };
       }
     });
@@ -285,7 +300,7 @@ const InspectionsPage = () => {
                 {openCount} Open
               </div>
               <div className={`text-xs whitespace-nowrap ${closedCount > 0 ? 'text-green-800 dark:text-green-400' : 'text-muted-foreground'}`}>
-                {closedCount} Closed
+                {closedCount} Close
               </div>
             </div>
           </div>
@@ -395,6 +410,8 @@ const InspectionsPage = () => {
         }}
         filterFields={filterFields}
         activeFilters={activeFilters}
+        searchValue={searchTerm}
+        searchPlaceholder="Search by inspection code..."
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

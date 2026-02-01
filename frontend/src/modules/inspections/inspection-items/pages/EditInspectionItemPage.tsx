@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -50,6 +50,8 @@ type FormValues = z.infer<typeof formSchema>;
 const EditInspectionItemPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo ?? '';
   const [item, setItem] = useState<InspectionItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -108,7 +110,7 @@ const EditInspectionItemPage = () => {
       } catch (error) {
         console.error('Failed to fetch data:', error);
         toast.error('Failed to load inspection item');
-        navigate('/inspections/items');
+        navigate(`/inspections/items${returnTo}`);
       } finally {
         setIsLoading(false);
       }
@@ -178,7 +180,7 @@ const EditInspectionItemPage = () => {
 
       await inspectionItemsService.update(id, updateData);
       toast.success('Inspection item updated successfully');
-      navigate(`/inspections/items/${id}`);
+      navigate(`/inspections/items${returnTo}`);
     } catch (error) {
       console.error('Failed to update inspection item:', error);
       toast.error('Failed to update inspection item');
@@ -203,7 +205,7 @@ const EditInspectionItemPage = () => {
       >
         <Button
           variant="ghost"
-          onClick={() => navigate(`/inspections/items/${id}`)}
+          onClick={() => navigate(`/inspections/items/${id}`, { state: { returnTo } })}
           className="mb-4"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -375,7 +377,7 @@ const EditInspectionItemPage = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => navigate(`/inspections/items/${id}`)}
+                    onClick={() => navigate(`/inspections/items/${id}`, { state: { returnTo } })}
                     disabled={isSubmitting}
                   >
                     Cancel

@@ -1,6 +1,6 @@
 import { IsOptional, IsUUID, IsEnum, IsBoolean, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   GeneralStatusEnum,
   IncidentTypeEnum,
@@ -30,7 +30,13 @@ export class FindIncidentsDto {
   sortOrder?: 'asc' | 'desc';
 
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    if (typeof value === 'boolean') return value;
+    if (value === 'true' || value === '1') return true;
+    if (value === 'false' || value === '0') return false;
+    return undefined;
+  })
   @IsBoolean()
   @ApiProperty({ required: false, description: 'Filter by active status' })
   isActive?: boolean;

@@ -37,6 +37,7 @@ import { WorkPermitsModule } from './modules/work-permits/work-permits.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { EnvironmentalMeasurementsModule } from './modules/environmental-measurements/environmental-measurements.module';
 import { AreasModule } from './modules/areas/areas.module';
+import { AssetsModule } from './modules/assets/assets.module';
 
 import { WasteManagementModule } from './modules/waste-management/waste-management.module';
 import { ManHoursModule } from './modules/man-hours/man-hours.module';
@@ -85,6 +86,7 @@ import { IncidentsModule } from './modules/incidents/incidents.module';
     RoomsModule,
     EnvironmentalMeasurementsModule,
     AreasModule,
+    AssetsModule,
     // Waste Management Module (consolidated - includes all waste-related features)
     WasteManagementModule,
     // Man Hours Module

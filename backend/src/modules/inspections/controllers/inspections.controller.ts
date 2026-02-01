@@ -72,16 +72,28 @@ export class InspectionsController {
     @Query('limit') limit?: number,
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
-    @Query('isActive') isActive?: boolean,
+    @Query('search') search?: string,
+    @Query('code') code?: string,
+    @Query('isActive') isActive?: string,
     @Query('areaId') areaId?: string,
     @Query('status') status?: GeneralStatusEnum,
   ) {
+    const isActiveBool =
+      isActive === undefined
+        ? undefined
+        : isActive === 'true'
+          ? true
+          : isActive === 'false'
+            ? false
+            : undefined;
     return this.inspectionsService.findAll({
       page: page ? +page : undefined,
       limit: limit ? +limit : undefined,
       sortBy,
       sortOrder,
-      isActive,
+      search: search?.trim() || undefined,
+      code: code?.trim() || undefined,
+      isActive: isActiveBool,
       areaId,
       status,
     });

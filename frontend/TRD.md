@@ -2,11 +2,11 @@
 ## Frontend Modular Architecture Restructuring
 
 ### 📋 Document Information
-- **Version**: 1.7
+- **Version**: 1.8
 - **Date**: 2024-12-20
 - **Status**: Active
 - **Author**: Development Team
-- **Last Updated**: List page state persistence (index → view → back) pattern added
+- **Last Updated**: PDF Export (Detail Page) implementation principles added
 
 ---
 
@@ -14,6 +14,7 @@
 
 This document outlines the technical requirements and architectural principles for restructuring the frontend application from a traditional layered architecture to a modular, feature-based architecture. The restructuring aims to improve maintainability, scalability, and developer experience while following modern frontend best practices.
 
+**Version 1.8 Updates**: Added "PDF Export (Detail Page) — Implementation Principles" under Advanced Features: react-to-pdf, dedicated PDF template, full data fetch before capture, hidden target, data fallback, filename/UX, template structure. Reference: RiskAssessmentDetailPage, RiskAssessmentPDFTemplate.
 **Version 1.7 Updates**: Added "List page state persistence (index → view → back)" under Search & Filters: URL as source of truth for list state, derive state from `useSearchParams`, sync URL on list actions, Back button uses `navigate(-1)`. Reference: AuditResultsPage, RiskRegisterPage, RisksPage.
 **Version 1.6 Updates**: Added "Searchable Select/Combobox Inside Dialog Pattern" documenting critical aria-hidden conflicts when using portaled components (Popover, Select) inside Dialog modals. Provides solution using ModalCombobox component with absolute positioning (no portals) for guaranteed interactivity. Includes root cause analysis, failed solution attempts, implementation principles, and usage patterns.
 **Version 1.5 Updates**: Added Dropdown + Dialog pattern to prevent focus trap issues when dropdown menus interact with dialogs. Includes state management, event handling, and cleanup patterns to ensure proper dropdown closing and prevent `aria-hidden` focus traps that block user interactions.
@@ -637,6 +638,17 @@ interface ApprovalDialogProps {
 - **Scope**: Current page, all pages, selected items, filtered results
 - **Customization**: Choose columns to export
 - **Background jobs**: For large exports with email notification
+
+#### PDF Export (Detail Page) — Implementation Principles
+Use these when adding "Export PDF" on entity detail pages (e.g. Risk Assessment, Inspection, Dispatch Order). Reference: `RiskAssessmentDetailPage`, `RiskAssessmentPDFTemplate`.
+
+1. **Library**: `react-to-pdf` (`usePDF`). Client-side only; no backend PDF generation.
+2. **Dedicated template**: One component only for PDF content (e.g. `[Entity]PDFTemplate`). Props: main entity + full list data + approval history (if applicable). Use print-safe layout: white bg, Arial, HTML tables with `borderCollapse: 'collapse'`, Tailwind for colors. No complex layout or portals.
+3. **Full data before capture**: If the page shows paginated children, PDF must include all. On export: fetch all items (e.g. `page: 1`, `limit: 10000`) and refresh approval status in parallel; put results in state; wait ~200 ms for re-render; then call `toPDF()` so the captured DOM has the full dataset.
+4. **Hidden target**: Render the template in a div with `ref={targetRef}`, off-screen (`position: 'absolute', left: '-9999px', top: '-9999px'`), fixed width (e.g. `210mm`), `aria-hidden="true"`. Only this div is used for PDF.
+5. **Data fallback**: Pass to template: items = `allItemsForPDF.length ? allItemsForPDF : items`, approval = `approvalHistoryForPDF ?? approvalHistory` so PDF still works if the full fetch hasn’t completed or fails.
+6. **UX**: Filename = `{entityCode}-{yyyyMMdd-HHmmss}.pdf`. Disable export and show "Preparing PDF…" while loading; toast on success/error.
+7. **Template structure**: Header (title + code + date) → Details (key fields; optional HTML with `dangerouslySetInnerHTML` in a constrained block) → Full data table(s) → Approval timeline (workflow + history) if applicable. Format dates with `date-fns`; use semantic colors for status.
 
 #### Comparison Views
 - **Side-by-side**: Compare two records or versions
@@ -2535,6 +2547,7 @@ const columns = [
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.8 | 2024-12-20 | Development Team | Added "PDF Export (Detail Page) — Implementation Principles" under Advanced Features: react-to-pdf, dedicated PDF template, full data fetch before capture, hidden target, data fallback, filename/UX, template structure. Reference: RiskAssessmentDetailPage, RiskAssessmentPDFTemplate. |
 | 1.7 | 2024-12-20 | Development Team | Added "List page state persistence (index → view → back)" under Search & Filters: URL as source of truth for list state, derive state from useSearchParams, sync URL on list actions, Back uses navigate(-1). Reference: AuditResultsPage, RiskRegisterPage, RisksPage. |
 | 1.6 | 2024-12-20 | Development Team | Added "Searchable Select/Combobox Inside Dialog Pattern" to Module Interaction Patterns section. Documents critical issue where portaled components (Popover, Select) inside Dialog modals cause aria-hidden conflicts that block all interactions. Provides solution using ModalCombobox component with absolute positioning (no portals) for guaranteed interactivity inside Dialogs. Includes failed solution attempts, root cause analysis, implementation principles, and usage patterns. Updated Form Components section with warning about using ModalCombobox inside dialogs. |
 | 1.5 | 2024-12-XX | Development Team | Merged form layout principles from `frontend-form-general-layout.md`, including page structure patterns (PageHeader → max-w-4xl wrapper → Form Component), component hierarchy guidelines, layout patterns (two-column grid, spacing standards), state patterns (loading/error states), and action button patterns. Enhanced "Form Page Specific Guidelines" and "Form Component Patterns" sections with complete implementation examples and quick reference checklist. |

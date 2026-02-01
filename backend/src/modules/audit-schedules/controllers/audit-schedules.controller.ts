@@ -75,6 +75,7 @@ export class AuditSchedulesController {
     @Query('limit') limit?: number,
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+    @Query('search') search?: string,
     @Query('isActive') isActive?: boolean,
     @Query('areaId') areaId?: string | string[],
     @Query('auditElementId') auditElementId?: string | string[],
@@ -93,6 +94,7 @@ export class AuditSchedulesController {
       limit: limit ? +limit : undefined,
       sortBy,
       sortOrder,
+      search: search?.trim() || undefined,
       isActive,
       areaIds,
       auditElementIds,
@@ -133,7 +135,7 @@ export class AuditSchedulesController {
       auditCriteriaId,
       compliantStatus,
       status,
-      search,
+      search: search?.trim() || undefined,
     });
   }
 

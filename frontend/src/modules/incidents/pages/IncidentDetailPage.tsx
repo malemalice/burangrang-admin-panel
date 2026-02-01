@@ -120,7 +120,7 @@ const IncidentDetailPage = () => {
       [GeneralStatusEnum.WAITING_APPROVAL]: { className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200', label: 'Waiting Approval' },
       [GeneralStatusEnum.DONE]: { className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', label: 'Done' },
       [GeneralStatusEnum.REJECTED]: { className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200', label: 'Rejected' },
-      [GeneralStatusEnum.CLOSE]: { className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200', label: 'Closed' },
+      [GeneralStatusEnum.CLOSE]: { className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200', label: 'Close' },
     };
 
     const config = statusConfig[status] || { className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200', label: status };
@@ -175,21 +175,25 @@ const IncidentDetailPage = () => {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Incidents
             </Button>
-            <Button
-              onClick={() => navigate(`/incidents/${id}/edit`)}
-              disabled={isLoading || isDeleting}
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Incident
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteClick}
-              disabled={isLoading || isDeleting}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete Incident
-            </Button>
+            {(incident.status !== GeneralStatusEnum.WAITING_APPROVAL && incident.status !== GeneralStatusEnum.CLOSE) && (
+              <>
+                <Button
+                  onClick={() => navigate(`/incidents/${id}/edit`)}
+                  disabled={isLoading || isDeleting}
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Incident
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteClick}
+                  disabled={isLoading || isDeleting}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Incident
+                </Button>
+              </>
+            )}
           </div>
         }
       />

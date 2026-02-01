@@ -16,6 +16,9 @@ import {
 export interface AuditElementPaginationParams extends PaginationParams {
   isActive?: boolean;
   search?: string;
+  code?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface AuditClausePaginationParams extends PaginationParams {
@@ -114,6 +117,15 @@ const auditPolicyService = {
 
   regenerateCriteriaCodes: async (auditClauseId: string): Promise<void> => {
     await api.post(`/audit-criteria/regenerate-codes/${auditClauseId}`);
+  },
+
+  // Reorder (single transaction to avoid duplicate order conflicts)
+  reorderClauses: async (auditElementId: string, clauseIds: string[]): Promise<void> => {
+    await api.post('/audit-clauses/reorder', { auditElementId, clauseIds });
+  },
+
+  reorderCriteria: async (auditClauseId: string, criterionIds: string[]): Promise<void> => {
+    await api.post('/audit-criteria/reorder', { auditClauseId, criterionIds });
   },
 };
 

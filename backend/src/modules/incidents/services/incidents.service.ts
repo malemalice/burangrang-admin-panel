@@ -10,13 +10,16 @@ import {
   FindIncidentsDto,
 } from '../dto';
 import {
-  Prisma,
+  EquipmentEntityEnum as PrismaEquipmentEntityEnum,
   GeneralStatusEnum,
   IncidentTypeEnum,
   IncidentClassificationEnum,
+  Prisma,
   PriorityEnum,
   SourceEnum,
 } from '@prisma/client';
+import { APPROVAL_CHAIN_STATUS } from '../../../shared/constants/approval-status';
+import { ROLE_CODES } from '../../../shared/constants/role-codes';
 import { IncidentInjuredPersonDto } from '../dto/incident-injured-person.dto';
 import { IncidentWitnessDto } from '../dto/incident-witness.dto';
 import { IncidentAssetDto } from '../dto/incident-asset.dto';
@@ -147,6 +150,32 @@ export class IncidentsService {
     });
   }
 
+  /**
+   * Only SUPER_ADMIN can create/update incident status to any value.
+   * Other users can only set status to OPEN, CLOSE, or REJECTED.
+   */
+  private async assertStatusAllowedForUser(
+    userId: string,
+    status: GeneralStatusEnum,
+    action: 'create' | 'update',
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+    const isSuperAdmin = user?.role?.code === ROLE_CODES.SUPER_ADMIN;
+    if (isSuperAdmin) return;
+    const allowed =
+      status === GeneralStatusEnum.OPEN ||
+      status === GeneralStatusEnum.CLOSE ||
+      status === GeneralStatusEnum.REJECTED;
+    if (!allowed) {
+      this.errorHandler.throwBadRequest(
+        `Only Super Admin can ${action} incident status to "${status}". Other users can only set status to Open, Close, or Rejected.`,
+      );
+    }
+  }
+
   async create(
     createIncidentDto: CreateIncidentDto,
     userId: string,
@@ -159,6 +188,8 @@ export class IncidentsService {
       attachments,
       ...data
     } = createIncidentDto;
+
+    await this.assertStatusAllowedForUser(userId, data.status, 'create');
 
     const incident = await this.errorHandler.safeExecute(
       () =>
@@ -239,10 +270,11 @@ export class IncidentsService {
     data: IncidentDto[];
     meta: { total: number; page: number; limit: number };
   }> {
+    const VALID_SORT_FIELDS = ['code', 'subject', 'incidentDate', 'createdAt', 'updatedAt', 'status', 'priority'] as const;
     const {
       page = 1,
       limit = 10,
-      sortBy = 'code',
+      sortBy: rawSortBy = 'createdAt',
       sortOrder = 'desc',
       isActive,
       areaId,
@@ -256,6 +288,8 @@ export class IncidentsService {
       assigneeId,
       search,
     } = options || {};
+
+    const sortBy = VALID_SORT_FIELDS.includes(rawSortBy as any) ? rawSortBy : 'createdAt';
 
     const where: Prisma.IncidentWhereInput = {};
 
@@ -385,21 +419,21 @@ export class IncidentsService {
             incident.assets.map(async (asset) => {
               if (asset.entity && asset.entityId) {
                 try {
-                  if (asset.entity === 'ASSET') {
+                  if (asset.entity === PrismaEquipmentEntityEnum.ASSET) {
                     const assetData = await this.prisma.asset.findUnique({
                       where: { id: asset.entityId },
                     });
                     if (assetData) {
                       (asset as any).asset = assetData;
                     }
-                  } else if (asset.entity === 'HEAVY_EQUIPMENT') {
+                  } else if (asset.entity === PrismaEquipmentEntityEnum.HEAVY_EQUIPMENT) {
                     const heavyEquipment = await this.prisma.heavyEquipment.findUnique({
                       where: { id: asset.entityId },
                     });
                     if (heavyEquipment) {
                       (asset as any).heavyEquipment = heavyEquipment;
                     }
-                  } else if (asset.entity === 'SAFETY_EQUIPMENT') {
+                  } else if (asset.entity === PrismaEquipmentEntityEnum.SAFETY_EQUIPMENT) {
                     const safetyEquipment = await this.prisma.safetyEquipment.findUnique({
                       where: { id: asset.entityId },
                       include: { safetyEquipmentType: true },
@@ -479,21 +513,21 @@ export class IncidentsService {
         mappedIncident.assets.map(async (asset) => {
           if (asset.entity && asset.entityId) {
             try {
-              if (asset.entity === 'ASSET') {
+              if (asset.entity === PrismaEquipmentEntityEnum.ASSET) {
                 const assetData = await this.prisma.asset.findUnique({
                   where: { id: asset.entityId },
                 });
                 if (assetData) {
                   (asset as any).asset = assetData;
                 }
-              } else if (asset.entity === 'HEAVY_EQUIPMENT') {
+              } else if (asset.entity === PrismaEquipmentEntityEnum.HEAVY_EQUIPMENT) {
                 const heavyEquipment = await this.prisma.heavyEquipment.findUnique({
                   where: { id: asset.entityId },
                 });
                 if (heavyEquipment) {
                   (asset as any).heavyEquipment = heavyEquipment;
                 }
-              } else if (asset.entity === 'SAFETY_EQUIPMENT') {
+              } else if (asset.entity === PrismaEquipmentEntityEnum.SAFETY_EQUIPMENT) {
                 const safetyEquipment = await this.prisma.safetyEquipment.findUnique({
                   where: { id: asset.entityId },
                   include: { safetyEquipmentType: true },
@@ -519,6 +553,7 @@ export class IncidentsService {
   async update(
     id: string,
     updateIncidentDto: UpdateIncidentDto,
+    userId: string,
   ): Promise<IncidentDto> {
     const {
       injuredPersons,
@@ -528,6 +563,10 @@ export class IncidentsService {
       attachments,
       ...data
     } = updateIncidentDto;
+
+    if (data.status !== undefined) {
+      await this.assertStatusAllowedForUser(userId, data.status, 'update');
+    }
 
     // First, check if incident exists
     const existingIncident = await this.prisma.incident.findUnique({
@@ -745,9 +784,9 @@ export class IncidentsService {
 
       this.errorHandler.throwIfNotFoundById('Incident', id, incident);
 
-      // Business rule: Only OPEN status can be submitted
-      if (incident.status !== GeneralStatusEnum.OPEN) {
-        this.errorHandler.throwBadRequest(`Cannot submit incident with status ${incident.status}. Only OPEN incidents can be submitted.`);
+      // Business rule: Only OPEN or REJECTED status can be submitted (REJECTED so investigator can resubmit after rejection)
+      if (incident.status !== GeneralStatusEnum.OPEN && incident.status !== GeneralStatusEnum.REJECTED) {
+        this.errorHandler.throwBadRequest(`Cannot submit incident with status ${incident.status}. Only OPEN or REJECTED incidents can be submitted.`);
       }
 
       // Update status to WAITING_APPROVAL
@@ -842,7 +881,7 @@ export class IncidentsService {
       );
 
       let nextStatus: GeneralStatusEnum;
-      if (approvalStatus.currentStatus === 'COMPLETED') {
+      if (approvalStatus.currentStatus === APPROVAL_CHAIN_STATUS.COMPLETED) {
         nextStatus = GeneralStatusEnum.CLOSE;
       } else {
         nextStatus = GeneralStatusEnum.WAITING_APPROVAL;

@@ -32,15 +32,16 @@ const AuditPolicyPage = () => {
   const [elementToDelete, setElementToDelete] = useState<AuditElement | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>({ id: 'code', desc: false });
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields
   const filterFields: FilterField[] = useMemo(() => [
     {
       id: 'code',
-      label: 'Search by element code',
+      label: 'Element Code',
       type: 'text',
-      placeholder: 'Search by code, name, or description...',
+      placeholder: 'Filter by element code...',
     },
     {
       id: 'isActive',
@@ -61,9 +62,12 @@ const AuditPolicyPage = () => {
         limit,
       };
 
-      const searchValue = searchTerm || (activeFilters.code?.value as string) || '';
-      if (searchValue) {
-        params.search = searchValue;
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+
+      if (activeFilters.code?.value) {
+        params.code = activeFilters.code.value as string;
       }
 
       if (activeFilters.isActive?.value === 'active') {
@@ -72,8 +76,13 @@ const AuditPolicyPage = () => {
         params.isActive = false;
       }
 
+      if (sorting) {
+        params.sortBy = sorting.id;
+        params.sortOrder = sorting.desc ? 'desc' : 'asc';
+      }
+
       Object.entries(activeFilters).forEach(([key, filter]) => {
-        if (key !== 'isActive' && key !== 'code') {
+        if (key !== 'isActive' && key !== 'code' && filter.value !== undefined && filter.value !== null && filter.value !== '') {
           params[key] = filter.value;
         }
       });
@@ -92,7 +101,7 @@ const AuditPolicyPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, searchTerm, activeFilters]);
+  }, [pageIndex, limit, searchTerm, activeFilters, sorting]);
 
   useEffect(() => {
     fetchElements();
@@ -261,6 +270,8 @@ const AuditPolicyPage = () => {
         filterFields={filterFields}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+        sorting={sorting}
+        onSortingChange={setSorting}
         searchPlaceholder="Search by code, name, or description..."
       />
 
@@ -272,6 +283,7 @@ const AuditPolicyPage = () => {
         title="Delete Audit Element"
         description={`Are you sure you want to delete "${elementToDelete?.name}"? This action cannot be undone and will also delete all associated clauses and criteria.`}
         onConfirm={handleDeleteConfirm}
+        confirmText="Delete"
         variant="destructive"
       />
     </>

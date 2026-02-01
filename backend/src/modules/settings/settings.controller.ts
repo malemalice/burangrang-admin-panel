@@ -28,6 +28,7 @@ import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { Role } from '../../shared/types/role.enum';
 import { Public } from 'src/shared/decorators/public.decorator';
+import { SETTINGS_KEYS } from './constants/settings-keys';
 
 @ApiTags('settings')
 @ApiBearerAuth()
@@ -125,7 +126,7 @@ export class SettingsController {
 
   @Patch('theme/color')
   @ApiOperation({ summary: 'Update theme color' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   @ApiBody({
     schema: {
       type: 'object',
@@ -148,7 +149,7 @@ export class SettingsController {
 
   @Patch('theme/mode')
   @ApiOperation({ summary: 'Update theme mode' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   @ApiBody({
     schema: {
       type: 'object',
@@ -188,7 +189,7 @@ export class SettingsController {
 
     // If theme setting doesn't exist, create it with default value
     if (value === null && key.startsWith('theme.')) {
-      const defaultValue = key === 'theme.color' ? 'blue' : 'light';
+      const defaultValue = key === SETTINGS_KEYS.THEME_COLOR ? 'blue' : 'light';
       console.log(`Creating default theme setting: ${key} = ${defaultValue}`);
 
       await this.settingsService.updateByKey(key, {

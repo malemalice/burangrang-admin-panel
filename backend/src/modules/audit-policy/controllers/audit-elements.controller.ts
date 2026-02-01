@@ -56,6 +56,7 @@ export class AuditElementsController {
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
+    @Query('code') code?: string,
   ): Promise<{ data: AuditElementDto[]; meta: { total: number } }> {
     const pageNumber = page ? parseInt(page, 10) : undefined;
     const limitNumber = limit ? parseInt(limit, 10) : undefined;
@@ -69,6 +70,7 @@ export class AuditElementsController {
       sortOrder,
       isActive: isActiveBoolean,
       search,
+      code,
     });
   }
 

@@ -16,18 +16,24 @@ import { BadRequestException } from '@nestjs/common';
 import { RemindersService } from '../../reminders/reminders.service';
 import {
   ReminderRepeatTypeEnum,
+  ReminderStatusEnum,
   ReminderTargetTypeEnum,
 } from '../../reminders/dto/reminder.dto';
 import { ApprovalsService } from '../../approvals/approvals.service';
 import { MasterApprovalsService } from '../../approvals/master-approvals.service';
 import { APPROVAL_ENTITIES } from '../../../shared/constants/approval-entities';
+import { APPROVAL_CHAIN_STATUS } from '../../../shared/constants/approval-status';
+import { ROLE_CODES } from '../../../shared/constants/role-codes';
 import { ApprovalStatus } from '../../approvals/dto/submit-approval.dto';
+
+const AUDIT_SORT_FIELDS = ['code', 'auditDate', 'createdAt', 'updatedAt', 'status'] as const;
 
 interface FindAllOptions {
   page?: number;
   limit?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  search?: string;
   isActive?: boolean;
   areaIds?: string[];
   auditElementIds?: string[];
@@ -211,8 +217,9 @@ export class AuditSchedulesService {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'code',
-      sortOrder = 'asc',
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      search,
       isActive,
       areaIds,
       auditElementIds,
@@ -224,6 +231,21 @@ export class AuditSchedulesService {
 
     const where: Prisma.AuditWhereInput = {};
 
+    if (search && search.trim()) {
+      where.OR = [
+        { code: { contains: search.trim(), mode: 'insensitive' } },
+        {
+          auditElement: {
+            name: { contains: search.trim(), mode: 'insensitive' },
+          },
+        },
+        {
+          auditElement: {
+            code: { contains: search.trim(), mode: 'insensitive' },
+          },
+        },
+      ];
+    }
     if (isActive !== undefined) {
       where.isActive = isActive;
     }
@@ -266,6 +288,11 @@ export class AuditSchedulesService {
       }
     }
 
+    const safeSortBy = AUDIT_SORT_FIELDS.includes(sortBy as (typeof AUDIT_SORT_FIELDS)[number])
+      ? sortBy
+      : 'createdAt';
+    const safeSortOrder = sortOrder === 'asc' || sortOrder === 'desc' ? sortOrder : 'desc';
+
     const [audits, total] = await Promise.all([
       this.prisma.audit.findMany({
         where,
@@ -286,7 +313,7 @@ export class AuditSchedulesService {
           items: true,
         },
         orderBy: {
-          [sortBy]: sortOrder,
+          [safeSortBy]: safeSortOrder,
         },
         skip: (page - 1) * limit,
         take: limit,
@@ -595,15 +622,14 @@ export class AuditSchedulesService {
         where: {
           entity: 't_audits',
           entityId: auditId,
-          status: 'PENDING', // Only cancel pending reminders
+          status: ReminderStatusEnum.PENDING,
         },
       });
 
-      // Cancel each reminder by updating status to CANCELLED
       for (const reminder of reminders) {
         await this.prisma.reminder.update({
           where: { id: reminder.id },
-          data: { status: 'CANCELLED' },
+          data: { status: ReminderStatusEnum.CANCELLED },
         });
       }
     } catch (error) {
@@ -721,19 +747,28 @@ export class AuditSchedulesService {
         );
       }
 
-      // Only allow changing to WAITING_APPROVAL from OPEN
-      if (newStatus === GeneralStatusEnum.WAITING_APPROVAL && currentStatus !== GeneralStatusEnum.OPEN) {
+      // Only allow changing to WAITING_APPROVAL from OPEN or REJECTED
+      if (
+        newStatus === GeneralStatusEnum.WAITING_APPROVAL &&
+        currentStatus !== GeneralStatusEnum.OPEN &&
+        currentStatus !== GeneralStatusEnum.REJECTED
+      ) {
         this.errorHandler.throwBadRequest(
-          `Cannot change status to WAITING_APPROVAL from ${currentStatus}. Only OPEN items can be submitted for approval.`,
+          `Cannot change status to WAITING_APPROVAL from ${currentStatus}. Only OPEN or REJECTED items can be submitted for approval.`,
         );
       }
     }
 
-    // Only allow updates when status is OPEN
-    // Items in WAITING_APPROVAL, DONE, or REJECTED cannot be updated (except via approval workflow)
-    if (currentStatus !== GeneralStatusEnum.OPEN && newStatus === undefined) {
+    // Only allow updates when status is OPEN or REJECTED
+    // REJECTED items can be updated so assignees can make corrections and resubmit
+    // Items in WAITING_APPROVAL or DONE cannot be updated (except via approval workflow)
+    if (
+      currentStatus !== GeneralStatusEnum.OPEN &&
+      currentStatus !== GeneralStatusEnum.REJECTED &&
+      newStatus === undefined
+    ) {
       this.errorHandler.throwBadRequest(
-        `Cannot update audit item with status ${currentStatus}. Only OPEN items can be updated by assigned users.`,
+        `Cannot update audit item with status ${currentStatus}. Only OPEN or REJECTED items can be updated by assigned users.`,
       );
     }
 
@@ -910,12 +945,13 @@ export class AuditSchedulesService {
       where.status = status;
     }
 
-    if (search) {
+    const searchTrimmed = search?.trim();
+    if (searchTrimmed) {
       where.OR = [
         {
           audit: {
             code: {
-              contains: search,
+              contains: searchTrimmed,
               mode: 'insensitive',
             },
           },
@@ -923,7 +959,7 @@ export class AuditSchedulesService {
         {
           auditCriteria: {
             name: {
-              contains: search,
+              contains: searchTrimmed,
               mode: 'insensitive',
             },
           },
@@ -932,7 +968,7 @@ export class AuditSchedulesService {
           auditCriteria: {
             auditClause: {
               name: {
-                contains: search,
+                contains: searchTrimmed,
                 mode: 'insensitive',
               },
             },
@@ -943,7 +979,7 @@ export class AuditSchedulesService {
             auditClause: {
               auditElement: {
                 name: {
-                  contains: search,
+                  contains: searchTrimmed,
                   mode: 'insensitive',
                 },
               },
@@ -1045,10 +1081,13 @@ export class AuditSchedulesService {
 
       this.errorHandler.throwIfNotFoundById('Audit Item', itemId, auditItem);
 
-      // Validate status is OPEN
-      if (auditItem.status !== GeneralStatusEnum.OPEN) {
+      // Validate status is OPEN or REJECTED (rejected items can be updated and resubmitted)
+      if (
+        auditItem.status !== GeneralStatusEnum.OPEN &&
+        auditItem.status !== GeneralStatusEnum.REJECTED
+      ) {
         this.errorHandler.throwBadRequest(
-          `Cannot submit for approval: audit item status is ${auditItem.status}. Only OPEN items can be submitted.`,
+          `Cannot submit for approval: audit item status is ${auditItem.status}. Only OPEN or REJECTED items can be submitted.`,
         );
       }
 
@@ -1058,7 +1097,7 @@ export class AuditSchedulesService {
         include: { role: true },
       });
 
-      const isSuperAdmin = user?.role?.code === 'SUPER_ADMIN';
+      const isSuperAdmin = user?.role?.code === ROLE_CODES.SUPER_ADMIN;
 
       // Validate user is assigned to the audit item (via department or user assignment)
       // Bypass this check if user is SUPER_ADMIN
@@ -1134,7 +1173,7 @@ export class AuditSchedulesService {
       );
 
       let newStatus = auditItem.status;
-      if (approvalStatus.currentStatus === 'COMPLETED') {
+      if (approvalStatus.currentStatus === APPROVAL_CHAIN_STATUS.COMPLETED) {
         newStatus = GeneralStatusEnum.CLOSE;
       }
 

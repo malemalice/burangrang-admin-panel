@@ -121,7 +121,7 @@ export const seedAuditSchedules = async (
       GeneralStatusEnum.SCHEDULED,
       GeneralStatusEnum.DRAFT,
       GeneralStatusEnum.OPEN,
-      GeneralStatusEnum.DONE,
+      GeneralStatusEnum.CLOSE,
       GeneralStatusEnum.SCHEDULED,
     ];
 
@@ -266,15 +266,14 @@ export const seedAuditSchedules = async (
             ? GeneralStatusEnum.CLOSE
             : audit.status === GeneralStatusEnum.DRAFT
               ? GeneralStatusEnum.DRAFT
-              : audit.status === GeneralStatusEnum.DONE
-                ? GeneralStatusEnum.DONE
+              : audit.status === GeneralStatusEnum.CLOSE
+                ? GeneralStatusEnum.CLOSE
                 : Math.random() < 0.18
                   ? GeneralStatusEnum.WAITING_APPROVAL
                   : GeneralStatusEnum.OPEN;
 
         // Due date: some overdue, some upcoming
         const dueDate =
-          itemStatus === GeneralStatusEnum.DONE ||
           itemStatus === GeneralStatusEnum.CLOSE
             ? addDays(audit.auditDate, getRandomInt(3, 10))
             : addDays(today, getRandomInt(-7, 30));
@@ -291,7 +290,6 @@ export const seedAuditSchedules = async (
           : null;
 
         const actionRealization =
-          itemStatus === GeneralStatusEnum.DONE ||
           itemStatus === GeneralStatusEnum.CLOSE
             ? isNonComply
               ? 'Corrective action implemented and verified. Documentation updated and communicated.'
