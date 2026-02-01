@@ -119,6 +119,18 @@ export class MailController {
     type: String,
     description: 'Search by code, name or subject',
   })
+  @ApiQuery({
+    name: 'code',
+    required: false,
+    type: String,
+    description: 'Filter by code (partial match)',
+  })
+  @ApiQuery({
+    name: 'name',
+    required: false,
+    type: String,
+    description: 'Filter by name (partial match)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Return paginated list of email templates.',
@@ -131,6 +143,8 @@ export class MailController {
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
+    @Query('code') code?: string,
+    @Query('name') name?: string,
   ): Promise<{
     data: EmailTemplateDto[];
     meta: { total: number; page: number; limit: number };
@@ -147,6 +161,8 @@ export class MailController {
       sortOrder,
       isActive: isActiveBoolean,
       search,
+      code,
+      name,
     });
   }
 

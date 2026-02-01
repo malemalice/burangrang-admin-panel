@@ -98,7 +98,7 @@ const EmailTemplatesPage = () => {
     setIsLoading(true);
     try {
       await emailTemplateService.deleteEmailTemplate(templateToDelete.id);
-      toast.success('Template deleted successfully');
+      toast.success('Email Template has been deleted');
       fetchTemplates();
     } catch (error) {
       console.error('Error deleting template:', error);
@@ -257,6 +257,8 @@ const EmailTemplatesPage = () => {
         title="Delete Template"
         description={`Are you sure you want to delete "${templateToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
+        confirmText="Delete"
       />
     </>
   );
