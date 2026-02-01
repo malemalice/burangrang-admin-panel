@@ -59,6 +59,7 @@ import {
   EquipmentEntityEnum,
 } from '../types/incident.types';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
 import areaService from '@/modules/master-data/services/areaService';
 import { riskCategoryService, departmentService, roomService } from '@/modules/master-data';
 import userService from '@/modules/users/services/userService';
@@ -162,6 +163,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
   const [isApproving, setIsApproving] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
   const [approvalNotes, setApprovalNotes] = useState('');
+  const [isSuperUser, setIsSuperUser] = useState(false);
+  const [roleFetched, setRoleFetched] = useState(false);
 
   // Reference data
   const [areas, setAreas] = useState<AreaDTO[]>([]);
@@ -211,6 +214,38 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       assets: [],
     },
   });
+
+  // Fetch current user role: only SUPER_ADMIN can create/update status to any value; others only OPEN or CLOSE
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!currentUser?.id) return;
+      try {
+        const response = await api.get('/users/me');
+        const userData = response.data;
+        let roleCode: string | null = null;
+        if (userData.role && typeof userData.role === 'object' && 'code' in userData.role) {
+          roleCode = userData.role.code;
+        }
+        if (!roleCode && userData.roleId) {
+          const role = await roleService.getRoleById(userData.roleId);
+          roleCode = role.code;
+        }
+        setIsSuperUser(roleCode === ROLE_CODES.SUPER_ADMIN);
+      } catch {
+        setIsSuperUser(false);
+      } finally {
+        setRoleFetched(true);
+      }
+    };
+    fetchUserRole();
+  }, [currentUser?.id]);
+
+  // Non-super-user can only create with OPEN or CLOSE; default create to OPEN
+  useEffect(() => {
+    if (roleFetched && !isSuperUser && mode === 'create') {
+      form.setValue('status', GeneralStatusEnum.OPEN);
+    }
+  }, [roleFetched, isSuperUser, mode, form]);
 
   // Image/attachment upload state (drag-and-drop, multi-file like InspectionItemForm)
   interface ImageUploadItem {
@@ -779,18 +814,23 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
         if ('url' in x && x.url.startsWith('blob:')) URL.revokeObjectURL(x.url);
       });
 
-      // Determine status based on mode
-      let statusToSet = data.status;
-      if (resolvedMode === 'creator') {
-        // Creator: submit updates status to OPEN (for both create and edit)
-        statusToSet = GeneralStatusEnum.OPEN;
-      } else if (resolvedMode === 'investigator') {
-        // Investigator: submit changes status to WAITING_APPROVAL
-        statusToSet = GeneralStatusEnum.WAITING_APPROVAL;
-      } else if (resolvedMode === 'approver') {
-        // Approver: status handled by approval handler (should not submit via main form)
+      // Non-super-user can only set status to OPEN or CLOSE
+      if (!isSuperUser && data.status !== GeneralStatusEnum.OPEN && data.status !== GeneralStatusEnum.CLOSE) {
+        toast.error('Only Open or Close status is allowed for your role.');
         return;
       }
+      // Determine status based on mode and role: only SUPER_ADMIN can set any status; others only OPEN or CLOSE
+      let statusToSet = data.status;
+      if (isSuperUser) {
+        if (resolvedMode === 'creator') {
+          statusToSet = GeneralStatusEnum.OPEN;
+        } else if (resolvedMode === 'investigator') {
+          statusToSet = GeneralStatusEnum.WAITING_APPROVAL;
+        } else if (resolvedMode === 'approver') {
+          return;
+        }
+      }
+      // Non-super-user: statusToSet stays data.status (only OPEN or CLOSE allowed by UI and backend)
 
       const dto: CreateIncidentDTO | UpdateIncidentDTO = {
         code: data.code,
@@ -1090,13 +1130,27 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value={GeneralStatusEnum.DRAFT}>Draft</SelectItem>
-                          <SelectItem value={GeneralStatusEnum.OPEN}>Open</SelectItem>
-                          <SelectItem value={GeneralStatusEnum.SCHEDULED}>Scheduled</SelectItem>
-                          <SelectItem value={GeneralStatusEnum.WAITING_APPROVAL}>Waiting Approval</SelectItem>
-                          <SelectItem value={GeneralStatusEnum.DONE}>Done</SelectItem>
-                          <SelectItem value={GeneralStatusEnum.REJECTED}>Rejected</SelectItem>
-                          <SelectItem value={GeneralStatusEnum.CLOSE}>Close</SelectItem>
+                          {isSuperUser ? (
+                            <>
+                              <SelectItem value={GeneralStatusEnum.DRAFT}>Draft</SelectItem>
+                              <SelectItem value={GeneralStatusEnum.OPEN}>Open</SelectItem>
+                              <SelectItem value={GeneralStatusEnum.SCHEDULED}>Scheduled</SelectItem>
+                              <SelectItem value={GeneralStatusEnum.WAITING_APPROVAL}>Waiting Approval</SelectItem>
+                              <SelectItem value={GeneralStatusEnum.DONE}>Done</SelectItem>
+                              <SelectItem value={GeneralStatusEnum.REJECTED}>Rejected</SelectItem>
+                              <SelectItem value={GeneralStatusEnum.CLOSE}>Close</SelectItem>
+                            </>
+                          ) : (
+                            <>
+                              <SelectItem value={GeneralStatusEnum.OPEN}>Open</SelectItem>
+                              <SelectItem value={GeneralStatusEnum.CLOSE}>Close</SelectItem>
+                              {mode === 'edit' && incident?.status && incident.status !== GeneralStatusEnum.OPEN && incident.status !== GeneralStatusEnum.CLOSE && (
+                                <SelectItem value={incident.status}>
+                                  {incident.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+                                </SelectItem>
+                              )}
+                            </>
+                          )}
                         </SelectContent>
                       </Select>
                       <FormMessage />

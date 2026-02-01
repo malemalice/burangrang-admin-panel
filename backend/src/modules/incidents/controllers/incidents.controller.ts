@@ -66,10 +66,11 @@ export class IncidentsController {
   @ApiOperation({ summary: 'Update an incident' })
   @ApiResponse({ status: 200, type: IncidentDto })
   async update(
+    @Request() req: RequestWithUser,
     @Param('id') id: string,
     @Body() updateIncidentDto: UpdateIncidentDto,
   ): Promise<IncidentDto> {
-    return this.incidentsService.update(id, updateIncidentDto);
+    return this.incidentsService.update(id, updateIncidentDto, req.user.id);
   }
 
   @Delete(':id')

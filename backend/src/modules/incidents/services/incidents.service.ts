@@ -147,6 +147,29 @@ export class IncidentsService {
     });
   }
 
+  /**
+   * Only SUPER_ADMIN can create/update incident status to any value.
+   * Other users can only set status to OPEN or CLOSE.
+   */
+  private async assertStatusAllowedForUser(
+    userId: string,
+    status: GeneralStatusEnum,
+    action: 'create' | 'update',
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+    const isSuperAdmin = user?.role?.code === 'SUPER_ADMIN';
+    if (isSuperAdmin) return;
+    const allowed = status === GeneralStatusEnum.OPEN || status === GeneralStatusEnum.CLOSE;
+    if (!allowed) {
+      this.errorHandler.throwBadRequest(
+        `Only Super Admin can ${action} incident status to "${status}". Other users can only set status to Open or Close.`,
+      );
+    }
+  }
+
   async create(
     createIncidentDto: CreateIncidentDto,
     userId: string,
@@ -159,6 +182,8 @@ export class IncidentsService {
       attachments,
       ...data
     } = createIncidentDto;
+
+    await this.assertStatusAllowedForUser(userId, data.status, 'create');
 
     const incident = await this.errorHandler.safeExecute(
       () =>
@@ -519,6 +544,7 @@ export class IncidentsService {
   async update(
     id: string,
     updateIncidentDto: UpdateIncidentDto,
+    userId: string,
   ): Promise<IncidentDto> {
     const {
       injuredPersons,
@@ -528,6 +554,10 @@ export class IncidentsService {
       attachments,
       ...data
     } = updateIncidentDto;
+
+    if (data.status !== undefined) {
+      await this.assertStatusAllowedForUser(userId, data.status, 'update');
+    }
 
     // First, check if incident exists
     const existingIncident = await this.prisma.incident.findUnique({
