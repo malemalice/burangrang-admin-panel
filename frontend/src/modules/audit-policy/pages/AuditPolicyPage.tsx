@@ -20,9 +20,12 @@ import { Badge } from '@/core/components/ui/badge';
 
 import auditPolicyService from '../services/auditPolicyService';
 import { AuditElement } from '../types/audit-policy.types';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const AuditPolicyPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [elements, setElements] = useState<AuditElement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -219,22 +222,30 @@ const AuditPolicyPage = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/audit-policy/${element.id}`)}>
-                <Eye className="mr-2 h-4 w-4" />
-                View Details
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate(`/audit-policy/${element.id}/edit`)}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-red-600"
-                onClick={(e) => handleDeleteClick(element, e)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
+              {hasPermission('audit-policy:read') && (
+                <DropdownMenuItem onClick={() => navigate(`/audit-policy/${element.id}`)}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </DropdownMenuItem>
+              )}
+              {((hasPermission('audit-policy:read') || hasPermission('audit-policy:update')) && hasPermission('audit-policy:delete')) && (
+                <DropdownMenuSeparator />
+              )}
+              {hasPermission('audit-policy:update') && (
+                <DropdownMenuItem onClick={() => navigate(`/audit-policy/${element.id}/edit`)}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {hasPermission('audit-policy:delete') && (
+                <DropdownMenuItem
+                  className="text-red-600"
+                  onClick={(e) => handleDeleteClick(element, e)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -249,9 +260,11 @@ const AuditPolicyPage = () => {
         title="Audit Policy"
         subtitle="Manage audit policy elements, clauses, and criteria"
         actions={
-          <ThemeButton onClick={() => navigate('/audit-policy/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Create Element
-          </ThemeButton>
+          <PermissionGuard permission="audit-policy:create">
+            <ThemeButton onClick={() => navigate('/audit-policy/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Create Element
+            </ThemeButton>
+          </PermissionGuard>
         }
       />
 

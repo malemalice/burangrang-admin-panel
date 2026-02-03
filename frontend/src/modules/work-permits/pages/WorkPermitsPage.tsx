@@ -20,9 +20,12 @@ import { WorkPermit, WorkPermitStatus, WorkPermitSearchParams } from '../types/w
 import { format } from 'date-fns';
 import workPermitService from '../services/workPermitService';
 import { getWorkPermitStatusColor } from '../utils/statusColors';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const WorkPermitsPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const {
     workPermits,
     totalWorkPermits,
@@ -290,30 +293,36 @@ const WorkPermitsPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/work-permits/${workPermit.id}`)}>
-              <Eye className="mr-2 h-4 w-4" /> View details
-            </DropdownMenuItem>
-            {(workPermit.status === 'DRAFT' || workPermit.status === 'NEED_INFO') && (
+            {hasPermission('work-permit:read') && (
+              <DropdownMenuItem onClick={() => navigate(`/work-permits/${workPermit.id}`)}>
+                <Eye className="mr-2 h-4 w-4" /> View details
+              </DropdownMenuItem>
+            )}
+            {hasPermission('work-permit:update') && (workPermit.status === 'DRAFT' || workPermit.status === 'NEED_INFO') && (
               <DropdownMenuItem onClick={() => navigate(`/work-permits/${workPermit.id}/edit`)}>
                 <Edit className="mr-2 h-4 w-4" /> Edit
               </DropdownMenuItem>
             )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => {
-                setWorkPermitToDelete(workPermit);
-                setDeleteDialogOpen(true);
-              }}
-              className="text-destructive"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            {(hasPermission('work-permit:read') || hasPermission('work-permit:update')) && hasPermission('work-permit:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('work-permit:delete') && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setWorkPermitToDelete(workPermit);
+                  setDeleteDialogOpen(true);
+                }}
+                className="text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
       isSortable: false,
     },
-  ], [navigate, getStatusColor]);
+  ], [navigate, getStatusColor, hasPermission]);
 
   return (
     <>
@@ -321,9 +330,11 @@ const WorkPermitsPage = () => {
         title="Work Permits"
         subtitle="Manage work permit applications and approvals"
         actions={
-          <Button onClick={() => navigate('/work-permits/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Create Work Permit
-          </Button>
+          <PermissionGuard permission="work-permit:create">
+            <Button onClick={() => navigate('/work-permits/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Create Work Permit
+            </Button>
+          </PermissionGuard>
         }
       >
         <Tabs defaultValue="all" value={activeTab} className="w-full" onValueChange={handleTabChange}>

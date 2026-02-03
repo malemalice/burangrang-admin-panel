@@ -19,9 +19,12 @@ import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import environmentalMeasurementService from '../services/environmentalMeasurementService';
 import { EnvironmentalMeasurement } from '../types/environmental-measurement.types';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 export default function EnvironmentalMeasurementsPage() {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [measurements, setMeasurements] = useState<EnvironmentalMeasurement[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
@@ -249,16 +252,22 @@ export default function EnvironmentalMeasurementsPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/environmental-measurements/${measurement.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => handleDeleteClick(measurement, e)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            {hasPermission('environmental-measurement:update') && (
+              <DropdownMenuItem onClick={() => navigate(`/environmental-measurements/${measurement.id}/edit`)}>
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+            )}
+            {hasPermission('environmental-measurement:update') && hasPermission('environmental-measurement:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('environmental-measurement:delete') && (
+              <DropdownMenuItem
+                onClick={(e) => handleDeleteClick(measurement, e)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -271,9 +280,11 @@ export default function EnvironmentalMeasurementsPage() {
         title="Environmental Measurements"
         subtitle="Record and manage environmental measurements for rooms"
         actions={
-          <ThemeButton onClick={() => navigate('/environmental-measurements/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Measurement
-          </ThemeButton>
+          <PermissionGuard permission="environmental-measurement:create">
+            <ThemeButton onClick={() => navigate('/environmental-measurements/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Add Measurement
+            </ThemeButton>
+          </PermissionGuard>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

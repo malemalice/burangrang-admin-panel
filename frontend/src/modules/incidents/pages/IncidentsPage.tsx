@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Eye, Plus, Edit, Trash2, CheckCircle2, Info, ArrowRight, FileText, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/core/lib/auth';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 import approvalService from '@/modules/master-data/services/approvalService';
 import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
@@ -39,6 +41,7 @@ import { User } from '@/core/lib/types';
 const IncidentsPage = () => {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const { hasPermission } = usePermissions();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -372,30 +375,27 @@ const IncidentsPage = () => {
       return actions;
     }
 
-    // If super_admin, show all buttons regardless of conditions
-    if (isSuperAdmin) {
-      // Edit button (DRAFT, OPEN, or REJECTED so investigator can edit again after rejection)
-      if (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
-        actions.push({
-          label: 'Edit',
-          onClick: () => navigate(`/incidents/${incident.id}/edit?mode=creator`),
-          variant: 'default',
-          icon: <Edit className="mr-2 h-4 w-4" />,
-        });
+    // If super_admin and has permissions, show all buttons regardless of conditions
+    if (isSuperAdmin && (hasPermission('incident:update') || hasPermission('approval:update'))) {
+      if (hasPermission('incident:update')) {
+        if (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
+          actions.push({
+            label: 'Edit',
+            onClick: () => navigate(`/incidents/${incident.id}/edit?mode=creator`),
+            variant: 'default',
+            icon: <Edit className="mr-2 h-4 w-4" />,
+          });
+        }
+        if (incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
+          actions.push({
+            label: 'Submit',
+            onClick: () => navigate(`/incidents/${incident.id}/edit?mode=investigator`),
+            variant: 'default',
+            icon: <CheckCircle2 className="mr-2 h-4 w-4" />,
+          });
+        }
       }
-      
-      // Submit button (OPEN or REJECTED - investigator can submit again after rejection)
-      if (incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
-        actions.push({
-          label: 'Submit',
-          onClick: () => navigate(`/incidents/${incident.id}/edit?mode=investigator`),
-          variant: 'default',
-          icon: <CheckCircle2 className="mr-2 h-4 w-4" />,
-        });
-      }
-      
-      // Approve button
-      if (incident.status === GeneralStatusEnum.WAITING_APPROVAL) {
+      if (hasPermission('approval:update') && incident.status === GeneralStatusEnum.WAITING_APPROVAL) {
         actions.push({
           label: 'Approve',
           onClick: () => navigate(`/incidents/${incident.id}/edit?mode=approver`),
@@ -403,7 +403,6 @@ const IncidentsPage = () => {
           icon: <CheckCircle2 className="mr-2 h-4 w-4" />,
         });
       }
-      
       return actions;
     }
 
@@ -422,8 +421,7 @@ const IncidentsPage = () => {
       : false;
 
     // Edit button (creator mode) - for DRAFT, OPEN, or REJECTED (edit again after rejection)
-    // Show if: user is creator OR user has same department as creator OR user is super_admin
-    if ((isCreator || hasSameDeptAsCreator || isSuperAdmin) && 
+    if (hasPermission('incident:update') && (isCreator || hasSameDeptAsCreator || isSuperAdmin) &&
         (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED)) {
       actions.push({
         label: 'Edit',
@@ -434,7 +432,7 @@ const IncidentsPage = () => {
     }
 
     // Submit button (investigator mode) - for OPEN or REJECTED, user is in HSE department
-    if (userInHSEDept && (incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED)) {
+    if (hasPermission('incident:update') && userInHSEDept && (incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED)) {
       actions.push({
         label: 'Submit',
         onClick: () => navigate(`/incidents/${incident.id}/edit?mode=investigator`),
@@ -444,7 +442,7 @@ const IncidentsPage = () => {
     }
 
     // Approve button (approver mode) - for WAITING_APPROVAL status and user has approval rights
-    if (incident.status === GeneralStatusEnum.WAITING_APPROVAL && approvalRights[incident.id]) {
+    if (hasPermission('approval:update') && incident.status === GeneralStatusEnum.WAITING_APPROVAL && approvalRights[incident.id]) {
       actions.push({
         label: 'Approve',
         onClick: () => navigate(`/incidents/${incident.id}/edit?mode=approver`),
@@ -857,7 +855,7 @@ const IncidentsPage = () => {
             })}
             
             {/* Delete button - shown directly for super_admin, icon-only with tooltip */}
-            {isSuperAdmin && (
+            {hasPermission('incident:delete') && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -906,10 +904,12 @@ const IncidentsPage = () => {
                 <p>View Incident Workflow</p>
               </TooltipContent>
             </Tooltip>
-            <Button onClick={() => navigate('/incidents/new')}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Incident
-            </Button>
+            <PermissionGuard permission="incident:create">
+              <Button onClick={() => navigate('/incidents/new')}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Incident
+              </Button>
+            </PermissionGuard>
           </div>
         }
       >

@@ -30,9 +30,12 @@ import { useCertificateCategories } from '../hooks/useCertificates';
 import { Certificate, CertificateSearchParams } from '../types/certificate.types';
 import { departmentService } from '@/modules/master-data';
 import { userService } from '@/modules/users';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const CertificatesPage = () => {
     const navigate = useNavigate();
+    const { hasPermission } = usePermissions();
     const {
         certificates,
         totalCertificates,
@@ -441,41 +444,49 @@ const CertificatesPage = () => {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                                onSelect={(e) => {
-                                    e.preventDefault();
-                                    setOpenDropdownId(null);
-                                    navigate(`/certificates/${certificate.id}`);
-                                }}
-                            >
-                                <Eye className="mr-2 h-4 w-4" /> View details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onSelect={(e) => {
-                                    e.preventDefault();
-                                    setOpenDropdownId(null);
-                                    navigate(`/certificates/${certificate.id}/edit`);
-                                }}
-                            >
-                                <Edit className="mr-2 h-4 w-4" /> Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                onSelect={(e) => {
-                                    e.preventDefault();
-                                    handleDeleteClick(certificate, e as any);
-                                }}
-                                className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                            >
-                                <Trash2 className="mr-2 h-4 w-4 text-red-600" /> Delete
-                            </DropdownMenuItem>
+                            {hasPermission('certificate:read') && (
+                                <DropdownMenuItem
+                                    onSelect={(e) => {
+                                        e.preventDefault();
+                                        setOpenDropdownId(null);
+                                        navigate(`/certificates/${certificate.id}`);
+                                    }}
+                                >
+                                    <Eye className="mr-2 h-4 w-4" /> View details
+                                </DropdownMenuItem>
+                            )}
+                            {hasPermission('certificate:update') && (
+                                <DropdownMenuItem
+                                    onSelect={(e) => {
+                                        e.preventDefault();
+                                        setOpenDropdownId(null);
+                                        navigate(`/certificates/${certificate.id}/edit`);
+                                    }}
+                                >
+                                    <Edit className="mr-2 h-4 w-4" /> Edit
+                                </DropdownMenuItem>
+                            )}
+                            {(hasPermission('certificate:read') || hasPermission('certificate:update')) && hasPermission('certificate:delete') && (
+                                <DropdownMenuSeparator />
+                            )}
+                            {hasPermission('certificate:delete') && (
+                                <DropdownMenuItem
+                                    onSelect={(e) => {
+                                        e.preventDefault();
+                                        handleDeleteClick(certificate, e as any);
+                                    }}
+                                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4 text-red-600" /> Delete
+                                </DropdownMenuItem>
+                            )}
                         </DropdownMenuContent>
                     </DropdownMenu>
                 );
             },
             isSortable: false,
         },
-    ], [categories, departments, users, openDropdownId, navigate, handleDeleteClick, formatDate]);
+    ], [categories, departments, users, openDropdownId, navigate, handleDeleteClick, formatDate, hasPermission]);
 
     return (
         <>
@@ -483,9 +494,11 @@ const CertificatesPage = () => {
                 title="Certificates"
                 subtitle="Manage your organization's certificates and licenses"
                 actions={
-                    <Button onClick={() => navigate('/certificates/new')}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Certificate
-                    </Button>
+                    <PermissionGuard permission="certificate:create">
+                        <Button onClick={() => navigate('/certificates/new')}>
+                            <Plus className="mr-2 h-4 w-4" /> Add Certificate
+                        </Button>
+                    </PermissionGuard>
                 }
             >
                 <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

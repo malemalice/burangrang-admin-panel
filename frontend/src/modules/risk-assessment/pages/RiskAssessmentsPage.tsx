@@ -24,6 +24,8 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Badge } from '@/core/components/ui/badge';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 import { RiskAssessment } from '@/core/lib/types';
 import riskAssessmentService from '../services/riskAssessmentService';
@@ -33,6 +35,7 @@ import { Department } from '@/modules/master-data/types/master-data.types';
 
 const RiskAssessmentsPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -306,45 +309,51 @@ const RiskAssessmentsPage = () => {
       header: 'Actions',
       cell: (assessment: RiskAssessment) => (
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/risk-assessment/${assessment.id}`)}
-            className="text-primary hover:text-primary hover:bg-primary/10"
-            aria-label={`View details for ${assessment.code}`}
-          >
-            <Eye className="mr-2 h-4 w-4" />
-            View
-          </Button>
-          <DropdownMenu
-            open={openDropdownId === assessment.id}
-            onOpenChange={(open) => {
-              setOpenDropdownId(open ? assessment.id : null);
-            }}
-          >
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {assessment.status !== GeneralStatusEnum.WAITING_APPROVAL && (
-                <>
-                  <DropdownMenuItem onClick={() => navigate(`/risk-assessment/${assessment.id}/edit`)}>
-                    <Edit className="mr-2 h-4 w-4" /> Edit
+          {hasPermission('risk-assessment:read') && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/risk-assessment/${assessment.id}`)}
+              className="text-primary hover:text-primary hover:bg-primary/10"
+              aria-label={`View details for ${assessment.code}`}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              View
+            </Button>
+          )}
+          {(hasPermission('risk-assessment:update') || hasPermission('risk-assessment:delete')) && (
+            <DropdownMenu
+              open={openDropdownId === assessment.id}
+              onOpenChange={(open) => {
+                setOpenDropdownId(open ? assessment.id : null);
+              }}
+            >
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {hasPermission('risk-assessment:update') && assessment.status !== GeneralStatusEnum.WAITING_APPROVAL && (
+                  <>
+                    <DropdownMenuItem onClick={() => navigate(`/risk-assessment/${assessment.id}/edit`)}>
+                      <Edit className="mr-2 h-4 w-4" /> Edit
+                    </DropdownMenuItem>
+                    {hasPermission('risk-assessment:delete') && <DropdownMenuSeparator />}
+                  </>
+                )}
+                {hasPermission('risk-assessment:delete') && (
+                  <DropdownMenuItem
+                    onClick={(e) => handleDeleteClick(assessment, e)}
+                    className="text-red-600 focus:text-red-600"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-              <DropdownMenuItem
-                onClick={(e) => handleDeleteClick(assessment, e)}
-                className="text-red-600 focus:text-red-600"
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       )
     }
@@ -356,9 +365,11 @@ const RiskAssessmentsPage = () => {
         title="Risk Assessments"
         subtitle="Create and manage risk assessments with associated risk items"
         actions={
-          <ThemeButton onClick={() => navigate('/risk-assessment/new')}>
-            <Plus className="mr-2 h-4 w-4" /> New Assessment
-          </ThemeButton>
+          <PermissionGuard permission="risk-assessment:create">
+            <ThemeButton onClick={() => navigate('/risk-assessment/new')}>
+              <Plus className="mr-2 h-4 w-4" /> New Assessment
+            </ThemeButton>
+          </PermissionGuard>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

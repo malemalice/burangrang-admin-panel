@@ -18,9 +18,12 @@ import { PaginationParams } from '@/core/lib/types';
 import { useSafetyEquipments } from '../hooks/useSafetyEquipments';
 import { SafetyEquipment, SafetyEquipmentCategory } from '../types/ppe-master-data.types';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 export default function SafetyEquipmentsPage() {
     const navigate = useNavigate();
+    const { hasPermission } = usePermissions();
     const {
         equipments,
         totalEquipments,
@@ -255,19 +258,27 @@ export default function SafetyEquipmentsPage() {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate(`/master/safety-equipments/${equipment.id}`)}>
-                            <Eye className="mr-2 h-4 w-4" /> View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/master/safety-equipments/${equipment.id}/edit`)}>
-                            <Edit className="mr-2 h-4 w-4" /> Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                            onClick={(e) => handleDeleteClick(equipment, e)}
-                            className="text-red-600 focus:text-red-600"
-                        >
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </DropdownMenuItem>
+                        {hasPermission('safety-equipment:read') && (
+                            <DropdownMenuItem onClick={() => navigate(`/master/safety-equipments/${equipment.id}`)}>
+                                <Eye className="mr-2 h-4 w-4" /> View Details
+                            </DropdownMenuItem>
+                        )}
+                        {hasPermission('safety-equipment:update') && (
+                            <DropdownMenuItem onClick={() => navigate(`/master/safety-equipments/${equipment.id}/edit`)}>
+                                <Edit className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
+                        )}
+                        {(hasPermission('safety-equipment:read') || hasPermission('safety-equipment:update')) && hasPermission('safety-equipment:delete') && (
+                            <DropdownMenuSeparator />
+                        )}
+                        {hasPermission('safety-equipment:delete') && (
+                            <DropdownMenuItem
+                                onClick={(e) => handleDeleteClick(equipment, e)}
+                                className="text-red-600 focus:text-red-600"
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                        )}
                     </DropdownMenuContent>
                 </DropdownMenu>
             ),
@@ -280,9 +291,11 @@ export default function SafetyEquipmentsPage() {
                 title="Safety Equipment"
                 subtitle="Manage safety equipment master data"
                 actions={
-                    <Button onClick={() => navigate('/master/safety-equipments/new')}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Equipment
-                    </Button>
+                    <PermissionGuard permission="safety-equipment:create">
+                        <Button onClick={() => navigate('/master/safety-equipments/new')}>
+                            <Plus className="mr-2 h-4 w-4" /> Add Equipment
+                        </Button>
+                    </PermissionGuard>
                 }
             >
                 <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

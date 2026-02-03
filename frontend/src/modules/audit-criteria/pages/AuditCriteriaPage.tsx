@@ -19,6 +19,8 @@ import auditCriteriaService from '../services/auditCriteriaService';
 import { TRANSITION_TYPE_OPTIONS, TRANSITION_TYPE_LABELS } from '../constants/audit-criteria.constants';
 import api from '@/core/lib/api';
 import { AuditCriteria } from '../types/audit-criteria.types';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 interface AuditClause {
   id: string;
@@ -35,6 +37,7 @@ interface AuditElement {
 
 const AuditCriteriaPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [criteria, setCriteria] = useState<AuditCriteria[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -370,19 +373,27 @@ const AuditCriteriaPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/audit-criteria/${criterion.id}`)}>
-              <Eye className="mr-2 h-4 w-4" /> View details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/audit-criteria/${criterion.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => handleDeleteClick(criterion, e)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            {hasPermission('audit-criteria:read') && (
+              <DropdownMenuItem onClick={() => navigate(`/audit-criteria/${criterion.id}`)}>
+                <Eye className="mr-2 h-4 w-4" /> View details
+              </DropdownMenuItem>
+            )}
+            {hasPermission('audit-criteria:update') && (
+              <DropdownMenuItem onClick={() => navigate(`/audit-criteria/${criterion.id}/edit`)}>
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+            )}
+            {(hasPermission('audit-criteria:read') || hasPermission('audit-criteria:update')) && hasPermission('audit-criteria:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('audit-criteria:delete') && (
+              <DropdownMenuItem
+                onClick={(e) => handleDeleteClick(criterion, e)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -396,9 +407,11 @@ const AuditCriteriaPage = () => {
         title="Audit Criteria"
         subtitle="Manage audit criteria for audit policies"
         actions={
-          <ThemeButton onClick={() => navigate('/audit-criteria/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Criteria
-          </ThemeButton>
+          <PermissionGuard permission="audit-criteria:create">
+            <ThemeButton onClick={() => navigate('/audit-criteria/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Add Criteria
+            </ThemeButton>
+          </PermissionGuard>
         }
       />
 

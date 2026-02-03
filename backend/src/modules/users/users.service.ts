@@ -153,7 +153,7 @@ export class UsersService {
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: {
-        role: true,
+        role: { include: { permissions: { select: { name: true } } } },
         office: true,
         department: true,
         jobPosition: true,
@@ -162,7 +162,10 @@ export class UsersService {
 
     this.errorHandler.throwIfNotFoundById('User', id, user);
 
-    return this.userMapper(user);
+    const dto = this.userMapper(user);
+    const permissions =
+      user.role?.permissions?.map((p: { name: string }) => p.name) ?? [];
+    return { ...dto, permissions };
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<UserDto> {

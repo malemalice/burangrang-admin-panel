@@ -16,11 +16,14 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 import roleService from '../services/roleService';
 import { Role, PaginationParams } from '@/core/lib/types';
 
 const RolesPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -236,19 +239,27 @@ const RolesPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/roles/${role.id}`)}>
-              <Eye className="mr-2 h-4 w-4" /> View details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/roles/${role.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => handleDeleteClick(role, e)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            {hasPermission('role:read') && (
+              <DropdownMenuItem onClick={() => navigate(`/roles/${role.id}`)}>
+                <Eye className="mr-2 h-4 w-4" /> View details
+              </DropdownMenuItem>
+            )}
+            {hasPermission('role:update') && (
+              <DropdownMenuItem onClick={() => navigate(`/roles/${role.id}/edit`)}>
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+            )}
+            {(hasPermission('role:read') || hasPermission('role:update')) && hasPermission('role:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('role:delete') && (
+              <DropdownMenuItem
+                onClick={(e) => handleDeleteClick(role, e)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       )
@@ -261,9 +272,11 @@ const RolesPage = () => {
         title="Roles"
         subtitle="Manage roles and permissions"
         actions={
-          <ThemeButton onClick={() => navigate('/roles/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Create Role
-          </ThemeButton>
+          <PermissionGuard permission="role:create">
+            <ThemeButton onClick={() => navigate('/roles/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Create Role
+            </ThemeButton>
+          </PermissionGuard>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

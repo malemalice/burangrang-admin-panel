@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { Edit, Trash2, UserPlus, Eye, ShieldCheck, Check, X, Building, MoreHorizontal, Briefcase, KeyRound } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button, ThemeButton } from '@/core/components/ui/button';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +26,7 @@ import { User } from '@/core/lib/types';
 
 const UsersPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -390,22 +393,32 @@ const UsersPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/users/${user.id}`)}>
-              <Eye className="mr-2 h-4 w-4" /> View details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/users/${user.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleSendResetPassword(user)}>
-              <KeyRound className="mr-2 h-4 w-4" /> Send reset password
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => handleDeleteClick(user, e)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            {hasPermission('user:read') && (
+              <DropdownMenuItem onClick={() => navigate(`/users/${user.id}`)}>
+                <Eye className="mr-2 h-4 w-4" /> View details
+              </DropdownMenuItem>
+            )}
+            {hasPermission('user:update') && (
+              <DropdownMenuItem onClick={() => navigate(`/users/${user.id}/edit`)}>
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+            )}
+            {hasPermission('auth:reset-password') && (
+              <DropdownMenuItem onClick={() => handleSendResetPassword(user)}>
+                <KeyRound className="mr-2 h-4 w-4" /> Send reset password
+              </DropdownMenuItem>
+            )}
+            {(hasPermission('user:update') || hasPermission('auth:reset-password')) && hasPermission('user:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('user:delete') && (
+              <DropdownMenuItem
+                onClick={(e) => handleDeleteClick(user, e)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -419,9 +432,11 @@ const UsersPage = () => {
         title="Users"
         subtitle="Manage your organization's users"
         actions={
-          <ThemeButton onClick={() => navigate('/users/new')}>
-            <UserPlus className="mr-2 h-4 w-4" /> Add User
-          </ThemeButton>
+          <PermissionGuard permission="user:create">
+            <ThemeButton onClick={() => navigate('/users/new')}>
+              <UserPlus className="mr-2 h-4 w-4" /> Add User
+            </ThemeButton>
+          </PermissionGuard>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

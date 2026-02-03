@@ -160,18 +160,18 @@ export const authApi = {
         // Make a lightweight request to get user info without refreshing token
         const response = await api.get('/users/me');
         
-        // Ensure the role is formatted consistently before returning
+        // Ensure the role and permissions are formatted consistently before returning
         const user = response.data;
         if (user && user.role) {
-          // Normalize role to string format for consistency
           if (typeof user.role === 'object' && 'name' in user.role) {
             user.role = user.role.name;
           } else if (typeof user.role !== 'string') {
-            // Fallback: convert any non-string role to string
             user.role = String(user.role);
           }
         }
-        
+        if (user && !Array.isArray(user.permissions)) {
+          user.permissions = [];
+        }
         return { user };
       } catch (error) {
         // If there's an error (like 401), proceed to refresh the token
@@ -182,17 +182,14 @@ export const authApi = {
     try {
       const result = await authApi.refreshToken();
       
-      // Ensure role format is consistent 
-      if (result.user && result.user.role) {
-        // Normalize role to string format for consistency
-        if (typeof result.user.role === 'object' && 'name' in result.user.role) {
+      if (result.user) {
+        if (result.user.role && typeof result.user.role === 'object' && 'name' in result.user.role) {
           result.user.role = result.user.role.name;
-        } else if (typeof result.user.role !== 'string') {
-          // Fallback: convert any non-string role to string
+        } else if (result.user.role && typeof result.user.role !== 'string') {
           result.user.role = String(result.user.role);
         }
+        if (!Array.isArray(result.user.permissions)) result.user.permissions = [];
       }
-      
       return result;
     } catch (error) {
       console.error('Failed to refresh token:', error);

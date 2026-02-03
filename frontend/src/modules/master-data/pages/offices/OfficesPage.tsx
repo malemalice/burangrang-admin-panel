@@ -18,9 +18,12 @@ import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { Office, PaginationParams } from '@/core/lib/types';
 import officeService from '../../services/officeService';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const OfficesPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [offices, setOffices] = useState<Office[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -264,19 +267,27 @@ const OfficesPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/master/offices/${office.id}`)}>
-              <Eye className="mr-2 h-4 w-4" /> View details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/master/offices/${office.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => handleDeleteClick(office, e)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            {hasPermission('office:read') && (
+              <DropdownMenuItem onClick={() => navigate(`/master/offices/${office.id}`)}>
+                <Eye className="mr-2 h-4 w-4" /> View details
+              </DropdownMenuItem>
+            )}
+            {hasPermission('office:update') && (
+              <DropdownMenuItem onClick={() => navigate(`/master/offices/${office.id}/edit`)}>
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+            )}
+            {(hasPermission('office:read') || hasPermission('office:update')) && hasPermission('office:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('office:delete') && (
+              <DropdownMenuItem
+                onClick={(e) => handleDeleteClick(office, e)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       )
@@ -289,9 +300,11 @@ const OfficesPage = () => {
         title="Offices"
         subtitle="Manage your organization's offices"
         actions={
-          <ThemeButton onClick={() => navigate('/master/offices/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Office
-          </ThemeButton>
+          <PermissionGuard permission="office:create">
+            <ThemeButton onClick={() => navigate('/master/offices/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Add Office
+            </ThemeButton>
+          </PermissionGuard>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
