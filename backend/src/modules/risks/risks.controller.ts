@@ -95,7 +95,7 @@ export class RisksController {
   }
 
   @Delete(':id')
-  
+  @Permissions('risk:delete')
   @ApiOperation({ summary: 'Delete a risk' })
   @ApiResponse({ status: 200, description: 'The risk has been successfully deleted.' })
   @ApiResponse({ status: 404, description: 'Risk not found.' })

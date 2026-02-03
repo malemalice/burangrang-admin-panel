@@ -32,7 +32,7 @@ import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass
 @ApiTags('reminders')
 @ApiBearerAuth()
 @Controller('reminders')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class RemindersController {
   constructor(private readonly remindersService: RemindersService) {}
 

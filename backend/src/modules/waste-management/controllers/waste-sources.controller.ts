@@ -6,19 +6,17 @@ import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
-import { Roles } from '../../../shared/decorators/roles.decorator';
-import { Role } from '../../../shared/types/role.enum';
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('waste-sources')
 @ApiBearerAuth()
 @Controller('waste-sources')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class WasteSourcesController {
   constructor(private readonly service: WasteSourcesService) {}
 
   @Post()
-  
+  @Permissions('waste-management:create')
   @ApiOperation({ summary: 'Create a new waste source' })
   @ApiBody({ type: CreateWasteSourceDto })
   @ApiResponse({ status: 201, description: 'The waste source has been successfully created.', type: WasteSourceDto })
@@ -59,7 +57,7 @@ export class WasteSourcesController {
   }
 
   @Get(':id')
-  
+  @Permissions('waste-management:read')
   @ApiOperation({ summary: 'Get waste source by id' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'Return the waste source.', type: WasteSourceDto })

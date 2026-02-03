@@ -67,6 +67,7 @@ export class RolesController {
 
   @Get()
   @AllowOptionsBypass()
+  @Permissions('role:list')
   @ApiOperation({ summary: 'Get all roles with pagination and filtering' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })

@@ -15,19 +15,20 @@ import { UpdateAuditElementDto } from '../dto/update-audit-element.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
-import { Roles } from '../../../shared/decorators/roles.decorator';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
-import { Role } from '../../../shared/types/role.enum';
 import { AuditElementDto } from '../dto/audit-element.dto';
 
 @ApiTags('audit-elements')
 @ApiBearerAuth()
 @Controller('audit-elements')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class AuditElementsController {
   constructor(private readonly auditElementsService: AuditElementsService) {}
 
   @Post()
+  @Permissions('audit-policy:create')
   @ApiOperation({ summary: 'Create a new audit element' })
   @ApiResponse({
     status: 201,
@@ -35,7 +36,6 @@ export class AuditElementsController {
     type: AuditElementDto,
   })
   @ApiResponse({ status: 400, description: 'Bad request.' })
-  
   create(
     @Body() createAuditElementDto: CreateAuditElementDto,
   ): Promise<AuditElementDto> {
@@ -44,6 +44,7 @@ export class AuditElementsController {
 
   @Get()
   @AllowOptionsBypass()
+  @Permissions('audit-policy:list')
   @ApiOperation({ summary: 'Get all audit elements' })
   @ApiResponse({
     status: 200,
@@ -77,6 +78,7 @@ export class AuditElementsController {
   }
 
   @Get(':id')
+  @Permissions('audit-policy:read')
   @ApiOperation({ summary: 'Get an audit element by id' })
   @ApiResponse({
     status: 200,
@@ -90,7 +92,7 @@ export class AuditElementsController {
   }
 
   @Patch(':id')
-  
+  @Permissions('audit-policy:update')
   @ApiOperation({ summary: 'Update an audit element' })
   @ApiResponse({
     status: 200,
@@ -106,7 +108,7 @@ export class AuditElementsController {
   }
 
   @Delete(':id')
-  
+  @Permissions('audit-policy:delete')
   @ApiOperation({ summary: 'Delete an audit element' })
   @ApiResponse({
     status: 200,
@@ -118,6 +120,7 @@ export class AuditElementsController {
   }
 
   @Get('code/:code')
+  @Permissions('audit-policy:read')
   @ApiOperation({ summary: 'Get an audit element by code' })
   @ApiResponse({
     status: 200,

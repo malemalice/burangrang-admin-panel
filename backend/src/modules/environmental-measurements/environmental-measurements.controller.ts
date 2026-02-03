@@ -41,6 +41,7 @@ export class EnvironmentalMeasurementsController {
 
   @Get()
   @AllowOptionsBypass()
+  @Permissions('environmental-measurement:list')
   @ApiOperation({ summary: 'Get all environmental measurements with pagination' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })

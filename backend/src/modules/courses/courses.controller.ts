@@ -71,9 +71,8 @@ export class CoursesController {
 
   @Get()
   @AllowOptionsBypass()
+  @Permissions('course:list')
   @ApiOperation({ summary: 'Get all courses with pagination and filtering' })
-  
-  // @Permissions('course:list')
   @ApiQuery({
     name: 'page',
     required: false,

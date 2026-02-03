@@ -136,11 +136,11 @@ export class NotificationsController {
   }
 
   @Post()
+  @Permissions('notification:create')
   @ApiOperation({ summary: 'Create new notification' })
   @ApiBody({ type: CreateNotificationDto })
   @ApiResponse({ status: 201, type: NotificationDto })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
-  
   async create(
     @Body() createDto: CreateNotificationDto,
     @Request() req: any,

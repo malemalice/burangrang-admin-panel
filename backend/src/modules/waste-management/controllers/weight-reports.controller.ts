@@ -6,14 +6,12 @@ import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
-import { Roles } from '../../../shared/decorators/roles.decorator';
-import { Role } from '../../../shared/types/role.enum';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('weight-reports')
 @ApiBearerAuth()
 @Controller('weight-reports')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class WeightReportsController {
   constructor(private readonly service: WeightReportsService) {}
 
@@ -68,7 +66,7 @@ export class WeightReportsController {
   }
 
   @Get(':id')
-  
+  @Permissions('waste-management:read')
   @ApiOperation({ summary: 'Get weight report by id' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'Return the report.', type: WeightReportDto })
