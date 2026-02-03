@@ -99,8 +99,8 @@ const MasterApprovalForm = ({ approval, mode }: MasterApprovalFormProps) => {
         setDataReady(false);
 
         const [positionsRes, deptsRes] = await Promise.all([
-          jobPositionService.getAll({ page: 1, limit: 100 }),
-          departmentService.getDepartments({ page: 1, limit: 100 }),
+          jobPositionService.getAll({ page: 1, limit: 100, options: true }),
+          departmentService.getDepartments({ page: 1, limit: 100, options: true }),
         ]);
 
         setJobPositions(positionsRes.data || []);

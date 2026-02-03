@@ -195,6 +195,7 @@ export interface ChapterSearchParams {
   isFree?: boolean;
   contentType?: 'video' | 'pdf' | 'text' | 'youtube';
   courseId?: string;
+  options?: boolean;
 }
 
 // Response types

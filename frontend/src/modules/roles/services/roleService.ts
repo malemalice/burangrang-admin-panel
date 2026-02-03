@@ -115,6 +115,10 @@ const roleService = {
         });
       }
 
+      if (params.options) {
+        queryParams.append('options', 'true');
+      }
+
       const response = await api.get(`/roles?${queryParams.toString()}`);
       
       // Backend should now return paginated response with { data: RoleDto[], meta: {...} }

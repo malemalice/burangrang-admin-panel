@@ -186,8 +186,8 @@ const RiskAssessmentForm = ({ assessment, mode }: RiskAssessmentFormProps) => {
       setIsLoading(true);
       try {
         const [departmentsResponse, usersResponse] = await Promise.all([
-          departmentService.getDepartments({ page: 1, limit: 1000 }),
-          userService.getAll({ page: 1, limit: 1000 }),
+          departmentService.getDepartments({ page: 1, limit: 1000, options: true }),
+          userService.getAll({ page: 1, limit: 1000, options: true }),
         ]);
 
         setDepartments(departmentsResponse.data);

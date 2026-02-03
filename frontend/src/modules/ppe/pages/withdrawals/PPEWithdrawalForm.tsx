@@ -156,9 +156,9 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
 
                 // Fetch departments, job positions, users, and available stock items
                 const [deptsRes, positionsRes, usersRes, stockItemsRes] = await Promise.all([
-                    departmentService.getDepartments({ page: 1, limit: 100 }),
-                    jobPositionService.getAll({ page: 1, limit: 100 }),
-                    userService.getUsers({ page: 1, limit: 100 }),
+                    departmentService.getDepartments({ page: 1, limit: 100, options: true }),
+                    jobPositionService.getAll({ page: 1, limit: 100, options: true }),
+                    userService.getUsers({ page: 1, limit: 100, options: true }),
                     ppeService.getAvailableStockItems({
                         page: 1,
                         limit: 1000,

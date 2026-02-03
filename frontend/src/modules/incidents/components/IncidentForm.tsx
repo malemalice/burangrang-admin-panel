@@ -315,7 +315,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
         // First, fetch roles to find TECHNICIAN role (handle 403 gracefully)
         let technicianRole = null;
         try {
-          const rolesRes = await roleService.getRoles({ page: 1, limit: 100 });
+          const rolesRes = await roleService.getRoles({ page: 1, limit: 100, options: true });
           technicianRole = rolesRes.data.find(role => role.code === 'TECHNICIAN');
         } catch (error) {
           console.warn('Failed to fetch roles (may not have permission):', error);
@@ -324,16 +324,17 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
         
         // Fetch users, technicians, and equipment data in parallel
         const [areasRes, riskCategoriesRes, departmentsRes, usersRes, techniciansRes, safetyEquipmentsRes, workPermitsMasterDataRes, assetsRes] = await Promise.all([
-          areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true } }),
-          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true }),
-          departmentService.getDepartments({ page: 1, limit: 100 }),
-          userService.getUsers({ page: 1, limit: 100 }),
+          areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true }, options: true }),
+          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
+          departmentService.getDepartments({ page: 1, limit: 100, options: true }),
+          userService.getUsers({ page: 1, limit: 100, options: true }),
           // Fetch technicians: users with TECHNICIAN role and job position
           technicianRole 
             ? userService.getUsers({ 
                 page: 1, 
                 limit: 100, 
-                filters: { roleId: technicianRole.id } 
+                filters: { roleId: technicianRole.id },
+                options: true
               })
             : Promise.resolve({ data: [], meta: { total: 0 } }),
           // Fetch safety equipments
@@ -598,7 +599,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             page: 1, 
             limit: 100, 
             areaId,
-            isActive: true 
+            isActive: true,
+            options: true
           });
           setRooms(roomsRes.data);
         } catch (error) {

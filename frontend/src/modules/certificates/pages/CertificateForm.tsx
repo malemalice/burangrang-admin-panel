@@ -201,8 +201,8 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
 
                 // Fetch categories, departments, and users in parallel
                 const [deptsRes, usersRes] = await Promise.all([
-                    departmentService.getDepartments({ page: 1, limit: 100 }),
-                    userService.getUsers({ page: 1, limit: 100 }),
+                    departmentService.getDepartments({ page: 1, limit: 100, options: true }),
+                    userService.getUsers({ page: 1, limit: 100, options: true }),
                 ]);
 
                 // Ensure categories are loaded (hook will auto-fetch, but we can also call it explicitly)

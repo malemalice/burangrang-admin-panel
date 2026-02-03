@@ -59,6 +59,7 @@ const RiskForm = ({ risk, mode }: RiskFormProps) => {
         const response = await riskCategoryService.getAll({
           limit: 100,
           isActive: mode === 'edit' ? undefined : true,
+          options: true,
         });
         setRiskCategories(response.data);
       } catch (error) {

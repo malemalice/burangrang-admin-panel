@@ -88,6 +88,7 @@ const MenuForm: React.FC<MenuFormProps> = ({
         const response = await roleService.getRoles({
           page: 1,
           limit: 100, // Get all roles for the dropdown
+          options: true,
         });
         setAvailableRoles(response.data.map(role => ({
           id: role.id,

@@ -113,10 +113,10 @@ const InspectionItemsPage = () => {
     const fetchFilterOptions = async () => {
       try {
         const [departmentsResponse, usersResponse, risksResponse, riskCategoriesResponse] = await Promise.all([
-          departmentService.getDepartments({ page: 1, limit: 100 }),
-          userService.getUsers({ page: 1, limit: 100 }),
-          riskService.getAll({ page: 1, limit: 100, isActive: true }),
-          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true }),
+          departmentService.getDepartments({ page: 1, limit: 100, options: true }),
+          userService.getUsers({ page: 1, limit: 100, options: true }),
+          riskService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
+          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
         ]);
 
         setDepartments(departmentsResponse.data);

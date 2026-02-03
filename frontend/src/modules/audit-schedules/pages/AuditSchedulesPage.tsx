@@ -104,14 +104,15 @@ const AuditSchedulesPage = () => {
       try {
         const [auditElementsResponse, areasResponse, usersResponse] = await Promise.all([
           api.get('/audit-elements', {
-            params: { page: 1, limit: 1000, isActive: true },
+            params: { page: 1, limit: 1000, isActive: true, options: true },
           }),
           areaService.getAreas({ 
             page: 1, 
             limit: 1000,
-            filters: { isActive: true }
+            filters: { isActive: true },
+            options: true
           }),
-          userService.getAll({ page: 1, limit: 1000 }),
+          userService.getAll({ page: 1, limit: 1000, options: true }),
         ]);
 
         setAuditElements(

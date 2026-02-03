@@ -53,7 +53,7 @@ const RiskAssessmentsPage = () => {
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
-        const response = await departmentService.getDepartments({ page: 1, limit: 100 });
+        const response = await departmentService.getDepartments({ page: 1, limit: 100, options: true });
         setDepartments(response.data);
       } catch (error) {
         console.error('Failed to fetch departments:', error);

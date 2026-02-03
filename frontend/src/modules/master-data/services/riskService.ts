@@ -11,6 +11,7 @@ interface PaginationParams {
   riskCategoryId?: string;
   name?: string;
   code?: string;
+  options?: boolean;
 }
 
 interface PaginatedResponse<T> {

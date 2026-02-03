@@ -351,6 +351,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
         limit,
         isActive: true,
         search: query || undefined,
+        options: true,
       });
       
       // Ensure selected item is included if it exists
@@ -390,6 +391,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
         limit,
         isActive: true,
         search: query || undefined,
+        options: true,
       });
       
       // Ensure selected item is included if it exists

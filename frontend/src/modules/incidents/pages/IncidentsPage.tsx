@@ -70,10 +70,10 @@ const IncidentsPage = () => {
       setIsLoadingFilterOptions(true);
       try {
         const [areasRes, departmentsRes, riskCategoriesRes, usersRes] = await Promise.all([
-          areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true } }),
-          departmentService.getDepartments({ page: 1, limit: 100 }),
-          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true }),
-          userService.getUsers({ page: 1, limit: 100 }),
+          areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true }, options: true }),
+          departmentService.getDepartments({ page: 1, limit: 100, options: true }),
+          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
+          userService.getUsers({ page: 1, limit: 100, options: true }),
         ]);
 
         setAreas(areasRes.data);

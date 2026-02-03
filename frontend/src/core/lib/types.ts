@@ -271,6 +271,8 @@ export interface PaginationParams {
   sortOrder?: 'asc' | 'desc';
   search?: string;
   filters?: Record<string, any>;
+  /** Set to true when fetching list data for form/filter select options; bypasses *:list permission on backend */
+  options?: boolean;
 }
 
 export interface MasterApprovalItem {

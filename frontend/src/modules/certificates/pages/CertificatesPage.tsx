@@ -136,8 +136,8 @@ const CertificatesPage = () => {
         const fetchFilterOptions = async () => {
             try {
                 const [departmentsResponse, usersResponse] = await Promise.all([
-                    departmentService.getDepartments({ page: 1, limit: 100 }),
-                    userService.getUsers({ page: 1, limit: 100 }),
+                    departmentService.getDepartments({ page: 1, limit: 100, options: true }),
+                    userService.getUsers({ page: 1, limit: 100, options: true }),
                 ]);
 
                 setDepartments(departmentsResponse.data);

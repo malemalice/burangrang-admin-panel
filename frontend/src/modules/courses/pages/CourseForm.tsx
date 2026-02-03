@@ -71,7 +71,7 @@ const CourseForm = ({ mode }: CourseFormProps) => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const instructorsResponse = await userService.getUsers({ page: 1, limit: 100 });
+        const instructorsResponse = await userService.getUsers({ page: 1, limit: 100, options: true });
         setInstructors(
           instructorsResponse.data.map(user => ({
             id: user.id,

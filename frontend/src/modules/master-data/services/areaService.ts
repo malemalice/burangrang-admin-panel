@@ -36,6 +36,10 @@ const areaService = {
         });
       }
 
+      if (params.options) {
+        queryParams.append('options', 'true');
+      }
+
       const response = await api.get(`/areas?${queryParams.toString()}`);
       return {
         data: response.data.data,

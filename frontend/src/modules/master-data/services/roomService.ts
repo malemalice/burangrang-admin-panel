@@ -27,6 +27,7 @@ interface FetchRoomsParams {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   areaId?: string;
+  options?: boolean;
 }
 
 const roomService = {
@@ -43,6 +44,7 @@ const roomService = {
     if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
     if (params.isActive !== undefined) queryParams.append('isActive', params.isActive.toString());
     if (params.areaId) queryParams.append('areaId', params.areaId);
+    if (params.options) queryParams.append('options', 'true');
 
     const response = await api.get<RoomsResponse>(`/rooms?${queryParams.toString()}`);
     return response.data;
@@ -82,12 +84,13 @@ const roomService = {
   /**
    * Fetch available areas for dropdown
    */
-  async getAreas(params: { isActive?: boolean; search?: string; hasRoom?: boolean } = {}): Promise<AreasResponse> {
+  async getAreas(params: { isActive?: boolean; search?: string; hasRoom?: boolean; options?: boolean } = {}): Promise<AreasResponse> {
     const queryParams = new URLSearchParams();
     queryParams.append('limit', '100'); // Get all areas for dropdown
     if (params.isActive !== undefined) queryParams.append('isActive', params.isActive.toString());
     if (params.search) queryParams.append('search', params.search);
     if (params.hasRoom !== undefined) queryParams.append('hasRoom', params.hasRoom.toString());
+    if (params.options) queryParams.append('options', 'true');
 
     const response = await api.get<AreasResponse>(`/areas?${queryParams.toString()}`);
     return response.data;

@@ -107,10 +107,10 @@ const UsersPage = () => {
     const fetchFilterOptions = async () => {
       try {
         const [rolesResponse, officesResponse, departmentsResponse, jobPositionsResponse] = await Promise.all([
-          roleService.getRoles({ page: 1, limit: 100 }),
-          officeService.getOffices({ page: 1, limit: 100 }),
-          departmentService.getDepartments({ page: 1, limit: 100 }),
-          jobPositionService.getAll({ page: 1, limit: 100 })
+          roleService.getRoles({ page: 1, limit: 100, options: true }),
+          officeService.getOffices({ page: 1, limit: 100, options: true }),
+          departmentService.getDepartments({ page: 1, limit: 100, options: true }),
+          jobPositionService.getAll({ page: 1, limit: 100, options: true })
         ]);
 
         setRoles(rolesResponse.data);

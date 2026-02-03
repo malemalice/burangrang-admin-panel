@@ -43,6 +43,7 @@ const RisksPage = () => {
         const response = await riskCategoryService.getAll({
           limit: 100,
           isActive: true,
+          options: true,
         });
         setRiskCategories(response.data);
       } catch (error) {

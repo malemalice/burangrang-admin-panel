@@ -76,7 +76,7 @@ const EnrollmentsPage = () => {
       try {
         const [coursesResponse, usersResponse] = await Promise.all([
           courseService.getCourses({ page: 1, limit: 100 }),
-          isAdmin ? userService.getUsers({ page: 1, limit: 100 }) : Promise.resolve({ data: [], meta: { total: 0 } }),
+          isAdmin ? userService.getUsers({ page: 1, limit: 100, options: true }) : Promise.resolve({ data: [], meta: { total: 0 } }),
         ]);
 
         setCourses(coursesResponse.data.map(c => ({ id: c.id, title: c.title })));

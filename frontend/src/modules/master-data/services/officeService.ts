@@ -56,6 +56,10 @@ const officeService = {
         });
       }
 
+      if (params.options) {
+        queryParams.append('options', 'true');
+      }
+
       const response = await api.get(`/offices?${queryParams.toString()}`);
       return {
         data: response.data.data.map(mapOfficeDtoToOffice),
