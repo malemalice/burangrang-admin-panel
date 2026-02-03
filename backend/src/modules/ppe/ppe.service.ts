@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { DataScopeService } from '../../shared/services/data-scope.service';
+import { UserContext } from '../../shared/types/user-context';
 import { CreatePPEStockDto } from './dto/create-ppe-stock.dto';
 import { UpdatePPEStockDto } from './dto/update-ppe-stock.dto';
 import { PPEStockDto } from './dto/ppe-stock.dto';
@@ -50,6 +52,7 @@ export class PPEService {
         private readonly prisma: PrismaService,
         private readonly errorHandler: ErrorHandlingService,
         private readonly dtoMapper: DtoMapperService,
+        private readonly dataScopeService: DataScopeService,
     ) {
         // Initialize mappers
         this.ppeStockMapper = this.dtoMapper.createSimpleMapper(PPEStockDto);
@@ -921,9 +924,26 @@ export class PPEService {
     }
 
     /**
+     * Ensure current user can access the PPE withdrawal (data-level). Throws 403 if not.
+     */
+    private async ensureCanAccessPPEWithdrawal(id: string, userContext: UserContext | undefined): Promise<void> {
+        const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
+            where: { id, deletedAt: null },
+            select: { requestedBy: true, requestedFor: true, createdBy: true, departmentId: true },
+        });
+        this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
+        if (!this.dataScopeService.canAccessRecord(userContext, 'PPEWithdrawal', withdrawal)) {
+            this.errorHandler.throwForbidden('You do not have access to this record');
+        }
+    }
+
+    /**
      * Find all withdrawals with pagination and filtering
      */
-    async findAllWithdrawals(options?: FindPPEWithdrawalDto): Promise<{
+    async findAllWithdrawals(
+        options?: FindPPEWithdrawalDto,
+        userContext?: UserContext,
+    ): Promise<{
         data: PPEWithdrawalDto[];
         meta: { total: number; page: number; limit: number; totalPages: number };
     }> {
@@ -973,6 +993,13 @@ export class PPEService {
             }
         }
 
+        // Data-level scope: hide rows user is not allowed to see
+        const scopeWhere = this.dataScopeService.buildWhereForList(userContext, 'PPEWithdrawal', where);
+        const finalWhere =
+            scopeWhere && Object.keys(scopeWhere).length > 0
+                ? { AND: [where, scopeWhere] }
+                : where;
+
         const orderBy: Prisma.PPEWithdrawalOrderByWithRelationInput = {};
         if (sortBy) {
             orderBy[sortBy] = sortOrder || 'desc';
@@ -980,7 +1007,7 @@ export class PPEService {
 
         const [withdrawals, total] = await Promise.all([
             this.prisma["pPEWithdrawal"].findMany({
-                where,
+                where: finalWhere,
                 include: {
                     items: {
                         include: {
@@ -1002,7 +1029,7 @@ export class PPEService {
                 skip: (page - 1) * limit,
                 take: limit,
             }),
-            this.prisma["pPEWithdrawal"].count({ where }),
+            this.prisma["pPEWithdrawal"].count({ where: finalWhere }),
         ]);
 
         // Populate requestedForName from requestedForUser if not already set
@@ -1019,7 +1046,8 @@ export class PPEService {
     /**
      * Find withdrawal by ID
      */
-    async findWithdrawalById(id: string): Promise<PPEWithdrawalDto> {
+    async findWithdrawalById(id: string, userContext?: UserContext): Promise<PPEWithdrawalDto> {
+        await this.ensureCanAccessPPEWithdrawal(id, userContext);
         const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
             where: {
                 id,
@@ -1054,7 +1082,8 @@ export class PPEService {
     /**
      * Approve withdrawal
      */
-    async approveWithdrawal(id: string, updateDto: UpdatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
+    async approveWithdrawal(id: string, updateDto: UpdatePPEWithdrawalDto, userContext?: UserContext): Promise<PPEWithdrawalDto> {
+        await this.ensureCanAccessPPEWithdrawal(id, userContext);
         const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
             where: {
                 id,
@@ -1167,7 +1196,8 @@ export class PPEService {
     /**
      * Collect withdrawal (deduct stock)
      */
-    async collectWithdrawal(id: string, updateDto: UpdatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
+    async collectWithdrawal(id: string, updateDto: UpdatePPEWithdrawalDto, userContext?: UserContext): Promise<PPEWithdrawalDto> {
+        await this.ensureCanAccessPPEWithdrawal(id, userContext);
         const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
             where: {
                 id,
@@ -1276,7 +1306,8 @@ export class PPEService {
     /**
      * Update withdrawal (only if status is PENDING)
      */
-    async updateWithdrawal(id: string, updateDto: CreatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
+    async updateWithdrawal(id: string, updateDto: CreatePPEWithdrawalDto, userContext?: UserContext): Promise<PPEWithdrawalDto> {
+        await this.ensureCanAccessPPEWithdrawal(id, userContext);
         const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
             where: {
                 id,
@@ -1471,7 +1502,8 @@ export class PPEService {
     /**
      * Cancel withdrawal
      */
-    async cancelWithdrawal(id: string, updateDto?: UpdatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
+    async cancelWithdrawal(id: string, updateDto?: UpdatePPEWithdrawalDto, userContext?: UserContext): Promise<PPEWithdrawalDto> {
+        await this.ensureCanAccessPPEWithdrawal(id, userContext);
         const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
             where: {
                 id,
@@ -1562,7 +1594,8 @@ export class PPEService {
     /**
      * Delete withdrawal (soft delete)
      */
-    async deleteWithdrawal(id: string): Promise<void> {
+    async deleteWithdrawal(id: string, userContext?: UserContext): Promise<void> {
+        await this.ensureCanAccessPPEWithdrawal(id, userContext);
         const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
             where: {
                 id,

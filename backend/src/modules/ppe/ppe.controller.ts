@@ -45,13 +45,15 @@ import { UpdateStockItemDto } from './dto/update-stock-item.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { DataScopeGuard } from '../../shared/guards/data-scope.guard';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
+import { DataScoped } from '../../shared/decorators/data-scoped.decorator';
 
 @ApiTags('ppe')
 @ApiBearerAuth()
 @Controller('ppe')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, DataScopeGuard)
 export class PPEController {
     constructor(private readonly ppeService: PPEService) { }
 
@@ -319,8 +321,9 @@ export class PPEController {
     @AllowOptionsBypass()
     @Permissions('ppe:list')
     @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
-    findAllWithdrawals(@Query() query: FindPPEWithdrawalDto) {
-        return this.ppeService.findAllWithdrawals(query);
+    @DataScoped('PPEWithdrawal')
+    findAllWithdrawals(@Query() query: FindPPEWithdrawalDto, @Req() req: any) {
+        return this.ppeService.findAllWithdrawals(query, req.userContext);
     }
 
     @Get('withdrawals/:id')
@@ -331,10 +334,12 @@ export class PPEController {
         description: 'Return the withdrawal.',
         type: PPEWithdrawalDto,
     })
+    @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
     @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
     @Permissions('ppe:read')
-    findWithdrawalById(@Param('id') id: string): Promise<PPEWithdrawalDto> {
-        return this.ppeService.findWithdrawalById(id);
+    @DataScoped('PPEWithdrawal')
+    findWithdrawalById(@Param('id') id: string, @Req() req: any): Promise<PPEWithdrawalDto> {
+        return this.ppeService.findWithdrawalById(id, req.userContext);
     }
 
     @Patch('withdrawals/:id')
@@ -347,10 +352,12 @@ export class PPEController {
         type: PPEWithdrawalDto,
     })
     @ApiResponse({ status: 400, description: 'Bad request - withdrawal cannot be updated.' })
+    @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
     @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
     @Permissions('ppe:update')
-    updateWithdrawal(@Param('id') id: string, @Body() updateDto: CreatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
-        return this.ppeService.updateWithdrawal(id, updateDto);
+    @DataScoped('PPEWithdrawal')
+    updateWithdrawal(@Param('id') id: string, @Body() updateDto: CreatePPEWithdrawalDto, @Req() req: any): Promise<PPEWithdrawalDto> {
+        return this.ppeService.updateWithdrawal(id, updateDto, req.userContext);
     }
 
     @Patch('withdrawals/:id/approve')
@@ -363,10 +370,12 @@ export class PPEController {
         type: PPEWithdrawalDto,
     })
     @ApiResponse({ status: 400, description: 'Bad request - withdrawal cannot be approved.' })
+    @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
     @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
     @Permissions('ppe:update')
-    approveWithdrawal(@Param('id') id: string, @Body() updateDto: UpdatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
-        return this.ppeService.approveWithdrawal(id, updateDto);
+    @DataScoped('PPEWithdrawal')
+    approveWithdrawal(@Param('id') id: string, @Body() updateDto: UpdatePPEWithdrawalDto, @Req() req: any): Promise<PPEWithdrawalDto> {
+        return this.ppeService.approveWithdrawal(id, updateDto, req.userContext);
     }
 
     @Patch('withdrawals/:id/collect')
@@ -379,10 +388,12 @@ export class PPEController {
         type: PPEWithdrawalDto,
     })
     @ApiResponse({ status: 400, description: 'Bad request - withdrawal cannot be collected.' })
+    @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
     @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
     @Permissions('ppe:update')
-    collectWithdrawal(@Param('id') id: string, @Body() updateDto: UpdatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
-        return this.ppeService.collectWithdrawal(id, updateDto);
+    @DataScoped('PPEWithdrawal')
+    collectWithdrawal(@Param('id') id: string, @Body() updateDto: UpdatePPEWithdrawalDto, @Req() req: any): Promise<PPEWithdrawalDto> {
+        return this.ppeService.collectWithdrawal(id, updateDto, req.userContext);
     }
 
     @Patch('withdrawals/:id/cancel')
@@ -395,10 +406,12 @@ export class PPEController {
         type: PPEWithdrawalDto,
     })
     @ApiResponse({ status: 400, description: 'Bad request - withdrawal cannot be cancelled.' })
+    @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
     @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
     @Permissions('ppe:update')
-    cancelWithdrawal(@Param('id') id: string, @Body() updateDto?: UpdatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
-        return this.ppeService.cancelWithdrawal(id, updateDto);
+    @DataScoped('PPEWithdrawal')
+    cancelWithdrawal(@Param('id') id: string, @Body() updateDto: UpdatePPEWithdrawalDto | undefined, @Req() req: any): Promise<PPEWithdrawalDto> {
+        return this.ppeService.cancelWithdrawal(id, updateDto ?? undefined, req.userContext);
     }
 
     @Delete('stocks/:id')
@@ -423,10 +436,12 @@ export class PPEController {
         description: 'The withdrawal has been successfully deleted.',
     })
     @ApiResponse({ status: 400, description: 'Bad request - withdrawal cannot be deleted.' })
+    @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
     @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
     @Permissions('ppe:delete')
-    deleteWithdrawal(@Param('id') id: string): Promise<void> {
-        return this.ppeService.deleteWithdrawal(id);
+    @DataScoped('PPEWithdrawal')
+    deleteWithdrawal(@Param('id') id: string, @Req() req: any): Promise<void> {
+        return this.ppeService.deleteWithdrawal(id, req.userContext);
     }
 
     // ============================================================================

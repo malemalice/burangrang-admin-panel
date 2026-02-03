@@ -19,6 +19,7 @@ const mapRoleDtoToRole = (roleDto: RoleDTO): Role => {
     description: roleDto.description || '',
     status: roleDto.isActive ? 'active' : 'inactive',
     isActive: roleDto.isActive,
+    dataLevel: roleDto.dataLevel ?? 'SUPER',
     permissions: roleDto.permissions.map(p => ({
       id: p.id,
       name: p.name,

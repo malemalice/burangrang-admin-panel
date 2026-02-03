@@ -14,8 +14,10 @@ import { EnrollmentsService } from './enrollments.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { DataScopeGuard } from '../../shared/guards/data-scope.guard';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
+import { DataScoped } from '../../shared/decorators/data-scoped.decorator';
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { AssignEnrollmentDto } from './dto/assign-enrollment.dto';
 import { UpdateEnrollmentDto } from './dto/update-enrollment.dto';
@@ -26,7 +28,8 @@ import { PaginatedResponse } from '../../shared/types/pagination-params';
 @ApiTags('enrollments')
 @ApiBearerAuth()
 @Controller('enrollments')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+@DataScoped('Enrollment')
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, DataScopeGuard)
 export class EnrollmentsController {
   constructor(private readonly enrollmentsService: EnrollmentsService) { }
 
@@ -131,9 +134,8 @@ export class EnrollmentsController {
     @Query() query: FindEnrollmentsDto,
     @Request() req: any,
   ): Promise<PaginatedResponse<EnrollmentDto>> {
-    const userId = req.user.id;
-    const userRole = req.user.role;
-    return this.enrollmentsService.findAll(query, userId, userRole);
+    const userContext = req.userContext;
+    return this.enrollmentsService.findAll(query, userContext);
   }
 
   @Get(':id/learning-context')
@@ -147,9 +149,8 @@ export class EnrollmentsController {
     @Param('id') id: string,
     @Request() req: any,
   ): Promise<any> {
-    const userId = req.user.id;
-    const userRole = req.user.role;
-    return this.enrollmentsService.getLearningContext(id, userId, userRole);
+    const userContext = req.userContext;
+    return this.enrollmentsService.getLearningContext(id, userContext);
   }
 
   @Get(':id')
@@ -163,9 +164,8 @@ export class EnrollmentsController {
     @Param('id') id: string,
     @Request() req: any,
   ): Promise<EnrollmentDto> {
-    const userId = req.user.id;
-    const userRole = req.user.role;
-    return this.enrollmentsService.findOne(id, userId, userRole);
+    const userContext = req.userContext;
+    return this.enrollmentsService.findOne(id, userContext);
   }
 
   @Patch(':id')
@@ -183,8 +183,7 @@ export class EnrollmentsController {
     @Body() updateEnrollmentDto: UpdateEnrollmentDto,
     @Request() req: any,
   ): Promise<EnrollmentDto> {
-    const userId = req.user.id;
-    const userRole = req.user.role;
-    return this.enrollmentsService.update(id, updateEnrollmentDto, userId, userRole);
+    const userContext = req.userContext;
+    return this.enrollmentsService.update(id, updateEnrollmentDto, userContext);
   }
 }

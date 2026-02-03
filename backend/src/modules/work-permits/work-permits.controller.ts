@@ -34,13 +34,16 @@ import { PaginatedResponse } from '../../shared/types/pagination-params';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { DataScopeGuard } from '../../shared/guards/data-scope.guard';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
+import { DataScoped } from '../../shared/decorators/data-scoped.decorator';
 
 @ApiTags('work-permits')
 @ApiBearerAuth()
 @Controller('work-permits')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+@DataScoped('WorkPermit')
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, DataScopeGuard)
 export class WorkPermitsController {
   constructor(private readonly workPermitsService: WorkPermitsService) { }
 
@@ -179,8 +182,11 @@ export class WorkPermitsController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @Permissions('work-permit:list')
-  async findAll(@Query() query: FindWorkPermitsDto): Promise<PaginatedResponse<WorkPermitDto>> {
-    return this.workPermitsService.findAll(query);
+  async findAll(
+    @Query() query: FindWorkPermitsDto,
+    @Request() req: any,
+  ): Promise<PaginatedResponse<WorkPermitDto>> {
+    return this.workPermitsService.findAll(query, req.userContext);
   }
 
   @Get('master-data')
@@ -219,9 +225,13 @@ export class WorkPermitsController {
     type: WorkPermitDto,
   })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async findOne(@Param('id') id: string): Promise<WorkPermitDto> {
-    return this.workPermitsService.findOne(id);
+  async findOne(
+    @Param('id') id: string,
+    @Request() req: any,
+  ): Promise<WorkPermitDto> {
+    return this.workPermitsService.findOne(id, req.userContext);
   }
 
   @Patch(':id')
@@ -240,9 +250,9 @@ export class WorkPermitsController {
   async update(
     @Param('id') id: string,
     @Body() updateWorkPermitDto: UpdateWorkPermitDto,
-    @Request() req,
+    @Request() req: any,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.update(id, updateWorkPermitDto, req.user.id);
+    return this.workPermitsService.update(id, updateWorkPermitDto, req.user.id, req.userContext);
   }
 
   @Delete(':id')
@@ -251,9 +261,13 @@ export class WorkPermitsController {
   @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
   @ApiResponse({ status: 200, description: 'Work permit deleted successfully' })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async remove(@Param('id') id: string): Promise<void> {
-    return this.workPermitsService.remove(id);
+  async remove(
+    @Param('id') id: string,
+    @Request() req: any,
+  ): Promise<void> {
+    return this.workPermitsService.remove(id, req.userContext);
   }
 
   @Post(':id/submit')
@@ -272,9 +286,9 @@ export class WorkPermitsController {
   async submit(
     @Param('id') id: string,
     @Body() submitDto: SubmitWorkPermitDto,
-    @Request() req,
+    @Request() req: any,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.submit(id, submitDto, req.user.id);
+    return this.workPermitsService.submit(id, submitDto, req.user.id, req.userContext);
   }
 
   @Post(':id/approve')
@@ -293,9 +307,9 @@ export class WorkPermitsController {
   async approve(
     @Param('id') id: string,
     @Body() approveDto: ApproveWorkPermitDto,
-    @Request() req,
+    @Request() req: any,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.approve(id, approveDto, req.user.id);
+    return this.workPermitsService.approve(id, approveDto, req.user.id, req.userContext);
   }
 
   @Post(':id/reject')
@@ -314,9 +328,9 @@ export class WorkPermitsController {
   async reject(
     @Param('id') id: string,
     @Body() rejectDto: RejectWorkPermitDto,
-    @Request() req,
+    @Request() req: any,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.reject(id, rejectDto, req.user.id);
+    return this.workPermitsService.reject(id, rejectDto, req.user.id, req.userContext);
   }
 
   @Post(':id/request-info')
@@ -335,9 +349,9 @@ export class WorkPermitsController {
   async requestInfo(
     @Param('id') id: string,
     @Body() requestInfoDto: RequestInfoWorkPermitDto,
-    @Request() req,
+    @Request() req: any,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.requestInfo(id, requestInfoDto, req.user.id);
+    return this.workPermitsService.requestInfo(id, requestInfoDto, req.user.id, req.userContext);
   }
 
   @Post(':id/extend')
@@ -356,9 +370,9 @@ export class WorkPermitsController {
   async extend(
     @Param('id') id: string,
     @Body() extendDto: ExtendWorkPermitDto,
-    @Request() req,
+    @Request() req: any,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.extend(id, extendDto, req.user.id);
+    return this.workPermitsService.extend(id, extendDto, req.user.id, req.userContext);
   }
 
   @Post(':id/close')
@@ -377,9 +391,9 @@ export class WorkPermitsController {
   async close(
     @Param('id') id: string,
     @Body() closeDto: CloseWorkPermitDto,
-    @Request() req,
+    @Request() req: any,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.close(id, closeDto, req.user.id);
+    return this.workPermitsService.close(id, closeDto, req.user.id, req.userContext);
   }
 
   @Get(':id/approval-rights')
@@ -388,9 +402,9 @@ export class WorkPermitsController {
   @ApiResponse({ status: 200, description: 'Returns approval rights' })
   async checkApprovalRights(
     @Param('id') id: string,
-    @Request() req,
+    @Request() req: any,
   ) {
-    return this.workPermitsService.checkApprovalRights(id, req.user.id);
+    return this.workPermitsService.checkApprovalRights(id, req.user.id, req.userContext);
   }
 
   @Get(':id/timeline')
@@ -417,8 +431,12 @@ export class WorkPermitsController {
     },
   })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getTimeline(@Param('id') id: string): Promise<any[]> {
-    return this.workPermitsService.getTimeline(id);
+  async getTimeline(
+    @Param('id') id: string,
+    @Request() req: any,
+  ): Promise<any[]> {
+    return this.workPermitsService.getTimeline(id, req.userContext);
   }
 }

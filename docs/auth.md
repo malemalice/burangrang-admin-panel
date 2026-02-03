@@ -23,7 +23,7 @@ So today: **who can call an endpoint** is determined by role (and sometimes perm
 ### Role Master (m_roles)
 
 - In `prisma/schema.prisma`: `id`, `name`, `code`, `description`, `isActive`, relations to users, menus, permissions.
-- No “data level” or scope field.
+- No “data level” **dataLevel** (enum SELF | DEPARTMENT | SUPER, default SUPER) is used only for the four data-scoped modules.
 
 ### Data-Scoped Modules (from schema and services)
 
@@ -145,3 +145,23 @@ This keeps “can see list” and “can see/change this row” consistent with 
 - **Direction**: Add a **data level** on the role (`SELF` | `DEPARTMENT` | `SUPER`), expose it (and `departmentId`) in a **request userContext**, and use a **central per-entity mapping** to:
   - Restrict list results (findAll) by self/department/super.
   - Enforce single-record access (findOne/update/delete) with the same rules.
+
+---
+
+## 5. Implemented Data-Level Access (Four Modules Only)
+
+Data-level authorization is **implemented only** for these four modules:
+
+- **Enrollments** (training course enrollments)
+- **Work permits**
+- **Certificates**
+- **PPE withdrawals**
+
+### Behavior when user does not have access (for these four)
+
+- **List (findAll):** Rows are **hidden** — the service merges a scope filter from `DataScopeService.buildWhereForList(userContext, entityName)` so the user only sees rows they are allowed to see (self, department, or all, based on the role's `dataLevel`).
+- **Single record (findOne / update / delete and related actions):** If the user cannot access the record, the API returns **403 Forbidden** (e.g. "You do not have access to this record").
+
+### All other modules
+
+Risk assessment, incidents, inspections, audit, approvals, and all other modules are **not** affected by data level. Their list and single-record behavior is unchanged (role/permission only; no row-level filtering).

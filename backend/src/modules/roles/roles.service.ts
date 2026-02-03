@@ -7,7 +7,7 @@ import { PermissionDto } from '../permissions/dto/permission.dto';
 import { ConfigService } from '@nestjs/config';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, DataLevelEnum } from '@prisma/client';
 
 interface FindRolesOptions {
   page?: number;
@@ -101,6 +101,7 @@ export class RolesService {
         code: createRoleDto.code,
         description: createRoleDto.description,
         isActive: createRoleDto.isActive,
+        dataLevel: createRoleDto.dataLevel ?? DataLevelEnum.SUPER,
         permissions: {
           connect: allPermissionIds.map((id) => ({ id })),
         },
@@ -221,17 +222,21 @@ export class RolesService {
     this.errorHandler.throwIfNotFoundById('Role', id, existingRole);
 
     // 5. Update role with all permissions
+    const updateData: Prisma.RoleUpdateInput = {
+      name: updateRoleDto.name,
+      code: updateRoleDto.code,
+      description: updateRoleDto.description,
+      isActive: updateRoleDto.isActive,
+      permissions: {
+        set: allPermissionIds.map((id) => ({ id })),
+      },
+    };
+    if (updateRoleDto.dataLevel !== undefined) {
+      updateData.dataLevel = updateRoleDto.dataLevel;
+    }
     const role = await this.prisma.role.update({
       where: { id },
-      data: {
-        name: updateRoleDto.name,
-        code: updateRoleDto.code,
-        description: updateRoleDto.description,
-        isActive: updateRoleDto.isActive,
-        permissions: {
-          set: allPermissionIds.map((id) => ({ id })),
-        },
-      },
+      data: updateData,
       include: {
         permissions: true,
       },
@@ -311,6 +316,7 @@ export class RolesService {
         code,
         description: existingRole.description,
         isActive: existingRole.isActive,
+        dataLevel: existingRole.dataLevel,
         permissions: {
           connect: permissionIds.map((permId) => ({ id: permId })),
         },

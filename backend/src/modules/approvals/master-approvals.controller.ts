@@ -193,7 +193,6 @@ export class MasterApprovalsController {
   }
 
   @Get('check-approval-status/:dataId')
-  @Permissions('approval:read')
   @ApiOperation({
     summary: 'Check approval status for an entity',
   })

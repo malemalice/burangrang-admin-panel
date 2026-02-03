@@ -33,8 +33,10 @@ import { CertificateReminderDto } from './dto/certificate-reminder.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { DataScopeGuard } from '../../shared/guards/data-scope.guard';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
+import { DataScoped } from '../../shared/decorators/data-scoped.decorator';
 import { Request } from 'express';
 
 interface RequestWithUser extends Request {
@@ -43,12 +45,14 @@ interface RequestWithUser extends Request {
     email: string;
     role: string;
   };
+  userContext?: import('../../shared/types/user-context').UserContext;
 }
 
 @ApiTags('certificates')
 @ApiBearerAuth()
 @Controller('certificates')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+@DataScoped('Certificate')
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, DataScopeGuard)
 export class CertificatesController {
   constructor(private readonly certificatesService: CertificatesService) { }
 
@@ -183,6 +187,7 @@ export class CertificatesController {
     @Query('personnelId') personnelId?: string,
     @Query('expired') expired?: string,
     @Query('expiringSoon') expiringSoon?: string,
+    @Req() req?: RequestWithUser,
   ): Promise<{ data: CertificateDto[]; meta: any }> {
     const pageNumber = page ? parseInt(page, 10) : undefined;
     const limitNumber = limit ? parseInt(limit, 10) : undefined;
@@ -190,20 +195,23 @@ export class CertificatesController {
     const expiredBoolean = expired === undefined ? undefined : expired === 'true';
     const expiringSoonBoolean = expiringSoon === undefined ? undefined : expiringSoon === 'true';
 
-    return this.certificatesService.findAll({
-      page: pageNumber,
-      limit: limitNumber,
-      sortBy,
-      sortOrder,
-      isActive: isActiveBoolean,
-      search,
-      categoryId,
-      certificateType: certificateType as any,
-      departmentId,
-      personnelId,
-      expired: expiredBoolean,
-      expiringSoon: expiringSoonBoolean,
-    });
+    return this.certificatesService.findAll(
+      {
+        page: pageNumber,
+        limit: limitNumber,
+        sortBy,
+        sortOrder,
+        isActive: isActiveBoolean,
+        search,
+        categoryId,
+        certificateType: certificateType as any,
+        departmentId,
+        personnelId,
+        expired: expiredBoolean,
+        expiringSoon: expiringSoonBoolean,
+      },
+      req?.userContext,
+    );
   }
 
   @Get(':id')
@@ -211,11 +219,12 @@ export class CertificatesController {
   @ApiParam({ name: 'id', type: String, description: 'Certificate ID' })
   @ApiResponse({ status: 200, description: 'Certificate details', type: CertificateDto })
   @ApiResponse({ status: 400, description: 'Bad request - invalid ID format' })
+  @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
   @ApiResponse({ status: 404, description: 'Certificate not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   @Permissions('certificate:read')
-  async findOne(@Param('id') id: string): Promise<CertificateDto> {
-    return this.certificatesService.findOne(id);
+  async findOne(@Param('id') id: string, @Req() req: RequestWithUser): Promise<CertificateDto> {
+    return this.certificatesService.findOne(id, req.userContext);
   }
 
   @Post()
@@ -248,7 +257,7 @@ export class CertificatesController {
     @Body() updateCertificateDto: UpdateCertificateDto,
     @Req() req: RequestWithUser,
   ): Promise<CertificateDto> {
-    return this.certificatesService.update(id, updateCertificateDto, req.user.id);
+    return this.certificatesService.update(id, updateCertificateDto, req.user.id, req.userContext);
   }
 
   @Delete(':id')
@@ -259,8 +268,8 @@ export class CertificatesController {
   @ApiResponse({ status: 404, description: 'Certificate not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   @Permissions('certificate:delete')
-  async remove(@Param('id') id: string): Promise<void> {
-    return this.certificatesService.remove(id);
+  async remove(@Param('id') id: string, @Req() req: RequestWithUser): Promise<void> {
+    return this.certificatesService.remove(id, req.userContext);
   }
 
   // ==================== Certificate Renewals ====================
@@ -273,8 +282,8 @@ export class CertificatesController {
   @ApiResponse({ status: 404, description: 'Certificate not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   @Permissions('certificate:read')
-  async findRenewals(@Param('id') id: string): Promise<CertificateRenewalDto[]> {
-    return this.certificatesService.findRenewalsByCertificateId(id);
+  async findRenewals(@Param('id') id: string, @Req() req: RequestWithUser): Promise<CertificateRenewalDto[]> {
+    return this.certificatesService.findRenewalsByCertificateId(id, req.userContext);
   }
 
   @Post(':id/renewals')
@@ -292,7 +301,7 @@ export class CertificatesController {
     @Body() createRenewalDto: CreateCertificateRenewalDto,
     @Req() req: RequestWithUser,
   ): Promise<CertificateRenewalDto> {
-    return this.certificatesService.createRenewal(id, createRenewalDto, req.user.id);
+    return this.certificatesService.createRenewal(id, createRenewalDto, req.user.id, req.userContext);
   }
 
   @Patch('renewals/:id')
@@ -322,8 +331,8 @@ export class CertificatesController {
   @ApiResponse({ status: 404, description: 'Certificate not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   @Permissions('certificate:read')
-  async findReminders(@Param('id') id: string): Promise<CertificateReminderDto[]> {
-    return this.certificatesService.findRemindersByCertificateId(id);
+  async findReminders(@Param('id') id: string, @Req() req: RequestWithUser): Promise<CertificateReminderDto[]> {
+    return this.certificatesService.findRemindersByCertificateId(id, req.userContext);
   }
 }
 

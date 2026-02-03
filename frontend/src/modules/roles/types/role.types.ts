@@ -2,8 +2,10 @@
  * Roles module types
  */
 
+import type { DataLevel } from '@/core/lib/types';
+
 // Re-export core types that are used by roles module
-export type { Role, Permission, PaginatedResponse, PaginationParams } from '@/core/lib/types';
+export type { Role, Permission, PaginatedResponse, PaginationParams, DataLevel } from '@/core/lib/types';
 
 // Interface for role data from API that matches backend structure
 export interface RoleDTO {
@@ -12,6 +14,7 @@ export interface RoleDTO {
   code: string;
   description: string | null;
   isActive: boolean;
+  dataLevel: DataLevel;
   permissions: PermissionDTO[];
   createdAt: string;
   updatedAt: string;
@@ -34,6 +37,7 @@ export interface CreateRoleDTO {
   description?: string;
   permissions?: string[];
   isActive?: boolean;
+  dataLevel?: DataLevel;
 }
 
 // Interface for updating a role
@@ -43,6 +47,7 @@ export interface UpdateRoleDTO {
   description?: string;
   permissions?: string[];
   isActive?: boolean;
+  dataLevel?: DataLevel;
 }
 
 // Role form data for frontend forms
@@ -52,6 +57,7 @@ export interface RoleFormData {
   description: string;
   permissions: string[];
   isActive: boolean;
+  dataLevel: DataLevel;
 }
 
 // Role filter options

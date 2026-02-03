@@ -1,4 +1,4 @@
-import { PrismaClient, Permission } from '@prisma/client';
+import { PrismaClient, Permission, DataLevelEnum } from '@prisma/client';
 
 /** Permission names that belong to modules under the Settings menu (Admin excludes these). */
 const SETTINGS_PERMISSION_PREFIXES = ['setting:', 'mail-template:', 'reminder:'];
@@ -66,12 +66,14 @@ export const roles = [
     name: 'Super Admin',
     code: 'SUPER_ADMIN',
     description: 'Has full access to all system features and settings',
+    dataLevel: DataLevelEnum.SUPER,
     permissions: (permissions: Permission[]) => permissions.map((p) => p.id),
   },
   {
     name: 'Administrator',
     code: 'ADMIN',
     description: 'All permissions to all modules except those under Settings menu',
+    dataLevel: DataLevelEnum.SUPER,
     permissions: (permissions: Permission[]) =>
       permissions
         .filter(
@@ -86,6 +88,7 @@ export const roles = [
     code: 'MANAGER',
     description:
       'Risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, certificates (read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, quizzes, work permit',
+    dataLevel: DataLevelEnum.DEPARTMENT,
     permissions: (permissions: Permission[]) =>
       permissions
         .filter((p) => MANAGER_USER_PERMISSION_NAMES.has(p.name))
@@ -96,6 +99,7 @@ export const roles = [
     code: 'USER',
     description:
       'Same as Manager: risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, certificates (read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, quizzes, work permit',
+    dataLevel: DataLevelEnum.SELF,
     permissions: (permissions: Permission[]) =>
       permissions
         .filter((p) => MANAGER_USER_PERMISSION_NAMES.has(p.name))
@@ -105,6 +109,7 @@ export const roles = [
     name: 'Guest',
     code: 'GUEST',
     description: 'Limited access for external users',
+    dataLevel: DataLevelEnum.SELF,
     permissions: (permissions: Permission[]) =>
       permissions
         .filter((p) => p.name === 'auth:login' || p.name === 'auth:logout')
@@ -114,6 +119,7 @@ export const roles = [
     name: 'Technician',
     code: 'TECHNICIAN',
     description: 'Can log in and manage assigned incidents. Has access to incident technician features.',
+    dataLevel: DataLevelEnum.SELF,
     permissions: (permissions: Permission[]) =>
       permissions
         .filter(
@@ -145,6 +151,7 @@ export async function seedRoles(prisma: PrismaClient, permissions: Permission[])
           code: role.code,
           description: role.description,
           isActive: true,
+          dataLevel: role.dataLevel,
           permissions: {
             set: role.permissions(permissions).map((id) => ({ id })),
           },
@@ -154,6 +161,7 @@ export async function seedRoles(prisma: PrismaClient, permissions: Permission[])
           code: role.code,
           description: role.description,
           isActive: true,
+          dataLevel: role.dataLevel,
           permissions: {
             connect: role.permissions(permissions).map((id) => ({ id })),
           },

@@ -206,6 +206,11 @@ const RoleDetailPage = () => {
                 </Badge>
               </div>
             </div>
+
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Data Level</h3>
+              <p className="mt-1 capitalize">{role.dataLevel ?? 'Super'}</p>
+            </div>
             
             <div>
               <h3 className="text-sm font-medium text-gray-500">Created At</h3>

@@ -24,8 +24,14 @@ import {
   SelectValue,
 } from '@/core/components/ui/select';
 import roleService from '../services/roleService';
-import { UpdateRoleDTO } from '../types/role.types';
+import { UpdateRoleDTO, DataLevel } from '../types/role.types';
 import { Permission, Role } from '@/core/lib/types';
+
+const DATA_LEVEL_OPTIONS: { value: DataLevel; label: string }[] = [
+  { value: 'SELF', label: 'Self' },
+  { value: 'DEPARTMENT', label: 'Department' },
+  { value: 'SUPER', label: 'Super' },
+];
 import { groupPermissionsByResource } from '../utils/groupPermissions';
 import { Badge } from '@/core/components/ui/badge';
 
@@ -42,6 +48,7 @@ const EditRolePage = () => {
     description: '',
     permissions: [],
     isActive: true,
+    dataLevel: 'SUPER',
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -72,6 +79,7 @@ const EditRolePage = () => {
           description: roleData.description || '',
           permissions: roleData.permissions.map(p => p.id),
           isActive: roleData.isActive,
+          dataLevel: roleData.dataLevel ?? 'SUPER',
         });
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -96,6 +104,10 @@ const EditRolePage = () => {
       ...prev,
       isActive: value === 'active',
     }));
+  };
+
+  const handleDataLevelChange = (value: DataLevel) => {
+    setFormData(prev => ({ ...prev, dataLevel: value }));
   };
 
   const handlePermissionChange = (permissionId: string, checked: boolean) => {
@@ -257,6 +269,26 @@ const EditRolePage = () => {
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="dataLevel">Data Level</Label>
+                  <Select
+                    value={formData.dataLevel ?? 'SUPER'}
+                    onValueChange={(v) => handleDataLevelChange(v as DataLevel)}
+                  >
+                    <SelectTrigger id="dataLevel">
+                      <SelectValue placeholder="Select data level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DATA_LEVEL_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500">Data access scope for users with this role (Self, Department, or Super)</p>
                 </div>
                 
                 <div className="space-y-4">

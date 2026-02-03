@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsArray, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsBoolean, IsEnum } from 'class-validator';
+import { DataLevelEnum } from '@prisma/client';
 
 export class UpdateRoleDto {
   @ApiProperty({ description: 'Name of the role', required: false })
@@ -30,4 +31,13 @@ export class UpdateRoleDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiProperty({
+    description: 'Data access level for the role',
+    enum: DataLevelEnum,
+    required: false,
+  })
+  @IsEnum(DataLevelEnum)
+  @IsOptional()
+  dataLevel?: DataLevelEnum;
 }
