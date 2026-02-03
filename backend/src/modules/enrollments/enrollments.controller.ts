@@ -13,8 +13,8 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam, ApiBody, A
 import { EnrollmentsService } from './enrollments.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
-import { Roles } from '../../shared/decorators/roles.decorator';
-import { Role } from '../../shared/types/role.enum';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { AssignEnrollmentDto } from './dto/assign-enrollment.dto';
 import { UpdateEnrollmentDto } from './dto/update-enrollment.dto';
@@ -25,7 +25,7 @@ import { PaginatedResponse } from '../../shared/types/pagination-params';
 @ApiTags('enrollments')
 @ApiBearerAuth()
 @Controller('enrollments')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class EnrollmentsController {
   constructor(private readonly enrollmentsService: EnrollmentsService) { }
 
@@ -37,7 +37,7 @@ export class EnrollmentsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Course not found' })
   @ApiResponse({ status: 409, description: 'User already has an active enrollment in this course' })
-  @Roles(Role.USER, Role.ADMIN, Role.SUPER_ADMIN)
+  @Permissions('enrollment:create')
   async create(
     @Body() createEnrollmentDto: CreateEnrollmentDto,
     @Request() req: any,
@@ -50,7 +50,7 @@ export class EnrollmentsController {
   @ApiOperation({ summary: 'Get current user enrollments' })
   @ApiResponse({ status: 200, type: [EnrollmentDto], description: 'User enrollments retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.USER, Role.ADMIN, Role.SUPER_ADMIN)
+  @Permissions('enrollment:read')
   async getUserEnrollments(@Request() req: any): Promise<EnrollmentDto[]> {
     const userId = req.user.id; // JWT strategy returns { id, email, role }
     return this.enrollmentsService.getUserEnrollments(userId);
@@ -76,7 +76,7 @@ export class EnrollmentsController {
   @ApiResponse({ status: 403, description: 'Forbidden - Admin access required' })
   @ApiResponse({ status: 404, description: 'Course or user not found' })
   @ApiResponse({ status: 409, description: 'User already has an active or invited enrollment in this course' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @Permissions('enrollment:create')
   async assignCourse(
     @Body() assignEnrollmentDto: AssignEnrollmentDto,
     @Request() req: any,
@@ -123,7 +123,7 @@ export class EnrollmentsController {
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.USER, Role.ADMIN, Role.SUPER_ADMIN)
+  @Permissions('enrollment:list')
   async findAll(
     @Query() query: FindEnrollmentsDto,
     @Request() req: any,
@@ -139,7 +139,7 @@ export class EnrollmentsController {
   @ApiResponse({ status: 200, description: 'Learning context retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Enrollment not found' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
-  @Roles(Role.USER, Role.ADMIN, Role.SUPER_ADMIN)
+  @Permissions('enrollment:read')
   async getLearningContext(
     @Param('id') id: string,
     @Request() req: any,
@@ -155,7 +155,7 @@ export class EnrollmentsController {
   @ApiResponse({ status: 200, type: EnrollmentDto, description: 'Enrollment retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Enrollment not found' })
   @ApiResponse({ status: 403, description: 'Forbidden - cannot access other user\'s enrollment' })
-  @Roles(Role.USER, Role.ADMIN, Role.SUPER_ADMIN)
+  @Permissions('enrollment:read')
   async findOne(
     @Param('id') id: string,
     @Request() req: any,
@@ -174,7 +174,7 @@ export class EnrollmentsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - can only update own enrollment or admin access required' })
   @ApiResponse({ status: 404, description: 'Enrollment not found' })
-  @Roles(Role.USER, Role.ADMIN, Role.SUPER_ADMIN)
+  @Permissions('enrollment:update')
   async update(
     @Param('id') id: string,
     @Body() updateEnrollmentDto: UpdateEnrollmentDto,

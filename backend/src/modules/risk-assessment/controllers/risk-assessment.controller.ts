@@ -21,16 +21,17 @@ import { UpdateRiskAssessmentItemDto } from '../dto/update-risk-assessment-item.
 import { RiskAssessmentItemDto } from '../dto/risk-assessment-item.dto';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
-import { Roles } from '../../../shared/decorators/roles.decorator';
-import { Role } from '../../../shared/types/role.enum';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
 
 @ApiTags('Risk Assessment')
 @Controller('risk-assessment')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class RiskAssessmentController {
   constructor(private readonly riskAssessmentService: RiskAssessmentService) {}
 
   @Post()
+  @Permissions('risk-assessment:create')
   @ApiOperation({ summary: 'Create a new risk assessment' })
   @ApiResponse({ status: 201, type: RiskAssessmentDto })
   async create(
@@ -44,6 +45,7 @@ export class RiskAssessmentController {
   }
 
   @Get()
+  @Permissions('risk-assessment:list')
   @ApiOperation({ summary: 'Get all risk assessments with pagination' })
   @ApiResponse({ status: 200, type: [RiskAssessmentDto] })
   async findAll(
@@ -69,6 +71,7 @@ export class RiskAssessmentController {
   }
 
   @Get(':id')
+  @Permissions('risk-assessment:read')
   @ApiOperation({ summary: 'Get a risk assessment by id' })
   @ApiResponse({ status: 200, type: RiskAssessmentDto })
   async findOne(@Param('id') id: string): Promise<RiskAssessmentDto> {
@@ -76,6 +79,7 @@ export class RiskAssessmentController {
   }
 
   @Patch(':id')
+  @Permissions('risk-assessment:update')
   @ApiOperation({ summary: 'Update a risk assessment' })
   @ApiResponse({ status: 200, type: RiskAssessmentDto })
   async update(
@@ -86,6 +90,7 @@ export class RiskAssessmentController {
   }
 
   @Delete(':id')
+  @Permissions('risk-assessment:delete')
   @ApiOperation({ summary: 'Delete a risk assessment' })
   @ApiResponse({ status: 204 })
   async remove(@Param('id') id: string): Promise<void> {
@@ -94,9 +99,9 @@ export class RiskAssessmentController {
 
   // Risk Assessment Items endpoints
   @Post(':id/items')
+  @Permissions('risk-assessment:create')
   @ApiOperation({ summary: 'Create a new risk assessment item' })
   @ApiResponse({ status: 201, type: RiskAssessmentItemDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async createItem(
     @Param('id') id: string,
     @Body() createItemDto: CreateRiskAssessmentItemDto,
@@ -105,9 +110,9 @@ export class RiskAssessmentController {
   }
 
   @Get(':id/items')
+  @Permissions('risk-assessment:read')
   @ApiOperation({ summary: 'Get all risk assessment items with pagination' })
   @ApiResponse({ status: 200, type: [RiskAssessmentItemDto] })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async findAllItems(
     @Param('id') id: string,
     @Query('page') page?: number,
@@ -126,9 +131,9 @@ export class RiskAssessmentController {
   }
 
   @Get(':id/items/:itemId')
+  @Permissions('risk-assessment:read')
   @ApiOperation({ summary: 'Get a risk assessment item by id' })
   @ApiResponse({ status: 200, type: RiskAssessmentItemDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async findOneItem(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
@@ -137,9 +142,9 @@ export class RiskAssessmentController {
   }
 
   @Patch(':id/items/:itemId')
+  @Permissions('risk-assessment:update')
   @ApiOperation({ summary: 'Update a risk assessment item' })
   @ApiResponse({ status: 200, type: RiskAssessmentItemDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async updateItem(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
@@ -149,9 +154,9 @@ export class RiskAssessmentController {
   }
 
   @Delete(':id/items/:itemId')
+  @Permissions('risk-assessment:delete')
   @ApiOperation({ summary: 'Delete a risk assessment item' })
   @ApiResponse({ status: 204 })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async removeItem(
     @Param('id') id: string,
     @Param('itemId') itemId: string,

@@ -3,19 +3,19 @@ import { WasteTypesService } from '../services/waste-types.service';
 import { CreateWasteTypeDto, UpdateWasteTypeDto, WasteTypeDto } from '../dto/waste-types';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
-import { Roles } from '../../../shared/decorators/roles.decorator';
-import { Role } from '../../../shared/types/role.enum';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('waste-types')
 @ApiBearerAuth()
 @Controller('waste-types')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class WasteTypesController {
   constructor(private readonly service: WasteTypesService) {}
 
   @Post()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:create')
   @ApiOperation({ summary: 'Create a new waste type' })
   @ApiBody({ type: CreateWasteTypeDto })
   @ApiResponse({ status: 201, description: 'The waste type has been successfully created.', type: WasteTypeDto })
@@ -54,7 +54,7 @@ export class WasteTypesController {
   }
 
   @Get(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('waste-management:read')
   @ApiOperation({ summary: 'Get waste type by id' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'Return the waste type.', type: WasteTypeDto })
@@ -65,7 +65,7 @@ export class WasteTypesController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:update')
   @ApiOperation({ summary: 'Update waste type' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateWasteTypeDto })
@@ -78,7 +78,7 @@ export class WasteTypesController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:delete')
   @ApiOperation({ summary: 'Delete waste type' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'The waste type has been successfully deleted.' })

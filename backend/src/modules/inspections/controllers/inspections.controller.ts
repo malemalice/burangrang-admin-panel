@@ -35,8 +35,8 @@ import {
 } from '../dto';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
-import { Roles } from '../../../shared/decorators/roles.decorator';
-import { Role } from '../../../shared/types/role.enum';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
 
 // Define interface for request with user property
 interface RequestWithUser extends ExpressRequest {
@@ -50,11 +50,12 @@ interface RequestWithUser extends ExpressRequest {
 @ApiTags('Inspections')
 @ApiBearerAuth()
 @Controller('inspections')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class InspectionsController {
   constructor(private readonly inspectionsService: InspectionsService) {}
 
   @Post()
+  @Permissions('inspection:create')
   @ApiOperation({ summary: 'Create a new inspection' })
   @ApiResponse({ status: 201, type: InspectionDto })
   async create(
@@ -65,6 +66,7 @@ export class InspectionsController {
   }
 
   @Get()
+  @Permissions('inspection:list')
   @ApiOperation({ summary: 'Get all inspections with pagination' })
   @ApiResponse({ status: 200, type: [InspectionDto] })
   async findAll(
@@ -100,6 +102,7 @@ export class InspectionsController {
   }
 
   @Get(':id')
+  @Permissions('inspection:read')
   @ApiOperation({ summary: 'Get an inspection by id' })
   @ApiResponse({ status: 200, type: InspectionDto })
   async findOne(@Param('id') id: string): Promise<InspectionDto> {
@@ -107,6 +110,7 @@ export class InspectionsController {
   }
 
   @Patch(':id')
+  @Permissions('inspection:update')
   @ApiOperation({ summary: 'Update an inspection' })
   @ApiResponse({ status: 200, type: InspectionDto })
   async update(
@@ -117,6 +121,7 @@ export class InspectionsController {
   }
 
   @Delete(':id')
+  @Permissions('inspection:delete')
   @ApiOperation({ summary: 'Delete an inspection' })
   @ApiResponse({ status: 204 })
   async remove(@Param('id') id: string): Promise<void> {
@@ -125,9 +130,9 @@ export class InspectionsController {
 
   // Inspection Items endpoints
   @Post(':id/items')
+  @Permissions('inspection:create')
   @ApiOperation({ summary: 'Create a new inspection item' })
   @ApiResponse({ status: 201, type: InspectionItemDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async createItem(
     @Param('id') id: string,
     @Body() createItemDto: CreateInspectionItemDto,
@@ -136,9 +141,9 @@ export class InspectionsController {
   }
 
   @Get(':id/items')
+  @Permissions('inspection:read')
   @ApiOperation({ summary: 'Get all inspection items with pagination' })
   @ApiResponse({ status: 200, type: [InspectionItemDto] })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async findAllItems(
     @Param('id') id: string,
     @Query('page') page?: number,
@@ -157,9 +162,9 @@ export class InspectionsController {
   }
 
   @Get(':id/items/:itemId')
+  @Permissions('inspection:read')
   @ApiOperation({ summary: 'Get an inspection item by id' })
   @ApiResponse({ status: 200, type: InspectionItemDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async findOneItem(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
@@ -168,9 +173,9 @@ export class InspectionsController {
   }
 
   @Patch(':id/items/:itemId')
+  @Permissions('inspection:update')
   @ApiOperation({ summary: 'Update an inspection item' })
   @ApiResponse({ status: 200, type: InspectionItemDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async updateItem(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
@@ -180,9 +185,9 @@ export class InspectionsController {
   }
 
   @Delete(':id/items/:itemId')
+  @Permissions('inspection:delete')
   @ApiOperation({ summary: 'Delete an inspection item' })
   @ApiResponse({ status: 204 })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async removeItem(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
@@ -192,9 +197,9 @@ export class InspectionsController {
 
   // Inspection Images endpoints
   @Post(':id/items/:itemId/images')
+  @Permissions('inspection:create')
   @ApiOperation({ summary: 'Create a new inspection image' })
   @ApiResponse({ status: 201, type: InspectionImageDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async createImage(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
@@ -204,9 +209,9 @@ export class InspectionsController {
   }
 
   @Get(':id/items/:itemId/images')
+  @Permissions('inspection:read')
   @ApiOperation({ summary: 'Get all inspection images for an item' })
   @ApiResponse({ status: 200, type: [InspectionImageDto] })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async findAllImages(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
@@ -215,9 +220,9 @@ export class InspectionsController {
   }
 
   @Get(':id/items/:itemId/images/:imageId')
+  @Permissions('inspection:read')
   @ApiOperation({ summary: 'Get an inspection image by id' })
   @ApiResponse({ status: 200, type: InspectionImageDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async findOneImage(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
@@ -227,9 +232,9 @@ export class InspectionsController {
   }
 
   @Patch(':id/items/:itemId/images/:imageId')
+  @Permissions('inspection:update')
   @ApiOperation({ summary: 'Update an inspection image' })
   @ApiResponse({ status: 200, type: InspectionImageDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async updateImage(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
@@ -240,9 +245,9 @@ export class InspectionsController {
   }
 
   @Delete(':id/items/:itemId/images/:imageId')
+  @Permissions('inspection:delete')
   @ApiOperation({ summary: 'Delete an inspection image' })
   @ApiResponse({ status: 204 })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async removeImage(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
@@ -253,9 +258,9 @@ export class InspectionsController {
 
   // Inspection Inspectors endpoints
   @Post(':id/inspectors')
+  @Permissions('inspection:create')
   @ApiOperation({ summary: 'Create a new inspection inspector' })
   @ApiResponse({ status: 201, type: InspectionInspectorDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async createInspector(
     @Param('id') id: string,
     @Body() createInspectorDto: CreateInspectionInspectorDto,
@@ -264,9 +269,9 @@ export class InspectionsController {
   }
 
   @Get(':id/inspectors')
+  @Permissions('inspection:read')
   @ApiOperation({ summary: 'Get all inspection inspectors' })
   @ApiResponse({ status: 200, type: [InspectionInspectorDto] })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async findAllInspectors(
     @Param('id') id: string,
   ): Promise<InspectionInspectorDto[]> {
@@ -274,9 +279,9 @@ export class InspectionsController {
   }
 
   @Get(':id/inspectors/:inspectorId')
+  @Permissions('inspection:read')
   @ApiOperation({ summary: 'Get an inspection inspector by id' })
   @ApiResponse({ status: 200, type: InspectionInspectorDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async findOneInspector(
     @Param('id') id: string,
     @Param('inspectorId') inspectorId: string,
@@ -285,9 +290,9 @@ export class InspectionsController {
   }
 
   @Patch(':id/inspectors/:inspectorId')
+  @Permissions('inspection:update')
   @ApiOperation({ summary: 'Update an inspection inspector' })
   @ApiResponse({ status: 200, type: InspectionInspectorDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async updateInspector(
     @Param('id') id: string,
     @Param('inspectorId') inspectorId: string,
@@ -301,9 +306,9 @@ export class InspectionsController {
   }
 
   @Delete(':id/inspectors/:inspectorId')
+  @Permissions('inspection:delete')
   @ApiOperation({ summary: 'Delete an inspection inspector' })
   @ApiResponse({ status: 204 })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async removeInspector(
     @Param('id') id: string,
     @Param('inspectorId') inspectorId: string,

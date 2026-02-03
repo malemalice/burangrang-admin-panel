@@ -15,6 +15,8 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { RiskRegisterService } from '../services/risk-register.service';
 import { RiskRegisterDto } from '../dto/risk-register.dto';
 import { FindRiskRegisterDto } from '../dto/find-risk-register.dto';
@@ -22,11 +24,12 @@ import { FindRiskRegisterDto } from '../dto/find-risk-register.dto';
 @ApiTags('risk-register')
 @ApiBearerAuth()
 @Controller('risk-register')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class RiskRegisterController {
   constructor(private readonly riskRegisterService: RiskRegisterService) {}
 
   @Get()
+  @Permissions('risk-register:list')
   @ApiOperation({ summary: 'Get all risk mitigation records with source context' })
   @ApiResponse({
     status: 200,
@@ -52,6 +55,7 @@ export class RiskRegisterController {
   }
 
   @Get(':id')
+  @Permissions('risk-register:read')
   @ApiOperation({ summary: 'Get a single risk mitigation record by ID' })
   @ApiParam({ name: 'id', description: 'Risk mitigation record ID' })
   @ApiResponse({

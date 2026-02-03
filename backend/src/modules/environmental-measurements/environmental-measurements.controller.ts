@@ -16,16 +16,19 @@ import { UpdateEnvironmentalMeasurementDto } from './dto/update-environmental-me
 import { EnvironmentalMeasurementDto } from './dto/environmental-measurement.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('environmental-measurements')
 @ApiBearerAuth()
 @Controller('environmental-measurements')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class EnvironmentalMeasurementsController {
   constructor(private readonly measurementsService: EnvironmentalMeasurementsService) {}
 
   @Post()
+  @Permissions('environmental-measurement:create')
   @ApiOperation({ summary: 'Create a new environmental measurement' })
   @ApiResponse({ status: 201, description: 'The measurement has been successfully created.', type: EnvironmentalMeasurementDto })
   create(
@@ -76,6 +79,7 @@ export class EnvironmentalMeasurementsController {
   }
 
   @Get(':id')
+  @Permissions('environmental-measurement:read')
   @ApiOperation({ summary: 'Get an environmental measurement by id' })
   @ApiResponse({ status: 200, description: 'Return the environmental measurement.', type: EnvironmentalMeasurementDto })
   @ApiResponse({ status: 404, description: 'Environmental measurement not found.' })
@@ -84,6 +88,7 @@ export class EnvironmentalMeasurementsController {
   }
 
   @Patch(':id')
+  @Permissions('environmental-measurement:update')
   @ApiOperation({ summary: 'Update an environmental measurement' })
   @ApiResponse({ status: 200, description: 'The measurement has been successfully updated.', type: EnvironmentalMeasurementDto })
   @ApiResponse({ status: 404, description: 'Environmental measurement not found.' })
@@ -95,6 +100,7 @@ export class EnvironmentalMeasurementsController {
   }
 
   @Delete(':id')
+  @Permissions('environmental-measurement:delete')
   @ApiOperation({ summary: 'Delete an environmental measurement' })
   @ApiResponse({ status: 200, description: 'The measurement has been successfully deleted.' })
   @ApiResponse({ status: 404, description: 'Environmental measurement not found.' })

@@ -31,8 +31,8 @@ import {
 } from '../dto';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
-import { Roles } from '../../../shared/decorators/roles.decorator';
-import { Role } from '../../../shared/types/role.enum';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
 
 // Define interface for request with user property
 interface RequestWithUser extends ExpressRequest {
@@ -46,16 +46,16 @@ interface RequestWithUser extends ExpressRequest {
 @ApiTags('Audit Schedules')
 @ApiBearerAuth()
 @Controller(['audit-schedules', 'audits'])
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class AuditSchedulesController {
   constructor(
     private readonly auditSchedulesService: AuditSchedulesService,
   ) {}
 
   @Post()
+  @Permissions('audit-schedule:create')
   @ApiOperation({ summary: 'Create a new audit schedule' })
   @ApiResponse({ status: 201, type: AuditScheduleDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async create(
     @Request() req: RequestWithUser,
     @Body() createAuditScheduleDto: CreateAuditScheduleDto,
@@ -67,9 +67,9 @@ export class AuditSchedulesController {
   }
 
   @Get()
+  @Permissions('audit-schedule:list')
   @ApiOperation({ summary: 'Get all audit schedules with pagination' })
   @ApiResponse({ status: 200, type: [AuditScheduleDto] })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async findAll(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
@@ -108,9 +108,9 @@ export class AuditSchedulesController {
   // Audit Results endpoints - Get all audit items across all audits
   // Must be before :id route to avoid route conflicts
   @Get('results')
+  @Permissions('audit-result:list')
   @ApiOperation({ summary: 'Get all audit results (items) with pagination and filtering' })
   @ApiResponse({ status: 200, type: [AuditResultDto] })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async findAllAuditResults(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
@@ -140,17 +140,17 @@ export class AuditSchedulesController {
   }
 
   @Get(':id')
+  @Permissions('audit-schedule:read')
   @ApiOperation({ summary: 'Get an audit schedule by id' })
   @ApiResponse({ status: 200, type: AuditScheduleDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async findOne(@Param('id') id: string): Promise<AuditScheduleDto> {
     return this.auditSchedulesService.findOne(id);
   }
 
   @Patch(':id')
+  @Permissions('audit-schedule:update')
   @ApiOperation({ summary: 'Update an audit schedule' })
   @ApiResponse({ status: 200, type: AuditScheduleDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async update(
     @Param('id') id: string,
     @Body() updateAuditScheduleDto: UpdateAuditScheduleDto,
@@ -159,18 +159,18 @@ export class AuditSchedulesController {
   }
 
   @Delete(':id')
+  @Permissions('audit-schedule:delete')
   @ApiOperation({ summary: 'Delete an audit schedule' })
   @ApiResponse({ status: 204 })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
   async remove(@Param('id') id: string): Promise<void> {
     return this.auditSchedulesService.remove(id);
   }
 
   // Audit Items endpoints
   @Post(':id/items')
+  @Permissions('audit-result:create')
   @ApiOperation({ summary: 'Create a new audit item' })
   @ApiResponse({ status: 201, type: AuditItemDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async createItem(
     @Param('id') id: string,
     @Body() createAuditItemDto: CreateAuditItemDto,
@@ -179,9 +179,9 @@ export class AuditSchedulesController {
   }
 
   @Get(':id/items')
+  @Permissions('audit-schedule:read')
   @ApiOperation({ summary: 'Get all audit items for an audit' })
   @ApiResponse({ status: 200, type: [AuditItemDto] })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async getItems(
     @Param('id') id: string,
     @Query('page') page?: number,
@@ -195,9 +195,9 @@ export class AuditSchedulesController {
   }
 
   @Patch(':id/items/:itemId')
+  @Permissions('audit-result:update')
   @ApiOperation({ summary: 'Update an audit item' })
   @ApiResponse({ status: 200, type: AuditItemDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async updateItem(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
@@ -212,9 +212,9 @@ export class AuditSchedulesController {
 
   // Approval workflow endpoints
   @Post(':id/items/:itemId/submit-for-approval')
+  @Permissions('audit-result:update')
   @ApiOperation({ summary: 'Submit audit item for approval' })
   @ApiResponse({ status: 200, type: AuditItemDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async submitForApproval(
     @Request() req: RequestWithUser,
     @Param('id') id: string,
@@ -224,9 +224,9 @@ export class AuditSchedulesController {
   }
 
   @Post(':id/items/:itemId/approve')
+  @Permissions('audit-result:update')
   @ApiOperation({ summary: 'Approve audit item' })
   @ApiResponse({ status: 200, type: AuditItemDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async approveItem(
     @Request() req: RequestWithUser,
     @Param('id') id: string,
@@ -237,9 +237,9 @@ export class AuditSchedulesController {
   }
 
   @Post(':id/items/:itemId/reject')
+  @Permissions('audit-result:update')
   @ApiOperation({ summary: 'Reject audit item' })
   @ApiResponse({ status: 200, type: AuditItemDto })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async rejectItem(
     @Request() req: RequestWithUser,
     @Param('id') id: string,
@@ -250,9 +250,9 @@ export class AuditSchedulesController {
   }
 
   @Get(':id/items/:itemId/approval-rights')
+  @Permissions('audit-schedule:read')
   @ApiOperation({ summary: 'Check approval rights for audit item' })
   @ApiResponse({ status: 200 })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
   async checkApprovalRights(
     @Request() req: RequestWithUser,
     @Param('id') id: string,

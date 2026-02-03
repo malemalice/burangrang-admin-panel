@@ -15,18 +15,18 @@ import { UpdateRiskDto } from './dto/update-risk.dto';
 import { RiskDto } from './dto/risk.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
-import { Roles } from '../../shared/decorators/roles.decorator';
-import { Role } from '../../shared/types/role.enum';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 
 @ApiTags('risks')
 @Controller('risks')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class RisksController {
   constructor(private readonly risksService: RisksService) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('risk:create')
   @ApiOperation({ summary: 'Create a new risk' })
   @ApiResponse({ status: 201, description: 'The risk has been successfully created.', type: RiskDto })
   create(@Body() createRiskDto: CreateRiskDto): Promise<RiskDto> {
@@ -70,7 +70,7 @@ export class RisksController {
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('risk:read')
   @ApiOperation({ summary: 'Get a risk by id' })
   @ApiResponse({ status: 200, description: 'Return the risk.', type: RiskDto })
   @ApiResponse({ status: 404, description: 'Risk not found.' })
@@ -79,7 +79,7 @@ export class RisksController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  @Permissions('risk:update')
   @ApiOperation({ summary: 'Update a risk' })
   @ApiResponse({ status: 200, description: 'The risk has been successfully updated.', type: RiskDto })
   @ApiResponse({ status: 404, description: 'Risk not found.' })

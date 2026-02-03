@@ -3,19 +3,19 @@ import { WaterQualityLabReportsService } from '../services/water-quality-lab-rep
 import { CreateWaterQualityLabReportDto, UpdateWaterQualityLabReportDto, WaterQualityLabReportDto } from '../dto/water-quality-lab-reports';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
-import { Roles } from '../../../shared/decorators/roles.decorator';
-import { Role } from '../../../shared/types/role.enum';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('water-quality-lab-reports')
 @ApiBearerAuth()
 @Controller('water-quality-lab-reports')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class WaterQualityLabReportsController {
   constructor(private readonly service: WaterQualityLabReportsService) {}
 
   @Post()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  @Permissions('waste-management:create')
   @ApiOperation({ summary: 'Create a new water quality lab report' })
   @ApiBody({ type: CreateWaterQualityLabReportDto })
   @ApiResponse({ status: 201, description: 'The report has been successfully created.', type: WaterQualityLabReportDto })
@@ -28,7 +28,7 @@ export class WaterQualityLabReportsController {
   }
 
   @Get()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('waste-management:list')
   @ApiOperation({ summary: 'Get all water quality lab reports' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -54,7 +54,7 @@ export class WaterQualityLabReportsController {
   }
 
   @Get(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('waste-management:read')
   @ApiOperation({ summary: 'Get water quality lab report by id' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'Return the report.', type: WaterQualityLabReportDto })
@@ -65,7 +65,7 @@ export class WaterQualityLabReportsController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  @Permissions('waste-management:update')
   @ApiOperation({ summary: 'Update water quality lab report' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateWaterQualityLabReportDto })
@@ -78,7 +78,7 @@ export class WaterQualityLabReportsController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:delete')
   @ApiOperation({ summary: 'Delete water quality lab report' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'The report has been successfully deleted.' })

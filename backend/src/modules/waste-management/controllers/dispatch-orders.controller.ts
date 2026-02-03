@@ -3,19 +3,19 @@ import { DispatchOrdersService } from '../services/dispatch-orders.service';
 import { CreateDispatchOrderDto, UpdateDispatchOrderDto, DispatchOrderDto } from '../dto/dispatch-orders';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
-import { Roles } from '../../../shared/decorators/roles.decorator';
-import { Role } from '../../../shared/types/role.enum';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('dispatch-orders')
 @ApiBearerAuth()
 @Controller('dispatch-orders')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class DispatchOrdersController {
   constructor(private readonly service: DispatchOrdersService) { }
 
   @Post()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  @Permissions('waste-management:create')
   @ApiOperation({ summary: 'Create a new dispatch order' })
   @ApiBody({ type: CreateDispatchOrderDto })
   @ApiResponse({ status: 201, description: 'The dispatch order has been successfully created.', type: DispatchOrderDto })
@@ -54,7 +54,7 @@ export class DispatchOrdersController {
   }
 
   @Get(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('waste-management:read')
   @ApiOperation({ summary: 'Get dispatch order by id' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'Return the dispatch order.', type: DispatchOrderDto })
@@ -78,7 +78,7 @@ export class DispatchOrdersController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:delete')
   @ApiOperation({ summary: 'Delete dispatch order' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'The dispatch order has been successfully deleted.' })

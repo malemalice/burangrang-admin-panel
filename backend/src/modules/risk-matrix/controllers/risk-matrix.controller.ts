@@ -19,8 +19,8 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
-import { Roles } from '../../../shared/decorators/roles.decorator';
-import { Role } from '../../../shared/types/role.enum';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { RiskMatrixService } from '../services/risk-matrix.service';
 import { CalculateRiskDto } from '../dto/calculate-risk.dto';
 import { RiskRating } from '../interfaces/risk-matrix.interface';
@@ -31,7 +31,7 @@ import { UpdateRiskMatrixDto } from '../dto/update-risk-matrix.dto';
 @ApiTags('risk-matrix')
 @ApiBearerAuth()
 @Controller('risk-matrix')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class RiskMatrixController {
   constructor(private readonly riskMatrixService: RiskMatrixService) {}
 
@@ -44,7 +44,7 @@ export class RiskMatrixController {
     description: 'Returns the calculated risk rating',
     type: 'object',
   })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('risk-matrix:read')
   async calculateRiskRating(
     @Body() calculateRiskDto: CalculateRiskDto,
   ): Promise<RiskRating> {
@@ -62,7 +62,7 @@ export class RiskMatrixController {
     description: 'The risk matrix entry has been successfully created.',
     type: RiskMatrixDto,
   })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @Permissions('risk-matrix:create')
   createRiskMatrix(
     @Body() createRiskMatrixDto: CreateRiskMatrixDto,
   ): Promise<RiskMatrixDto> {
@@ -82,7 +82,7 @@ export class RiskMatrixController {
     description: 'Return all risk matrix entries.',
     type: [RiskMatrixDto],
   })
-  // @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  @Permissions('risk-matrix:list')
   findAllRiskMatrices(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -118,7 +118,7 @@ export class RiskMatrixController {
     type: RiskMatrixDto,
   })
   @ApiResponse({ status: 404, description: 'Risk matrix entry not found.' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  @Permissions('risk-matrix:read')
   findOneRiskMatrix(@Param('id') id: string): Promise<RiskMatrixDto> {
     return this.riskMatrixService.findOneRiskMatrix(id);
   }
@@ -148,7 +148,7 @@ export class RiskMatrixController {
     description: 'The risk matrix entry has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Risk matrix entry not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('risk-matrix:delete')
   removeRiskMatrix(@Param('id') id: string): Promise<void> {
     return this.riskMatrixService.removeRiskMatrix(id);
   }

@@ -15,15 +15,18 @@ import { UpdateRiskMitigationDto } from './dto/update-risk-mitigation.dto';
 import { RiskMitigationDto } from './dto/risk-mitigation.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 
 @ApiTags('risk-mitigations')
 @Controller('risk-mitigations')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class RiskMitigationsController {
   constructor(private readonly riskMitigationsService: RiskMitigationsService) {}
 
   @Post()
+  @Permissions('risk-mitigation:create')
   @ApiOperation({ summary: 'Create a new risk mitigation' })
   @ApiResponse({ status: 201, description: 'The risk mitigation has been successfully created.', type: RiskMitigationDto })
   create(@Body() createRiskMitigationDto: CreateRiskMitigationDto): Promise<RiskMitigationDto> {
@@ -31,6 +34,7 @@ export class RiskMitigationsController {
   }
 
   @Get()
+  @Permissions('risk-mitigation:list')
   @ApiOperation({ summary: 'Get all risk mitigations with pagination' })
   @ApiResponse({ status: 200, description: 'Return all risk mitigations.', type: [RiskMitigationDto] })
   @ApiQuery({ name: 'search', required: false, description: 'Search by risk name only' })
@@ -61,6 +65,7 @@ export class RiskMitigationsController {
   }
 
   @Get(':id')
+  @Permissions('risk-mitigation:read')
   @ApiOperation({ summary: 'Get a risk mitigation by id' })
   @ApiResponse({ status: 200, description: 'Return the risk mitigation.', type: RiskMitigationDto })
   @ApiResponse({ status: 404, description: 'Risk mitigation not found.' })
@@ -69,6 +74,7 @@ export class RiskMitigationsController {
   }
 
   @Patch(':id')
+  @Permissions('risk-mitigation:update')
   @ApiOperation({ summary: 'Update a risk mitigation' })
   @ApiResponse({ status: 200, description: 'The risk mitigation has been successfully updated.', type: RiskMitigationDto })
   @ApiResponse({ status: 404, description: 'Risk mitigation not found.' })
@@ -80,6 +86,7 @@ export class RiskMitigationsController {
   }
 
   @Delete(':id')
+  @Permissions('risk-mitigation:delete')
   @ApiOperation({ summary: 'Delete a risk mitigation' })
   @ApiResponse({ status: 200, description: 'The risk mitigation has been successfully deleted.' })
   @ApiResponse({ status: 404, description: 'Risk mitigation not found.' })

@@ -16,17 +16,20 @@ import { UpdateManHourDto } from './dto/update-man-hour.dto';
 import { ManHourDto, ManHourReportDto } from './dto/man-hour.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { ManHourGroupEnum, MonthEnum } from '@prisma/client';
 
 @ApiTags('man-hours')
 @ApiBearerAuth()
 @Controller('man-hours')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class ManHoursController {
   constructor(private readonly manHoursService: ManHoursService) {}
 
   @Post()
+  @Permissions('man-hour:create')
   @ApiOperation({ summary: 'Create a new man hour record' })
   @ApiResponse({ status: 201, description: 'The man hour has been successfully created.', type: ManHourDto })
   create(
@@ -37,6 +40,7 @@ export class ManHoursController {
   }
 
   @Get()
+  @Permissions('man-hour:list')
   @ApiOperation({ summary: 'Get all man hours with pagination' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -78,6 +82,7 @@ export class ManHoursController {
   }
 
   @Get('report')
+  @Permissions('man-hour:read')
   @ApiOperation({ summary: 'Get man hour report data' })
   @ApiQuery({ name: 'startYear', required: true, type: Number })
   @ApiQuery({ name: 'endYear', required: true, type: Number })
@@ -96,6 +101,7 @@ export class ManHoursController {
   }
 
   @Get(':id')
+  @Permissions('man-hour:read')
   @ApiOperation({ summary: 'Get a man hour by id' })
   @ApiResponse({ status: 200, description: 'Return the man hour.', type: ManHourDto })
   @ApiResponse({ status: 404, description: 'Man hour not found.' })
@@ -104,6 +110,7 @@ export class ManHoursController {
   }
 
   @Patch(':id')
+  @Permissions('man-hour:update')
   @ApiOperation({ summary: 'Update a man hour' })
   @ApiResponse({ status: 200, description: 'The man hour has been successfully updated.', type: ManHourDto })
   @ApiResponse({ status: 404, description: 'Man hour not found.' })
@@ -115,6 +122,7 @@ export class ManHoursController {
   }
 
   @Delete(':id')
+  @Permissions('man-hour:delete')
   @ApiOperation({ summary: 'Delete a man hour' })
   @ApiResponse({ status: 200, description: 'The man hour has been successfully deleted.' })
   @ApiResponse({ status: 404, description: 'Man hour not found.' })

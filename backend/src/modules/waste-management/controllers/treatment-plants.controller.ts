@@ -14,19 +14,19 @@ import { TreatmentPlantsService } from '../services/treatment-plants.service';
 import { CreateTreatmentPlantDto, UpdateTreatmentPlantDto, TreatmentPlantDto } from '../dto/treatment-plants';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
-import { Roles } from '../../../shared/decorators/roles.decorator';
-import { Role } from '../../../shared/types/role.enum';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('treatment-plants')
 @ApiBearerAuth()
 @Controller('treatment-plants')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class TreatmentPlantsController {
   constructor(private readonly treatmentPlantsService: TreatmentPlantsService) {}
 
   @Post()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:create')
   @ApiOperation({ summary: 'Create a new treatment plant' })
   @ApiBody({ type: CreateTreatmentPlantDto })
   @ApiResponse({ status: 201, description: 'The treatment plant has been successfully created.', type: TreatmentPlantDto })
@@ -42,7 +42,7 @@ export class TreatmentPlantsController {
   }
 
   @Get()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('waste-management:list')
   @ApiOperation({ summary: 'Get all treatment plants with pagination' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -89,7 +89,7 @@ export class TreatmentPlantsController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:update')
   @ApiOperation({ summary: 'Update a treatment plant' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateTreatmentPlantDto })
@@ -105,7 +105,7 @@ export class TreatmentPlantsController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:delete')
   @ApiOperation({ summary: 'Delete a treatment plant' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'The treatment plant has been successfully deleted.' })

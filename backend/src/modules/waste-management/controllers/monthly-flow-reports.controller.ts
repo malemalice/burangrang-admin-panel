@@ -3,14 +3,14 @@ import { MonthlyFlowReportsService } from '../services/monthly-flow-reports.serv
 import { CreateMonthlyFlowReportDto, UpdateMonthlyFlowReportDto, MonthlyFlowReportDto } from '../dto/monthly-flow-reports';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
-import { Roles } from '../../../shared/decorators/roles.decorator';
-import { Role } from '../../../shared/types/role.enum';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('monthly-flow-reports')
 @ApiBearerAuth()
 @Controller('monthly-flow-reports')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class MonthlyFlowReportsController {
   constructor(private readonly service: MonthlyFlowReportsService) {}
 
@@ -28,7 +28,7 @@ export class MonthlyFlowReportsController {
   }
 
   @Get()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('waste-management:list')
   @ApiOperation({ summary: 'Get all monthly flow reports' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -74,7 +74,7 @@ export class MonthlyFlowReportsController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  @Permissions('waste-management:update')
   @ApiOperation({ summary: 'Update monthly flow report' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateMonthlyFlowReportDto })
@@ -87,7 +87,7 @@ export class MonthlyFlowReportsController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:delete')
   @ApiOperation({ summary: 'Delete monthly flow report' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'The report has been successfully deleted.' })
