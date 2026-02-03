@@ -1,5 +1,5 @@
-import { Controller, Get, Param } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { DashboardService } from '../services/dashboard.service';
 import {
   RiskOverviewDto,
@@ -15,13 +15,20 @@ import {
   RiskAnalysis,
   ComplianceProgress,
 } from '../types/dashboard.types';
+import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../shared/guards/roles.guard';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
 
 @ApiTags('Dashboard')
+@ApiBearerAuth()
 @Controller('dashboard')
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('risk-overview')
+  @Permissions('risk-assessment:read')
   @ApiOperation({ summary: 'Get risk assessment overview' })
   @ApiResponse({
     status: 200,
@@ -33,6 +40,7 @@ export class DashboardController {
   }
 
   @Get('department-profile/:id')
+  @Permissions('risk-assessment:read')
   @ApiOperation({ summary: 'Get department risk profile' })
   @ApiParam({ name: 'id', description: 'Department ID' })
   @ApiResponse({
@@ -45,6 +53,7 @@ export class DashboardController {
   }
 
   @Get('risk-category-analysis')
+  @Permissions('risk-assessment:read')
   @ApiOperation({ summary: 'Get risk category analysis' })
   @ApiResponse({
     status: 200,
@@ -56,6 +65,7 @@ export class DashboardController {
   }
 
   @Get('risk-analysis')
+  @Permissions('risk-assessment:read')
   @ApiOperation({ summary: 'Get risk analysis' })
   @ApiResponse({
     status: 200,
@@ -67,6 +77,7 @@ export class DashboardController {
   }
 
   @Get('compliance-progress')
+  @Permissions('risk-assessment:read')
   @ApiOperation({ summary: 'Get compliance progress' })
   @ApiResponse({
     status: 200,

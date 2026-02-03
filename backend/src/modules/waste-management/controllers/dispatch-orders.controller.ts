@@ -5,6 +5,9 @@ import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
+import { Roles } from '../../../shared/decorators/roles.decorator';
+import { Role } from '../../../shared/types/role.enum';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('dispatch-orders')
@@ -28,13 +31,14 @@ export class DispatchOrdersController {
   }
 
   @Get()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all dispatch orders' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'status', required: false, type: String })
   @ApiQuery({ name: 'isActive', required: false, type: String })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({ status: 200, description: 'Return all dispatch orders.', type: [DispatchOrderDto] })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findAll(
@@ -65,7 +69,7 @@ export class DispatchOrdersController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  
   @ApiOperation({ summary: 'Update dispatch order' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateDispatchOrderDto })

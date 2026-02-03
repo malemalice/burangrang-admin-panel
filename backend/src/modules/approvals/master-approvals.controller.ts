@@ -29,18 +29,19 @@ import {
 } from './dto/master-approval.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { SubmitApprovalDto } from './dto/submit-approval.dto';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 import { UserInterceptor } from '../../shared/interceptors/user.interceptor';
 import { User } from '../../shared/types';
-import { Roles } from '../../shared/decorators/roles.decorator';
-import { Role } from '../../shared/types/role.enum';
 import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
 
 @ApiTags('master-approvals')
 @ApiBearerAuth()
 @Controller('master-approvals')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @UseInterceptors(UserInterceptor)
 export class MasterApprovalsController {
   constructor(
@@ -48,6 +49,7 @@ export class MasterApprovalsController {
   ) {}
 
   @Post()
+  @Permissions('master-approval:create')
   @ApiOperation({ summary: 'Create a new master approval' })
   @ApiBody({ type: CreateMasterApprovalDto })
   @ApiResponse({
@@ -56,7 +58,7 @@ export class MasterApprovalsController {
     type: MasterApprovalDto,
   })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   create(
     @CurrentUser() user: User,
     @Body() createMasterApprovalDto: CreateMasterApprovalDto,
@@ -65,6 +67,8 @@ export class MasterApprovalsController {
   }
 
   @Get()
+  @AllowOptionsBypass()
+  @Permissions('master-approval:list')
   @ApiOperation({ summary: 'Get all master approvals with pagination and filtering' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (starts from 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of items per page' })
@@ -72,6 +76,7 @@ export class MasterApprovalsController {
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Sort order' })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term' })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({
     status: 200,
     description: 'Return paginated list of master approvals.',
@@ -91,7 +96,7 @@ export class MasterApprovalsController {
       },
     },
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -117,6 +122,7 @@ export class MasterApprovalsController {
   }
 
   @Get(':id')
+  @Permissions('master-approval:read')
   @ApiOperation({ summary: 'Get a master approval by ID' })
   @ApiParam({ name: 'id', description: 'Master Approval ID', type: String })
   @ApiResponse({
@@ -125,12 +131,13 @@ export class MasterApprovalsController {
     type: MasterApprovalDto,
   })
   @ApiResponse({ status: 404, description: 'Master approval not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  
   findOne(@Param('id') id: string): Promise<MasterApprovalDto> {
     return this.masterApprovalsService.findOne(id);
   }
 
   @Get('check-approval/:dataId')
+  @Permissions('approval:read')
   @ApiOperation({
     summary: 'Check if current user has approval rights for an entity',
   })
@@ -186,6 +193,7 @@ export class MasterApprovalsController {
   }
 
   @Get('check-approval-status/:dataId')
+  @Permissions('approval:read')
   @ApiOperation({
     summary: 'Check approval status for an entity',
   })
@@ -249,6 +257,7 @@ export class MasterApprovalsController {
   }
 
   @Patch(':id')
+  @Permissions('master-approval:update')
   @ApiOperation({ summary: 'Update a master approval' })
   @ApiParam({ name: 'id', description: 'Master Approval ID', type: String })
   @ApiBody({ type: UpdateMasterApprovalDto })
@@ -259,7 +268,7 @@ export class MasterApprovalsController {
   })
   @ApiResponse({ status: 404, description: 'Master approval not found.' })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   update(
     @CurrentUser() user: User,
     @Param('id') id: string,
@@ -273,6 +282,7 @@ export class MasterApprovalsController {
   }
 
   @Delete(':id')
+  @Permissions('master-approval:delete')
   @ApiOperation({ summary: 'Delete a master approval' })
   @ApiParam({ name: 'id', description: 'Master Approval ID', type: String })
   @ApiResponse({
@@ -280,12 +290,13 @@ export class MasterApprovalsController {
     description: 'The master approval has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Master approval not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   remove(@Param('id') id: string): Promise<void> {
     return this.masterApprovalsService.remove(id);
   }
 
   @Post('approval')
+  @Permissions('approval:update')
   @ApiOperation({
     summary: 'Submit an approval for an entity',
   })

@@ -46,6 +46,7 @@ import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 
 @ApiTags('ppe')
 @ApiBearerAuth()
@@ -184,7 +185,9 @@ export class PPEController {
             },
         },
     })
+    @AllowOptionsBypass()
     @Permissions('ppe:list')
+    @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
     findAllStocks(@Query() query: FindPPEStockDto) {
         return this.ppeService.findAllStocks(query);
     }
@@ -313,7 +316,9 @@ export class PPEController {
             },
         },
     })
+    @AllowOptionsBypass()
     @Permissions('ppe:list')
+    @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
     findAllWithdrawals(@Query() query: FindPPEWithdrawalDto) {
         return this.ppeService.findAllWithdrawals(query);
     }
@@ -474,7 +479,9 @@ export class PPEController {
             },
         },
     })
+    @AllowOptionsBypass()
     @Permissions('safety-equipment-type:list')
+    @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
     findAllSafetyEquipmentTypes(
         @Query() query: FindSafetyEquipmentTypeDto,
         @Req() req: any,
@@ -604,7 +611,9 @@ export class PPEController {
             },
         },
     })
+    @AllowOptionsBypass()
     @Permissions('safety-equipment:list')
+    @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
     findAllSafetyEquipments(
         @Query() query: FindSafetyEquipmentDto,
     ): Promise<{ data: SafetyEquipmentDto[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {

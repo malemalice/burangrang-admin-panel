@@ -15,6 +15,7 @@ import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { AssignEnrollmentDto } from './dto/assign-enrollment.dto';
 import { UpdateEnrollmentDto } from './dto/update-enrollment.dto';
@@ -90,6 +91,7 @@ export class EnrollmentsController {
   }
 
   @Get()
+  @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all enrollments with filtering and pagination' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
@@ -100,6 +102,7 @@ export class EnrollmentsController {
   @ApiQuery({ name: 'userId', required: false, type: String, description: 'Filter by user ID (Admin only)' })
   @ApiQuery({ name: 'status', required: false, enum: ['INVITED', 'ACTIVE', 'COMPLETED', 'CANCELLED', 'EXPIRED'], description: 'Filter by status' })
   @ApiQuery({ name: 'assignedBy', required: false, type: String, description: 'Filter by assigner ID (Admin only)' })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({
     status: 200,
     description: 'Enrollments retrieved successfully',

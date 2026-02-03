@@ -24,6 +24,7 @@ import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 
 @ApiTags('Inspection Items')
 @ApiBearerAuth()
@@ -33,6 +34,7 @@ export class InspectionItemsController {
   constructor(private readonly inspectionsService: InspectionsService) {}
 
   @Get()
+  @AllowOptionsBypass()
   @Permissions('inspection:list')
   @ApiOperation({ summary: 'Get all inspection items with pagination and filtering' })
   @ApiResponse({ status: 200, type: [InspectionItemDto] })
@@ -47,6 +49,7 @@ export class InspectionItemsController {
   @ApiQuery({ name: 'riskCategoryId', required: false, type: String, description: 'Filter by risk category ID' })
   @ApiQuery({ name: 'inspectionCode', required: false, type: String, description: 'Search by inspection code' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term' })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   async findAll(
     @Query('page') page?: number,
     @Query('limit') limit?: number,

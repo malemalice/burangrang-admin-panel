@@ -10,7 +10,7 @@ import {
   Query,
   Request,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { GeneralStatusEnum } from '@prisma/client';
 import { RiskAssessmentService } from '../services/risk-assessment.service';
 import { CreateRiskAssessmentDto } from '../dto/create-risk-assessment.dto';
@@ -23,6 +23,7 @@ import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 
 @ApiTags('Risk Assessment')
 @Controller('risk-assessment')
@@ -45,9 +46,11 @@ export class RiskAssessmentController {
   }
 
   @Get()
+  @AllowOptionsBypass()
   @Permissions('risk-assessment:list')
   @ApiOperation({ summary: 'Get all risk assessments with pagination' })
   @ApiResponse({ status: 200, type: [RiskAssessmentDto] })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   async findAll(
     @Query('page') page?: number,
     @Query('limit') limit?: number,

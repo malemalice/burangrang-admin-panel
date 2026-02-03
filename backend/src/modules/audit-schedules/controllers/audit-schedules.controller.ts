@@ -16,6 +16,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { GeneralStatusEnum, CompliantStatusEnum } from '@prisma/client';
 import { AuditSchedulesService } from '../services/audit-schedules.service';
@@ -33,6 +34,7 @@ import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 
 // Define interface for request with user property
 interface RequestWithUser extends ExpressRequest {
@@ -67,9 +69,11 @@ export class AuditSchedulesController {
   }
 
   @Get()
+  @AllowOptionsBypass()
   @Permissions('audit-schedule:list')
   @ApiOperation({ summary: 'Get all audit schedules with pagination' })
   @ApiResponse({ status: 200, type: [AuditScheduleDto] })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   async findAll(
     @Query('page') page?: number,
     @Query('limit') limit?: number,

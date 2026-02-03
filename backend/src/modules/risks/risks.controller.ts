@@ -17,6 +17,9 @@ import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
+import { Roles } from '../../shared/decorators/roles.decorator';
+import { Role } from '../../shared/types/role.enum';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 
 @ApiTags('risks')
@@ -34,12 +37,13 @@ export class RisksController {
   }
 
   @Get()
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all risks with pagination' })
   @ApiResponse({ status: 200, description: 'Return all risks.', type: [RiskDto] })
   @ApiQuery({ name: 'riskCategoryId', required: false, description: 'Filter risks by risk category ID' })
   @ApiQuery({ name: 'name', required: false, description: 'Filter risks by name (contains)' })
   @ApiQuery({ name: 'code', required: false, description: 'Filter risks by code (contains)' })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -91,7 +95,7 @@ export class RisksController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN)
+  
   @ApiOperation({ summary: 'Delete a risk' })
   @ApiResponse({ status: 200, description: 'The risk has been successfully deleted.' })
   @ApiResponse({ status: 404, description: 'Risk not found.' })

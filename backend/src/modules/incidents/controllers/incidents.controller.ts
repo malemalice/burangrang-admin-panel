@@ -16,6 +16,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { IncidentsService } from '../services/incidents.service';
 import { CreateIncidentDto, UpdateIncidentDto, IncidentDto, FindIncidentsDto } from '../dto';
@@ -23,6 +24,7 @@ import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 
 // Define interface for request with user property
 interface RequestWithUser extends ExpressRequest {
@@ -52,9 +54,11 @@ export class IncidentsController {
   }
 
   @Get()
+  @AllowOptionsBypass()
   @Permissions('incident:list')
   @ApiOperation({ summary: 'Get all incidents with pagination and filtering' })
   @ApiResponse({ status: 200, type: [IncidentDto] })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   async findAll(@Query() query: FindIncidentsDto) {
     return this.incidentsService.findAll(query);
   }

@@ -12,10 +12,11 @@ import {
 import { AuditElementsService } from '../services/audit-elements.service';
 import { CreateAuditElementDto } from '../dto/create-audit-element.dto';
 import { UpdateAuditElementDto } from '../dto/update-audit-element.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { Roles } from '../../../shared/decorators/roles.decorator';
+import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 import { Role } from '../../../shared/types/role.enum';
 import { AuditElementDto } from '../dto/audit-element.dto';
 
@@ -34,7 +35,7 @@ export class AuditElementsController {
     type: AuditElementDto,
   })
   @ApiResponse({ status: 400, description: 'Bad request.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   create(
     @Body() createAuditElementDto: CreateAuditElementDto,
   ): Promise<AuditElementDto> {
@@ -42,13 +43,14 @@ export class AuditElementsController {
   }
 
   @Get()
+  @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all audit elements' })
   @ApiResponse({
     status: 200,
     description: 'Return all audit elements.',
     type: [AuditElementDto],
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -82,13 +84,13 @@ export class AuditElementsController {
     type: AuditElementDto,
   })
   @ApiResponse({ status: 404, description: 'Audit element not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  
   findOne(@Param('id') id: string): Promise<AuditElementDto> {
     return this.auditElementsService.findOne(id);
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   @ApiOperation({ summary: 'Update an audit element' })
   @ApiResponse({
     status: 200,
@@ -104,7 +106,7 @@ export class AuditElementsController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   @ApiOperation({ summary: 'Delete an audit element' })
   @ApiResponse({
     status: 200,
@@ -123,7 +125,7 @@ export class AuditElementsController {
     type: AuditElementDto,
   })
   @ApiResponse({ status: 404, description: 'Audit element not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  
   findByCode(@Param('code') code: string): Promise<AuditElementDto> {
     return this.auditElementsService.findByCode(code);
   }

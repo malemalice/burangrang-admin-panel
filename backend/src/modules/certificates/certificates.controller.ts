@@ -34,6 +34,7 @@ import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { Request } from 'express';
 
 interface RequestWithUser extends Request {
@@ -54,6 +55,7 @@ export class CertificatesController {
   // ==================== Certificate Categories ====================
 
   @Get('categories')
+  @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all certificate categories with pagination and filtering' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (starts from 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of items per page' })
@@ -62,6 +64,7 @@ export class CertificatesController {
   @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term for name or code' })
   @ApiQuery({ name: 'certificateType', required: false, enum: ['PERSONNEL_LICENSE', 'PERSONNEL_CERTIFICATE', 'EQUIPMENT_CALIBRATION', 'EQUIPMENT_INSTALLATION', 'EQUIPMENT_OPERATIONAL_PERMIT'], description: 'Filter by certificate type' })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({ status: 200, description: 'List of certificate categories', type: [CertificateCategoryDto] })
   @ApiResponse({ status: 400, description: 'Bad request - invalid query parameters' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
@@ -148,6 +151,7 @@ export class CertificatesController {
   // ==================== Certificates ====================
 
   @Get()
+  @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all certificates with pagination and filtering' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (starts from 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of items per page' })
@@ -161,6 +165,7 @@ export class CertificatesController {
   @ApiQuery({ name: 'personnelId', required: false, type: String, description: 'Filter by personnel ID' })
   @ApiQuery({ name: 'expired', required: false, type: Boolean, description: 'Filter expired certificates' })
   @ApiQuery({ name: 'expiringSoon', required: false, type: Boolean, description: 'Filter certificates expiring soon (within reminder days)' })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({ status: 200, description: 'List of certificates', type: [CertificateDto] })
   @ApiResponse({ status: 400, description: 'Bad request - invalid query parameters' })
   @ApiResponse({ status: 500, description: 'Internal server error' })

@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 import { RiskRegisterService } from '../services/risk-register.service';
 import { RiskRegisterDto } from '../dto/risk-register.dto';
 import { FindRiskRegisterDto } from '../dto/find-risk-register.dto';
@@ -29,6 +30,7 @@ export class RiskRegisterController {
   constructor(private readonly riskRegisterService: RiskRegisterService) {}
 
   @Get()
+  @AllowOptionsBypass()
   @Permissions('risk-register:list')
   @ApiOperation({ summary: 'Get all risk mitigation records with source context' })
   @ApiResponse({
@@ -47,6 +49,7 @@ export class RiskRegisterController {
   @ApiQuery({ name: 'status', required: false, type: String, description: 'Filter by status' })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term' })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   async findAll(@Query() query: FindRiskRegisterDto): Promise<{
     data: RiskRegisterDto[];
     meta: { total: number; page: number; limit: number };

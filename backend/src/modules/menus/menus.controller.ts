@@ -18,6 +18,7 @@ import {
   ApiParam,
   ApiBody,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { MenusService } from './menus.service';
 import { CreateMenuDto } from './dto/create-menu.dto';
@@ -25,8 +26,9 @@ import { UpdateMenuDto } from './dto/update-menu.dto';
 import { MenuDto } from './dto/menu.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
-import { Roles } from '../../shared/decorators/roles.decorator';
-import { Role } from '../../shared/types/role.enum';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { Request } from 'express';
 
 // Define interface for request with user property
@@ -41,11 +43,12 @@ interface RequestWithUser extends Request {
 @ApiTags('menus')
 @ApiBearerAuth()
 @Controller('menus')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class MenusController {
   constructor(private readonly menusService: MenusService) {}
 
   @Post()
+  @Permissions('menu:create')
   @ApiOperation({ summary: 'Create a new menu' })
   @ApiBody({ type: CreateMenuDto })
   @ApiResponse({
@@ -54,12 +57,13 @@ export class MenusController {
     type: MenuDto,
   })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   create(@Body() createMenuDto: CreateMenuDto) {
     return this.menusService.create(createMenuDto);
   }
 
   @Get('sidebar')
+  @Permissions('menu:read')
   @ApiOperation({
     summary: 'Get active menus for sidebar navigation filtered by user permissions',
     description:
@@ -70,36 +74,41 @@ export class MenusController {
     description: 'Return active menu hierarchy for sidebar filtered by user permissions.',
     type: [MenuDto],
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  
   async getSidebarMenus(@Req() req: RequestWithUser): Promise<MenuDto[]> {
     return await this.menusService.getSidebarMenus(req.user.id);
   }
 
   @Get('hierarchy')
+  @Permissions('menu:list')
   @ApiOperation({ summary: 'Get menu hierarchy' })
   @ApiResponse({
     status: 200,
     description: 'Return menu hierarchy.',
     type: [MenuDto],
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  
   getMenuHierarchy() {
     return this.menusService.getMenuHierarchy();
   }
 
   @Get('stats')
+  @Permissions('menu:list')
   @ApiOperation({ summary: 'Get menu statistics' })
   @ApiResponse({
     status: 200,
     description: 'Menu statistics retrieved successfully.',
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  
   async getMenuStats() {
     return this.menusService.getMenuStats();
   }
 
   @Get()
+  @AllowOptionsBypass()
+  @Permissions('menu:list')
   @ApiOperation({ summary: 'Get all menus with pagination' })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({
     status: 200,
     description: 'Return paginated menus.',
@@ -121,7 +130,7 @@ export class MenusController {
       },
     },
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -150,6 +159,7 @@ export class MenusController {
   }
 
   @Get('role/:roleId')
+  @Permissions('menu:assign-roles')
   @ApiOperation({ summary: 'Get menus by role' })
   @ApiParam({ name: 'roleId', description: 'Role ID', type: String })
   @ApiResponse({
@@ -158,12 +168,13 @@ export class MenusController {
     type: [MenuDto],
   })
   @ApiResponse({ status: 404, description: 'Role not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  
   findByRole(@Param('roleId') roleId: string) {
     return this.menusService.findByRole(roleId);
   }
 
   @Get(':id')
+  @Permissions('menu:read')
   @ApiOperation({ summary: 'Get a menu by ID' })
   @ApiParam({ name: 'id', description: 'Menu ID', type: String })
   @ApiResponse({
@@ -172,12 +183,13 @@ export class MenusController {
     type: MenuDto,
   })
   @ApiResponse({ status: 404, description: 'Menu not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  
   findOne(@Param('id') id: string) {
     return this.menusService.findOne(id);
   }
 
   @Patch(':id')
+  @Permissions('menu:update')
   @ApiOperation({ summary: 'Update a menu' })
   @ApiParam({ name: 'id', description: 'Menu ID', type: String })
   @ApiBody({ type: UpdateMenuDto })
@@ -188,12 +200,13 @@ export class MenusController {
   })
   @ApiResponse({ status: 404, description: 'Menu not found.' })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   update(@Param('id') id: string, @Body() updateMenuDto: UpdateMenuDto) {
     return this.menusService.update(id, updateMenuDto);
   }
 
   @Delete(':id')
+  @Permissions('menu:delete')
   @ApiOperation({ summary: 'Delete a menu' })
   @ApiParam({ name: 'id', description: 'Menu ID', type: String })
   @ApiResponse({
@@ -201,12 +214,13 @@ export class MenusController {
     description: 'The menu has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Menu not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   remove(@Param('id') id: string) {
     return this.menusService.remove(id);
   }
 
   @Put('order')
+  @Permissions('menu:update')
   @ApiOperation({ summary: 'Update menu order' })
   @ApiBody({
     schema: {
@@ -229,7 +243,7 @@ export class MenusController {
     status: 200,
     description: 'Menu order updated successfully.',
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   async updateMenuOrder(
     @Body() body: { menuOrders: Array<{ id: string; order: number }> },
   ): Promise<void> {

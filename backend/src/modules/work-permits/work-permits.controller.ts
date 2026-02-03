@@ -35,6 +35,7 @@ import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 
 @ApiTags('work-permits')
 @ApiBearerAuth()
@@ -62,6 +63,7 @@ export class WorkPermitsController {
   }
 
   @Get()
+  @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all work permits with pagination and filtering' })
   @ApiQuery({
     name: 'page',
@@ -146,6 +148,12 @@ export class WorkPermitsController {
     required: false,
     type: Boolean,
     description: 'Filter by active status',
+  })
+  @ApiQuery({
+    name: 'options',
+    required: false,
+    type: Boolean,
+    description: 'Set to true to bypass permission check (requires JWT auth only)',
   })
   @ApiResponse({
     status: 200,

@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 
 @ApiTags('risk-mitigations')
@@ -34,11 +35,13 @@ export class RiskMitigationsController {
   }
 
   @Get()
+  @AllowOptionsBypass()
   @Permissions('risk-mitigation:list')
   @ApiOperation({ summary: 'Get all risk mitigations with pagination' })
   @ApiResponse({ status: 200, description: 'Return all risk mitigations.', type: [RiskMitigationDto] })
   @ApiQuery({ name: 'search', required: false, description: 'Search by risk name only' })
   @ApiQuery({ name: 'riskId', required: false, description: 'Filter mitigations by risk ID' })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,

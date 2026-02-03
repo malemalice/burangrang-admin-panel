@@ -16,6 +16,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { GeneralStatusEnum } from '@prisma/client';
 import { InspectionsService } from '../services/inspections.service';
@@ -37,6 +38,7 @@ import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 
 // Define interface for request with user property
 interface RequestWithUser extends ExpressRequest {
@@ -66,9 +68,11 @@ export class InspectionsController {
   }
 
   @Get()
+  @AllowOptionsBypass()
   @Permissions('inspection:list')
   @ApiOperation({ summary: 'Get all inspections with pagination' })
   @ApiResponse({ status: 200, type: [InspectionDto] })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   async findAll(
     @Query('page') page?: number,
     @Query('limit') limit?: number,

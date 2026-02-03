@@ -21,6 +21,9 @@ import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
+import { Roles } from '../../../shared/decorators/roles.decorator';
+import { Role } from '../../../shared/types/role.enum';
 import { RiskMatrixService } from '../services/risk-matrix.service';
 import { CalculateRiskDto } from '../dto/calculate-risk.dto';
 import { RiskRating } from '../interfaces/risk-matrix.interface';
@@ -70,6 +73,7 @@ export class RiskMatrixController {
   }
 
   @Get('risk-matrices')
+  @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all risk matrix entries with pagination' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -77,6 +81,7 @@ export class RiskMatrixController {
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean })
   @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({
     status: 200,
     description: 'Return all risk matrix entries.',
@@ -132,7 +137,7 @@ export class RiskMatrixController {
     type: RiskMatrixDto,
   })
   @ApiResponse({ status: 404, description: 'Risk matrix entry not found.' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  
   updateRiskMatrix(
     @Param('id') id: string,
     @Body() updateRiskMatrixDto: UpdateRiskMatrixDto,

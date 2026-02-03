@@ -240,6 +240,18 @@ const roleService = {
     }
   },
 
+  // Duplicate a role (creates a new role with same permissions)
+  duplicateRole: async (id: string): Promise<Role> => {
+    try {
+      const response = await api.post(`/roles/${id}/duplicate`);
+      return mapRoleDtoToRole(response.data);
+    } catch (error: any) {
+      console.error(`Error duplicating role ${id}:`, error);
+      const errorMessage = error.response?.data?.message || 'Failed to duplicate role';
+      throw new Error(errorMessage);
+    }
+  },
+
   // Get all permissions
   getPermissions: async (): Promise<Permission[]> => {
     try {

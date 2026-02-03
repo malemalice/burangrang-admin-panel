@@ -29,6 +29,7 @@ import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { Role } from '../../shared/types/role.enum';
 import { Request } from 'express';
 
@@ -59,7 +60,7 @@ export class CoursesController {
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  
   @Permissions('course:create')
   async create(
     @Body() createCourseDto: CreateCourseDto,
@@ -69,8 +70,9 @@ export class CoursesController {
   }
 
   @Get()
+  @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all courses with pagination and filtering' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  
   // @Permissions('course:list')
   @ApiQuery({
     name: 'page',
@@ -144,6 +146,7 @@ export class CoursesController {
     type: String,
     description: 'Filter by language',
   })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({
     status: 200,
     description: 'Courses retrieved successfully',
@@ -166,7 +169,7 @@ export class CoursesController {
       },
     },
   })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  
   @Permissions('course:list')
   async findAll(@Query() query: FindCoursesOptions) {
     return this.coursesService.findAll(query);
@@ -203,7 +206,7 @@ export class CoursesController {
       },
     },
   })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  
   @Permissions('course:view-analytics')
   async getStats() {
     return this.coursesService.getStats();
@@ -218,7 +221,7 @@ export class CoursesController {
     type: CourseDto,
   })
   @ApiResponse({ status: 404, description: 'Course not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  
   @Permissions('course:read')
   async findBySlug(@Param('slug') slug: string): Promise<CourseDto> {
     return this.coursesService.findBySlug(slug);
@@ -233,7 +236,7 @@ export class CoursesController {
     type: CourseDto,
   })
   @ApiResponse({ status: 404, description: 'Course not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  
   @Permissions('course:read')
   async findOne(@Param('id') id: string): Promise<CourseDto> {
     return this.coursesService.findOne(id);
@@ -250,7 +253,7 @@ export class CoursesController {
   })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 404, description: 'Course not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  
   @Permissions('course:update')
   async update(
     @Param('id') id: string,
@@ -265,7 +268,7 @@ export class CoursesController {
   @ApiParam({ name: 'id', type: String, description: 'Course ID' })
   @ApiResponse({ status: 200, description: 'Course deleted successfully' })
   @ApiResponse({ status: 404, description: 'Course not found' })
-  @Roles(Role.SUPER_ADMIN)
+  
   @Permissions('course:delete')
   async remove(
     @Param('id') id: string,

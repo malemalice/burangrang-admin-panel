@@ -2,11 +2,11 @@
 ## Frontend Modular Architecture Restructuring
 
 ### 📋 Document Information
-- **Version**: 1.8
-- **Date**: 2024-12-20
+- **Version**: 1.9
+- **Date**: 2025-02-03
 - **Status**: Active
 - **Author**: Development Team
-- **Last Updated**: PDF Export (Detail Page) implementation principles added
+- **Last Updated**: Options Bypass for Select/Dropdown Data implementation principles added
 
 ---
 
@@ -14,6 +14,7 @@
 
 This document outlines the technical requirements and architectural principles for restructuring the frontend application from a traditional layered architecture to a modular, feature-based architecture. The restructuring aims to improve maintainability, scalability, and developer experience while following modern frontend best practices.
 
+**Version 1.9 Updates**: Added "Options Bypass for Select/Dropdown Data" — when fetching list data for form dropdowns/selects, add `options: true` to query params so users without the specific `*:list` permission can still load options for forms they have access to. Use: `departmentService.getDepartments({ page: 1, limit: 100, options: true })`. Reference: UserForm, CertificateForm, Inter-Module API Calls.
 **Version 1.8 Updates**: Added "PDF Export (Detail Page) — Implementation Principles" under Advanced Features: react-to-pdf, dedicated PDF template, full data fetch before capture, hidden target, data fallback, filename/UX, template structure. Reference: RiskAssessmentDetailPage, RiskAssessmentPDFTemplate.
 **Version 1.7 Updates**: Added "List page state persistence (index → view → back)" under Search & Filters: URL as source of truth for list state, derive state from `useSearchParams`, sync URL on list actions, Back button uses `navigate(-1)`. Reference: AuditResultsPage, RiskRegisterPage, RisksPage.
 **Version 1.6 Updates**: Added "Searchable Select/Combobox Inside Dialog Pattern" documenting critical aria-hidden conflicts when using portaled components (Popover, Select) inside Dialog modals. Provides solution using ModalCombobox component with absolute positioning (no portals) for guaranteed interactivity. Includes root cause analysis, failed solution attempts, implementation principles, and usage patterns.
@@ -1420,7 +1421,8 @@ const fetchRolesForDropdown = async () => {
   try {
     const response = await roleService.getRoles({
       page: 1,
-      limit: 100 // Get all for dropdown
+      limit: 100, // Get all for dropdown
+      options: true // Bypass permission check - user needs options for form, not full module access
     });
     return response.data;
   } catch (error) {
@@ -1429,6 +1431,8 @@ const fetchRolesForDropdown = async () => {
   }
 };
 ```
+
+**Options Bypass for Select/Dropdown Data:** When fetching list data for form dropdowns (roles, departments, offices, etc.), add `options: true` to the query params. This allows users who have form access (e.g. `certificate:create`) but not the list permission (e.g. `department:list`) to still load options. The backend accepts `?options=true` and bypasses the permission check for authenticated users on endpoints that support it.
 
 ### Table Display Patterns
 
@@ -2054,10 +2058,10 @@ useEffect(() => {
     try {
       setIsLoading(true);
 
-      // Fetch options from other modules
+      // Fetch options from other modules (options: true bypasses permission check for dropdown data)
       const [rolesResponse, officesResponse] = await Promise.all([
-        roleService.getRoles({ page: 1, limit: 100 }),
-        officeService.getOffices({ page: 1, limit: 100 })
+        roleService.getRoles({ page: 1, limit: 100, options: true }),
+        officeService.getOffices({ page: 1, limit: 100, options: true })
       ]);
 
       setRoles(rolesResponse.data);
@@ -2547,6 +2551,7 @@ const columns = [
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.9 | 2025-02-03 | Development Team | Added "Options Bypass for Select/Dropdown Data" under Inter-Module API Calls and Cross-Module Data Dependencies: use `options: true` in query params when fetching list data for form dropdowns so users without the specific list permission can load options. Reference: UserForm, CertificateForm. |
 | 1.8 | 2024-12-20 | Development Team | Added "PDF Export (Detail Page) — Implementation Principles" under Advanced Features: react-to-pdf, dedicated PDF template, full data fetch before capture, hidden target, data fallback, filename/UX, template structure. Reference: RiskAssessmentDetailPage, RiskAssessmentPDFTemplate. |
 | 1.7 | 2024-12-20 | Development Team | Added "List page state persistence (index → view → back)" under Search & Filters: URL as source of truth for list state, derive state from useSearchParams, sync URL on list actions, Back uses navigate(-1). Reference: AuditResultsPage, RiskRegisterPage, RisksPage. |
 | 1.6 | 2024-12-20 | Development Team | Added "Searchable Select/Combobox Inside Dialog Pattern" to Module Interaction Patterns section. Documents critical issue where portaled components (Popover, Select) inside Dialog modals cause aria-hidden conflicts that block all interactions. Provides solution using ModalCombobox component with absolute positioning (no portals) for guaranteed interactivity inside Dialogs. Includes failed solution attempts, root cause analysis, implementation principles, and usage patterns. Updated Form Components section with warning about using ModalCombobox inside dialogs. |

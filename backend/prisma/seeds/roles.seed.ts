@@ -3,6 +3,9 @@ import { PrismaClient, Permission } from '@prisma/client';
 /** Permission names that belong to modules under the Settings menu (Admin excludes these). */
 const SETTINGS_PERMISSION_PREFIXES = ['setting:', 'mail-template:', 'reminder:'];
 
+/** Setting permissions allowed for all roles (sidebar + theme). Admin gets these despite SETTINGS_PERMISSION_PREFIXES. */
+const SETTINGS_ALLOWED_FOR_ALL = new Set(['setting:read', 'setting:update']);
+
 /** Permission names allowed for Manager and User (same set for both). */
 function getManagerUserPermissionNames(): Set<string> {
   const fullModules = [
@@ -45,6 +48,9 @@ function getManagerUserPermissionNames(): Set<string> {
   set.add('auth:change-password');
   set.add('auth:refresh-token');
   set.add('user:read');
+  set.add('menu:read');
+  set.add('setting:read');
+  set.add('setting:update');
   set.add('notification:read');
   set.add('notification:mark-read');
   set.add('notification:mark-all-read');
@@ -70,6 +76,7 @@ export const roles = [
       permissions
         .filter(
           (p) =>
+            SETTINGS_ALLOWED_FOR_ALL.has(p.name) ||
             !SETTINGS_PERMISSION_PREFIXES.some((prefix) => p.name.startsWith(prefix))
         )
         .map((p) => p.id),
@@ -115,6 +122,9 @@ export const roles = [
             p.name === 'auth:logout' ||
             p.name === 'auth:change-password' ||
             p.name === 'user:read' ||
+            p.name === 'menu:read' ||
+            p.name === 'setting:read' ||
+            p.name === 'setting:update' ||
             p.name === 'notification:read' ||
             p.name === 'notification:mark-read' ||
             p.name === 'notification:mark-all-read' ||

@@ -275,4 +275,51 @@ export class RolesService {
 
     return this.roleMapper(role);
   }
+
+  async duplicate(id: string): Promise<RoleDto> {
+    const existingRole = await this.prisma.role.findUnique({
+      where: { id },
+      include: {
+        permissions: true,
+      },
+    });
+
+    this.errorHandler.throwIfNotFoundById('Role', id, existingRole);
+
+    const baseName = `Copy of ${existingRole.name}`;
+    const baseCode = `${existingRole.code}-copy`;
+    let name = baseName;
+    let code = baseCode;
+    let suffix = 1;
+
+    // Ensure unique name and code
+    while (true) {
+      const existing = await this.prisma.role.findFirst({
+        where: { OR: [{ name }, { code }] },
+      });
+      if (!existing) break;
+      suffix += 1;
+      name = `${baseName} (${suffix})`;
+      code = `${existingRole.code}-copy-${suffix}`;
+    }
+
+    const permissionIds = existingRole.permissions.map((p) => p.id);
+
+    const role = await this.prisma.role.create({
+      data: {
+        name,
+        code,
+        description: existingRole.description,
+        isActive: existingRole.isActive,
+        permissions: {
+          connect: permissionIds.map((permId) => ({ id: permId })),
+        },
+      },
+      include: {
+        permissions: true,
+      },
+    });
+
+    return this.roleMapper(role);
+  }
 }

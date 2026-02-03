@@ -5,6 +5,9 @@ import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
+import { Roles } from '../../../shared/decorators/roles.decorator';
+import { Role } from '../../../shared/types/role.enum';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('weight-reports')
@@ -28,6 +31,7 @@ export class WeightReportsController {
   }
 
   @Get()
+  @AllowOptionsBypass()
   @Permissions('waste-management:list')
   @ApiOperation({ summary: 'Get all weight reports' })
   @ApiQuery({ name: 'page', required: false, type: Number })
@@ -38,6 +42,7 @@ export class WeightReportsController {
   @ApiQuery({ name: 'status', required: false, type: String })
   @ApiQuery({ name: 'reportMonth', required: false, type: String })
   @ApiQuery({ name: 'reportYear', required: false, type: Number })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({ status: 200, description: 'Return all reports.', type: [WeightReportDto] })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findAll(
@@ -63,7 +68,7 @@ export class WeightReportsController {
   }
 
   @Get(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  
   @ApiOperation({ summary: 'Get weight report by id' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'Return the report.', type: WeightReportDto })

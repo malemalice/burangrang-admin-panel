@@ -165,7 +165,7 @@ export class UsersService {
     const dto = this.userMapper(user);
     const permissions =
       user.role?.permissions?.map((p: { name: string }) => p.name) ?? [];
-    return { ...dto, permissions };
+    return { ...dto, permissions, roleName: dto.roleName } as UserDto;
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<UserDto> {

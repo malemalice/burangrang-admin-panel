@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Lock, Check, X, MoreHorizontal, Eye } from 'lucide-react';
+import { Edit, Trash2, Plus, Lock, Check, X, MoreHorizontal, Eye, Copy } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import {
@@ -31,6 +31,7 @@ const RolesPage = () => {
   const [totalRoles, setTotalRoles] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
@@ -128,6 +129,22 @@ const RolesPage = () => {
     setDeleteDialogOpen(false);
     setRoleToDelete(null);
     setOpenDropdownId(null); // Ensure dropdown is closed
+  };
+
+  const handleDuplicate = async (role: Role, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setOpenDropdownId(null);
+    setDuplicatingId(role.id);
+    try {
+      const newRole = await roleService.duplicateRole(role.id);
+      toast.success(`Role duplicated as "${newRole.name}"`);
+      fetchRoles();
+    } catch (error) {
+      console.error('Failed to duplicate role:', error);
+      toast.error('Failed to duplicate role. Please try again.');
+    } finally {
+      setDuplicatingId(null);
+    }
   };
 
   const handleTabChange = (value: string) => {
@@ -247,6 +264,19 @@ const RolesPage = () => {
             {hasPermission('role:update') && (
               <DropdownMenuItem onClick={() => navigate(`/roles/${role.id}/edit`)}>
                 <Edit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+            )}
+            {hasPermission('role:create') && (
+              <DropdownMenuItem
+                onClick={(e) => handleDuplicate(role, e)}
+                disabled={duplicatingId === role.id}
+              >
+                {duplicatingId === role.id ? (
+                  <span className="mr-2 h-4 w-4 inline-block animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : (
+                  <Copy className="mr-2 h-4 w-4" />
+                )}
+                Duplicate
               </DropdownMenuItem>
             )}
             {(hasPermission('role:read') || hasPermission('role:update')) && hasPermission('role:delete') && (

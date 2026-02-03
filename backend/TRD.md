@@ -36,6 +36,7 @@ This Technical Reference Document (TRD) provides comprehensive guidance for the 
 - **Maintainability**: Clear separation of concerns and modular architecture
 - **Dynamic Resolution**: Use sentinel values for entity-based field resolution; resolve at runtime, never store sentinels in transactional data
 - **PDF Export**: PDF export for detail pages (e.g. risk assessment, inspection) is client-side only; the frontend uses `react-to-pdf` and fetches full data via existing list/approval APIs. No server-side PDF generation is required for this pattern.
+- **Options Bypass**: List endpoints serving dropdown/select data support `?options=true` to bypass permission checks. Users need options for forms without needing full module access. Apply `@AllowOptionsBypass()` to list endpoints; JWT remains required.
 
 ## Architecture
 
@@ -116,6 +117,7 @@ backend/
 │   │   ├── decorators/
 │   │   │   ├── roles.decorator.ts        # @Roles() decorator
 │   │   │   ├── permissions.decorator.ts  # @Permissions() decorator
+│   │   │   ├── allow-options-bypass.decorator.ts  # @AllowOptionsBypass() for list endpoints
 │   │   │   └── public.decorator.ts       # @Public() for public routes
 │   │   ├── types/
 │   │   │   ├── pagination-params.ts      # Pagination interfaces
@@ -367,6 +369,30 @@ officeId=uuid&roleId=uuid&departmentId=uuid
 }
 ```
 
+### 5. Options Bypass for Select/Dropdown Data
+
+When forms need reference data (departments, roles, offices, etc.) for dropdowns, users may not have the module's list permission. The options bypass allows any authenticated user to fetch list data for form options without requiring the specific `*:list` permission.
+
+**Principles:**
+
+- **Query parameter**: `?options=true` — when present, `PermissionsGuard` skips the permission check for list endpoints that have `@AllowOptionsBypass()`
+- **JWT required**: Authentication is still enforced; only the permission check is bypassed
+- **Explicit opt-in**: Add `@AllowOptionsBypass()` only to list endpoints that serve dropdown/select options
+- **Documentation**: Add `@ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })` for Swagger
+
+**Controller pattern:**
+
+```typescript
+@Get()
+@AllowOptionsBypass()
+@Permissions('department:list')
+@ApiOperation({ summary: 'Get all departments' })
+@ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
+findAll(@Query() query) { ... }
+```
+
+**Flow**: `GET /departments?options=true` with valid JWT → allowed for any logged-in user. Without `?options=true` → requires `department:list` permission.
+
 ## Security Implementation
 
 ### 1. Authentication Guards
@@ -406,6 +432,12 @@ findAll() { }
 @Permissions('user:create')
 @Post()
 create() { }
+
+// Options bypass (list endpoints only) - allows ?options=true to skip permission check for dropdown data
+@AllowOptionsBypass()
+@Permissions('department:list')
+@Get()
+findAll() { }
 
 // Public endpoints
 @Public()

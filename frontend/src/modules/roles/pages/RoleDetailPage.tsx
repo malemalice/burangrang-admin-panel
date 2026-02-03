@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, Trash2, Lock, Check, X } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Lock, Check, X, Copy } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Badge } from '@/core/components/ui/badge';
@@ -14,6 +14,7 @@ import {
 } from '@/core/components/ui/card';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Separator } from '@/core/components/ui/separator';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import roleService from '../services/roleService';
 import { Role, Permission } from '@/core/lib/types';
 import { groupPermissionsByResource } from '../utils/groupPermissions';
@@ -25,6 +26,7 @@ const RoleDetailPage = () => {
   const [role, setRole] = useState<Role | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
   useEffect(() => {
@@ -67,6 +69,21 @@ const RoleDetailPage = () => {
     } finally {
       setIsDeleting(false);
       setDeleteDialogOpen(false);
+    }
+  };
+
+  const handleDuplicate = async () => {
+    if (!roleId) return;
+    setIsDuplicating(true);
+    try {
+      const newRole = await roleService.duplicateRole(roleId);
+      toast.success(`Role duplicated as "${newRole.name}"`);
+      navigate(`/roles/${newRole.id}`);
+    } catch (error) {
+      console.error('Failed to duplicate role:', error);
+      toast.error('Failed to duplicate role');
+    } finally {
+      setIsDuplicating(false);
     }
   };
 
@@ -116,6 +133,23 @@ const RoleDetailPage = () => {
             <Button variant="outline" onClick={() => navigate(`/roles/${roleId}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit Role
             </Button>
+            <PermissionGuard permission="role:create">
+              <Button variant="outline" onClick={handleDuplicate} disabled={isDuplicating}>
+                {isDuplicating ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Duplicating...
+                  </span>
+                ) : (
+                  <>
+                    <Copy className="mr-2 h-4 w-4" /> Duplicate
+                  </>
+                )}
+              </Button>
+            </PermissionGuard>
             <Button variant="destructive" onClick={handleDeleteClick} disabled={isDeleting}>
               {isDeleting ? (
                 <span className="flex items-center">

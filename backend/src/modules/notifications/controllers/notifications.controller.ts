@@ -23,6 +23,8 @@ import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { Roles } from '../../../shared/decorators/roles.decorator';
+import { Role } from '../../../shared/types/role.enum';
 import { NotificationsService } from '../services/notifications.service';
 import { NotificationDto } from '../dto/notification.dto';
 import { CreateNotificationDto } from '../dto/create-notification.dto';
@@ -138,7 +140,7 @@ export class NotificationsController {
   @ApiBody({ type: CreateNotificationDto })
   @ApiResponse({ status: 201, type: NotificationDto })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
-  @Roles(Role.SUPER_ADMIN)
+  
   async create(
     @Body() createDto: CreateNotificationDto,
     @Request() req: any,
