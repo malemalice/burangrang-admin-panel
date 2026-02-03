@@ -16,6 +16,7 @@ import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Separator } from '@/core/components/ui/separator';
 import roleService from '../services/roleService';
 import { Role, Permission } from '@/core/lib/types';
+import { groupPermissionsByResource } from '../utils/groupPermissions';
 
 const RoleDetailPage = () => {
   const navigate = useNavigate();
@@ -89,15 +90,10 @@ const RoleDetailPage = () => {
     );
   }
 
-  // Group permissions by alphabetical order
-  const sortedPermissions = (role.permissions || [])
-    .filter(permission => permission && permission.name) // Filter out invalid permissions
-    .sort((a, b) => {
-      // Handle cases where name might be undefined or null
-      const nameA = a.name || '';
-      const nameB = b.name || '';
-      return nameA.localeCompare(nameB);
-    });
+  const validPermissions = (role.permissions || []).filter(
+    (p): p is Permission => !!p && !!p.name
+  );
+  const permissionGroups = groupPermissionsByResource(validPermissions);
 
   return (
     <>
@@ -191,31 +187,42 @@ const RoleDetailPage = () => {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Permissions ({sortedPermissions.length})</CardTitle>
+            <CardTitle>Permissions ({validPermissions.length})</CardTitle>
             <CardDescription>List of permissions assigned to this role</CardDescription>
           </CardHeader>
           <CardContent>
-            {sortedPermissions.length === 0 ? (
+            {permissionGroups.length === 0 ? (
               <p className="text-center py-6 text-gray-500">No permissions assigned to this role.</p>
             ) : (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {sortedPermissions.map(permission => (
-                    <div key={permission.id} className="p-3 border rounded-md">
-                      <div className="flex items-start gap-3">
-                        <div className="h-6 w-6 flex-shrink-0 rounded-full bg-blue-100 flex items-center justify-center">
-                          <Lock className="h-3 w-3 text-blue-600" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-sm">{permission.name}</h4>
-                          {permission.description && (
-                            <p className="text-sm text-gray-500 mt-1">{permission.description}</p>
-                          )}
-                        </div>
+                {permissionGroups.map(group => (
+                  <Card key={group.groupKey} className="border-muted/50">
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        {group.groupLabel}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0 px-4 pb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {group.permissions.map(permission => (
+                          <div key={permission.id} className="p-3 border rounded-md">
+                            <div className="flex items-start gap-3">
+                              <div className="h-6 w-6 flex-shrink-0 rounded-full bg-blue-100 flex items-center justify-center">
+                                <Lock className="h-3 w-3 text-blue-600" />
+                              </div>
+                              <div>
+                                <h4 className="font-medium text-sm">{permission.name}</h4>
+                                {permission.description && (
+                                  <p className="text-sm text-gray-500 mt-1">{permission.description}</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             )}
           </CardContent>
