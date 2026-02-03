@@ -77,7 +77,8 @@ const OfficeForm = ({ office, mode }: OfficeFormProps) => {
           page: 1,
           limit: 100,
           sortBy: 'name',
-          sortOrder: 'asc' as const
+          sortOrder: 'asc' as const,
+          options: true,
         };
 
         let officesResponse;

@@ -18,9 +18,12 @@ import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import jobPositionService from '../../services/jobPositionService';
 import { JobPosition } from '@/core/lib/types';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const JobPositionsPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -225,18 +228,24 @@ const JobPositionsPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/master/job-positions/${jobPosition.id}`)}>
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-red-600"
-              onClick={(e) => handleDeleteClick(jobPosition, e)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
+            {hasPermission('job-position:update') && (
+              <DropdownMenuItem onClick={() => navigate(`/master/job-positions/${jobPosition.id}`)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+            )}
+            {hasPermission('job-position:update') && hasPermission('job-position:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('job-position:delete') && (
+              <DropdownMenuItem
+                className="text-red-600"
+                onClick={(e) => handleDeleteClick(jobPosition, e)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -250,9 +259,11 @@ const JobPositionsPage = () => {
         title="Job Positions"
         subtitle="Manage your organization's job positions"
         actions={
-          <ThemeButton onClick={() => navigate('/master/job-positions/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Position
-          </ThemeButton>
+          <PermissionGuard permission="job-position:create">
+            <ThemeButton onClick={() => navigate('/master/job-positions/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Add Position
+            </ThemeButton>
+          </PermissionGuard>
         }
       >
         <Tabs defaultValue="all" className="w-full sm:w-auto" onValueChange={handleTabChange}>

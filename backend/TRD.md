@@ -36,6 +36,8 @@ This Technical Reference Document (TRD) provides comprehensive guidance for the 
 - **Maintainability**: Clear separation of concerns and modular architecture
 - **Dynamic Resolution**: Use sentinel values for entity-based field resolution; resolve at runtime, never store sentinels in transactional data
 - **PDF Export**: PDF export for detail pages (e.g. risk assessment, inspection) is client-side only; the frontend uses `react-to-pdf` and fetches full data via existing list/approval APIs. No server-side PDF generation is required for this pattern.
+- **Options Bypass**: List endpoints serving dropdown/select data support `?options=true` to bypass permission checks. Users need options for forms without needing full module access. Apply `@AllowOptionsBypass()` to list endpoints; JWT remains required.
+- **Data-Level Access**: For selected modules (enrollments, work permits, certificates, PPE withdrawals), row-level access is driven by the role's `dataLevel` (SELF | DEPARTMENT | SUPER). List endpoints hide rows the user may not see; single-record operations return 403 when the user has no access. Implement via `DataScopeGuard`, `DataScopeService`, and `@DataScoped(entityName)`; all other modules are unchanged.
 
 ## Architecture
 
@@ -108,16 +110,21 @@ backend/
 │   │   ├── services/
 │   │   │   ├── dto-mapper.service.ts    # Standardized DTO mapping
 │   │   │   ├── error-handling.service.ts # Centralized error handling
+│   │   │   ├── data-scope.service.ts     # Data-level buildWhereForList / canAccessRecord
 │   │   │   └── settings.service.ts       # Application settings
 │   │   ├── guards/
 │   │   │   ├── jwt-auth.guard.ts         # JWT authentication
 │   │   │   ├── roles.guard.ts            # Role-based authorization
-│   │   │   └── permissions.guard.ts      # Permission-based access
+│   │   │   ├── permissions.guard.ts      # Permission-based access
+│   │   │   └── data-scope.guard.ts       # Data-level userContext (data-scoped modules only)
 │   │   ├── decorators/
 │   │   │   ├── roles.decorator.ts        # @Roles() decorator
 │   │   │   ├── permissions.decorator.ts  # @Permissions() decorator
+│   │   │   ├── allow-options-bypass.decorator.ts  # @AllowOptionsBypass() for list endpoints
+│   │   │   ├── data-scoped.decorator.ts  # @DataScoped(entityName) for data-level routes
 │   │   │   └── public.decorator.ts       # @Public() for public routes
 │   │   ├── types/
+│   │   │   ├── user-context.ts           # UserContext, DataLevel (data-level access)
 │   │   │   ├── pagination-params.ts      # Pagination interfaces
 │   │   │   └── role.enum.ts              # Role enumeration
 │   │   └── validators/                 # Custom validators (if needed)
@@ -367,6 +374,30 @@ officeId=uuid&roleId=uuid&departmentId=uuid
 }
 ```
 
+### 5. Options Bypass for Select/Dropdown Data
+
+When forms need reference data (departments, roles, offices, etc.) for dropdowns, users may not have the module's list permission. The options bypass allows any authenticated user to fetch list data for form options without requiring the specific `*:list` permission.
+
+**Principles:**
+
+- **Query parameter**: `?options=true` — when present, `PermissionsGuard` skips the permission check for list endpoints that have `@AllowOptionsBypass()`
+- **JWT required**: Authentication is still enforced; only the permission check is bypassed
+- **Explicit opt-in**: Add `@AllowOptionsBypass()` only to list endpoints that serve dropdown/select options
+- **Documentation**: Add `@ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })` for Swagger
+
+**Controller pattern:**
+
+```typescript
+@Get()
+@AllowOptionsBypass()
+@Permissions('department:list')
+@ApiOperation({ summary: 'Get all departments' })
+@ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
+findAll(@Query() query) { ... }
+```
+
+**Flow**: `GET /departments?options=true` with valid JWT → allowed for any logged-in user. Without `?options=true` → requires `department:list` permission.
+
 ## Security Implementation
 
 ### 1. Authentication Guards
@@ -407,6 +438,12 @@ findAll() { }
 @Post()
 create() { }
 
+// Options bypass (list endpoints only) - allows ?options=true to skip permission check for dropdown data
+@AllowOptionsBypass()
+@Permissions('department:list')
+@Get()
+findAll() { }
+
 // Public endpoints
 @Public()
 @Post('login')
@@ -416,12 +453,34 @@ login() { }
 ### 3. Security Layer Architecture
 
 ```
-Request → JwtAuthGuard → RolesGuard → PermissionsGuard → Controller
-     ↓           ↓           ↓           ↓           ↓
-  Validate    Verify      Check       Check       Execute
-   JWT        JWT         Roles       Permissions  Method
-   Token      Token       Access      Access
+Request → JwtAuthGuard → RolesGuard → PermissionsGuard → [DataScopeGuard] → Controller
+     ↓           ↓           ↓           ↓                    ↓                ↓
+  Validate    Verify      Check       Check              Set userContext   Execute
+   JWT        JWT         Roles       Permissions        (data-scoped      Method
+   Token      Token       Access      Access              routes only)
 ```
+
+DataScopeGuard runs only when `@DataScoped(entityName)` is present (controller or method). It sets `request.userContext` (userId, roleId, roleName, dataLevel, departmentId) for use by DataScopeService in data-scoped modules.
+
+### 4. Data-Level Access (Row-Level Authorization)
+
+Data-level access limits **which rows** a user can see or change, based on the role's `dataLevel` (SELF | DEPARTMENT | SUPER). It is implemented **only** for: Enrollments, Work permits, Certificates, PPE withdrawals. All other modules are unchanged (role/permission only).
+
+**Principles:**
+
+- **Role-driven:** Data scope is defined on `m_roles.dataLevel` (enum: SELF | DEPARTMENT | SUPER), not per-user flags. Default is SUPER.
+- **List (findAll):** Rows the user may not access are **hidden** — the service merges a scope filter from `DataScopeService.buildWhereForList(userContext, entityName)` into the query. SELF = rows "owned" by user (e.g. createdBy, assigneeId, userId); DEPARTMENT = rows in user's department; SUPER = no extra filter.
+- **Single record (findOne / update / delete / related actions):** After loading the record, call `DataScopeService.canAccessRecord(userContext, entityName, record)`. If false, throw 403 (e.g. "You do not have access to this record").
+- **Central mapping:** One place (`DataScopeService`) defines per entity which fields mean "self" and "department". Controllers pass `request.userContext` into services; services call the helper and merge scope or check access.
+- **Opt-in per module:** Use `@DataScoped('EntityName')` on the controller (or on specific methods) and add `DataScopeGuard` to `@UseGuards`. Only those routes get userContext and data-level enforcement.
+- **User with no department:** When `userContext.departmentId` is null and dataLevel is DEPARTMENT, treat as empty scope (list returns no rows; single-record returns 403).
+
+**Implementation pattern for a data-scoped module:**
+
+1. Controller: `@DataScoped('EntityName')`, `@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, DataScopeGuard)`. Pass `req.userContext` into service methods that list or access single records.
+2. Service: Inject `DataScopeService`. In `findAll`, merge `buildWhereForList(userContext, 'EntityName', where)` into `where` (e.g. `finalWhere = scopeWhere ? { AND: [where, scopeWhere] } : where`). In `findOne`/`update`/`remove` (and any action that loads by id), after loading the record call `canAccessRecord(userContext, 'EntityName', record)`; if false, call `errorHandler.throwForbidden('You do not have access to this record')`.
+
+**Reference:** Full design and entity mapping table in `docs/auth.md`.
 
 ## Error Handling
 
@@ -922,7 +981,7 @@ export class AppController {
 
 #### ✅ **Controller Pattern Requirements**
 - [ ] Uses `@ApiTags('[module]')` and `@ApiBearerAuth()` decorators
-- [ ] Applies `@UseGuards(JwtAuthGuard, RolesGuard)` to controller class
+- [ ] Applies `@UseGuards(JwtAuthGuard, RolesGuard)` to controller class; for data-scoped modules (enrollments, work permits, certificates, PPE withdrawals) also add `DataScopeGuard` and `@DataScoped(entityName)`
 - [ ] All endpoints have `@ApiOperation()` with descriptive summaries
 - [ ] All endpoints have appropriate `@ApiResponse()` decorators
 - [ ] All endpoints have `@Roles()` decorators with appropriate role restrictions
@@ -945,7 +1004,7 @@ export class AppController {
 - [ ] Sensitive fields (like passwords) are excluded using `@Exclude()` decorator
 
 #### ✅ **Security Pattern Requirements**
-- [ ] All controllers use `JwtAuthGuard` and `RolesGuard`
+- [ ] All controllers use `JwtAuthGuard` and `RolesGuard`; data-scoped modules (enrollments, work permits, certificates, PPE withdrawals) also use `DataScopeGuard` and `@DataScoped(entityName)`
 - [ ] All endpoints have appropriate `@Roles()` decorators
 - [ ] Permission-based endpoints use `@Permissions()` decorators
 - [ ] Public endpoints use `@Public()` decorator
@@ -1040,7 +1099,7 @@ findAll() { }
 ## Best Practices Summary
 
 1. **Always import PrismaModule and SharedModule** in feature modules
-2. **Use standardized guards** (`JwtAuthGuard` + `RolesGuard`)
+2. **Use standardized guards** (`JwtAuthGuard` + `RolesGuard`; add `DataScopeGuard` + `@DataScoped(entityName)` only for data-scoped modules)
 3. **Apply appropriate roles** to ALL endpoints (`@Roles()`)
 4. **Use standardized DTO mapping** with `DtoMapperService`
 5. **Handle errors consistently** with `ErrorHandlingService` (never direct exceptions)

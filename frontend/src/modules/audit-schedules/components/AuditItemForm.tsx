@@ -277,8 +277,8 @@ export const AuditItemForm = ({
       setIsLoadingData(true);
       try {
         const [deptsResponse, usersResponse] = await Promise.all([
-          departmentService.getDepartments({ page: 1, limit: 1000 }),
-          userService.getAll({ page: 1, limit: 1000 }),
+          departmentService.getDepartments({ page: 1, limit: 1000, options: true }),
+          userService.getAll({ page: 1, limit: 1000, options: true }),
         ]);
         setDepartments(deptsResponse.data);
         setUsers(usersResponse.data);

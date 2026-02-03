@@ -19,6 +19,7 @@ const mapRoleDtoToRole = (roleDto: RoleDTO): Role => {
     description: roleDto.description || '',
     status: roleDto.isActive ? 'active' : 'inactive',
     isActive: roleDto.isActive,
+    dataLevel: roleDto.dataLevel ?? 'SUPER',
     permissions: roleDto.permissions.map(p => ({
       id: p.id,
       name: p.name,
@@ -113,6 +114,10 @@ const roleService = {
             queryParams.append(key, value.toString());
           }
         });
+      }
+
+      if (params.options) {
+        queryParams.append('options', 'true');
       }
 
       const response = await api.get(`/roles?${queryParams.toString()}`);
@@ -236,6 +241,18 @@ const roleService = {
     } catch (error: any) {
       console.error(`Error deleting role ${id}:`, error);
       const errorMessage = error.response?.data?.message || 'Failed to delete role';
+      throw new Error(errorMessage);
+    }
+  },
+
+  // Duplicate a role (creates a new role with same permissions)
+  duplicateRole: async (id: string): Promise<Role> => {
+    try {
+      const response = await api.post(`/roles/${id}/duplicate`);
+      return mapRoleDtoToRole(response.data);
+    } catch (error: any) {
+      console.error(`Error duplicating role ${id}:`, error);
+      const errorMessage = error.response?.data?.message || 'Failed to duplicate role';
       throw new Error(errorMessage);
     }
   },

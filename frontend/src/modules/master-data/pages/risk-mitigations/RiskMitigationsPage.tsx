@@ -40,7 +40,7 @@ const RiskMitigationsPage = () => {
   useEffect(() => {
     const fetchRisks = async () => {
       try {
-        const response = await riskService.getAll({ limit: 100 });
+        const response = await riskService.getAll({ limit: 100, options: true });
         setRisks(response.data);
       } catch (error) {
         toast.error('Failed to fetch risks for filtering');

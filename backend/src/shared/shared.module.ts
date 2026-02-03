@@ -8,6 +8,8 @@ import { PrismaModule } from '../core/prisma/prisma.module';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
+import { DataScopeGuard } from './guards/data-scope.guard';
+import { DataScopeService } from './services/data-scope.service';
 
 @Module({
   imports: [PrismaModule],
@@ -20,6 +22,8 @@ import { PermissionsGuard } from './guards/permissions.guard';
     JwtAuthGuard,
     RolesGuard,
     PermissionsGuard,
+    DataScopeGuard,
+    DataScopeService,
   ],
   exports: [
     PrismaModule,
@@ -31,6 +35,8 @@ import { PermissionsGuard } from './guards/permissions.guard';
     JwtAuthGuard,
     RolesGuard,
     PermissionsGuard,
+    DataScopeGuard,
+    DataScopeService,
   ],
 })
 export class SharedModule {}

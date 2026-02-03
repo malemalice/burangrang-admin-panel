@@ -24,6 +24,8 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Badge } from '@/core/components/ui/badge';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 import { Inspection } from '../types/inspection.types';
 import inspectionsService from '../services/inspectionsService';
@@ -31,6 +33,7 @@ import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/ge
 
 const InspectionsPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -336,41 +339,49 @@ const InspectionsPage = () => {
       header: 'Actions',
       cell: (inspection: Inspection) => (
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/inspections/${inspection.id}`)}
-            className="text-primary hover:text-primary hover:bg-primary/10"
-            aria-label={`View details for ${inspection.code}`}
-          >
-            <Eye className="mr-2 h-4 w-4" />
-            View
-          </Button>
-          <DropdownMenu
-            open={openDropdownId === inspection.id}
-            onOpenChange={(open) => {
-              setOpenDropdownId(open ? inspection.id : null);
-            }}
-          >
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/inspections/${inspection.id}/edit`)}>
-                <Edit className="mr-2 h-4 w-4" /> Edit
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={(e) => handleDeleteClick(inspection, e)}
-                className="text-red-600 focus:text-red-600"
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {hasPermission('inspection:read') && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/inspections/${inspection.id}`)}
+              className="text-primary hover:text-primary hover:bg-primary/10"
+              aria-label={`View details for ${inspection.code}`}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              View
+            </Button>
+          )}
+          {(hasPermission('inspection:update') || hasPermission('inspection:delete')) && (
+            <DropdownMenu
+              open={openDropdownId === inspection.id}
+              onOpenChange={(open) => {
+                setOpenDropdownId(open ? inspection.id : null);
+              }}
+            >
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {hasPermission('inspection:update') && (
+                  <DropdownMenuItem onClick={() => navigate(`/inspections/${inspection.id}/edit`)}>
+                    <Edit className="mr-2 h-4 w-4" /> Edit
+                  </DropdownMenuItem>
+                )}
+                {hasPermission('inspection:update') && hasPermission('inspection:delete') && <DropdownMenuSeparator />}
+                {hasPermission('inspection:delete') && (
+                  <DropdownMenuItem
+                    onClick={(e) => handleDeleteClick(inspection, e)}
+                    className="text-red-600 focus:text-red-600"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       )
     }
@@ -382,9 +393,11 @@ const InspectionsPage = () => {
         title="Inspections"
         subtitle="Create and manage inspections with associated inspection items"
         actions={
-          <ThemeButton onClick={() => navigate('/inspections/new')}>
-            <Plus className="mr-2 h-4 w-4" /> New Inspection
-          </ThemeButton>
+          <PermissionGuard permission="inspection:create">
+            <ThemeButton onClick={() => navigate('/inspections/new')}>
+              <Plus className="mr-2 h-4 w-4" /> New Inspection
+            </ThemeButton>
+          </PermissionGuard>
         }
       >
         <Tabs value={activeTab} className="w-full" onValueChange={handleTabChange}>

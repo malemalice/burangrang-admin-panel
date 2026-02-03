@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import {
   SendVerificationEmailDto,
   SendPasswordResetEmailDto,
@@ -299,6 +299,8 @@ export class MailService {
     sortOrder?: 'asc' | 'desc';
     isActive?: boolean;
     search?: string;
+    code?: string;
+    name?: string;
   }): Promise<{
     data: EmailTemplateDto[];
     meta: { total: number; page: number; limit: number };
@@ -312,17 +314,23 @@ export class MailService {
         params.isActive === undefined ? {} : { isActive: params.isActive },
         params.search
           ? {
-            OR: [
-              { code: { contains: params.search, mode: 'insensitive' } },
-              { name: { contains: params.search, mode: 'insensitive' } },
-              {
-                subjectTemplate: {
-                  contains: params.search,
-                  mode: 'insensitive',
+              OR: [
+                { code: { contains: params.search, mode: 'insensitive' } },
+                { name: { contains: params.search, mode: 'insensitive' } },
+                {
+                  subjectTemplate: {
+                    contains: params.search,
+                    mode: 'insensitive',
+                  },
                 },
-              },
-            ],
-          }
+              ],
+            }
+          : {},
+        params.code?.trim()
+          ? { code: { contains: params.code.trim(), mode: 'insensitive' } }
+          : {},
+        params.name?.trim()
+          ? { name: { contains: params.name.trim(), mode: 'insensitive' } }
           : {},
       ],
     };
@@ -376,7 +384,7 @@ export class MailService {
       where: { code: dto.code },
     });
     if (existing) {
-      throw new Error('Email template code already exists');
+      throw new ConflictException('Code already exists');
     }
     const created = await this.prisma.emailTemplate.create({
       data: {

@@ -146,7 +146,7 @@ const ViewAuditCriteriaPage = () => {
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
-        const response = await departmentService.getDepartments({ page: 1, limit: 1000 });
+        const response = await departmentService.getDepartments({ page: 1, limit: 1000, options: true });
         setDepartments(response.data);
         // Create a map of department ID to name for quick lookup
         const map: Record<string, string> = {};
@@ -165,7 +165,7 @@ const ViewAuditCriteriaPage = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await userService.getAll({ page: 1, limit: 1000 });
+        const response = await userService.getAll({ page: 1, limit: 1000, options: true });
         const map: Record<string, string> = {};
         response.data.forEach((user: any) => {
           const firstLast = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();

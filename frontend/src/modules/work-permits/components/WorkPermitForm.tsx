@@ -273,7 +273,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               professions: [],
             };
           }),
-          userService.getUsers({ page: 1, limit: 100 }).catch((error) => {
+          userService.getUsers({ page: 1, limit: 100, options: true }).catch((error) => {
             console.error('Failed to fetch users:', error);
             return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
           }),

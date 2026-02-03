@@ -34,6 +34,8 @@ import api from '@/core/lib/api';
 import areaService from '@/modules/master-data/services/areaService';
 import { userService } from '@/modules/users';
 import auditPolicyService from '@/modules/audit-policy/services/auditPolicyService';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 // Component for assessment status with tooltip
 const AssessmentStatusCell = ({ stats }: { stats: { total: number; filled: number; comply: number; notComply: number } }) => {
@@ -74,6 +76,7 @@ const AssessmentStatusCell = ({ stats }: { stats: { total: number; filled: numbe
 
 const AuditSchedulesPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [auditSchedules, setAuditSchedules] = useState<AuditSchedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -101,14 +104,15 @@ const AuditSchedulesPage = () => {
       try {
         const [auditElementsResponse, areasResponse, usersResponse] = await Promise.all([
           api.get('/audit-elements', {
-            params: { page: 1, limit: 1000, isActive: true },
+            params: { page: 1, limit: 1000, isActive: true, options: true },
           }),
           areaService.getAreas({ 
             page: 1, 
             limit: 1000,
-            filters: { isActive: true }
+            filters: { isActive: true },
+            options: true
           }),
-          userService.getAll({ page: 1, limit: 1000 }),
+          userService.getAll({ page: 1, limit: 1000, options: true }),
         ]);
 
         setAuditElements(
@@ -642,9 +646,11 @@ const AuditSchedulesPage = () => {
         title="Audit Schedules"
         subtitle="Create and manage audit schedules"
         actions={
-          <ThemeButton onClick={() => navigate('/audit-schedules/new')}>
-            <Plus className="mr-2 h-4 w-4" /> New Audit Schedule
-          </ThemeButton>
+          <PermissionGuard permission="audit-schedule:create">
+            <ThemeButton onClick={() => navigate('/audit-schedules/new')}>
+              <Plus className="mr-2 h-4 w-4" /> New Audit Schedule
+            </ThemeButton>
+          </PermissionGuard>
         }
       >
         <Tabs value={activeTab} className="w-full" onValueChange={handleTabChange}>

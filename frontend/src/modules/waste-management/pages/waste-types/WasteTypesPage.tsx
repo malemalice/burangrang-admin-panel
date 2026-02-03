@@ -17,9 +17,12 @@ import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { wasteTypeService } from '../../services/wasteManagementService';
 import { WasteType, PaginatedResponse, WasteTypeEnum } from '../../types/waste-management.types';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 export default function WasteTypesPage() {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [data, setData] = useState<WasteType[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -146,15 +149,21 @@ export default function WasteTypesPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/waste-management/waste-types/${item.id}`)}>
-              <MoreHorizontal className="mr-2 h-4 w-4" /> View Details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/waste-management/waste-types/${item.id}/edit`)}>
-              <Pencil className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setDeleteId(item.id)} className="text-destructive">
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            {hasPermission('waste-management:read') && (
+              <DropdownMenuItem onClick={() => navigate(`/waste-management/waste-types/${item.id}`)}>
+                <MoreHorizontal className="mr-2 h-4 w-4" /> View Details
+              </DropdownMenuItem>
+            )}
+            {hasPermission('waste-management:update') && (
+              <DropdownMenuItem onClick={() => navigate(`/waste-management/waste-types/${item.id}/edit`)}>
+                <Pencil className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+            )}
+            {hasPermission('waste-management:delete') && (
+              <DropdownMenuItem onClick={() => setDeleteId(item.id)} className="text-destructive">
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -167,9 +176,11 @@ export default function WasteTypesPage() {
         title="Waste Types"
         subtitle="Manage waste type classifications"
         actions={
-          <Button onClick={() => navigate('/waste-management/waste-types/create')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Waste Type
-          </Button>
+          <PermissionGuard permission="waste-management:create">
+            <Button onClick={() => navigate('/waste-management/waste-types/create')}>
+              <Plus className="mr-2 h-4 w-4" /> Add Waste Type
+            </Button>
+          </PermissionGuard>
         }
       >
         <Tabs defaultValue="all" className="w-auto" onValueChange={(value) => {

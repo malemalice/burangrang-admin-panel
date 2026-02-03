@@ -32,8 +32,11 @@ import { CertificateRenewalDto } from './dto/certificate-renewal.dto';
 import { CertificateReminderDto } from './dto/certificate-reminder.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
-import { Roles } from '../../shared/decorators/roles.decorator';
-import { Role } from '../../shared/types/role.enum';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { DataScopeGuard } from '../../shared/guards/data-scope.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
+import { DataScoped } from '../../shared/decorators/data-scoped.decorator';
 import { Request } from 'express';
 
 interface RequestWithUser extends Request {
@@ -42,18 +45,21 @@ interface RequestWithUser extends Request {
     email: string;
     role: string;
   };
+  userContext?: import('../../shared/types/user-context').UserContext;
 }
 
 @ApiTags('certificates')
 @ApiBearerAuth()
 @Controller('certificates')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@DataScoped('Certificate')
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, DataScopeGuard)
 export class CertificatesController {
   constructor(private readonly certificatesService: CertificatesService) { }
 
   // ==================== Certificate Categories ====================
 
   @Get('categories')
+  @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all certificate categories with pagination and filtering' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (starts from 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of items per page' })
@@ -62,10 +68,11 @@ export class CertificatesController {
   @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term for name or code' })
   @ApiQuery({ name: 'certificateType', required: false, enum: ['PERSONNEL_LICENSE', 'PERSONNEL_CERTIFICATE', 'EQUIPMENT_CALIBRATION', 'EQUIPMENT_INSTALLATION', 'EQUIPMENT_OPERATIONAL_PERMIT'], description: 'Filter by certificate type' })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({ status: 200, description: 'List of certificate categories', type: [CertificateCategoryDto] })
   @ApiResponse({ status: 400, description: 'Bad request - invalid query parameters' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  @Permissions('certificate-category:list')
   async findAllCategories(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -97,7 +104,7 @@ export class CertificatesController {
   @ApiResponse({ status: 400, description: 'Bad request - invalid ID format' })
   @ApiResponse({ status: 404, description: 'Certificate category not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  @Permissions('certificate-category:read')
   async findCategoryById(@Param('id') id: string): Promise<CertificateCategoryDto> {
     return this.certificatesService.findCategoryById(id);
   }
@@ -109,7 +116,7 @@ export class CertificatesController {
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
   @ApiResponse({ status: 409, description: 'Conflict - category with this code or name already exists' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  @Roles(Role.SUPER_ADMIN)
+  @Permissions('certificate-category:create')
   async createCategory(
     @Body() createCategoryDto: CreateCertificateCategoryDto,
   ): Promise<CertificateCategoryDto> {
@@ -125,7 +132,7 @@ export class CertificatesController {
   @ApiResponse({ status: 404, description: 'Certificate category not found' })
   @ApiResponse({ status: 409, description: 'Conflict - category with this code or name already exists' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  @Roles(Role.SUPER_ADMIN)
+  @Permissions('certificate-category:update')
   async updateCategory(
     @Param('id') id: string,
     @Body() updateCategoryDto: UpdateCertificateCategoryDto,
@@ -140,7 +147,7 @@ export class CertificatesController {
   @ApiResponse({ status: 400, description: 'Bad request - cannot delete category with active certificates' })
   @ApiResponse({ status: 404, description: 'Certificate category not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('certificate-category:delete')
   async deleteCategory(@Param('id') id: string): Promise<void> {
     return this.certificatesService.deleteCategory(id);
   }
@@ -148,6 +155,7 @@ export class CertificatesController {
   // ==================== Certificates ====================
 
   @Get()
+  @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all certificates with pagination and filtering' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (starts from 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of items per page' })
@@ -161,10 +169,11 @@ export class CertificatesController {
   @ApiQuery({ name: 'personnelId', required: false, type: String, description: 'Filter by personnel ID' })
   @ApiQuery({ name: 'expired', required: false, type: Boolean, description: 'Filter expired certificates' })
   @ApiQuery({ name: 'expiringSoon', required: false, type: Boolean, description: 'Filter certificates expiring soon (within reminder days)' })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({ status: 200, description: 'List of certificates', type: [CertificateDto] })
   @ApiResponse({ status: 400, description: 'Bad request - invalid query parameters' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  @Permissions('certificate:list')
   async findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -178,6 +187,7 @@ export class CertificatesController {
     @Query('personnelId') personnelId?: string,
     @Query('expired') expired?: string,
     @Query('expiringSoon') expiringSoon?: string,
+    @Req() req?: RequestWithUser,
   ): Promise<{ data: CertificateDto[]; meta: any }> {
     const pageNumber = page ? parseInt(page, 10) : undefined;
     const limitNumber = limit ? parseInt(limit, 10) : undefined;
@@ -185,20 +195,23 @@ export class CertificatesController {
     const expiredBoolean = expired === undefined ? undefined : expired === 'true';
     const expiringSoonBoolean = expiringSoon === undefined ? undefined : expiringSoon === 'true';
 
-    return this.certificatesService.findAll({
-      page: pageNumber,
-      limit: limitNumber,
-      sortBy,
-      sortOrder,
-      isActive: isActiveBoolean,
-      search,
-      categoryId,
-      certificateType: certificateType as any,
-      departmentId,
-      personnelId,
-      expired: expiredBoolean,
-      expiringSoon: expiringSoonBoolean,
-    });
+    return this.certificatesService.findAll(
+      {
+        page: pageNumber,
+        limit: limitNumber,
+        sortBy,
+        sortOrder,
+        isActive: isActiveBoolean,
+        search,
+        categoryId,
+        certificateType: certificateType as any,
+        departmentId,
+        personnelId,
+        expired: expiredBoolean,
+        expiringSoon: expiringSoonBoolean,
+      },
+      req?.userContext,
+    );
   }
 
   @Get(':id')
@@ -206,11 +219,12 @@ export class CertificatesController {
   @ApiParam({ name: 'id', type: String, description: 'Certificate ID' })
   @ApiResponse({ status: 200, description: 'Certificate details', type: CertificateDto })
   @ApiResponse({ status: 400, description: 'Bad request - invalid ID format' })
+  @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
   @ApiResponse({ status: 404, description: 'Certificate not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
-  async findOne(@Param('id') id: string): Promise<CertificateDto> {
-    return this.certificatesService.findOne(id);
+  @Permissions('certificate:read')
+  async findOne(@Param('id') id: string, @Req() req: RequestWithUser): Promise<CertificateDto> {
+    return this.certificatesService.findOne(id, req.userContext);
   }
 
   @Post()
@@ -220,7 +234,7 @@ export class CertificatesController {
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
   @ApiResponse({ status: 409, description: 'Conflict - certificate with this certificate number already exists' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('certificate:create')
   async create(
     @Body() createCertificateDto: CreateCertificateDto,
     @Req() req: RequestWithUser,
@@ -237,13 +251,13 @@ export class CertificatesController {
   @ApiResponse({ status: 404, description: 'Certificate not found' })
   @ApiResponse({ status: 409, description: 'Conflict - certificate with this certificate number already exists' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('certificate:update')
   async update(
     @Param('id') id: string,
     @Body() updateCertificateDto: UpdateCertificateDto,
     @Req() req: RequestWithUser,
   ): Promise<CertificateDto> {
-    return this.certificatesService.update(id, updateCertificateDto, req.user.id);
+    return this.certificatesService.update(id, updateCertificateDto, req.user.id, req.userContext);
   }
 
   @Delete(':id')
@@ -253,9 +267,9 @@ export class CertificatesController {
   @ApiResponse({ status: 400, description: 'Bad request - cannot delete certificate with active renewal requests' })
   @ApiResponse({ status: 404, description: 'Certificate not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  @Roles(Role.SUPER_ADMIN)
-  async remove(@Param('id') id: string): Promise<void> {
-    return this.certificatesService.remove(id);
+  @Permissions('certificate:delete')
+  async remove(@Param('id') id: string, @Req() req: RequestWithUser): Promise<void> {
+    return this.certificatesService.remove(id, req.userContext);
   }
 
   // ==================== Certificate Renewals ====================
@@ -267,9 +281,9 @@ export class CertificatesController {
   @ApiResponse({ status: 400, description: 'Bad request - invalid ID format' })
   @ApiResponse({ status: 404, description: 'Certificate not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
-  async findRenewals(@Param('id') id: string): Promise<CertificateRenewalDto[]> {
-    return this.certificatesService.findRenewalsByCertificateId(id);
+  @Permissions('certificate:read')
+  async findRenewals(@Param('id') id: string, @Req() req: RequestWithUser): Promise<CertificateRenewalDto[]> {
+    return this.certificatesService.findRenewalsByCertificateId(id, req.userContext);
   }
 
   @Post(':id/renewals')
@@ -281,13 +295,13 @@ export class CertificatesController {
   @ApiResponse({ status: 404, description: 'Certificate not found' })
   @ApiResponse({ status: 409, description: 'Conflict - renewal request already exists for this certificate' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  @Permissions('certificate:update')
   async createRenewal(
     @Param('id') id: string,
     @Body() createRenewalDto: CreateCertificateRenewalDto,
     @Req() req: RequestWithUser,
   ): Promise<CertificateRenewalDto> {
-    return this.certificatesService.createRenewal(id, createRenewalDto, req.user.id);
+    return this.certificatesService.createRenewal(id, createRenewalDto, req.user.id, req.userContext);
   }
 
   @Patch('renewals/:id')
@@ -298,7 +312,7 @@ export class CertificatesController {
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
   @ApiResponse({ status: 404, description: 'Certificate renewal not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('certificate:update')
   async updateRenewal(
     @Param('id') id: string,
     @Body() updateRenewalDto: UpdateCertificateRenewalDto,
@@ -316,9 +330,9 @@ export class CertificatesController {
   @ApiResponse({ status: 400, description: 'Bad request - invalid ID format' })
   @ApiResponse({ status: 404, description: 'Certificate not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
-  async findReminders(@Param('id') id: string): Promise<CertificateReminderDto[]> {
-    return this.certificatesService.findRemindersByCertificateId(id);
+  @Permissions('certificate:read')
+  async findReminders(@Param('id') id: string, @Req() req: RequestWithUser): Promise<CertificateReminderDto[]> {
+    return this.certificatesService.findRemindersByCertificateId(id, req.userContext);
   }
 }
 

@@ -3,19 +3,20 @@ import { WasteSourcesService } from '../services/waste-sources.service';
 import { CreateWasteSourceDto, UpdateWasteSourceDto, WasteSourceDto } from '../dto/waste-sources';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
-import { Roles } from '../../../shared/decorators/roles.decorator';
-import { Role } from '../../../shared/types/role.enum';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('waste-sources')
 @ApiBearerAuth()
 @Controller('waste-sources')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class WasteSourcesController {
   constructor(private readonly service: WasteSourcesService) {}
 
   @Post()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:create')
   @ApiOperation({ summary: 'Create a new waste source' })
   @ApiBody({ type: CreateWasteSourceDto })
   @ApiResponse({ status: 201, description: 'The waste source has been successfully created.', type: WasteSourceDto })
@@ -28,13 +29,15 @@ export class WasteSourcesController {
   }
 
   @Get()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @AllowOptionsBypass()
+  @Permissions('waste-management:list')
   @ApiOperation({ summary: 'Get all waste sources' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean })
   @ApiQuery({ name: 'sourceType', required: false, type: String })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({ status: 200, description: 'Return all waste sources.', type: [WasteSourceDto] })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findAll(
@@ -54,7 +57,7 @@ export class WasteSourcesController {
   }
 
   @Get(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('waste-management:read')
   @ApiOperation({ summary: 'Get waste source by id' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'Return the waste source.', type: WasteSourceDto })
@@ -65,7 +68,7 @@ export class WasteSourcesController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:update')
   @ApiOperation({ summary: 'Update waste source' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateWasteSourceDto })
@@ -78,7 +81,7 @@ export class WasteSourcesController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:delete')
   @ApiOperation({ summary: 'Delete waste source' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'The waste source has been successfully deleted.' })

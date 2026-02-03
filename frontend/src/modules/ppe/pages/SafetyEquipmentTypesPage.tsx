@@ -19,9 +19,12 @@ import { PaginationParams } from '@/core/lib/types';
 import { useSafetyEquipmentTypes } from '../hooks/useSafetyEquipmentTypes';
 import { SafetyEquipmentType } from '../types/ppe-master-data.types';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 export default function SafetyEquipmentTypesPage() {
     const navigate = useNavigate();
+    const { hasPermission } = usePermissions();
     const {
         types,
         totalTypes,
@@ -212,7 +215,7 @@ export default function SafetyEquipmentTypesPage() {
                 </DropdownMenu>
             ),
         },
-    ], [openDropdownId, navigate, handleDeleteClick]);
+    ], [openDropdownId, navigate, handleDeleteClick, hasPermission]);
 
     return (
         <>
@@ -220,9 +223,11 @@ export default function SafetyEquipmentTypesPage() {
                 title="Safety Equipment Types"
                 subtitle="Manage safety equipment types"
                 actions={
-                    <Button onClick={() => navigate('/master/safety-equipment-types/new')}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Type
-                    </Button>
+                    <PermissionGuard permission="safety-equipment-type:create">
+                        <Button onClick={() => navigate('/master/safety-equipment-types/new')}>
+                            <Plus className="mr-2 h-4 w-4" /> Add Type
+                        </Button>
+                    </PermissionGuard>
                 }
             >
                 <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

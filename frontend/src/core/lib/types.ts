@@ -25,6 +25,8 @@ export interface User {
   lastLoginAt?: Date;
 }
 
+export type DataLevel = 'SELF' | 'DEPARTMENT' | 'SUPER';
+
 export interface Role {
   id: string;
   name: string;
@@ -32,6 +34,7 @@ export interface Role {
   description: string;
   status: 'active' | 'inactive';
   isActive: boolean;
+  dataLevel: DataLevel;
   permissions: Permission[];
   createdAt: string;
   updatedAt: string;
@@ -271,6 +274,8 @@ export interface PaginationParams {
   sortOrder?: 'asc' | 'desc';
   search?: string;
   filters?: Record<string, any>;
+  /** Set to true when fetching list data for form/filter select options; bypasses *:list permission on backend */
+  options?: boolean;
 }
 
 export interface MasterApprovalItem {

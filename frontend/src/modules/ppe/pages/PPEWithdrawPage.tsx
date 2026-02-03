@@ -34,7 +34,7 @@ const PPEWithdrawPage = () => {
     useEffect(() => {
         const fetchDepartments = async () => {
             try {
-                const response = await departmentService.getDepartments({ page: 1, limit: 1000 });
+                const response = await departmentService.getDepartments({ page: 1, limit: 1000, options: true });
                 setDepartments(response.data);
             } catch (error) {
                 console.error('Failed to fetch departments:', error);

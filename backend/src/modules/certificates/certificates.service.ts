@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { DataScopeService } from '../../shared/services/data-scope.service';
+import { UserContext } from '../../shared/types/user-context';
 import {
   CertificateRenewalStatusEnum,
   CertificateTypeEnum,
@@ -51,6 +53,7 @@ export class CertificatesService {
         private prisma: PrismaService,
         private errorHandler: ErrorHandlingService,
         private dtoMapper: DtoMapperService,
+        private dataScopeService: DataScopeService,
         private remindersService: RemindersService,
     ) {
         // Initialize mappers
@@ -436,7 +439,27 @@ export class CertificatesService {
         }
     }
 
-    async findAll(options?: FindCertificatesOptions): Promise<{
+    /**
+     * Ensure current user can access the certificate (data-level). Throws 403 if not.
+     */
+    private async ensureCanAccessCertificate(
+        id: string,
+        userContext: UserContext | undefined,
+    ): Promise<void> {
+        const certificate = await this.prisma.certificate.findFirst({
+            where: { id, deletedAt: null },
+            select: { createdBy: true, personnelId: true, departmentId: true },
+        });
+        this.errorHandler.throwIfNotFoundById('Certificate', id, certificate);
+        if (!this.dataScopeService.canAccessRecord(userContext, 'Certificate', certificate)) {
+            this.errorHandler.throwForbidden('You do not have access to this record');
+        }
+    }
+
+    async findAll(
+        options?: FindCertificatesOptions,
+        userContext?: UserContext,
+    ): Promise<{
         data: CertificateDto[];
         meta: { total: number; page: number; limit: number };
     }> {
@@ -518,9 +541,16 @@ export class CertificatesService {
             };
         }
 
+        // Data-level scope: hide rows user is not allowed to see
+        const scopeWhere = this.dataScopeService.buildWhereForList(userContext, 'Certificate', where);
+        const finalWhere =
+            scopeWhere && Object.keys(scopeWhere).length > 0
+                ? { AND: [where, scopeWhere] }
+                : where;
+
         const [certificates, total] = await Promise.all([
             this.prisma.certificate.findMany({
-                where,
+                where: finalWhere,
                 include: {
                     category: true,
                     department: true,
@@ -533,7 +563,7 @@ export class CertificatesService {
                 skip: (page - 1) * limit,
                 take: limit,
             }),
-            this.prisma.certificate.count({ where }),
+            this.prisma.certificate.count({ where: finalWhere }),
         ]);
 
         return this.certificatePaginatedMapper({
@@ -542,7 +572,8 @@ export class CertificatesService {
         });
     }
 
-    async findOne(id: string): Promise<CertificateDto> {
+    async findOne(id: string, userContext?: UserContext): Promise<CertificateDto> {
+        await this.ensureCanAccessCertificate(id, userContext);
         const certificate = await this.prisma.certificate.findFirst({
             where: {
                 id,
@@ -575,7 +606,9 @@ export class CertificatesService {
         id: string,
         updateCertificateDto: UpdateCertificateDto,
         updatedBy?: string,
+        userContext?: UserContext,
     ): Promise<CertificateDto> {
+        await this.ensureCanAccessCertificate(id, userContext);
         const existingCertificate = await this.prisma.certificate.findFirst({
             where: {
                 id,
@@ -692,7 +725,8 @@ export class CertificatesService {
         }, 'update certificate');
     }
 
-    async remove(id: string): Promise<void> {
+    async remove(id: string, userContext?: UserContext): Promise<void> {
+        await this.ensureCanAccessCertificate(id, userContext);
         const existingCertificate = await this.prisma.certificate.findFirst({
             where: {
                 id,
@@ -734,7 +768,11 @@ export class CertificatesService {
 
     // ==================== Certificate Renewals ====================
 
-    async findRenewalsByCertificateId(certificateId: string): Promise<CertificateRenewalDto[]> {
+    async findRenewalsByCertificateId(
+        certificateId: string,
+        userContext?: UserContext,
+    ): Promise<CertificateRenewalDto[]> {
+        await this.ensureCanAccessCertificate(certificateId, userContext);
         const certificate = await this.prisma.certificate.findFirst({
             where: {
                 id: certificateId,
@@ -765,7 +803,9 @@ export class CertificatesService {
         certificateId: string,
         createRenewalDto: CreateCertificateRenewalDto,
         requestedBy: string,
+        userContext?: UserContext,
     ): Promise<CertificateRenewalDto> {
+        await this.ensureCanAccessCertificate(certificateId, userContext);
         const certificate = await this.prisma.certificate.findFirst({
             where: {
                 id: certificateId,
@@ -843,7 +883,11 @@ export class CertificatesService {
 
     // ==================== Certificate Reminders ====================
 
-    async findRemindersByCertificateId(certificateId: string): Promise<CertificateReminderDto[]> {
+    async findRemindersByCertificateId(
+        certificateId: string,
+        userContext?: UserContext,
+    ): Promise<CertificateReminderDto[]> {
+        await this.ensureCanAccessCertificate(certificateId, userContext);
         const certificate = await this.prisma.certificate.findFirst({
             where: {
                 id: certificateId,

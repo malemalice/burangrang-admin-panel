@@ -82,9 +82,9 @@ const EditInspectionItemPage = () => {
         setIsLoading(true);
         const [itemData, deptsRes, usersRes, riskCategoriesRes] = await Promise.all([
           inspectionItemsService.getById(id),
-          departmentService.getDepartments({ page: 1, limit: 100 }),
-          userService.getUsers({ page: 1, limit: 100 }),
-          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true }),
+          departmentService.getDepartments({ page: 1, limit: 100, options: true }),
+          userService.getUsers({ page: 1, limit: 100, options: true }),
+          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
         ]);
 
         setItem(itemData);
@@ -127,6 +127,7 @@ const EditInspectionItemPage = () => {
         limit: 100,
         isActive: true,
         riskCategoryId,
+        options: true,
       });
       setRisks(response.data);
     } catch (error) {

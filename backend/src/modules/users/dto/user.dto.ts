@@ -67,6 +67,10 @@ export class UserDto {
   @Expose()
   jobPosition?: any;
 
+  @ApiProperty({ required: false, type: [String], description: 'Permission names from role (e.g. for current user)' })
+  @Expose()
+  permissions?: string[];
+
   // Add a getter to extract role name as a string
   @ApiProperty({ description: 'Role name extracted from role object' })
   @Expose()

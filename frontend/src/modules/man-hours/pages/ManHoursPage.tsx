@@ -19,9 +19,12 @@ import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import manHourService from '../services/manHourService';
 import { ManHour, MONTH_SHORT_LABELS, GROUP_LABELS } from '../types/man-hour.types';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 export default function ManHoursPage() {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [manHours, setManHours] = useState<ManHour[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
@@ -270,16 +273,22 @@ export default function ManHoursPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/man-hours/${manHour.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => handleDeleteClick(manHour, e)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            {hasPermission('man-hour:update') && (
+              <DropdownMenuItem onClick={() => navigate(`/man-hours/${manHour.id}/edit`)}>
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+            )}
+            {hasPermission('man-hour:update') && hasPermission('man-hour:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('man-hour:delete') && (
+              <DropdownMenuItem
+                onClick={(e) => handleDeleteClick(manHour, e)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -292,9 +301,11 @@ export default function ManHoursPage() {
         title="Manage Man Hour"
         subtitle="Record and manage man hour data"
         actions={
-          <ThemeButton onClick={() => navigate('/man-hours/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Man Hour
-          </ThemeButton>
+          <PermissionGuard permission="man-hour:create">
+            <ThemeButton onClick={() => navigate('/man-hours/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Add Man Hour
+            </ThemeButton>
+          </PermissionGuard>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

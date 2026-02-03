@@ -15,18 +15,21 @@ import { UpdateRiskDto } from './dto/update-risk.dto';
 import { RiskDto } from './dto/risk.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { Role } from '../../shared/types/role.enum';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 
 @ApiTags('risks')
 @Controller('risks')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class RisksController {
   constructor(private readonly risksService: RisksService) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('risk:create')
   @ApiOperation({ summary: 'Create a new risk' })
   @ApiResponse({ status: 201, description: 'The risk has been successfully created.', type: RiskDto })
   create(@Body() createRiskDto: CreateRiskDto): Promise<RiskDto> {
@@ -34,12 +37,13 @@ export class RisksController {
   }
 
   @Get()
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all risks with pagination' })
   @ApiResponse({ status: 200, description: 'Return all risks.', type: [RiskDto] })
   @ApiQuery({ name: 'riskCategoryId', required: false, description: 'Filter risks by risk category ID' })
   @ApiQuery({ name: 'name', required: false, description: 'Filter risks by name (contains)' })
   @ApiQuery({ name: 'code', required: false, description: 'Filter risks by code (contains)' })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -70,7 +74,7 @@ export class RisksController {
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('risk:read')
   @ApiOperation({ summary: 'Get a risk by id' })
   @ApiResponse({ status: 200, description: 'Return the risk.', type: RiskDto })
   @ApiResponse({ status: 404, description: 'Risk not found.' })
@@ -79,7 +83,7 @@ export class RisksController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  @Permissions('risk:update')
   @ApiOperation({ summary: 'Update a risk' })
   @ApiResponse({ status: 200, description: 'The risk has been successfully updated.', type: RiskDto })
   @ApiResponse({ status: 404, description: 'Risk not found.' })
@@ -91,7 +95,7 @@ export class RisksController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN)
+  @Permissions('risk:delete')
   @ApiOperation({ summary: 'Delete a risk' })
   @ApiResponse({ status: 200, description: 'The risk has been successfully deleted.' })
   @ApiResponse({ status: 404, description: 'Risk not found.' })

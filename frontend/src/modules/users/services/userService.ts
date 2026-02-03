@@ -89,6 +89,10 @@ const userService = {
         });
       }
 
+      if (params.options) {
+        queryParams.append('options', 'true');
+      }
+
       const response = await api.get(`/users?${queryParams.toString()}`);
       return {
         data: response.data.data.map(mapUserDtoToUser),

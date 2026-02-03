@@ -322,17 +322,19 @@ const InspectionItemForm = ({
       try {
         // Fetch all required data in parallel
         const [riskCategoriesResponse, risksResponse, departmentsResponse, areasResponse] = await Promise.all([
-          riskCategoryService.getAll({ page: 1, limit: 1000, isActive: true }),
-          riskService.getAll({ page: 1, limit: 1000, isActive: true }),
+          riskCategoryService.getAll({ page: 1, limit: 1000, isActive: true, options: true }),
+          riskService.getAll({ page: 1, limit: 1000, isActive: true, options: true }),
           departmentService.getDepartments({ 
             page: 1, 
             limit: 1000,
+            options: true,
             filters: { isActive: 'true' }
           }),
           areaService.getAreas({ 
             page: 1, 
             limit: 1000,
-            filters: { isActive: true }
+            filters: { isActive: true },
+            options: true
           }),
         ]);
         setRiskCategories(riskCategoriesResponse.data);
@@ -346,7 +348,7 @@ const InspectionItemForm = ({
         const assigneePermission = FIELD_PERMISSIONS[formMode]?.assigneeId;
         if (assigneePermission === 'editable') {
           try {
-            const usersResponse = await userService.getAll({ page: 1, limit: 1000 });
+            const usersResponse = await userService.getAll({ page: 1, limit: 1000, options: true });
             setUsers(usersResponse.data);
           } catch (userError) {
             // Silently handle user fetch errors - assignee is optional anyway

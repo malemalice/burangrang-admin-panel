@@ -23,9 +23,12 @@ import {
 } from '@/core/components/ui/card';
 import { useMenus } from '../hooks/useMenus';
 import { Menu } from '../types/menu.types';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const MenusPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
 
   // Use the useMenus hook for centralized state management
   const {
@@ -171,19 +174,27 @@ const MenusPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/menus/${menu.id}`)}>
-              <Eye className="mr-2 h-4 w-4" /> View details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/menus/${menu.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => handleDeleteClick(menu, e)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            {hasPermission('menu:read') && (
+              <DropdownMenuItem onClick={() => navigate(`/menus/${menu.id}`)}>
+                <Eye className="mr-2 h-4 w-4" /> View details
+              </DropdownMenuItem>
+            )}
+            {hasPermission('menu:update') && (
+              <DropdownMenuItem onClick={() => navigate(`/menus/${menu.id}/edit`)}>
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+            )}
+            {(hasPermission('menu:read') || hasPermission('menu:update')) && hasPermission('menu:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('menu:delete') && (
+              <DropdownMenuItem
+                onClick={(e) => handleDeleteClick(menu, e)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       )
@@ -222,9 +233,11 @@ const MenusPage = () => {
         title="Menu Management"
         subtitle="Configure and organize application menus"
         actions={
-          <ThemeButton onClick={() => navigate('/menus/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Menu Item
-          </ThemeButton>
+          <PermissionGuard permission="menu:create">
+            <ThemeButton onClick={() => navigate('/menus/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Add Menu Item
+            </ThemeButton>
+          </PermissionGuard>
         }
       />
 

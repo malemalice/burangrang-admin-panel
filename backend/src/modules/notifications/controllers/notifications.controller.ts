@@ -21,6 +21,8 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { Roles } from '../../../shared/decorators/roles.decorator';
 import { Role } from '../../../shared/types/role.enum';
 import { NotificationsService } from '../services/notifications.service';
@@ -33,7 +35,7 @@ import {
 import { FindNotificationsDto } from '../dto/find-notifications.dto';
 
 @Controller('notifications')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @ApiTags('notifications')
 @ApiBearerAuth()
 export class NotificationsController {
@@ -92,7 +94,7 @@ export class NotificationsController {
     description: 'Filter by notification type ID',
   })
   @ApiResponse({ status: 200, type: [NotificationDto] })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('notification:read')
   async getUserNotifications(
     @Query() query: FindNotificationsDto,
     @Request() req: any,
@@ -106,7 +108,7 @@ export class NotificationsController {
     status: 200,
     schema: { type: 'object', properties: { count: { type: 'number' } } },
   })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('notification:unread-count')
   async getUnreadCount(@Request() req: any): Promise<{ count: number }> {
     const count = await this.notificationsService.getUnreadCount(req.user.id);
     return { count };
@@ -115,7 +117,7 @@ export class NotificationsController {
   @Get('types')
   @ApiOperation({ summary: 'Get all notification types' })
   @ApiResponse({ status: 200, type: [NotificationDto] })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('notification:types')
   async getNotificationTypes() {
     return this.notificationsService.getNotificationTypes();
   }
@@ -125,7 +127,7 @@ export class NotificationsController {
   @ApiParam({ name: 'id', type: String, description: 'Notification ID' })
   @ApiResponse({ status: 200, type: NotificationDto })
   @ApiResponse({ status: 404, description: 'Notification not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('notification:read')
   async findOne(
     @Param('id') id: string,
     @Request() req: any,
@@ -134,11 +136,11 @@ export class NotificationsController {
   }
 
   @Post()
+  @Permissions('notification:create')
   @ApiOperation({ summary: 'Create new notification' })
   @ApiBody({ type: CreateNotificationDto })
   @ApiResponse({ status: 201, type: NotificationDto })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
-  @Roles(Role.SUPER_ADMIN)
   async create(
     @Body() createDto: CreateNotificationDto,
     @Request() req: any,
@@ -154,7 +156,7 @@ export class NotificationsController {
   @ApiParam({ name: 'id', type: String, description: 'Notification ID' })
   @ApiResponse({ status: 200, description: 'Notification marked as read' })
   @ApiResponse({ status: 404, description: 'Notification not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('notification:mark-read')
   async markAsRead(
     @Param('id') id: string,
     @Request() req: any,
@@ -165,7 +167,7 @@ export class NotificationsController {
   @Patch('mark-all-read')
   @ApiOperation({ summary: 'Mark all notifications as read for user' })
   @ApiResponse({ status: 200, description: 'All notifications marked as read' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('notification:mark-all-read')
   async markAllAsRead(@Request() req: any): Promise<void> {
     return this.notificationsService.markAllAsRead(req.user.id);
   }
@@ -176,7 +178,7 @@ export class NotificationsController {
   @ApiBody({ type: UpdateNotificationDto })
   @ApiResponse({ status: 200, type: NotificationDto })
   @ApiResponse({ status: 404, description: 'Notification not found' })
-  @Roles(Role.SUPER_ADMIN)
+  @Permissions('notification:update')
   async update(
     @Param('id') id: string,
     @Body() updateDto: UpdateNotificationDto,
@@ -192,7 +194,7 @@ export class NotificationsController {
     description: 'Notification deleted successfully',
   })
   @ApiResponse({ status: 404, description: 'Notification not found' })
-  @Roles(Role.SUPER_ADMIN)
+  @Permissions('notification:delete')
   async remove(@Param('id') id: string): Promise<void> {
     return this.notificationsService.remove(id);
   }

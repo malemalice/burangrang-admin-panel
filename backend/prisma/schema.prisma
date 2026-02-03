@@ -137,12 +137,19 @@ model PasswordResetToken {
   @@map("t_password_reset_tokens")
 }
 
+enum DataLevelEnum {
+  SELF
+  DEPARTMENT
+  SUPER
+}
+
 model Role {
   id                     String                  @id @default(uuid())
   name                   String                  @unique
   code                   String                  @unique
   description            String?
   isActive               Boolean                 @default(true)
+  dataLevel              DataLevelEnum           @default(SUPER)
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   users                  User[]

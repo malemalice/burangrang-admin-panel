@@ -25,13 +25,14 @@ import { FindRemindersDto } from './dto/find-reminders.dto';
 import { ReminderDto, ReminderLogDto } from './dto/reminder.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
-import { Roles } from '../../shared/decorators/roles.decorator';
-import { Role } from '../../shared/types/role.enum';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 
 @ApiTags('reminders')
 @ApiBearerAuth()
 @Controller('reminders')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class RemindersController {
   constructor(private readonly remindersService: RemindersService) {}
 
@@ -44,7 +45,7 @@ export class RemindersController {
   })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('reminder:create')
   async create(
     @Body() createReminderDto: CreateReminderDto,
     @Request() req,
@@ -53,6 +54,7 @@ export class RemindersController {
   }
 
   @Get()
+  @AllowOptionsBypass()
   @ApiOperation({
     summary: 'Get all reminders for current user with pagination and filtering',
   })
@@ -116,13 +118,19 @@ export class RemindersController {
     type: String,
     description: 'Filter to date (ISO 8601)',
   })
+  @ApiQuery({
+    name: 'options',
+    required: false,
+    type: Boolean,
+    description: 'Set to true to bypass permission check (requires JWT auth only)',
+  })
   @ApiResponse({
     status: 200,
     description: 'List of reminders retrieved successfully',
     type: [ReminderDto],
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('reminder:list')
   async findAll(@Query() query: FindRemindersDto, @Request() req) {
     return this.remindersService.findAll(req.user.id, query);
   }
@@ -137,7 +145,7 @@ export class RemindersController {
   })
   @ApiResponse({ status: 404, description: 'Reminder not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('reminder:read')
   async findOne(@Param('id') id: string, @Request() req): Promise<ReminderDto> {
     return this.remindersService.findOne(id, req.user.id);
   }
@@ -152,7 +160,7 @@ export class RemindersController {
   })
   @ApiResponse({ status: 404, description: 'Reminder not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('reminder:read')
   async getLogs(
     @Param('id') id: string,
     @Request() req,
@@ -171,7 +179,7 @@ export class RemindersController {
   @ApiResponse({ status: 404, description: 'Reminder not found' })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('reminder:update')
   async update(
     @Param('id') id: string,
     @Body() updateReminderDto: UpdateReminderDto,
@@ -189,7 +197,7 @@ export class RemindersController {
   })
   @ApiResponse({ status: 404, description: 'Reminder not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('reminder:delete')
   async remove(@Param('id') id: string, @Request() req): Promise<void> {
     return this.remindersService.remove(id, req.user.id);
   }
@@ -213,7 +221,7 @@ export class RemindersController {
   @ApiResponse({ status: 400, description: 'Reminder does not meet criteria' })
   @ApiResponse({ status: 404, description: 'Reminder not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('reminder:update')
   async triggerNotification(
     @Param('id') id: string,
     @Request() req,

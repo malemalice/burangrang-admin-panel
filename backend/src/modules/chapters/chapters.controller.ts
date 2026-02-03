@@ -29,6 +29,7 @@ import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { Public } from '../../shared/decorators/public.decorator';
 import { Role } from '../../shared/types/role.enum';
 import { Request } from 'express';
@@ -57,7 +58,7 @@ export class ChaptersController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 404, description: 'Course not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  
   @Permissions('chapter:create')
   async create(
     @Body() createChapterDto: CreateChapterDto,
@@ -67,6 +68,7 @@ export class ChaptersController {
   }
 
   @Get()
+  @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all chapters with pagination and filtering' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
@@ -78,6 +80,7 @@ export class ChaptersController {
   @ApiQuery({ name: 'isFree', required: false, type: Boolean, description: 'Filter by free status' })
   @ApiQuery({ name: 'contentType', required: false, enum: ['video', 'pdf', 'text', 'youtube'], description: 'Filter by content type' })
   @ApiQuery({ name: 'courseId', required: false, type: String, description: 'Filter by course ID' })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({ 
     status: 200, 
     description: 'Chapters retrieved successfully',
@@ -100,7 +103,7 @@ export class ChaptersController {
       }
     }
   })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  
   @Permissions('chapter:list')
   async findAll(@Query() query: FindChaptersOptions) {
     return this.chaptersService.findAll(query);
@@ -115,7 +118,7 @@ export class ChaptersController {
     type: [ChapterDto] 
   })
   @ApiResponse({ status: 404, description: 'Course not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  
   @Permissions('chapter:list')
   async findByCourse(@Param('courseId') courseId: string): Promise<ChapterDto[]> {
     return this.chaptersService.findByCourse(courseId);
@@ -158,7 +161,7 @@ export class ChaptersController {
   @ApiParam({ name: 'id', type: String, description: 'Chapter ID' })
   @ApiResponse({ status: 200, description: 'Chapter retrieved successfully', type: ChapterDto })
   @ApiResponse({ status: 404, description: 'Chapter not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  
   @Permissions('chapter:read')
   async findOne(@Param('id') id: string): Promise<ChapterDto> {
     return this.chaptersService.findOne(id);
@@ -171,7 +174,7 @@ export class ChaptersController {
   @ApiResponse({ status: 200, description: 'Chapter updated successfully', type: ChapterDto })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 404, description: 'Chapter not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  
   @Permissions('chapter:update')
   async update(
     @Param('id') id: string,
@@ -196,7 +199,7 @@ export class ChaptersController {
   })
   @ApiResponse({ status: 200, description: 'Chapters reordered successfully' })
   @ApiResponse({ status: 404, description: 'Course not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  
   @Permissions('chapter:reorder')
   async reorderChapters(
     @Param('courseId') courseId: string,
@@ -210,7 +213,7 @@ export class ChaptersController {
   @ApiParam({ name: 'id', type: String, description: 'Chapter ID' })
   @ApiResponse({ status: 200, description: 'Chapter deleted successfully' })
   @ApiResponse({ status: 404, description: 'Chapter not found' })
-  @Roles(Role.SUPER_ADMIN)
+  
   @Permissions('chapter:delete')
   async remove(@Param('id') id: string, @Req() req: RequestWithUser): Promise<void> {
     return this.chaptersService.remove(id, req.user.id);
