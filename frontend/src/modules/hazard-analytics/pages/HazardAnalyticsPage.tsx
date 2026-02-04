@@ -75,9 +75,14 @@ export default function HazardAnalyticsPage() {
         </div>
       ) : data ? (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+          {/* Row 1: Summary Card and Pyramid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <IncidentSummaryCard data={data.incidentSummary} />
             <IncidentPyramid />
+          </div>
+
+          {/* Row 2: Incident Chart and Status Pie Chart */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <IncidentChart data={data.incidentSummary} />
             <HazardCaseStatusChart data={data.hazardStatus} periodLabel={periodLabel} />
           </div>
