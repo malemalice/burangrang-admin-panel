@@ -61,7 +61,7 @@ export class WeightReportsService {
   async create(createDto: CreateWeightReportDto, userId: string): Promise<WeightReportDto> {
     const existing = await this.prisma.weightReport.findUnique({ where: { reportCode: createDto.reportCode } });
     if (existing) {
-      this.errorHandler.throwConflictCustom(`Weight Report with code ${createDto.reportCode} already exists`);
+      this.errorHandler.throwConflictCustom(`Report with code ${createDto.reportCode} already exists`);
     }
 
     const source = await this.prisma.wasteSource.findUnique({ where: { id: createDto.sourceId } });
@@ -80,11 +80,25 @@ export class WeightReportsService {
         },
       },
     });
-    
+
     if (existingPeriod) {
       this.errorHandler.throwConflictCustom(
-        `Weight Report for this Source, Month (${createDto.reportMonth}), and Year (${createDto.reportYear}) already exists`
+        `Report for this Source, Month ${createDto.reportMonth}, and Year ${createDto.reportYear} already exists`
       );
+    }
+
+    // Check for duplicate waste types in items
+    if (createDto.items && createDto.items.length > 0) {
+      const wasteTypeIds = createDto.items.map(i => i.wasteTypeId);
+      const duplicates = wasteTypeIds.filter((id, index) => wasteTypeIds.indexOf(id) !== index);
+
+      if (duplicates.length > 0) {
+        const duplicateType = await this.prisma.wasteType.findUnique({
+          where: { id: duplicates[0] }
+        });
+        const typeName = duplicateType?.name || 'Unknown';
+        this.errorHandler.throwConflictCustom(`Item ${typeName} is inputted more than 1`);
+      }
     }
 
     return this.errorHandler.safeExecute(async () => {
@@ -117,7 +131,7 @@ export class WeightReportsService {
   }
 
   async findAll(options?: FindAllOptions): Promise<{ data: WeightReportDto[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
-    const { page = 1, limit = 10, sortBy = 'submittedAt', sortOrder = 'desc', isActive, search, sourceId, storageLocationId, status, reportMonth, reportYear } = options || {};
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', isActive, search, sourceId, storageLocationId, status, reportMonth, reportYear } = options || {};
     const where: any = {};
 
     if (search) {
@@ -181,6 +195,20 @@ export class WeightReportsService {
       if (updateDto.reviewedAt) data.reviewedAt = new Date(updateDto.reviewedAt);
 
       if (items) {
+        // Check for duplicate waste types in items (for update)
+        if (items.length > 0) {
+          const wasteTypeIds = items.map(i => i.wasteTypeId);
+          const duplicates = wasteTypeIds.filter((id, index) => wasteTypeIds.indexOf(id) !== index);
+
+          if (duplicates.length > 0) {
+            const duplicateType = await this.prisma.wasteType.findUnique({
+              where: { id: duplicates[0] }
+            });
+            const typeName = duplicateType?.name || 'Unknown';
+            this.errorHandler.throwConflictCustom(`Item ${typeName} is inputted more than 1`);
+          }
+        }
+
         data.items = {
           deleteMany: {},
           create: items.map(i => ({

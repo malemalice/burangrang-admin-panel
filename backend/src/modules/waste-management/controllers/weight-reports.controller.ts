@@ -12,7 +12,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth, ApiParam, 
 @Controller('weight-reports')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class WeightReportsController {
-  constructor(private readonly service: WeightReportsService) {}
+  constructor(private readonly service: WeightReportsService) { }
 
   @Post()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
@@ -38,6 +38,7 @@ export class WeightReportsController {
   @ApiQuery({ name: 'status', required: false, type: String })
   @ApiQuery({ name: 'reportMonth', required: false, type: String })
   @ApiQuery({ name: 'reportYear', required: false, type: Number })
+  @ApiQuery({ name: 'isActive', required: false, type: Boolean })
   @ApiResponse({ status: 200, description: 'Return all reports.', type: [WeightReportDto] })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findAll(
@@ -49,6 +50,7 @@ export class WeightReportsController {
     @Query('status') status?: string,
     @Query('reportMonth') reportMonth?: string,
     @Query('reportYear') reportYear?: string,
+    @Query('isActive') isActive?: string,
   ) {
     return this.service.findAll({
       page: page ? parseInt(page, 10) : undefined,
@@ -59,6 +61,7 @@ export class WeightReportsController {
       status,
       reportMonth,
       reportYear: reportYear ? parseInt(reportYear, 10) : undefined,
+      isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
     });
   }
 

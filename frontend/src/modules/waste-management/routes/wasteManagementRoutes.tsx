@@ -44,6 +44,7 @@ import EditWaterQualityLabReportPage from '../pages/water-quality-lab-reports/Ed
 import WeightReportsPage from '../pages/weight-reports/WeightReportsPage';
 import CreateWeightReportPage from '../pages/weight-reports/CreateWeightReportPage';
 import EditWeightReportPage from '../pages/weight-reports/EditWeightReportPage';
+import WeightReportDetailPage from '../pages/weight-reports/WeightReportDetailPage';
 
 // Dispatch Orders
 import DispatchOrdersPage from '../pages/dispatch-orders/DispatchOrdersPage';
@@ -98,6 +99,7 @@ const wasteManagementRoutes: RouteConfig[] = [
   // Weight Reports (Solid Waste Recording)
   { path: '/waste-management/weight-reports', component: WeightReportsPage },
   { path: '/waste-management/weight-reports/create', component: CreateWeightReportPage },
+  { path: '/waste-management/weight-reports/:id', component: WeightReportDetailPage },
   { path: '/waste-management/weight-reports/:id/edit', component: EditWeightReportPage },
 
   // Dispatch Orders
