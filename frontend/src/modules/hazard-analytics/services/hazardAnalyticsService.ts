@@ -1,3 +1,4 @@
+import api from '@/core/lib/api';
 import type {
   HazardAnalyticsData,
   HazardFilterParams,
@@ -9,14 +10,6 @@ import type {
   HazardStatus,
   TopUnsafeCondition,
 } from '../types/hazard-analytics.types';
-
-const MOCK_INCIDENT_SUMMARY: IncidentSummary[] = [
-  { category: 'Fatality', actual: 0, target: 0 },
-  { category: 'Major Accident', actual: 2, target: -2 },
-  { category: 'Minor Accident/Recordable Injuries', actual: 36, target: -36 },
-  { category: 'Near Miss', actual: 6, target: -6 },
-  { category: 'Hazard', actual: 255, target: -255 },
-];
 
 const MONTH_LABELS = [
   'Aug 2023', 'Sep 2023', 'Oct 2023', 'Nov 2023', 'Dec 2023', 'Jan 2024',
@@ -169,11 +162,22 @@ function buildMonthYearOptions(startYear: number, endYear: number): { value: str
 }
 
 const hazardAnalyticsService = {
+  getIncidentSummary: async (params?: HazardFilterParams): Promise<IncidentSummary[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.periodFrom) queryParams.append('periodFrom', params.periodFrom);
+    if (params?.periodTo) queryParams.append('periodTo', params.periodTo);
+    const response = await api.get<IncidentSummary[]>(
+      `/dashboard/incident-summary${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
+    );
+    return response.data;
+  },
+
   getAnalyticsData: async (params?: HazardFilterParams): Promise<HazardAnalyticsData> => {
     const p = params ?? {};
+    const incidentSummary = await hazardAnalyticsService.getIncidentSummary(p);
     const monthlyHazards = filterMonthlyByParams(MOCK_MONTHLY_HAZARDS, p);
     return {
-      incidentSummary: MOCK_INCIDENT_SUMMARY,
+      incidentSummary,
       monthlyHazards,
       hazardTypes: MOCK_HAZARD_TYPES,
       nonConformanceCriteria: MOCK_NON_CONFORMANCE,

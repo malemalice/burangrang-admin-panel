@@ -1,12 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
-import { GeneralStatusEnum, RiskRatingEnum } from '@prisma/client';
+import {
+  GeneralStatusEnum,
+  IncidentClassificationEnum,
+  IncidentTypeEnum,
+  RiskRatingEnum,
+} from '@prisma/client';
 import {
   RiskOverview,
   DepartmentProfile,
   RiskCategoryAnalysis,
   RiskAnalysis,
   ComplianceProgress,
+  IncidentSummaryData,
 } from '../types/dashboard.types';
 
 @Injectable()
@@ -214,5 +220,71 @@ export class DashboardService {
       complianceRate: totalAssessments ? (approvedAssessments / totalAssessments) * 100 : 0,
       departmentCompliance,
     };
+  }
+
+  async getIncidentSummary(
+    periodFrom?: string,
+    periodTo?: string,
+  ): Promise<IncidentSummaryData[]> {
+    const where: { isActive: boolean; incidentDate?: { gte?: Date; lte?: Date } } = {
+      isActive: true,
+    };
+
+    if (periodFrom || periodTo) {
+      where.incidentDate = {};
+      if (periodFrom) {
+        const [y, m] = periodFrom.split('-').map(Number);
+        where.incidentDate.gte = new Date(y, m - 1, 1);
+      }
+      if (periodTo) {
+        const [y, m] = periodTo.split('-').map(Number);
+        where.incidentDate.lte = new Date(y, m, 0, 23, 59, 59, 999);
+      }
+    }
+
+    const incidents = await this.prisma.incident.findMany({
+      where,
+      select: {
+        incidentType: true,
+        incidentClassification: true,
+      },
+    });
+
+    const categories: Array<{ label: string; filter: (i: { incidentType: string; incidentClassification: string }) => boolean }> = [
+      {
+        label: 'Fatality',
+        filter: (i) => i.incidentClassification === IncidentClassificationEnum.FATALITY,
+      },
+      {
+        label: 'Major Accident',
+        filter: (i) =>
+          i.incidentType === IncidentTypeEnum.ACCIDENT &&
+          i.incidentClassification === IncidentClassificationEnum.MAJOR,
+      },
+      {
+        label: 'Minor Accident/Recordable Injuries',
+        filter: (i) =>
+          i.incidentType === IncidentTypeEnum.ACCIDENT &&
+          i.incidentClassification === IncidentClassificationEnum.MINOR,
+      },
+      {
+        label: 'Near Miss',
+        filter: (i) => i.incidentType === IncidentTypeEnum.NEAR_MISS,
+      },
+      {
+        label: 'Hazard',
+        filter: (i) =>
+          i.incidentType === IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE,
+      },
+    ];
+
+    return categories.map(({ label, filter }) => {
+      const actual = incidents.filter(filter).length;
+      return {
+        category: label,
+        actual,
+        target: -actual,
+      };
+    });
   }
 } 

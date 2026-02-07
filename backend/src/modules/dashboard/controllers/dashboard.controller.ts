@@ -1,5 +1,12 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { DashboardService } from '../services/dashboard.service';
 import {
   RiskOverviewDto,
@@ -7,6 +14,7 @@ import {
   RiskCategoryAnalysisDto,
   RiskAnalysisDto,
   ComplianceProgressDto,
+  IncidentSummaryDto,
 } from '../dto/dashboard.dto';
 import {
   RiskOverview,
@@ -14,6 +22,7 @@ import {
   RiskCategoryAnalysis,
   RiskAnalysis,
   ComplianceProgress,
+  IncidentSummaryData,
 } from '../types/dashboard.types';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
@@ -86,5 +95,22 @@ export class DashboardController {
   })
   async getComplianceProgress(): Promise<ComplianceProgress> {
     return this.dashboardService.getComplianceProgress();
+  }
+
+  @Get('incident-summary')
+  @Permissions('incident:list')
+  @ApiOperation({ summary: 'Get incident summary for hazard analytics' })
+  @ApiQuery({ name: 'periodFrom', required: false, description: 'Period start YYYY-MM' })
+  @ApiQuery({ name: 'periodTo', required: false, description: 'Period end YYYY-MM' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns incident counts by category (Fatality, Major Accident, etc.)',
+    type: [IncidentSummaryDto],
+  })
+  async getIncidentSummary(
+    @Query('periodFrom') periodFrom?: string,
+    @Query('periodTo') periodTo?: string,
+  ): Promise<IncidentSummaryData[]> {
+    return this.dashboardService.getIncidentSummary(periodFrom, periodTo);
   }
 } 

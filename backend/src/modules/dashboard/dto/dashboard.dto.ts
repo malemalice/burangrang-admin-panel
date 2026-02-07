@@ -120,4 +120,23 @@ export class ComplianceProgressDto {
 
   @ApiProperty({ type: [DepartmentComplianceDto] })
   departmentCompliance: DepartmentComplianceDto[];
+}
+
+export class IncidentSummaryDto {
+  @ApiProperty({ description: 'Category name (e.g. Fatality, Major Accident)' })
+  category: string;
+
+  @ApiProperty({ description: 'Actual count of incidents' })
+  actual: number;
+
+  @ApiProperty({ description: 'Target value or difference (typically -actual when no target)' })
+  target: number;
+}
+
+export class IncidentSummaryQueryDto {
+  @ApiProperty({ required: false, description: 'Period start YYYY-MM' })
+  periodFrom?: string;
+
+  @ApiProperty({ required: false, description: 'Period end YYYY-MM' })
+  periodTo?: string;
 } 

@@ -52,4 +52,10 @@ export interface ComplianceProgress {
     name: string;
     complianceRate: number;
   }>;
+}
+
+export interface IncidentSummaryData {
+  category: string;
+  actual: number;
+  target: number;
 } 
