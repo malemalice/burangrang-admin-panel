@@ -131,47 +131,41 @@ const MOCK_TOP_UNSAFE_CONDITIONS: TopUnsafeCondition[] = [
   { rank: 10, condition: 'Mosquito', reportCount: 2 },
 ];
 
-const FISCAL_YEARS = ['2022-2023', '2023-2024', '2024-2025'];
+const MONTH_ABBREV = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-/** Fiscal year to month labels: e.g. 2023-2024 -> Aug 2023 .. Jul 2024 */
-const FISCAL_YEAR_MONTHS: Record<string, string[]> = {
-  '2022-2023': ['Aug 2022', 'Sep 2022', 'Oct 2022', 'Nov 2022', 'Dec 2022', 'Jan 2023', 'Feb 2023', 'Mar 2023', 'Apr 2023', 'May 2023', 'Jun 2023', 'Jul 2023'],
-  '2023-2024': MONTH_LABELS,
-  '2024-2025': ['Aug 2024', 'Sep 2024', 'Oct 2024', 'Nov 2024', 'Dec 2024', 'Jan 2025', 'Feb 2025', 'Mar 2025', 'Apr 2025', 'May 2025', 'Jun 2025', 'Jul 2025'],
-};
+function monthLabelToKey(monthLabel: string): string {
+  const parts = monthLabel.split(' ');
+  const monthNum = MONTH_ABBREV.indexOf(parts[0]) + 1;
+  const year = parts[1] ?? '';
+  return `${year}-${String(monthNum).padStart(2, '0')}`;
+}
 
 function filterMonthlyByParams(data: MonthlyHazardData[], params: HazardFilterParams): MonthlyHazardData[] {
-  if (!params.periodStart && !params.periodEnd && params.month == null && params.year == null) {
+  if (!params.periodFrom && !params.periodTo) {
     return data;
   }
+  const from = params.periodFrom ?? '0000-00';
+  const to = params.periodTo ?? '9999-99';
   return data.map((row) => {
-    let filteredMonths = row.months;
-    if (params.periodStart || params.periodEnd) {
-      const startIdx = params.periodStart ? FISCAL_YEARS.indexOf(params.periodStart) : 0;
-      const endIdx = params.periodEnd ? FISCAL_YEARS.indexOf(params.periodEnd) : FISCAL_YEARS.length - 1;
-      const monthsInRange = new Set<string>();
-      for (let i = startIdx; i <= endIdx && i >= 0; i++) {
-        const fyMonths = FISCAL_YEAR_MONTHS[FISCAL_YEARS[i]] ?? [];
-        fyMonths.forEach((m) => monthsInRange.add(m));
-      }
-      filteredMonths = monthsInRange.size
-        ? row.months.filter((m) => monthsInRange.has(m.month))
-        : row.months;
-    }
-    if (params.month != null || params.year != null) {
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      filteredMonths = filteredMonths.filter((m) => {
-        const parts = m.month.split(' ');
-        const monthNum = monthNames.indexOf(parts[0]) + 1;
-        const yearNum = parseInt(parts[1], 10);
-        if (params.month != null && monthNum !== params.month) return false;
-        if (params.year != null && yearNum !== params.year) return false;
-        return true;
-      });
-    }
+    const filteredMonths = row.months.filter((m) => {
+      const key = monthLabelToKey(m.month);
+      return key >= from && key <= to;
+    });
     const total = filteredMonths.reduce((sum, m) => sum + m.count, 0);
     return { ...row, months: filteredMonths, total };
   });
+}
+
+function buildMonthYearOptions(startYear: number, endYear: number): { value: string; label: string }[] {
+  const options: { value: string; label: string }[] = [];
+  for (let y = startYear; y <= endYear; y++) {
+    for (let m = 1; m <= 12; m++) {
+      const value = `${y}-${String(m).padStart(2, '0')}`;
+      const label = `${MONTH_ABBREV[m - 1]} ${y}`;
+      options.push({ value, label });
+    }
+  }
+  return options;
 }
 
 const hazardAnalyticsService = {
@@ -189,11 +183,8 @@ const hazardAnalyticsService = {
     };
   },
 
-  getFiscalYearOptions: (): { value: string; label: string }[] =>
-    FISCAL_YEARS.map((y) => ({ value: y, label: y })),
-
-  getPeriodOptions: (): { value: string; label: string }[] =>
-    MONTH_LABELS.map((m) => ({ value: m, label: m })),
+  getMonthYearOptions: (): { value: string; label: string }[] =>
+    buildMonthYearOptions(2022, 2025),
 
   getMonthOptions: (): { value: number; label: string }[] => {
     const months = [

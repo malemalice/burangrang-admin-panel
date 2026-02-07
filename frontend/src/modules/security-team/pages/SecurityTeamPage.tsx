@@ -22,7 +22,6 @@ export default function SecurityTeamPage() {
   const [filters, setFilters] = useState<SecurityFilterParams>(defaultFilters);
   const [appliedFilters, setAppliedFilters] = useState<SecurityFilterParams>(defaultFilters);
 
-  const periodOptions = securityTeamService.getFiscalYearOptions();
   const monthOptions = securityTeamService.getMonthOptions();
   const yearOptions = securityTeamService.getYearOptions();
 
@@ -40,11 +39,22 @@ export default function SecurityTeamPage() {
     setAppliedFilters(defaultFilters);
   }, []);
 
-  const periodLabel = appliedFilters.periodStart && appliedFilters.periodEnd
-    ? `${appliedFilters.periodStart} - ${appliedFilters.periodEnd}`
-    : appliedFilters.periodStart
-      ? appliedFilters.periodStart
-      : '2024-2025';
+  const periodLabel = appliedFilters.periodFrom && appliedFilters.periodTo
+    ? (() => {
+        const from = appliedFilters.periodFrom;
+        const to = appliedFilters.periodTo;
+        const [yFrom, mFrom] = from.split('-').map(Number);
+        const [yTo, mTo] = to.split('-').map(Number);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${months[mFrom - 1]} ${yFrom} - ${months[mTo - 1]} ${yTo}`;
+      })()
+    : appliedFilters.periodFrom
+      ? (() => {
+          const [y, m] = appliedFilters.periodFrom.split('-').map(Number);
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          return `${months[m - 1]} ${y}`;
+        })()
+      : 'Aug 2024 - Jul 2025';
 
   return (
     <div className="space-y-8">
@@ -54,17 +64,12 @@ export default function SecurityTeamPage() {
       />
 
       <SecurityFilters
-        periodStart={filters.periodStart}
-        periodEnd={filters.periodEnd}
-        month={filters.month}
-        year={filters.year}
-        onPeriodStartChange={(v) => setFilters((prev) => ({ ...prev, periodStart: v }))}
-        onPeriodEndChange={(v) => setFilters((prev) => ({ ...prev, periodEnd: v }))}
-        onMonthChange={(v) => setFilters((prev) => ({ ...prev, month: v }))}
-        onYearChange={(v) => setFilters((prev) => ({ ...prev, year: v }))}
+        periodFrom={filters.periodFrom}
+        periodTo={filters.periodTo}
+        onPeriodFromChange={(v) => setFilters((prev) => ({ ...prev, periodFrom: v }))}
+        onPeriodToChange={(v) => setFilters((prev) => ({ ...prev, periodTo: v }))}
         onApply={handleApply}
         onReset={handleReset}
-        periodOptions={periodOptions}
         monthOptions={monthOptions}
         yearOptions={yearOptions}
       />

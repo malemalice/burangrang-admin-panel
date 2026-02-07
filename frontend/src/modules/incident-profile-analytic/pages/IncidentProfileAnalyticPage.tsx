@@ -15,7 +15,6 @@ export default function IncidentProfileAnalyticPage() {
   const [filters, setFilters] = useState<IncidentProfileFilterParams>(defaultFilters);
   const [appliedFilters, setAppliedFilters] = useState<IncidentProfileFilterParams>(defaultFilters);
 
-  const periodOptions = incidentProfileService.getFiscalYearOptions();
   const monthOptions = incidentProfileService.getMonthOptions();
   const yearOptions = incidentProfileService.getYearOptions();
 
@@ -41,17 +40,12 @@ export default function IncidentProfileAnalyticPage() {
       />
 
       <IncidentProfileFilters
-        periodStart={filters.periodStart}
-        periodEnd={filters.periodEnd}
-        month={filters.month}
-        year={filters.year}
-        onPeriodStartChange={(v) => setFilters((prev) => ({ ...prev, periodStart: v }))}
-        onPeriodEndChange={(v) => setFilters((prev) => ({ ...prev, periodEnd: v }))}
-        onMonthChange={(v) => setFilters((prev) => ({ ...prev, month: v }))}
-        onYearChange={(v) => setFilters((prev) => ({ ...prev, year: v }))}
+        periodFrom={filters.periodFrom}
+        periodTo={filters.periodTo}
+        onPeriodFromChange={(v) => setFilters((prev) => ({ ...prev, periodFrom: v }))}
+        onPeriodToChange={(v) => setFilters((prev) => ({ ...prev, periodTo: v }))}
         onApply={handleApply}
         onReset={handleReset}
-        periodOptions={periodOptions}
         monthOptions={monthOptions}
         yearOptions={yearOptions}
       />

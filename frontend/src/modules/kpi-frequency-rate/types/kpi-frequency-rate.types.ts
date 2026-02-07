@@ -12,8 +12,8 @@ export interface KpiFrequencyRateData {
 }
 
 export interface KpiFilterParams {
-  periodStart?: string;
-  periodEnd?: string;
-  month?: number;
-  year?: number;
+  /** Calendar month range start, YYYY-MM (e.g. 2022-01 for Jan 2022) */
+  periodFrom?: string;
+  /** Calendar month range end, YYYY-MM (e.g. 2022-12 for Dec 2022) */
+  periodTo?: string;
 }

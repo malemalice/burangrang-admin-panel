@@ -17,12 +17,22 @@ interface IncidentTriangleChartProps {
   data: IncidentSummaryItem[];
 }
 
+const TOP_CATEGORY_KEY = 'major incident';
+
 export function IncidentTriangleChart({ data }: IncidentTriangleChartProps) {
-  const chartData = data.map((d) => ({
-    category: d.category,
-    count: d.count,
-    difference: d.difference <= 0 ? d.difference : -d.count,
-  })).reverse();
+  const chartData = data
+    .map((d) => ({
+      category: d.category,
+      count: d.count,
+      difference: d.difference <= 0 ? d.difference : -d.count,
+    }))
+    .sort((a, b) => {
+      const aIsTop = a.category.toLowerCase().includes(TOP_CATEGORY_KEY);
+      const bIsTop = b.category.toLowerCase().includes(TOP_CATEGORY_KEY);
+      if (aIsTop && !bIsTop) return -1;
+      if (!aIsTop && bIsTop) return 1;
+      return 0;
+    });
 
   return (
     <Card>

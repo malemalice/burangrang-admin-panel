@@ -17,7 +17,6 @@ export default function KpiFrequencyRatePage() {
   const [filters, setFilters] = useState<KpiFilterParams>(defaultFilters);
   const [appliedFilters, setAppliedFilters] = useState<KpiFilterParams>(defaultFilters);
 
-  const periodOptions = kpiFrequencyRateService.getFiscalYearOptions();
   const monthOptions = kpiFrequencyRateService.getMonthOptions();
   const yearOptions = kpiFrequencyRateService.getYearOptions();
 
@@ -43,17 +42,12 @@ export default function KpiFrequencyRatePage() {
       />
 
       <KpiFilters
-        periodStart={filters.periodStart}
-        periodEnd={filters.periodEnd}
-        month={filters.month}
-        year={filters.year}
-        onPeriodStartChange={(v) => setFilters((prev) => ({ ...prev, periodStart: v }))}
-        onPeriodEndChange={(v) => setFilters((prev) => ({ ...prev, periodEnd: v }))}
-        onMonthChange={(v) => setFilters((prev) => ({ ...prev, month: v }))}
-        onYearChange={(v) => setFilters((prev) => ({ ...prev, year: v }))}
+        periodFrom={filters.periodFrom}
+        periodTo={filters.periodTo}
+        onPeriodFromChange={(v) => setFilters((prev) => ({ ...prev, periodFrom: v }))}
+        onPeriodToChange={(v) => setFilters((prev) => ({ ...prev, periodTo: v }))}
         onApply={handleApply}
         onReset={handleReset}
-        periodOptions={periodOptions}
         monthOptions={monthOptions}
         yearOptions={yearOptions}
       />

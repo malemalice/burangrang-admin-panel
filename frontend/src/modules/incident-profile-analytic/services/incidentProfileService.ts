@@ -23,19 +23,20 @@ type YearKey = 'year2022_2023' | 'year2023_2024' | 'year2024_2025';
 
 const YEAR_KEYS: YearKey[] = ['year2022_2023', 'year2023_2024', 'year2024_2025'];
 
+/** Fiscal year "YYYY-ZZZZ" covers Aug YYYY to Jul ZZZZ. */
+function fiscalYearOverlapsRange(fy: string, periodFrom: string, periodTo: string): boolean {
+  const [startY] = fy.split('-').map(Number);
+  const endY = startY + 1;
+  const rangeStart = `${startY}-08`;
+  const rangeEnd = `${endY}-07`;
+  return periodFrom <= rangeEnd && periodTo >= rangeStart;
+}
+
 function getYearsInRange(params: IncidentProfileFilterParams): YearKey[] {
-  if (!params.periodStart && !params.periodEnd) return YEAR_KEYS;
-  let startIdx = 0;
-  let endIdx = FISCAL_YEARS.length - 1;
-  if (params.periodStart) {
-    const idx = FISCAL_YEARS.indexOf(params.periodStart);
-    if (idx >= 0) startIdx = idx;
-  }
-  if (params.periodEnd) {
-    const idx = FISCAL_YEARS.indexOf(params.periodEnd);
-    if (idx >= 0) endIdx = idx;
-  }
-  return YEAR_KEYS.filter((_, i) => i >= startIdx && i <= endIdx);
+  if (!params.periodFrom && !params.periodTo) return YEAR_KEYS;
+  const from = params.periodFrom ?? '0000-00';
+  const to = params.periodTo ?? '9999-99';
+  return YEAR_KEYS.filter((_, i) => fiscalYearOverlapsRange(FISCAL_YEARS[i], from, to));
 }
 
 function toPercentageData(countData: IncidentCategoryData[]): IncidentCategoryData[] {
@@ -76,8 +77,18 @@ const incidentProfileService = {
     return { countData, percentageData, yearsToShow };
   },
 
-  getFiscalYearOptions: (): { value: string; label: string }[] =>
-    FISCAL_YEARS.map((y) => ({ value: y, label: `Year ${y}` })),
+  getMonthYearOptions: (): { value: string; label: string }[] => {
+    const MONTH_ABBREV = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const options: { value: string; label: string }[] = [];
+    for (let y = 2022; y <= 2025; y++) {
+      for (let m = 1; m <= 12; m++) {
+        const value = `${y}-${String(m).padStart(2, '0')}`;
+        const label = `${MONTH_ABBREV[m - 1]} ${y}`;
+        options.push({ value, label });
+      }
+    }
+    return options;
+  },
 
   getMonthOptions: (): { value: number; label: string }[] => {
     const months = [

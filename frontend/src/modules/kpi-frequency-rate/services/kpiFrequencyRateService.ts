@@ -29,21 +29,36 @@ const MOCK_LTICR: KpiDataPoint[] = [
 
 const FISCAL_YEARS = ['2019-2020', '2020-2021', '2021-2022', '2022-2023', '2023-2024', '2024-2025'];
 
+/** Fiscal year "YYYY-ZZZZ" covers Aug YYYY to Jul ZZZZ. Check if [periodFrom, periodTo] overlaps. */
+function fiscalYearOverlapsRange(fy: string, periodFrom: string, periodTo: string): boolean {
+  const [startY] = fy.split('-').map(Number);
+  const endY = startY + 1;
+  const rangeStart = `${startY}-08`;
+  const rangeEnd = `${endY}-07`;
+  return periodFrom <= rangeEnd && periodTo >= rangeStart;
+}
+
 function filterByPeriod<T extends KpiDataPoint>(data: T[], params: KpiFilterParams): T[] {
-  if (!params.periodStart && !params.periodEnd) return data;
+  if (!params.periodFrom && !params.periodTo) return data;
+  const from = params.periodFrom ?? '0000-00';
+  const to = params.periodTo ?? '9999-99';
   return data.filter((row) => {
-    const idx = FISCAL_YEARS.indexOf(row.year);
-    if (idx < 0) return false;
-    if (params.periodStart) {
-      const startIdx = FISCAL_YEARS.indexOf(params.periodStart);
-      if (startIdx >= 0 && idx < startIdx) return false;
-    }
-    if (params.periodEnd) {
-      const endIdx = FISCAL_YEARS.indexOf(params.periodEnd);
-      if (endIdx >= 0 && idx > endIdx) return false;
-    }
-    return true;
+    return FISCAL_YEARS.includes(row.year) && fiscalYearOverlapsRange(row.year, from, to);
   });
+}
+
+const MONTH_ABBREV = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function buildMonthYearOptions(startYear: number, endYear: number): { value: string; label: string }[] {
+  const options: { value: string; label: string }[] = [];
+  for (let y = startYear; y <= endYear; y++) {
+    for (let m = 1; m <= 12; m++) {
+      const value = `${y}-${String(m).padStart(2, '0')}`;
+      const label = `${MONTH_ABBREV[m - 1]} ${y}`;
+      options.push({ value, label });
+    }
+  }
+  return options;
 }
 
 const kpiFrequencyRateService = {
@@ -56,8 +71,8 @@ const kpiFrequencyRateService = {
     };
   },
 
-  getFiscalYearOptions: (): { value: string; label: string }[] =>
-    FISCAL_YEARS.map((y) => ({ value: y, label: y })),
+  getMonthYearOptions: (): { value: string; label: string }[] =>
+    buildMonthYearOptions(2019, 2025),
 
   getMonthOptions: (): { value: number; label: string }[] => {
     const months = [
