@@ -96,6 +96,7 @@ const AuditClauseCriteriaPage = () => {
   const [departmentMap, setDepartmentMap] = useState<Record<string, string>>({});
   const [isApprovalFormOpen, setIsApprovalFormOpen] = useState(false);
   const [selectedItemForApprovalForm, setSelectedItemForApprovalForm] = useState<MergedCriteriaItem | null>(null);
+  const [criteriaSearchTerm, setCriteriaSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -126,7 +127,7 @@ const AuditClauseCriteriaPage = () => {
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
-        const response = await departmentService.getDepartments({ page: 1, limit: 1000 });
+        const response = await departmentService.getDepartments({ page: 1, limit: 1000, options: true });
         setDepartments(response.data);
         // Create a map of department ID to name for quick lookup
         const map: Record<string, string> = {};
@@ -257,6 +258,18 @@ const AuditClauseCriteriaPage = () => {
     // Convert map to array and sort by order
     return Array.from(criteriaMap.values()).sort((a, b) => a.order - b.order);
   }, [masterCriteria, auditItems]);
+
+  // Filter criteria by search term (client-side)
+  const filteredMergedCriteria = useMemo(() => {
+    if (!criteriaSearchTerm?.trim()) return mergedCriteria;
+    const term = criteriaSearchTerm.trim().toLowerCase();
+    return mergedCriteria.filter(
+      (item) =>
+        item.code?.toLowerCase().includes(term) ||
+        item.name?.toLowerCase().includes(term) ||
+        (item.description && item.description.toLowerCase().includes(term))
+    );
+  }, [mergedCriteria, criteriaSearchTerm]);
 
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
@@ -746,6 +759,8 @@ const AuditClauseCriteriaPage = () => {
             return <Badge className="bg-green-100 text-green-800">Done</Badge>;
           case GeneralStatusEnum.REJECTED:
             return <Badge className="bg-red-100 text-red-800">Rejected</Badge>;
+          case GeneralStatusEnum.CLOSE:
+            return <Badge variant="outline" className="bg-gray-100 text-gray-800">Close</Badge>;
           default:
             return <Badge variant="outline">{status}</Badge>;
         }
@@ -794,8 +809,8 @@ const AuditClauseCriteriaPage = () => {
               </TooltipContent>
             </Tooltip>
 
-            {/* Assess button - shown when no item exists or status is DRAFT/OPEN */}
-            {(hasNoItem || isDraft || isOpen) && (
+            {/* Assess button - shown when no item exists or status is DRAFT/OPEN/REJECTED */}
+            {(hasNoItem || isDraft || isOpen || isRejected) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -813,8 +828,8 @@ const AuditClauseCriteriaPage = () => {
               </Tooltip>
             )}
 
-            {/* Update Action Item button - shown when item exists and status is OPEN */}
-            {item.isFromAuditItem && isOpen && (
+            {/* Update Action Item button - shown when item exists and status is OPEN or REJECTED */}
+            {item.isFromAuditItem && (isOpen || isRejected) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -947,11 +962,13 @@ const AuditClauseCriteriaPage = () => {
         <CardContent>
           <DataTable
             columns={auditCriteriaColumns}
-            data={mergedCriteria}
+            data={filteredMergedCriteria}
             isLoading={isLoadingCriteria}
             filterFields={[]}
-            onSearch={() => {}}
+            searchValue={criteriaSearchTerm}
+            onSearch={(term) => setCriteriaSearchTerm(term)}
             onApplyFilters={() => {}}
+            searchPlaceholder="Search criteria by code or name..."
           />
         </CardContent>
       </Card>

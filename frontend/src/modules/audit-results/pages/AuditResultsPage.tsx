@@ -118,7 +118,7 @@ const AuditResultsPage = () => {
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
-        const response = await departmentService.getDepartments({ page: 1, limit: 1000 });
+        const response = await departmentService.getDepartments({ page: 1, limit: 1000, options: true });
         setDepartments(response.data);
         // Create a map of department ID to name for quick lookup
         const map: Record<string, string> = {};
@@ -238,9 +238,10 @@ const AuditResultsPage = () => {
         limit,
       };
 
-      // Add search term if exists
-      if (searchTerm) {
-        params.search = searchTerm;
+      // Add search term if exists (trim for API; input may contain spaces)
+      const searchTrimmed = searchTerm.trim();
+      if (searchTrimmed) {
+        params.search = searchTrimmed;
       }
 
       // Add filters
@@ -278,11 +279,10 @@ const AuditResultsPage = () => {
 
   const handleSearch = (term: string) => {
     updateSearchParams((next) => {
-      const trimmed = term.trim();
-      if (trimmed) {
-        next.set('search', trimmed);
-      } else {
+      if (term === '') {
         next.delete('search');
+      } else {
+        next.set('search', term);
       }
       next.set('page', '1');
     });
@@ -544,28 +544,29 @@ const AuditResultsPage = () => {
   };
 
   const getCompliantStatusBadge = (status: CompliantStatusEnum) => {
+    const badgeClass = "text-[10px] px-1.5 py-0 h-5 font-medium";
     switch (status) {
       case CompliantStatusEnum.COMPLY:
         return (
-          <Badge className="bg-green-100 text-green-800 border-green-800">
+          <Badge className={`${badgeClass} bg-green-100 text-green-800 border-green-800`}>
             Comply
           </Badge>
         );
       case CompliantStatusEnum.NOT_COMPLY_MAJOR:
         return (
-          <Badge className="bg-red-100 text-red-800 border-red-800">
-            Not Comply - Major
+          <Badge className={`${badgeClass} bg-red-100 text-red-800 border-red-800`}>
+            Major
           </Badge>
         );
       case CompliantStatusEnum.NOT_COMPLY_MINOR:
         return (
-          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-800">
-            Not Comply - Minor
+          <Badge className={`${badgeClass} bg-yellow-100 text-yellow-800 border-yellow-800`}>
+            Minor
           </Badge>
         );
       default:
         return (
-          <Badge variant="outline">
+          <Badge variant="outline" className={badgeClass}>
             {status}
           </Badge>
         );
@@ -577,57 +578,79 @@ const AuditResultsPage = () => {
       [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
       [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'outline' },
       [GeneralStatusEnum.OPEN]: { label: 'Open', variant: 'secondary' },
-      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
+      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Verifying', variant: 'secondary' },
       [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
       [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
+      [GeneralStatusEnum.CLOSE]: { label: 'Close', variant: 'default' },
     };
 
     const statusKey = String(status);
     const statusInfo = statusMap[statusKey] || { label: statusKey, variant: 'outline' };
 
     return (
-      <Badge variant={statusInfo.variant}>
+      <Badge variant={statusInfo.variant} className="text-[10px] px-1.5 py-0 h-5 font-medium">
         {statusInfo.label}
       </Badge>
     );
   };
 
+  // Column width classes: fixed layout so table fits viewport (totals 100%)
+  // Department kept compact; actions column centered
+  const colCodeAndCompliant = 'w-[14%] min-w-0';
+  const colElementClause = 'w-[18%] min-w-0';
+  const colCriteria = 'w-[28%] min-w-0';
+  const colStatus = 'w-[8%] min-w-0';
+  const colDates = 'w-[11%] min-w-0';
+  const colDepartment = 'w-[10%] min-w-0';
+  const colActions = 'w-[11%] min-w-0 text-center justify-center';
+  const cellOverflow = 'min-w-0 overflow-hidden';
+
   const columns = [
     {
       id: 'auditScheduleCode',
-      header: 'Audit Schedule Code',
+      header: 'Schedule Code / Compliant',
+      headerClassName: colCodeAndCompliant,
+      cellClassName: cellOverflow,
       cell: (result: AuditResult) => (
-        <button
-          onClick={() => navigate(`/audit-schedules/${result.auditId}`, {
-            state: { returnTo: `${location.pathname}${location.search}` }
-          })}
-          className="font-medium text-primary hover:underline focus:outline-none focus:underline"
-          aria-label={`View audit schedule ${result.auditScheduleCode}`}
-        >
-          {result.auditScheduleCode}
-        </button>
+        <div className="space-y-1">
+          <button
+            onClick={() => navigate(`/audit-schedules/${result.auditId}`, {
+              state: { returnTo: `${location.pathname}${location.search}` }
+            })}
+            className="block text-xs font-medium text-primary hover:underline focus:outline-none focus:underline text-left leading-tight"
+            aria-label={`View audit schedule ${result.auditScheduleCode}`}
+          >
+            {result.auditScheduleCode}
+          </button>
+          {getCompliantStatusBadge(result.compliantStatus)}
+        </div>
       ),
     },
     {
       id: 'auditElementClause',
       header: 'Element / Clause',
+      headerClassName: colElementClause,
+      cellClassName: cellOverflow,
       cell: (result: AuditResult) => {
         const element = result.auditElement;
         const clause = result.auditClause;
         
-        if (!element && !clause) return <div>N/A</div>;
+        if (!element && !clause) return <div className="text-xs text-muted-foreground">-</div>;
         
         return (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {element && (
-              <div className="font-semibold text-sm">
-                <span className="font-mono text-xs text-muted-foreground mr-1">{element.code}</span>
+              <div className="text-xs font-medium leading-tight" title={`${element.code} ${element.name}`}>
+                <span className="font-mono text-[10px] text-muted-foreground mr-1">{element.code}</span>
                 <span className="text-foreground">{element.name}</span>
               </div>
             )}
             {clause && (
-              <div className="text-sm text-muted-foreground pl-4 border-l-2 border-muted">
-                <span className="font-mono text-xs mr-1">{clause.code}</span>
+              <div 
+                className="text-xs text-muted-foreground pl-2 border-l border-muted leading-tight truncate"
+                title={`${clause.code} ${clause.name}`}
+              >
+                <span className="font-mono text-[10px] mr-1">{clause.code}</span>
                 <span>{clause.name}</span>
               </div>
             )}
@@ -638,74 +661,82 @@ const AuditResultsPage = () => {
     {
       id: 'auditCriteria',
       header: 'Audit Criteria',
+      headerClassName: colCriteria,
+      cellClassName: cellOverflow,
       cell: (result: AuditResult) => {
         const criteria = result.auditCriteria;
-        if (!criteria) return <div>N/A</div>;
+        if (!criteria) return <div className="text-xs text-muted-foreground">-</div>;
+        const fullText = `${criteria.code} - ${criteria.name}`;
         return (
-          <div>
-            <span className="font-mono text-xs text-muted-foreground">{criteria.code}</span>
-            <span className="mx-1">-</span>
-            <span>{criteria.name}</span>
+          <div className="min-w-0 w-full max-w-full" title={fullText}>
+            <span className="block truncate text-xs leading-tight">
+              <span className="font-mono text-[10px] text-muted-foreground">{criteria.code}</span>
+              <span className="mx-0.5">-</span>
+              <span>{criteria.name}</span>
+            </span>
           </div>
         );
       },
     },
     {
-      id: 'compliantStatus',
-      header: 'Compliant Status',
-      cell: (result: AuditResult) => getCompliantStatusBadge(result.compliantStatus),
-    },
-    {
-      id: 'status',
-      header: 'Status',
-      cell: (result: AuditResult) => getStatusBadge(result.status),
-    },
-    {
-      id: 'dates',
-      header: 'Created At / Due Date',
-      cell: (result: AuditResult) => (
-        <div className="space-y-1">
-          <div className="text-sm">
-            <span className="text-muted-foreground">Created: </span>
-            <span>{result.createdAt 
-              ? format(new Date(result.createdAt), 'dd MMM yyyy') 
-              : 'N/A'}</span>
-          </div>
-          <div className="text-sm">
-            <span className="text-muted-foreground">Due: </span>
-            <span>{result.dueDate 
-              ? format(new Date(result.dueDate), 'dd MMM yyyy') 
-              : 'N/A'}</span>
-          </div>
-        </div>
-      ),
-    },
-    {
       id: 'departments',
-      header: 'Department Assigned',
+      header: 'Department',
+      headerClassName: colDepartment,
+      cellClassName: 'min-w-0 overflow-hidden px-1',
       cell: (result: AuditResult) => {
         const departmentIds = result.departmentIds || [];
         if (departmentIds.length === 0) {
-          return <div className="text-muted-foreground">N/A</div>;
+          return <div className="text-muted-foreground text-xs">-</div>;
         }
         // Map department IDs to names, fallback to ID if name not found
         const departmentNames = departmentIds
           .map((id) => {
             const name = departmentMap[id];
-            return name || id; // Fallback to ID if name not in map yet
+            return name || id;
           })
-          .filter((name) => name) // Filter out any empty values
-          .join(', ');
+          .filter((name) => name);
+        
+        const displayText = departmentNames.join(', ');
         return (
-          <div className="text-sm">
-            {departmentNames || 'N/A'}
+          <div 
+            className="text-xs truncate w-full" 
+            title={displayText}
+          >
+            {displayText || '-'}
           </div>
         );
       },
     },
     {
+      id: 'status',
+      header: 'Status',
+      headerClassName: colStatus,
+      cellClassName: cellOverflow,
+      cell: (result: AuditResult) => getStatusBadge(result.status),
+    },
+    {
+      id: 'dates',
+      header: 'Created / Due',
+      headerClassName: colDates,
+      cellClassName: cellOverflow,
+      cell: (result: AuditResult) => (
+        <div className="space-y-0.5">
+          <div className="text-[10px] text-muted-foreground leading-tight">Created</div>
+          <div className="text-xs font-medium leading-tight tabular-nums">
+            {result.createdAt ? format(new Date(result.createdAt), 'dd-MM-yyyy') : '-'}
+          </div>
+          <div className="text-[10px] text-muted-foreground leading-tight pt-0.5">Due</div>
+          <div className="text-xs font-medium leading-tight tabular-nums">
+            {result.dueDate ? format(new Date(result.dueDate), 'dd-MM-yyyy') : '-'}
+          </div>
+        </div>
+      ),
+    },
+    {
       id: 'actions',
       header: 'Actions',
+      headerClassName: colActions,
+      cellClassName: 'min-w-0 overflow-visible',
       cell: (result: AuditResult) => {
         const isDraft = result.status === GeneralStatusEnum.DRAFT;
         const isOpen = result.status === GeneralStatusEnum.OPEN;
@@ -714,20 +745,20 @@ const AuditResultsPage = () => {
         const isRejected = result.status === GeneralStatusEnum.REJECTED;
 
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-0.5">
             {/* View button - always shown */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="sm"
                   onClick={() => navigate(`/audit-schedules/${result.auditId}/clauses/${result.auditClause.id}/criteria/${result.auditCriteria.id}`, {
                     state: { returnTo: `${location.pathname}${location.search}` }
                   })}
-                  className="text-primary hover:text-primary hover:bg-primary/10"
+                  className="h-7 w-7 p-0 text-primary hover:text-primary hover:bg-primary/10"
                   aria-label={`View audit criteria ${result.auditCriteria.code}`}
                 >
-                  <Eye className="h-4 w-4" />
+                  <Eye className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -735,18 +766,18 @@ const AuditResultsPage = () => {
               </TooltipContent>
             </Tooltip>
 
-            {/* Assess button - shown when status is DRAFT or OPEN */}
-            {(isDraft || isOpen) && (
+            {/* Assess button - shown when status is DRAFT, OPEN, or REJECTED */}
+            {(isDraft || isOpen || isRejected) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="sm"
                     onClick={() => handleOpenForm(result, 'assessment')}
-                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                     aria-label={`Assess audit criteria ${result.auditCriteria.code}`}
                   >
-                    <ClipboardCheck className="h-4 w-4" />
+                    <ClipboardCheck className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -755,18 +786,18 @@ const AuditResultsPage = () => {
               </Tooltip>
             )}
 
-            {/* Update Action Item button - shown when status is OPEN */}
-            {isOpen && (
+            {/* Update Action Item button - shown when status is OPEN or REJECTED */}
+            {(isOpen || isRejected) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="sm"
                     onClick={() => handleOpenForm(result, 'update_action_item')}
-                    className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                    className="h-7 w-7 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                     aria-label={`Update action item for audit criteria ${result.auditCriteria.code}`}
                   >
-                    <Wrench className="h-4 w-4" />
+                    <Wrench className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -781,12 +812,12 @@ const AuditResultsPage = () => {
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="sm"
                     onClick={() => handleOpenApprovalForm(result)}
-                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                    className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
                     aria-label={`Approve audit criteria ${result.auditCriteria.code}`}
                   >
-                    <CheckCircle2 className="h-4 w-4" />
+                    <CheckCircle2 className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -829,6 +860,11 @@ const AuditResultsPage = () => {
         columns={columns}
         data={auditResults}
         isLoading={isLoading}
+        tableClassName="table-fixed w-full text-xs"
+        tableContainerClassName="min-w-0 overflow-x-hidden"
+        tableHeaderClassName="h-8 px-2 text-xs"
+        tableCellClassName="p-2 text-xs"
+        stickyHeader
         pagination={{
           pageIndex,
           limit,

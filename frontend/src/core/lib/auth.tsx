@@ -8,7 +8,8 @@ interface User {
   email: string;
   firstName: string;
   lastName: string;
-  role: string | { name: string; [key: string]: any };
+  role: string | { name: string; [key: string]: unknown };
+  permissions?: string[];
 }
 
 interface AuthContextType {

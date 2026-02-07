@@ -2,11 +2,11 @@
 ## Frontend Modular Architecture Restructuring
 
 ### 📋 Document Information
-- **Version**: 1.6
-- **Date**: 2024-12-20
+- **Version**: 1.10
+- **Date**: 2025-02-03
 - **Status**: Active
 - **Author**: Development Team
-- **Last Updated**: Searchable Select/Combobox Inside Dialog Pattern Added
+- **Last Updated**: Data-Level Access (Backend) handling principles added
 
 ---
 
@@ -14,6 +14,10 @@
 
 This document outlines the technical requirements and architectural principles for restructuring the frontend application from a traditional layered architecture to a modular, feature-based architecture. The restructuring aims to improve maintainability, scalability, and developer experience while following modern frontend best practices.
 
+**Version 1.10 Updates**: Added "Data-Level Access (Backend)" — for data-scoped modules (Enrollments, Work Permits, Certificates, PPE Withdrawals) the backend enforces row-level access (SELF / DEPARTMENT / SUPER). Lists may return fewer rows or empty; single-record requests (get by id, update, delete) may return 403. Handle 403 with a clear message (e.g. "You do not have access to this record"); treat empty lists as valid, not as errors. Reference: Error Handling Patterns, docs/auth.md.
+**Version 1.9 Updates**: Added "Options Bypass for Select/Dropdown Data" — when fetching list data for form dropdowns/selects, add `options: true` to query params so users without the specific `*:list` permission can still load options for forms they have access to. Use: `departmentService.getDepartments({ page: 1, limit: 100, options: true })`. Reference: UserForm, CertificateForm, Inter-Module API Calls.
+**Version 1.8 Updates**: Added "PDF Export (Detail Page) — Implementation Principles" under Advanced Features: react-to-pdf, dedicated PDF template, full data fetch before capture, hidden target, data fallback, filename/UX, template structure. Reference: RiskAssessmentDetailPage, RiskAssessmentPDFTemplate.
+**Version 1.7 Updates**: Added "List page state persistence (index → view → back)" under Search & Filters: URL as source of truth for list state, derive state from `useSearchParams`, sync URL on list actions, Back button uses `navigate(-1)`. Reference: AuditResultsPage, RiskRegisterPage, RisksPage.
 **Version 1.6 Updates**: Added "Searchable Select/Combobox Inside Dialog Pattern" documenting critical aria-hidden conflicts when using portaled components (Popover, Select) inside Dialog modals. Provides solution using ModalCombobox component with absolute positioning (no portals) for guaranteed interactivity. Includes root cause analysis, failed solution attempts, implementation principles, and usage patterns.
 **Version 1.5 Updates**: Added Dropdown + Dialog pattern to prevent focus trap issues when dropdown menus interact with dialogs. Includes state management, event handling, and cleanup patterns to ensure proper dropdown closing and prevent `aria-hidden` focus traps that block user interactions.
 **Version 1.4 Updates**: Merged form layout principles from `frontend-form-general-layout.md`, including page structure patterns (PageHeader → max-w-4xl wrapper → Form Component), component hierarchy guidelines, layout patterns (two-column grid, spacing standards), state patterns (loading/error states), and action button patterns. Enhanced "Form Page Specific Guidelines" and "Form Component Patterns" sections with complete implementation examples and quick reference checklist.
@@ -314,6 +318,8 @@ When designing UI/UX for **back-office systems** (ERP, Internal Dashboards), the
   - Clear all filters button
   - Save filter presets for reuse
 - **Filter persistence**: Remember filters across sessions
+
+**List page state persistence (index → view → back)** — For list pages with search/filters that link to a detail/view page, keep list state so "Back" returns to the same results. **Principles:** (1) **URL as source of truth**: Persist pagination, search, and filters in query params (`page`, `limit`, `search`, plus filter keys). (2) **Derive state from URL**: Use `useSearchParams()`; derive `pageIndex`, `limit`, `searchTerm`, `activeFilters` from `searchParams` in `useMemo` (not only `useState`). (3) **Sync URL on every list action**: When user changes search, filters, page, or page size, call `setSearchParams` (or an `updateSearchParams` helper) so the address bar matches list state. (4) **Back = history back**: On the detail page, the Back button MUST use `navigate(-1)` so the user returns to the previous URL (with query params); the list page then remounts with that URL and restores state. **Reference implementations:** `AuditResultsPage`, `RiskRegisterPage`, `RisksPage` (master-data).
 
 #### Modal vs Page Decision
 - **Use Modals for**:
@@ -634,6 +640,17 @@ interface ApprovalDialogProps {
 - **Scope**: Current page, all pages, selected items, filtered results
 - **Customization**: Choose columns to export
 - **Background jobs**: For large exports with email notification
+
+#### PDF Export (Detail Page) — Implementation Principles
+Use these when adding "Export PDF" on entity detail pages (e.g. Risk Assessment, Inspection, Dispatch Order). Reference: `RiskAssessmentDetailPage`, `RiskAssessmentPDFTemplate`.
+
+1. **Library**: `react-to-pdf` (`usePDF`). Client-side only; no backend PDF generation.
+2. **Dedicated template**: One component only for PDF content (e.g. `[Entity]PDFTemplate`). Props: main entity + full list data + approval history (if applicable). Use print-safe layout: white bg, Arial, HTML tables with `borderCollapse: 'collapse'`, Tailwind for colors. No complex layout or portals.
+3. **Full data before capture**: If the page shows paginated children, PDF must include all. On export: fetch all items (e.g. `page: 1`, `limit: 10000`) and refresh approval status in parallel; put results in state; wait ~200 ms for re-render; then call `toPDF()` so the captured DOM has the full dataset.
+4. **Hidden target**: Render the template in a div with `ref={targetRef}`, off-screen (`position: 'absolute', left: '-9999px', top: '-9999px'`), fixed width (e.g. `210mm`), `aria-hidden="true"`. Only this div is used for PDF.
+5. **Data fallback**: Pass to template: items = `allItemsForPDF.length ? allItemsForPDF : items`, approval = `approvalHistoryForPDF ?? approvalHistory` so PDF still works if the full fetch hasn’t completed or fails.
+6. **UX**: Filename = `{entityCode}-{yyyyMMdd-HHmmss}.pdf`. Disable export and show "Preparing PDF…" while loading; toast on success/error.
+7. **Template structure**: Header (title + code + date) → Details (key fields; optional HTML with `dangerouslySetInnerHTML` in a constrained block) → Full data table(s) → Approval timeline (workflow + history) if applicable. Format dates with `date-fns`; use semantic colors for status.
 
 #### Comparison Views
 - **Side-by-side**: Compare two records or versions
@@ -1405,7 +1422,8 @@ const fetchRolesForDropdown = async () => {
   try {
     const response = await roleService.getRoles({
       page: 1,
-      limit: 100 // Get all for dropdown
+      limit: 100, // Get all for dropdown
+      options: true // Bypass permission check - user needs options for form, not full module access
     });
     return response.data;
   } catch (error) {
@@ -1414,6 +1432,8 @@ const fetchRolesForDropdown = async () => {
   }
 };
 ```
+
+**Options Bypass for Select/Dropdown Data:** When fetching list data for form dropdowns (roles, departments, offices, etc.), add `options: true` to the query params. This allows users who have form access (e.g. `certificate:create`) but not the list permission (e.g. `department:list`) to still load options. The backend accepts `?options=true` and bypasses the permission check for authenticated users on endpoints that support it.
 
 ### Table Display Patterns
 
@@ -2039,10 +2059,10 @@ useEffect(() => {
     try {
       setIsLoading(true);
 
-      // Fetch options from other modules
+      // Fetch options from other modules (options: true bypasses permission check for dropdown data)
       const [rolesResponse, officesResponse] = await Promise.all([
-        roleService.getRoles({ page: 1, limit: 100 }),
-        officeService.getOffices({ page: 1, limit: 100 })
+        roleService.getRoles({ page: 1, limit: 100, options: true }),
+        officeService.getOffices({ page: 1, limit: 100, options: true })
       ]);
 
       setRoles(rolesResponse.data);
@@ -2169,6 +2189,16 @@ if (isLoading) {
   );
 }
 ```
+
+#### 3. Data-Level Access (Backend)
+
+For **data-scoped modules** (Enrollments, Work Permits, Certificates, PPE Withdrawals), the backend enforces row-level access (SELF / DEPARTMENT / SUPER). The frontend does not implement data-level logic; it must handle backend behavior correctly:
+
+- **List (findAll):** The API may return fewer rows or an empty list when the user's role has SELF or DEPARTMENT scope. Treat empty or partial results as **valid** — do not show a generic "error" or assume data is missing due to a bug. Show an empty state (e.g. "No records" or "No records you have access to") when the list is empty.
+- **Single record (get by id, update, delete, related actions):** The API may return **403 Forbidden** (e.g. message "You do not have access to this record") when the user does not have access to that row. Handle 403 with a clear, user-friendly message (e.g. toast or inline: "You do not have access to this record") and navigate away or back to list as appropriate; do not treat 403 as a generic server error.
+- **Principle:** Do not assume the user can see all rows in these modules. Empty lists and 403 on detail/update/delete are expected for users with SELF or DEPARTMENT scope.
+
+Reference: Backend TRD "Data-Level Access", `docs/auth.md`.
 
 ---
 
@@ -2532,6 +2562,9 @@ const columns = [
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.9 | 2025-02-03 | Development Team | Added "Options Bypass for Select/Dropdown Data" under Inter-Module API Calls and Cross-Module Data Dependencies: use `options: true` in query params when fetching list data for form dropdowns so users without the specific list permission can load options. Reference: UserForm, CertificateForm. |
+| 1.8 | 2024-12-20 | Development Team | Added "PDF Export (Detail Page) — Implementation Principles" under Advanced Features: react-to-pdf, dedicated PDF template, full data fetch before capture, hidden target, data fallback, filename/UX, template structure. Reference: RiskAssessmentDetailPage, RiskAssessmentPDFTemplate. |
+| 1.7 | 2024-12-20 | Development Team | Added "List page state persistence (index → view → back)" under Search & Filters: URL as source of truth for list state, derive state from useSearchParams, sync URL on list actions, Back uses navigate(-1). Reference: AuditResultsPage, RiskRegisterPage, RisksPage. |
 | 1.6 | 2024-12-20 | Development Team | Added "Searchable Select/Combobox Inside Dialog Pattern" to Module Interaction Patterns section. Documents critical issue where portaled components (Popover, Select) inside Dialog modals cause aria-hidden conflicts that block all interactions. Provides solution using ModalCombobox component with absolute positioning (no portals) for guaranteed interactivity inside Dialogs. Includes failed solution attempts, root cause analysis, implementation principles, and usage patterns. Updated Form Components section with warning about using ModalCombobox inside dialogs. |
 | 1.5 | 2024-12-XX | Development Team | Merged form layout principles from `frontend-form-general-layout.md`, including page structure patterns (PageHeader → max-w-4xl wrapper → Form Component), component hierarchy guidelines, layout patterns (two-column grid, spacing standards), state patterns (loading/error states), and action button patterns. Enhanced "Form Page Specific Guidelines" and "Form Component Patterns" sections with complete implementation examples and quick reference checklist. |
 | 1.4 | 2024-12-XX | Development Team | Added Dropdown + Dialog pattern to Table Display Patterns section. Includes critical pattern for preventing focus trap issues when dropdown menus interact with dialogs, with state management, event handling, and cleanup best practices. |

@@ -3,19 +3,20 @@ import { StorageLocationsService } from '../services/storage-locations.service';
 import { CreateStorageLocationDto, UpdateStorageLocationDto, StorageLocationDto } from '../dto/storage-locations';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
-import { Roles } from '../../../shared/decorators/roles.decorator';
-import { Role } from '../../../shared/types/role.enum';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('storage-locations')
 @ApiBearerAuth()
 @Controller('storage-locations')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class StorageLocationsController {
   constructor(private readonly service: StorageLocationsService) {}
 
   @Post()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:create')
   @ApiOperation({ summary: 'Create a new storage location' })
   @ApiBody({ type: CreateStorageLocationDto })
   @ApiResponse({ status: 201, description: 'The storage location has been successfully created.', type: StorageLocationDto })
@@ -28,13 +29,15 @@ export class StorageLocationsController {
   }
 
   @Get()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @AllowOptionsBypass()
+  @Permissions('waste-management:list')
   @ApiOperation({ summary: 'Get all storage locations' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean })
   @ApiQuery({ name: 'areaId', required: false, type: String })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({ status: 200, description: 'Return all storage locations.', type: [StorageLocationDto] })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findAll(
@@ -54,7 +57,7 @@ export class StorageLocationsController {
   }
 
   @Get(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('waste-management:read')
   @ApiOperation({ summary: 'Get storage location by id' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'Return the storage location.', type: StorageLocationDto })
@@ -65,7 +68,7 @@ export class StorageLocationsController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:update')
   @ApiOperation({ summary: 'Update storage location' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateStorageLocationDto })
@@ -78,7 +81,7 @@ export class StorageLocationsController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:delete')
   @ApiOperation({ summary: 'Delete storage location' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'The storage location has been successfully deleted.' })

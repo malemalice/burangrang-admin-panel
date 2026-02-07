@@ -23,7 +23,7 @@ export const GENERAL_STATUS_OPTIONS = [
   { value: GeneralStatusEnum.WAITING_APPROVAL, label: 'Waiting Verification' },
   { value: GeneralStatusEnum.DONE, label: 'Done' },
   { value: GeneralStatusEnum.REJECTED, label: 'Rejected' },
-  { value: GeneralStatusEnum.CLOSE, label: 'Closed' },
+  { value: GeneralStatusEnum.CLOSE, label: 'Close' },
 ] as const;
 
 /**
@@ -33,5 +33,5 @@ export const GENERAL_STATUS_OPTIONS = [
 export const INSPECTION_ITEM_STATUS_OPTIONS = [
   { value: GeneralStatusEnum.OPEN, label: 'Open Issue' },
   { value: GeneralStatusEnum.WAITING_APPROVAL, label: 'Waiting Verification' },
-  { value: GeneralStatusEnum.CLOSE, label: 'Closed' },
+  { value: GeneralStatusEnum.CLOSE, label: 'Close' },
 ] as const;

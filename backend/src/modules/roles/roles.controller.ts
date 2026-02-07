@@ -28,29 +28,46 @@ import { ErrorHandlingService } from '../../shared/services/error-handling.servi
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
-import { Roles } from '../../shared/decorators/roles.decorator';
-import { Role } from '../../shared/types/role.enum';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 
 @ApiTags('roles')
 @ApiBearerAuth()
 @Controller('roles')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @Post()
+  @Permissions('role:create')
   @ApiOperation({ summary: 'Create a new role' })
   @ApiResponse({
     status: 201,
     description: 'The role has been successfully created.',
   })
   @ApiResponse({ status: 400, description: 'Bad request.' })
-  @Roles(Role.SUPER_ADMIN)
+  
   create(@Body() createRoleDto: CreateRoleDto) {
     return this.rolesService.create(createRoleDto);
   }
 
+  @Post(':id/duplicate')
+  @Permissions('role:create')
+  @ApiOperation({ summary: 'Duplicate a role with its permissions' })
+  @ApiParam({ name: 'id', description: 'Role ID to duplicate', type: String })
+  @ApiResponse({
+    status: 201,
+    description: 'The role has been duplicated.',
+  })
+  @ApiResponse({ status: 404, description: 'Role not found.' })
+  duplicate(@Param('id') id: string) {
+    return this.rolesService.duplicate(id);
+  }
+
   @Get()
+  @AllowOptionsBypass()
+  @Permissions('role:list')
   @ApiOperation({ summary: 'Get all roles with pagination and filtering' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
@@ -58,13 +75,14 @@ export class RolesController {
   @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
   @ApiQuery({ name: 'sortBy', required: false, type: String, description: 'Sort field' })
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Sort order' })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({ 
     status: 200, 
     description: 'Return paginated roles.',
     type: RoleDto,
     isArray: false
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -90,16 +108,18 @@ export class RolesController {
   }
 
   @Get(':id')
+  @Permissions('role:read')
   @ApiOperation({ summary: 'Get a role by id' })
   @ApiParam({ name: 'id', description: 'Role ID', type: String })
   @ApiResponse({ status: 200, description: 'Return the role.' })
   @ApiResponse({ status: 404, description: 'Role not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   findOne(@Param('id') id: string) {
     return this.rolesService.findOne(id);
   }
 
   @Patch(':id')
+  @Permissions('role:update')
   @ApiOperation({ summary: 'Update a role' })
   @ApiParam({ name: 'id', description: 'Role ID', type: String })
   @ApiBody({ type: UpdateRoleDto })
@@ -108,12 +128,13 @@ export class RolesController {
     description: 'The role has been successfully updated.',
   })
   @ApiResponse({ status: 404, description: 'Role not found.' })
-  @Roles(Role.SUPER_ADMIN)
+  
   update(@Param('id') id: string, @Body() updateRoleDto: UpdateRoleDto) {
     return this.rolesService.update(id, updateRoleDto);
   }
 
   @Delete(':id')
+  @Permissions('role:delete')
   @ApiOperation({ summary: 'Delete a role' })
   @ApiParam({ name: 'id', description: 'Role ID', type: String })
   @ApiResponse({
@@ -121,7 +142,7 @@ export class RolesController {
     description: 'The role has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Role not found.' })
-  @Roles(Role.SUPER_ADMIN)
+  
   remove(@Param('id') id: string) {
     return this.rolesService.remove(id);
   }

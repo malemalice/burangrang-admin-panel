@@ -31,10 +31,13 @@ import enrollmentService from '../services/enrollmentService';
 import courseService from '@/modules/courses/services/courseService';
 import userService from '@/modules/users/services/userService';
 import AssignCourseDialog from '../components/AssignCourseDialog';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const EnrollmentsPage = () => {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const { hasPermission } = usePermissions();
   const { updateEnrollment } = useEnrollments();
 
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
@@ -73,7 +76,7 @@ const EnrollmentsPage = () => {
       try {
         const [coursesResponse, usersResponse] = await Promise.all([
           courseService.getCourses({ page: 1, limit: 100 }),
-          isAdmin ? userService.getUsers({ page: 1, limit: 100 }) : Promise.resolve({ data: [], meta: { total: 0 } }),
+          isAdmin ? userService.getUsers({ page: 1, limit: 100, options: true }) : Promise.resolve({ data: [], meta: { total: 0 } }),
         ]);
 
         setCourses(coursesResponse.data.map(c => ({ id: c.id, title: c.title })));
@@ -374,10 +377,12 @@ const EnrollmentsPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/enrollments/${enrollment.id}`)}>
-              <Eye className="mr-2 h-4 w-4" /> View details
-            </DropdownMenuItem>
-            {(enrollment.status === EnrollmentStatus.INVITED || enrollment.status === EnrollmentStatus.ACTIVE) && (
+            {hasPermission('enrollment:read') && (
+              <DropdownMenuItem onClick={() => navigate(`/enrollments/${enrollment.id}`)}>
+                <Eye className="mr-2 h-4 w-4" /> View details
+              </DropdownMenuItem>
+            )}
+            {hasPermission('enrollment:update') && (enrollment.status === EnrollmentStatus.INVITED || enrollment.status === EnrollmentStatus.ACTIVE) && (
               <>
                 <DropdownMenuItem onClick={() => navigate(`/enrollments/${enrollment.id}/edit`)}>
                   <Edit className="mr-2 h-4 w-4" /> Edit
@@ -404,11 +409,11 @@ const EnrollmentsPage = () => {
         title="Course Enrollments"
         subtitle="Manage course enrollments and assignments"
         actions={
-          isAdmin && (
+          <PermissionGuard permission="enrollment:create">
             <ThemeButton onClick={() => setAssignDialogOpen(true)}>
               <UserPlus className="mr-2 h-4 w-4" /> Assign Course
             </ThemeButton>
-          )
+          </PermissionGuard>
         }
       />
 

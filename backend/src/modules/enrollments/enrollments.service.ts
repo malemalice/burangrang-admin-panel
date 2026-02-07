@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { EnrollmentStatusEnum, QuizAttemptStatusEnum } from '@prisma/client';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { DataScopeService } from '../../shared/services/data-scope.service';
+import { UserContext } from '../../shared/types/user-context';
 import { NotificationsService } from '../notifications/services/notifications.service';
 import { MailService } from '../mail/mail.service';
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
@@ -10,7 +13,6 @@ import { UpdateEnrollmentDto } from './dto/update-enrollment.dto';
 import { FindEnrollmentsDto } from './dto/find-enrollments.dto';
 import { EnrollmentDto } from './dto/enrollment.dto';
 import { PaginatedResponse } from '../../shared/types/pagination-params';
-import { Role } from '../../shared/types/role.enum';
 
 @Injectable()
 export class EnrollmentsService {
@@ -21,6 +23,7 @@ export class EnrollmentsService {
     private readonly prisma: PrismaService,
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
+    private readonly dataScopeService: DataScopeService,
     private readonly notificationsService: NotificationsService,
     private readonly mailService: MailService,
   ) {
@@ -98,7 +101,7 @@ export class EnrollmentsService {
         data: {
           userId,
           courseId,
-          status: 'ACTIVE',
+          status: EnrollmentStatusEnum.ACTIVE,
           enrolledAt: new Date(),
           progress: 0,
         },
@@ -145,7 +148,7 @@ export class EnrollmentsService {
           userId,
           courseId,
           status: {
-            in: ['ACTIVE', 'INVITED'],
+            in: [EnrollmentStatusEnum.ACTIVE, EnrollmentStatusEnum.INVITED],
           },
         },
       });
@@ -158,7 +161,7 @@ export class EnrollmentsService {
         data: {
           userId,
           courseId,
-          status: 'INVITED',
+          status: EnrollmentStatusEnum.INVITED,
           assignedBy,
           assignedAt: new Date(),
           dueDate: dueDate ? new Date(dueDate) : null,
@@ -265,8 +268,7 @@ export class EnrollmentsService {
 
   async findAll(
     params: FindEnrollmentsDto,
-    currentUserId: string,
-    currentUserRole: string,
+    userContext: UserContext | undefined,
   ): Promise<PaginatedResponse<EnrollmentDto>> {
     return this.errorHandler.safeExecute(async () => {
       const {
@@ -287,17 +289,12 @@ export class EnrollmentsService {
       // Build where clause
       const where: any = {};
 
-      // Role-based filtering: non-admin users can only see their own enrollments
-      if (currentUserRole !== Role.ADMIN && currentUserRole !== Role.SUPER_ADMIN) {
-        where.userId = currentUserId;
-      }
-
       // Apply filters
       if (courseId) {
         where.courseId = courseId;
       }
 
-      if (userId && (currentUserRole === Role.ADMIN || currentUserRole === Role.SUPER_ADMIN)) {
+      if (userId) {
         where.userId = userId;
       }
 
@@ -305,7 +302,7 @@ export class EnrollmentsService {
         where.status = status;
       }
 
-      if (assignedBy && (currentUserRole === Role.ADMIN || currentUserRole === Role.SUPER_ADMIN)) {
+      if (assignedBy) {
         where.assignedBy = assignedBy;
       }
 
@@ -348,12 +345,19 @@ export class EnrollmentsService {
         ];
       }
 
+      // Data-level scope: hide rows user is not allowed to see
+      const scopeWhere = this.dataScopeService.buildWhereForList(userContext, 'Enrollment', where);
+      const finalWhere =
+        scopeWhere && Object.keys(scopeWhere).length > 0
+          ? { AND: [where, scopeWhere] }
+          : where;
+
       // Get total count
-      const total = await this.prisma.enrollment.count({ where });
+      const total = await this.prisma.enrollment.count({ where: finalWhere });
 
       // Get enrollments with relations
       const enrollments = await this.prisma.enrollment.findMany({
-        where,
+        where: finalWhere,
         include: {
           user: {
             select: {
@@ -404,7 +408,7 @@ export class EnrollmentsService {
     const attempts = await this.prisma.quizAttempt.findMany({
       where: {
         enrollmentId,
-        status: 'COMPLETED',
+        status: QuizAttemptStatusEnum.COMPLETED,
       },
       orderBy: {
         score: 'desc',
@@ -428,8 +432,7 @@ export class EnrollmentsService {
   async update(
     id: string,
     updateDto: UpdateEnrollmentDto,
-    userId: string,
-    userRole: string,
+    userContext: UserContext | undefined,
   ): Promise<EnrollmentDto> {
     return this.errorHandler.safeExecute(async () => {
       // Get enrollment
@@ -442,6 +445,7 @@ export class EnrollmentsService {
               firstName: true,
               lastName: true,
               email: true,
+              departmentId: true,
             },
           },
           course: {
@@ -465,9 +469,13 @@ export class EnrollmentsService {
 
       this.errorHandler.throwIfNotFoundById('Enrollment', id, enrollment);
 
-      // Check permission: user can only update their own enrollment, admin can update any
-      if (userRole !== Role.ADMIN && userRole !== Role.SUPER_ADMIN && enrollment.userId !== userId) {
-        this.errorHandler.throwForbidden('You can only update your own enrollments');
+      // Data-level access: deny if user cannot access this record
+      const recordForCheck = {
+        ...enrollment,
+        user: enrollment.user ? { departmentId: enrollment.user.departmentId } : undefined,
+      };
+      if (!this.dataScopeService.canAccessRecord(userContext, 'Enrollment', recordForCheck)) {
+        this.errorHandler.throwForbidden('You do not have access to this record');
       }
 
       // Prepare update data
@@ -476,7 +484,7 @@ export class EnrollmentsService {
       if (updateDto.status !== undefined) {
         updateData.status = updateDto.status;
         // Set completedAt if status is COMPLETED
-        if (updateDto.status === 'COMPLETED' && !enrollment.completedAt) {
+        if (updateDto.status === EnrollmentStatusEnum.COMPLETED && !enrollment.completedAt) {
           updateData.completedAt = new Date();
         }
       }
@@ -525,18 +533,10 @@ export class EnrollmentsService {
     }, 'Updating enrollment');
   }
 
-  async findOne(id: string, userId: string, userRole?: string): Promise<EnrollmentDto> {
+  async findOne(id: string, userContext: UserContext | undefined): Promise<EnrollmentDto> {
     return this.errorHandler.safeExecute(async () => {
-      // Build where clause
-      const where: any = { id };
-
-      // Non-admin users can only access their own enrollments
-      if (userRole !== Role.ADMIN && userRole !== Role.SUPER_ADMIN) {
-        where.userId = userId;
-      }
-
-      const enrollment = await this.prisma.enrollment.findFirst({
-        where,
+      const enrollment = await this.prisma.enrollment.findUnique({
+        where: { id },
         include: {
           user: {
             select: {
@@ -544,6 +544,7 @@ export class EnrollmentsService {
               firstName: true,
               lastName: true,
               email: true,
+              departmentId: true,
             },
           },
           course: {
@@ -567,11 +568,20 @@ export class EnrollmentsService {
 
       this.errorHandler.throwIfNotFoundById('Enrollment', id, enrollment);
 
+      // Data-level access: deny if user cannot access this record
+      const recordForCheck = {
+        ...enrollment,
+        user: enrollment.user ? { departmentId: enrollment.user.departmentId } : undefined,
+      };
+      if (!this.dataScopeService.canAccessRecord(userContext, 'Enrollment', recordForCheck)) {
+        this.errorHandler.throwForbidden('You do not have access to this record');
+      }
+
       return this.enrollmentMapper(enrollment);
     }, 'Finding enrollment');
   }
 
-  async getLearningContext(id: string, userId: string, userRole: string): Promise<any> {
+  async getLearningContext(id: string, userContext: UserContext | undefined): Promise<any> {
     return this.errorHandler.safeExecute(async () => {
       // Get enrollment with basic course info (no chapters yet)
       const enrollment = await this.prisma.enrollment.findUnique({
@@ -583,6 +593,7 @@ export class EnrollmentsService {
               firstName: true,
               lastName: true,
               email: true,
+              departmentId: true,
             },
           },
           course: true, // Get course to check instructor
@@ -592,9 +603,13 @@ export class EnrollmentsService {
 
       this.errorHandler.throwIfNotFoundById('Enrollment', id, enrollment);
 
-      // Access control
-      if (userRole !== Role.ADMIN && userRole !== Role.SUPER_ADMIN && enrollment.userId !== userId) {
-        this.errorHandler.throwForbidden('You can only access your own learning context');
+      // Data-level access: deny if user cannot access this record
+      const recordForCheck = {
+        ...enrollment,
+        user: enrollment.user ? { departmentId: enrollment.user.departmentId } : undefined,
+      };
+      if (!this.dataScopeService.canAccessRecord(userContext, 'Enrollment', recordForCheck)) {
+        this.errorHandler.throwForbidden('You do not have access to this record');
       }
 
       // Fetch chapters separately
@@ -618,9 +633,8 @@ export class EnrollmentsService {
 
       // Determine visibility for quizzes
       const canViewDrafts =
-        userRole === Role.ADMIN ||
-        userRole === Role.SUPER_ADMIN ||
-        enrollment.course.instructorId === userId;
+        userContext?.dataLevel === 'SUPER' ||
+        enrollment.course.instructorId === userContext?.userId;
 
       // Fetch quizzes (both course-level and chapter-level)
       const chapterIds = courseWithChapters.chapters.map(ch => ch.id);

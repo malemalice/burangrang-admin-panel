@@ -51,6 +51,10 @@ const departmentService = {
         });
       }
 
+      if (params.options) {
+        queryParams.append('options', 'true');
+      }
+
       const response = await api.get(`/departments?${queryParams.toString()}`);
       return {
         data: response.data.data.map(mapDepartmentDtoToDepartment),

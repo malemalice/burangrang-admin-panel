@@ -96,7 +96,8 @@ const auditCriteriaService = {
       return mapAuditCriteriaDtoToAuditCriteria(response.data);
     } catch (error: any) {
       console.error('Error creating audit criteria:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to create audit criteria';
+      const raw = error.response?.data?.message;
+      const errorMessage = Array.isArray(raw) ? raw.join(' ') : raw || 'Failed to create audit criteria';
       throw new Error(errorMessage);
     }
   },
@@ -111,7 +112,8 @@ const auditCriteriaService = {
       return mapAuditCriteriaDtoToAuditCriteria(response.data);
     } catch (error: any) {
       console.error(`Error updating audit criteria ${id}:`, error);
-      const errorMessage = error.response?.data?.message || 'Failed to update audit criteria';
+      const raw = error.response?.data?.message;
+      const errorMessage = Array.isArray(raw) ? raw.join(' ') : raw || 'Failed to update audit criteria';
       throw new Error(errorMessage);
     }
   },

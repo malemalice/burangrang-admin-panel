@@ -18,9 +18,12 @@ import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { RiskMatrix, RiskMatrixSearchParams, RiskRatingEnum } from '../types/risk-matrix.types';
 import { useRiskMatrices } from '../hooks/useRiskMatrix';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const RiskMatricesPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const { riskMatrices, totalRiskMatrices, isLoading, fetchRiskMatrices, deleteRiskMatrix } = useRiskMatrices();
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
@@ -44,7 +47,7 @@ const RiskMatricesPage = () => {
       type: 'text',
     },
     {
-      id: 'riskRating',
+      id: 'interpretation',
       label: 'Risk Rating',
       type: 'select',
       options: [
@@ -168,11 +171,11 @@ const RiskMatricesPage = () => {
       isSortable: true,
     },
     {
-      id: 'riskRating',
+      id: 'interpretation',
       header: 'Risk Rating',
       cell: (riskMatrix: RiskMatrix) => (
-        <Badge variant="outline" className={getRiskRatingBadgeVariant(riskMatrix.riskRating)}>
-          {riskMatrix.riskRating}
+        <Badge variant="outline" className={getRiskRatingBadgeVariant(riskMatrix.interpretation)}>
+          {riskMatrix.interpretation}
         </Badge>
       ),
       isSortable: true,
@@ -201,16 +204,22 @@ const RiskMatricesPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/risk-matrix/${riskMatrix.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-red-600"
-              onClick={(e) => handleDeleteClick(riskMatrix, e)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            {hasPermission('risk-matrix:update') && (
+              <DropdownMenuItem onClick={() => navigate(`/risk-matrix/${riskMatrix.id}/edit`)}>
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+            )}
+            {hasPermission('risk-matrix:update') && hasPermission('risk-matrix:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('risk-matrix:delete') && (
+              <DropdownMenuItem
+                className="text-red-600"
+                onClick={(e) => handleDeleteClick(riskMatrix, e)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -224,9 +233,11 @@ const RiskMatricesPage = () => {
         title="Risk Matrix"
         subtitle="Manage risk matrix entries combining likelihood and consequence levels"
         actions={
-          <Button onClick={() => navigate('/risk-matrix/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Risk Matrix Entry
-          </Button>
+          <PermissionGuard permission="risk-matrix:create">
+            <Button onClick={() => navigate('/risk-matrix/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Add Risk Matrix Entry
+            </Button>
+          </PermissionGuard>
         }
       />
 

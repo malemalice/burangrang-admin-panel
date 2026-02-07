@@ -4,6 +4,8 @@ import api from '@/core/lib/api';
 
 const inspectionsService = {
   getAll: async (params: PaginationParams & {
+    search?: string;
+    code?: string;
     isActive?: boolean;
     areaId?: string;
     status?: string;

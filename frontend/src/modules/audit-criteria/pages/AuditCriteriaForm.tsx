@@ -174,7 +174,7 @@ const AuditCriteriaForm = ({ criteria, mode }: AuditCriteriaFormProps) => {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Criteria Name</FormLabel>
+                  <FormLabel>Criteria Name <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
                     <Input placeholder="Enter criteria name" {...field} />
                   </FormControl>
@@ -201,13 +201,13 @@ const AuditCriteriaForm = ({ criteria, mode }: AuditCriteriaFormProps) => {
               )}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
               <FormField
                 control={form.control}
                 name="auditClauseId"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Clause</FormLabel>
+                  <FormItem>
+                    <FormLabel>Clause <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
                       {dataReady && (
                         <SearchableSelect
@@ -230,7 +230,7 @@ const AuditCriteriaForm = ({ criteria, mode }: AuditCriteriaFormProps) => {
                 name="transitionType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Transition Level</FormLabel>
+                    <FormLabel>Transition Level <span className="text-destructive">*</span></FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       value={field.value}
@@ -260,7 +260,7 @@ const AuditCriteriaForm = ({ criteria, mode }: AuditCriteriaFormProps) => {
                 name="order"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Order</FormLabel>
+                    <FormLabel>Order <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
                       <Input
                         type="number"

@@ -20,9 +20,12 @@ import { Badge } from '@/core/components/ui/badge';
 
 import auditPolicyService from '../services/auditPolicyService';
 import { AuditElement } from '../types/audit-policy.types';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const AuditPolicyPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [elements, setElements] = useState<AuditElement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -32,15 +35,16 @@ const AuditPolicyPage = () => {
   const [elementToDelete, setElementToDelete] = useState<AuditElement | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>({ id: 'code', desc: false });
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields
   const filterFields: FilterField[] = useMemo(() => [
     {
       id: 'code',
-      label: 'Search by element code',
+      label: 'Element Code',
       type: 'text',
-      placeholder: 'Search by code, name, or description...',
+      placeholder: 'Filter by element code...',
     },
     {
       id: 'isActive',
@@ -61,9 +65,12 @@ const AuditPolicyPage = () => {
         limit,
       };
 
-      const searchValue = searchTerm || (activeFilters.code?.value as string) || '';
-      if (searchValue) {
-        params.search = searchValue;
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+
+      if (activeFilters.code?.value) {
+        params.code = activeFilters.code.value as string;
       }
 
       if (activeFilters.isActive?.value === 'active') {
@@ -72,8 +79,13 @@ const AuditPolicyPage = () => {
         params.isActive = false;
       }
 
+      if (sorting) {
+        params.sortBy = sorting.id;
+        params.sortOrder = sorting.desc ? 'desc' : 'asc';
+      }
+
       Object.entries(activeFilters).forEach(([key, filter]) => {
-        if (key !== 'isActive' && key !== 'code') {
+        if (key !== 'isActive' && key !== 'code' && filter.value !== undefined && filter.value !== null && filter.value !== '') {
           params[key] = filter.value;
         }
       });
@@ -92,7 +104,7 @@ const AuditPolicyPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, searchTerm, activeFilters]);
+  }, [pageIndex, limit, searchTerm, activeFilters, sorting]);
 
   useEffect(() => {
     fetchElements();
@@ -210,22 +222,30 @@ const AuditPolicyPage = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/audit-policy/${element.id}`)}>
-                <Eye className="mr-2 h-4 w-4" />
-                View Details
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate(`/audit-policy/${element.id}/edit`)}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-red-600"
-                onClick={(e) => handleDeleteClick(element, e)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
+              {hasPermission('audit-policy:read') && (
+                <DropdownMenuItem onClick={() => navigate(`/audit-policy/${element.id}`)}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </DropdownMenuItem>
+              )}
+              {((hasPermission('audit-policy:read') || hasPermission('audit-policy:update')) && hasPermission('audit-policy:delete')) && (
+                <DropdownMenuSeparator />
+              )}
+              {hasPermission('audit-policy:update') && (
+                <DropdownMenuItem onClick={() => navigate(`/audit-policy/${element.id}/edit`)}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {hasPermission('audit-policy:delete') && (
+                <DropdownMenuItem
+                  className="text-red-600"
+                  onClick={(e) => handleDeleteClick(element, e)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -240,9 +260,11 @@ const AuditPolicyPage = () => {
         title="Audit Policy"
         subtitle="Manage audit policy elements, clauses, and criteria"
         actions={
-          <ThemeButton onClick={() => navigate('/audit-policy/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Create Element
-          </ThemeButton>
+          <PermissionGuard permission="audit-policy:create">
+            <ThemeButton onClick={() => navigate('/audit-policy/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Create Element
+            </ThemeButton>
+          </PermissionGuard>
         }
       />
 
@@ -261,6 +283,8 @@ const AuditPolicyPage = () => {
         filterFields={filterFields}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+        sorting={sorting}
+        onSortingChange={setSorting}
         searchPlaceholder="Search by code, name, or description..."
       />
 
@@ -272,6 +296,7 @@ const AuditPolicyPage = () => {
         title="Delete Audit Element"
         description={`Are you sure you want to delete "${elementToDelete?.name}"? This action cannot be undone and will also delete all associated clauses and criteria.`}
         onConfirm={handleDeleteConfirm}
+        confirmText="Delete"
         variant="destructive"
       />
     </>

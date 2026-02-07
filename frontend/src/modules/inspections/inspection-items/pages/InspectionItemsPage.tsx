@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { 
@@ -43,15 +43,38 @@ import { Department } from '@/modules/master-data/types/master-data.types';
 import { Risk, RiskCategory } from '@/core/lib/types';
 import userService from '@/modules/users/services/userService';
 import { User } from '@/core/lib/types';
+import { useAuth } from '@/core/lib/auth';
+import api from '@/core/lib/api';
+import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
+import roleService from '@/modules/roles/services/roleService';
+
+const FILTER_KEYS = ['status', 'assignedDepartmentId', 'assigneeId', 'riskId', 'riskCategoryId', 'inspectionCode'];
 
 const InspectionItemsPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user: currentUser } = useAuth();
+  const [isSuperUser, setIsSuperUser] = useState(false);
   const [inspectionItems, setInspectionItems] = useState<InspectionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [pageIndex, setPageIndex] = useState(0);
-  const [limit, setLimit] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
-  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+
+  const pageIndex = useMemo(() => {
+    const raw = searchParams.get('page');
+    const page = raw ? Number(raw) : 1;
+    if (!Number.isFinite(page) || page <= 0) return 0;
+    return Math.floor(page) - 1;
+  }, [searchParams]);
+
+  const limit = useMemo(() => {
+    const raw = searchParams.get('limit');
+    const parsed = raw ? Number(raw) : 10;
+    if (!Number.isFinite(parsed) || parsed <= 0) return 10;
+    return Math.floor(parsed);
+  }, [searchParams]);
+
+  const searchTerm = useMemo(() => searchParams.get('search') ?? '', [searchParams]);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -63,15 +86,37 @@ const InspectionItemsPage = () => {
   const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
   const [approvalRights, setApprovalRights] = useState<Record<string, boolean>>({});
 
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!currentUser?.id) return;
+      try {
+        const response = await api.get('/users/me');
+        const userData = response.data;
+        let roleCode: string | null = null;
+        if (userData.role && typeof userData.role === 'object' && 'code' in userData.role) {
+          roleCode = userData.role.code;
+        }
+        if (!roleCode && userData.roleId) {
+          const role = await roleService.getRoleById(userData.roleId);
+          roleCode = role.code;
+        }
+        setIsSuperUser(roleCode === ROLE_CODES.SUPER_ADMIN);
+      } catch (error) {
+        console.error('Failed to fetch user role:', error);
+      }
+    };
+    fetchUserRole();
+  }, [currentUser?.id]);
+
   // Fetch filter options
   useEffect(() => {
     const fetchFilterOptions = async () => {
       try {
         const [departmentsResponse, usersResponse, risksResponse, riskCategoriesResponse] = await Promise.all([
-          departmentService.getDepartments({ page: 1, limit: 100 }),
-          userService.getUsers({ page: 1, limit: 100 }),
-          riskService.getAll({ page: 1, limit: 100, isActive: true }),
-          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true }),
+          departmentService.getDepartments({ page: 1, limit: 100, options: true }),
+          userService.getUsers({ page: 1, limit: 100, options: true }),
+          riskService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
+          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
         ]);
 
         setDepartments(departmentsResponse.data);
@@ -141,6 +186,47 @@ const InspectionItemsPage = () => {
     },
   ], [departments, users, risks, riskCategories]);
 
+  const activeFilters = useMemo(() => {
+    const filters: Record<string, { value: any; label: string }> = {};
+
+    const status = searchParams.get('status');
+    if (status) {
+      const option = INSPECTION_ITEM_STATUS_OPTIONS.find(opt => opt.value === status);
+      filters.status = { value: status, label: option?.label ?? status };
+    }
+
+    const assignedDepartmentId = searchParams.get('assignedDepartmentId');
+    if (assignedDepartmentId) {
+      const dept = departments.find(d => d.id === assignedDepartmentId);
+      filters.assignedDepartmentId = { value: assignedDepartmentId, label: dept?.name ?? assignedDepartmentId };
+    }
+
+    const assigneeId = searchParams.get('assigneeId');
+    if (assigneeId) {
+      const user = users.find(u => u.id === assigneeId);
+      filters.assigneeId = { value: assigneeId, label: user ? (user.name || `${user.firstName} ${user.lastName}`) : assigneeId };
+    }
+
+    const riskId = searchParams.get('riskId');
+    if (riskId) {
+      const risk = risks.find(r => r.id === riskId);
+      filters.riskId = { value: riskId, label: risk?.name ?? riskId };
+    }
+
+    const riskCategoryId = searchParams.get('riskCategoryId');
+    if (riskCategoryId) {
+      const category = riskCategories.find(c => c.id === riskCategoryId);
+      filters.riskCategoryId = { value: riskCategoryId, label: category?.name ?? riskCategoryId };
+    }
+
+    const inspectionCode = searchParams.get('inspectionCode');
+    if (inspectionCode) {
+      filters.inspectionCode = { value: inspectionCode, label: inspectionCode };
+    }
+
+    return filters;
+  }, [searchParams, departments, users, risks, riskCategories]);
+
   const fetchItems = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -151,6 +237,10 @@ const InspectionItemsPage = () => {
         sortOrder: 'desc',
       };
 
+      // Add search term
+      if (searchTerm?.trim()) {
+        params.search = searchTerm.trim();
+      }
       // Add filters
       if (activeFilters.status?.value) {
         params.status = activeFilters.status.value as GeneralStatusEnum;
@@ -174,10 +264,6 @@ const InspectionItemsPage = () => {
       const response = await inspectionItemsService.getAll(params);
       setInspectionItems(response.data);
       setTotalItems(response.meta.total);
-      
-      if (response.meta.page) {
-        setPageIndex(response.meta.page - 1);
-      }
 
       // Check approval rights for items with WAITING_APPROVAL status
       const rightsMap: Record<string, boolean> = {};
@@ -202,42 +288,68 @@ const InspectionItemsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, activeFilters]);
+  }, [pageIndex, limit, searchTerm, activeFilters]);
 
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
 
-  const handleApplyFilters = (filters: FilterValue[]) => {
-    const newActiveFilters: Record<string, { value: any; label: string }> = {};
-    
-    filters.forEach(filter => {
-      if (filter.id === 'status') {
-        const statusOption = ISSUE_STATUS_OPTIONS.find(opt => opt.value === filter.value);
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: statusOption?.label || String(filter.value)
-        };
-      } else {
-        const field = filterFields.find(f => f.id === filter.id);
-        if (field && field.type === 'select' && field.options) {
-          const option = field.options.find(opt => opt.value === filter.value);
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: option?.label || String(filter.value)
-          };
-        } else {
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: String(filter.value)
-          };
-        }
-      }
-    });
-    
-    setActiveFilters(newActiveFilters);
-    setPageIndex(0);
-  };
+  const updateSearchParams = useCallback(
+    (updater: (next: URLSearchParams) => void, options: { replace?: boolean } = { replace: true }) => {
+      const next = new URLSearchParams(searchParams);
+      updater(next);
+      setSearchParams(next, options);
+    },
+    [searchParams, setSearchParams]
+  );
+
+  const handlePageChange = useCallback(
+    (page: number) => {
+      updateSearchParams(next => next.set('page', String(page + 1)));
+    },
+    [updateSearchParams]
+  );
+
+  const handlePageSizeChange = useCallback(
+    (size: number) => {
+      updateSearchParams(next => {
+        next.set('limit', String(size));
+        next.set('page', '1');
+      });
+    },
+    [updateSearchParams]
+  );
+
+  const handleSearch = useCallback(
+    (term: string) => {
+      updateSearchParams(next => {
+        const trimmed = term.trim();
+        if (trimmed) next.set('search', trimmed);
+        else next.delete('search');
+        next.set('page', '1');
+      });
+    },
+    [updateSearchParams]
+  );
+
+  const handleApplyFilters = useCallback(
+    (filters: FilterValue[]) => {
+      updateSearchParams(next => {
+        FILTER_KEYS.forEach(k => next.delete(k));
+        filters.forEach(filter => {
+          if (filter.value !== undefined && filter.value !== null && filter.value !== '') {
+            if (filter.id === 'inspectionCode') {
+              next.set(filter.id, String(filter.value));
+            } else {
+              next.set(filter.id, String(filter.value));
+            }
+          }
+        });
+        next.set('page', '1');
+      });
+    },
+    [updateSearchParams]
+  );
 
   const handleUpdateItemSubmit = async (itemData: CreateInspectionItemDTO) => {
     if (!editingItem) return;
@@ -259,7 +371,7 @@ const InspectionItemsPage = () => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
       [GeneralStatusEnum.OPEN]: { label: 'Open Issue', variant: 'secondary' },
       [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
-      [GeneralStatusEnum.CLOSE]: { label: 'Closed', variant: 'default' },
+      [GeneralStatusEnum.CLOSE]: { label: 'Close', variant: 'default' },
     };
 
     const statusInfo = statusMap[status] || { label: status, variant: 'outline' };
@@ -358,7 +470,7 @@ const InspectionItemsPage = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => navigate(`/inspections/items/${item.id}`)}
+                    onClick={() => navigate(`/inspections/items/${item.id}`, { state: { returnTo: location.search } })}
                     className="text-primary hover:text-primary hover:bg-primary/10"
                     aria-label={`View inspection item ${item.id}`}
                   >
@@ -381,7 +493,7 @@ const InspectionItemsPage = () => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => navigate(`/inspections/items/${item.id}`)}
+                  onClick={() => navigate(`/inspections/items/${item.id}`, { state: { returnTo: location.search } })}
                   className="text-primary hover:text-primary hover:bg-primary/10"
                   aria-label={`View inspection item ${item.id}`}
                 >
@@ -416,8 +528,8 @@ const InspectionItemsPage = () => {
               </Tooltip>
             )}
             
-            {/* Update Action Item - hidden when status is WAITING_APPROVAL or CLOSED */}
-            {!isWaitingApproval && (
+            {/* Update Action Item - hidden when WAITING_APPROVAL unless super_user */}
+            {(!isWaitingApproval || isSuperUser) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -473,8 +585,8 @@ const InspectionItemsPage = () => {
               </Tooltip>
             )}
             
-            {/* Dropdown menu - hidden when status is CLOSED */}
-            {!isClosed && (
+            {/* Dropdown menu (Edit) - hidden when CLOSED or WAITING_APPROVAL unless super_user */}
+            {!isClosed && (!isWaitingApproval || isSuperUser) && (
               <DropdownMenu
                 open={openDropdownId === item.id}
                 onOpenChange={(open) => {
@@ -488,7 +600,7 @@ const InspectionItemsPage = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => navigate(`/inspections/items/${item.id}/edit`)}>
+                  <DropdownMenuItem onClick={() => navigate(`/inspections/items/${item.id}/edit`, { state: { returnTo: location.search } })}>
                     <Edit className="mr-2 h-4 w-4" /> Edit
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -533,13 +645,16 @@ const InspectionItemsPage = () => {
           pageIndex,
           limit,
           pageCount: Math.ceil(totalItems / limit),
-          onPageChange: setPageIndex,
-          onPageSizeChange: setLimit,
+          onPageChange: handlePageChange,
+          onPageSizeChange: handlePageSizeChange,
           total: totalItems
         }}
         filterFields={filterFields}
         activeFilters={activeFilters}
         onApplyFilters={handleApplyFilters}
+        searchValue={searchTerm}
+        onSearch={handleSearch}
+        searchPlaceholder="Search by inspection code, risk, description..."
       />
 
       {/* Edit Item Dialog */}
@@ -628,21 +743,9 @@ const InspectionItemsPage = () => {
                   </div>
                 </div>
                 <h3 className="font-semibold text-lg mb-1">Finding</h3>
-                <p className="text-sm text-muted-foreground mb-4 max-w-[200px]">
+                <p className="text-sm text-muted-foreground max-w-[200px]">
                   Record inspection findings and initial details
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                  onClick={() => {
-                    setIsWorkflowInfoDialogOpen(false);
-                    toast.info('Please select an inspection item from the table to edit as creator');
-                  }}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Edit as Creator
-                </Button>
               </div>
 
               {/* Arrow Connector 1 */}
@@ -661,21 +764,9 @@ const InspectionItemsPage = () => {
                   </div>
                 </div>
                 <h3 className="font-semibold text-lg mb-1">Action Plan</h3>
-                <p className="text-sm text-muted-foreground mb-4 max-w-[200px]">
+                <p className="text-sm text-muted-foreground max-w-[200px]">
                   Update action item progress with images and notes
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700"
-                  onClick={() => {
-                    setIsWorkflowInfoDialogOpen(false);
-                    toast.info('Please select an inspection item from the table to update action item');
-                  }}
-                >
-                  <Wrench className="h-4 w-4 mr-2" />
-                  Update Action Item
-                </Button>
               </div>
 
               {/* Arrow Connector 2 */}
@@ -694,21 +785,9 @@ const InspectionItemsPage = () => {
                   </div>
                 </div>
                 <h3 className="font-semibold text-lg mb-1">Verify</h3>
-                <p className="text-sm text-muted-foreground mb-4 max-w-[200px]">
+                <p className="text-sm text-muted-foreground max-w-[200px]">
                   Verify and finalize inspection item
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
-                  onClick={() => {
-                    setIsWorkflowInfoDialogOpen(false);
-                    toast.info('Please select an inspection item from the table to verify');
-                  }}
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Verify
-                </Button>
               </div>
             </div>
           </div>

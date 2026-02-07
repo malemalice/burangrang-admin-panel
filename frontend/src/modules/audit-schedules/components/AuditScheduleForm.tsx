@@ -127,10 +127,11 @@ const AuditScheduleForm = ({ auditSchedule, mode }: AuditScheduleFormProps) => {
           areaService.getAreas({ 
             page: 1, 
             limit: 1000,
-            filters: { isActive: true }
+            filters: { isActive: true },
+            options: true
           }),
-          userService.getAll({ page: 1, limit: 1000 }),
-          api.get('/audit-elements', { params: { page: 1, limit: 1000, isActive: true } }),
+          userService.getAll({ page: 1, limit: 1000, options: true }),
+          api.get('/audit-elements', { params: { page: 1, limit: 1000, isActive: true, options: true } }),
         ]);
         setAreas(areasResponse.data);
         setUsers(usersResponse.data);

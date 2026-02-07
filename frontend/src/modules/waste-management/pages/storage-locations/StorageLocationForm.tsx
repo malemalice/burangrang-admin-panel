@@ -62,7 +62,7 @@ export default function StorageLocationForm({ mode }: StorageLocationFormProps) 
   useEffect(() => {
     const fetchAreas = async () => {
       try {
-        const response = await areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true } });
+        const response = await areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true }, options: true });
         setAreas(response.data);
       } catch (error) {
         console.error('Failed to fetch areas', error);

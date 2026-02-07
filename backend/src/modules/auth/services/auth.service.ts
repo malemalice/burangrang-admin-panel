@@ -13,6 +13,7 @@ import * as crypto from 'crypto';
 import { SignupDto } from '../dto/signup.dto';
 import { ForgotPasswordDto } from '../dto/forgot-password.dto';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
+import { PRISMA_ERROR_CODES } from '../../../shared/constants/prisma-errors';
 import { MailService } from '../../mail/mail.service';
 
 interface AuthenticatedUser {
@@ -23,6 +24,7 @@ interface AuthenticatedUser {
   role: {
     id: string;
     name: string;
+    permissions?: { name: string }[];
   };
 }
 
@@ -42,7 +44,7 @@ export class AuthService {
   ): Promise<AuthenticatedUser> {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: { role: true },
+      include: { role: { include: { permissions: { select: { name: true } } } } },
     });
 
     if (!user) {
@@ -86,7 +88,9 @@ export class AuthService {
     const accessToken = this.jwtService.sign(payload, { expiresIn: 3600 }); // 1 hour in seconds
     const refreshToken = await this.createRefreshToken(user.id);
 
-    // Return both tokens in the response body instead of cookies
+    const permissionNames =
+      user.role.permissions?.map((p) => p.name) ?? [];
+
     return {
       accessToken,
       refreshToken,
@@ -96,6 +100,7 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role.name,
+        permissions: permissionNames,
       },
     };
   }
@@ -135,7 +140,7 @@ export class AuthService {
           error && typeof error === 'object' && 'code' in error
             ? String((error as { code: unknown }).code)
             : '';
-        if (errorCode === 'P2002') {
+        if (errorCode === PRISMA_ERROR_CODES.UNIQUE_VIOLATION) {
           this.logger.warn(
             `Token collision detected for user ${userId}, generating new token with extra randomness`,
           );
@@ -170,7 +175,13 @@ export class AuthService {
 
     const refreshToken = await this.prisma.refreshToken.findUnique({
       where: { token: body.refreshToken },
-      include: { user: { include: { role: true } } },
+      include: {
+        user: {
+          include: {
+            role: { include: { permissions: { select: { name: true } } } },
+          },
+        },
+      },
     });
 
     if (!refreshToken || refreshToken.expiresAt < new Date()) {
@@ -195,7 +206,9 @@ export class AuthService {
     // Create new refresh token
     const newRefreshToken = await this.createRefreshToken(user.id);
 
-    // Return both tokens in response body
+    const permissionNames =
+      user.role.permissions?.map((p) => p.name) ?? [];
+
     return {
       accessToken,
       refreshToken: newRefreshToken,
@@ -205,6 +218,7 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role.name,
+        permissions: permissionNames,
       },
     };
   }

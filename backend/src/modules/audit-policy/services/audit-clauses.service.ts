@@ -44,17 +44,16 @@ export class AuditClausesService {
   }
 
   /**
-   * Regenerate codes for all clauses in an audit element
+   * Regenerate codes for all clauses in an audit element.
+   * Uses two-phase update to avoid unique constraint violations when reassigning codes.
    */
   async regenerateClauseCodes(auditElementId: string): Promise<void> {
-    // Get the audit element to get its code
     const auditElement = await this.prisma.auditElement.findUnique({
       where: { id: auditElementId },
     });
 
     this.errorHandler.throwIfNotFoundById('AuditElement', auditElementId, auditElement);
 
-    // Get all clauses ordered by order field
     const clauses = await this.prisma.auditClause.findMany({
       where: { auditElementId },
       orderBy: { order: 'asc' },
@@ -65,27 +64,36 @@ export class AuditClausesService {
       },
     });
 
-    // Update clause codes and criteria codes
-    for (let i = 0; i < clauses.length; i++) {
-      const clause = clauses[i];
-      const newClauseCode = this.generateClauseCode(auditElement!.code, i);
-
-      // Update clause code
-      await this.prisma.auditClause.update({
-        where: { id: clause.id },
-        data: { code: newClauseCode },
-      });
-
-      // Update all criteria codes in this clause
-      for (let j = 0; j < clause.criteria.length; j++) {
-        const criterion = clause.criteria[j];
-        const newCriteriaCode = `${newClauseCode}.${j + 1}`;
-        await this.prisma.auditCriteria.update({
-          where: { id: criterion.id },
-          data: { code: newCriteriaCode },
+    await this.prisma.$transaction(async (tx) => {
+      // Phase 1: set all clause and criteria codes to temporary values
+      for (const clause of clauses) {
+        await tx.auditClause.update({
+          where: { id: clause.id },
+          data: { code: `__temp_clause_${clause.id}` },
         });
+        for (const criterion of clause.criteria) {
+          await tx.auditCriteria.update({
+            where: { id: criterion.id },
+            data: { code: `__temp_${criterion.id}` },
+          });
+        }
       }
-    }
+      // Phase 2: set final clause and criteria codes
+      for (let i = 0; i < clauses.length; i++) {
+        const newClauseCode = this.generateClauseCode(auditElement!.code, i);
+        await tx.auditClause.update({
+          where: { id: clauses[i].id },
+          data: { code: newClauseCode },
+        });
+        for (let j = 0; j < clauses[i].criteria.length; j++) {
+          const newCriteriaCode = `${newClauseCode}.${j + 1}`;
+          await tx.auditCriteria.update({
+            where: { id: clauses[i].criteria[j].id },
+            data: { code: newCriteriaCode },
+          });
+        }
+      }
+    });
   }
 
   async create(
@@ -285,5 +293,30 @@ export class AuditClausesService {
     this.errorHandler.throwIfNotFoundByField('AuditClause', 'code', code, clause);
 
     return this.auditClauseMapper(clause);
+  }
+
+  /**
+   * Reorder clauses by updating order field for each clause in a single transaction.
+   * Prevents duplicate order conflicts that can occur when updating one-by-one.
+   */
+  async reorder(auditElementId: string, clauseIds: string[]): Promise<void> {
+    const auditElement = await this.prisma.auditElement.findUnique({
+      where: { id: auditElementId },
+    });
+    this.errorHandler.throwIfNotFoundById('AuditElement', auditElementId, auditElement);
+
+    await this.prisma.$transaction(async (tx) => {
+      for (let i = 0; i < clauseIds.length; i++) {
+        await tx.auditClause.updateMany({
+          where: {
+            id: clauseIds[i],
+            auditElementId,
+          },
+          data: { order: i },
+        });
+      }
+    });
+
+    await this.regenerateClauseCodes(auditElementId);
   }
 }

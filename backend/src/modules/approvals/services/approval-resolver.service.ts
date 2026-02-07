@@ -4,8 +4,11 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
+import {
+  APPROVAL_ENTITIES,
+  APPROVAL_ENTITY_TO_TABLE,
+} from '../../../shared/constants/approval-entities';
 import { APPROVAL_FIELD_MARKERS } from '../constants/approval-field-markers';
-import { APPROVAL_ENTITY_TO_TABLE } from '../../../shared/constants/approval-entities';
 import { Prisma } from '@prisma/client';
 
 interface MasterApprovalItem {
@@ -101,7 +104,7 @@ export class ApprovalResolverService {
     }
 
     // Special handling for AUDIT_ITEM since it uses junction table
-    if (entityName === 'AUDIT_ITEM') {
+    if (entityName === APPROVAL_ENTITIES.AUDIT_ITEM) {
       // Query the first assigned department from AuditItemToDepartment junction table
       const result = await this.prisma.auditItemToDepartment.findFirst({
         where: {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Eye, Edit, Trash2 } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, ClipboardList } from 'lucide-react';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/tooltip';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
@@ -21,12 +21,14 @@ interface RiskAssessmentItemsTableProps {
   onAddItem: () => void;
   onViewItem: (item: RiskAssessmentItem) => void;
   onEditItem: (item: RiskAssessmentItem) => void;
+  onUpdateActionItem?: (item: RiskAssessmentItem) => void;
   onDeleteItem: (item: RiskAssessmentItem, event?: React.MouseEvent) => void;
   onDeleteConfirm: () => void;
   itemToDelete: RiskAssessmentItem | null;
   deleteDialogOpen: boolean;
   onDeleteDialogChange: (open: boolean) => void;
   hideActions?: boolean;
+  canUpdateActionItem?: boolean;
 }
 
 export const RiskAssessmentItemsTable = ({
@@ -42,12 +44,14 @@ export const RiskAssessmentItemsTable = ({
   onAddItem,
   onViewItem,
   onEditItem,
+  onUpdateActionItem,
   onDeleteItem,
   onDeleteConfirm,
   itemToDelete,
   deleteDialogOpen,
   onDeleteDialogChange,
   hideActions = false,
+  canUpdateActionItem = false,
 }: RiskAssessmentItemsTableProps) => {
   const filterFields: FilterField[] = [];
 
@@ -80,8 +84,10 @@ export const RiskAssessmentItemsTable = ({
       id: 'riskRating',
       header: 'Risk Matrix Rating',
       cell: (item: RiskAssessmentItem) => (
-        <div className="font-medium">
-          {item.riskMatrixRating || 'N/A'}
+        <div className="flex items-center gap-2">
+          <span className="font-medium font-mono">
+            {item.riskMatrixRating || 'N/A'}
+          </span>
         </div>
       ),
       isSortable: true,
@@ -96,8 +102,10 @@ export const RiskAssessmentItemsTable = ({
       id: 'postRiskMatrixRating',
       header: 'Post Risk Matrix Rating',
       cell: (item: RiskAssessmentItem) => (
-        <div className="font-medium">
-          {item.postRiskMatrixRating || 'N/A'}
+        <div className="flex items-center gap-2">
+          <span className="font-medium font-mono">
+            {item.postRiskMatrixRating || 'N/A'}
+          </span>
         </div>
       ),
       isSortable: true,
@@ -131,6 +139,22 @@ export const RiskAssessmentItemsTable = ({
               <p>View</p>
             </TooltipContent>
           </Tooltip>
+          {canUpdateActionItem && onUpdateActionItem && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onUpdateActionItem(item)}
+                >
+                  <ClipboardList className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Update Action Item</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
           {!hideActions && (
             <>
               <Tooltip>

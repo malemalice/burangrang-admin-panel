@@ -4,6 +4,7 @@ import { CreateAuditElementDto } from '../dto/create-audit-element.dto';
 import { UpdateAuditElementDto } from '../dto/update-audit-element.dto';
 import { AuditElementDto } from '../dto/audit-element.dto';
 import { Prisma } from '@prisma/client';
+import { PRISMA_ERROR_CODES } from '../../../shared/constants/prisma-errors';
 import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
 
@@ -14,6 +15,7 @@ interface FindAllOptions {
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
   search?: string;
+  code?: string;
 }
 
 @Injectable()
@@ -38,6 +40,13 @@ export class AuditElementsService {
   async create(
     createAuditElementDto: CreateAuditElementDto,
   ): Promise<AuditElementDto> {
+    const existingByCode = await this.prisma.auditElement.findUnique({
+      where: { code: createAuditElementDto.code },
+    });
+    if (existingByCode) {
+      this.errorHandler.throwConflictCustom('Code already exist');
+    }
+
     const data: Prisma.AuditElementCreateInput = {
       name: createAuditElementDto.name,
       code: createAuditElementDto.code,
@@ -45,9 +54,17 @@ export class AuditElementsService {
       isActive: createAuditElementDto.isActive ?? true,
     };
 
-    const element = await this.prisma.auditElement.create({
-      data,
-    });
+    let element;
+    try {
+      element = await this.prisma.auditElement.create({
+        data,
+      });
+    } catch (error: any) {
+      if (error?.code === PRISMA_ERROR_CODES.UNIQUE_VIOLATION) {
+        this.errorHandler.throwConflictCustom('Code already exist');
+      }
+      throw error;
+    }
 
     return this.auditElementMapper(element);
   }
@@ -59,10 +76,11 @@ export class AuditElementsService {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'name',
+      sortBy = 'code',
       sortOrder = 'asc',
       isActive,
       search,
+      code,
     } = options || {};
 
     const where: Prisma.AuditElementWhereInput = {};
@@ -75,16 +93,18 @@ export class AuditElementsService {
       ];
     }
 
+    if (code) {
+      where.code = { contains: code, mode: 'insensitive' };
+    }
+
     if (isActive !== undefined) {
       where.isActive = isActive;
     }
 
     const orderBy: Prisma.AuditElementOrderByWithRelationInput = {};
-    if (sortBy) {
-      orderBy[sortBy] = sortOrder || 'asc';
-    } else {
-      orderBy.name = 'asc';
-    }
+    const validSortFields = ['name', 'code', 'createdAt', 'isActive'];
+    const sortField = sortBy && validSortFields.includes(sortBy) ? sortBy : 'code';
+    orderBy[sortField] = sortOrder || 'asc';
 
     const total = await this.prisma.auditElement.count({ where });
 

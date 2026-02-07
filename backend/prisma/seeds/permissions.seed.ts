@@ -93,6 +93,237 @@ export const permissions = [
   { name: 'department:update', description: 'Update departments' },
   { name: 'department:delete', description: 'Delete departments' },
   { name: 'department:list', description: 'List all departments' },
+
+  // Area Management
+  { name: 'area:create', description: 'Create new areas' },
+  { name: 'area:read', description: 'View area information' },
+  { name: 'area:update', description: 'Update area information' },
+  { name: 'area:delete', description: 'Delete areas' },
+  { name: 'area:list', description: 'List all areas' },
+
+  // Asset Management
+  { name: 'asset:create', description: 'Create new assets' },
+  { name: 'asset:read', description: 'View asset information' },
+  { name: 'asset:update', description: 'Update asset information' },
+  { name: 'asset:delete', description: 'Delete assets' },
+  { name: 'asset:list', description: 'List all assets' },
+
+  // Risk Assessment Management
+  { name: 'risk-assessment:create', description: 'Create new risk assessments' },
+  { name: 'risk-assessment:read', description: 'View risk assessment information' },
+  { name: 'risk-assessment:update', description: 'Update risk assessment information' },
+  { name: 'risk-assessment:delete', description: 'Delete risk assessments' },
+  { name: 'risk-assessment:list', description: 'List all risk assessments' },
+
+  // Quiz Management
+  { name: 'quiz:create', description: 'Create new quizzes' },
+  { name: 'quiz:read', description: 'View quiz information' },
+  { name: 'quiz:update', description: 'Update quiz information' },
+  { name: 'quiz:delete', description: 'Delete quizzes' },
+  { name: 'quiz:list', description: 'List all quizzes' },
+
+  // Incident Management
+  { name: 'incident:create', description: 'Create new incidents' },
+  { name: 'incident:read', description: 'View incident information' },
+  { name: 'incident:update', description: 'Update incident information' },
+  { name: 'incident:delete', description: 'Delete incidents' },
+  { name: 'incident:list', description: 'List all incidents' },
+
+  // Audit Schedule Management
+  { name: 'audit-schedule:create', description: 'Create new audit schedules' },
+  { name: 'audit-schedule:read', description: 'View audit schedule information' },
+  { name: 'audit-schedule:update', description: 'Update audit schedule information' },
+  { name: 'audit-schedule:delete', description: 'Delete audit schedules' },
+  { name: 'audit-schedule:list', description: 'List all audit schedules' },
+
+  // Risk Register Management
+  { name: 'risk-register:create', description: 'Create new risk register entries' },
+  { name: 'risk-register:read', description: 'View risk register information' },
+  { name: 'risk-register:update', description: 'Update risk register information' },
+  { name: 'risk-register:delete', description: 'Delete risk register entries' },
+  { name: 'risk-register:list', description: 'List all risk register entries' },
+
+  // Progress Management
+  { name: 'progress:create', description: 'Create new progress records' },
+  { name: 'progress:read', description: 'View progress information' },
+  { name: 'progress:update', description: 'Update progress information' },
+  { name: 'progress:delete', description: 'Delete progress records' },
+  { name: 'progress:list', description: 'List all progress records' },
+
+  // Inspection Management
+  { name: 'inspection:create', description: 'Create new inspections' },
+  { name: 'inspection:read', description: 'View inspection information' },
+  { name: 'inspection:update', description: 'Update inspection information' },
+  { name: 'inspection:delete', description: 'Delete inspections' },
+  { name: 'inspection:list', description: 'List all inspections' },
+
+  // Certificate Management
+  { name: 'certificate:create', description: 'Create new certificates' },
+  { name: 'certificate:read', description: 'View certificate information' },
+  { name: 'certificate:update', description: 'Update certificate information' },
+  { name: 'certificate:delete', description: 'Delete certificates' },
+  { name: 'certificate:list', description: 'List all certificates' },
+
+  // Audit Policy Management
+  { name: 'audit-policy:create', description: 'Create new audit policies' },
+  { name: 'audit-policy:read', description: 'View audit policy information' },
+  { name: 'audit-policy:update', description: 'Update audit policy information' },
+  { name: 'audit-policy:delete', description: 'Delete audit policies' },
+  { name: 'audit-policy:list', description: 'List all audit policies' },
+
+  // Work Permit Management
+  { name: 'work-permit:create', description: 'Create new work permits' },
+  { name: 'work-permit:read', description: 'View work permit information' },
+  { name: 'work-permit:update', description: 'Update work permit information' },
+  { name: 'work-permit:delete', description: 'Delete work permits' },
+  { name: 'work-permit:list', description: 'List all work permits' },
+
+  // Enrollment Management
+  { name: 'enrollment:create', description: 'Create new enrollments' },
+  { name: 'enrollment:read', description: 'View enrollment information' },
+  { name: 'enrollment:update', description: 'Update enrollment information' },
+  { name: 'enrollment:delete', description: 'Delete enrollments' },
+  { name: 'enrollment:list', description: 'List all enrollments' },
+
+  // Master Approval Management
+  { name: 'master-approval:create', description: 'Create new master approvals' },
+  { name: 'master-approval:read', description: 'View master approval information' },
+  { name: 'master-approval:update', description: 'Update master approval information' },
+  { name: 'master-approval:delete', description: 'Delete master approvals' },
+  { name: 'master-approval:list', description: 'List all master approvals' },
+
+  // Man Hour Management
+  { name: 'man-hour:create', description: 'Create new man hour records' },
+  { name: 'man-hour:read', description: 'View man hour information' },
+  { name: 'man-hour:update', description: 'Update man hour information' },
+  { name: 'man-hour:delete', description: 'Delete man hour records' },
+  { name: 'man-hour:list', description: 'List all man hour records' },
+
+  // Waste Management
+  { name: 'waste-management:create', description: 'Create new waste management records' },
+  { name: 'waste-management:read', description: 'View waste management information' },
+  { name: 'waste-management:update', description: 'Update waste management information' },
+  { name: 'waste-management:delete', description: 'Delete waste management records' },
+  { name: 'waste-management:list', description: 'List all waste management records' },
+
+  // Room Management
+  { name: 'room:create', description: 'Create new rooms' },
+  { name: 'room:read', description: 'View room information' },
+  { name: 'room:update', description: 'Update room information' },
+  { name: 'room:delete', description: 'Delete rooms' },
+  { name: 'room:list', description: 'List all rooms' },
+
+  // Risk Management
+  { name: 'risk:create', description: 'Create new risks' },
+  { name: 'risk:read', description: 'View risk information' },
+  { name: 'risk:update', description: 'Update risk information' },
+  { name: 'risk:delete', description: 'Delete risks' },
+  { name: 'risk:list', description: 'List all risks' },
+
+  // Risk Mitigation Management
+  { name: 'risk-mitigation:create', description: 'Create new risk mitigations' },
+  { name: 'risk-mitigation:read', description: 'View risk mitigation information' },
+  { name: 'risk-mitigation:update', description: 'Update risk mitigation information' },
+  { name: 'risk-mitigation:delete', description: 'Delete risk mitigations' },
+  { name: 'risk-mitigation:list', description: 'List all risk mitigations' },
+
+  // Risk Matrix Management
+  { name: 'risk-matrix:create', description: 'Create new risk matrix entries' },
+  { name: 'risk-matrix:read', description: 'View risk matrix information' },
+  { name: 'risk-matrix:update', description: 'Update risk matrix information' },
+  { name: 'risk-matrix:delete', description: 'Delete risk matrix entries' },
+  { name: 'risk-matrix:list', description: 'List all risk matrix entries' },
+
+  // Risk Category Management
+  { name: 'risk-category:create', description: 'Create new risk categories' },
+  { name: 'risk-category:read', description: 'View risk category information' },
+  { name: 'risk-category:update', description: 'Update risk category information' },
+  { name: 'risk-category:delete', description: 'Delete risk categories' },
+  { name: 'risk-category:list', description: 'List all risk categories' },
+
+  // Reminder Management
+  { name: 'reminder:create', description: 'Create new reminders' },
+  { name: 'reminder:read', description: 'View reminder information' },
+  { name: 'reminder:update', description: 'Update reminder information' },
+  { name: 'reminder:delete', description: 'Delete reminders' },
+  { name: 'reminder:list', description: 'List all reminders' },
+
+  // PPE Management
+  { name: 'ppe:create', description: 'Create new PPE records' },
+  { name: 'ppe:read', description: 'View PPE information' },
+  { name: 'ppe:update', description: 'Update PPE information' },
+  { name: 'ppe:delete', description: 'Delete PPE records' },
+  { name: 'ppe:list', description: 'List all PPE records' },
+
+  // Environmental Measurement Management
+  { name: 'environmental-measurement:create', description: 'Create new environmental measurements' },
+  { name: 'environmental-measurement:read', description: 'View environmental measurement information' },
+  { name: 'environmental-measurement:update', description: 'Update environmental measurement information' },
+  { name: 'environmental-measurement:delete', description: 'Delete environmental measurements' },
+  { name: 'environmental-measurement:list', description: 'List all environmental measurements' },
+
+  // Course Management
+  { name: 'course:create', description: 'Create new courses' },
+  { name: 'course:read', description: 'View course information' },
+  { name: 'course:update', description: 'Update course information' },
+  { name: 'course:delete', description: 'Delete courses' },
+  { name: 'course:list', description: 'List all courses' },
+
+  // Chapter Management
+  { name: 'chapter:create', description: 'Create new chapters' },
+  { name: 'chapter:read', description: 'View chapter information' },
+  { name: 'chapter:update', description: 'Update chapter information' },
+  { name: 'chapter:delete', description: 'Delete chapters' },
+  { name: 'chapter:list', description: 'List all chapters' },
+
+  // Upload Management
+  { name: 'upload:create', description: 'Create new uploads' },
+  { name: 'upload:read', description: 'View upload information' },
+  { name: 'upload:update', description: 'Update upload information' },
+  { name: 'upload:delete', description: 'Delete uploads' },
+  { name: 'upload:list', description: 'List all uploads' },
+
+  // Audit Result Management
+  { name: 'audit-result:create', description: 'Create new audit results' },
+  { name: 'audit-result:read', description: 'View audit result information' },
+  { name: 'audit-result:update', description: 'Update audit result information' },
+  { name: 'audit-result:delete', description: 'Delete audit results' },
+  { name: 'audit-result:list', description: 'List all audit results' },
+
+  // Audit Criteria Management
+  { name: 'audit-criteria:create', description: 'Create new audit criteria' },
+  { name: 'audit-criteria:read', description: 'View audit criteria information' },
+  { name: 'audit-criteria:update', description: 'Update audit criteria information' },
+  { name: 'audit-criteria:delete', description: 'Delete audit criteria' },
+  { name: 'audit-criteria:list', description: 'List all audit criteria' },
+
+  // Certificate Category Management
+  { name: 'certificate-category:create', description: 'Create new certificate categories' },
+  { name: 'certificate-category:read', description: 'View certificate category information' },
+  { name: 'certificate-category:update', description: 'Update certificate category information' },
+  { name: 'certificate-category:delete', description: 'Delete certificate categories' },
+  { name: 'certificate-category:list', description: 'List all certificate categories' },
+
+  // Safety Equipment Management
+  { name: 'safety-equipment:create', description: 'Create new safety equipment' },
+  { name: 'safety-equipment:read', description: 'View safety equipment information' },
+  { name: 'safety-equipment:update', description: 'Update safety equipment information' },
+  { name: 'safety-equipment:delete', description: 'Delete safety equipment' },
+  { name: 'safety-equipment:list', description: 'List all safety equipment' },
+
+  // Safety Equipment Type Management
+  { name: 'safety-equipment-type:create', description: 'Create new safety equipment types' },
+  { name: 'safety-equipment-type:read', description: 'View safety equipment type information' },
+  { name: 'safety-equipment-type:update', description: 'Update safety equipment type information' },
+  { name: 'safety-equipment-type:delete', description: 'Delete safety equipment types' },
+  { name: 'safety-equipment-type:list', description: 'List all safety equipment types' },
+
+  // Mail Template Management
+  { name: 'mail-template:create', description: 'Create new mail templates' },
+  { name: 'mail-template:read', description: 'View mail template information' },
+  { name: 'mail-template:update', description: 'Update mail template information' },
+  { name: 'mail-template:delete', description: 'Delete mail templates' },
+  { name: 'mail-template:list', description: 'List all mail templates' },
 ];
 
 export async function seedPermissions(prisma: PrismaClient) {

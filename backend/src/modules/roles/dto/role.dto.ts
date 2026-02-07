@@ -1,4 +1,5 @@
 import { PermissionDto } from '../../../modules/permissions/dto/permission.dto';
+import { DataLevelEnum } from '@prisma/client';
 
 export class RoleDto {
   id: string;
@@ -6,6 +7,7 @@ export class RoleDto {
   code: string;
   description?: string | null;
   isActive: boolean;
+  dataLevel: DataLevelEnum;
   permissions?: PermissionDto[];
   createdAt: Date;
   updatedAt: Date;

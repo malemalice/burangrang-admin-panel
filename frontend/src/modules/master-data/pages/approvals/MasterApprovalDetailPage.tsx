@@ -203,7 +203,7 @@ const MasterApprovalDetailPage = () => {
                       className="flex items-center gap-4 p-4 border rounded-lg bg-muted/20"
                     >
                       <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold">
-                        {item.order}
+                        {index + 1}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">

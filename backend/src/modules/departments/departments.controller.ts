@@ -12,20 +12,23 @@ import {
 import { DepartmentsService } from './departments.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
-import { Roles } from '../../shared/decorators/roles.decorator';
-import { Role } from '../../shared/types/role.enum';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { DepartmentDto } from './dto/department.dto';
 
 @ApiTags('departments')
+@ApiBearerAuth()
 @Controller('departments')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class DepartmentsController {
   constructor(private readonly departmentsService: DepartmentsService) {}
 
   @Post()
+  @Permissions('department:create')
   @ApiOperation({ summary: 'Create a new department' })
   @ApiResponse({
     status: 201,
@@ -33,7 +36,7 @@ export class DepartmentsController {
     type: DepartmentDto,
   })
   @ApiResponse({ status: 400, description: 'Bad request.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   create(
     @Body() createDepartmentDto: CreateDepartmentDto,
   ): Promise<DepartmentDto> {
@@ -41,13 +44,15 @@ export class DepartmentsController {
   }
 
   @Get()
+  @AllowOptionsBypass()
+  @Permissions('department:list')
   @ApiOperation({ summary: 'Get all departments' })
   @ApiResponse({
     status: 200,
     description: 'Return all departments.',
     type: [DepartmentDto],
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -73,6 +78,7 @@ export class DepartmentsController {
   }
 
   @Get(':id')
+  @Permissions('department:read')
   @ApiOperation({ summary: 'Get a department by id' })
   @ApiResponse({
     status: 200,
@@ -80,13 +86,13 @@ export class DepartmentsController {
     type: DepartmentDto,
   })
   @ApiResponse({ status: 404, description: 'Department not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  
   findOne(@Param('id') id: string): Promise<DepartmentDto> {
     return this.departmentsService.findOne(id);
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('department:update')
   @ApiOperation({ summary: 'Update a department' })
   @ApiResponse({
     status: 200,
@@ -102,7 +108,7 @@ export class DepartmentsController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('department:delete')
   @ApiOperation({ summary: 'Delete a department' })
   @ApiResponse({
     status: 200,
@@ -114,6 +120,7 @@ export class DepartmentsController {
   }
 
   @Get('code/:code')
+  @Permissions('department:read')
   @ApiOperation({ summary: 'Get a department by code' })
   @ApiResponse({
     status: 200,
@@ -121,7 +128,7 @@ export class DepartmentsController {
     type: DepartmentDto,
   })
   @ApiResponse({ status: 404, description: 'Department not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  
   findByCode(@Param('code') code: string): Promise<DepartmentDto> {
     return this.departmentsService.findByCode(code);
   }

@@ -68,7 +68,8 @@ const AreaForm = ({ area, mode }: AreaFormProps) => {
         const officesResponse = await officeService.getOffices({ 
           page: 1, 
           limit: 100,
-          filters: { status: 'active' } 
+          filters: { status: 'active' },
+          options: true
         });
         setOffices(officesResponse.data);
 

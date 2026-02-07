@@ -35,7 +35,7 @@ export default function TreatmentPlantsPage() {
   useEffect(() => {
     const fetchOffices = async () => {
       try {
-        const response = await officeService.getOffices({ page: 1, limit: 100, filters: { isActive: true } });
+        const response = await officeService.getOffices({ page: 1, limit: 100, filters: { isActive: true }, options: true });
         setOffices(response.data);
       } catch (error) {
         console.error('Failed to fetch offices', error);

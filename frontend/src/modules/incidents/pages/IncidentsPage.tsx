@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Eye, Plus, Edit, Trash2, CheckCircle2, Info, ArrowRight, FileText, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/core/lib/auth';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 import approvalService from '@/modules/master-data/services/approvalService';
 import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
@@ -39,6 +41,7 @@ import { User } from '@/core/lib/types';
 const IncidentsPage = () => {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const { hasPermission } = usePermissions();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -52,6 +55,7 @@ const IncidentsPage = () => {
   const [approvalRights, setApprovalRights] = useState<Record<string, boolean>>({});
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>({ id: 'incidentDate', desc: true });
 
   // Filter options state
   const [areas, setAreas] = useState<AreaDTO[]>([]);
@@ -66,10 +70,10 @@ const IncidentsPage = () => {
       setIsLoadingFilterOptions(true);
       try {
         const [areasRes, departmentsRes, riskCategoriesRes, usersRes] = await Promise.all([
-          areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true } }),
-          departmentService.getDepartments({ page: 1, limit: 100 }),
-          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true }),
-          userService.getUsers({ page: 1, limit: 100 }),
+          areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true }, options: true }),
+          departmentService.getDepartments({ page: 1, limit: 100, options: true }),
+          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
+          userService.getUsers({ page: 1, limit: 100, options: true }),
         ]);
 
         setAreas(areasRes.data);
@@ -191,7 +195,12 @@ const IncidentsPage = () => {
       const params: any = {
         page: pageIndex + 1,
         limit,
+        sortBy: sorting?.id ?? 'incidentDate',
+        sortOrder: sorting?.desc ? 'desc' : 'asc',
       };
+
+      // Show only active (non-deleted) incidents so soft-deleted items don't appear
+      params.isActive = true;
 
       // Use code filter if set, otherwise use searchTerm
       // Code filter takes precedence as it's more specific
@@ -199,10 +208,6 @@ const IncidentsPage = () => {
         params.search = activeFilters.code.value;
       } else if (searchTerm) {
         params.search = searchTerm;
-      }
-
-      if (activeFilters.isActive?.value !== undefined) {
-        params.isActive = activeFilters.isActive.value;
       }
 
       // Handle status filter (supports multiple values)
@@ -288,7 +293,7 @@ const IncidentsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, searchTerm, activeFilters]);
+  }, [pageIndex, limit, searchTerm, activeFilters, sorting]);
 
   useEffect(() => {
     fetchIncidents();
@@ -370,30 +375,27 @@ const IncidentsPage = () => {
       return actions;
     }
 
-    // If super_admin, show all buttons regardless of conditions
-    if (isSuperAdmin) {
-      // Edit button
-      if (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN) {
-        actions.push({
-          label: 'Edit',
-          onClick: () => navigate(`/incidents/${incident.id}/edit?mode=creator`),
-          variant: 'default',
-          icon: <Edit className="mr-2 h-4 w-4" />,
-        });
+    // If super_admin and has permissions, show all buttons regardless of conditions
+    if (isSuperAdmin && (hasPermission('incident:update') || hasPermission('approval:update'))) {
+      if (hasPermission('incident:update')) {
+        if (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
+          actions.push({
+            label: 'Edit',
+            onClick: () => navigate(`/incidents/${incident.id}/edit?mode=creator`),
+            variant: 'default',
+            icon: <Edit className="mr-2 h-4 w-4" />,
+          });
+        }
+        if (incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
+          actions.push({
+            label: 'Submit',
+            onClick: () => navigate(`/incidents/${incident.id}/edit?mode=investigator`),
+            variant: 'default',
+            icon: <CheckCircle2 className="mr-2 h-4 w-4" />,
+          });
+        }
       }
-      
-      // Submit button
-      if (incident.status === GeneralStatusEnum.OPEN) {
-        actions.push({
-          label: 'Submit',
-          onClick: () => navigate(`/incidents/${incident.id}/edit?mode=investigator`),
-          variant: 'default',
-          icon: <CheckCircle2 className="mr-2 h-4 w-4" />,
-        });
-      }
-      
-      // Approve button
-      if (incident.status === GeneralStatusEnum.WAITING_APPROVAL) {
+      if (hasPermission('approval:update') && incident.status === GeneralStatusEnum.WAITING_APPROVAL) {
         actions.push({
           label: 'Approve',
           onClick: () => navigate(`/incidents/${incident.id}/edit?mode=approver`),
@@ -401,7 +403,6 @@ const IncidentsPage = () => {
           icon: <CheckCircle2 className="mr-2 h-4 w-4" />,
         });
       }
-      
       return actions;
     }
 
@@ -419,10 +420,9 @@ const IncidentsPage = () => {
       ? departments.find(dept => dept.id === userData.departmentId)?.code === 'HSE'
       : false;
 
-    // Edit button (creator mode) - for DRAFT or OPEN status
-    // Show if: user is creator OR user has same department as creator OR user is super_admin
-    if ((isCreator || hasSameDeptAsCreator || isSuperAdmin) && 
-        (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN)) {
+    // Edit button (creator mode) - for DRAFT, OPEN, or REJECTED (edit again after rejection)
+    if (hasPermission('incident:update') && (isCreator || hasSameDeptAsCreator || isSuperAdmin) &&
+        (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED)) {
       actions.push({
         label: 'Edit',
         onClick: () => navigate(`/incidents/${incident.id}/edit?mode=creator`),
@@ -431,8 +431,8 @@ const IncidentsPage = () => {
       });
     }
 
-    // Submit button (investigator mode) - for OPEN status and user is in HSE department
-    if (userInHSEDept && incident.status === GeneralStatusEnum.OPEN) {
+    // Submit button (investigator mode) - for OPEN or REJECTED, user is in HSE department
+    if (hasPermission('incident:update') && userInHSEDept && (incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED)) {
       actions.push({
         label: 'Submit',
         onClick: () => navigate(`/incidents/${incident.id}/edit?mode=investigator`),
@@ -442,7 +442,7 @@ const IncidentsPage = () => {
     }
 
     // Approve button (approver mode) - for WAITING_APPROVAL status and user has approval rights
-    if (incident.status === GeneralStatusEnum.WAITING_APPROVAL && approvalRights[incident.id]) {
+    if (hasPermission('approval:update') && incident.status === GeneralStatusEnum.WAITING_APPROVAL && approvalRights[incident.id]) {
       actions.push({
         label: 'Approve',
         onClick: () => navigate(`/incidents/${incident.id}/edit?mode=approver`),
@@ -459,19 +459,24 @@ const IncidentsPage = () => {
     setPageIndex(0);
   };
 
+  const handleSortingChange = (newSorting: { id: string; desc: boolean } | null) => {
+    setSorting(newSorting);
+    setPageIndex(0);
+  };
+
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     setPageIndex(0);
 
     if (value === 'all') {
       setActiveFilters({});
-    } else if (value === 'active') {
+    } else {
+      const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === value);
       setActiveFilters({
-        isActive: { value: true, label: 'Active' },
-      });
-    } else if (value === 'inactive') {
-      setActiveFilters({
-        isActive: { value: false, label: 'Inactive' },
+        status: {
+          value: value,
+          label: statusOption?.label ?? value,
+        },
       });
     }
   };
@@ -671,11 +676,15 @@ const IncidentsPage = () => {
     setActiveFilters(newActiveFilters);
     setPageIndex(0);
 
-    if (newActiveFilters.isActive?.value === true) {
-      setActiveTab('active');
-    } else if (newActiveFilters.isActive?.value === false) {
-      setActiveTab('inactive');
-    } else if (!newActiveFilters.isActive && Object.keys(newActiveFilters).length === 0) {
+    // Sync tab with status filter (only All, Open, Close tabs)
+    if (newActiveFilters.status?.value) {
+      const statusVal = Array.isArray(newActiveFilters.status.value)
+        ? newActiveFilters.status.value[0]
+        : newActiveFilters.status.value;
+      if (statusVal === GeneralStatusEnum.OPEN || statusVal === GeneralStatusEnum.CLOSE) {
+        setActiveTab(statusVal);
+      }
+    } else if (Object.keys(newActiveFilters).length === 0) {
       setActiveTab('all');
     }
   };
@@ -712,7 +721,7 @@ const IncidentsPage = () => {
       [GeneralStatusEnum.WAITING_APPROVAL]: { className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200', label: 'Waiting Approval' },
       [GeneralStatusEnum.DONE]: { className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', label: 'Done' },
       [GeneralStatusEnum.REJECTED]: { className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200', label: 'Rejected' },
-      [GeneralStatusEnum.CLOSE]: { className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200', label: 'Closed' },
+      [GeneralStatusEnum.CLOSE]: { className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200', label: 'Close' },
     };
 
     const config = statusConfig[status] || { className: 'bg-gray-100 text-gray-800', label: status };
@@ -723,6 +732,7 @@ const IncidentsPage = () => {
     {
       id: 'code',
       header: 'Code',
+      isSortable: true,
       cell: (row: Incident) => (
         <span className="font-medium text-blue-600 dark:text-blue-400">{row.code}</span>
       ),
@@ -730,6 +740,7 @@ const IncidentsPage = () => {
     {
       id: 'subject',
       header: 'Subject',
+      isSortable: true,
       cell: (row: Incident) => (
         <div className="truncate max-w-[250px]" title={row.subject}>
           {row.subject}
@@ -739,6 +750,7 @@ const IncidentsPage = () => {
     {
       id: 'incidentDate',
       header: 'Incident Date',
+      isSortable: true,
       cell: (row: Incident) => format(new Date(row.incidentDate), 'dd MMM yyyy'),
     },
     {
@@ -751,6 +763,7 @@ const IncidentsPage = () => {
     {
       id: 'priority',
       header: 'Priority',
+      isSortable: true,
       cell: (row: Incident) => (
         <Badge
           className={
@@ -768,6 +781,7 @@ const IncidentsPage = () => {
     {
       id: 'status',
       header: 'Status',
+      isSortable: true,
       cell: (row: Incident) => getStatusBadge(row.status),
     },
     {
@@ -841,7 +855,7 @@ const IncidentsPage = () => {
             })}
             
             {/* Delete button - shown directly for super_admin, icon-only with tooltip */}
-            {isSuperAdmin && (
+            {hasPermission('incident:delete') && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -890,18 +904,20 @@ const IncidentsPage = () => {
                 <p>View Incident Workflow</p>
               </TooltipContent>
             </Tooltip>
-            <Button onClick={() => navigate('/incidents/new')}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Incident
-            </Button>
+            <PermissionGuard permission="incident:create">
+              <Button onClick={() => navigate('/incidents/new')}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Incident
+              </Button>
+            </PermissionGuard>
           </div>
         }
       >
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="active">Active</TabsTrigger>
-            <TabsTrigger value="inactive">Inactive</TabsTrigger>
+            <TabsTrigger value={GeneralStatusEnum.OPEN}>Open</TabsTrigger>
+            <TabsTrigger value={GeneralStatusEnum.CLOSE}>Close</TabsTrigger>
           </TabsList>
         </Tabs>
       </PageHeader>
@@ -919,10 +935,12 @@ const IncidentsPage = () => {
           total: totalIncidents,
         }}
         onSearch={handleSearch}
-        searchPlaceholder="Search incidents..."
+        searchPlaceholder="Search by code, subject, or description..."
         filterFields={filterFields}
         onApplyFilters={handleApplyFilters}
         activeFilters={activeFilters}
+        sorting={sorting}
+        onSortingChange={handleSortingChange}
       />
 
       <ConfirmDialog

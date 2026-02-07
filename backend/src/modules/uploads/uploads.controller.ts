@@ -30,18 +30,20 @@ import { UpdateFileUploadDto } from './dto/update-file-upload.dto';
 import { FindFileUploadsDto } from './dto/find-file-uploads.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
-import { Roles } from '../../shared/decorators/roles.decorator';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { Public } from '../../shared/decorators/public.decorator';
-import { Role } from '../../shared/types/role.enum';
 
 @ApiTags('uploads')
 @ApiBearerAuth()
 @Controller('uploads')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class UploadsController {
   constructor(private readonly uploadsService: UploadsService) { }
 
   @Post('upload')
+  @Permissions('upload:create')
   @ApiOperation({ summary: 'Upload a file' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -76,7 +78,7 @@ export class UploadsController {
   })
   @ApiResponse({ status: 201, description: 'File uploaded successfully' })
   @ApiResponse({ status: 400, description: 'Invalid file or category' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
     @UploadedFile() file: any,
@@ -113,6 +115,8 @@ export class UploadsController {
   }
 
   @Get()
+  @AllowOptionsBypass()
+  @Permissions('upload:list')
   @ApiOperation({
     summary: 'Get all file uploads with pagination and filtering',
   })
@@ -125,11 +129,12 @@ export class UploadsController {
   @ApiQuery({ name: 'categoryId', required: false, type: String })
   @ApiQuery({ name: 'uploadedBy', required: false, type: String })
   @ApiQuery({ name: 'mimeType', required: false, type: String })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({
     status: 200,
     description: 'File uploads retrieved successfully',
   })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  
   async findAll(@Query() query: FindFileUploadsDto) {
     return this.uploadsService.findAll(query);
   }
@@ -193,6 +198,7 @@ export class UploadsController {
   }
 
   @Get(':id')
+  @Permissions('upload:read')
   @ApiOperation({ summary: 'Get file upload by ID' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({
@@ -200,18 +206,19 @@ export class UploadsController {
     description: 'File upload retrieved successfully',
   })
   @ApiResponse({ status: 404, description: 'File upload not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  
   async findOne(@Param('id') id: string) {
     return this.uploadsService.findOne(id);
   }
 
   @Patch(':id')
+  @Permissions('upload:update')
   @ApiOperation({ summary: 'Update file upload' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateFileUploadDto })
   @ApiResponse({ status: 200, description: 'File upload updated successfully' })
   @ApiResponse({ status: 404, description: 'File upload not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  
   async update(
     @Param('id') id: string,
     @Body() updateFileUploadDto: UpdateFileUploadDto,
@@ -220,11 +227,12 @@ export class UploadsController {
   }
 
   @Delete(':id')
+  @Permissions('upload:delete')
   @ApiOperation({ summary: 'Delete file upload' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'File upload deleted successfully' })
   @ApiResponse({ status: 404, description: 'File upload not found' })
-  @Roles(Role.SUPER_ADMIN)
+  
   async remove(@Param('id') id: string) {
     await this.uploadsService.remove(id);
     return { message: 'File upload deleted successfully' };

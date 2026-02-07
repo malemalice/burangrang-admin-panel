@@ -7,6 +7,8 @@ import { RoleDto } from '../roles/dto/role.dto';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { Prisma } from '@prisma/client';
+import { ROLE_CODES } from '../../shared/constants/role-codes';
+import { pathToRequiredPermission } from './utils/path-to-permission';
 
 // Define options for findAll method
 export interface FindMenusOptions {
@@ -257,100 +259,101 @@ export class MenusService {
     return menus.map((menu) => this.menuMapper(menu));
   }
 
-  async getSidebarMenus(userRole: string): Promise<MenuDto[]> {
-    const menus = await this.prisma.menu.findMany({
-      where: {
-        isActive: true,
-        parentId: null,
-        roles: {
-          some: {
-            name: userRole,
-            isActive: true,
+  /**
+   * Sidebar menus filtered by user permissions (dynamic path → permission mapping).
+   * See backend/docs/sidebar-permission-lookup-trd.md.
+   */
+  async getSidebarMenus(userId: string): Promise<MenuDto[]> {
+    const [userWithRole, permissionNames, fullTree] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          role: {
+            include: { permissions: { where: { isActive: true }, select: { name: true } } },
           },
         },
-      },
+      }),
+      this.prisma.permission.findMany({ where: { isActive: true }, select: { name: true } }),
+      this.loadFullMenuTree(),
+    ]);
+
+    // Super Admin sees all menus regardless of permissions
+    if (userWithRole?.role?.code === ROLE_CODES.SUPER_ADMIN) {
+      return fullTree.map((menu) => this.menuMapper(menu));
+    }
+
+    const userPermissions = new Set(
+      userWithRole?.role?.permissions?.map((p) => p.name) ?? [],
+    );
+    const allowedPermissionNames = new Set(permissionNames.map((p) => p.name));
+
+    const treeWithVisibility = fullTree.map((menu) =>
+      this.computeVisibility(menu, allowedPermissionNames, userPermissions),
+    );
+    const pruned = treeWithVisibility
+      .map((menu) => this.pruneInvisible(menu))
+      .filter((m): m is NonNullable<typeof m> => m != null);
+
+    return pruned.map((menu) => this.menuMapper(menu));
+  }
+
+  /** Load full active menu tree (no role filter). Used for sidebar permission-based filtering. */
+  private async loadFullMenuTree(): Promise<any[]> {
+    const childrenInclude = (depth: number): any =>
+      depth <= 0
+        ? {}
+        : {
+            where: { isActive: true },
+            orderBy: { order: 'asc' as const },
+            include: {
+              children: childrenInclude(depth - 1),
+              roles: true,
+            },
+          };
+
+    return this.prisma.menu.findMany({
+      where: { isActive: true, parentId: null },
       include: {
-        children: {
-          where: {
-            isActive: true,
-            roles: {
-              some: {
-                name: userRole,
-                isActive: true,
-              },
-            },
-          },
-          orderBy: {
-            order: 'asc',
-          },
-          include: {
-            children: {
-              where: {
-                isActive: true,
-                roles: {
-                  some: {
-                    name: userRole,
-                    isActive: true,
-                  },
-                },
-              },
-              orderBy: {
-                order: 'asc',
-              },
-              include: {
-                children: {
-                  where: {
-                    isActive: true,
-                    roles: {
-                      some: {
-                        name: userRole,
-                        isActive: true,
-                      },
-                    },
-                  },
-                  orderBy: {
-                    order: 'asc',
-                  },
-                  include: {
-                    children: {
-                      where: {
-                        isActive: true,
-                        roles: {
-                          some: {
-                            name: userRole,
-                            isActive: true,
-                          },
-                        },
-                      },
-                      orderBy: {
-                        order: 'asc',
-                      },
-                      include: {
-                        children: {
-                          orderBy: {
-                            order: 'asc',
-                          },
-                        },
-                        roles: true,
-                      },
-                    },
-                    roles: true,
-                  },
-                },
-                roles: true,
-              },
-            },
-            roles: true,
-          },
-        },
+        children: childrenInclude(5),
         roles: true,
       },
-      orderBy: {
-        order: 'asc',
-      },
+      orderBy: { order: 'asc' },
     });
+  }
 
-    return menus.map((menu) => this.menuMapper(menu));
+  /**
+   * Compute visibility (bottom-up): path → required permission; parent without path visible if any child visible.
+   */
+  private computeVisibility(
+    menu: any,
+    permissionNames: Set<string>,
+    userPermissions: Set<string>,
+  ): any {
+    const processedChildren = (menu.children ?? []).map((child: any) =>
+      this.computeVisibility(child, permissionNames, userPermissions),
+    );
+    let visible: boolean;
+    if (menu.path != null) {
+      if (menu.path === '/') {
+        visible = true;
+      } else {
+        const required = pathToRequiredPermission(menu.path, permissionNames);
+        visible = required !== null && userPermissions.has(required);
+      }
+    } else {
+      visible = processedChildren.some((c: any) => c._visible);
+    }
+    return { ...menu, children: processedChildren, _visible: visible };
+  }
+
+  /** Prune nodes that are not visible; remove parents with no visible children. */
+  private pruneInvisible(menu: any): any | null {
+    if (!menu._visible) return null;
+    const { _visible, ...rest } = menu;
+    const prunedChildren = (rest.children ?? [])
+      .map((child: any) => this.pruneInvisible(child))
+      .filter((m: any): m is NonNullable<typeof m> => m != null);
+    return { ...rest, children: prunedChildren };
   }
 
   async updateMenuOrder(menuOrders: Array<{ id: string; order: number }>): Promise<void> {

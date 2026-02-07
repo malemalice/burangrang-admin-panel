@@ -19,7 +19,7 @@ const mapRiskMatrixDtoToRiskMatrix = (riskMatrixDto: RiskMatrixDTO): RiskMatrix 
   consequenceLevel: riskMatrixDto.consequenceLevel,
   consequenceName: riskMatrixDto.consequenceName,
   consequenceDesc: riskMatrixDto.consequenceDesc,
-  riskRating: riskMatrixDto.risk_rating,
+  interpretation: riskMatrixDto.interpretation,
   isActive: riskMatrixDto.isActive,
   createdAt: riskMatrixDto.createdAt,
   updatedAt: riskMatrixDto.updatedAt,

@@ -32,6 +32,7 @@ import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { Role } from '../../shared/types/role.enum';
 import { Request } from 'express';
 
@@ -62,7 +63,7 @@ export class QuizzesController {
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  
   @Permissions('quiz:create')
   async create(
     @Body() createQuizDto: CreateQuizDto,
@@ -72,8 +73,9 @@ export class QuizzesController {
   }
 
   @Get()
+  @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all quizzes with pagination and filtering' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  
   @Permissions('quiz:list')
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
@@ -112,6 +114,12 @@ export class QuizzesController {
     required: false,
     type: Boolean,
     description: 'Filter by active status',
+  })
+  @ApiQuery({
+    name: 'options',
+    required: false,
+    type: Boolean,
+    description: 'Set to true to bypass permission check (requires JWT auth only)',
   })
   @ApiQuery({
     name: 'isPublished',
@@ -174,7 +182,7 @@ export class QuizzesController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 404, description: 'Quiz not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  
   @Permissions('quiz:read')
   async findOne(@Param('id') id: string): Promise<QuizDto> {
     return this.quizzesService.findOne(id);
@@ -193,7 +201,7 @@ export class QuizzesController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 404, description: 'Quiz not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  
   @Permissions('quiz:update')
   async update(
     @Param('id') id: string,
@@ -210,7 +218,7 @@ export class QuizzesController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 404, description: 'Quiz not found' })
-  @Roles(Role.SUPER_ADMIN)
+  
   @Permissions('quiz:delete')
   async remove(
     @Param('id') id: string,
@@ -241,7 +249,7 @@ export class QuizzesController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 404, description: 'Quiz not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  
   @Permissions('quiz:update')
   async linkQuiz(
     @Param('id') id: string,
@@ -263,7 +271,7 @@ export class QuizzesController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 404, description: 'Quiz not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  
   @Permissions('quiz:assign')
   async assign(
     @Param('id') id: string,
@@ -289,7 +297,7 @@ export class QuizzesController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Quiz not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  
   @Permissions('quiz:attempt')
   async getCurrentAttempt(
     @Param('id') id: string,
@@ -312,7 +320,7 @@ export class QuizzesController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 404, description: 'Quiz not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  
   @Permissions('quiz:attempt')
   async startAttempt(
     @Param('id') id: string,
@@ -335,7 +343,7 @@ export class QuizzesController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions or attempt does not belong to user' })
   @ApiResponse({ status: 404, description: 'Attempt or question not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  
   @Permissions('quiz:attempt')
   async submitAnswer(
     @Param('attemptId') attemptId: string,
@@ -357,7 +365,7 @@ export class QuizzesController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions or attempt does not belong to user' })
   @ApiResponse({ status: 404, description: 'Attempt not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER, Role.USER)
+  
   @Permissions('quiz:attempt')
   async submitAttempt(
     @Param('attemptId') attemptId: string,
@@ -379,7 +387,7 @@ export class QuizzesController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 404, description: 'Answer not found' })
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MANAGER)
+  
   @Permissions('quiz:grade')
   async gradeEssay(
     @Param('answerId') answerId: string,

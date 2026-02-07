@@ -33,17 +33,22 @@ import { CloseWorkPermitDto } from './dto/close-work-permit.dto';
 import { PaginatedResponse } from '../../shared/types/pagination-params';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
-import { Roles } from '../../shared/decorators/roles.decorator';
-import { Role } from '../../shared/types/role.enum';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { DataScopeGuard } from '../../shared/guards/data-scope.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
+import { DataScoped } from '../../shared/decorators/data-scoped.decorator';
 
 @ApiTags('work-permits')
 @ApiBearerAuth()
 @Controller('work-permits')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@DataScoped('WorkPermit')
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, DataScopeGuard)
 export class WorkPermitsController {
   constructor(private readonly workPermitsService: WorkPermitsService) { }
 
   @Post()
+  @Permissions('work-permit:create')
   @ApiOperation({ summary: 'Create a new work permit' })
   @ApiBody({ type: CreateWorkPermitDto })
   @ApiResponse({
@@ -53,7 +58,6 @@ export class WorkPermitsController {
   })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async create(
     @Body() createWorkPermitDto: CreateWorkPermitDto,
     @Request() req,
@@ -62,6 +66,7 @@ export class WorkPermitsController {
   }
 
   @Get()
+  @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all work permits with pagination and filtering' })
   @ApiQuery({
     name: 'page',
@@ -147,6 +152,12 @@ export class WorkPermitsController {
     type: Boolean,
     description: 'Filter by active status',
   })
+  @ApiQuery({
+    name: 'options',
+    required: false,
+    type: Boolean,
+    description: 'Set to true to bypass permission check (requires JWT auth only)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Work permits retrieved successfully',
@@ -170,12 +181,16 @@ export class WorkPermitsController {
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
-  async findAll(@Query() query: FindWorkPermitsDto): Promise<PaginatedResponse<WorkPermitDto>> {
-    return this.workPermitsService.findAll(query);
+  @Permissions('work-permit:list')
+  async findAll(
+    @Query() query: FindWorkPermitsDto,
+    @Request() req: any,
+  ): Promise<PaginatedResponse<WorkPermitDto>> {
+    return this.workPermitsService.findAll(query, req.userContext);
   }
 
   @Get('master-data')
+  @Permissions('work-permit:read')
   @ApiOperation({ summary: 'Get master data for work permit form' })
   @ApiResponse({
     status: 200,
@@ -196,12 +211,12 @@ export class WorkPermitsController {
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async getMasterData() {
     return this.workPermitsService.getMasterData();
   }
 
   @Get(':id')
+  @Permissions('work-permit:read')
   @ApiOperation({ summary: 'Get a work permit by ID' })
   @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
   @ApiResponse({
@@ -210,13 +225,17 @@ export class WorkPermitsController {
     type: WorkPermitDto,
   })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
-  async findOne(@Param('id') id: string): Promise<WorkPermitDto> {
-    return this.workPermitsService.findOne(id);
+  async findOne(
+    @Param('id') id: string,
+    @Request() req: any,
+  ): Promise<WorkPermitDto> {
+    return this.workPermitsService.findOne(id, req.userContext);
   }
 
   @Patch(':id')
+  @Permissions('work-permit:update')
   @ApiOperation({ summary: 'Update a work permit' })
   @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
   @ApiBody({ type: UpdateWorkPermitDto })
@@ -228,27 +247,31 @@ export class WorkPermitsController {
   @ApiResponse({ status: 400, description: 'Invalid input data or invalid status for editing' })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async update(
     @Param('id') id: string,
     @Body() updateWorkPermitDto: UpdateWorkPermitDto,
-    @Request() req,
+    @Request() req: any,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.update(id, updateWorkPermitDto, req.user.id);
+    return this.workPermitsService.update(id, updateWorkPermitDto, req.user.id, req.userContext);
   }
 
   @Delete(':id')
+  @Permissions('work-permit:delete')
   @ApiOperation({ summary: 'Delete a work permit (soft delete)' })
   @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
   @ApiResponse({ status: 200, description: 'Work permit deleted successfully' })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
-  async remove(@Param('id') id: string): Promise<void> {
-    return this.workPermitsService.remove(id);
+  async remove(
+    @Param('id') id: string,
+    @Request() req: any,
+  ): Promise<void> {
+    return this.workPermitsService.remove(id, req.userContext);
   }
 
   @Post(':id/submit')
+  @Permissions('work-permit:update')
   @ApiOperation({ summary: 'Submit work permit for approval' })
   @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
   @ApiBody({ type: SubmitWorkPermitDto })
@@ -260,16 +283,16 @@ export class WorkPermitsController {
   @ApiResponse({ status: 400, description: 'Invalid status for submission' })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async submit(
     @Param('id') id: string,
     @Body() submitDto: SubmitWorkPermitDto,
-    @Request() req,
+    @Request() req: any,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.submit(id, submitDto, req.user.id);
+    return this.workPermitsService.submit(id, submitDto, req.user.id, req.userContext);
   }
 
   @Post(':id/approve')
+  @Permissions('work-permit:update')
   @ApiOperation({ summary: 'Approve work permit (HSE or Security)' })
   @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
   @ApiBody({ type: ApproveWorkPermitDto })
@@ -281,16 +304,16 @@ export class WorkPermitsController {
   @ApiResponse({ status: 400, description: 'Invalid status for approval' })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async approve(
     @Param('id') id: string,
     @Body() approveDto: ApproveWorkPermitDto,
-    @Request() req,
+    @Request() req: any,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.approve(id, approveDto, req.user.id);
+    return this.workPermitsService.approve(id, approveDto, req.user.id, req.userContext);
   }
 
   @Post(':id/reject')
+  @Permissions('work-permit:update')
   @ApiOperation({ summary: 'Reject work permit' })
   @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
   @ApiBody({ type: RejectWorkPermitDto })
@@ -302,16 +325,16 @@ export class WorkPermitsController {
   @ApiResponse({ status: 400, description: 'Invalid status for rejection' })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async reject(
     @Param('id') id: string,
     @Body() rejectDto: RejectWorkPermitDto,
-    @Request() req,
+    @Request() req: any,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.reject(id, rejectDto, req.user.id);
+    return this.workPermitsService.reject(id, rejectDto, req.user.id, req.userContext);
   }
 
   @Post(':id/request-info')
+  @Permissions('work-permit:update')
   @ApiOperation({ summary: 'Request additional information from requester (HSE only)' })
   @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
   @ApiBody({ type: RequestInfoWorkPermitDto })
@@ -323,16 +346,16 @@ export class WorkPermitsController {
   @ApiResponse({ status: 400, description: 'Invalid status for requesting info' })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async requestInfo(
     @Param('id') id: string,
     @Body() requestInfoDto: RequestInfoWorkPermitDto,
-    @Request() req,
+    @Request() req: any,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.requestInfo(id, requestInfoDto, req.user.id);
+    return this.workPermitsService.requestInfo(id, requestInfoDto, req.user.id, req.userContext);
   }
 
   @Post(':id/extend')
+  @Permissions('work-permit:update')
   @ApiOperation({ summary: 'Extend work permit end date' })
   @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
   @ApiBody({ type: ExtendWorkPermitDto })
@@ -344,16 +367,16 @@ export class WorkPermitsController {
   @ApiResponse({ status: 400, description: 'Invalid status for extension or invalid date' })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async extend(
     @Param('id') id: string,
     @Body() extendDto: ExtendWorkPermitDto,
-    @Request() req,
+    @Request() req: any,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.extend(id, extendDto, req.user.id);
+    return this.workPermitsService.extend(id, extendDto, req.user.id, req.userContext);
   }
 
   @Post(':id/close')
+  @Permissions('work-permit:update')
   @ApiOperation({ summary: 'Close completed work permit' })
   @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
   @ApiBody({ type: CloseWorkPermitDto })
@@ -365,27 +388,27 @@ export class WorkPermitsController {
   @ApiResponse({ status: 400, description: 'Invalid status for closure' })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async close(
     @Param('id') id: string,
     @Body() closeDto: CloseWorkPermitDto,
-    @Request() req,
+    @Request() req: any,
   ): Promise<WorkPermitDto> {
-    return this.workPermitsService.close(id, closeDto, req.user.id);
+    return this.workPermitsService.close(id, closeDto, req.user.id, req.userContext);
   }
 
   @Get(':id/approval-rights')
+  @Permissions('work-permit:read')
   @ApiOperation({ summary: 'Check approval rights for the current user' })
   @ApiResponse({ status: 200, description: 'Returns approval rights' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
   async checkApprovalRights(
     @Param('id') id: string,
-    @Request() req,
+    @Request() req: any,
   ) {
-    return this.workPermitsService.checkApprovalRights(id, req.user.id);
+    return this.workPermitsService.checkApprovalRights(id, req.user.id, req.userContext);
   }
 
   @Get(':id/timeline')
+  @Permissions('work-permit:read')
   @ApiOperation({ summary: 'Get approval timeline/history for work permit' })
   @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
   @ApiResponse({
@@ -408,9 +431,12 @@ export class WorkPermitsController {
     },
   })
   @ApiResponse({ status: 404, description: 'Work permit not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
-  async getTimeline(@Param('id') id: string): Promise<any[]> {
-    return this.workPermitsService.getTimeline(id);
+  async getTimeline(
+    @Param('id') id: string,
+    @Request() req: any,
+  ): Promise<any[]> {
+    return this.workPermitsService.getTimeline(id, req.userContext);
   }
 }

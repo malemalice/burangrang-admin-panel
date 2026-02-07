@@ -1,5 +1,6 @@
 import { RouteConfig } from '../types';
 import Dashboard from '@/core/pages/Dashboard';
+import Profile from '@/core/pages/Profile';
 import SettingsPage from '@/modules/settings/pages/SettingsPage';
 import NotFound from '@/core/pages/NotFound';
 import Login from '@/core/pages/Login';
@@ -12,6 +13,10 @@ const coreRoutes: RouteConfig[] = [
   {
     path: '/',
     component: Dashboard,
+  },
+  {
+    path: '/profile',
+    component: Profile,
   },
   {
     path: '/settings',

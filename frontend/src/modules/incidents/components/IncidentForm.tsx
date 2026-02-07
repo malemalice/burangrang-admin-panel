@@ -59,6 +59,7 @@ import {
   EquipmentEntityEnum,
 } from '../types/incident.types';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
 import areaService from '@/modules/master-data/services/areaService';
 import { riskCategoryService, departmentService, roomService } from '@/modules/master-data';
 import userService from '@/modules/users/services/userService';
@@ -80,10 +81,10 @@ const generateIncidentCode = (): string => {
   return `ICD${year}${month}${date}${hour}${minute}${second}`;
 };
 
-// Schema for injured person
+// Schema for injured person - gender allows blank (empty string) to match create behavior
 const injuredPersonSchema = z.object({
   injuredPersonName: z.string().optional(),
-  gender: z.nativeEnum(GenderEnum).optional(),
+  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.undefined()]).optional().transform((val) => (val === '' ? undefined : val)),
   levelOfInjury: z.nativeEnum(LevelOfInjuryEnum).default(LevelOfInjuryEnum.NOT_SPECIFIED),
   injuredBodyPart: z.nativeEnum(InjuredBodyPartEnum).default(InjuredBodyPartEnum.NOT_SPECIFIED),
   typeOfInjury: z.nativeEnum(TypeOfInjuryEnum).default(TypeOfInjuryEnum.NOT_SPECIFIED),
@@ -91,20 +92,28 @@ const injuredPersonSchema = z.object({
   departmentId: z.string().optional(),
 });
 
-// Schema for witness
+// Schema for witness - gender allows blank (empty string) to match create behavior
 const witnessSchema = z.object({
   witnessName: z.string().optional(),
-  gender: z.nativeEnum(GenderEnum).optional(),
+  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.undefined()]).optional().transform((val) => (val === '' ? undefined : val)),
   departmentId: z.string().optional(),
 });
 
-// Schema for asset
+// Schema for asset - quantity allows blank (empty string) to match create behavior
 const assetSchema = z.object({
   entity: z.nativeEnum(EquipmentEntityEnum),
   entityId: z.string().min(1, 'Asset selection is required'),
   assetName: z.string().min(1, 'Asset name is required'),
   assetCode: z.string().optional(),
-  quantity: z.number().int().positive().optional(),
+  quantity: z.union([
+    z.number().int().positive(),
+    z.string(),
+    z.undefined(),
+  ]).optional().transform((val) => {
+    if (val === '' || val === undefined || val === null) return undefined;
+    const num = typeof val === 'number' ? val : Number(val);
+    return isNaN(num) || num < 1 ? undefined : Math.floor(num);
+  }),
 });
 
 // Main form schema
@@ -162,6 +171,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
   const [isApproving, setIsApproving] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
   const [approvalNotes, setApprovalNotes] = useState('');
+  const [isSuperUser, setIsSuperUser] = useState(false);
+  const [roleFetched, setRoleFetched] = useState(false);
 
   // Reference data
   const [areas, setAreas] = useState<AreaDTO[]>([]);
@@ -211,6 +222,38 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       assets: [],
     },
   });
+
+  // Fetch current user role: only SUPER_ADMIN can create/update status to any value; others only OPEN or CLOSE
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!currentUser?.id) return;
+      try {
+        const response = await api.get('/users/me');
+        const userData = response.data;
+        let roleCode: string | null = null;
+        if (userData.role && typeof userData.role === 'object' && 'code' in userData.role) {
+          roleCode = userData.role.code;
+        }
+        if (!roleCode && userData.roleId) {
+          const role = await roleService.getRoleById(userData.roleId);
+          roleCode = role.code;
+        }
+        setIsSuperUser(roleCode === ROLE_CODES.SUPER_ADMIN);
+      } catch {
+        setIsSuperUser(false);
+      } finally {
+        setRoleFetched(true);
+      }
+    };
+    fetchUserRole();
+  }, [currentUser?.id]);
+
+  // Non-super-user can only create with OPEN or CLOSE; default create to OPEN
+  useEffect(() => {
+    if (roleFetched && !isSuperUser && mode === 'create') {
+      form.setValue('status', GeneralStatusEnum.OPEN);
+    }
+  }, [roleFetched, isSuperUser, mode, form]);
 
   // Image/attachment upload state (drag-and-drop, multi-file like InspectionItemForm)
   interface ImageUploadItem {
@@ -272,7 +315,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
         // First, fetch roles to find TECHNICIAN role (handle 403 gracefully)
         let technicianRole = null;
         try {
-          const rolesRes = await roleService.getRoles({ page: 1, limit: 100 });
+          const rolesRes = await roleService.getRoles({ page: 1, limit: 100, options: true });
           technicianRole = rolesRes.data.find(role => role.code === 'TECHNICIAN');
         } catch (error) {
           console.warn('Failed to fetch roles (may not have permission):', error);
@@ -281,16 +324,17 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
         
         // Fetch users, technicians, and equipment data in parallel
         const [areasRes, riskCategoriesRes, departmentsRes, usersRes, techniciansRes, safetyEquipmentsRes, workPermitsMasterDataRes, assetsRes] = await Promise.all([
-          areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true } }),
-          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true }),
-          departmentService.getDepartments({ page: 1, limit: 100 }),
-          userService.getUsers({ page: 1, limit: 100 }),
+          areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true }, options: true }),
+          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
+          departmentService.getDepartments({ page: 1, limit: 100, options: true }),
+          userService.getUsers({ page: 1, limit: 100, options: true }),
           // Fetch technicians: users with TECHNICIAN role and job position
           technicianRole 
             ? userService.getUsers({ 
                 page: 1, 
                 limit: 100, 
-                filters: { roleId: technicianRole.id } 
+                filters: { roleId: technicianRole.id },
+                options: true
               })
             : Promise.resolve({ data: [], meta: { total: 0 } }),
           // Fetch safety equipments
@@ -378,13 +422,22 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                 departmentId: w.departmentId || '',
               })) || [],
             assets:
-              incident.assets?.map((a) => ({
-                entity: a.entity || EquipmentEntityEnum.ASSET,
-                entityId: a.entityId || '',
-                assetName: a.assetName,
-                assetCode: a.assetCode || '',
-                quantity: a.quantity,
-              })) || [],
+              incident.assets?.map((a, index) => {
+                // Derive entityId from relation when present; otherwise use placeholder so dropdown can show prefilled label (API may return entity/entityId null for old data)
+                const resolvedEntityId =
+                  a.entityId ||
+                  (a as { asset?: { id: string }; heavyEquipment?: { id: string }; safetyEquipment?: { id: string } }).asset?.id ||
+                  (a as { heavyEquipment?: { id: string } }).heavyEquipment?.id ||
+                  (a as { safetyEquipment?: { id: string } }).safetyEquipment?.id;
+                const entityId = resolvedEntityId || `__prefilled_${index}`;
+                return {
+                  entity: a.entity || EquipmentEntityEnum.ASSET,
+                  entityId,
+                  assetName: a.assetName,
+                  assetCode: a.assetCode || '',
+                  quantity: a.quantity,
+                };
+              }) || [],
           });
         }
 
@@ -479,15 +532,15 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             if (incident.status === GeneralStatusEnum.WAITING_APPROVAL && hasApprovalRights) {
               setResolvedMode('approver');
             }
-            // 2) Investigator mode for HSE department users (status is OPEN)
+            // 2) Investigator mode for HSE department users (status is OPEN or REJECTED)
             else if (
               userInHSEDept &&
-              incident.status === GeneralStatusEnum.OPEN
+              (incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED)
             ) {
               setResolvedMode('investigator');
             }
-            // 3) Creator mode for creator (status is DRAFT or OPEN)
-            else if (isCreator && (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN)) {
+            // 3) Creator mode for creator (status is DRAFT, OPEN, or REJECTED)
+            else if (isCreator && (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED)) {
               setResolvedMode('creator');
             }
             // Default to creator if no match
@@ -546,7 +599,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             page: 1, 
             limit: 100, 
             areaId,
-            isActive: true 
+            isActive: true,
+            options: true
           });
           setRooms(roomsRes.data);
         } catch (error) {
@@ -779,18 +833,27 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
         if ('url' in x && x.url.startsWith('blob:')) URL.revokeObjectURL(x.url);
       });
 
-      // Determine status based on mode
-      let statusToSet = data.status;
-      if (resolvedMode === 'creator') {
-        // Creator: submit updates status to OPEN (for both create and edit)
-        statusToSet = GeneralStatusEnum.OPEN;
-      } else if (resolvedMode === 'investigator') {
-        // Investigator: submit changes status to WAITING_APPROVAL
-        statusToSet = GeneralStatusEnum.WAITING_APPROVAL;
-      } else if (resolvedMode === 'approver') {
-        // Approver: status handled by approval handler (should not submit via main form)
+      // Non-super-user can only set status to OPEN or CLOSE
+      if (!isSuperUser && data.status !== GeneralStatusEnum.OPEN && data.status !== GeneralStatusEnum.CLOSE && data.status !== GeneralStatusEnum.REJECTED) {
+        toast.error('Only Open, Close, or Rejected status is allowed for your role.');
         return;
       }
+      // Determine status based on mode and role: only SUPER_ADMIN can set any status; others only OPEN or CLOSE
+      let statusToSet = data.status;
+      if (isSuperUser) {
+        if (resolvedMode === 'creator') {
+          statusToSet = GeneralStatusEnum.OPEN;
+        } else if (resolvedMode === 'investigator') {
+          // Investigator: keep OPEN in update; submit API will move to WAITING_APPROVAL after save
+          statusToSet = GeneralStatusEnum.OPEN;
+        } else if (resolvedMode === 'approver') {
+          return;
+        }
+      } else if (resolvedMode === 'investigator') {
+        // Investigator (non-super_admin): cannot change status; keep current incident status
+        statusToSet = incident?.status ?? GeneralStatusEnum.OPEN;
+      }
+      // Non-super-user (creator): statusToSet stays data.status (only OPEN or CLOSE allowed by UI and backend)
 
       const dto: CreateIncidentDTO | UpdateIncidentDTO = {
         code: data.code,
@@ -839,14 +902,35 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             order: index,
           })) || undefined,
         assets:
-          data.assets?.map((a, index) => ({
-            entity: a.entity,
-            entityId: a.entityId || undefined,
-            assetName: a.assetName,
-            assetCode: a.assetCode || undefined,
-            quantity: a.quantity || undefined,
-            order: index,
-          })) || undefined,
+          data.assets?.map((a, index) => {
+            // Resolve placeholder entityId (__prefilled_N) by looking up assetCode in master lists (for old incident data where API returned null)
+            let entityId = a.entityId || undefined;
+            let entity = a.entity;
+            if (entityId?.startsWith('__prefilled_') && a.assetCode) {
+              const byCode = a.assetCode.trim();
+              const assetMatch = assets.find((x) => x.code === byCode);
+              const heavyMatch = heavyEquipments.find((x) => x.code === byCode);
+              const safetyMatch = safetyEquipments.find((x) => x.code === byCode);
+              if (assetMatch) {
+                entityId = assetMatch.id;
+                entity = EquipmentEntityEnum.ASSET;
+              } else if (heavyMatch) {
+                entityId = heavyMatch.id;
+                entity = EquipmentEntityEnum.HEAVY_EQUIPMENT;
+              } else if (safetyMatch) {
+                entityId = safetyMatch.id;
+                entity = EquipmentEntityEnum.SAFETY_EQUIPMENT;
+              }
+            }
+            return {
+              entity,
+              entityId: entityId || undefined,
+              assetName: a.assetName,
+              assetCode: a.assetCode || undefined,
+              quantity: a.quantity || undefined,
+              order: index,
+            };
+          }) || undefined,
         images: images.length ? images : undefined,
         attachments: attachments.length ? attachments : undefined,
       };
@@ -856,7 +940,12 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
         toast.success('Incident created successfully');
       } else if (incident) {
         await incidentsService.update(incident.id, dto as UpdateIncidentDTO);
-        toast.success('Incident updated successfully');
+        if (resolvedMode === 'investigator') {
+          await incidentsService.submit(incident.id);
+          toast.success('Incident submitted for approval');
+        } else {
+          toast.success('Incident updated successfully');
+        }
       }
       navigate('/incidents');
     } catch (error: any) {
@@ -1083,20 +1172,38 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Status <span className="text-red-500">*</span></FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={resolvedMode === 'investigator' && !isSuperUser}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select status" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value={GeneralStatusEnum.DRAFT}>Draft</SelectItem>
-                          <SelectItem value={GeneralStatusEnum.OPEN}>Open</SelectItem>
-                          <SelectItem value={GeneralStatusEnum.SCHEDULED}>Scheduled</SelectItem>
-                          <SelectItem value={GeneralStatusEnum.WAITING_APPROVAL}>Waiting Approval</SelectItem>
-                          <SelectItem value={GeneralStatusEnum.DONE}>Done</SelectItem>
-                          <SelectItem value={GeneralStatusEnum.REJECTED}>Rejected</SelectItem>
-                          <SelectItem value={GeneralStatusEnum.CLOSE}>Close</SelectItem>
+                          {isSuperUser ? (
+                            <>
+                              <SelectItem value={GeneralStatusEnum.DRAFT}>Draft</SelectItem>
+                              <SelectItem value={GeneralStatusEnum.OPEN}>Open</SelectItem>
+                              <SelectItem value={GeneralStatusEnum.SCHEDULED}>Scheduled</SelectItem>
+                              <SelectItem value={GeneralStatusEnum.WAITING_APPROVAL}>Waiting Approval</SelectItem>
+                              <SelectItem value={GeneralStatusEnum.DONE}>Done</SelectItem>
+                              <SelectItem value={GeneralStatusEnum.REJECTED}>Rejected</SelectItem>
+                              <SelectItem value={GeneralStatusEnum.CLOSE}>Close</SelectItem>
+                            </>
+                          ) : (
+                            <>
+                              <SelectItem value={GeneralStatusEnum.OPEN}>Open</SelectItem>
+                              <SelectItem value={GeneralStatusEnum.CLOSE}>Close</SelectItem>
+                              {mode === 'edit' && incident?.status && incident.status !== GeneralStatusEnum.OPEN && incident.status !== GeneralStatusEnum.CLOSE && (
+                                <SelectItem value={incident.status}>
+                                  {incident.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+                                </SelectItem>
+                              )}
+                            </>
+                          )}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -1726,6 +1833,12 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                         name={`assets.${index}.entityId`}
                         render={({ field }) => {
                           // Combined asset options with entity type information
+                          const currentEntity = form.watch(`assets.${index}.entity`) || EquipmentEntityEnum.ASSET;
+                          const currentEntityId = field.value || '';
+                          const currentAssetName = form.watch(`assets.${index}.assetName`) || '';
+                          const currentAssetCode = form.watch(`assets.${index}.assetCode`) || '';
+
+                          // Build combined options from master lists
                           const combinedAssetOptions: Array<{
                             value: string;
                             label: string;
@@ -1760,10 +1873,23 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                             })),
                           ];
 
+                          // Include prefilled row in options so edit mode shows the selected asset (placeholder __prefilled_N, deactivated, or not in first page)
+                          if (currentEntityId && currentAssetName) {
+                            const existingOption = combinedAssetOptions.find(opt => opt.entityId === currentEntityId && opt.entity === currentEntity);
+                            if (!existingOption) {
+                              combinedAssetOptions.unshift({
+                                value: `${currentEntity}:${currentEntityId}`,
+                                label: `${currentAssetName}${currentAssetCode ? ` (${currentAssetCode})` : ''}`,
+                                entity: currentEntity,
+                                entityId: currentEntityId,
+                                name: currentAssetName,
+                                code: currentAssetCode,
+                              });
+                            }
+                          }
+
                           // Get current value and find the matching option
-                          const currentEntity = form.watch(`assets.${index}.entity`);
-                          const currentEntityId = field.value || '';
-                          const currentOption = combinedAssetOptions.find(opt => 
+                          const currentOption = combinedAssetOptions.find(opt =>
                             opt.entityId === currentEntityId && opt.entity === currentEntity
                           );
                           const selectValue = currentOption ? currentOption.value : '';

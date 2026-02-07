@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EnrollmentStatusEnum } from '@prisma/client';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ProgressDto, ProgressStatus } from './dto/progress.dto';
 import { UpdateProgressDto } from './dto/update-progress.dto';
@@ -153,11 +154,11 @@ export class ProgressService {
       progress: overallProgress,
     };
 
-    if (overallProgress === 100 && enrollment.status !== 'COMPLETED') {
-      updateData.status = 'COMPLETED';
+    if (overallProgress === 100 && enrollment.status !== EnrollmentStatusEnum.COMPLETED) {
+      updateData.status = EnrollmentStatusEnum.COMPLETED;
       updateData.completedAt = new Date();
-    } else if (enrollment.status === 'INVITED') {
-      updateData.status = 'ACTIVE';
+    } else if (enrollment.status === EnrollmentStatusEnum.INVITED) {
+      updateData.status = EnrollmentStatusEnum.ACTIVE;
       if (!enrollment.enrolledAt) {
         updateData.enrolledAt = new Date();
       }

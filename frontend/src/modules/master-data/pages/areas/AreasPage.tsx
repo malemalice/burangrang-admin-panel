@@ -18,9 +18,12 @@ import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import areaService from '../../services/areaService';
 import { AreaDTO } from '../../types/master-data.types';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 export default function AreasPage() {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [areas, setAreas] = useState<AreaDTO[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
@@ -227,16 +230,22 @@ export default function AreasPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/master/areas/${area.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => handleDeleteClick(area, e)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            {hasPermission('area:update') && (
+              <DropdownMenuItem onClick={() => navigate(`/master/areas/${area.id}/edit`)}>
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+            )}
+            {hasPermission('area:update') && hasPermission('area:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('area:delete') && (
+              <DropdownMenuItem
+                onClick={(e) => handleDeleteClick(area, e)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -249,9 +258,11 @@ export default function AreasPage() {
         title="Areas"
         subtitle="Manage area master data"
         actions={
-          <ThemeButton onClick={() => navigate('/master/areas/create')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Area
-          </ThemeButton>
+          <PermissionGuard permission="area:create">
+            <ThemeButton onClick={() => navigate('/master/areas/create')}>
+              <Plus className="mr-2 h-4 w-4" /> Add Area
+            </ThemeButton>
+          </PermissionGuard>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

@@ -10,16 +10,21 @@ import {
   ApprovalStatusHistory,
   MasterApprovalDto,
 } from './dto/master-approval.dto';
-import { Prisma } from '@prisma/client';
+import { GeneralStatusEnum, Prisma } from '@prisma/client';
 import { SubmitApprovalDto, ApprovalStatus } from './dto/submit-approval.dto';
 import { User } from 'src/shared/types';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
 import {
+  APPROVAL_ENTITIES,
   APPROVAL_ENTITY_TO_DEPARTMENT_COLUMN,
   APPROVAL_ENTITY_TO_TABLE,
 } from '../../shared/constants/approval-entities';
+import {
+  APPROVAL_CHAIN_STATUS,
+  ApprovalChainStatus,
+} from '../../shared/constants/approval-status';
 import {
   APPROVAL_FIELD_MARKERS,
   isApprovalFieldMarker,
@@ -79,9 +84,7 @@ export class MasterApprovalsService {
       const item = sortedItems[i];
       // Use item.order if valid, otherwise fallback to index + 1
       const order = item.order && item.order > 0 ? item.order : i + 1;
-      
-      console.log(`[create] Creating item ${i + 1}: order=${order}, dept=${item.departmentId}, job=${item.jobPositionId}`);
-      
+
       await this.prisma.masterApprovalItem.create({
         data: {
           mApprovalId: masterApproval.id,
@@ -227,9 +230,7 @@ export class MasterApprovalsService {
         const item = sortedItems[i];
         // Use item.order if valid, otherwise fallback to index + 1
         const order = item.order && item.order > 0 ? item.order : i + 1;
-        
-        console.log(`[update] Creating item ${i + 1}: order=${order}, dept=${item.departmentId}, job=${item.jobPositionId}`);
-        
+
         await this.prisma.masterApprovalItem.create({
           data: {
             mApprovalId: id,
@@ -458,7 +459,7 @@ export class MasterApprovalsService {
       // Special handling: AUDIT_ITEM stores departments in a junction table
       // (`_AuditItemToDepartment` → Prisma model `auditItemToDepartment`)
       // so there is no direct department FK column on `t_audit_items`.
-      if (entityName === 'AUDIT_ITEM') {
+      if (entityName === APPROVAL_ENTITIES.AUDIT_ITEM) {
         const result = await this.prisma.auditItemToDepartment.findFirst({
           where: { auditItemId: entityId },
           select: { departmentId: true },
@@ -531,7 +532,7 @@ export class MasterApprovalsService {
       }
     }
 
-    // Fallback to sentinel display label
+    // Fallback to sentinel display label - this will prevent matching!
     return {
       id: sentinelValue,
       name: this.getSentinelDisplayLabel(sentinelValue),
@@ -582,7 +583,7 @@ export class MasterApprovalsService {
       }
     }
 
-    // Fallback to sentinel display label
+    // Fallback to sentinel display label - this will prevent matching!
     return {
       id: sentinelValue,
       name: this.getSentinelDisplayLabel(sentinelValue),
@@ -649,16 +650,24 @@ export class MasterApprovalsService {
    * Source entity status when an approval chain completes.
    * Some entities use a different "final" status than DONE.
    */
-  private getCompletedSourceStatus(entityName: string): string {
+  private getCompletedSourceStatus(entityName: string): GeneralStatusEnum {
     // Audit item uses CLOSE as the terminal state (not DONE)
-    if (entityName === 'AUDIT_ITEM') {
-      return 'CLOSE';
+    if (entityName === APPROVAL_ENTITIES.AUDIT_ITEM) {
+      return GeneralStatusEnum.CLOSE;
+    }
+    // Inspection uses CLOSE as the terminal state (not DONE)
+    if (entityName === APPROVAL_ENTITIES.INSPECTION) {
+      return GeneralStatusEnum.CLOSE;
+    }
+    // Inspection item uses CLOSE as the terminal state (not DONE)
+    if (entityName === APPROVAL_ENTITIES.INSPECTION_ITEM) {
+      return GeneralStatusEnum.CLOSE;
     }
     // Incident uses CLOSE as the terminal state (not DONE)
-    if (entityName === 'INCIDENT') {
-      return 'CLOSE';
+    if (entityName === APPROVAL_ENTITIES.INCIDENT) {
+      return GeneralStatusEnum.CLOSE;
     }
-    return 'DONE';
+    return GeneralStatusEnum.DONE;
   }
 
   async checkApprovalRights(
@@ -674,10 +683,63 @@ export class MasterApprovalsService {
       return { canApprove: false };
     }
 
-    // Check if user's department and job position match the next approver
+    const nextApprover = approvalStatus.nextApprover;
+
+    // Get master approval to check if current step uses dynamic markers
+    const masterApproval = await this.prisma.masterApproval.findFirst({
+      where: { entity: entityName, isActive: true },
+      include: {
+        items: { orderBy: { order: 'asc' } },
+      },
+    });
+    
+    const currentStepItem = masterApproval?.items?.find(
+      (i) => i.order === nextApprover.line,
+    );
+
+    if (!currentStepItem) {
+      return { canApprove: false };
+    }
+
+    const usesDynamicDepartment =
+      currentStepItem.departmentId === APPROVAL_FIELD_MARKERS.FROM_ENTITY_DEPARTMENT;
+    const usesDynamicJobPosition =
+      currentStepItem.jobPositionId === APPROVAL_FIELD_MARKERS.FROM_ENTITY_JOB_POSITION;
+
+    // Special handling for entities with dynamic department marker
+    if (usesDynamicDepartment) {
+      // AUDIT_ITEM with multiple assigned departments: allow approval if user is
+      // in ANY assigned department (and job position matches), not just the first
+      if (entityName === APPROVAL_ENTITIES.AUDIT_ITEM) {
+        const assignedDepts = await this.prisma.auditItemToDepartment.findMany({
+          where: { auditItemId: dataId },
+          select: { departmentId: true },
+        });
+        const assignedDeptIds = assignedDepts.map((d) => d.departmentId);
+        const canApprove =
+          user.departmentId != null &&
+          assignedDeptIds.includes(user.departmentId) &&
+          nextApprover.jobPosition.id === user.jobPositionId;
+        return { canApprove };
+      }
+      
+      // For other entities (RISK_ASSESSMENT, INSPECTION_ITEM, INCIDENT),
+      // verify user's department matches the entity's department
+      // The nextApprover.department should already be resolved from entity data
+      if (
+        user.departmentId !== nextApprover.department.id ||
+        user.jobPositionId !== nextApprover.jobPosition.id
+      ) {
+        return { canApprove: false };
+      }
+      
+      return { canApprove: true };
+    }
+
+    // Default: exact match on department and job position
     const canApprove =
-      approvalStatus.nextApprover.department.id === user.departmentId &&
-      approvalStatus.nextApprover.jobPosition.id === user.jobPositionId;
+      nextApprover.department.id === user.departmentId &&
+      nextApprover.jobPosition.id === user.jobPositionId;
 
     return { canApprove };
   }
@@ -730,6 +792,16 @@ export class MasterApprovalsService {
       items: sortedItems,
     };
 
+    // For AUDIT_ITEM, get all assigned department IDs for matching approvals from any assigned dept
+    let auditItemAssignedDeptIds: string[] = [];
+    if (entityName === APPROVAL_ENTITIES.AUDIT_ITEM) {
+      const assignedDepts = await this.prisma.auditItemToDepartment.findMany({
+        where: { auditItemId: entityId },
+        select: { departmentId: true },
+      });
+      auditItemAssignedDeptIds = assignedDepts.map((d) => d.departmentId);
+    }
+
     // Get ALL approval history for this entity, regardless of current m_approvals configuration
     // This ensures historical approvals are preserved even when m_approvals_item changes
     const approvalHistory = await this.prisma.approval.findMany({
@@ -753,18 +825,51 @@ export class MasterApprovalsService {
       },
     });
 
+    // Helper: check if approval matches master item (handles dynamic sentinel markers)
+    const approvalMatchesItem = (
+      approval: { departmentId: string; jobPositionId: string },
+      item: any,
+    ) => {
+      const itemJobPosId = item.jobPosition?.id || item.jobPositionId;
+      const itemDeptId = item.department?.id || item.departmentId;
+
+      // Check if item uses sentinel markers that couldn't be resolved
+      // (resolved ID would still be the sentinel marker string)
+      const jobPosIsSentinel = isApprovalFieldMarker(itemJobPosId);
+      const deptIsSentinel = isApprovalFieldMarker(itemDeptId);
+      
+      // If sentinels couldn't be resolved, we have a problem
+      // This means the entity data is missing or invalid
+      // We should still try to match based on what we can verify
+      if (jobPosIsSentinel || deptIsSentinel) {
+        // Cannot reliably match - return false
+        // This will cause the approval to not be matched to this item
+        return false;
+      }
+      
+      // Standard matching: check job position first
+      if (itemJobPosId !== approval.jobPositionId) return false;
+      
+      // Special handling for AUDIT_ITEM which uses junction table for departments
+      const usesDynamicDept =
+        entityName === APPROVAL_ENTITIES.AUDIT_ITEM &&
+        isApprovalFieldMarker(item.departmentId); // Check original departmentId, not resolved
+        
+      if (usesDynamicDept) {
+        return auditItemAssignedDeptIds.includes(approval.departmentId);
+      }
+
+      // Standard department match
+      return itemDeptId === approval.departmentId;
+    };
+
     // Map approval history with line numbers
     // Keep createdAt order for historical accuracy
     const history = approvalHistory.map((approval, index) => {
       // Find matching master approval item to get the order/line
-      // Match by resolved department/jobPosition IDs (not sentinel values)
-      const matchingItem = masterApproval.items.find((item) => {
-        // Compare resolved department and jobPosition IDs from the items
-        const itemDeptId = item.department?.id || item.departmentId;
-        const itemJobPosId = item.jobPosition?.id || item.jobPositionId;
-        const isMatch = itemDeptId === approval.departmentId && itemJobPosId === approval.jobPositionId;
-        return isMatch;
-      });
+      const matchingItem = masterApproval.items.find((item) =>
+        approvalMatchesItem(approval, item),
+      );
 
       // Mark as historical if it doesn't match current m_approvals configuration
       const isHistorical = !matchingItem;
@@ -794,33 +899,28 @@ export class MasterApprovalsService {
     });
 
     // Determine current status and next approver
-    let currentStatus = 'PENDING';
+    let currentStatus: ApprovalChainStatus = APPROVAL_CHAIN_STATUS.PENDING;
     let nextApprover: ApprovalStatusHistory['nextApprover'] = null;
 
     if (history.length > 0) {
       const lastApproval = history[history.length - 1];
-      currentStatus = lastApproval.status;
+      currentStatus = lastApproval.status as ApprovalChainStatus;
 
         // If last approval was approved, find next approver
-      if (lastApproval.status === 'APPROVED') {
+      if (lastApproval.status === APPROVAL_CHAIN_STATUS.APPROVED) {
         // Find the highest approved line number to determine next approver
         const approvedLines = approvalHistory
-          .filter((a) => a.status === 'APPROVED')
+          .filter((a) => a.status === APPROVAL_CHAIN_STATUS.APPROVED)
           .map((a) => {
-            // Match by resolved department/jobPosition IDs
-            const matchingItem = masterApproval.items.find((item) => {
-              const itemDeptId = item.department?.id || item.departmentId;
-              const itemJobPosId = item.jobPosition?.id || item.jobPositionId;
-              return (
-                itemDeptId === a.departmentId &&
-                itemJobPosId === a.jobPositionId
-              );
-            });
+            const matchingItem = masterApproval.items.find((item) =>
+              approvalMatchesItem(a, item),
+            );
             return matchingItem?.order ?? -1;
-          });
+          })
+          .filter((order) => order !== -1); // Filter out invalid orders
 
-        const maxApprovedLine = approvedLines.length > 0 
-          ? Math.max(...approvedLines) 
+        const maxApprovedLine = approvedLines.length > 0
+          ? Math.max(...approvedLines)
           : -1;
 
         // Find next approver after the last approved line
@@ -841,9 +941,20 @@ export class MasterApprovalsService {
             },
           };
         } else {
-          currentStatus = 'COMPLETED';
+          // Only mark as completed if all lines have been approved
+          // Count how many distinct approval lines exist in master approval
+          const totalApprovalLines = masterApproval.items.length;
+          // Count how many distinct lines have been approved
+          const distinctApprovedLines = new Set(approvedLines).size;
+
+          if (distinctApprovedLines >= totalApprovalLines) {
+            currentStatus = APPROVAL_CHAIN_STATUS.COMPLETED;
+          } else {
+            // Not all lines approved yet, should still be WAITING_APPROVAL
+            currentStatus = APPROVAL_CHAIN_STATUS.APPROVED;
+          }
         }
-      } else if (lastApproval.status === 'REJECTED') {
+      } else if (lastApproval.status === APPROVAL_CHAIN_STATUS.REJECTED) {
         // Handle resubmission: continue from the rejected line
         const rejectedLine = lastApproval.line;
         const rejectedItem = masterApproval.items.find(
@@ -884,17 +995,11 @@ export class MasterApprovalsService {
 
     // Build all approval lines with their status
     const allApprovalLines = masterApproval.items.map((item) => {
-      // Get resolved department and jobPosition IDs (handle sentinel values)
-      const itemDeptId = item.department?.id || item.departmentId;
-      const itemJobPosId = item.jobPosition?.id || item.jobPositionId;
-
       // Check if this line has been completed (only APPROVED, not REJECTED)
-      // Match by resolved IDs
       const completedApproval = approvalHistory.find(
         (approval) =>
-          approval.status === 'APPROVED' &&
-          approval.departmentId === itemDeptId &&
-          approval.jobPositionId === itemJobPosId,
+          approval.status === APPROVAL_CHAIN_STATUS.APPROVED &&
+          approvalMatchesItem(approval, item),
       );
 
       let status: 'completed' | 'current' | 'pending' = 'pending';
@@ -981,9 +1086,9 @@ export class MasterApprovalsService {
     // If approval is rejected, set entity status to REJECTED
     let sourceStatus = this.getCompletedSourceStatus(submitApprovalDto.entity);
     if (submitApprovalDto.status === ApprovalStatus.REJECTED) {
-      sourceStatus = 'REJECTED';
+      sourceStatus = GeneralStatusEnum.REJECTED;
     } else if (checkApprovalStatus.nextApprover) {
-      sourceStatus = 'WAITING_APPROVAL';
+      sourceStatus = GeneralStatusEnum.WAITING_APPROVAL;
     }
     await this.updateSourceEntity(
       submitApprovalDto.dataId,
@@ -1017,25 +1122,68 @@ export class MasterApprovalsService {
         `Table name not found for entity ${entityName}`,
       );
     }
-    // Update the source entity
-    await this.prisma.$executeRaw`
-      UPDATE "${Prisma.raw(tableName)}"
-      SET status = ${Prisma.raw(`'${status}'::"GeneralStatusEnum"`)}
-      WHERE id = ${entityId}
-    `;
 
-    // TODO: Implement the logic to update the source entity
+    // Update the source entity
+    await this.prisma.$executeRaw(
+      Prisma.sql`UPDATE ${Prisma.raw(`"${tableName}"`)} SET status = ${Prisma.raw(`'${status}'::"GeneralStatusEnum"`)} WHERE id = ${entityId}`
+    );
   }
 
   /**
-   * Get requester (creator) from source entity
+   * Get requester (creator) from source entity.
+   * INSPECTION_ITEM has no createdBy; creator is on the parent Inspection.
    */
   private async getRequesterFromEntity(
     entityId: string,
     entityName: string,
   ): Promise<{ id: string; roleId: string } | null> {
     try {
-      // Get the source entity table name from mapping
+      // INSPECTION_ITEM: get creator from parent Inspection (t_inspections.createdBy)
+      if (entityName === APPROVAL_ENTITIES.INSPECTION_ITEM) {
+        const item = await this.prisma.inspectionItem.findUnique({
+          where: { id: entityId },
+          select: { inspection: { select: { createdBy: true } } },
+        });
+        const requesterId = item?.inspection?.createdBy;
+        if (!requesterId) return null;
+        const requester = await this.prisma.user.findUnique({
+          where: { id: requesterId },
+          select: { id: true, roleId: true },
+        });
+        return requester;
+      }
+
+      // AUDIT_ITEM: get creator from parent Audit (t_audits.createdBy)
+      if (entityName === APPROVAL_ENTITIES.AUDIT_ITEM) {
+        const item = await this.prisma.auditItem.findUnique({
+          where: { id: entityId },
+          select: { audit: { select: { createdBy: true } } },
+        });
+        const requesterId = item?.audit?.createdBy;
+        if (!requesterId) return null;
+        const requester = await this.prisma.user.findUnique({
+          where: { id: requesterId },
+          select: { id: true, roleId: true },
+        });
+        return requester;
+      }
+
+      // INCIDENT: t_incidents has createdBy
+      if (entityName === APPROVAL_ENTITIES.INCIDENT) {
+        const item = await this.prisma.incident.findUnique({
+          where: { id: entityId },
+          select: { createdBy: true },
+        });
+        const requesterId = item?.createdBy;
+        if (!requesterId) return null;
+        const requester = await this.prisma.user.findUnique({
+          where: { id: requesterId },
+          select: { id: true, roleId: true },
+        });
+        return requester;
+      }
+
+      // RISK_ASSESSMENT, WORK_PERMIT, INSPECTION: use raw query with correct table/column
       const tableName =
         APPROVAL_ENTITY_TO_TABLE[
           entityName as keyof typeof APPROVAL_ENTITY_TO_TABLE
@@ -1045,13 +1193,10 @@ export class MasterApprovalsService {
         return null;
       }
 
-      // Query the source entity to get createdBy
-      const result = await this.prisma.$queryRaw<Array<{ createdBy: string }>>`
-        SELECT "createdBy"
-        FROM "${Prisma.raw(tableName)}"
-        WHERE id = ${entityId}
-        LIMIT 1
-      `;
+      // PostgreSQL preserves case when quoted; Prisma schema uses camelCase
+      const result = await this.prisma.$queryRaw<Array<{ createdBy: string }>>(
+        Prisma.sql`SELECT "createdBy" FROM ${Prisma.raw(`"${tableName}"`)} WHERE id = ${entityId} LIMIT 1`,
+      );
 
       if (!result || result.length === 0 || !result[0]?.createdBy) {
         return null;
@@ -1059,7 +1204,6 @@ export class MasterApprovalsService {
 
       const requesterId = result[0].createdBy;
 
-      // Get requester user with role
       const requester = await this.prisma.user.findUnique({
         where: { id: requesterId },
         select: { id: true, roleId: true },

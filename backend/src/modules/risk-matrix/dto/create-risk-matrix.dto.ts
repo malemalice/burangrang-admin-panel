@@ -35,9 +35,9 @@ export class CreateRiskMatrixDto {
   @IsNotEmpty()
   consequenceDesc: string;
 
-  @ApiProperty({ description: 'The risk rating', enum: RiskRatingEnum })
+  @ApiProperty({ description: 'The interpretation (risk rating)', enum: RiskRatingEnum })
   @IsEnum(RiskRatingEnum)
-  risk_rating: RiskRatingEnum;
+  interpretation: RiskRatingEnum;
 
   @ApiProperty({ description: 'Whether the risk matrix entry is active', required: false, default: true })
   @IsBoolean()

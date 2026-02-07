@@ -36,9 +36,12 @@ import { useCourseStats } from '../hooks/useCourses';
 import courseService from '../services/courseService';
 import { Course, CourseSearchParams, CourseFilters } from '../types/course.types';
 import { userService } from '@/modules/users';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const CoursesPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const {
     courses,
     totalCourses,
@@ -122,7 +125,7 @@ const CoursesPage = () => {
     const loadInitialData = async () => {
       try {
         // Load instructors and stats for filters
-        const instructorsResponse = await userService.getUsers({ page: 1, limit: 100 });
+        const instructorsResponse = await userService.getUsers({ page: 1, limit: 100, options: true });
 
         setInstructors(
           instructorsResponse.data.map(user => ({
@@ -353,19 +356,27 @@ const CoursesPage = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}/edit`)}>
-                <Edit className="mr-2 h-4 w-4" /> Edit course
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}?tab=chapters`)}>
-                <BookOpen className="mr-2 h-4 w-4" /> Manage chapters
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={(e) => handleDeleteClick(course, e)}
-                className="text-red-600"
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
-              </DropdownMenuItem>
+              {hasPermission('course:update') && (
+                <>
+                  <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}/edit`)}>
+                    <Edit className="mr-2 h-4 w-4" /> Edit course
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}?tab=chapters`)}>
+                    <BookOpen className="mr-2 h-4 w-4" /> Manage chapters
+                  </DropdownMenuItem>
+                </>
+              )}
+              {hasPermission('course:update') && hasPermission('course:delete') && (
+                <DropdownMenuSeparator />
+              )}
+              {hasPermission('course:delete') && (
+                <DropdownMenuItem
+                  onClick={(e) => handleDeleteClick(course, e)}
+                  className="text-red-600"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -380,9 +391,11 @@ const CoursesPage = () => {
         title="Courses"
         subtitle="Manage your course catalog and content"
         actions={
-          <Button onClick={() => navigate('/courses/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Course
-          </Button>
+          <PermissionGuard permission="course:create">
+            <Button onClick={() => navigate('/courses/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Add Course
+            </Button>
+          </PermissionGuard>
         }
       />
 

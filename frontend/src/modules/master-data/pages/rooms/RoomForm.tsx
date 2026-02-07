@@ -64,7 +64,7 @@ const RoomForm = ({ room, mode }: RoomFormProps) => {
       setIsLoadingData(true);
       try {
         // Fetch available areas (those without rooms)
-        const areasResponse = await roomService.getAreas({ isActive: true, hasRoom: false });
+        const areasResponse = await roomService.getAreas({ isActive: true, hasRoom: false, options: true });
         let availableAreas = areasResponse.data;
 
         // Set form data for edit mode

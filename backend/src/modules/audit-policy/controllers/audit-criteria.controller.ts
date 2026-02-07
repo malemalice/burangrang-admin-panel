@@ -12,22 +12,24 @@ import {
 import { AuditCriteriaService } from '../services/audit-criteria.service';
 import { CreateAuditCriteriaDto } from '../dto/create-audit-criteria.dto';
 import { UpdateAuditCriteriaDto } from '../dto/update-audit-criteria.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
-import { Roles } from '../../../shared/decorators/roles.decorator';
-import { Role } from '../../../shared/types/role.enum';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 import { AuditCriteriaDto } from '../dto/audit-criteria.dto';
 import { TransitionTypeEnum } from '@prisma/client';
 
 @ApiTags('audit-criteria')
 @ApiBearerAuth()
 @Controller('audit-criteria')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class AuditCriteriaController {
   constructor(private readonly auditCriteriaService: AuditCriteriaService) {}
 
   @Post()
+  @Permissions('audit-criteria:create')
   @ApiOperation({ summary: 'Create a new audit criteria' })
   @ApiResponse({
     status: 201,
@@ -35,7 +37,6 @@ export class AuditCriteriaController {
     type: AuditCriteriaDto,
   })
   @ApiResponse({ status: 400, description: 'Bad request.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   create(
     @Body() createAuditCriteriaDto: CreateAuditCriteriaDto,
   ): Promise<AuditCriteriaDto> {
@@ -43,13 +44,15 @@ export class AuditCriteriaController {
   }
 
   @Get()
+  @AllowOptionsBypass()
+  @Permissions('audit-criteria:list')
   @ApiOperation({ summary: 'Get all audit criteria' })
   @ApiResponse({
     status: 200,
     description: 'Return all audit criteria.',
     type: [AuditCriteriaDto],
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -82,7 +85,24 @@ export class AuditCriteriaController {
     });
   }
 
+  @Post('reorder')
+  @Permissions('audit-criteria:update')
+  @ApiOperation({ summary: 'Reorder criteria within an audit clause' })
+  @ApiResponse({
+    status: 200,
+    description: 'Criteria reordered successfully.',
+  })
+  @ApiResponse({ status: 404, description: 'Audit clause not found.' })
+  
+  async reorder(
+    @Body() body: { auditClauseId: string; criterionIds: string[] },
+  ): Promise<{ message: string }> {
+    await this.auditCriteriaService.reorder(body.auditClauseId, body.criterionIds);
+    return { message: 'Criteria reordered successfully' };
+  }
+
   @Get(':id')
+  @Permissions('audit-criteria:read')
   @ApiOperation({ summary: 'Get an audit criteria by id' })
   @ApiResponse({
     status: 200,
@@ -90,13 +110,13 @@ export class AuditCriteriaController {
     type: AuditCriteriaDto,
   })
   @ApiResponse({ status: 404, description: 'Audit criteria not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  
   findOne(@Param('id') id: string): Promise<AuditCriteriaDto> {
     return this.auditCriteriaService.findOne(id);
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('audit-criteria:update')
   @ApiOperation({ summary: 'Update an audit criteria' })
   @ApiResponse({
     status: 200,
@@ -112,7 +132,7 @@ export class AuditCriteriaController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('audit-criteria:delete')
   @ApiOperation({ summary: 'Delete an audit criteria' })
   @ApiResponse({
     status: 200,
@@ -124,6 +144,7 @@ export class AuditCriteriaController {
   }
 
   @Get('code/:code')
+  @Permissions('audit-criteria:read')
   @ApiOperation({ summary: 'Get an audit criteria by code' })
   @ApiResponse({
     status: 200,
@@ -131,19 +152,20 @@ export class AuditCriteriaController {
     type: AuditCriteriaDto,
   })
   @ApiResponse({ status: 404, description: 'Audit criteria not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  
   findByCode(@Param('code') code: string): Promise<AuditCriteriaDto> {
     return this.auditCriteriaService.findByCode(code);
   }
 
   @Post('regenerate-codes/:auditClauseId')
+  @Permissions('audit-criteria:update')
   @ApiOperation({ summary: 'Regenerate codes for all criteria in an audit clause' })
   @ApiResponse({
     status: 200,
     description: 'Codes have been successfully regenerated.',
   })
   @ApiResponse({ status: 404, description: 'Audit clause not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   async regenerateCodes(@Param('auditClauseId') auditClauseId: string): Promise<{ message: string }> {
     await this.auditCriteriaService.regenerateCriteriaCodes(auditClauseId);
     return { message: 'Codes regenerated successfully' };

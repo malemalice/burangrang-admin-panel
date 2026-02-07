@@ -5,6 +5,7 @@ import { FileEdit, ArrowLeft, FileDown, CheckCircle2, Send, XCircle } from 'luci
 import { usePDF } from 'react-to-pdf';
 import { toast } from 'sonner';
 
+import api from '@/core/lib/api';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import PageHeader from '@/core/components/ui/PageHeader';
@@ -65,7 +66,7 @@ const RiskAssessmentDetailPage = () => {
   const baseFilename = useMemo(() => {
     if (!assessment) return 'risk-assessment';
     return assessment.code;
-  }, [assessment?.code]);
+  }, [assessment]);
 
   // Initialize with a placeholder - we'll generate the actual filename at export time
   const { toPDF, targetRef } = usePDF({ 
@@ -83,6 +84,41 @@ const RiskAssessmentDetailPage = () => {
   const [itemToDelete, setItemToDelete] = useState<RiskAssessmentItem | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isUpdateActionItemDialogOpen, setIsUpdateActionItemDialogOpen] = useState(false);
+  const [itemToUpdateAction, setItemToUpdateAction] = useState<RiskAssessmentItem | null>(null);
+  const [userDepartmentId, setUserDepartmentId] = useState<string | null>(null);
+  const [userDepartmentCode, setUserDepartmentCode] = useState<string | null>(null);
+
+  // Fetch current user profile for Update Action Item visibility
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await api.get('/users/me');
+        const userData = response.data;
+        if (userData?.departmentId) {
+          setUserDepartmentId(userData.departmentId);
+          if (userData.department?.code) {
+            setUserDepartmentCode(userData.department.code);
+          }
+        }
+      } catch {
+        // User may not have department; leave null
+      }
+    };
+    fetchUser();
+  }, []);
+
+  const canUpdateActionItem = useMemo(() => {
+    if (!assessment) return false;
+    const statusWaitingApproval = assessment.status === GeneralStatusEnum.WAITING_APPROVAL;
+    const userMatchesApprovalLine =
+      approvalHistory?.nextApprover?.department?.id != null &&
+      userDepartmentId != null &&
+      approvalHistory.nextApprover.department.id === userDepartmentId;
+    const userDeptIsHse =
+      userDepartmentCode != null && userDepartmentCode.toUpperCase() === 'HSE';
+    return statusWaitingApproval || userMatchesApprovalLine || userDeptIsHse;
+  }, [assessment, approvalHistory?.nextApprover?.department?.id, userDepartmentId, userDepartmentCode]);
 
   const handleSubmit = async () => {
     if (!id || !assessment) return;
@@ -138,8 +174,8 @@ const RiskAssessmentDetailPage = () => {
       
       setAllItemsForPDF(itemsResponse.data);
 
-      if (approvalStatus && !(approvalStatus as any).error) {
-        setApprovalHistoryForPDF(approvalStatus);
+      if (approvalStatus && !(typeof approvalStatus === 'object' && 'error' in approvalStatus && approvalStatus.error)) {
+        setApprovalHistoryForPDF(approvalStatus as ApprovalStatusHistory);
       } else {
         // Fall back to whatever the page already has
         setApprovalHistoryForPDF(approvalHistory);
@@ -186,6 +222,20 @@ const RiskAssessmentDetailPage = () => {
   const handleViewItem = (item: RiskAssessmentItem) => {
     setViewingItem(item);
     setIsViewItemDialogOpen(true);
+  };
+
+  const handleUpdateActionItem = (item: RiskAssessmentItem) => {
+    setItemToUpdateAction(item);
+    setIsUpdateActionItemDialogOpen(true);
+  };
+
+  const handleUpdateActionItemSubmit = async (itemData: CreateRiskAssessmentItemDTO) => {
+    if (!itemToUpdateAction) return;
+    const success = await handleUpdateItem(itemToUpdateAction.id, itemData);
+    if (success) {
+      setIsUpdateActionItemDialogOpen(false);
+      setItemToUpdateAction(null);
+    }
   };
 
   const handleDeleteItemClick = (item: RiskAssessmentItem, event?: React.MouseEvent) => {
@@ -362,6 +412,7 @@ const RiskAssessmentDetailPage = () => {
         onAddItem={() => setIsAddItemDialogOpen(true)}
         onViewItem={handleViewItem}
         onEditItem={handleEditItem}
+        onUpdateActionItem={handleUpdateActionItem}
         onDeleteItem={handleDeleteItemClick}
         onDeleteConfirm={handleDeleteItemConfirm}
         itemToDelete={itemToDelete}
@@ -373,6 +424,7 @@ const RiskAssessmentDetailPage = () => {
           }
         }}
         hideActions={assessment.status === GeneralStatusEnum.WAITING_APPROVAL || assessment.status === GeneralStatusEnum.DONE}
+        canUpdateActionItem={canUpdateActionItem}
       />
 
 
@@ -387,6 +439,7 @@ const RiskAssessmentDetailPage = () => {
           </DialogHeader>
           <RiskAssessmentItemForm
             assessmentId={id}
+            mode="creator"
             onSubmit={handleAddItemSubmit}
             onCancel={() => setIsAddItemDialogOpen(false)}
             showCard={false}
@@ -411,6 +464,7 @@ const RiskAssessmentDetailPage = () => {
           {editingItem && (
             <RiskAssessmentItemForm
               assessmentId={id}
+              mode="creator"
               initialItem={{
                 mRiskId: editingItem.mRiskId,
                 mRiskCategoryId: editingItem.mRiskCategoryId,
@@ -427,12 +481,62 @@ const RiskAssessmentDetailPage = () => {
                   transfer: editingItem.mitigation.transfer,
                   reduce: editingItem.mitigation.reduce,
                   accept: editingItem.mitigation.accept,
+                  legalAspect: editingItem.mitigation.legalAspect,
                 } : undefined,
               }}
               onSubmit={handleUpdateItemSubmit}
               onCancel={() => {
                 setIsEditItemDialogOpen(false);
                 setEditingItem(null);
+              }}
+              showCard={false}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Update Action Item Dialog - updater mode: Post-Control & Legal Aspect only */}
+      <Dialog
+        open={isUpdateActionItemDialogOpen}
+        onOpenChange={(open) => {
+          setIsUpdateActionItemDialogOpen(open);
+          if (!open) setItemToUpdateAction(null);
+        }}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Update Action Item</DialogTitle>
+            <DialogDescription>
+              Update Post-Control Assessment and Legal Aspect for this item (approver/updater mode).
+            </DialogDescription>
+          </DialogHeader>
+          {itemToUpdateAction && (
+            <RiskAssessmentItemForm
+              assessmentId={id}
+              mode="updater"
+              initialItem={{
+                mRiskId: itemToUpdateAction.mRiskId,
+                mRiskCategoryId: itemToUpdateAction.mRiskCategoryId,
+                likelihoodLevel: itemToUpdateAction.likelihoodLevel,
+                consequenceLevel: itemToUpdateAction.consequenceLevel,
+                riskMatrixRating: itemToUpdateAction.riskMatrixRating,
+                interpretation: itemToUpdateAction.interpretation,
+                postLikelihoodLevel: itemToUpdateAction.postLikelihoodLevel,
+                postConsequenceLevel: itemToUpdateAction.postConsequenceLevel,
+                postRiskMatrixRating: itemToUpdateAction.postRiskMatrixRating,
+                postInterpretation: itemToUpdateAction.postInterpretation,
+                mitigation: itemToUpdateAction.mitigation ? {
+                  eliminate: itemToUpdateAction.mitigation.eliminate,
+                  transfer: itemToUpdateAction.mitigation.transfer,
+                  reduce: itemToUpdateAction.mitigation.reduce,
+                  accept: itemToUpdateAction.mitigation.accept,
+                  legalAspect: itemToUpdateAction.mitigation.legalAspect,
+                } : undefined,
+              }}
+              onSubmit={handleUpdateActionItemSubmit}
+              onCancel={() => {
+                setIsUpdateActionItemDialogOpen(false);
+                setItemToUpdateAction(null);
               }}
               showCard={false}
             />

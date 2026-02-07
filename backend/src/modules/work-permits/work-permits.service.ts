@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { DataScopeService } from '../../shared/services/data-scope.service';
+import { UserContext } from '../../shared/types/user-context';
 import { CreateWorkPermitDto } from './dto/create-work-permit.dto';
 import { UpdateWorkPermitDto } from './dto/update-work-permit.dto';
 import { WorkPermitDto } from './dto/work-permit.dto';
@@ -12,6 +14,9 @@ import { RejectWorkPermitDto } from './dto/reject-work-permit.dto';
 import { RequestInfoWorkPermitDto } from './dto/request-info-work-permit.dto';
 import { ExtendWorkPermitDto } from './dto/extend-work-permit.dto';
 import { CloseWorkPermitDto } from './dto/close-work-permit.dto';
+import { WorkPermitStatusEnum } from './dto/work-permit.dto';
+import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
+import { APPROVAL_CHAIN_STATUS } from '../../shared/constants/approval-status';
 import { PaginatedResponse } from '../../shared/types/pagination-params';
 import { Prisma } from '@prisma/client';
 import { MasterApprovalsService } from '../approvals/master-approvals.service';
@@ -26,6 +31,7 @@ export class WorkPermitsService {
     private readonly prisma: PrismaService,
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
+    private readonly dataScopeService: DataScopeService,
     private readonly masterApprovalsService: MasterApprovalsService,
     private readonly notificationsService: NotificationsService,
   ) {
@@ -95,14 +101,47 @@ export class WorkPermitsService {
   }
 
   /**
+   * Ensure current user can access the work permit (data-level). Throws 403 if not.
+   */
+  private async ensureCanAccessWorkPermit(
+    id: string,
+    userContext: UserContext | undefined,
+  ): Promise<void> {
+    const workPermit = await this.prisma.workPermit.findUnique({
+      where: { id },
+      include: { creator: true },
+    });
+    this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
+    const recordForCheck = {
+      createdBy: workPermit.createdBy,
+      creator: workPermit.creator
+        ? { departmentId: workPermit.creator.departmentId }
+        : undefined,
+    };
+    if (!this.dataScopeService.canAccessRecord(userContext, 'WorkPermit', recordForCheck)) {
+      this.errorHandler.throwForbidden('You do not have access to this record');
+    }
+  }
+
+  /**
    * Check approval rights for a work permit
    */
-  async checkApprovalRights(id: string, userId: string) {
+  async checkApprovalRights(
+    id: string,
+    userId: string,
+    userContext?: UserContext,
+  ) {
+    await this.ensureCanAccessWorkPermit(id, userContext);
     const workPermit = await this.prisma.workPermit.findUnique({ where: { id } });
     this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
 
     // If not in review status, no one can approve
-    if (!['IN_REVIEW_HSE', 'IN_REVIEW_SECURITY', 'WAITING_APPROVAL', 'IN_REVIEW'].includes(workPermit.status)) {
+    const reviewStatuses = [
+      WorkPermitStatusEnum.IN_REVIEW_HSE,
+      WorkPermitStatusEnum.IN_REVIEW_SECURITY,
+      WorkPermitStatusEnum.WAITING_APPROVAL,
+    ];
+    if (!reviewStatuses.includes(workPermit.status as WorkPermitStatusEnum)) {
       return { canApprove: false, canReject: false, canRequestInfo: false, nextApprover: null };
     }
 
@@ -112,12 +151,12 @@ export class WorkPermitsService {
       const approvalRights = await this.masterApprovalsService.checkApprovalRights(
         id,
         user,
-        'WORK_PERMIT',
+        APPROVAL_ENTITIES.WORK_PERMIT,
       );
 
       const approvalStatus = await this.masterApprovalsService.checkApprovalStatus(
         id,
-        'WORK_PERMIT',
+        APPROVAL_ENTITIES.WORK_PERMIT,
       );
 
       return {
@@ -630,7 +669,10 @@ export class WorkPermitsService {
   /**
    * Get all work permits with pagination and filtering
    */
-  async findAll(params: FindWorkPermitsDto): Promise<PaginatedResponse<WorkPermitDto>> {
+  async findAll(
+    params: FindWorkPermitsDto,
+    userContext?: UserContext,
+  ): Promise<PaginatedResponse<WorkPermitDto>> {
     return this.errorHandler.safeExecute(async () => {
       const {
         page = 1,
@@ -704,6 +746,13 @@ export class WorkPermitsService {
         ];
       }
 
+      // Data-level scope: hide rows user is not allowed to see
+      const scopeWhere = this.dataScopeService.buildWhereForList(userContext, 'WorkPermit', where);
+      const finalWhere =
+        scopeWhere && Object.keys(scopeWhere).length > 0
+          ? { AND: [where, scopeWhere] }
+          : where;
+
       // Validate sortBy field
       const allowedSortFields = [
         'code',
@@ -717,10 +766,10 @@ export class WorkPermitsService {
       const finalSortBy = allowedSortFields.includes(sortBy || '') ? sortBy : 'createdAt';
       const finalSortOrder = sortOrder === 'desc' ? 'desc' : 'asc';
 
-      const total = await this.prisma.workPermit.count({ where });
+      const total = await this.prisma.workPermit.count({ where: finalWhere });
 
       const workPermits = await this.prisma.workPermit.findMany({
-        where,
+        where: finalWhere,
         orderBy: { [finalSortBy]: finalSortOrder },
         skip: (pageNum - 1) * limitNum,
         take: limitNum,
@@ -746,8 +795,9 @@ export class WorkPermitsService {
   /**
    * Get a single work permit by ID with all relations
    */
-  async findOne(id: string): Promise<WorkPermitDto> {
+  async findOne(id: string, userContext?: UserContext): Promise<WorkPermitDto> {
     return this.errorHandler.safeExecute(async () => {
+      await this.ensureCanAccessWorkPermit(id, userContext);
       const workPermit = await this.prisma.workPermit.findUnique({
         where: { id },
         include: {
@@ -863,8 +913,14 @@ export class WorkPermitsService {
   /**
    * Update a work permit
    */
-  async update(id: string, updateDto: UpdateWorkPermitDto, userId: string): Promise<WorkPermitDto> {
+  async update(
+    id: string,
+    updateDto: UpdateWorkPermitDto,
+    userId: string,
+    userContext?: UserContext,
+  ): Promise<WorkPermitDto> {
     return this.errorHandler.safeExecute(async () => {
+      await this.ensureCanAccessWorkPermit(id, userContext);
       const existing = await this.prisma.workPermit.findUnique({
         where: { id },
       });
@@ -872,7 +928,7 @@ export class WorkPermitsService {
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, existing);
 
       // Business rule: Only can edit if status is DRAFT or NEED_INFO
-      if (existing.status !== 'DRAFT' && existing.status !== 'NEED_INFO') {
+      if (existing.status !== WorkPermitStatusEnum.DRAFT && existing.status !== WorkPermitStatusEnum.NEED_INFO) {
         this.errorHandler.throwBadRequest(`Cannot edit work permit with status ${existing.status}. Only DRAFT or NEED_INFO permits can be edited.`);
       }
 
@@ -916,8 +972,8 @@ export class WorkPermitsService {
       const updateData: any = {};
 
       // WP-049: If status is NEED_INFO, change to DRAFT after editing
-      if (existing.status === 'NEED_INFO') {
-        updateData.status = 'DRAFT';
+      if (existing.status === WorkPermitStatusEnum.NEED_INFO) {
+        updateData.status = WorkPermitStatusEnum.DRAFT;
       }
 
       if (updateDto.projectName !== undefined) updateData.projectName = updateDto.projectName;
@@ -1253,8 +1309,9 @@ export class WorkPermitsService {
   /**
    * Delete a work permit (soft delete)
    */
-  async remove(id: string): Promise<void> {
+  async remove(id: string, userContext?: UserContext): Promise<void> {
     return this.errorHandler.safeExecute(async () => {
+      await this.ensureCanAccessWorkPermit(id, userContext);
       const existing = await this.prisma.workPermit.findUnique({
         where: { id },
       });
@@ -1272,8 +1329,14 @@ export class WorkPermitsService {
   /**
    * Submit work permit for approval
    */
-  async submit(id: string, submitDto: SubmitWorkPermitDto, userId: string): Promise<WorkPermitDto> {
+  async submit(
+    id: string,
+    submitDto: SubmitWorkPermitDto,
+    userId: string,
+    userContext?: UserContext,
+  ): Promise<WorkPermitDto> {
     return this.errorHandler.safeExecute(async () => {
+      await this.ensureCanAccessWorkPermit(id, userContext);
       const workPermit = await this.prisma.workPermit.findUnique({
         where: { id },
       });
@@ -1281,15 +1344,15 @@ export class WorkPermitsService {
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
 
       // Business rule: Only DRAFT status can be submitted
-      if (workPermit.status !== 'DRAFT') {
+      if (workPermit.status !== WorkPermitStatusEnum.DRAFT) {
         this.errorHandler.throwBadRequest(`Cannot submit work permit with status ${workPermit.status}. Only DRAFT permits can be submitted.`);
       }
 
-      // Update status to WAITING_APPROVAL
+      // Update status to IN_REVIEW_HSE
       const updated = await this.prisma.workPermit.update({
         where: { id },
         data: {
-          status: 'IN_REVIEW_HSE',
+          status: WorkPermitStatusEnum.IN_REVIEW_HSE,
         },
         include: {
           area: true,
@@ -1308,8 +1371,14 @@ export class WorkPermitsService {
   /**
    * Approve work permit (Dynamic based on Master Approval)
    */
-  async approve(id: string, approveDto: ApproveWorkPermitDto, userId: string): Promise<WorkPermitDto> {
+  async approve(
+    id: string,
+    approveDto: ApproveWorkPermitDto,
+    userId: string,
+    userContext?: UserContext,
+  ): Promise<WorkPermitDto> {
     return this.errorHandler.safeExecute(async () => {
+      await this.ensureCanAccessWorkPermit(id, userContext);
       const workPermit = await this.prisma.workPermit.findUnique({
         where: { id },
         include: {
@@ -1325,7 +1394,7 @@ export class WorkPermitsService {
       const approvalRights = await this.masterApprovalsService.checkApprovalRights(
         id,
         user,
-        'WORK_PERMIT',
+        APPROVAL_ENTITIES.WORK_PERMIT,
       );
 
       if (!approvalRights.canApprove) {
@@ -1335,7 +1404,7 @@ export class WorkPermitsService {
       // Submit approval record
       await this.masterApprovalsService.submitApproval(
         {
-          entity: 'WORK_PERMIT',
+          entity: APPROVAL_ENTITIES.WORK_PERMIT,
           dataId: id,
           status: ApprovalStatus.APPROVED,
           notes: approveDto.notes || '',
@@ -1346,23 +1415,23 @@ export class WorkPermitsService {
       // Check approval status to determine next step
       const approvalStatus = await this.masterApprovalsService.checkApprovalStatus(
         id,
-        'WORK_PERMIT',
+        APPROVAL_ENTITIES.WORK_PERMIT,
       );
 
-      let nextStatus: string;
-      if (approvalStatus.currentStatus === 'COMPLETED') {
-        nextStatus = 'APPROVED';
+      let nextStatus: WorkPermitStatusEnum;
+      if (approvalStatus.currentStatus === APPROVAL_CHAIN_STATUS.COMPLETED) {
+        nextStatus = WorkPermitStatusEnum.APPROVED;
       } else if (approvalStatus.nextApprover) {
         const nextDept = approvalStatus.nextApprover.department.name.toUpperCase();
         if (nextDept.includes('SECURITY')) {
-          nextStatus = 'IN_REVIEW_SECURITY';
+          nextStatus = WorkPermitStatusEnum.IN_REVIEW_SECURITY;
         } else if (nextDept.includes('HSE')) {
-          nextStatus = 'IN_REVIEW_HSE';
+          nextStatus = WorkPermitStatusEnum.IN_REVIEW_HSE;
         } else {
-          nextStatus = 'IN_REVIEW'; // Generic fallback
+          nextStatus = WorkPermitStatusEnum.OPEN; // Generic fallback (OPEN used as in-review)
         }
       } else {
-        nextStatus = 'APPROVED';
+        nextStatus = WorkPermitStatusEnum.APPROVED;
       }
 
       // Update status
@@ -1379,9 +1448,9 @@ export class WorkPermitsService {
       });
 
       // Send notifications
-      if (nextStatus === 'APPROVED') {
+      if (nextStatus === WorkPermitStatusEnum.APPROVED) {
         await this.sendApprovalNotifications(id, updated);
-      } else if (nextStatus === 'IN_REVIEW_SECURITY') {
+      } else if (nextStatus === WorkPermitStatusEnum.IN_REVIEW_SECURITY) {
         await this.sendNotificationToSecurity(id, updated);
       } else {
         // Generic notification for other steps could be added here
@@ -1394,8 +1463,14 @@ export class WorkPermitsService {
   /**
    * Reject work permit
    */
-  async reject(id: string, rejectDto: RejectWorkPermitDto, userId: string): Promise<WorkPermitDto> {
+  async reject(
+    id: string,
+    rejectDto: RejectWorkPermitDto,
+    userId: string,
+    userContext?: UserContext,
+  ): Promise<WorkPermitDto> {
     return this.errorHandler.safeExecute(async () => {
+      await this.ensureCanAccessWorkPermit(id, userContext);
       const workPermit = await this.prisma.workPermit.findUnique({
         where: { id },
         include: {
@@ -1411,7 +1486,7 @@ export class WorkPermitsService {
       const approvalRights = await this.masterApprovalsService.checkApprovalRights(
         id,
         user,
-        'WORK_PERMIT',
+        APPROVAL_ENTITIES.WORK_PERMIT,
       );
 
       if (!approvalRights.canApprove) {
@@ -1422,7 +1497,7 @@ export class WorkPermitsService {
       const updated = await this.prisma.workPermit.update({
         where: { id },
         data: {
-          status: 'REJECTED',
+          status: WorkPermitStatusEnum.REJECTED,
         },
         include: {
           area: true,
@@ -1434,7 +1509,7 @@ export class WorkPermitsService {
       // Submit rejection record
       await this.masterApprovalsService.submitApproval(
         {
-          entity: 'WORK_PERMIT',
+          entity: APPROVAL_ENTITIES.WORK_PERMIT,
           dataId: id,
           status: ApprovalStatus.REJECTED,
           notes: rejectDto.reason + (rejectDto.notes ? `\n\n${rejectDto.notes}` : ''),
@@ -1452,8 +1527,14 @@ export class WorkPermitsService {
   /**
    * Request additional information
    */
-  async requestInfo(id: string, requestInfoDto: RequestInfoWorkPermitDto, userId: string): Promise<WorkPermitDto> {
+  async requestInfo(
+    id: string,
+    requestInfoDto: RequestInfoWorkPermitDto,
+    userId: string,
+    userContext?: UserContext,
+  ): Promise<WorkPermitDto> {
     return this.errorHandler.safeExecute(async () => {
+      await this.ensureCanAccessWorkPermit(id, userContext);
       const workPermit = await this.prisma.workPermit.findUnique({
         where: { id },
         include: {
@@ -1469,7 +1550,7 @@ export class WorkPermitsService {
       const approvalRights = await this.masterApprovalsService.checkApprovalRights(
         id,
         user,
-        'WORK_PERMIT',
+        APPROVAL_ENTITIES.WORK_PERMIT,
       );
 
       if (!approvalRights.canApprove) {
@@ -1480,7 +1561,7 @@ export class WorkPermitsService {
       const updated = await this.prisma.workPermit.update({
         where: { id },
         data: {
-          status: 'NEED_INFO',
+          status: WorkPermitStatusEnum.NEED_INFO,
         },
         include: {
           area: true,
@@ -1499,8 +1580,14 @@ export class WorkPermitsService {
   /**
    * Extend work permit
    */
-  async extend(id: string, extendDto: ExtendWorkPermitDto, userId: string): Promise<WorkPermitDto> {
+  async extend(
+    id: string,
+    extendDto: ExtendWorkPermitDto,
+    userId: string,
+    userContext?: UserContext,
+  ): Promise<WorkPermitDto> {
     return this.errorHandler.safeExecute(async () => {
+      await this.ensureCanAccessWorkPermit(id, userContext);
       const workPermit = await this.prisma.workPermit.findUnique({
         where: { id },
       });
@@ -1508,7 +1595,7 @@ export class WorkPermitsService {
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
 
       // Business rule: Only APPROVED permits can be extended
-      if (workPermit.status !== 'APPROVED') {
+      if (workPermit.status !== WorkPermitStatusEnum.APPROVED) {
         this.errorHandler.throwBadRequest(`Cannot extend work permit with status ${workPermit.status}. Only APPROVED permits can be extended.`);
       }
 
@@ -1525,7 +1612,7 @@ export class WorkPermitsService {
         where: { id },
         data: {
           proposedEndDate: newEndDate,
-          status: 'EXTENDED',
+          status: WorkPermitStatusEnum.EXTENDED,
         },
         include: {
           area: true,
@@ -1544,8 +1631,14 @@ export class WorkPermitsService {
   /**
    * Close work permit
    */
-  async close(id: string, closeDto: CloseWorkPermitDto, userId: string): Promise<WorkPermitDto> {
+  async close(
+    id: string,
+    closeDto: CloseWorkPermitDto,
+    userId: string,
+    userContext?: UserContext,
+  ): Promise<WorkPermitDto> {
     return this.errorHandler.safeExecute(async () => {
+      await this.ensureCanAccessWorkPermit(id, userContext);
       const workPermit = await this.prisma.workPermit.findUnique({
         where: { id },
       });
@@ -1553,7 +1646,8 @@ export class WorkPermitsService {
       this.errorHandler.throwIfNotFoundById('WorkPermit', id, workPermit);
 
       // Business rule: Only APPROVED or EXTENDED permits can be closed
-      if (!['APPROVED', 'EXTENDED'].includes(workPermit.status)) {
+      const closableStatuses = [WorkPermitStatusEnum.APPROVED, WorkPermitStatusEnum.EXTENDED];
+      if (!closableStatuses.includes(workPermit.status as WorkPermitStatusEnum)) {
         this.errorHandler.throwBadRequest(`Cannot close work permit with status ${workPermit.status}. Only APPROVED or EXTENDED permits can be closed.`);
       }
 
@@ -1580,8 +1674,9 @@ export class WorkPermitsService {
   /**
    * Get approval timeline/history
    */
-  async getTimeline(id: string): Promise<any[]> {
+  async getTimeline(id: string, userContext?: UserContext): Promise<any[]> {
     return this.errorHandler.safeExecute(async () => {
+      await this.ensureCanAccessWorkPermit(id, userContext);
       const workPermit = await this.prisma.workPermit.findUnique({
         where: { id },
       });

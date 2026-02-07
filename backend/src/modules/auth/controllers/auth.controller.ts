@@ -22,6 +22,8 @@ import {
 } from '@nestjs/swagger';
 import { Response, Request } from 'express';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { Public } from '../../../shared/decorators/public.decorator';
 import { AuthGuard } from '@nestjs/passport';
 import { LoginDto } from '../dto/login.dto';
@@ -92,7 +94,8 @@ export class AuthController {
   }
 
   @Post('logout')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('auth:logout')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'User logout' })
