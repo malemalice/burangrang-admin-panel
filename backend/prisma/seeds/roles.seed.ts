@@ -27,6 +27,7 @@ function getManagerUserPermissionNames(): Set<string> {
     'risk-matrix',
   ];
   const readListOnlyModules = [
+    'dashboard',
     'audit-policy',
     'audit-criteria',
     'certificate',

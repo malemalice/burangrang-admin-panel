@@ -22,6 +22,7 @@ import auditResultsRoutes from '@/modules/audit-results/routes/auditResultsRoute
 import { kpiFrequencyRateRoutes } from '@/modules/kpi-frequency-rate';
 import { incidentProfileAnalyticRoutes } from '@/modules/incident-profile-analytic';
 import { hazardAnalyticsRoutes } from '@/modules/hazard-analytics';
+import { securityTeamRoutes } from '@/modules/security-team';
 
 /**
  * Application routes registry
@@ -51,6 +52,7 @@ const routes: RouteConfig[] = [
   ...kpiFrequencyRateRoutes,
   ...incidentProfileAnalyticRoutes,
   ...hazardAnalyticsRoutes,
+  ...securityTeamRoutes,
 ];
 
 // Public routes that don't require authentication

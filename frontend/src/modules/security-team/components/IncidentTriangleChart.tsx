@@ -8,31 +8,21 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import type { IncidentSummary } from '../types/hazard-analytics.types';
+import type { IncidentSummaryItem } from '../types/security-team.types';
 
 const ACTUAL_COLOR = '#3B82F6';
-const TARGET_COLOR = '#EF4444';
+const DIFFERENCE_COLOR = '#EF4444';
 
-interface IncidentChartProps {
-  data: IncidentSummary[];
+interface IncidentTriangleChartProps {
+  data: IncidentSummaryItem[];
 }
 
-const FATALITY_KEY = 'fatality';
-
-export function IncidentChart({ data }: IncidentChartProps) {
-  const chartData = data
-    .map((d) => ({
-      category: d.category.replace(/\/.*$/, '').replace(/\s*\(.*\)$/, '').trim(),
-      actual: d.actual,
-      target: d.target <= 0 ? d.target : -d.actual,
-    }))
-    .sort((a, b) => {
-      const aIsFatality = a.category.toLowerCase().includes(FATALITY_KEY);
-      const bIsFatality = b.category.toLowerCase().includes(FATALITY_KEY);
-      if (aIsFatality && !bIsFatality) return 1;
-      if (!aIsFatality && bIsFatality) return -1;
-      return 0;
-    });
+export function IncidentTriangleChart({ data }: IncidentTriangleChartProps) {
+  const chartData = data.map((d) => ({
+    category: d.category,
+    count: d.count,
+    difference: d.difference <= 0 ? d.difference : -d.count,
+  })).reverse();
 
   return (
     <Card>
@@ -48,14 +38,14 @@ export function IncidentChart({ data }: IncidentChartProps) {
               margin={{ top: 8, right: 24, left: 80, bottom: 8 }}
             >
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis type="number" domain={[-300, 300]} tick={{ fontSize: 12 }} />
+              <XAxis type="number" domain={[-100, 100]} tick={{ fontSize: 12 }} />
               <YAxis type="category" dataKey="category" width={70} tick={{ fontSize: 11 }} />
               <Tooltip
                 formatter={(value: number) => [value, '']}
                 labelFormatter={(label) => `Category: ${label}`}
               />
-              <Bar dataKey="target" name="Target / Difference" fill={TARGET_COLOR} radius={0} />
-              <Bar dataKey="actual" name="Actual" fill={ACTUAL_COLOR} radius={0} />
+              <Bar dataKey="difference" name="Difference" fill={DIFFERENCE_COLOR} radius={0} />
+              <Bar dataKey="count" name="Count" fill={ACTUAL_COLOR} radius={0} />
             </BarChart>
           </ResponsiveContainer>
         </div>
