@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import { Badge } from '@/core/components/ui/badge';
 import { Separator } from '@/core/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/core/components/ui/table';
-import { DispatchOrder, GeneralStatusEnum } from '../../types/waste-management.types';
+import { DispatchOrder, GeneralStatusEnum } from '../types/waste-management.types';
 
 interface DispatchOrderPDFTemplateProps {
   dispatchOrder: DispatchOrder;
