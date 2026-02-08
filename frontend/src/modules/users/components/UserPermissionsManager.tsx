@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/cor
 import { Button } from '@/core/components/ui/button';
 import { Checkbox } from '@/core/components/ui/checkbox';
 import { Input } from '@/core/components/ui/input';
-import { ScrollArea } from '@/core/components/ui/scroll-area';
 import { Badge } from '@/core/components/ui/badge';
 import { useUserPermissions } from '../hooks/useUserPermissions';
 import { usePermissions } from '@/core/hooks/usePermissions'; // To get all available permissions list if needed, or assume fixed list
@@ -152,7 +151,7 @@ export const UserPermissionsManager = ({ userId, userName }: UserPermissionsMana
           )}
         </div>
 
-        <ScrollArea className="h-[500px] pr-4">
+        <div className="h-[500px] pr-4 overflow-y-auto">
           <div className="space-y-6">
             {Object.entries(groupedPermissions).map(([group, perms]) => (
               <div key={group} className="space-y-3">
@@ -212,7 +211,7 @@ export const UserPermissionsManager = ({ userId, userName }: UserPermissionsMana
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </CardContent>
     </Card>
   );
