@@ -108,6 +108,22 @@ export interface SecurityIncidentSummaryData {
   difference: number;
 }
 
+export interface SecuritySifrComparisonData {
+  year: string;
+  totalSifr: number;
+  majorRate: number;
+  moderateRate: number;
+  minorRate: number;
+}
+
+export interface SecurityMonthlyIncidentRowData {
+  category: string;
+  months: { month: string; count: number }[];
+  total: number;
+}
+
+export type SecurityMonthlyIncidentsData = SecurityMonthlyIncidentRowData[];
+
 export interface IncidentCategoryData {
   category: string;
   year2022_2023: number;
@@ -119,4 +135,50 @@ export interface IncidentProfileData {
   countData: IncidentCategoryData[];
   percentageData: IncidentCategoryData[];
   yearsToShow: string[];
+}
+
+export interface AdminOverviewData {
+  lms: {
+    overdueEnrollments: number;
+    totalEnrollments: number;
+    courseCompletionRate: number;
+    quizPassRate: number;
+  };
+  certificates: {
+    expiringIn30Days: number;
+    totalActive: number;
+    renewalBacklog: number;
+    categoriesCount: number;
+  };
+  ppe: {
+    lowStockItems: number;
+    expiringItems: number;
+    withdrawalsPending: number;
+    topEquipmentByWithdrawal: string;
+  };
+  workPermits: {
+    pendingApproval: number;
+    totalActive: number;
+    activePermits: number;
+    rejectionRate: number;
+  };
+  environmental: {
+    roomsNotMeasured: number;
+    totalRooms: number;
+    coveragePercent: number;
+    avgReadingsRecorded: number;
+  };
+  wasteManagement: {
+    reportsPendingReview: number;
+    totalReports: number;
+    missingReports: number;
+    totalWasteWeightKg: number;
+  };
+  manHours: {
+    totalManHours: number;
+    currentPeriod: string;
+    studentManHours: number;
+    nonStudentManHours: number;
+    yoyChangePercent: number;
+  };
 } 

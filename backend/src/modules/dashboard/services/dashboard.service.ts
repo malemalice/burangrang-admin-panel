@@ -1,12 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import {
+  CertificateRenewalStatusEnum,
   CompliantStatusEnum,
+  EnrollmentStatusEnum,
   GeneralStatusEnum,
   IncidentClassificationEnum,
   IncidentTypeEnum,
   LevelOfInjuryEnum,
   MechanismOfInjuryEnum,
+  MonthEnum,
+  PPEStockStatusEnum,
+  PPEWithdrawalStatusEnum,
+  ReportStatusEnum,
   RiskRatingEnum,
 } from '@prisma/client';
 import {
@@ -27,6 +33,9 @@ import {
   SecurityTypeNonConformanceData,
   SecurityPartiesInvolvedData,
   SecurityIncidentSummaryData,
+  SecuritySifrComparisonData,
+  SecurityMonthlyIncidentsData,
+  AdminOverviewData,
 } from '../types/dashboard.types';
 
 @Injectable()
@@ -860,6 +869,194 @@ export class DashboardService {
     return { open, closed, total: open + closed };
   }
 
+  private static readonly MONTH_TO_NUM: Record<MonthEnum, number> = {
+    [MonthEnum.JAN]: 1,
+    [MonthEnum.FEB]: 2,
+    [MonthEnum.MAR]: 3,
+    [MonthEnum.APR]: 4,
+    [MonthEnum.MAY]: 5,
+    [MonthEnum.JUN]: 6,
+    [MonthEnum.JUL]: 7,
+    [MonthEnum.AUG]: 8,
+    [MonthEnum.SEP]: 9,
+    [MonthEnum.OCT]: 10,
+    [MonthEnum.NOV]: 11,
+    [MonthEnum.DEC]: 12,
+  };
+
+  async getSecuritySifrComparison(): Promise<SecuritySifrComparisonData[]> {
+    const [manHoursRows, incidents] = await Promise.all([
+      this.prisma.manHour.findMany({
+        where: { isActive: true },
+        select: { year: true, month: true, total: true },
+      }),
+      this.prisma.incident.findMany({
+        where: { isActive: true },
+        select: {
+          incidentDate: true,
+          incidentClassification: true,
+          injuredPersons: { select: { levelOfInjury: true } },
+        },
+      }),
+    ]);
+
+    const manHoursByYear = new Map<string, number>();
+    for (const row of manHoursRows) {
+      const monthNum = DashboardService.MONTH_TO_NUM[row.month];
+      const academicYear =
+        monthNum >= 8 ? `${row.year}-${row.year + 1}` : `${row.year - 1}-${row.year}`;
+      const total = Number(row.total);
+      manHoursByYear.set(academicYear, (manHoursByYear.get(academicYear) ?? 0) + total);
+    }
+
+    const incidentsByYear = new Map<
+      string,
+      { major: number; moderate: number; minor: number; total: number }
+    >();
+    for (const i of incidents) {
+      const d = i.incidentDate;
+      const month = d.getMonth() + 1;
+      const year = d.getFullYear();
+      const academicYear =
+        month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+      const levels = i.injuredPersons.map((p) => p.levelOfInjury);
+      const cat = DashboardService.classifySecurityIncident(
+        i.incidentClassification,
+        levels,
+      );
+      let row = incidentsByYear.get(academicYear);
+      if (!row) {
+        row = { major: 0, moderate: 0, minor: 0, total: 0 };
+        incidentsByYear.set(academicYear, row);
+      }
+      row.total += 1;
+      if (cat === 'major') row.major += 1;
+      else if (cat === 'moderate') row.moderate += 1;
+      else row.minor += 1;
+    }
+
+    const academicYears = Array.from(
+      new Set([...manHoursByYear.keys(), ...incidentsByYear.keys()]),
+    ).sort();
+
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+
+    return academicYears.map((year) => {
+      const mh = manHoursByYear.get(year) ?? 0;
+      const inc = incidentsByYear.get(year) ?? {
+        major: 0,
+        moderate: 0,
+        minor: 0,
+        total: 0,
+      };
+      const rate = mh > 0 ? (1_000_000 / mh) : 0;
+      return {
+        year,
+        totalSifr: round2(inc.total * rate),
+        majorRate: round2(inc.major * rate),
+        moderateRate: round2(inc.moderate * rate),
+        minorRate: round2(inc.minor * rate),
+      };
+    });
+  }
+
+  private static buildMonthLabelsFromPeriod(
+    periodFrom: string,
+    periodTo: string,
+  ): string[] {
+    const [yFrom, mFrom] = periodFrom.split('-').map(Number);
+    const [yTo, mTo] = periodTo.split('-').map(Number);
+    const labels: string[] = [];
+    let y = yFrom;
+    let m = mFrom;
+    while (y < yTo || (y === yTo && m <= mTo)) {
+      labels.push(
+        `${DashboardService.MONTH_ABBREV[m - 1]} ${y}`,
+      );
+      m += 1;
+      if (m > 12) {
+        m = 1;
+        y += 1;
+      }
+    }
+    return labels;
+  }
+
+  async getSecurityMonthlyIncidents(
+    periodFrom?: string,
+    periodTo?: string,
+  ): Promise<SecurityMonthlyIncidentsData> {
+    let from = periodFrom;
+    let to = periodTo;
+    if (!from || !to) {
+      const now = new Date();
+      to = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const past = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+      from = `${past.getFullYear()}-${String(past.getMonth() + 1).padStart(2, '0')}`;
+    }
+    const monthLabels = DashboardService.buildMonthLabelsFromPeriod(from, to);
+    const incidentDate = DashboardService.buildPeriodDates(from, to);
+    const incidents = await this.prisma.incident.findMany({
+      where: {
+        isActive: true,
+        incidentDate,
+      },
+      select: {
+        incidentDate: true,
+        incidentClassification: true,
+        injuredPersons: { select: { levelOfInjury: true } },
+      },
+    });
+
+    type Key = string;
+    const countByCategoryMonth = new Map<Key, number>();
+    const totalByCategory = new Map<string, number>();
+    const categoryOrder = ['Minor', 'Moderate', 'Major', 'Total Incident'];
+    for (const cat of categoryOrder) {
+      totalByCategory.set(cat, 0);
+    }
+
+    for (const i of incidents) {
+      const d = i.incidentDate;
+      const monthLabel =
+        `${DashboardService.MONTH_ABBREV[d.getMonth()]} ${d.getFullYear()}`;
+      const levels = i.injuredPersons.map((p) => p.levelOfInjury);
+      const cat = DashboardService.classifySecurityIncident(
+        i.incidentClassification,
+        levels,
+      );
+      const categoryLabel =
+        cat === 'major' ? 'Major' : cat === 'moderate' ? 'Moderate' : 'Minor';
+      const keyCategoryMonth = `${categoryLabel}\t${monthLabel}`;
+      countByCategoryMonth.set(
+        keyCategoryMonth,
+        (countByCategoryMonth.get(keyCategoryMonth) ?? 0) + 1,
+      );
+      totalByCategory.set(
+        categoryLabel,
+        (totalByCategory.get(categoryLabel) ?? 0) + 1,
+      );
+      const keyTotal = `Total Incident\t${monthLabel}`;
+      countByCategoryMonth.set(
+        keyTotal,
+        (countByCategoryMonth.get(keyTotal) ?? 0) + 1,
+      );
+      totalByCategory.set(
+        'Total Incident',
+        (totalByCategory.get('Total Incident') ?? 0) + 1,
+      );
+    }
+
+    return categoryOrder.map((category) => {
+      const months = monthLabels.map((month) => ({
+        month,
+        count: countByCategoryMonth.get(`${category}\t${month}`) ?? 0,
+      }));
+      const total = totalByCategory.get(category) ?? 0;
+      return { category, months, total };
+    });
+  }
+
   async getSecurityTypeNonConformance(
     periodFrom?: string,
     periodTo?: string,
@@ -1138,6 +1335,319 @@ export class DashboardService {
       countData,
       percentageData,
       yearsToShow: [...yearsToShow],
+    };
+  }
+
+  async getAdminOverview(): Promise<AdminOverviewData> {
+    const now = new Date();
+    const in30Days = new Date(now);
+    in30Days.setDate(in30Days.getDate() + 30);
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const currentYear = now.getFullYear();
+    const currentMonthIndex = now.getMonth();
+    const monthEnumValues: MonthEnum[] = [
+      MonthEnum.JAN, MonthEnum.FEB, MonthEnum.MAR, MonthEnum.APR, MonthEnum.MAY, MonthEnum.JUN,
+      MonthEnum.JUL, MonthEnum.AUG, MonthEnum.SEP, MonthEnum.OCT, MonthEnum.NOV, MonthEnum.DEC,
+    ];
+    const currentMonthEnum = monthEnumValues[currentMonthIndex];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentPeriodLabel = `${monthNames[currentMonthIndex]} ${currentYear}`;
+
+    const [
+      overdueEnrollments,
+      totalEnrollments,
+      completedEnrollments,
+      quizAttemptsPassed,
+      quizAttemptsTotal,
+      certificatesExpiringIn30Days,
+      certificatesTotalActive,
+      renewalBacklog,
+      certificateCategoriesGroup,
+      ppeLowStockItems,
+      ppeExpiringItems,
+      ppeWithdrawalsPending,
+      ppeWithdrawalItemsForTop,
+      wpPendingApproval,
+      wpApproved,
+      wpRejected,
+      wpTotal,
+      totalRooms,
+      roomsMeasuredLast30DaysGroup,
+      readingsCountLast30Days,
+      manHoursCurrentMonthRows,
+      manHoursSameMonthLastYearRows,
+      flowPending,
+      waterQualityPending,
+      weightReportPending,
+      flowTotal,
+      waterQualityTotal,
+      weightReportTotal,
+      weightReportItemsCurrentYear,
+      treatmentPlantCount,
+      flowSubmittedCurrentYear,
+    ] = await Promise.all([
+      this.prisma.enrollment.count({
+        where: {
+          dueDate: { lt: now, not: null },
+          status: {
+            notIn: [
+              EnrollmentStatusEnum.COMPLETED,
+              EnrollmentStatusEnum.CANCELLED,
+              EnrollmentStatusEnum.EXPIRED,
+            ],
+          },
+        },
+      }),
+      this.prisma.enrollment.count(),
+      this.prisma.enrollment.count({
+        where: { status: EnrollmentStatusEnum.COMPLETED },
+      }),
+      this.prisma.quizAttempt.count({
+        where: { isPassed: true },
+      }),
+      this.prisma.quizAttempt.count(),
+      this.prisma.certificate.count({
+        where: {
+          isActive: true,
+          deletedAt: null,
+          validityDate: { gte: now, lte: in30Days },
+        },
+      }),
+      this.prisma.certificate.count({
+        where: { isActive: true, deletedAt: null },
+      }),
+      this.prisma.certificateRenewal.count({
+        where: {
+          status: {
+            in: [
+              CertificateRenewalStatusEnum.PENDING,
+              CertificateRenewalStatusEnum.REQUESTED,
+              CertificateRenewalStatusEnum.IN_PROGRESS,
+            ],
+          },
+        },
+      }),
+      this.prisma.certificate.groupBy({
+        by: ['categoryId'],
+        where: { isActive: true, deletedAt: null },
+      }),
+      this.prisma.pPEStockItem.count({
+        where: {
+          currentQuantity: { gt: 0, lte: 5 },
+          stock: { isActive: true, deletedAt: null },
+        },
+      }),
+      this.prisma.pPEStockItem.count({
+        where: {
+          expiryDate: { gte: now, lte: in30Days },
+          status: {
+            in: [
+              PPEStockStatusEnum.AVAILABLE,
+              PPEStockStatusEnum.RESERVED,
+              PPEStockStatusEnum.ISSUED,
+            ],
+          },
+          stock: { isActive: true, deletedAt: null },
+        },
+      }),
+      this.prisma.pPEWithdrawal.count({
+        where: {
+          status: PPEWithdrawalStatusEnum.PENDING,
+          deletedAt: null,
+        },
+      }),
+      this.prisma.pPEWithdrawalItem.findMany({
+        include: {
+          stockItem: { include: { safetyEquipment: true } },
+        },
+      }),
+      this.prisma.workPermit.count({
+        where: {
+          isActive: true,
+          status: {
+            in: ['WAITING_APPROVAL', 'IN_REVIEW_HSE', 'IN_REVIEW_SECURITY'],
+          },
+        },
+      }),
+      this.prisma.workPermit.count({
+        where: { isActive: true, status: 'APPROVED' },
+      }),
+      this.prisma.workPermit.count({
+        where: { status: 'REJECTED' },
+      }),
+      this.prisma.workPermit.count(),
+      this.prisma.room.count({ where: { isActive: true } }),
+      this.prisma.environmentalMeasurement.groupBy({
+        by: ['roomId'],
+        where: {
+          date: { gte: thirtyDaysAgo },
+          isActive: true,
+        },
+      }),
+      this.prisma.environmentalMeasurement.count({
+        where: {
+          date: { gte: thirtyDaysAgo },
+          isActive: true,
+        },
+      }),
+      this.prisma.manHour.findMany({
+        where: { month: currentMonthEnum, year: currentYear, isActive: true },
+        select: { total: true, group: true },
+      }),
+      this.prisma.manHour.findMany({
+        where: { month: currentMonthEnum, year: currentYear - 1, isActive: true },
+        select: { total: true },
+      }),
+      this.prisma.monthlyFlowReport.count({
+        where: {
+          isActive: true,
+          status: { in: [ReportStatusEnum.SUBMITTED, ReportStatusEnum.UNDER_REVIEW] },
+        },
+      }),
+      this.prisma.waterQualityLabReport.count({
+        where: {
+          isActive: true,
+          status: { in: [ReportStatusEnum.SUBMITTED, ReportStatusEnum.UNDER_REVIEW] },
+        },
+      }),
+      this.prisma.weightReport.count({
+        where: {
+          isActive: true,
+          status: { in: [ReportStatusEnum.SUBMITTED, ReportStatusEnum.UNDER_REVIEW] },
+        },
+      }),
+      this.prisma.monthlyFlowReport.count({ where: { isActive: true } }),
+      this.prisma.waterQualityLabReport.count({ where: { isActive: true } }),
+      this.prisma.weightReport.count({ where: { isActive: true } }),
+      this.prisma.weightReportItem.findMany({
+        where: { weightReport: { reportYear: currentYear, isActive: true } },
+        select: { weight: true },
+      }),
+      this.prisma.treatmentPlant.count({ where: { isActive: true } }),
+      this.prisma.monthlyFlowReport.count({
+        where: { reportYear: currentYear, isActive: true },
+      }),
+    ]);
+
+    const courseCompletionRate =
+      totalEnrollments > 0
+        ? Math.round((completedEnrollments / totalEnrollments) * 100)
+        : 0;
+    const quizPassRate =
+      quizAttemptsTotal > 0
+        ? Math.round((quizAttemptsPassed / quizAttemptsTotal) * 100)
+        : 0;
+    const categoriesCount = certificateCategoriesGroup.length;
+
+    const equipmentQuantityMap = new Map<string, number>();
+    for (const wi of ppeWithdrawalItemsForTop) {
+      const name =
+        wi.stockItem.equipmentName ??
+        wi.stockItem.safetyEquipment?.name ??
+        'Unknown';
+      const qty =
+        wi.issuedQuantity ?? wi.approvedQuantity ?? wi.requestedQuantity;
+      equipmentQuantityMap.set(name, (equipmentQuantityMap.get(name) ?? 0) + qty);
+    }
+    const topEquipmentEntry =
+      equipmentQuantityMap.size > 0
+        ? [...equipmentQuantityMap.entries()].sort(
+            (a, b) => b[1] - a[1],
+          )[0]
+        : null;
+    const topEquipmentByWithdrawal = topEquipmentEntry
+      ? `${topEquipmentEntry[0]}: ${topEquipmentEntry[1]}`
+      : '—';
+
+    const rejectionRate =
+      wpTotal > 0 ? Math.round((wpRejected / wpTotal) * 100) : 0;
+
+    const roomsMeasuredCount = roomsMeasuredLast30DaysGroup.length;
+    const roomsNotMeasured = Math.max(0, totalRooms - roomsMeasuredCount);
+    const coveragePercent =
+      totalRooms > 0 ? Math.round((roomsMeasuredCount / totalRooms) * 100) : 0;
+
+    const totalManHoursCurrent = manHoursCurrentMonthRows.reduce(
+      (sum, r) => sum + Number(r.total),
+      0,
+    );
+    const studentManHours = manHoursCurrentMonthRows
+      .filter((r) => r.group === 'STUDENT')
+      .reduce((sum, r) => sum + Number(r.total), 0);
+    const nonStudentManHours = manHoursCurrentMonthRows
+      .filter((r) => r.group === 'NON_STUDENT')
+      .reduce((sum, r) => sum + Number(r.total), 0);
+    const totalManHoursPrevYear = manHoursSameMonthLastYearRows.reduce(
+      (sum, r) => sum + Number(r.total),
+      0,
+    );
+    const yoyChangePercent =
+      totalManHoursPrevYear > 0
+        ? Math.round(
+            ((totalManHoursCurrent - totalManHoursPrevYear) /
+              totalManHoursPrevYear) *
+              100,
+          )
+        : 0;
+
+    const reportsPendingReview =
+      flowPending + waterQualityPending + weightReportPending;
+    const totalReports = flowTotal + waterQualityTotal + weightReportTotal;
+    const expectedFlowReports = treatmentPlantCount * 12;
+    const missingReports = Math.max(
+      0,
+      expectedFlowReports - flowSubmittedCurrentYear,
+    );
+    const totalWasteWeightKg = weightReportItemsCurrentYear.reduce(
+      (sum, i) => sum + Number(i.weight),
+      0,
+    );
+
+    return {
+      lms: {
+        overdueEnrollments,
+        totalEnrollments,
+        courseCompletionRate,
+        quizPassRate,
+      },
+      certificates: {
+        expiringIn30Days: certificatesExpiringIn30Days,
+        totalActive: certificatesTotalActive,
+        renewalBacklog,
+        categoriesCount,
+      },
+      ppe: {
+        lowStockItems: ppeLowStockItems,
+        expiringItems: ppeExpiringItems,
+        withdrawalsPending: ppeWithdrawalsPending,
+        topEquipmentByWithdrawal,
+      },
+      workPermits: {
+        pendingApproval: wpPendingApproval,
+        totalActive: wpTotal,
+        activePermits: wpApproved,
+        rejectionRate,
+      },
+      environmental: {
+        roomsNotMeasured,
+        totalRooms,
+        coveragePercent,
+        avgReadingsRecorded: readingsCountLast30Days,
+      },
+      wasteManagement: {
+        reportsPendingReview,
+        totalReports,
+        missingReports,
+        totalWasteWeightKg: Math.round(totalWasteWeightKg),
+      },
+      manHours: {
+        totalManHours: Math.round(totalManHoursCurrent),
+        currentPeriod: currentPeriodLabel,
+        studentManHours: Math.round(studentManHours),
+        nonStudentManHours: Math.round(nonStudentManHours),
+        yoyChangePercent,
+      },
     };
   }
 } 

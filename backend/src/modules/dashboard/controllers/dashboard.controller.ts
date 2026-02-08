@@ -25,6 +25,9 @@ import {
   SecurityTypeNonConformanceDto,
   SecurityPartiesInvolvedDto,
   SecurityIncidentSummaryDto,
+  SecuritySifrComparisonDto,
+  SecurityMonthlyIncidentRowDto,
+  AdminOverviewDto,
 } from '../dto/dashboard.dto';
 import {
   RiskOverview,
@@ -43,6 +46,9 @@ import {
   SecurityTypeNonConformanceData,
   SecurityPartiesInvolvedData,
   SecurityIncidentSummaryData,
+  SecuritySifrComparisonData,
+  SecurityMonthlyIncidentsData,
+  AdminOverviewData,
 } from '../types/dashboard.types';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
@@ -289,6 +295,35 @@ export class DashboardController {
     return this.dashboardService.getSecurityCaseStatus(periodFrom, periodTo);
   }
 
+  @Get('security-sifr-comparison')
+  @Permissions('incident:list')
+  @ApiOperation({ summary: 'Get SIFR comparison by academic year for security team dashboard' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns SIFR (incidents per 1M man-hours) by academic year and severity',
+    type: [SecuritySifrComparisonDto],
+  })
+  async getSecuritySifrComparison(): Promise<SecuritySifrComparisonData[]> {
+    return this.dashboardService.getSecuritySifrComparison();
+  }
+
+  @Get('security-monthly-incidents')
+  @Permissions('incident:list')
+  @ApiOperation({ summary: 'Get incidents per month by category for security team dashboard' })
+  @ApiQuery({ name: 'periodFrom', required: false, description: 'Period start YYYY-MM' })
+  @ApiQuery({ name: 'periodTo', required: false, description: 'Period end YYYY-MM' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns Minor, Moderate, Major, Total Incident counts per month',
+    type: [SecurityMonthlyIncidentRowDto],
+  })
+  async getSecurityMonthlyIncidents(
+    @Query('periodFrom') periodFrom?: string,
+    @Query('periodTo') periodTo?: string,
+  ): Promise<SecurityMonthlyIncidentsData> {
+    return this.dashboardService.getSecurityMonthlyIncidents(periodFrom, periodTo);
+  }
+
   @Get('security-type-non-conformance')
   @Permissions('incident:list')
   @ApiOperation({ summary: 'Get type non-conformance counts for security team dashboard' })
@@ -321,5 +356,17 @@ export class DashboardController {
     @Query('periodTo') periodTo?: string,
   ): Promise<SecurityPartiesInvolvedData[]> {
     return this.dashboardService.getSecurityPartiesInvolved(periodFrom, periodTo);
+  }
+
+  @Get('admin-overview')
+  @Permissions('dashboard:admin-overview:read')
+  @ApiOperation({ summary: 'Get admin overview metrics (LMS and Certificates real data; other sections placeholder)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns admin overview with Learning Management and Certificates from database',
+    type: AdminOverviewDto,
+  })
+  async getAdminOverview(): Promise<AdminOverviewData> {
+    return this.dashboardService.getAdminOverview();
   }
 } 

@@ -230,6 +230,42 @@ export class SecurityIncidentSummaryDto {
   difference: number;
 }
 
+export class SecuritySifrComparisonDto {
+  @ApiProperty({ description: 'Academic year (e.g. 2023-2024)' })
+  year: string;
+
+  @ApiProperty({ description: 'Total SIFR (incidents per 1M man-hours)' })
+  totalSifr: number;
+
+  @ApiProperty({ description: 'Major incident rate' })
+  majorRate: number;
+
+  @ApiProperty({ description: 'Moderate incident rate' })
+  moderateRate: number;
+
+  @ApiProperty({ description: 'Minor incident rate' })
+  minorRate: number;
+}
+
+export class SecurityMonthlyIncidentMonthDto {
+  @ApiProperty({ description: 'Month label (e.g. Aug 2024)' })
+  month: string;
+
+  @ApiProperty({ description: 'Incident count for this month' })
+  count: number;
+}
+
+export class SecurityMonthlyIncidentRowDto {
+  @ApiProperty({ description: 'Category (Minor, Moderate, Major, Total Incident)' })
+  category: string;
+
+  @ApiProperty({ type: [SecurityMonthlyIncidentMonthDto], description: 'Count per month in period order' })
+  months: { month: string; count: number }[];
+
+  @ApiProperty({ description: 'Total count for this category in the period' })
+  total: number;
+}
+
 export class IncidentCategoryDataDto {
   @ApiProperty({ description: 'Incident category (mechanism of injury label)' })
   category: string;
@@ -253,4 +289,128 @@ export class IncidentProfileDto {
 
   @ApiProperty({ type: [String], description: 'Fiscal year keys to display' })
   yearsToShow: string[];
+}
+
+export class AdminOverviewLmsDto {
+  @ApiProperty({ description: 'Enrollments past due date not completed' })
+  overdueEnrollments: number;
+
+  @ApiProperty({ description: 'Total enrollments' })
+  totalEnrollments: number;
+
+  @ApiProperty({ description: 'Course completion rate percentage' })
+  courseCompletionRate: number;
+
+  @ApiProperty({ description: 'Quiz pass rate percentage' })
+  quizPassRate: number;
+}
+
+export class AdminOverviewCertificatesDto {
+  @ApiProperty({ description: 'Certificates expiring within 30 days' })
+  expiringIn30Days: number;
+
+  @ApiProperty({ description: 'Total active certificates' })
+  totalActive: number;
+
+  @ApiProperty({ description: 'Renewals pending, requested, or in progress' })
+  renewalBacklog: number;
+
+  @ApiProperty({ description: 'Distinct certificate categories in use' })
+  categoriesCount: number;
+}
+
+export class AdminOverviewPpeDto {
+  @ApiProperty({ description: 'Low stock items count' })
+  lowStockItems: number;
+
+  @ApiProperty({ description: 'Expiring items count' })
+  expiringItems: number;
+
+  @ApiProperty({ description: 'Withdrawals pending approval' })
+  withdrawalsPending: number;
+
+  @ApiProperty({ description: 'Top equipment by withdrawal (e.g. Safety Helmets: 45)' })
+  topEquipmentByWithdrawal: string;
+}
+
+export class AdminOverviewWorkPermitsDto {
+  @ApiProperty({ description: 'Permits pending approval' })
+  pendingApproval: number;
+
+  @ApiProperty({ description: 'Total active permits' })
+  totalActive: number;
+
+  @ApiProperty({ description: 'Active permits count' })
+  activePermits: number;
+
+  @ApiProperty({ description: 'Rejection rate percentage' })
+  rejectionRate: number;
+}
+
+export class AdminOverviewEnvironmentalDto {
+  @ApiProperty({ description: 'Rooms not measured in period' })
+  roomsNotMeasured: number;
+
+  @ApiProperty({ description: 'Total rooms' })
+  totalRooms: number;
+
+  @ApiProperty({ description: 'Coverage percentage' })
+  coveragePercent: number;
+
+  @ApiProperty({ description: 'Average readings recorded' })
+  avgReadingsRecorded: number;
+}
+
+export class AdminOverviewWasteManagementDto {
+  @ApiProperty({ description: 'Reports pending review' })
+  reportsPendingReview: number;
+
+  @ApiProperty({ description: 'Total reports' })
+  totalReports: number;
+
+  @ApiProperty({ description: 'Missing reports' })
+  missingReports: number;
+
+  @ApiProperty({ description: 'Total waste weight in kg' })
+  totalWasteWeightKg: number;
+}
+
+export class AdminOverviewManHoursDto {
+  @ApiProperty({ description: 'Total man-hours' })
+  totalManHours: number;
+
+  @ApiProperty({ description: 'Current period label (e.g. Jan 2026)' })
+  currentPeriod: string;
+
+  @ApiProperty({ description: 'Student man-hours' })
+  studentManHours: number;
+
+  @ApiProperty({ description: 'Non-student man-hours' })
+  nonStudentManHours: number;
+
+  @ApiProperty({ description: 'Year-over-year change percentage' })
+  yoyChangePercent: number;
+}
+
+export class AdminOverviewDto {
+  @ApiProperty({ type: AdminOverviewLmsDto, description: 'Learning Management metrics' })
+  lms: AdminOverviewLmsDto;
+
+  @ApiProperty({ type: AdminOverviewCertificatesDto, description: 'Certificates metrics' })
+  certificates: AdminOverviewCertificatesDto;
+
+  @ApiProperty({ type: AdminOverviewPpeDto, description: 'PPE & Equipment metrics (placeholder)' })
+  ppe: AdminOverviewPpeDto;
+
+  @ApiProperty({ type: AdminOverviewWorkPermitsDto, description: 'Work Permits metrics (placeholder)' })
+  workPermits: AdminOverviewWorkPermitsDto;
+
+  @ApiProperty({ type: AdminOverviewEnvironmentalDto, description: 'Environmental measurements (placeholder)' })
+  environmental: AdminOverviewEnvironmentalDto;
+
+  @ApiProperty({ type: AdminOverviewWasteManagementDto, description: 'Waste management metrics (placeholder)' })
+  wasteManagement: AdminOverviewWasteManagementDto;
+
+  @ApiProperty({ type: AdminOverviewManHoursDto, description: 'Man hours metrics (placeholder)' })
+  manHours: AdminOverviewManHoursDto;
 } 

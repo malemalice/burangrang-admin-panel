@@ -148,6 +148,23 @@ export const seedMenus = async () => {
       },
     });
 
+    await prisma.menu.create({
+      data: {
+        name: 'Admin Overview',
+        path: '/dashboard/admin-overview',
+        icon: 'LayoutDashboard',
+        parentId: dashboardMenu.id,
+        order: 6,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+          ],
+        },
+      },
+    });
+
     // Risk Assessment menu group (risk-related modules except Risk Register)
     const riskAssessmentMenu = await prisma.menu.create({
       data: {
@@ -1230,7 +1247,7 @@ export const seedMenus = async () => {
     });
 
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
-    console.log(`   - Dashboard submenus: 5`);
+    console.log(`   - Dashboard submenus: 6`);
     console.log(`   - Top-level menus: 15`);
     console.log(`   - Risk Assessment submenus: 5`);
     console.log(`   - Master Data submenus: 6`);

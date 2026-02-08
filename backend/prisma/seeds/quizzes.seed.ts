@@ -2,7 +2,7 @@
  * Quiz seed data
  * Following TRD.md patterns for seed data
  */
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, QuizAttemptStatusEnum } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -385,6 +385,49 @@ export const seedQuizzes = async () => {
         ? ` (bound to ${quizData.entity}${quizData.entityId ? ' ID: ' + quizData.entityId : ''})`
         : ' (standalone)';
       console.log(`✅ Created quiz: ${quiz.title}${entityInfo} with ${quizData.questions.length} questions`);
+    }
+
+    // Seed quiz attempts for Admin Overview dashboard (LMS quiz pass rate)
+    const existingAttemptCount = await prisma.quizAttempt.count();
+    if (existingAttemptCount < 25) {
+      const publishedQuizzes = await prisma.quiz.findMany({
+        where: { isPublished: true, isActive: true },
+        take: 5,
+      });
+      const usersForAttempts = await prisma.user.findMany({
+        where: { isActive: true },
+        take: 8,
+      });
+      if (publishedQuizzes.length > 0 && usersForAttempts.length > 0) {
+        const now = new Date();
+        const past = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        let attemptsCreated = 0;
+        for (const quiz of publishedQuizzes) {
+          for (let u = 0; u < usersForAttempts.length && attemptsCreated < 25; u++) {
+            const user = usersForAttempts[u];
+            const isPassed = u % 3 !== 0;
+            const score = isPassed ? 85 : 55;
+            await prisma.quizAttempt.create({
+              data: {
+                quizId: quiz.id,
+                userId: user.id,
+                enrollmentId: null,
+                attemptNumber: 1,
+                status: QuizAttemptStatusEnum.COMPLETED,
+                score,
+                totalPoints: 100,
+                earnedPoints: score,
+                isPassed,
+                startedAt: past,
+                completedAt: now,
+                timeSpent: 600,
+              },
+            });
+            attemptsCreated++;
+          }
+        }
+        console.log(`✅ Created ${attemptsCreated} quiz attempts for Admin Overview (LMS)`);
+      }
     }
 
     console.log(`\n📊 Summary: Created ${createdCount} quizzes, skipped ${skippedCount}`);

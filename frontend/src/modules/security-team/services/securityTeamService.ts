@@ -10,103 +10,7 @@ import type {
   SifrComparisonRow,
 } from '../types/security-team.types';
 
-const MONTH_LABELS_2024_2025 = [
-  'Aug 2024', 'Sep 2024', 'Oct 2024', 'Nov 2024', 'Dec 2024', 'Jan 2025',
-  'Feb 2025', 'Mar 2025', 'Apr 2025', 'May 2025', 'Jun 2025', 'Jul 2025',
-];
-
-const MOCK_MONTHLY_INCIDENTS: MonthlyIncidentData[] = [
-  {
-    category: 'Minor',
-    months: [
-      { month: 'Aug 2024', count: 3 }, { month: 'Sep 2024', count: 2 },
-      { month: 'Oct 2024', count: 7 }, { month: 'Nov 2024', count: 13 },
-      { month: 'Dec 2024', count: 4 }, { month: 'Jan 2025', count: 5 },
-      { month: 'Feb 2025', count: 3 }, { month: 'Mar 2025', count: 5 },
-      { month: 'Apr 2025', count: 2 }, { month: 'May 2025', count: 7 },
-      { month: 'Jun 2025', count: 6 }, { month: 'Jul 2025', count: 6 },
-    ],
-    total: 63,
-  },
-  {
-    category: 'Moderate',
-    months: [
-      { month: 'Aug 2024', count: 0 }, { month: 'Sep 2024', count: 0 },
-      { month: 'Oct 2024', count: 0 }, { month: 'Nov 2024', count: 0 },
-      { month: 'Dec 2024', count: 0 }, { month: 'Jan 2025', count: 0 },
-      { month: 'Feb 2025', count: 0 }, { month: 'Mar 2025', count: 0 },
-      { month: 'Apr 2025', count: 0 }, { month: 'May 2025', count: 0 },
-      { month: 'Jun 2025', count: 1 }, { month: 'Jul 2025', count: 0 },
-    ],
-    total: 1,
-  },
-  {
-    category: 'Major',
-    months: [
-      { month: 'Aug 2024', count: 2 }, { month: 'Sep 2024', count: 0 },
-      { month: 'Oct 2024', count: 0 }, { month: 'Nov 2024', count: 4 },
-      { month: 'Dec 2024', count: 1 }, { month: 'Jan 2025', count: 1 },
-      { month: 'Feb 2025', count: 0 }, { month: 'Mar 2025', count: 6 },
-      { month: 'Apr 2025', count: 2 }, { month: 'May 2025', count: 4 },
-      { month: 'Jun 2025', count: 2 }, { month: 'Jul 2025', count: 2 },
-    ],
-    total: 24,
-  },
-  {
-    category: 'Total Incident',
-    months: [
-      { month: 'Aug 2024', count: 5 }, { month: 'Sep 2024', count: 2 },
-      { month: 'Oct 2024', count: 7 }, { month: 'Nov 2024', count: 17 },
-      { month: 'Dec 2024', count: 5 }, { month: 'Jan 2025', count: 6 },
-      { month: 'Feb 2025', count: 3 }, { month: 'Mar 2025', count: 11 },
-      { month: 'Apr 2025', count: 4 }, { month: 'May 2025', count: 11 },
-      { month: 'Jun 2025', count: 9 }, { month: 'Jul 2025', count: 8 },
-    ],
-    total: 88,
-  },
-];
-
-const MOCK_SIFR_COMPARISON: SifrComparisonRow[] = [
-  {
-    year: '2023-2024',
-    totalSifr: 1.37,
-    majorRate: 0.35,
-    moderateRate: 0.0,
-    minorRate: 1.02,
-  },
-  {
-    year: '2024-2025',
-    totalSifr: 2.14,
-    majorRate: 0.66,
-    moderateRate: 0.02,
-    minorRate: 1.68,
-  },
-];
-
 const MONTH_ABBREV = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function monthLabelToKey(monthLabel: string): string {
-  const parts = monthLabel.split(' ');
-  const monthNum = MONTH_ABBREV.indexOf(parts[0]) + 1;
-  const year = parts[1] ?? '';
-  return `${year}-${String(monthNum).padStart(2, '0')}`;
-}
-
-function filterMonthlyByParams(data: MonthlyIncidentData[], params: SecurityFilterParams): MonthlyIncidentData[] {
-  if (!params.periodFrom && !params.periodTo) {
-    return data;
-  }
-  const from = params.periodFrom ?? '0000-00';
-  const to = params.periodTo ?? '9999-99';
-  return data.map((row) => {
-    const filteredMonths = row.months.filter((m) => {
-      const key = monthLabelToKey(m.month);
-      return key >= from && key <= to;
-    });
-    const total = filteredMonths.reduce((sum, m) => sum + m.count, 0);
-    return { ...row, months: filteredMonths, total };
-  });
-}
 
 function buildMonthYearOptions(startYear: number, endYear: number): { value: string; label: string }[] {
   const options: { value: string; label: string }[] = [];
@@ -167,23 +71,49 @@ const securityTeamService = {
     return response.data;
   },
 
+  getSifrComparison: async (): Promise<SifrComparisonRow[]> => {
+    const response = await api.get<SifrComparisonRow[]>(
+      '/dashboard/security-sifr-comparison',
+    );
+    return response.data;
+  },
+
+  getMonthlyIncidents: async (
+    params?: SecurityFilterParams,
+  ): Promise<MonthlyIncidentData[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.periodFrom) queryParams.append('periodFrom', params.periodFrom);
+    if (params?.periodTo) queryParams.append('periodTo', params.periodTo);
+    const response = await api.get<MonthlyIncidentData[]>(
+      `/dashboard/security-monthly-incidents${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
+    );
+    return response.data;
+  },
+
   getAnalyticsData: async (params?: SecurityFilterParams): Promise<SecurityTeamAnalyticsData> => {
     const p = params ?? {};
-    const monthlyIncidents = filterMonthlyByParams(MOCK_MONTHLY_INCIDENTS, p);
-    const [incidentSummary, typeNonConformance, partiesInvolved, caseStatus] =
-      await Promise.all([
-        securityTeamService.getIncidentSummary(p),
-        securityTeamService.getTypeNonConformance(p),
-        securityTeamService.getPartiesInvolved(p),
-        securityTeamService.getCaseStatus(p),
-      ]);
+    const [
+      incidentSummary,
+      monthlyIncidents,
+      typeNonConformance,
+      partiesInvolved,
+      caseStatus,
+      sifrComparison,
+    ] = await Promise.all([
+      securityTeamService.getIncidentSummary(p),
+      securityTeamService.getMonthlyIncidents(p),
+      securityTeamService.getTypeNonConformance(p),
+      securityTeamService.getPartiesInvolved(p),
+      securityTeamService.getCaseStatus(p),
+      securityTeamService.getSifrComparison(),
+    ]);
     return {
       incidentSummary,
       monthlyIncidents,
       typeNonConformance,
       partiesInvolved,
       caseStatus,
-      sifrComparison: MOCK_SIFR_COMPARISON,
+      sifrComparison,
     };
   },
 
