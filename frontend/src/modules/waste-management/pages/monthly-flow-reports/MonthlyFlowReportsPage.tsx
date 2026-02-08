@@ -181,6 +181,9 @@ export default function MonthlyFlowReportsPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => navigate(`/waste-management/monthly-flow-reports/${item.id}`)}>
+              <Eye className="mr-2 h-4 w-4" /> View Detail
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/waste-management/monthly-flow-reports/${item.id}/edit`)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>

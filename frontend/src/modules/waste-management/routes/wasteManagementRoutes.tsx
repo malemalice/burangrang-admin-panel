@@ -33,6 +33,7 @@ import EditStorageLocationPage from '../pages/storage-locations/EditStorageLocat
 // Monthly Flow Reports
 import MonthlyFlowReportsPage from '../pages/monthly-flow-reports/MonthlyFlowReportsPage';
 import CreateMonthlyFlowReportPage from '../pages/monthly-flow-reports/CreateMonthlyFlowReportPage';
+import MonthlyFlowReportDetailPage from '../pages/monthly-flow-reports/MonthlyFlowReportDetailPage';
 import EditMonthlyFlowReportPage from '../pages/monthly-flow-reports/EditMonthlyFlowReportPage';
 
 // Water Quality Lab Reports
@@ -90,6 +91,7 @@ const wasteManagementRoutes: RouteConfig[] = [
   // Monthly Flow Reports (Waste Water Flow Recording)
   { path: '/waste-management/monthly-flow-reports', component: MonthlyFlowReportsPage },
   { path: '/waste-management/monthly-flow-reports/create', component: CreateMonthlyFlowReportPage },
+  { path: '/waste-management/monthly-flow-reports/:id', component: MonthlyFlowReportDetailPage },
   { path: '/waste-management/monthly-flow-reports/:id/edit', component: EditMonthlyFlowReportPage },
 
   // Water Quality Lab Reports

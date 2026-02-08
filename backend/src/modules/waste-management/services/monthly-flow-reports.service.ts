@@ -65,6 +65,20 @@ export class MonthlyFlowReportsService {
       );
     }
 
+    const duplicatePeriod = await this.prisma.monthlyFlowReport.findFirst({
+      where: {
+        treatmentPlantId: createDto.treatmentPlantId,
+        reportMonth: createDto.reportMonth,
+        reportYear: createDto.reportYear,
+      },
+    });
+
+    if (duplicatePeriod) {
+      this.errorHandler.throwConflictCustom(
+        `Report for this Source, Month ${createDto.reportMonth}, and Year ${createDto.reportYear} already exists`,
+      );
+    }
+
     const treatmentPlant = await this.prisma.treatmentPlant.findUnique({
       where: { id: createDto.treatmentPlantId },
     });

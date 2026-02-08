@@ -26,6 +26,7 @@ export enum WasteTypeEnum {
 }
 
 export enum ReportStatusEnum {
+  SUBMITTED = 'SUBMITTED',
   SCHEDULED = 'SCHEDULED',
   DRAFT = 'DRAFT',
   OPEN = 'OPEN',
