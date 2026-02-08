@@ -7,7 +7,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/core/components/ui/select';
-import { Label } from '@/core/components/ui/label';
 import { Alert, AlertDescription } from '@/core/components/ui/alert';
 import { RotateCcw } from 'lucide-react';
 
@@ -100,12 +99,15 @@ export function PeriodRangeFilter({
   const from = parsePeriod(periodFrom);
   const to = parsePeriod(periodTo);
 
+  const inlineLabelClass = 'text-xs text-muted-foreground shrink-0 w-8';
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-end gap-4 rounded-lg border bg-card p-4">
-        <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">From</Label>
-          <div className="flex gap-2">
+      <div className="rounded-lg border border-border/80 bg-card px-4 py-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          {/* From */}
+          <div className="flex items-center gap-2">
+            <span className={inlineLabelClass} aria-hidden="true">From</span>
             <Select
               value={from ? String(from.month) : 'all'}
               onValueChange={(v) => {
@@ -118,8 +120,12 @@ export function PeriodRangeFilter({
                 onPeriodFromChange(toPeriod(month, year));
               }}
             >
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="Month" />
+              <SelectTrigger id="period-from-month" aria-label="From month" className="h-9 min-w-[7rem]">
+                {from ? (
+                  <SelectValue />
+                ) : (
+                  <span className="text-muted-foreground">Month</span>
+                )}
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
@@ -142,8 +148,12 @@ export function PeriodRangeFilter({
                 onPeriodFromChange(toPeriod(month, year));
               }}
             >
-              <SelectTrigger className="w-[100px]">
-                <SelectValue placeholder="Year" />
+              <SelectTrigger id="period-from-year" aria-label="From year" className="h-9 min-w-[5rem]">
+                {from ? (
+                  <SelectValue />
+                ) : (
+                  <span className="text-muted-foreground">Year</span>
+                )}
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
@@ -155,10 +165,10 @@ export function PeriodRangeFilter({
               </SelectContent>
             </Select>
           </div>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">To</Label>
-          <div className="flex gap-2">
+
+          {/* To */}
+          <div className="flex items-center gap-2">
+            <span className={inlineLabelClass} aria-hidden="true">To</span>
             <Select
               value={to ? String(to.month) : 'all'}
               onValueChange={(v) => {
@@ -171,8 +181,12 @@ export function PeriodRangeFilter({
                 onPeriodToChange(toPeriod(month, year));
               }}
             >
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="Month" />
+              <SelectTrigger id="period-to-month" aria-label="To month" className="h-9 min-w-[7rem]">
+                {to ? (
+                  <SelectValue />
+                ) : (
+                  <span className="text-muted-foreground">Month</span>
+                )}
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
@@ -195,8 +209,12 @@ export function PeriodRangeFilter({
                 onPeriodToChange(toPeriod(month, year));
               }}
             >
-              <SelectTrigger className="w-[100px]">
-                <SelectValue placeholder="Year" />
+              <SelectTrigger id="period-to-year" aria-label="To year" className="h-9 min-w-[5rem]">
+                {to ? (
+                  <SelectValue />
+                ) : (
+                  <span className="text-muted-foreground">Year</span>
+                )}
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
@@ -208,15 +226,17 @@ export function PeriodRangeFilter({
               </SelectContent>
             </Select>
           </div>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={handleApply} size="sm">
-            Apply
-          </Button>
-          <Button onClick={handleReset} variant="outline" size="sm">
-            <RotateCcw className="h-4 w-4 mr-1" />
-            Reset
-          </Button>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2 ml-1">
+            <Button onClick={handleApply} size="sm" className="h-9">
+              Apply
+            </Button>
+            <Button onClick={handleReset} variant="outline" size="sm" className="h-9">
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+              Reset
+            </Button>
+          </div>
         </div>
       </div>
       {validationError ? (

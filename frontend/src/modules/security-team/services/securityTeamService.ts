@@ -10,13 +10,6 @@ import type {
   SifrComparisonRow,
 } from '../types/security-team.types';
 
-const MOCK_INCIDENT_SUMMARY: IncidentSummaryItem[] = [
-  { category: 'Major Incident', count: 24, difference: -24 },
-  { category: 'Moderate Incident', count: 1, difference: -1 },
-  { category: 'Minor Incident', count: 63, difference: -60 },
-  { category: 'Total Incident', count: 88, difference: -77 },
-];
-
 const MONTH_LABELS_2024_2025 = [
   'Aug 2024', 'Sep 2024', 'Oct 2024', 'Nov 2024', 'Dec 2024', 'Jan 2025',
   'Feb 2025', 'Mar 2025', 'Apr 2025', 'May 2025', 'Jun 2025', 'Jul 2025',
@@ -73,12 +66,6 @@ const MOCK_MONTHLY_INCIDENTS: MonthlyIncidentData[] = [
   },
 ];
 
-const MOCK_CASE_STATUS: CaseStatus = {
-  open: 1,
-  closed: 99,
-  total: 100,
-};
-
 const MOCK_SIFR_COMPARISON: SifrComparisonRow[] = [
   {
     year: '2023-2024',
@@ -134,6 +121,28 @@ function buildMonthYearOptions(startYear: number, endYear: number): { value: str
 }
 
 const securityTeamService = {
+  getIncidentSummary: async (
+    params?: SecurityFilterParams,
+  ): Promise<IncidentSummaryItem[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.periodFrom) queryParams.append('periodFrom', params.periodFrom);
+    if (params?.periodTo) queryParams.append('periodTo', params.periodTo);
+    const response = await api.get<IncidentSummaryItem[]>(
+      `/dashboard/security-incident-summary${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
+    );
+    return response.data;
+  },
+
+  getCaseStatus: async (params?: SecurityFilterParams): Promise<CaseStatus> => {
+    const queryParams = new URLSearchParams();
+    if (params?.periodFrom) queryParams.append('periodFrom', params.periodFrom);
+    if (params?.periodTo) queryParams.append('periodTo', params.periodTo);
+    const response = await api.get<CaseStatus>(
+      `/dashboard/security-case-status${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
+    );
+    return response.data;
+  },
+
   getTypeNonConformance: async (
     params?: SecurityFilterParams,
   ): Promise<TypeNonConformanceItem[]> => {
@@ -161,16 +170,19 @@ const securityTeamService = {
   getAnalyticsData: async (params?: SecurityFilterParams): Promise<SecurityTeamAnalyticsData> => {
     const p = params ?? {};
     const monthlyIncidents = filterMonthlyByParams(MOCK_MONTHLY_INCIDENTS, p);
-    const [typeNonConformance, partiesInvolved] = await Promise.all([
-      securityTeamService.getTypeNonConformance(p),
-      securityTeamService.getPartiesInvolved(p),
-    ]);
+    const [incidentSummary, typeNonConformance, partiesInvolved, caseStatus] =
+      await Promise.all([
+        securityTeamService.getIncidentSummary(p),
+        securityTeamService.getTypeNonConformance(p),
+        securityTeamService.getPartiesInvolved(p),
+        securityTeamService.getCaseStatus(p),
+      ]);
     return {
-      incidentSummary: MOCK_INCIDENT_SUMMARY,
+      incidentSummary,
       monthlyIncidents,
       typeNonConformance,
       partiesInvolved,
-      caseStatus: MOCK_CASE_STATUS,
+      caseStatus,
       sifrComparison: MOCK_SIFR_COMPARISON,
     };
   },

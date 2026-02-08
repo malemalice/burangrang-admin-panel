@@ -5,6 +5,7 @@ import {
   GeneralStatusEnum,
   IncidentClassificationEnum,
   IncidentTypeEnum,
+  LevelOfInjuryEnum,
   MechanismOfInjuryEnum,
   RiskRatingEnum,
 } from '@prisma/client';
@@ -25,6 +26,7 @@ import {
   IncidentCategoryData,
   SecurityTypeNonConformanceData,
   SecurityPartiesInvolvedData,
+  SecurityIncidentSummaryData,
 } from '../types/dashboard.types';
 
 @Injectable()
@@ -702,6 +704,160 @@ export class DashboardService {
       countByName.set(name, (countByName.get(name) ?? 0) + 1);
     }
     return Array.from(countByName.entries()).map(([action, count]) => ({ action, count }));
+  }
+
+  private static buildPeriodDates(periodFrom?: string, periodTo?: string): {
+    gte?: Date;
+    lte?: Date;
+  } {
+    const incidentDate: { gte?: Date; lte?: Date } = {};
+    if (periodFrom) {
+      const [y, m] = periodFrom.split('-').map(Number);
+      incidentDate.gte = new Date(y, m - 1, 1);
+    }
+    if (periodTo) {
+      const [y, m] = periodTo.split('-').map(Number);
+      incidentDate.lte = new Date(y, m, 0, 23, 59, 59, 999);
+    }
+    return incidentDate;
+  }
+
+  private static previousPeriod(periodFrom?: string, periodTo?: string): {
+    periodFrom: string;
+    periodTo: string;
+  } | null {
+    if (!periodFrom || !periodTo) return null;
+    const [yFrom, mFrom] = periodFrom.split('-').map(Number);
+    const [yTo, mTo] = periodTo.split('-').map(Number);
+    return {
+      periodFrom: `${yFrom - 1}-${String(mFrom).padStart(2, '0')}`,
+      periodTo: `${yTo - 1}-${String(mTo).padStart(2, '0')}`,
+    };
+  }
+
+  private static classifySecurityIncident(
+    classification: IncidentClassificationEnum,
+    injuredLevels: LevelOfInjuryEnum[],
+  ): 'major' | 'moderate' | 'minor' {
+    if (
+      classification === IncidentClassificationEnum.MAJOR ||
+      classification === IncidentClassificationEnum.FATALITY
+    )
+      return 'major';
+    if (classification === IncidentClassificationEnum.MINOR) {
+      const hasModerate = injuredLevels.some((l) => l === LevelOfInjuryEnum.MODERATE);
+      return hasModerate ? 'moderate' : 'minor';
+    }
+    return 'minor';
+  }
+
+  async getSecurityIncidentSummary(
+    periodFrom?: string,
+    periodTo?: string,
+  ): Promise<SecurityIncidentSummaryData[]> {
+    const currentDates = DashboardService.buildPeriodDates(periodFrom, periodTo);
+    const currentWhere = {
+      isActive: true,
+      ...(currentDates.gte != null || currentDates.lte != null ? { incidentDate: currentDates } : {}),
+    };
+    const prev = DashboardService.previousPeriod(periodFrom, periodTo);
+    const previousWhere =
+      prev && (periodFrom || periodTo)
+        ? {
+            isActive: true,
+            incidentDate: DashboardService.buildPeriodDates(prev.periodFrom, prev.periodTo),
+          }
+        : null;
+
+    const select = {
+      incidentClassification: true,
+      injuredPersons: { select: { levelOfInjury: true } },
+    };
+
+    const [currentIncidents, previousIncidents] = await Promise.all([
+      this.prisma.incident.findMany({
+        where: currentWhere,
+        select,
+      }),
+      previousWhere
+        ? this.prisma.incident.findMany({
+            where: previousWhere,
+            select,
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const count = (
+      incidents: Array<{
+        incidentClassification: IncidentClassificationEnum;
+        injuredPersons: Array<{ levelOfInjury: LevelOfInjuryEnum }>;
+      }>,
+    ) => {
+      let major = 0;
+      let moderate = 0;
+      let minor = 0;
+      for (const i of incidents) {
+        const levels = i.injuredPersons.map((p) => p.levelOfInjury);
+        const cat = DashboardService.classifySecurityIncident(
+          i.incidentClassification,
+          levels,
+        );
+        if (cat === 'major') major += 1;
+        else if (cat === 'moderate') moderate += 1;
+        else minor += 1;
+      }
+      return { major, moderate, minor, total: incidents.length };
+    };
+
+    const curr = count(currentIncidents);
+    const prevCounts = previousIncidents.length
+      ? count(previousIncidents)
+      : { major: 0, moderate: 0, minor: 0, total: 0 };
+
+    return [
+      {
+        category: 'Major Incident',
+        count: curr.major,
+        difference: curr.major - prevCounts.major,
+      },
+      {
+        category: 'Moderate Incident',
+        count: curr.moderate,
+        difference: curr.moderate - prevCounts.moderate,
+      },
+      {
+        category: 'Minor Incident',
+        count: curr.minor,
+        difference: curr.minor - prevCounts.minor,
+      },
+      {
+        category: 'Total Incident',
+        count: curr.total,
+        difference: curr.total - prevCounts.total,
+      },
+    ];
+  }
+
+  async getSecurityCaseStatus(
+    periodFrom?: string,
+    periodTo?: string,
+  ): Promise<HazardStatusData> {
+    const incidentDate = DashboardService.buildPeriodDates(periodFrom, periodTo);
+    const where: { isActive: boolean; incidentDate?: { gte?: Date; lte?: Date } } = {
+      isActive: true,
+      ...(incidentDate.gte != null || incidentDate.lte != null ? { incidentDate } : {}),
+    };
+    const incidents = await this.prisma.incident.findMany({
+      where,
+      select: { status: true },
+    });
+    let open = 0;
+    let closed = 0;
+    for (const { status } of incidents) {
+      if (DashboardService.OPEN_STATUSES.includes(status)) open += 1;
+      else if (DashboardService.CLOSED_STATUSES.includes(status)) closed += 1;
+    }
+    return { open, closed, total: open + closed };
   }
 
   async getSecurityTypeNonConformance(

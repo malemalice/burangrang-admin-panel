@@ -102,6 +102,12 @@ export interface SecurityPartiesInvolvedData {
   count: number;
 }
 
+export interface SecurityIncidentSummaryData {
+  category: string;
+  count: number;
+  difference: number;
+}
+
 export interface IncidentCategoryData {
   category: string;
   year2022_2023: number;

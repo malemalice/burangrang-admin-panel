@@ -24,6 +24,7 @@ import {
   IncidentProfileDto,
   SecurityTypeNonConformanceDto,
   SecurityPartiesInvolvedDto,
+  SecurityIncidentSummaryDto,
 } from '../dto/dashboard.dto';
 import {
   RiskOverview,
@@ -41,6 +42,7 @@ import {
   IncidentProfileData,
   SecurityTypeNonConformanceData,
   SecurityPartiesInvolvedData,
+  SecurityIncidentSummaryData,
 } from '../types/dashboard.types';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
@@ -251,6 +253,40 @@ export class DashboardController {
     @Query('fiscalYears') fiscalYears?: string | string[],
   ): Promise<IncidentProfileData> {
     return this.dashboardService.getIncidentProfile(fiscalYears);
+  }
+
+  @Get('security-incident-summary')
+  @Permissions('incident:list')
+  @ApiOperation({ summary: 'Get incident summary with YoY difference for security team dashboard' })
+  @ApiQuery({ name: 'periodFrom', required: false, description: 'Period start YYYY-MM' })
+  @ApiQuery({ name: 'periodTo', required: false, description: 'Period end YYYY-MM' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns Major, Moderate, Minor, Total incident counts and YoY difference',
+    type: [SecurityIncidentSummaryDto],
+  })
+  async getSecurityIncidentSummary(
+    @Query('periodFrom') periodFrom?: string,
+    @Query('periodTo') periodTo?: string,
+  ): Promise<SecurityIncidentSummaryData[]> {
+    return this.dashboardService.getSecurityIncidentSummary(periodFrom, periodTo);
+  }
+
+  @Get('security-case-status')
+  @Permissions('incident:list')
+  @ApiOperation({ summary: 'Get case status (open vs closed) for security team dashboard' })
+  @ApiQuery({ name: 'periodFrom', required: false, description: 'Period start YYYY-MM' })
+  @ApiQuery({ name: 'periodTo', required: false, description: 'Period end YYYY-MM' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns open and closed incident counts',
+    type: HazardStatusDto,
+  })
+  async getSecurityCaseStatus(
+    @Query('periodFrom') periodFrom?: string,
+    @Query('periodTo') periodTo?: string,
+  ): Promise<HazardStatusData> {
+    return this.dashboardService.getSecurityCaseStatus(periodFrom, periodTo);
   }
 
   @Get('security-type-non-conformance')

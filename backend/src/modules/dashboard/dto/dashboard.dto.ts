@@ -219,6 +219,17 @@ export class SecurityPartiesInvolvedDto {
   count: number;
 }
 
+export class SecurityIncidentSummaryDto {
+  @ApiProperty({ description: 'Category (e.g. Major Incident, Total Incident)' })
+  category: string;
+
+  @ApiProperty({ description: 'Count in current period' })
+  count: number;
+
+  @ApiProperty({ description: 'Year-over-year difference (current - previous period)' })
+  difference: number;
+}
+
 export class IncidentCategoryDataDto {
   @ApiProperty({ description: 'Incident category (mechanism of injury label)' })
   category: string;
