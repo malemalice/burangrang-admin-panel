@@ -21,6 +21,9 @@ import {
   NonConformanceCriteriaDto,
   TopUnsafeConditionDto,
   ResponsibleActionDto,
+  IncidentProfileDto,
+  SecurityTypeNonConformanceDto,
+  SecurityPartiesInvolvedDto,
 } from '../dto/dashboard.dto';
 import {
   RiskOverview,
@@ -35,6 +38,9 @@ import {
   NonConformanceCriteriaData,
   TopUnsafeConditionData,
   ResponsibleActionData,
+  IncidentProfileData,
+  SecurityTypeNonConformanceData,
+  SecurityPartiesInvolvedData,
 } from '../types/dashboard.types';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
@@ -226,5 +232,58 @@ export class DashboardController {
     @Query('periodTo') periodTo?: string,
   ): Promise<ResponsibleActionData[]> {
     return this.dashboardService.getResponsibleActions(periodFrom, periodTo);
+  }
+
+  @Get('incident-profile')
+  @Permissions('incident:list')
+  @ApiOperation({ summary: 'Get incident profile for minor incident analytics' })
+  @ApiQuery({
+    name: 'fiscalYears',
+    required: false,
+    description: 'Fiscal years to compare (e.g. year2022_2023,year2023_2024,year2024_2025). Omit for all.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns minor incident counts and percentages by category and fiscal year',
+    type: IncidentProfileDto,
+  })
+  async getIncidentProfile(
+    @Query('fiscalYears') fiscalYears?: string | string[],
+  ): Promise<IncidentProfileData> {
+    return this.dashboardService.getIncidentProfile(fiscalYears);
+  }
+
+  @Get('security-type-non-conformance')
+  @Permissions('incident:list')
+  @ApiOperation({ summary: 'Get type non-conformance counts for security team dashboard' })
+  @ApiQuery({ name: 'periodFrom', required: false, description: 'Period start YYYY-MM' })
+  @ApiQuery({ name: 'periodTo', required: false, description: 'Period end YYYY-MM' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns incident counts by risk category (type)',
+    type: [SecurityTypeNonConformanceDto],
+  })
+  async getSecurityTypeNonConformance(
+    @Query('periodFrom') periodFrom?: string,
+    @Query('periodTo') periodTo?: string,
+  ): Promise<SecurityTypeNonConformanceData[]> {
+    return this.dashboardService.getSecurityTypeNonConformance(periodFrom, periodTo);
+  }
+
+  @Get('security-parties-involved')
+  @Permissions('incident:list')
+  @ApiOperation({ summary: 'Get parties involved counts for security team dashboard' })
+  @ApiQuery({ name: 'periodFrom', required: false, description: 'Period start YYYY-MM' })
+  @ApiQuery({ name: 'periodTo', required: false, description: 'Period end YYYY-MM' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns incident counts by party (from injured persons and witnesses)',
+    type: [SecurityPartiesInvolvedDto],
+  })
+  async getSecurityPartiesInvolved(
+    @Query('periodFrom') periodFrom?: string,
+    @Query('periodTo') periodTo?: string,
+  ): Promise<SecurityPartiesInvolvedData[]> {
+    return this.dashboardService.getSecurityPartiesInvolved(periodFrom, periodTo);
   }
 } 

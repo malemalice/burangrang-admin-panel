@@ -1,4 +1,3 @@
-export { HazardFilters } from './HazardFilters';
 export { IncidentSummaryCard } from './IncidentSummaryCard';
 export { IncidentPyramid } from './IncidentPyramid';
 export { IncidentChart } from './IncidentChart';

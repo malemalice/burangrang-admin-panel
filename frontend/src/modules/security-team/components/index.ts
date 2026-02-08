@@ -1,4 +1,3 @@
-export { SecurityFilters } from './SecurityFilters';
 export { IncidentSummaryCard } from './IncidentSummaryCard';
 export { IncidentTriangleChart } from './IncidentTriangleChart';
 export { IncidentCaseStatusChart } from './IncidentCaseStatusChart';

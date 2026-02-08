@@ -5,6 +5,7 @@ import {
   GeneralStatusEnum,
   IncidentClassificationEnum,
   IncidentTypeEnum,
+  MechanismOfInjuryEnum,
   RiskRatingEnum,
 } from '@prisma/client';
 import {
@@ -20,6 +21,10 @@ import {
   NonConformanceCriteriaData,
   TopUnsafeConditionData,
   ResponsibleActionData,
+  IncidentProfileData,
+  IncidentCategoryData,
+  SecurityTypeNonConformanceData,
+  SecurityPartiesInvolvedData,
 } from '../types/dashboard.types';
 
 @Injectable()
@@ -697,5 +702,286 @@ export class DashboardService {
       countByName.set(name, (countByName.get(name) ?? 0) + 1);
     }
     return Array.from(countByName.entries()).map(([action, count]) => ({ action, count }));
+  }
+
+  async getSecurityTypeNonConformance(
+    periodFrom?: string,
+    periodTo?: string,
+  ): Promise<SecurityTypeNonConformanceData[]> {
+    const where: { isActive: boolean; incidentDate?: { gte?: Date; lte?: Date } } = {
+      isActive: true,
+    };
+    if (periodFrom || periodTo) {
+      where.incidentDate = {};
+      if (periodFrom) {
+        const [y, m] = periodFrom.split('-').map(Number);
+        where.incidentDate.gte = new Date(y, m - 1, 1);
+      }
+      if (periodTo) {
+        const [y, m] = periodTo.split('-').map(Number);
+        where.incidentDate.lte = new Date(y, m, 0, 23, 59, 59, 999);
+      }
+    }
+
+    const incidents = await this.prisma.incident.findMany({
+      where,
+      select: { riskCategory: { select: { name: true } } },
+    });
+
+    const countByName = new Map<string, number>();
+    for (const i of incidents) {
+      const name = i.riskCategory.name;
+      countByName.set(name, (countByName.get(name) ?? 0) + 1);
+    }
+    return Array.from(countByName.entries())
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  private mapDepartmentToParty(name: string, code: string): string {
+    const n = name.toLowerCase();
+    const c = code.toLowerCase();
+    if (n.includes('staff') || c.includes('stf')) return 'Staff';
+    if (n.includes('student') || c.includes('std')) return 'Students';
+    if (n.includes('parent') || n.includes('family')) return 'Parents / Family';
+    if (n.includes('household')) return 'Household staff';
+    if (n.includes('visitor')) return 'Visitors';
+    if (n.includes('vendor')) return 'Vendors';
+    if (n.includes('contractor')) return 'Contractors';
+    if (n.includes('external')) return 'External';
+    return 'Others';
+  }
+
+  async getSecurityPartiesInvolved(
+    periodFrom?: string,
+    periodTo?: string,
+  ): Promise<SecurityPartiesInvolvedData[]> {
+    const where: { isActive: boolean; incidentDate?: { gte?: Date; lte?: Date } } = {
+      isActive: true,
+    };
+    if (periodFrom || periodTo) {
+      where.incidentDate = {};
+      if (periodFrom) {
+        const [y, m] = periodFrom.split('-').map(Number);
+        where.incidentDate.gte = new Date(y, m - 1, 1);
+      }
+      if (periodTo) {
+        const [y, m] = periodTo.split('-').map(Number);
+        where.incidentDate.lte = new Date(y, m, 0, 23, 59, 59, 999);
+      }
+    }
+
+    const incidents = await this.prisma.incident.findMany({
+      where,
+      select: {
+        injuredPersons: { select: { departmentId: true } },
+        witnesses: { select: { departmentId: true } },
+      },
+    });
+
+    const partyCounts = new Map<string, number>();
+
+    const departmentIds = new Set<string>();
+    for (const incident of incidents) {
+      for (const p of incident.injuredPersons) {
+        if (p.departmentId) departmentIds.add(p.departmentId);
+      }
+      for (const w of incident.witnesses) {
+        if (w.departmentId) departmentIds.add(w.departmentId);
+      }
+    }
+
+    const departments =
+      departmentIds.size > 0
+        ? await this.prisma.department.findMany({
+            where: { id: { in: Array.from(departmentIds) } },
+            select: { id: true, name: true, code: true },
+          })
+        : [];
+    const deptById = new Map(departments.map((d) => [d.id, d]));
+
+    for (const incident of incidents) {
+      const seenParties = new Set<string>();
+      for (const p of incident.injuredPersons) {
+        const label = p.departmentId
+          ? this.mapDepartmentToParty(
+              deptById.get(p.departmentId)?.name ?? '',
+              deptById.get(p.departmentId)?.code ?? '',
+            )
+          : 'External';
+        if (!seenParties.has(label)) {
+          seenParties.add(label);
+          partyCounts.set(label, (partyCounts.get(label) ?? 0) + 1);
+        }
+      }
+      for (const w of incident.witnesses) {
+        const label = w.departmentId
+          ? this.mapDepartmentToParty(
+              deptById.get(w.departmentId)?.name ?? '',
+              deptById.get(w.departmentId)?.code ?? '',
+            )
+          : 'External';
+        if (!seenParties.has(label)) {
+          seenParties.add(label);
+          partyCounts.set(label, (partyCounts.get(label) ?? 0) + 1);
+        }
+      }
+    }
+
+    return Array.from(partyCounts.entries())
+      .map(([party, count]) => ({ party, count }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  private static readonly MECHANISM_LABEL: Record<MechanismOfInjuryEnum, string> = {
+    [MechanismOfInjuryEnum.NOT_SPECIFIED]: 'Not specified',
+    [MechanismOfInjuryEnum.STRUCK_BY]: 'Struck by or caught between objects',
+    [MechanismOfInjuryEnum.FAILING_OBJECT]: 'Got hit by falling object',
+    [MechanismOfInjuryEnum.TRIP]: 'Fall (tripped or slipped)',
+    [MechanismOfInjuryEnum.SLIP]: 'Fall (tripped or slipped)',
+    [MechanismOfInjuryEnum.FALL]: 'Fall (tripped or slipped)',
+    [MechanismOfInjuryEnum.CHEMICAL]: 'Chemical exposure',
+    [MechanismOfInjuryEnum.VEHICLES]: 'Vehicle accident',
+    [MechanismOfInjuryEnum.MECHINARY]: 'Injury caused by machinery',
+    [MechanismOfInjuryEnum.ELECTRICITY]: 'Injury caused by electricity',
+    [MechanismOfInjuryEnum.HAND_TOOLS]: 'Got cut due to sharp edge material',
+    [MechanismOfInjuryEnum.FALL_FROM_HEIGHT]: 'Fall from height',
+    [MechanismOfInjuryEnum.FLYING_OBJECT]: 'Eye injury caused by flying particles',
+    [MechanismOfInjuryEnum.OTHER]: 'Other',
+  };
+
+  private static readonly FISCAL_YEARS = ['year2022_2023', 'year2023_2024', 'year2024_2025'] as const;
+
+  private static getFiscalYearKey(date: Date): (typeof DashboardService.FISCAL_YEARS)[number] | null {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    if (month >= 8) {
+      if (year === 2022) return 'year2022_2023';
+      if (year === 2023) return 'year2023_2024';
+      if (year === 2024) return 'year2024_2025';
+    } else {
+      if (year === 2023) return 'year2022_2023';
+      if (year === 2024) return 'year2023_2024';
+      if (year === 2025) return 'year2024_2025';
+    }
+    return null;
+  }
+
+  private static readonly FISCAL_YEAR_DATE_RANGES: Record<
+    (typeof DashboardService.FISCAL_YEARS)[number],
+    { gte: Date; lte: Date }
+  > = {
+    year2022_2023: {
+      gte: new Date(2022, 7, 1),
+      lte: new Date(2023, 6, 31, 23, 59, 59, 999),
+    },
+    year2023_2024: {
+      gte: new Date(2023, 7, 1),
+      lte: new Date(2024, 6, 31, 23, 59, 59, 999),
+    },
+    year2024_2025: {
+      gte: new Date(2024, 7, 1),
+      lte: new Date(2025, 6, 31, 23, 59, 59, 999),
+    },
+  };
+
+  private static parseFiscalYearsParam(
+    fiscalYears: string | string[] | undefined,
+  ): (typeof DashboardService.FISCAL_YEARS)[number][] {
+    if (!fiscalYears) return [...DashboardService.FISCAL_YEARS];
+    const arr = Array.isArray(fiscalYears) ? fiscalYears : fiscalYears.split(',').map((s) => s.trim());
+    const valid = DashboardService.FISCAL_YEARS.filter((fy) => arr.includes(fy));
+    return valid.length > 0 ? valid : [...DashboardService.FISCAL_YEARS];
+  }
+
+  async getIncidentProfile(fiscalYearsParam?: string | string[]): Promise<IncidentProfileData> {
+    const selectedYears = DashboardService.parseFiscalYearsParam(fiscalYearsParam);
+
+    const dateRanges = selectedYears.map(
+      (fy) => DashboardService.FISCAL_YEAR_DATE_RANGES[fy],
+    );
+    const dateFilter =
+      dateRanges.length > 0
+        ? {
+            OR: dateRanges.map((r) => ({
+              incidentDate: { gte: r.gte, lte: r.lte },
+            })),
+          }
+        : undefined;
+
+    const where = {
+      isActive: true,
+      incidentType: IncidentTypeEnum.ACCIDENT,
+      incidentClassification: IncidentClassificationEnum.MINOR,
+      ...(dateFilter && { ...dateFilter }),
+    };
+
+    const incidents = await this.prisma.incident.findMany({
+      where,
+      select: {
+        incidentDate: true,
+        injuredPersons: {
+          select: { mechanismOfInjury: true },
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    const yearsToShow = selectedYears;
+
+    const countMap = new Map<
+      string,
+      { year2022_2023: number; year2023_2024: number; year2024_2025: number }
+    >();
+
+    const emptyRow = () => ({ year2022_2023: 0, year2023_2024: 0, year2024_2025: 0 });
+
+    for (const incident of incidents) {
+      const mechanism =
+        incident.injuredPersons[0]?.mechanismOfInjury ?? MechanismOfInjuryEnum.NOT_SPECIFIED;
+      const category = DashboardService.MECHANISM_LABEL[mechanism];
+      const fyKey = DashboardService.getFiscalYearKey(incident.incidentDate);
+      if (!fyKey) continue;
+
+      let row = countMap.get(category);
+      if (!row) {
+        row = { ...emptyRow() };
+        countMap.set(category, row);
+      }
+      row[fyKey] = (row[fyKey] ?? 0) + 1;
+    }
+
+    const countData: IncidentCategoryData[] = Array.from(countMap.entries())
+      .map(([category, counts]) => ({
+        category,
+        year2022_2023: counts.year2022_2023 ?? 0,
+        year2023_2024: counts.year2023_2024 ?? 0,
+        year2024_2025: counts.year2024_2025 ?? 0,
+      }))
+      .filter((row) => row.year2022_2023 + row.year2023_2024 + row.year2024_2025 > 0)
+      .sort((a, b) => {
+        const totalA = a.year2022_2023 + a.year2023_2024 + a.year2024_2025;
+        const totalB = b.year2022_2023 + b.year2023_2024 + b.year2024_2025;
+        return totalB - totalA;
+      });
+
+    const percentageData: IncidentCategoryData[] = countData.map((row) => {
+      const total = row.year2022_2023 + row.year2023_2024 + row.year2024_2025;
+      if (total === 0) {
+        return { ...row, year2022_2023: 0, year2023_2024: 0, year2024_2025: 0 };
+      }
+      return {
+        category: row.category,
+        year2022_2023: Math.round((row.year2022_2023 / total) * 1000) / 10,
+        year2023_2024: Math.round((row.year2023_2024 / total) * 1000) / 10,
+        year2024_2025: Math.round((row.year2024_2025 / total) * 1000) / 10,
+      };
+    });
+
+    return {
+      countData,
+      percentageData,
+      yearsToShow: [...yearsToShow],
+    };
   }
 } 

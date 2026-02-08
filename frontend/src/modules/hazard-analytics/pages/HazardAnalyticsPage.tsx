@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import PageHeader from '@/core/components/ui/PageHeader';
+import { PeriodRangeFilter, formatPeriodRangeLabel } from '@/core/components/ui/PeriodRangeFilter';
 import {
-  HazardFilters,
   IncidentSummaryCard,
   IncidentPyramid,
   IncidentChart,
@@ -39,24 +39,7 @@ export default function HazardAnalyticsPage() {
     setAppliedFilters(defaultFilters);
   }, []);
 
-  const periodLabel = appliedFilters.periodFrom && appliedFilters.periodTo
-    ? (() => {
-        const from = appliedFilters.periodFrom;
-        const to = appliedFilters.periodTo;
-        const [, mFrom] = from.split('-').map(Number);
-        const [, mTo] = to.split('-').map(Number);
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const [yFrom] = from.split('-').map(Number);
-        const [yTo] = to.split('-').map(Number);
-        return `${months[mFrom - 1]} ${yFrom} - ${months[mTo - 1]} ${yTo}`;
-      })()
-    : appliedFilters.periodFrom
-      ? (() => {
-          const [y, m] = appliedFilters.periodFrom.split('-').map(Number);
-          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-          return `${months[m - 1]} ${y}`;
-        })()
-      : 'Aug 2024 - Jul 2025';
+  const periodLabel = formatPeriodRangeLabel(appliedFilters.periodFrom, appliedFilters.periodTo);
 
   return (
     <div className="space-y-8">
@@ -65,7 +48,7 @@ export default function HazardAnalyticsPage() {
         subtitle="Comprehensive hazard tracking and analysis dashboard"
       />
 
-      <HazardFilters
+      <PeriodRangeFilter
         periodFrom={filters.periodFrom}
         periodTo={filters.periodTo}
         onPeriodFromChange={(v) => setFilters((prev) => ({ ...prev, periodFrom: v }))}

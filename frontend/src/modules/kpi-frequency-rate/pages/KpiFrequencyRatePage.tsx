@@ -1,12 +1,12 @@
 import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import PageHeader from '@/core/components/ui/PageHeader';
+import { PeriodRangeFilter } from '@/core/components/ui/PeriodRangeFilter';
 import {
   TRIFRChart,
   TRSRChart,
   LTICRChart,
   KpiDataTable,
-  KpiFilters,
 } from '../components';
 import kpiFrequencyRateService from '../services/kpiFrequencyRateService';
 import type { KpiFilterParams } from '../types/kpi-frequency-rate.types';
@@ -41,7 +41,7 @@ export default function KpiFrequencyRatePage() {
         subtitle="HSE KPI metrics: TRIFR, TRSR, and Lost Time Incident Case Rate"
       />
 
-      <KpiFilters
+      <PeriodRangeFilter
         periodFrom={filters.periodFrom}
         periodTo={filters.periodTo}
         onPeriodFromChange={(v) => setFilters((prev) => ({ ...prev, periodFrom: v }))}

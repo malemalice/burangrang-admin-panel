@@ -1,3 +1,4 @@
+import api from '@/core/lib/api';
 import type {
   SecurityTeamAnalyticsData,
   SecurityFilterParams,
@@ -72,34 +73,6 @@ const MOCK_MONTHLY_INCIDENTS: MonthlyIncidentData[] = [
   },
 ];
 
-const MOCK_TYPE_NON_CONFORMANCE: TypeNonConformanceItem[] = [
-  { type: 'Inappropriate behavior (CP)', count: 14 },
-  { type: 'Sabotage (Major)', count: 0 },
-  { type: 'Confrontation / Assault (Major)', count: 2 },
-  { type: 'External Dispute (Major)', count: 9 },
-  { type: 'Trespasser / Intruder (Moderate)', count: 1 },
-  { type: 'Internal Dispute', count: 2 },
-  { type: 'Access Without RFID / Access Violence', count: 11 },
-  { type: 'Traffic Violation', count: 5 },
-  { type: 'Vandalism', count: 5 },
-  { type: 'Theft', count: 1 },
-  { type: 'Smoking / Vaping', count: 3 },
-  { type: 'Lost and Found', count: 15 },
-  { type: 'Others', count: 34 },
-];
-
-const MOCK_PARTIES_INVOLVED: PartiesInvolvedItem[] = [
-  { party: 'Staff', count: 28 },
-  { party: 'Students', count: 41 },
-  { party: 'Parents / Family', count: 6 },
-  { party: 'Household staff', count: 7 },
-  { party: 'Visitors', count: 0 },
-  { party: 'Vendors', count: 6 },
-  { party: 'Contractors', count: 10 },
-  { party: 'External', count: 10 },
-  { party: 'Others', count: 4 },
-];
-
 const MOCK_CASE_STATUS: CaseStatus = {
   open: 1,
   closed: 99,
@@ -161,14 +134,42 @@ function buildMonthYearOptions(startYear: number, endYear: number): { value: str
 }
 
 const securityTeamService = {
+  getTypeNonConformance: async (
+    params?: SecurityFilterParams,
+  ): Promise<TypeNonConformanceItem[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.periodFrom) queryParams.append('periodFrom', params.periodFrom);
+    if (params?.periodTo) queryParams.append('periodTo', params.periodTo);
+    const response = await api.get<TypeNonConformanceItem[]>(
+      `/dashboard/security-type-non-conformance${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
+    );
+    return response.data;
+  },
+
+  getPartiesInvolved: async (
+    params?: SecurityFilterParams,
+  ): Promise<PartiesInvolvedItem[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.periodFrom) queryParams.append('periodFrom', params.periodFrom);
+    if (params?.periodTo) queryParams.append('periodTo', params.periodTo);
+    const response = await api.get<PartiesInvolvedItem[]>(
+      `/dashboard/security-parties-involved${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
+    );
+    return response.data;
+  },
+
   getAnalyticsData: async (params?: SecurityFilterParams): Promise<SecurityTeamAnalyticsData> => {
     const p = params ?? {};
     const monthlyIncidents = filterMonthlyByParams(MOCK_MONTHLY_INCIDENTS, p);
+    const [typeNonConformance, partiesInvolved] = await Promise.all([
+      securityTeamService.getTypeNonConformance(p),
+      securityTeamService.getPartiesInvolved(p),
+    ]);
     return {
       incidentSummary: MOCK_INCIDENT_SUMMARY,
       monthlyIncidents,
-      typeNonConformance: MOCK_TYPE_NON_CONFORMANCE,
-      partiesInvolved: MOCK_PARTIES_INVOLVED,
+      typeNonConformance,
+      partiesInvolved,
       caseStatus: MOCK_CASE_STATUS,
       sifrComparison: MOCK_SIFR_COMPARISON,
     };

@@ -11,21 +11,49 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import type { IncidentCategoryData } from '../types/incident-profile.types';
 
-const YEAR_2022_2023_COLOR = '#3B82F6';
-const YEAR_2023_2024_COLOR = '#EF4444';
-const YEAR_2024_2025_COLOR = '#22C55E';
+const YEAR_COLOR_MAP: Record<string, string> = {
+  year2022_2023: '#3B82F6',
+  year2023_2024: '#EF4444',
+  year2024_2025: '#22C55E',
+};
 
-const YEAR_CONFIG = [
-  { dataKey: 'year2022_2023' as const, name: 'Year 2022-2023', fill: YEAR_2022_2023_COLOR },
-  { dataKey: 'year2023_2024' as const, name: 'Year 2023-2024', fill: YEAR_2023_2024_COLOR },
-  { dataKey: 'year2024_2025' as const, name: 'Year 2024-2025', fill: YEAR_2024_2025_COLOR },
-];
+const YEAR_LABEL_MAP: Record<string, string> = {
+  year2022_2023: 'Year 2022-2023',
+  year2023_2024: 'Year 2023-2024',
+  year2024_2025: 'Year 2024-2025',
+};
+
+function buildYearConfig(yearsToShow: string[]) {
+  return yearsToShow.map((dataKey) => ({
+    dataKey,
+    name: YEAR_LABEL_MAP[dataKey] ?? dataKey,
+    fill: YEAR_COLOR_MAP[dataKey] ?? '#6B7280',
+  }));
+}
 
 interface IncidentPercentageChartProps {
   data: IncidentCategoryData[];
+  yearsToShow: string[];
 }
 
-export function IncidentPercentageChart({ data }: IncidentPercentageChartProps) {
+export function IncidentPercentageChart({ data, yearsToShow }: IncidentPercentageChartProps) {
+  const yearConfig = buildYearConfig(yearsToShow);
+
+  if (data.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Minor Incident Profile (%)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex h-[200px] items-center justify-center text-muted-foreground">
+            No data available
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -42,7 +70,7 @@ export function IncidentPercentageChart({ data }: IncidentPercentageChartProps) 
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
               <XAxis
                 type="number"
-                domain={[0, 50]}
+                domain={[0, 100]}
                 tick={{ fontSize: 12 }}
                 tickFormatter={(value) => `${value}%`}
               />
@@ -61,7 +89,7 @@ export function IncidentPercentageChart({ data }: IncidentPercentageChartProps) 
                 contentStyle={{ fontSize: 12 }}
               />
               <Legend />
-              {YEAR_CONFIG.map(({ dataKey, name, fill }) => (
+              {yearConfig.map(({ dataKey, name, fill }) => (
                 <Bar key={dataKey} dataKey={dataKey} name={name} stackId="pct" fill={fill} radius={0} />
               ))}
             </BarChart>

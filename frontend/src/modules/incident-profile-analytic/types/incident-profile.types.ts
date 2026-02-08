@@ -5,9 +5,21 @@ export interface IncidentCategoryData {
   year2024_2025: number;
 }
 
+export const FISCAL_YEAR_OPTIONS = [
+  { value: 'year2022_2023', label: '2022-2023' },
+  { value: 'year2023_2024', label: '2023-2024' },
+  { value: 'year2024_2025', label: '2024-2025' },
+] as const;
+
+export type FiscalYearKey = (typeof FISCAL_YEAR_OPTIONS)[number]['value'];
+
 export interface IncidentProfileFilterParams {
-  /** Calendar month range start, YYYY-MM (e.g. 2022-01 for Jan 2022) */
-  periodFrom?: string;
-  /** Calendar month range end, YYYY-MM (e.g. 2022-12 for Dec 2022) */
-  periodTo?: string;
+  /** Fiscal years to compare (e.g. ['year2022_2023', 'year2023_2024']) */
+  fiscalYears?: string[];
+}
+
+export interface IncidentProfileData {
+  countData: IncidentCategoryData[];
+  percentageData: IncidentCategoryData[];
+  yearsToShow: string[];
 }

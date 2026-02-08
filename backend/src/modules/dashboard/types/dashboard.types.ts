@@ -90,4 +90,27 @@ export interface TopUnsafeConditionData {
 export interface ResponsibleActionData {
   action: string;
   count: number;
+}
+
+export interface SecurityTypeNonConformanceData {
+  type: string;
+  count: number;
+}
+
+export interface SecurityPartiesInvolvedData {
+  party: string;
+  count: number;
+}
+
+export interface IncidentCategoryData {
+  category: string;
+  year2022_2023: number;
+  year2023_2024: number;
+  year2024_2025: number;
+}
+
+export interface IncidentProfileData {
+  countData: IncidentCategoryData[];
+  percentageData: IncidentCategoryData[];
+  yearsToShow: string[];
 } 
