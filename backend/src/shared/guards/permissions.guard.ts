@@ -66,13 +66,14 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    // Get user's role with permissions
+    // Get user's role with permissions and direct permissions
     const userWithRole = await this.prisma.user.findUnique({
       where: { id: user.id },
       include: {
+        permissions: true, // Direct permissions
         role: {
           include: {
-            permissions: true,
+            permissions: true, // Role permissions
           },
         },
       },
@@ -82,10 +83,15 @@ export class PermissionsGuard implements CanActivate {
       return false;
     }
 
-    // Check if user's role has all required permissions
-    const userPermissions = userWithRole.role.permissions.map((p) => p.name);
+    // Check if user has all required permissions (from role OR direct assignment)
+    const rolePermissions = userWithRole.role.permissions.map((p) => p.name);
+    const directPermissions = userWithRole.permissions.map((p) => p.name);
+    
+    // Merge and deduplicate permissions
+    const allPermissions = new Set([...rolePermissions, ...directPermissions]);
+
     return requiredPermissions.every((permission) =>
-      userPermissions.includes(permission),
+      allPermissions.has(permission),
     );
   }
 }
