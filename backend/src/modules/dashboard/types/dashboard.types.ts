@@ -58,4 +58,36 @@ export interface IncidentSummaryData {
   category: string;
   actual: number;
   target: number;
+}
+
+export interface HazardStatusData {
+  open: number;
+  closed: number;
+  total: number;
+}
+
+export interface MonthlyHazardData {
+  category: string;
+  months: { month: string; count: number }[];
+  total: number;
+}
+
+export interface HazardTypeData {
+  type: string;
+  count: number;
+}
+
+export interface NonConformanceCriteriaData {
+  criteria: string;
+  count: number;
+}
+
+export interface TopUnsafeConditionData {
+  condition: string;
+  reportCount: number;
+}
+
+export interface ResponsibleActionData {
+  action: string;
+  count: number;
 } 

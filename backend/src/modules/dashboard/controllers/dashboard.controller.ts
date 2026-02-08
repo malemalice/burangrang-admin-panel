@@ -15,6 +15,12 @@ import {
   RiskAnalysisDto,
   ComplianceProgressDto,
   IncidentSummaryDto,
+  HazardStatusDto,
+  MonthlyHazardDto,
+  HazardTypeDto,
+  NonConformanceCriteriaDto,
+  TopUnsafeConditionDto,
+  ResponsibleActionDto,
 } from '../dto/dashboard.dto';
 import {
   RiskOverview,
@@ -23,6 +29,12 @@ import {
   RiskAnalysis,
   ComplianceProgress,
   IncidentSummaryData,
+  HazardStatusData,
+  MonthlyHazardData,
+  HazardTypeData,
+  NonConformanceCriteriaData,
+  TopUnsafeConditionData,
+  ResponsibleActionData,
 } from '../types/dashboard.types';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
@@ -112,5 +124,107 @@ export class DashboardController {
     @Query('periodTo') periodTo?: string,
   ): Promise<IncidentSummaryData[]> {
     return this.dashboardService.getIncidentSummary(periodFrom, periodTo);
+  }
+
+  @Get('hazard-case-status')
+  @Permissions('incident:list')
+  @ApiOperation({ summary: 'Get hazard case status (open vs closed) for hazard analytics' })
+  @ApiQuery({ name: 'periodFrom', required: false, description: 'Period start YYYY-MM' })
+  @ApiQuery({ name: 'periodTo', required: false, description: 'Period end YYYY-MM' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns open and closed counts from incidents and inspection items',
+    type: HazardStatusDto,
+  })
+  async getHazardCaseStatus(
+    @Query('periodFrom') periodFrom?: string,
+    @Query('periodTo') periodTo?: string,
+  ): Promise<HazardStatusData> {
+    return this.dashboardService.getHazardCaseStatus(periodFrom, periodTo);
+  }
+
+  @Get('monthly-hazards')
+  @Permissions('incident:list')
+  @ApiOperation({ summary: 'Get numbers of hazard per month for hazard analytics' })
+  @ApiQuery({ name: 'periodFrom', required: false, description: 'Period start YYYY-MM' })
+  @ApiQuery({ name: 'periodTo', required: false, description: 'Period end YYYY-MM' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns incident counts by category and month',
+    type: [MonthlyHazardDto],
+  })
+  async getMonthlyHazards(
+    @Query('periodFrom') periodFrom?: string,
+    @Query('periodTo') periodTo?: string,
+  ): Promise<MonthlyHazardData[]> {
+    return this.dashboardService.getMonthlyHazards(periodFrom, periodTo);
+  }
+
+  @Get('hazard-types')
+  @Permissions('incident:list')
+  @ApiOperation({ summary: 'Get type of hazard counts for hazard analytics' })
+  @ApiQuery({ name: 'periodFrom', required: false, description: 'Period start YYYY-MM' })
+  @ApiQuery({ name: 'periodTo', required: false, description: 'Period end YYYY-MM' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns incident and inspection item counts by risk category',
+    type: [HazardTypeDto],
+  })
+  async getHazardTypes(
+    @Query('periodFrom') periodFrom?: string,
+    @Query('periodTo') periodTo?: string,
+  ): Promise<HazardTypeData[]> {
+    return this.dashboardService.getHazardTypes(periodFrom, periodTo);
+  }
+
+  @Get('non-conformance-criteria')
+  @Permissions('incident:list')
+  @ApiOperation({ summary: 'Get non-conformance criteria counts for hazard analytics' })
+  @ApiQuery({ name: 'periodFrom', required: false, description: 'Period start YYYY-MM' })
+  @ApiQuery({ name: 'periodTo', required: false, description: 'Period end YYYY-MM' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns non-compliant audit item counts by criteria',
+    type: [NonConformanceCriteriaDto],
+  })
+  async getNonConformanceCriteria(
+    @Query('periodFrom') periodFrom?: string,
+    @Query('periodTo') periodTo?: string,
+  ): Promise<NonConformanceCriteriaData[]> {
+    return this.dashboardService.getNonConformanceCriteria(periodFrom, periodTo);
+  }
+
+  @Get('top-unsafe-conditions')
+  @Permissions('incident:list')
+  @ApiOperation({ summary: 'Get top 10 unsafe conditions for hazard analytics' })
+  @ApiQuery({ name: 'periodFrom', required: false, description: 'Period start YYYY-MM' })
+  @ApiQuery({ name: 'periodTo', required: false, description: 'Period end YYYY-MM' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns top 10 risks by inspection item count',
+    type: [TopUnsafeConditionDto],
+  })
+  async getTopUnsafeConditions(
+    @Query('periodFrom') periodFrom?: string,
+    @Query('periodTo') periodTo?: string,
+  ): Promise<TopUnsafeConditionData[]> {
+    return this.dashboardService.getTopUnsafeConditions(periodFrom, periodTo);
+  }
+
+  @Get('responsible-actions')
+  @Permissions('incident:list')
+  @ApiOperation({ summary: 'Get responsible action counts for hazard analytics summary' })
+  @ApiQuery({ name: 'periodFrom', required: false, description: 'Period start YYYY-MM' })
+  @ApiQuery({ name: 'periodTo', required: false, description: 'Period end YYYY-MM' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns incident and inspection item counts by assigned department',
+    type: [ResponsibleActionDto],
+  })
+  async getResponsibleActions(
+    @Query('periodFrom') periodFrom?: string,
+    @Query('periodTo') periodTo?: string,
+  ): Promise<ResponsibleActionData[]> {
+    return this.dashboardService.getResponsibleActions(periodFrom, periodTo);
   }
 } 

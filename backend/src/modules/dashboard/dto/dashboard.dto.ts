@@ -139,4 +139,66 @@ export class IncidentSummaryQueryDto {
 
   @ApiProperty({ required: false, description: 'Period end YYYY-MM' })
   periodTo?: string;
+}
+
+export class HazardStatusDto {
+  @ApiProperty({ description: 'Count of open hazard cases' })
+  open: number;
+
+  @ApiProperty({ description: 'Count of closed hazard cases' })
+  closed: number;
+
+  @ApiProperty({ description: 'Total count (open + closed)' })
+  total: number;
+}
+
+export class MonthlyHazardMonthDto {
+  @ApiProperty({ description: 'Month label (e.g. Jan 2024)' })
+  month: string;
+
+  @ApiProperty({ description: 'Count of incidents in that month' })
+  count: number;
+}
+
+export class MonthlyHazardDto {
+  @ApiProperty({ description: 'Category name (e.g. Fatality, Hazard)' })
+  category: string;
+
+  @ApiProperty({ type: [MonthlyHazardMonthDto], description: 'Count per month in chronological order' })
+  months: { month: string; count: number }[];
+
+  @ApiProperty({ description: 'Total count across all months' })
+  total: number;
+}
+
+export class HazardTypeDto {
+  @ApiProperty({ description: 'Hazard type name (risk category name)' })
+  type: string;
+
+  @ApiProperty({ description: 'Count of incidents/inspection items' })
+  count: number;
+}
+
+export class NonConformanceCriteriaDto {
+  @ApiProperty({ description: 'Audit criteria name' })
+  criteria: string;
+
+  @ApiProperty({ description: 'Count of non-compliant findings' })
+  count: number;
+}
+
+export class TopUnsafeConditionDto {
+  @ApiProperty({ description: 'Risk/condition name' })
+  condition: string;
+
+  @ApiProperty({ description: 'Report count (inspection items)' })
+  reportCount: number;
+}
+
+export class ResponsibleActionDto {
+  @ApiProperty({ description: 'Department/action name' })
+  action: string;
+
+  @ApiProperty({ description: 'Count of incidents and inspection items' })
+  count: number;
 } 
