@@ -39,6 +39,7 @@ import EditMonthlyFlowReportPage from '../pages/monthly-flow-reports/EditMonthly
 import WaterQualityLabReportsPage from '../pages/water-quality-lab-reports/WaterQualityLabReportsPage';
 import CreateWaterQualityLabReportPage from '../pages/water-quality-lab-reports/CreateWaterQualityLabReportPage';
 import EditWaterQualityLabReportPage from '../pages/water-quality-lab-reports/EditWaterQualityLabReportPage';
+import DetailWaterQualityLabReportPage from '../pages/water-quality-lab-reports/DetailWaterQualityLabReportPage';
 
 // Weight Reports
 import WeightReportsPage from '../pages/weight-reports/WeightReportsPage';
@@ -94,6 +95,7 @@ const wasteManagementRoutes: RouteConfig[] = [
   // Water Quality Lab Reports
   { path: '/waste-management/water-quality-lab-reports', component: WaterQualityLabReportsPage },
   { path: '/waste-management/water-quality-lab-reports/create', component: CreateWaterQualityLabReportPage },
+  { path: '/waste-management/water-quality-lab-reports/:id', component: DetailWaterQualityLabReportPage },
   { path: '/waste-management/water-quality-lab-reports/:id/edit', component: EditWaterQualityLabReportPage },
 
   // Weight Reports (Solid Waste Recording)

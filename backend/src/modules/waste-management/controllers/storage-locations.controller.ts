@@ -1,12 +1,35 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Query,
+  Request,
+} from '@nestjs/common';
 import { StorageLocationsService } from '../services/storage-locations.service';
-import { CreateStorageLocationDto, UpdateStorageLocationDto, StorageLocationDto } from '../dto/storage-locations';
+import {
+  CreateStorageLocationDto,
+  UpdateStorageLocationDto,
+  StorageLocationDto,
+} from '../dto/storage-locations';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+  ApiBearerAuth,
+  ApiParam,
+  ApiBody,
+} from '@nestjs/swagger';
 
 @ApiTags('storage-locations')
 @ApiBearerAuth()
@@ -19,12 +42,19 @@ export class StorageLocationsController {
   @Permissions('waste-management:create')
   @ApiOperation({ summary: 'Create a new storage location' })
   @ApiBody({ type: CreateStorageLocationDto })
-  @ApiResponse({ status: 201, description: 'The storage location has been successfully created.', type: StorageLocationDto })
+  @ApiResponse({
+    status: 201,
+    description: 'The storage location has been successfully created.',
+    type: StorageLocationDto,
+  })
   @ApiResponse({ status: 400, description: 'Bad Request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 409, description: 'Conflict' })
-  create(@Body() dto: CreateStorageLocationDto, @Request() req: any): Promise<StorageLocationDto> {
+  create(
+    @Body() dto: CreateStorageLocationDto,
+    @Request() req: any,
+  ): Promise<StorageLocationDto> {
     return this.service.create(dto, req.user.id);
   }
 
@@ -37,8 +67,18 @@ export class StorageLocationsController {
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean })
   @ApiQuery({ name: 'areaId', required: false, type: String })
-  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
-  @ApiResponse({ status: 200, description: 'Return all storage locations.', type: [StorageLocationDto] })
+  @ApiQuery({
+    name: 'options',
+    required: false,
+    type: Boolean,
+    description:
+      'Set to true to bypass permission check (requires JWT auth only)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Return all storage locations.',
+    type: [StorageLocationDto],
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findAll(
     @Query('page') page?: string,
@@ -60,7 +100,11 @@ export class StorageLocationsController {
   @Permissions('waste-management:read')
   @ApiOperation({ summary: 'Get storage location by id' })
   @ApiParam({ name: 'id', type: String })
-  @ApiResponse({ status: 200, description: 'Return the storage location.', type: StorageLocationDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Return the storage location.',
+    type: StorageLocationDto,
+  })
   @ApiResponse({ status: 404, description: 'Storage location not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findOne(@Param('id') id: string): Promise<StorageLocationDto> {
@@ -72,11 +116,18 @@ export class StorageLocationsController {
   @ApiOperation({ summary: 'Update storage location' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateStorageLocationDto })
-  @ApiResponse({ status: 200, description: 'The storage location has been successfully updated.', type: StorageLocationDto })
+  @ApiResponse({
+    status: 200,
+    description: 'The storage location has been successfully updated.',
+    type: StorageLocationDto,
+  })
   @ApiResponse({ status: 400, description: 'Bad Request' })
   @ApiResponse({ status: 404, description: 'Storage location not found' })
   @ApiResponse({ status: 409, description: 'Conflict' })
-  update(@Param('id') id: string, @Body() dto: UpdateStorageLocationDto): Promise<StorageLocationDto> {
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateStorageLocationDto,
+  ): Promise<StorageLocationDto> {
     return this.service.update(id, dto);
   }
 
@@ -84,7 +135,10 @@ export class StorageLocationsController {
   @Permissions('waste-management:delete')
   @ApiOperation({ summary: 'Delete storage location' })
   @ApiParam({ name: 'id', type: String })
-  @ApiResponse({ status: 200, description: 'The storage location has been successfully deleted.' })
+  @ApiResponse({
+    status: 200,
+    description: 'The storage location has been successfully deleted.',
+  })
   @ApiResponse({ status: 404, description: 'Storage location not found' })
   @ApiResponse({ status: 409, description: 'Conflict' })
   remove(@Param('id') id: string): Promise<void> {
