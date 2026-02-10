@@ -1,4 +1,5 @@
 import { RouteConfig } from '../types';
+import Home from '@/core/pages/Home';
 import Dashboard from '@/core/pages/Dashboard';
 import Profile from '@/core/pages/Profile';
 import SettingsPage from '@/modules/settings/pages/SettingsPage';
@@ -12,6 +13,10 @@ import ResetPassword from '@/core/pages/ResetPassword';
 const coreRoutes: RouteConfig[] = [
   {
     path: '/',
+    component: Home,
+  },
+  {
+    path: '/dashboard/risk',
     component: Dashboard,
   },
   {

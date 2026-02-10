@@ -35,11 +35,10 @@ export const seedMenus = async () => {
     // Clear existing menus
     await prisma.menu.deleteMany({});
 
-    // Create top-level menus
-    await prisma.menu.create({
+    // Dashboard menu group (parent + sub-modules)
+    const dashboardMenu = await prisma.menu.create({
       data: {
         name: 'Dashboard',
-        path: '/',
         icon: 'LayoutDashboard',
         order: 1,
         isActive: true,
@@ -49,6 +48,118 @@ export const seedMenus = async () => {
             { id: adminRole.id },
             { id: managerRole.id },
             { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Overview',
+        path: '/',
+        icon: 'LayoutDashboard',
+        parentId: dashboardMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Hazard Analytics',
+        path: '/dashboard/hazard-analytics',
+        icon: 'AlertTriangle',
+        parentId: dashboardMenu.id,
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Incident Profile Analytic',
+        path: '/dashboard/incident-profile-analytic',
+        icon: 'Users',
+        parentId: dashboardMenu.id,
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'KPI Frequency Rate',
+        path: '/dashboard/kpi-frequency-rate',
+        icon: 'BarChart3',
+        parentId: dashboardMenu.id,
+        order: 4,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Security Team',
+        path: '/dashboard/security-team',
+        icon: 'Shield',
+        parentId: dashboardMenu.id,
+        order: 5,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Admin Overview',
+        path: '/dashboard/admin-overview',
+        icon: 'LayoutDashboard',
+        parentId: dashboardMenu.id,
+        order: 6,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
           ],
         },
       },
@@ -1136,6 +1247,7 @@ export const seedMenus = async () => {
     });
 
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
+    console.log(`   - Dashboard submenus: 6`);
     console.log(`   - Top-level menus: 15`);
     console.log(`   - Risk Assessment submenus: 5`);
     console.log(`   - Master Data submenus: 6`);

@@ -62,6 +62,11 @@ export const permissions = [
   { name: 'system:backup', description: 'Create system backups' },
   { name: 'system:restore', description: 'Restore system from backup' },
 
+  // Dashboard (analytics / overview)
+  { name: 'dashboard:read', description: 'View dashboard and analytics' },
+  { name: 'dashboard:list', description: 'List dashboard data' },
+  { name: 'dashboard:admin-overview:read', description: 'View admin overview dashboard (executive-level metrics)' },
+
   // Notification Management
   { name: 'notification:create', description: 'Create new notifications' },
   { name: 'notification:read', description: 'View notifications' },

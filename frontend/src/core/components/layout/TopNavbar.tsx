@@ -86,7 +86,7 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
   const breadcrumbItems = () => {
     const paths = location.pathname.split('/').filter(Boolean);
 
-    if (paths.length === 0) return [{ name: 'Dashboard', path: '/', clickable: true }];
+    if (paths.length === 0) return [{ name: 'Home', path: '/', clickable: true }];
 
     // Custom name mapping untuk breadcrumb yang lebih user-friendly
     const nameMapping: Record<string, string> = {
@@ -104,7 +104,7 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
     };
 
     return [
-      { name: 'Dashboard', path: '/', clickable: true },
+      { name: 'Home', path: '/', clickable: true },
       ...paths.map((path, index) => {
         const url = `/${paths.slice(0, index + 1).join('/')}`;
         const formattedName = nameMapping[path] || path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, ' ');

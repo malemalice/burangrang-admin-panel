@@ -2,9 +2,21 @@
  * Course seed data
  * Following TRD.md patterns for seed data
  */
-import { PrismaClient, Course } from '@prisma/client';
+import { PrismaClient, Course, EnrollmentStatusEnum } from '@prisma/client';
 
 const prisma = new PrismaClient();
+
+function daysAgo(days: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d;
+}
+
+function daysFromNow(days: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d;
+}
 
 export const seedCourses = async () => {
   console.log('🌱 Seeding courses...');
@@ -305,6 +317,83 @@ export const seedCourses = async () => {
 
       createdCourses.push(course);
       console.log(`✅ Created course: ${course.title}`);
+    }
+
+    // Seed enrollments for Admin Overview dashboard (LMS metrics)
+    const users = await prisma.user.findMany({
+      where: { isActive: true },
+      take: 10,
+    });
+    if (createdCourses.length > 0 && users.length > 0 && instructor) {
+      const existingEnrollmentCount = await prisma.enrollment.count();
+      if (existingEnrollmentCount < 20) {
+        const now = new Date();
+        const enrollmentsToCreate: Array<{
+          userId: string;
+          courseId: string;
+          status: EnrollmentStatusEnum;
+          assignedBy: string;
+          assignedAt: Date;
+          dueDate: Date | null;
+          completedAt: Date | null;
+          progress: number;
+          isRequired: boolean;
+        }> = [];
+        const courseIds = createdCourses.slice(0, 3).map((c) => c.id);
+        // Overdue: dueDate in past, status not COMPLETED/CANCELLED/EXPIRED
+        for (let i = 0; i < 4 && users[i]; i++) {
+          enrollmentsToCreate.push({
+            userId: users[i].id,
+            courseId: courseIds[i % courseIds.length],
+            status: EnrollmentStatusEnum.ACTIVE,
+            assignedBy: instructor.id,
+            assignedAt: daysAgo(30),
+            dueDate: daysAgo(5),
+            completedAt: null,
+            progress: 0,
+            isRequired: true,
+          });
+        }
+        // Completed
+        for (let i = 4; i < 10 && users[i % users.length]; i++) {
+          enrollmentsToCreate.push({
+            userId: users[i % users.length].id,
+            courseId: courseIds[(i - 4) % courseIds.length],
+            status: EnrollmentStatusEnum.COMPLETED,
+            assignedBy: instructor.id,
+            assignedAt: daysAgo(60),
+            dueDate: daysFromNow(30),
+            completedAt: daysAgo(10),
+            progress: 100,
+            isRequired: false,
+          });
+        }
+        // Active with future due date
+        for (let i = 2; i < 5; i++) {
+          if (users[i]) {
+            enrollmentsToCreate.push({
+              userId: users[i].id,
+              courseId: courseIds[i % courseIds.length],
+              status: EnrollmentStatusEnum.ACTIVE,
+              assignedBy: instructor.id,
+              assignedAt: new Date(),
+              dueDate: daysFromNow(14),
+              completedAt: null,
+              progress: 25,
+              isRequired: true,
+            });
+          }
+        }
+        for (const enr of enrollmentsToCreate) {
+          await prisma.enrollment.create({
+            data: {
+              ...enr,
+              progress: enr.progress,
+            },
+          });
+        }
+        console.log(`✅ Created ${enrollmentsToCreate.length} enrollments for Admin Overview (LMS)`);
+      }
     }
 
     console.log(`\n📊 Summary: Created ${createdCourses.length} courses`);
