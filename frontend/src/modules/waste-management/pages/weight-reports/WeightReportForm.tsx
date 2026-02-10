@@ -24,7 +24,7 @@ import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 
 import { weightReportService, wasteSourceService, storageLocationService, wasteTypeService } from '../../services/wasteManagementService';
-import { CreateWeightReportData, WeightReport, UpdateWeightReportData, WasteSource, StorageLocation, WasteType, MonthEnum, PaginatedResponse } from '../../types/waste-management.types';
+import { CreateWeightReportData, WeightReport, UpdateWeightReportData, WasteSource, StorageLocation, WasteType, MonthEnum, PaginatedResponse, ReportStatusEnum } from '../../types/waste-management.types';
 
 const itemSchema = z.object({
   wasteTypeId: z.string().min(1, 'Waste type is required'),
@@ -45,7 +45,16 @@ const formSchema = z.object({
   submittedAt: z.string().min(1, 'Submission date is required'),
   reportDocumentUrl: z.string().optional(),
   isActive: z.boolean().default(true),
+  status: z.nativeEnum(ReportStatusEnum).optional(),
   items: z.array(itemSchema).optional(),
+}).refine((data) => {
+  if (!data.items || data.items.length === 0) return true;
+  const wasteTypeIds = data.items.map(i => i.wasteTypeId).filter(Boolean);
+  const uniqueIds = new Set(wasteTypeIds);
+  return uniqueIds.size === wasteTypeIds.length;
+}, {
+  message: "Duplicate waste types are not allowed",
+  path: ["items"],
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -75,6 +84,7 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
       submittedAt: new Date().toISOString().split('T')[0],
       reportDocumentUrl: '',
       isActive: true,
+      status: undefined,
       items: [],
     },
   });
@@ -120,6 +130,7 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
             submittedAt: data.submittedAt.split('T')[0],
             reportDocumentUrl: data.reportDocumentUrl || '',
             isActive: data.isActive,
+            status: data.status,
             items: data.items?.map((item) => ({
               wasteTypeId: item.wasteTypeId,
               weight: item.weight,
@@ -243,7 +254,7 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="reportDate"
@@ -349,6 +360,33 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
                   </FormItem>
                 )}
               />
+
+              {mode === 'edit' && (
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Report Status</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Object.values(ReportStatusEnum).map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </CardContent>
           </Card>
 

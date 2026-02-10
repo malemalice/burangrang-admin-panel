@@ -103,7 +103,7 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
             return;
           }
           
-          if (existingAttempt.status === 'COMPLETED') {
+          if (existingAttempt.status === 'COMPLETED' || existingAttempt.status === 'ABANDONED') {
             setAttempt(existingAttempt);
             return;
           }
@@ -322,7 +322,7 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
       <Card>
         <CardHeader>
           <div className="flex justify-between items-start gap-4">
-            <div className="text-lg font-medium">
+            <div className="text-lg font-medium whitespace-pre-wrap">
               {currentQuestion.questionText}
             </div>
             <Badge variant="outline" className="shrink-0">

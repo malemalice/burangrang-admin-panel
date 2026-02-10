@@ -121,6 +121,7 @@ export const permissions = [
   { name: 'quiz:update', description: 'Update quiz information' },
   { name: 'quiz:delete', description: 'Delete quizzes' },
   { name: 'quiz:list', description: 'List all quizzes' },
+  { name: 'quiz:publish', description: 'Publish/unpublish quizzes' },
 
   // Incident Management
   { name: 'incident:create', description: 'Create new incidents' },

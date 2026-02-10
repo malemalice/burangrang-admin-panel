@@ -109,6 +109,7 @@ model User {
   incidentsAsTechnician          Incident[]              @relation("IncidentTechnician")
   incidentsAsAssignee             Incident[]              @relation("IncidentAssignee")
   incidentsCreated                Incident[]               @relation("IncidentCreator")
+  permissions                     Permission[]             @relation("PermissionToUser")
 
   @@map("t_users")
 }
@@ -168,6 +169,7 @@ model Permission {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   roles       Role[]   @relation("PermissionToRole")
+  users       User[]   @relation("PermissionToUser")
 
   @@map("m_permissions")
 }

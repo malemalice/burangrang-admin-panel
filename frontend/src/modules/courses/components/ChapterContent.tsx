@@ -30,7 +30,7 @@ const ChapterContent = ({ chapter }: ChapterContentProps) => {
       );
 
     case 'youtube':
-      const videoId = extractYoutubeVideoId(chapter.youtubeVideoId || chapter.contentUrl);
+      const videoId = extractYoutubeVideoId(chapter.youtubeVideoId?.trim() || chapter.contentUrl?.trim());
       return (
         <div className="aspect-video w-full bg-black rounded-lg overflow-hidden">
           {videoId ? (

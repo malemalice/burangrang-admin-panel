@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Plus, MoreHorizontal, Pencil, Trash2, Eye } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
@@ -148,7 +148,7 @@ export default function WaterQualityLabReportsPage() {
       id: 'reportStatus',
       header: 'Report Status',
       cell: (item: WaterQualityLabReport) => (
-        <Badge variant={item.status === ReportStatusEnum.SUBMITTED ? 'default' : 'secondary'}>
+        <Badge variant={item.status === ReportStatusEnum.DONE || item.status === ReportStatusEnum.OPEN ? 'default' : 'secondary'}>
           {item.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
         </Badge>
       ),
@@ -169,12 +169,15 @@ export default function WaterQualityLabReportsPage() {
       header: 'Actions',
       cell: (item: WaterQualityLabReport) => (
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+            <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => navigate(`/waste-management/water-quality-lab-reports/${item.id}`)}>
+              <Eye className="mr-2 h-4 w-4" /> View Details
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/waste-management/water-quality-lab-reports/${item.id}/edit`)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>

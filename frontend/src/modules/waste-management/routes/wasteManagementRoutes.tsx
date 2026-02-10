@@ -33,17 +33,20 @@ import EditStorageLocationPage from '../pages/storage-locations/EditStorageLocat
 // Monthly Flow Reports
 import MonthlyFlowReportsPage from '../pages/monthly-flow-reports/MonthlyFlowReportsPage';
 import CreateMonthlyFlowReportPage from '../pages/monthly-flow-reports/CreateMonthlyFlowReportPage';
+import MonthlyFlowReportDetailPage from '../pages/monthly-flow-reports/MonthlyFlowReportDetailPage';
 import EditMonthlyFlowReportPage from '../pages/monthly-flow-reports/EditMonthlyFlowReportPage';
 
 // Water Quality Lab Reports
 import WaterQualityLabReportsPage from '../pages/water-quality-lab-reports/WaterQualityLabReportsPage';
 import CreateWaterQualityLabReportPage from '../pages/water-quality-lab-reports/CreateWaterQualityLabReportPage';
 import EditWaterQualityLabReportPage from '../pages/water-quality-lab-reports/EditWaterQualityLabReportPage';
+import DetailWaterQualityLabReportPage from '../pages/water-quality-lab-reports/DetailWaterQualityLabReportPage';
 
 // Weight Reports
 import WeightReportsPage from '../pages/weight-reports/WeightReportsPage';
 import CreateWeightReportPage from '../pages/weight-reports/CreateWeightReportPage';
 import EditWeightReportPage from '../pages/weight-reports/EditWeightReportPage';
+import WeightReportDetailPage from '../pages/weight-reports/WeightReportDetailPage';
 
 // Dispatch Orders
 import DispatchOrdersPage from '../pages/dispatch-orders/DispatchOrdersPage';
@@ -88,16 +91,19 @@ const wasteManagementRoutes: RouteConfig[] = [
   // Monthly Flow Reports (Waste Water Flow Recording)
   { path: '/waste-management/monthly-flow-reports', component: MonthlyFlowReportsPage },
   { path: '/waste-management/monthly-flow-reports/create', component: CreateMonthlyFlowReportPage },
+  { path: '/waste-management/monthly-flow-reports/:id', component: MonthlyFlowReportDetailPage },
   { path: '/waste-management/monthly-flow-reports/:id/edit', component: EditMonthlyFlowReportPage },
 
   // Water Quality Lab Reports
   { path: '/waste-management/water-quality-lab-reports', component: WaterQualityLabReportsPage },
   { path: '/waste-management/water-quality-lab-reports/create', component: CreateWaterQualityLabReportPage },
+  { path: '/waste-management/water-quality-lab-reports/:id', component: DetailWaterQualityLabReportPage },
   { path: '/waste-management/water-quality-lab-reports/:id/edit', component: EditWaterQualityLabReportPage },
 
   // Weight Reports (Solid Waste Recording)
   { path: '/waste-management/weight-reports', component: WeightReportsPage },
   { path: '/waste-management/weight-reports/create', component: CreateWeightReportPage },
+  { path: '/waste-management/weight-reports/:id', component: WeightReportDetailPage },
   { path: '/waste-management/weight-reports/:id/edit', component: EditWeightReportPage },
 
   // Dispatch Orders
