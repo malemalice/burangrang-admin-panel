@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../core/services/prisma.service';
-import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
+import { PrismaService } from '../../core/prisma/prisma.service';
+import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 
 @Injectable()
 export class UserPermissionsService {
