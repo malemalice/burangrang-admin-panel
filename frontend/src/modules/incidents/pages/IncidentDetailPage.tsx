@@ -148,7 +148,7 @@ const IncidentDetailPage = () => {
             <p className="text-muted-foreground">Incident not found</p>
             <Button
               variant="outline"
-              onClick={() => navigate('/incidents')}
+              onClick={() => navigate(-1)}
               className="mt-4"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -169,7 +169,7 @@ const IncidentDetailPage = () => {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={() => navigate('/incidents')}
+              onClick={() => navigate(-1)}
               disabled={isLoading || isDeleting}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />

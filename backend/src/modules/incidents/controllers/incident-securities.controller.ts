@@ -106,7 +106,7 @@ export class IncidentSecuritiesController {
   }
 
   @Post(':id/approve')
-  @Permissions('incident-security:update')
+  @Permissions('incident-security:read')
   @ApiOperation({ summary: 'Approve security incident' })
   @ApiResponse({ status: 200, type: IncidentDto })
   async approve(
@@ -118,7 +118,7 @@ export class IncidentSecuritiesController {
   }
 
   @Post(':id/reject')
-  @Permissions('incident-security:update')
+  @Permissions('incident-security:read')
   @ApiOperation({ summary: 'Reject security incident' })
   @ApiResponse({ status: 200, type: IncidentDto })
   async reject(

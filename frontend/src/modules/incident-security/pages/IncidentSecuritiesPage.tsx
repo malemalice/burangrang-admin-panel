@@ -6,8 +6,6 @@ import { Eye, Plus, Edit, Trash2, CheckCircle2, Info, ArrowRight, FileText, Shie
 import { useAuth } from '@/core/lib/auth';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
-import approvalService from '@/modules/master-data/services/approvalService';
-import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
 import api from '@/core/lib/api';
 import roleService from '@/modules/roles/services/roleService';
@@ -308,10 +306,7 @@ const IncidentSecuritiesPage = () => {
       for (const incident of incidents) {
         if (incident.status === GeneralStatusEnum.WAITING_APPROVAL) {
           try {
-            const response = await approvalService.checkApprovalRights(
-              incident.id,
-              APPROVAL_ENTITIES.INCIDENT,
-            );
+            const response = await incidentSecurityService.checkApprovalRights(incident.id);
             rights[incident.id] = response.canApprove;
           } catch (error) {
             console.error(`Failed to check approval rights for incident ${incident.id}:`, error);
@@ -376,26 +371,24 @@ const IncidentSecuritiesPage = () => {
     }
 
     // If super_admin and has permissions, show all buttons regardless of conditions
-    if (isSuperAdmin && (hasPermission('incident-security:update') || hasPermission('approval:update'))) {
-      if (hasPermission('incident-security:update')) {
-        if (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
-          actions.push({
-            label: 'Edit',
-            onClick: () => navigate(`/incident-securities/${incident.id}/edit?mode=creator`),
-            variant: 'default',
-            icon: <Edit className="mr-2 h-4 w-4" />,
-          });
-        }
-        if (incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
-          actions.push({
-            label: 'Submit',
-            onClick: () => navigate(`/incident-securities/${incident.id}/edit?mode=investigator`),
-            variant: 'default',
-            icon: <CheckCircle2 className="mr-2 h-4 w-4" />,
-          });
-        }
+    if (isSuperAdmin && hasPermission('incident-security:update')) {
+      if (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
+        actions.push({
+          label: 'Edit',
+          onClick: () => navigate(`/incident-securities/${incident.id}/edit?mode=creator`),
+          variant: 'default',
+          icon: <Edit className="mr-2 h-4 w-4" />,
+        });
       }
-      if (hasPermission('approval:update') && incident.status === GeneralStatusEnum.WAITING_APPROVAL) {
+      if (incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
+        actions.push({
+          label: 'Submit',
+          onClick: () => navigate(`/incident-securities/${incident.id}/edit?mode=investigator`),
+          variant: 'default',
+          icon: <CheckCircle2 className="mr-2 h-4 w-4" />,
+        });
+      }
+      if (incident.status === GeneralStatusEnum.WAITING_APPROVAL && approvalRights[incident.id]) {
         actions.push({
           label: 'Approve',
           onClick: () => navigate(`/incident-securities/${incident.id}/edit?mode=approver`),
@@ -441,8 +434,8 @@ const IncidentSecuritiesPage = () => {
       });
     }
 
-    // Approve button (approver mode) - for WAITING_APPROVAL status and user has approval rights
-    if (hasPermission('approval:update') && incident.status === GeneralStatusEnum.WAITING_APPROVAL && approvalRights[incident.id]) {
+    // Approve button (approver mode) - for WAITING_APPROVAL status and user has approval rights (on active approval line)
+    if (incident.status === GeneralStatusEnum.WAITING_APPROVAL && approvalRights[incident.id]) {
       actions.push({
         label: 'Approve',
         onClick: () => navigate(`/incident-securities/${incident.id}/edit?mode=approver`),

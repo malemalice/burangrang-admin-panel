@@ -107,7 +107,7 @@ export class IncidentsController {
   }
 
   @Post(':id/approve')
-  @Permissions('incident:update')
+  @Permissions('incident:read')
   @ApiOperation({ summary: 'Approve incident' })
   @ApiResponse({ status: 200, type: IncidentDto })
   async approve(
@@ -119,7 +119,7 @@ export class IncidentsController {
   }
 
   @Post(':id/reject')
-  @Permissions('incident:update')
+  @Permissions('incident:read')
   @ApiOperation({ summary: 'Reject incident' })
   @ApiResponse({ status: 200, type: IncidentDto })
   async reject(

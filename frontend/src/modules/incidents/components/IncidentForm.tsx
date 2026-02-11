@@ -917,10 +917,11 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       }
       const data = form.getValues();
       const updateDto = buildUpdateDtoFromFormData(data, {
-        statusOverride: GeneralStatusEnum.WAITING_APPROVAL,
         images: undefined,
         attachments: undefined,
       });
+      // Omit status so backend does not run status guard; approve/reject APIs set final status
+      delete (updateDto as { status?: GeneralStatusEnum }).status;
       await incidentsService.update(incident.id, updateDto);
 
       if (status === ApprovalStatus.APPROVED) {
@@ -1289,7 +1290,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                       <Select
                         onValueChange={field.onChange}
                         value={field.value}
-                        disabled={resolvedMode === 'investigator' && !isSuperUser}
+                        disabled={resolvedMode === 'approver' || (resolvedMode === 'investigator' && !isSuperUser)}
                       >
                         <FormControl>
                           <SelectTrigger>
