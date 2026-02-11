@@ -24,6 +24,7 @@ const PPEWithdrawPage = () => {
     const [pageIndex, setPageIndex] = useState(0);
     const [limit, setLimit] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
+    const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
     const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [withdrawalToDelete, setWithdrawalToDelete] = useState<PPEWithdrawal | null>(null);
@@ -85,8 +86,8 @@ const PPEWithdrawPage = () => {
         const params: PPEWithdrawalSearchParams = {
             page: pageIndex + 1,
             limit,
-            sortBy: 'createdAt',
-            sortOrder: 'desc',
+            sortBy: sorting?.id || 'createdAt',
+            sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'desc',
             search: searchTerm,
             status: activeFilters.status?.value as PPEWithdrawalStatus | undefined,
             departmentId: activeFilters.departmentId?.value,
@@ -94,7 +95,7 @@ const PPEWithdrawPage = () => {
             withdrawalDateTo: activeFilters.withdrawalDateTo?.value,
         };
         fetchWithdrawals(params);
-    }, [pageIndex, limit, searchTerm, activeFilters, fetchWithdrawals]);
+    }, [pageIndex, limit, searchTerm, activeFilters, sorting, fetchWithdrawals]);
 
     useEffect(() => {
         loadWithdrawals();
@@ -143,6 +144,11 @@ const PPEWithdrawPage = () => {
         setDeleteDialogOpen(false);
         setWithdrawalToDelete(null);
         setOpenDropdownId(null); // Ensure dropdown is closed
+    }, []);
+
+    const handleSortingChange = useCallback((newSorting: { id: string; desc: boolean } | null) => {
+        setSorting(newSorting);
+        setPageIndex(0);
     }, []);
 
     const getStatusBadge = useCallback((status: PPEWithdrawalStatus) => {
@@ -263,6 +269,8 @@ const PPEWithdrawPage = () => {
                     onPageSizeChange: setLimit,
                     total: totalWithdrawals,
                 }}
+                sorting={sorting}
+                onSortingChange={handleSortingChange}
                 filterFields={filterFields}
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}

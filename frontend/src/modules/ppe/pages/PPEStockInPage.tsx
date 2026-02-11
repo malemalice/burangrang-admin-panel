@@ -23,6 +23,7 @@ const PPEStockInPage = () => {
     const [pageIndex, setPageIndex] = useState(0);
     const [limit, setLimit] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
+    const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
     const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [stockToDelete, setStockToDelete] = useState<PPEStock | null>(null);
@@ -80,15 +81,15 @@ const PPEStockInPage = () => {
         const params: PPEStockSearchParams = {
             page: pageIndex + 1,
             limit,
-            sortBy: 'receivedDate',
-            sortOrder: 'desc',
+            sortBy: sorting?.id === 'stockStatus' ? 'isActive' : (sorting?.id || 'receivedDate'),
+            sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'desc',
             search: searchValue || undefined,
             isActive: activeFilters.isActive?.value === 'true' ? true : activeFilters.isActive?.value === 'false' ? false : undefined,
             receivedDateFrom,
             receivedDateTo,
         };
         fetchStocks(params);
-    }, [pageIndex, limit, searchTerm, activeFilters, fetchStocks]);
+    }, [pageIndex, limit, searchTerm, activeFilters, sorting, fetchStocks]);
 
     useEffect(() => {
         loadStocks();
@@ -162,6 +163,11 @@ const PPEStockInPage = () => {
         setDeleteDialogOpen(false);
         setStockToDelete(null);
         setOpenDropdownId(null); // Ensure dropdown is closed
+    }, []);
+
+    const handleSortingChange = useCallback((newSorting: { id: string; desc: boolean } | null) => {
+        setSorting(newSorting);
+        setPageIndex(0);
     }, []);
 
     const getAggregateStatus = useCallback((stock: PPEStock): { label: string; className: string } => {
@@ -311,6 +317,8 @@ const PPEStockInPage = () => {
                     onPageSizeChange: setLimit,
                     total: totalStocks,
                 }}
+                sorting={sorting}
+                onSortingChange={handleSortingChange}
                 filterFields={filterFields}
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}
