@@ -40,6 +40,7 @@ const getDisplayLabel = (value: string, fallback: string): string => {
 
 const MasterApprovalsPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [approvals, setApprovals] = useState<MasterApproval[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);

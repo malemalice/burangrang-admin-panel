@@ -7,6 +7,7 @@ import {
   GeneralStatusEnum,
   IncidentClassificationEnum,
   IncidentTypeEnum,
+  IncidentScopeEnum,
   LevelOfInjuryEnum,
   MechanismOfInjuryEnum,
   MonthEnum,
@@ -767,6 +768,7 @@ export class DashboardService {
     const currentDates = DashboardService.buildPeriodDates(periodFrom, periodTo);
     const currentWhere = {
       isActive: true,
+      type: IncidentScopeEnum.SECURITY,
       ...(currentDates.gte != null || currentDates.lte != null ? { incidentDate: currentDates } : {}),
     };
     const prev = DashboardService.previousPeriod(periodFrom, periodTo);
@@ -774,6 +776,7 @@ export class DashboardService {
       prev && (periodFrom || periodTo)
         ? {
             isActive: true,
+            type: IncidentScopeEnum.SECURITY,
             incidentDate: DashboardService.buildPeriodDates(prev.periodFrom, prev.periodTo),
           }
         : null;
@@ -852,8 +855,9 @@ export class DashboardService {
     periodTo?: string,
   ): Promise<HazardStatusData> {
     const incidentDate = DashboardService.buildPeriodDates(periodFrom, periodTo);
-    const where: { isActive: boolean; incidentDate?: { gte?: Date; lte?: Date } } = {
+    const where: { isActive: boolean; type: IncidentScopeEnum; incidentDate?: { gte?: Date; lte?: Date } } = {
       isActive: true,
+      type: IncidentScopeEnum.SECURITY,
       ...(incidentDate.gte != null || incidentDate.lte != null ? { incidentDate } : {}),
     };
     const incidents = await this.prisma.incident.findMany({
@@ -891,7 +895,7 @@ export class DashboardService {
         select: { year: true, month: true, total: true },
       }),
       this.prisma.incident.findMany({
-        where: { isActive: true },
+        where: { isActive: true, type: IncidentScopeEnum.SECURITY },
         select: {
           incidentDate: true,
           incidentClassification: true,
@@ -999,6 +1003,7 @@ export class DashboardService {
     const incidents = await this.prisma.incident.findMany({
       where: {
         isActive: true,
+        type: IncidentScopeEnum.SECURITY,
         incidentDate,
       },
       select: {
@@ -1061,8 +1066,9 @@ export class DashboardService {
     periodFrom?: string,
     periodTo?: string,
   ): Promise<SecurityTypeNonConformanceData[]> {
-    const where: { isActive: boolean; incidentDate?: { gte?: Date; lte?: Date } } = {
+    const where: { isActive: boolean; type: IncidentScopeEnum; incidentDate?: { gte?: Date; lte?: Date } } = {
       isActive: true,
+      type: IncidentScopeEnum.SECURITY,
     };
     if (periodFrom || periodTo) {
       where.incidentDate = {};
@@ -1109,8 +1115,9 @@ export class DashboardService {
     periodFrom?: string,
     periodTo?: string,
   ): Promise<SecurityPartiesInvolvedData[]> {
-    const where: { isActive: boolean; incidentDate?: { gte?: Date; lte?: Date } } = {
+    const where: { isActive: boolean; type: IncidentScopeEnum; incidentDate?: { gte?: Date; lte?: Date } } = {
       isActive: true,
+      type: IncidentScopeEnum.SECURITY,
     };
     if (periodFrom || periodTo) {
       where.incidentDate = {};

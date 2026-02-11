@@ -1971,6 +1971,16 @@ enum IncidentTypeEnum {
   DANGEROUS_OR_HAZARDOUS_OCCURRENCE
 }
 
+enum IncidentActivitiesEnum {
+  WORK
+  STUDY
+}
+
+enum IncidentScopeEnum {
+  GENERAL
+  SECURITY
+}
+
 enum GenderEnum {
   MALE
   FEMALE
@@ -2092,6 +2102,8 @@ model Incident {
   areaId                String
   incidentType          IncidentTypeEnum
   incidentClassification IncidentClassificationEnum
+  activities            IncidentActivitiesEnum       @default(WORK)
+  type                  IncidentScopeEnum            @default(GENERAL)
   requesterId           String
   reportedBy            String
   technicianId          String?
@@ -2142,6 +2154,8 @@ model Incident {
   @@index([assigneeId])
   @@index([status])
   @@index([source])
+  @@index([activities])
+  @@index([type])
   @@map("t_incidents")
 }
 

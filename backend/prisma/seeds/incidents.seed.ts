@@ -6,6 +6,8 @@ import { PrismaClient, Incident, Room } from '@prisma/client';
 import {
   IncidentTypeEnum,
   IncidentClassificationEnum,
+  IncidentActivitiesEnum,
+  IncidentScopeEnum,
   PriorityEnum,
   GeneralStatusEnum,
   SourceEnum,
@@ -804,6 +806,8 @@ export const seedIncidents = async () => {
           areaId: area.id,
           incidentType: t.incidentType,
           incidentClassification: t.incidentClassification,
+          activities: IncidentActivitiesEnum.WORK,
+          type: IncidentScopeEnum.GENERAL,
           requesterId: requester.id,
           reportedBy: reporter.id,
           technicianId: technician?.id,
