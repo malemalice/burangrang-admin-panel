@@ -23,26 +23,33 @@ import {
 
 const prisma = new PrismaClient();
 
-// Helper function to generate incident code: INC-YYYYMMDD-XXXX
+// Helper function to generate incident code: INC-YYYYMMDD-XXXX (general)
 const generateIncidentCode = async (dateStr: string): Promise<string> => {
   const prefix = `INC-${dateStr}-`;
   const lastIncident = await prisma.incident.findFirst({
-    where: {
-      code: {
-        startsWith: prefix,
-      },
-    },
-    orderBy: {
-      code: 'desc',
-    },
+    where: { code: { startsWith: prefix } },
+    orderBy: { code: 'desc' },
   });
-
   let sequence = 1;
   if (lastIncident) {
     const lastSequence = parseInt(lastIncident.code.slice(-4), 10);
     sequence = lastSequence + 1;
   }
+  return `${prefix}${sequence.toString().padStart(4, '0')}`;
+};
 
+// Helper function to generate security incident code: SEC-YYYYMMDD-XXXX
+const generateSecurityIncidentCode = async (dateStr: string): Promise<string> => {
+  const prefix = `SEC-${dateStr}-`;
+  const lastIncident = await prisma.incident.findFirst({
+    where: { code: { startsWith: prefix } },
+    orderBy: { code: 'desc' },
+  });
+  let sequence = 1;
+  if (lastIncident) {
+    const lastSequence = parseInt(lastIncident.code.slice(-4), 10);
+    sequence = lastSequence + 1;
+  }
   return `${prefix}${sequence.toString().padStart(4, '0')}`;
 };
 
@@ -708,6 +715,283 @@ export const seedIncidents = async () => {
       { subject: 'Hazard: Unstable Stack', year: 2023, month: 8, incidentType: IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE, incidentClassification: IncidentClassificationEnum.MINOR, priority: PriorityEnum.NORMAL, status: GeneralStatusEnum.CLOSE, description: 'Unstable material stack. Collapse risk.', controlMeasure: 'Restack safely.', expectedOutcome: 'Stacking procedures updated.', needToStopActivity: StopActivityEnum.NO, stopActivityDescription: null, treatment: TreatmentEnum.NO_TREATMENT, treatmentDescription: null, absence: AbsenceEnum.NOT_SPECIFIED, resolution: null, hasInjuredPerson: false, hasWitness: true, hasAssets: true },
     ];
 
+    // Security incident templates (type: SECURITY)
+    const securityIncidentTemplates: IncidentTemplate[] = [
+      {
+        subject: 'Unauthorized Access Attempt - Main Gate',
+        year: 2025,
+        month: 7,
+        incidentType: IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE,
+        incidentClassification: IncidentClassificationEnum.MAJOR,
+        priority: PriorityEnum.HIGH,
+        status: GeneralStatusEnum.OPEN,
+        description: 'Individual attempted to enter premises without valid ID. Stopped by security. No tailgating protocol was followed by preceding employee.',
+        controlMeasure: 'Reinforce gate protocol. Brief all staff on no tailgating. Review access control logs.',
+        expectedOutcome: 'Stricter gate checks. Access control awareness training completed.',
+        needToStopActivity: StopActivityEnum.NO,
+        stopActivityDescription: null,
+        treatment: TreatmentEnum.NO_TREATMENT,
+        treatmentDescription: null,
+        absence: AbsenceEnum.NOT_SPECIFIED,
+        resolution: null,
+        hasInjuredPerson: false,
+        hasWitness: true,
+        hasAssets: false,
+      },
+      {
+        subject: 'Theft of Company Equipment from Warehouse',
+        year: 2025,
+        month: 6,
+        incidentType: IncidentTypeEnum.ACCIDENT,
+        incidentClassification: IncidentClassificationEnum.MAJOR,
+        priority: PriorityEnum.HIGH,
+        status: GeneralStatusEnum.CLOSE,
+        description: 'Laptop and tools reported missing from locked warehouse. Investigation found door was left unsecured during shift change.',
+        controlMeasure: 'Immediate: Lockdown and audit. Review key handover procedure. Install additional CCTV.',
+        expectedOutcome: 'Key handover procedure updated. CCTV coverage improved. Loss reported to authorities.',
+        needToStopActivity: StopActivityEnum.YES,
+        stopActivityDescription: 'Warehouse access restricted until audit and procedure review completed.',
+        treatment: TreatmentEnum.NO_TREATMENT,
+        treatmentDescription: null,
+        absence: AbsenceEnum.NOT_SPECIFIED,
+        resolution: 'Procedures updated. CCTV installed. Police report filed.',
+        hasInjuredPerson: false,
+        hasWitness: true,
+        hasAssets: true,
+      },
+      {
+        subject: 'Tailgating Incident - Unauthorized Person in Restricted Area',
+        year: 2025,
+        month: 6,
+        incidentType: IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE,
+        incidentClassification: IncidentClassificationEnum.MINOR,
+        priority: PriorityEnum.HIGH,
+        status: GeneralStatusEnum.OPEN,
+        description: 'Contractor followed employee through access-controlled door without badging. Detected by security patrol 20 minutes later.',
+        controlMeasure: 'Remind staff not to allow tailgating. Contractor escort policy reinforced. Signage at all controlled doors.',
+        expectedOutcome: 'Tailgating awareness campaign. Contractor escort requirement enforced.',
+        needToStopActivity: StopActivityEnum.NO,
+        stopActivityDescription: null,
+        treatment: TreatmentEnum.NO_TREATMENT,
+        treatmentDescription: null,
+        absence: AbsenceEnum.NOT_SPECIFIED,
+        resolution: null,
+        hasInjuredPerson: false,
+        hasWitness: true,
+        hasAssets: false,
+      },
+      {
+        subject: 'Data Breach Attempt - Phishing Email Reported',
+        year: 2025,
+        month: 5,
+        incidentType: IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE,
+        incidentClassification: IncidentClassificationEnum.MAJOR,
+        priority: PriorityEnum.HIGH,
+        status: GeneralStatusEnum.CLOSE,
+        description: 'Employee received suspicious email requesting credentials. Reported to IT. No credentials were shared. Email blocked and traced.',
+        controlMeasure: 'IT security alert. Block sender. Scan network. Mandatory phishing awareness training.',
+        expectedOutcome: 'Phishing training completed. Email filters updated. No data compromise confirmed.',
+        needToStopActivity: StopActivityEnum.NO,
+        stopActivityDescription: null,
+        treatment: TreatmentEnum.NO_TREATMENT,
+        treatmentDescription: null,
+        absence: AbsenceEnum.NOT_SPECIFIED,
+        resolution: 'Sender blocked. Training completed. No breach confirmed.',
+        hasInjuredPerson: false,
+        hasWitness: false,
+        hasAssets: false,
+      },
+      {
+        subject: 'Security Guard Assault - Intruder Resisting Arrest',
+        year: 2025,
+        month: 5,
+        incidentType: IncidentTypeEnum.ACCIDENT,
+        incidentClassification: IncidentClassificationEnum.MAJOR,
+        priority: PriorityEnum.HIGH,
+        status: GeneralStatusEnum.CLOSE,
+        description: 'Intruder refused to leave and assaulted security guard. Police called. Guard sustained minor injuries.',
+        controlMeasure: 'Emergency response. Medical attention for guard. Police report. Review de-escalation and use-of-force policy.',
+        expectedOutcome: 'Guard cleared medically. Intruder charged. Security procedures reviewed.',
+        needToStopActivity: StopActivityEnum.YES,
+        stopActivityDescription: 'Area secured. Police attended.',
+        treatment: TreatmentEnum.MEDICAL_TREATMENT,
+        treatmentDescription: 'Guard treated for minor cuts and bruising.',
+        absence: AbsenceEnum.RETURNED_AFTER_TREATMENT,
+        resolution: 'Guard returned to duty. Legal action pursued. Procedures updated.',
+        hasInjuredPerson: true,
+        hasWitness: true,
+        hasAssets: false,
+      },
+      {
+        subject: 'Suspicious Package Left at Reception',
+        year: 2025,
+        month: 4,
+        incidentType: IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE,
+        incidentClassification: IncidentClassificationEnum.MAJOR,
+        priority: PriorityEnum.HIGH,
+        status: GeneralStatusEnum.CLOSE,
+        description: 'Unattended package found at reception. Evacuation and bomb squad called. Package was later confirmed as harmless (lost delivery).',
+        controlMeasure: 'Evacuate area. Do not touch package. Notify authorities. Follow suspicious item protocol.',
+        expectedOutcome: 'All clear given. Reception procedures updated. Staff trained on suspicious items.',
+        needToStopActivity: StopActivityEnum.YES,
+        stopActivityDescription: 'Building evacuated until all clear from authorities.',
+        treatment: TreatmentEnum.NO_TREATMENT,
+        treatmentDescription: null,
+        absence: AbsenceEnum.NOT_SPECIFIED,
+        resolution: 'All clear. Procedures documented. Training completed.',
+        hasInjuredPerson: false,
+        hasWitness: true,
+        hasAssets: false,
+      },
+      {
+        subject: 'After-Hours Intrusion Alarm - Office Building',
+        year: 2025,
+        month: 4,
+        incidentType: IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE,
+        incidentClassification: IncidentClassificationEnum.MINOR,
+        priority: PriorityEnum.HIGH,
+        status: GeneralStatusEnum.OPEN,
+        description: 'Alarm triggered in office block at 02:00. Security and police attended. No intruder found; cause was faulty window sensor.',
+        controlMeasure: 'Inspect sensor. Repair or replace. Review alarm response procedure.',
+        expectedOutcome: 'Sensor repaired. False alarm rate reduced. Response procedure verified.',
+        needToStopActivity: StopActivityEnum.NO,
+        stopActivityDescription: null,
+        treatment: TreatmentEnum.NO_TREATMENT,
+        treatmentDescription: null,
+        absence: AbsenceEnum.NOT_SPECIFIED,
+        resolution: null,
+        hasInjuredPerson: false,
+        hasWitness: false,
+        hasAssets: true,
+      },
+      {
+        subject: 'Visitor Without Appointment - Aggressive Behavior',
+        year: 2025,
+        month: 3,
+        incidentType: IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE,
+        incidentClassification: IncidentClassificationEnum.MINOR,
+        priority: PriorityEnum.NORMAL,
+        status: GeneralStatusEnum.CLOSE,
+        description: 'Visitor demanded entry without appointment and became aggressive when refused. Security de-escalated. Police notified.',
+        controlMeasure: 'De-escalation. Do not allow entry. Notify security and police if needed. Log incident.',
+        expectedOutcome: 'Visitor removed from premises. Incident logged. Staff trained on handling difficult visitors.',
+        needToStopActivity: StopActivityEnum.NO,
+        stopActivityDescription: null,
+        treatment: TreatmentEnum.NO_TREATMENT,
+        treatmentDescription: null,
+        absence: AbsenceEnum.NOT_SPECIFIED,
+        resolution: 'Visitor left. No injuries. Procedures reinforced.',
+        hasInjuredPerson: false,
+        hasWitness: true,
+        hasAssets: false,
+      },
+      {
+        subject: 'Lost Access Badge - Found in Parking Lot',
+        year: 2025,
+        month: 3,
+        incidentType: IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE,
+        incidentClassification: IncidentClassificationEnum.MINOR,
+        priority: PriorityEnum.NORMAL,
+        status: GeneralStatusEnum.OPEN,
+        description: 'Employee access badge found in parking lot by another staff member. Badge was deactivated immediately. New badge issued.',
+        controlMeasure: 'Deactivate badge immediately. Issue new badge. Remind staff to report lost badges. Review badge policy.',
+        expectedOutcome: 'Badge deactivated. Employee re-badged. Awareness on reporting lost badges.',
+        needToStopActivity: StopActivityEnum.NO,
+        stopActivityDescription: null,
+        treatment: TreatmentEnum.NO_TREATMENT,
+        treatmentDescription: null,
+        absence: AbsenceEnum.NOT_SPECIFIED,
+        resolution: null,
+        hasInjuredPerson: false,
+        hasWitness: false,
+        hasAssets: false,
+      },
+      {
+        subject: 'Vandalism - Graffiti on Perimeter Fence',
+        year: 2025,
+        month: 2,
+        incidentType: IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE,
+        incidentClassification: IncidentClassificationEnum.MINOR,
+        priority: PriorityEnum.NORMAL,
+        status: GeneralStatusEnum.CLOSE,
+        description: 'Graffiti discovered on perimeter fence. No breach. CCTV reviewed; incident occurred overnight. Cleanup arranged.',
+        controlMeasure: 'Document and photograph. Arrange cleanup. Review CCTV. Increase patrol if needed.',
+        expectedOutcome: 'Fence cleaned. Patrol schedule reviewed. No repeat incident.',
+        needToStopActivity: StopActivityEnum.NO,
+        stopActivityDescription: null,
+        treatment: TreatmentEnum.NO_TREATMENT,
+        treatmentDescription: null,
+        absence: AbsenceEnum.NOT_SPECIFIED,
+        resolution: 'Cleanup completed. Patrols adjusted.',
+        hasInjuredPerson: false,
+        hasWitness: false,
+        hasAssets: false,
+      },
+      {
+        subject: 'Near Miss: Unauthorized Vehicle in Restricted Zone',
+        year: 2025,
+        month: 1,
+        incidentType: IncidentTypeEnum.NEAR_MISS,
+        incidentClassification: IncidentClassificationEnum.MINOR,
+        priority: PriorityEnum.NORMAL,
+        status: GeneralStatusEnum.CLOSE,
+        description: 'Delivery driver entered restricted zone. Stopped by security before reaching sensitive area. Driver was lost and had wrong gate pass.',
+        controlMeasure: 'Clarify delivery routes and gate passes. Improve signage. Brief delivery contractors.',
+        expectedOutcome: 'Delivery routes documented. Contractors briefed. No unauthorized access occurred.',
+        needToStopActivity: StopActivityEnum.NO,
+        stopActivityDescription: null,
+        treatment: TreatmentEnum.NO_TREATMENT,
+        treatmentDescription: null,
+        absence: AbsenceEnum.NOT_SPECIFIED,
+        resolution: 'Routes and passes updated. No breach.',
+        hasInjuredPerson: false,
+        hasWitness: true,
+        hasAssets: true,
+      },
+      {
+        subject: 'Workplace Violence Threat - Disgruntled Former Employee',
+        year: 2024,
+        month: 11,
+        incidentType: IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE,
+        incidentClassification: IncidentClassificationEnum.MAJOR,
+        priority: PriorityEnum.HIGH,
+        status: GeneralStatusEnum.CLOSE,
+        description: 'Former employee made threatening remarks at reception. Security and police called. Individual was removed and trespass notice issued.',
+        controlMeasure: 'Do not engage. Call security and police. Issue trespass notice. Update access list. Restraining order considered.',
+        expectedOutcome: 'Individual removed. Trespass notice in place. HR and legal informed.',
+        needToStopActivity: StopActivityEnum.YES,
+        stopActivityDescription: 'Reception area secured until individual removed.',
+        treatment: TreatmentEnum.NO_TREATMENT,
+        treatmentDescription: null,
+        absence: AbsenceEnum.NOT_SPECIFIED,
+        resolution: 'Trespass notice issued. Access revoked. Staff supported.',
+        hasInjuredPerson: false,
+        hasWitness: true,
+        hasAssets: false,
+      },
+      {
+        subject: 'CCTV Camera Tampering Detected',
+        year: 2024,
+        month: 10,
+        incidentType: IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE,
+        incidentClassification: IncidentClassificationEnum.MINOR,
+        priority: PriorityEnum.HIGH,
+        status: GeneralStatusEnum.CLOSE,
+        description: 'One CCTV camera in warehouse showed offline. On inspection, cable was disconnected. No footage of who did it. Camera restored.',
+        controlMeasure: 'Restore camera. Secure cabling. Review other cameras. Investigate who had access.',
+        expectedOutcome: 'All cameras operational. Cabling secured. Access to camera locations restricted.',
+        needToStopActivity: StopActivityEnum.NO,
+        stopActivityDescription: null,
+        treatment: TreatmentEnum.NO_TREATMENT,
+        treatmentDescription: null,
+        absence: AbsenceEnum.NOT_SPECIFIED,
+        resolution: 'Camera restored. Cabling secured. Investigation inconclusive.',
+        hasInjuredPerson: false,
+        hasWitness: false,
+        hasAssets: true,
+      },
+    ];
+
     const createdIncidents: Incident[] = [];
     const usedRoomIds = new Set<string>(); // Track used rooms to avoid unique constraint violation
 
@@ -839,8 +1123,132 @@ export const seedIncidents = async () => {
       console.log(`✅ Created incident: ${incident.code} - ${t.subject}`);
     }
 
+    // Create security incidents (type: SECURITY)
+    for (const t of securityIncidentTemplates) {
+      const incidentDate = generateDateInMonth(t.year, t.month);
+      const dueDate = new Date(incidentDate);
+      dueDate.setDate(dueDate.getDate() + 14);
+      const dateStr = incidentDate.toISOString().slice(0, 10).replace(/-/g, '');
+      const code = await generateSecurityIncidentCode(dateStr);
+
+      const area = randomItem(areas);
+      let room: Room | null = null;
+      if (rooms.length > 0) {
+        const availableRooms = rooms.filter((r) => !usedRoomIds.has(r.id));
+        if (availableRooms.length > 0) {
+          room = randomItem(availableRooms);
+          usedRoomIds.add(room.id);
+        }
+      }
+      const riskCategory = randomItem(riskCategories);
+      const requester = randomItem(users);
+      const reporter = randomItem(users);
+      const technician = Math.random() > 0.5 ? randomItem(techniciansList) : null;
+      const assignedDepartment = randomItem(departments);
+      const assignee = Math.random() > 0.7 ? randomItem(users) : null;
+      const creator = randomItem(users);
+
+      const injuredPersons = t.hasInjuredPerson
+        ? [
+            {
+              injuredPersonName: 'John Doe',
+              gender: GenderEnum.MALE,
+              levelOfInjury: LevelOfInjuryEnum.MINOR,
+              injuredBodyPart: InjuredBodyPartEnum.HAND,
+              typeOfInjury: TypeOfInjuryEnum.LACERATION,
+              mechanismOfInjury: MechanismOfInjuryEnum.HAND_TOOLS,
+              departmentId: randomItem(departments).id,
+              order: 1,
+            },
+          ]
+        : [];
+
+      const witnesses = t.hasWitness
+        ? [
+            {
+              witnessName: 'Jane Smith',
+              gender: GenderEnum.FEMALE,
+              departmentId: randomItem(departments).id,
+              order: 1,
+            },
+            ...(Math.random() > 0.5
+              ? [
+                  {
+                    witnessName: 'Bob Johnson',
+                    gender: GenderEnum.MALE,
+                    departmentId: randomItem(departments).id,
+                    order: 2,
+                  },
+                ]
+              : []),
+          ]
+        : [];
+
+      const assets = t.hasAssets
+        ? [
+            {
+              assetName: 'Security Equipment',
+              assetCode: 'SEC-001',
+              quantity: 1,
+              order: 1,
+            },
+            ...(Math.random() > 0.5
+              ? [
+                  {
+                    assetName: 'CCTV Unit',
+                    assetCode: 'CCTV-001',
+                    quantity: 1,
+                    order: 2,
+                  },
+                ]
+              : []),
+          ]
+        : [];
+
+      const incident = await prisma.incident.create({
+        data: {
+          code,
+          subject: t.subject,
+          incidentDate,
+          roomId: room?.id,
+          areaId: area.id,
+          incidentType: t.incidentType,
+          incidentClassification: t.incidentClassification,
+          activities: IncidentActivitiesEnum.WORK,
+          type: IncidentScopeEnum.SECURITY,
+          requesterId: requester.id,
+          reportedBy: reporter.id,
+          technicianId: technician?.id,
+          priority: t.priority,
+          riskCategoryId: riskCategory.id,
+          description: t.description,
+          controlMeasure: t.controlMeasure,
+          dueDate,
+          expectedOutcome: t.expectedOutcome,
+          needToStopActivity: t.needToStopActivity,
+          stopActivityDescription: t.stopActivityDescription,
+          treatment: t.treatment,
+          treatmentDescription: t.treatmentDescription,
+          absence: t.absence,
+          resolution: t.resolution,
+          assignedDepartmentId: assignedDepartment.id,
+          assigneeId: assignee?.id,
+          status: t.status,
+          source: SourceEnum.SYSTEM,
+          isActive: true,
+          createdBy: creator.id,
+          injuredPersons: injuredPersons.length > 0 ? { create: injuredPersons } : undefined,
+          witnesses: witnesses.length > 0 ? { create: witnesses } : undefined,
+          assets: assets.length > 0 ? { create: assets } : undefined,
+        },
+      });
+
+      createdIncidents.push(incident);
+      console.log(`✅ Created security incident: ${incident.code} - ${t.subject}`);
+    }
+
     console.log(`✅ Incidents seeded successfully`);
-    console.log(`   - Created ${createdIncidents.length} incidents`);
+    console.log(`   - Created ${createdIncidents.length} incidents (general + security)`);
 
     return createdIncidents;
   } catch (error) {

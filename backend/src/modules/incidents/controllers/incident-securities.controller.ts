@@ -27,7 +27,6 @@ import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 
-// Define interface for request with user property
 interface RequestWithUser extends ExpressRequest {
   user: {
     id: string;
@@ -36,48 +35,48 @@ interface RequestWithUser extends ExpressRequest {
   };
 }
 
-@ApiTags('Incidents')
+@ApiTags('Incident Securities')
 @ApiBearerAuth()
-@Controller('incidents')
+@Controller('incident-securities')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-export class IncidentsController {
+export class IncidentSecuritiesController {
   constructor(private readonly incidentsService: IncidentsService) {}
 
   @Post()
-  @Permissions('incident:create')
-  @ApiOperation({ summary: 'Create a new incident' })
+  @Permissions('incident-security:create')
+  @ApiOperation({ summary: 'Create a new security incident' })
   @ApiResponse({ status: 201, type: IncidentDto })
   async create(
     @Request() req: RequestWithUser,
     @Body() createIncidentDto: CreateIncidentDto,
   ): Promise<IncidentDto> {
     return this.incidentsService.create(
-      { ...createIncidentDto, type: IncidentScopeEnum.GENERAL },
+      { ...createIncidentDto, type: IncidentScopeEnum.SECURITY },
       req.user.id,
     );
   }
 
   @Get()
   @AllowOptionsBypass()
-  @Permissions('incident:list')
-  @ApiOperation({ summary: 'Get all incidents with pagination and filtering' })
+  @Permissions('incident-security:list')
+  @ApiOperation({ summary: 'Get all security incidents with pagination and filtering' })
   @ApiResponse({ status: 200, type: [IncidentDto] })
   @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   async findAll(@Query() query: FindIncidentsDto) {
-    return this.incidentsService.findAll({ ...query, type: IncidentScopeEnum.GENERAL });
+    return this.incidentsService.findAll({ ...query, type: IncidentScopeEnum.SECURITY });
   }
 
   @Get(':id')
-  @Permissions('incident:read')
-  @ApiOperation({ summary: 'Get an incident by id' })
+  @Permissions('incident-security:read')
+  @ApiOperation({ summary: 'Get a security incident by id' })
   @ApiResponse({ status: 200, type: IncidentDto })
   async findOne(@Param('id') id: string): Promise<IncidentDto> {
     return this.incidentsService.findOne(id);
   }
 
   @Patch(':id')
-  @Permissions('incident:update')
-  @ApiOperation({ summary: 'Update an incident' })
+  @Permissions('incident-security:update')
+  @ApiOperation({ summary: 'Update a security incident' })
   @ApiResponse({ status: 200, type: IncidentDto })
   async update(
     @Request() req: RequestWithUser,
@@ -88,16 +87,16 @@ export class IncidentsController {
   }
 
   @Delete(':id')
-  @Permissions('incident:delete')
-  @ApiOperation({ summary: 'Soft delete an incident (set isActive to false)' })
+  @Permissions('incident-security:delete')
+  @ApiOperation({ summary: 'Soft delete a security incident (set isActive to false)' })
   @ApiResponse({ status: 200, type: IncidentDto })
   async remove(@Param('id') id: string): Promise<IncidentDto> {
     return this.incidentsService.remove(id);
   }
 
   @Post(':id/submit')
-  @Permissions('incident:update')
-  @ApiOperation({ summary: 'Submit incident for approval' })
+  @Permissions('incident-security:update')
+  @ApiOperation({ summary: 'Submit security incident for approval' })
   @ApiResponse({ status: 200, type: IncidentDto })
   async submit(
     @Request() req: RequestWithUser,
@@ -107,8 +106,8 @@ export class IncidentsController {
   }
 
   @Post(':id/approve')
-  @Permissions('incident:update')
-  @ApiOperation({ summary: 'Approve incident' })
+  @Permissions('incident-security:update')
+  @ApiOperation({ summary: 'Approve security incident' })
   @ApiResponse({ status: 200, type: IncidentDto })
   async approve(
     @Request() req: RequestWithUser,
@@ -119,8 +118,8 @@ export class IncidentsController {
   }
 
   @Post(':id/reject')
-  @Permissions('incident:update')
-  @ApiOperation({ summary: 'Reject incident' })
+  @Permissions('incident-security:update')
+  @ApiOperation({ summary: 'Reject security incident' })
   @ApiResponse({ status: 200, type: IncidentDto })
   async reject(
     @Request() req: RequestWithUser,
@@ -131,8 +130,8 @@ export class IncidentsController {
   }
 
   @Get(':id/approval-rights')
-  @Permissions('incident:read')
-  @ApiOperation({ summary: 'Check if user can approve/reject incident' })
+  @Permissions('incident-security:read')
+  @ApiOperation({ summary: 'Check if user can approve/reject security incident' })
   @ApiResponse({ status: 200 })
   async checkApprovalRights(
     @Request() req: RequestWithUser,
@@ -142,8 +141,8 @@ export class IncidentsController {
   }
 
   @Get(':id/timeline')
-  @Permissions('incident:read')
-  @ApiOperation({ summary: 'Get approval timeline for incident' })
+  @Permissions('incident-security:read')
+  @ApiOperation({ summary: 'Get approval timeline for security incident' })
   @ApiResponse({ status: 200 })
   async getTimeline(@Param('id') id: string) {
     return this.incidentsService.getTimeline(id);

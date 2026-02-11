@@ -135,6 +135,13 @@ export const permissions = [
   { name: 'incident:delete', description: 'Delete incidents' },
   { name: 'incident:list', description: 'List all incidents' },
 
+  // Incident Security Management
+  { name: 'incident-security:create', description: 'Create new security incidents' },
+  { name: 'incident-security:read', description: 'View security incident information' },
+  { name: 'incident-security:update', description: 'Update security incident information' },
+  { name: 'incident-security:delete', description: 'Delete security incidents' },
+  { name: 'incident-security:list', description: 'List all security incidents' },
+
   // Audit Schedule Management
   { name: 'audit-schedule:create', description: 'Create new audit schedules' },
   { name: 'audit-schedule:read', description: 'View audit schedule information' },

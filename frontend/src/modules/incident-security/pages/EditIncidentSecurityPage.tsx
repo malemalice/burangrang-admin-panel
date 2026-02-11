@@ -1,0 +1,89 @@
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Button } from '@/core/components/ui/button';
+import PageHeader from '@/core/components/ui/PageHeader';
+import incidentSecurityService from '../services/incidentSecurityService';
+import { Incident } from '../types/incidentSecurity.types';
+import IncidentSecurityForm from '../components/IncidentSecurityForm';
+
+const EditIncidentSecurityPage = () => {
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const [incident, setIncident] = useState<Incident | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const modeParam = searchParams.get('mode');
+  const entryMode = modeParam && ['creator', 'investigator', 'approver'].includes(modeParam)
+    ? (modeParam as 'creator' | 'investigator' | 'approver')
+    : undefined;
+
+  useEffect(() => {
+    const fetchIncident = async () => {
+      if (!id) return;
+
+      try {
+        setIsLoading(true);
+        const data = await incidentSecurityService.getById(id);
+        setIncident(data);
+      } catch (error) {
+        console.error('Failed to fetch security incident:', error);
+        toast.error('Failed to load security incident');
+        navigate('/incident-securities');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchIncident();
+  }, [id, navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading security incident details...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!incident) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+          Security incident not found
+        </h2>
+        <p className="text-muted-foreground mb-4">
+          The security incident you&apos;re looking for doesn&apos;t exist or has been deleted.
+        </p>
+        <Button onClick={() => navigate('/incident-securities')}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Incident Securities
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <PageHeader
+        title="Edit Security Incident"
+        subtitle={`Modify the details of "${incident.code}"`}
+        actions={
+          <Button variant="outline" onClick={() => navigate('/incident-securities')}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Incident Securities
+          </Button>
+        }
+      />
+      <div className="max-w-4xl mx-auto">
+        <IncidentSecurityForm incident={incident} mode="edit" entryMode={entryMode} />
+      </div>
+    </>
+  );
+};
+
+export default EditIncidentSecurityPage;

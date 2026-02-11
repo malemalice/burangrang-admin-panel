@@ -33,7 +33,7 @@ import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
 import { Label } from '@/core/components/ui/label';
 import { Plus, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip, X, CheckCircle2, XCircle, ClipboardList } from 'lucide-react';
-import incidentsService from '../services/incidentsService';
+import incidentSecurityService from '../services/incidentSecurityService';
 import uploadService, { FileCategory } from '@/modules/uploads/services/uploadService';
 import safetyEquipmentService from '@/modules/ppe/services/safetyEquipmentService';
 import api from '@/core/lib/api';
@@ -60,7 +60,7 @@ import {
   CreateIncidentImageDTO,
   CreateIncidentAttachmentDTO,
   EquipmentEntityEnum,
-} from '../types/incident.types';
+} from '../types/incidentSecurity.types';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
 import areaService from '@/modules/master-data/services/areaService';
@@ -71,8 +71,7 @@ import { AreaDTO, RoomDTO } from '@/modules/master-data/types/master-data.types'
 import { RiskCategory, Department } from '@/core/lib/types';
 import { User } from '@/core/lib/types';
 
-// Generate incident code: ICD + YYMMDDHHmmss
-// Includes seconds to reduce collision probability
+// Generate security incident code: ICS + YYMMDDHHmmss
 const generateIncidentCode = (): string => {
   const now = new Date();
   const year = now.getFullYear().toString().slice(-2);
@@ -81,7 +80,7 @@ const generateIncidentCode = (): string => {
   const hour = now.getHours().toString().padStart(2, '0');
   const minute = now.getMinutes().toString().padStart(2, '0');
   const second = now.getSeconds().toString().padStart(2, '0');
-  return `ICD${year}${month}${date}${hour}${minute}${second}`;
+  return `ICS${year}${month}${date}${hour}${minute}${second}`;
 };
 
 // Schema for injured person - gender allows blank (empty string) to match create behavior
@@ -157,13 +156,13 @@ type FormValues = z.infer<typeof formSchema>;
 
 type IncidentFormMode = 'creator' | 'investigator' | 'approver';
 
-interface IncidentFormProps {
+interface IncidentSecurityFormProps {
   incident?: Incident;
   mode: 'create' | 'edit';
   entryMode?: IncidentFormMode;
 }
 
-const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
+const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFormProps) => {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
@@ -488,7 +487,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
           setResolvedMode(entryMode);
           if (entryMode === 'approver' && incident) {
             try {
-              const approvalResponse = await incidentsService.checkApprovalRights(incident.id);
+              const approvalResponse = await incidentSecurityService.checkApprovalRights(incident.id);
               setCanApprove(approvalResponse.canApprove);
             } catch (error) {
               console.error('Failed to check approval rights:', error);
@@ -522,7 +521,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             let hasApprovalRights = false;
             if (incident.status === GeneralStatusEnum.WAITING_APPROVAL) {
               try {
-                const approvalResponse = await incidentsService.checkApprovalRights(incident.id);
+                const approvalResponse = await incidentSecurityService.checkApprovalRights(incident.id);
                 hasApprovalRights = approvalResponse.canApprove;
                 setCanApprove(hasApprovalRights);
               } catch (error) {
@@ -824,14 +823,14 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       setIsApproving(true);
 
       if (status === ApprovalStatus.APPROVED) {
-        await incidentsService.approve(incident.id, notes, activities);
+        await incidentSecurityService.approve(incident.id, notes, activities);
         toast.success('Incident approved successfully');
       } else {
-        await incidentsService.reject(incident.id, notes);
+        await incidentSecurityService.reject(incident.id, notes);
         toast.success('Incident rejected');
       }
 
-      navigate('/incidents');
+      navigate('/incident-securities');
     } catch (error: any) {
       console.error('Failed to submit approval:', error);
       toast.error(error?.response?.data?.message || 'Failed to submit approval');
@@ -951,18 +950,18 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       };
 
       if (mode === 'create') {
-        await incidentsService.create(dto as CreateIncidentDTO);
+        await incidentSecurityService.create(dto as CreateIncidentDTO);
         toast.success('Incident created successfully');
       } else if (incident) {
-        await incidentsService.update(incident.id, dto as UpdateIncidentDTO);
+        await incidentSecurityService.update(incident.id, dto as UpdateIncidentDTO);
         if (resolvedMode === 'investigator') {
-          await incidentsService.submit(incident.id);
+          await incidentSecurityService.submit(incident.id);
           toast.success('Incident submitted for approval');
         } else {
           toast.success('Incident updated successfully');
         }
       }
-      navigate('/incidents');
+      navigate('/incident-securities');
     } catch (error: any) {
       console.error('Error saving incident:', error);
       const message = error.response?.data?.message || `Failed to ${mode} incident`;
@@ -2436,7 +2435,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate('/incidents')}
+                onClick={() => navigate('/incident-securities')}
                 disabled={isLoading || isUploadingFiles || isApproving}
               >
                 Cancel
@@ -2495,8 +2494,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     : resolvedMode === 'investigator'
                     ? 'Submit'
                     : mode === 'create' 
-                    ? 'Create Incident' 
-                    : 'Update Incident'}
+                    ? 'Create Security Incident' 
+                    : 'Update Security Incident'}
                 </Button>
               )}
             </div>
@@ -2507,4 +2506,4 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
   );
 };
 
-export default IncidentForm;
+export default IncidentSecurityForm;

@@ -859,7 +859,12 @@ export class IncidentsService {
   /**
    * Approve incident
    */
-  async approve(id: string, notes: string, userId: string): Promise<IncidentDto> {
+  async approve(
+    id: string,
+    notes: string,
+    userId: string,
+    activities?: IncidentActivitiesEnum,
+  ): Promise<IncidentDto> {
     return this.errorHandler.safeExecute(async () => {
       const incident = await this.prisma.incident.findUnique({
         where: { id },
@@ -907,11 +912,12 @@ export class IncidentsService {
         nextStatus = GeneralStatusEnum.WAITING_APPROVAL;
       }
 
-      // Update status
+      // Update status (and activities when provided by approver)
       const updated = await this.prisma.incident.update({
         where: { id },
         data: {
           status: nextStatus,
+          ...(activities != null && { activities }),
         },
         include: {
           room: true,

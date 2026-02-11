@@ -3,11 +3,11 @@ import {
   CreateIncidentDTO,
   UpdateIncidentDTO,
   IncidentActivitiesEnum,
-} from '../types/incident.types';
+} from '../types/incidentSecurity.types';
 import { PaginatedResponse, PaginationParams } from '@/core/lib/types';
 import api from '@/core/lib/api';
 
-const incidentsService = {
+const incidentSecurityService = {
   getAll: async (
     params: PaginationParams & {
       sortBy?: string;
@@ -26,7 +26,7 @@ const incidentsService = {
     },
   ): Promise<PaginatedResponse<Incident>> => {
     const serializedParams = new URLSearchParams();
-    Object.entries({ ...params, type: 'GENERAL' }).forEach(([key, value]) => {
+    Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
         if (Array.isArray(value)) {
           value.forEach(item => {
@@ -38,31 +38,31 @@ const incidentsService = {
       }
     });
 
-    const response = await api.get(`/incidents?${serializedParams.toString()}`);
+    const response = await api.get(`/incident-securities?${serializedParams.toString()}`);
     return response.data;
   },
 
   getById: async (id: string): Promise<Incident> => {
-    const response = await api.get(`/incidents/${id}`);
+    const response = await api.get(`/incident-securities/${id}`);
     return response.data;
   },
 
   create: async (data: CreateIncidentDTO): Promise<Incident> => {
-    const response = await api.post('/incidents', { ...data, type: 'GENERAL' });
+    const response = await api.post('/incident-securities', data);
     return response.data;
   },
 
   update: async (id: string, data: UpdateIncidentDTO): Promise<Incident> => {
-    const response = await api.patch(`/incidents/${id}`, data);
+    const response = await api.patch(`/incident-securities/${id}`, data);
     return response.data;
   },
 
   delete: async (id: string): Promise<void> => {
-    await api.delete(`/incidents/${id}`);
+    await api.delete(`/incident-securities/${id}`);
   },
 
   submit: async (id: string): Promise<Incident> => {
-    const response = await api.post(`/incidents/${id}/submit`);
+    const response = await api.post(`/incident-securities/${id}/submit`);
     return response.data;
   },
 
@@ -71,7 +71,7 @@ const incidentsService = {
     notes?: string,
     activities?: IncidentActivitiesEnum,
   ): Promise<Incident> => {
-    const response = await api.post(`/incidents/${id}/approve`, {
+    const response = await api.post(`/incident-securities/${id}/approve`, {
       notes,
       activities,
     });
@@ -79,7 +79,7 @@ const incidentsService = {
   },
 
   reject: async (id: string, reason: string): Promise<Incident> => {
-    const response = await api.post(`/incidents/${id}/reject`, { reason });
+    const response = await api.post(`/incident-securities/${id}/reject`, { reason });
     return response.data;
   },
 
@@ -88,14 +88,14 @@ const incidentsService = {
     canReject: boolean;
     nextApprover: any;
   }> => {
-    const response = await api.get(`/incidents/${id}/approval-rights`);
+    const response = await api.get(`/incident-securities/${id}/approval-rights`);
     return response.data;
   },
 
   getTimeline: async (id: string): Promise<any[]> => {
-    const response = await api.get(`/incidents/${id}/timeline`);
+    const response = await api.get(`/incident-securities/${id}/timeline`);
     return response.data;
   },
 };
 
-export default incidentsService;
+export default incidentSecurityService;
