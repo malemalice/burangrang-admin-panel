@@ -416,9 +416,10 @@ export class IncidentsService {
                 orderBy: { order: 'asc' },
               },
             },
-            orderBy: {
-              [sortBy]: sortOrder,
-            },
+            orderBy: [
+              { [sortBy]: sortOrder },
+              { createdAt: 'desc' },
+            ],
             skip: (page - 1) * limit,
             take: limit,
           }),

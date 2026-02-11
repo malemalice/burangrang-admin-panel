@@ -30,7 +30,7 @@ import { Badge } from '@/core/components/ui/badge';
 
 import { Incident, IncidentTypeEnum, IncidentClassificationEnum, PriorityEnum, SourceEnum } from '../types/incidentSecurity.types';
 import incidentSecurityService from '../services/incidentSecurityService';
-import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
+import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS, INCIDENT_STATUS_OPTIONS_LIMITED } from '@/shared/constants/general-status.enum';
 import areaService from '@/modules/master-data/services/areaService';
 import { riskCategoryService, departmentService } from '@/modules/master-data';
 import userService from '@/modules/users/services/userService';
@@ -103,7 +103,7 @@ const IncidentSecuritiesPage = () => {
       id: 'status',
       label: 'Status',
       type: 'multiSelectSearchable',
-      options: GENERAL_STATUS_OPTIONS.map(option => ({
+      options: (isSuperAdmin ? GENERAL_STATUS_OPTIONS : INCIDENT_STATUS_OPTIONS_LIMITED).map(option => ({
         label: option.label,
         value: option.value,
       })),

@@ -1584,7 +1584,7 @@ model Room {
   updatedAt                 DateTime                   @updatedAt
   area                      Area                       @relation(fields: [areaId], references: [id])
   environmentalMeasurements EnvironmentalMeasurement[]
-  incident                  Incident?
+  incidents                 Incident[]
 
   @@map("m_rooms")
 }
@@ -2098,7 +2098,7 @@ model Incident {
   code                  String                    @unique
   subject               String
   incidentDate          DateTime
-  roomId                String?                   @unique
+  roomId                String?
   areaId                String
   incidentType          IncidentTypeEnum
   incidentClassification IncidentClassificationEnum

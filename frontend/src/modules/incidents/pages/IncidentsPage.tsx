@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Eye, Plus, Edit, Trash2, CheckCircle2, Info, ArrowRight, FileText, ShieldCheck } from 'lucide-react';
@@ -30,7 +30,7 @@ import { Badge } from '@/core/components/ui/badge';
 
 import { Incident, IncidentTypeEnum, IncidentClassificationEnum, PriorityEnum, SourceEnum } from '../types/incident.types';
 import incidentsService from '../services/incidentsService';
-import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
+import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS, INCIDENT_STATUS_OPTIONS_LIMITED } from '@/shared/constants/general-status.enum';
 import areaService from '@/modules/master-data/services/areaService';
 import { riskCategoryService, departmentService } from '@/modules/master-data';
 import userService from '@/modules/users/services/userService';
@@ -38,24 +38,50 @@ import { AreaDTO } from '@/modules/master-data/types/master-data.types';
 import { RiskCategory, Department } from '@/core/lib/types';
 import { User } from '@/core/lib/types';
 
+const PRIORITY_LABELS: Record<string, string> = {
+  NOT_SPECIFIED: 'Not Specified',
+  NORMAL: 'Normal',
+  HIGH: 'High',
+  VENDOR: 'Vendor',
+  LONGER_TERM: 'Longer Term',
+};
+
+const FILTER_KEYS = [
+  'code',
+  'status',
+  'priority',
+  'incidentType',
+  'incidentClassification',
+  'areaId',
+  'assignedDepartmentId',
+  'assigneeId',
+  'riskCategoryId',
+  'source',
+];
+
+const MULTI_VALUE_FILTER_KEYS = [
+  'status',
+  'priority',
+  'incidentType',
+  'areaId',
+  'assignedDepartmentId',
+  'assigneeId',
+  'riskCategoryId',
+];
+
 const IncidentsPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user: currentUser } = useAuth();
   const { hasPermission } = usePermissions();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [pageIndex, setPageIndex] = useState(0);
-  const [limit, setLimit] = useState(10);
   const [totalIncidents, setTotalIncidents] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [incidentToDelete, setIncidentToDelete] = useState<Incident | null>(null);
-  const [activeTab, setActiveTab] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [approvalRights, setApprovalRights] = useState<Record<string, boolean>>({});
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
-  const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>({ id: 'incidentDate', desc: true });
 
   // Filter options state
   const [areas, setAreas] = useState<AreaDTO[]>([]);
@@ -103,7 +129,7 @@ const IncidentsPage = () => {
       id: 'status',
       label: 'Status',
       type: 'multiSelectSearchable',
-      options: GENERAL_STATUS_OPTIONS.map(option => ({
+      options: (isSuperAdmin ? GENERAL_STATUS_OPTIONS : INCIDENT_STATUS_OPTIONS_LIMITED).map(option => ({
         label: option.label,
         value: option.value,
       })),
@@ -195,7 +221,7 @@ const IncidentsPage = () => {
       const params: any = {
         page: pageIndex + 1,
         limit,
-        sortBy: sorting?.id ?? 'incidentDate',
+        sortBy: sorting?.id ?? 'createdAt',
         sortOrder: sorting?.desc ? 'desc' : 'asc',
       };
 
@@ -774,7 +800,7 @@ const IncidentsPage = () => {
               : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
           }
         >
-          {row.priority}
+          {PRIORITY_LABELS[row.priority] ?? row.priority}
         </Badge>
       ),
     },

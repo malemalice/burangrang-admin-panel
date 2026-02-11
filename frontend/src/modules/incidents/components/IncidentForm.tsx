@@ -87,7 +87,7 @@ const generateIncidentCode = (): string => {
 // Schema for injured person - gender allows blank (empty string) to match create behavior
 const injuredPersonSchema = z.object({
   injuredPersonName: z.string().optional(),
-  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.undefined()]).optional().transform((val) => (val === '' ? undefined : val)),
+  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.null(), z.undefined()]).optional().transform((val) => (val === '' || val === null ? undefined : val)),
   levelOfInjury: z.nativeEnum(LevelOfInjuryEnum).default(LevelOfInjuryEnum.NOT_SPECIFIED),
   injuredBodyPart: z.nativeEnum(InjuredBodyPartEnum).default(InjuredBodyPartEnum.NOT_SPECIFIED),
   typeOfInjury: z.nativeEnum(TypeOfInjuryEnum).default(TypeOfInjuryEnum.NOT_SPECIFIED),
@@ -98,7 +98,7 @@ const injuredPersonSchema = z.object({
 // Schema for witness - gender allows blank (empty string) to match create behavior
 const witnessSchema = z.object({
   witnessName: z.string().optional(),
-  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.undefined()]).optional().transform((val) => (val === '' ? undefined : val)),
+  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.null(), z.undefined()]).optional().transform((val) => (val === '' || val === null ? undefined : val)),
   departmentId: z.string().optional(),
 });
 
@@ -111,6 +111,7 @@ const assetSchema = z.object({
   quantity: z.union([
     z.number().int().positive(),
     z.string(),
+    z.null(),
     z.undefined(),
   ]).optional().transform((val) => {
     if (val === '' || val === undefined || val === null) return undefined;
@@ -412,7 +413,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             injuredPersons:
               incident.injuredPersons?.map((p, index) => ({
                 injuredPersonName: p.injuredPersonName || '',
-                gender: p.gender,
+                gender: p.gender ?? undefined,
                 levelOfInjury: p.levelOfInjury,
                 injuredBodyPart: p.injuredBodyPart,
                 typeOfInjury: p.typeOfInjury,
@@ -422,7 +423,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             witnesses:
               incident.witnesses?.map((w) => ({
                 witnessName: w.witnessName || '',
-                gender: w.gender,
+                gender: w.gender ?? undefined,
                 departmentId: w.departmentId || '',
               })) || [],
             assets:
@@ -439,7 +440,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                   entityId,
                   assetName: a.assetName,
                   assetCode: a.assetCode || '',
-                  quantity: a.quantity,
+                  quantity: a.quantity ?? undefined,
                 };
               }) || [],
           });
@@ -803,14 +804,99 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       return !controlMeasureFields.includes(fieldName);
     }
     
-    // Approver: all fields are read-only (approval handled separately)
-    return true;
+    // Approver: can edit all fields (including Control Measures & Outcomes); save before approve/reject
+    return false;
   };
 
   // Determine if field should be hidden based on mode
   const isFieldHidden = (fieldName: string): boolean => {
     // All fields are visible in all modes (investigator sees all sections as read-only)
     return false;
+  };
+
+  const buildUpdateDtoFromFormData = (
+    data: FormValues,
+    options: { statusOverride?: GeneralStatusEnum; images?: CreateIncidentImageDTO[]; attachments?: CreateIncidentAttachmentDTO[] },
+  ): UpdateIncidentDTO => {
+    const { statusOverride, images, attachments } = options;
+    return {
+      code: data.code,
+      subject: data.subject,
+      incidentDate: new Date(data.incidentDate),
+      roomId: data.roomId || undefined,
+      areaId: data.areaId,
+      incidentType: data.incidentType,
+      incidentClassification: data.incidentClassification,
+      requesterId: data.requesterId,
+      reportedBy: data.reportedBy,
+      technicianId: data.technicianId || undefined,
+      priority: data.priority,
+      riskCategoryId: data.riskCategoryId,
+      description: data.description || undefined,
+      controlMeasure: data.controlMeasure || undefined,
+      dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+      expectedOutcome: data.expectedOutcome || undefined,
+      needToStopActivity: data.needToStopActivity,
+      stopActivityDescription: data.stopActivityDescription || undefined,
+      treatment: data.treatment,
+      treatmentDescription: data.treatmentDescription || undefined,
+      absence: data.absence,
+      resolution: data.resolution || undefined,
+      assignedDepartmentId: data.assignedDepartmentId,
+      assigneeId: data.assigneeId || undefined,
+      status: statusOverride ?? data.status,
+      source: data.source,
+      isActive: data.isActive,
+      injuredPersons:
+        data.injuredPersons?.map((p, index) => ({
+          injuredPersonName: p.injuredPersonName || undefined,
+          gender: p.gender,
+          levelOfInjury: p.levelOfInjury,
+          injuredBodyPart: p.injuredBodyPart,
+          typeOfInjury: p.typeOfInjury,
+          mechanismOfInjury: p.mechanismOfInjury,
+          departmentId: p.departmentId || undefined,
+          order: index,
+        })) || undefined,
+      witnesses:
+        data.witnesses?.map((w, index) => ({
+          witnessName: w.witnessName || undefined,
+          gender: w.gender,
+          departmentId: w.departmentId || undefined,
+          order: index,
+        })) || undefined,
+      assets:
+        data.assets?.map((a, index) => {
+          let entityId = a.entityId || undefined;
+          let entity = a.entity;
+          if (entityId?.startsWith('__prefilled_') && a.assetCode) {
+            const byCode = a.assetCode.trim();
+            const assetMatch = assets.find((x) => x.code === byCode);
+            const heavyMatch = heavyEquipments.find((x) => x.code === byCode);
+            const safetyMatch = safetyEquipments.find((x) => x.code === byCode);
+            if (assetMatch) {
+              entityId = assetMatch.id;
+              entity = EquipmentEntityEnum.ASSET;
+            } else if (heavyMatch) {
+              entityId = heavyMatch.id;
+              entity = EquipmentEntityEnum.HEAVY_EQUIPMENT;
+            } else if (safetyMatch) {
+              entityId = safetyMatch.id;
+              entity = EquipmentEntityEnum.SAFETY_EQUIPMENT;
+            }
+          }
+          return {
+            entity,
+            entityId: entityId || undefined,
+            assetName: a.assetName,
+            assetCode: a.assetCode || undefined,
+            quantity: a.quantity || undefined,
+            order: index,
+          };
+        }) || undefined,
+      images,
+      attachments,
+    };
   };
 
   const handleApprove = async (
@@ -823,12 +909,26 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
     try {
       setIsApproving(true);
 
+      // Save form data (including Control Measures & Outcomes) before approve/reject
+      const valid = await form.trigger();
+      if (!valid) {
+        toast.error('Please fix form errors before submitting approval.');
+        return;
+      }
+      const data = form.getValues();
+      const updateDto = buildUpdateDtoFromFormData(data, {
+        statusOverride: GeneralStatusEnum.WAITING_APPROVAL,
+        images: undefined,
+        attachments: undefined,
+      });
+      await incidentsService.update(incident.id, updateDto);
+
       if (status === ApprovalStatus.APPROVED) {
         await incidentsService.approve(incident.id, notes, activities);
         toast.success('Incident approved successfully');
       } else {
         await incidentsService.reject(incident.id, notes);
-        toast.success('Incident rejected');
+        toast.success('Incident rejected successfully');
       }
 
       navigate('/incidents');
@@ -856,14 +956,13 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       // Determine status based on mode and role: only SUPER_ADMIN can set any status; others only OPEN or CLOSE
       let statusToSet = data.status;
       if (isSuperUser) {
-        if (resolvedMode === 'creator') {
-          statusToSet = GeneralStatusEnum.OPEN;
-        } else if (resolvedMode === 'investigator') {
+        if (resolvedMode === 'investigator') {
           // Investigator: keep OPEN in update; submit API will move to WAITING_APPROVAL after save
           statusToSet = GeneralStatusEnum.OPEN;
         } else if (resolvedMode === 'approver') {
           return;
         }
+        // Creator: keep user's selected status (statusToSet already = data.status)
       } else if (resolvedMode === 'investigator') {
         // Investigator (non-super_admin): cannot change status; keep current incident status
         statusToSet = incident?.status ?? GeneralStatusEnum.OPEN;
