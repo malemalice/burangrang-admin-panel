@@ -26,8 +26,7 @@ import { CreateMonthlyFlowReportData, MonthlyFlowReport, UpdateMonthlyFlowReport
 const formSchema = z.object({
   reportCode: z.string().min(1, 'Report code is required'),
   treatmentPlantId: z.string().min(1, 'Treatment plant is required'),
-  reportMonth: z.nativeEnum(MonthEnum),
-  reportYear: z.coerce.number().min(2000, 'Year must be valid'),
+  reportDate: z.string().min(1, 'Report date is required'),
   totalVolume: z.coerce.number().min(0),
   averageDailyFlow: z.coerce.number().min(0),
   peakFlow: z.coerce.number().optional(),
@@ -55,8 +54,7 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
     defaultValues: {
       reportCode: '',
       treatmentPlantId: '',
-      reportMonth: MonthEnum.JAN,
-      reportYear: new Date().getFullYear(),
+      reportDate: new Date().toISOString().split('T')[0],
       totalVolume: 0,
       averageDailyFlow: 0,
       reportDocumentUrl: '',
@@ -87,8 +85,7 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
           form.reset({
             reportCode: data.reportCode,
             treatmentPlantId: data.treatmentPlantId,
-            reportMonth: data.reportMonth,
-            reportYear: data.reportYear,
+            reportDate: data.reportDate ? new Date(data.reportDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             totalVolume: data.totalVolume,
             averageDailyFlow: data.averageDailyFlow,
             peakFlow: data.peakFlow,
@@ -115,8 +112,7 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
         const submitData: CreateMonthlyFlowReportData = {
           reportCode: data.reportCode,
           treatmentPlantId: data.treatmentPlantId,
-          reportMonth: data.reportMonth,
-          reportYear: data.reportYear,
+          reportDate: new Date(data.reportDate).toISOString(),
           totalVolume: data.totalVolume,
           averageDailyFlow: data.averageDailyFlow,
           peakFlow: data.peakFlow,
@@ -131,8 +127,7 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
         const submitData: UpdateMonthlyFlowReportData = {
           reportCode: data.reportCode,
           treatmentPlantId: data.treatmentPlantId,
-          reportMonth: data.reportMonth,
-          reportYear: data.reportYear,
+          reportDate: new Date(data.reportDate).toISOString(),
           totalVolume: data.totalVolume,
           averageDailyFlow: data.averageDailyFlow,
           peakFlow: data.peakFlow,
@@ -206,36 +201,12 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
-                name="reportMonth"
+                name="reportDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Month *</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select month" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {Object.values(MonthEnum).map((m) => (
-                          <SelectItem key={m} value={m}>
-                            {m}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="reportYear"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Year *</FormLabel>
+                    <FormLabel>Report Date *</FormLabel>
                     <FormControl>
-                      <Input type="number" {...field} />
+                      <Input type="date" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

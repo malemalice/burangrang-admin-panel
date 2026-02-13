@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { usePDF } from 'react-to-pdf';
 import { toast } from 'sonner';
-import { ArrowLeft, Pencil } from 'lucide-react';
+import { ArrowLeft, Pencil, Printer } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
@@ -10,12 +11,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2 } from 'lucide-react';
 import { weightReportService } from '../../services/wasteManagementService';
 import { WeightReport, ReportStatusEnum } from '../../types/waste-management.types';
+import { WeightReportPDFTemplate } from '../../components/WeightReportPDFTemplate';
 
 export default function WeightReportDetailPage() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
+    const [searchParams] = useSearchParams();
     const [data, setData] = useState<WeightReport | null>(null);
     const [loading, setLoading] = useState(true);
+    const { toPDF, targetRef } = usePDF({ filename: `weight-report-${data?.reportCode || 'document'}.pdf` });
 
     useEffect(() => {
         const fetchData = async () => {
@@ -32,6 +36,14 @@ export default function WeightReportDetailPage() {
         };
         fetchData();
     }, [id, navigate]);
+
+    useEffect(() => {
+        if (searchParams.get('print') === 'true' && data) {
+            setTimeout(() => {
+                toPDF();
+            }, 1000);
+        }
+    }, [searchParams, data, toPDF]);
 
     if (loading) {
         return (
@@ -52,6 +64,9 @@ export default function WeightReportDetailPage() {
                     <div className="flex gap-2">
                         <Button variant="outline" onClick={() => navigate('/waste-management/weight-reports')}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+                        </Button>
+                        <Button variant="outline" onClick={() => toPDF()}>
+                            <Printer className="mr-2 h-4 w-4" /> Export PDF
                         </Button>
                         <Button onClick={() => navigate(`/waste-management/weight-reports/${id}/edit`)}>
                             <Pencil className="mr-2 h-4 w-4" /> Edit
@@ -146,6 +161,13 @@ export default function WeightReportDetailPage() {
                         </CardContent>
                     </Card>
                 )}
+            </div>
+
+            {/* Hidden PDF Template */}
+            <div className="absolute left-[-9999px] top-0">
+                <div ref={targetRef}>
+                    {data && <WeightReportPDFTemplate report={data} />}
+                </div>
             </div>
         </div>
     );

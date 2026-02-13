@@ -7,7 +7,23 @@ import {
   UpdateWeightReportDto,
   WeightReportDto,
   WeightReportItemDto,
+  MonthEnum,
 } from '../dto/weight-reports';
+
+const MONTH_MAP = [
+  MonthEnum.JAN,
+  MonthEnum.FEB,
+  MonthEnum.MAR,
+  MonthEnum.APR,
+  MonthEnum.MAY,
+  MonthEnum.JUN,
+  MonthEnum.JUL,
+  MonthEnum.AUG,
+  MonthEnum.SEP,
+  MonthEnum.OCT,
+  MonthEnum.NOV,
+  MonthEnum.DEC,
+];
 
 interface FindAllOptions {
   page?: number;
@@ -42,11 +58,11 @@ export class WeightReportsService {
           mapper: (wt) =>
             wt
               ? {
-                  id: wt.id,
-                  name: wt.name,
-                  code: wt.code,
-                  wasteType: wt.wasteType,
-                }
+                id: wt.id,
+                name: wt.name,
+                code: wt.code,
+                wasteType: wt.wasteType,
+              }
               : undefined,
         },
       },
@@ -107,20 +123,22 @@ export class WeightReportsService {
       storageLocation,
     );
 
+    const reportDate = new Date(createDto.reportDate);
+    const reportMonth =
+      createDto.reportMonth || MONTH_MAP[reportDate.getMonth()];
+    const reportYear = createDto.reportYear || reportDate.getFullYear();
+
     // Check for composite unique constraint
-    const existingPeriod = await this.prisma.weightReport.findUnique({
+    const existingReport = await this.prisma.weightReport.findFirst({
       where: {
-        sourceId_reportMonth_reportYear: {
-          sourceId: createDto.sourceId,
-          reportMonth: createDto.reportMonth,
-          reportYear: createDto.reportYear,
-        },
+        sourceId: createDto.sourceId,
+        reportDate: reportDate,
       },
     });
 
-    if (existingPeriod) {
+    if (existingReport) {
       this.errorHandler.throwConflictCustom(
-        `Report for this Source, Month ${createDto.reportMonth}, and Year ${createDto.reportYear} already exists`,
+        `Report for this Source and Date ${createDto.reportDate} already exists`,
       );
     }
 
@@ -147,19 +165,21 @@ export class WeightReportsService {
       const item = await this.prisma.weightReport.create({
         data: {
           ...reportData,
+          reportMonth,
+          reportYear,
           submittedBy: userId,
-          reportDate: new Date(createDto.reportDate),
+          reportDate: reportDate,
           submittedAt: new Date(createDto.submittedAt),
           items: items
             ? {
-                create: items.map((i) => ({
-                  wasteTypeId: i.wasteTypeId,
-                  weight: i.weight,
-                  unit: i.unit || 'kg',
-                  order: i.order,
-                  notes: i.notes,
-                })),
-              }
+              create: items.map((i) => ({
+                wasteTypeId: i.wasteTypeId,
+                weight: i.weight,
+                unit: i.unit || 'kg',
+                order: i.order,
+                notes: i.notes,
+              })),
+            }
             : undefined,
         },
         include: {
@@ -252,8 +272,16 @@ export class WeightReportsService {
     return this.errorHandler.safeExecute(async () => {
       const { items, ...reportData } = updateDto;
       const data: any = { ...reportData };
-      if (updateDto.reportDate)
-        data.reportDate = new Date(updateDto.reportDate);
+      if (updateDto.reportDate) {
+        const reportDate = new Date(updateDto.reportDate);
+        data.reportDate = reportDate;
+        if (!updateDto.reportMonth) {
+          data.reportMonth = MONTH_MAP[reportDate.getMonth()];
+        }
+        if (!updateDto.reportYear) {
+          data.reportYear = reportDate.getFullYear();
+        }
+      }
       if (updateDto.submittedAt)
         data.submittedAt = new Date(updateDto.submittedAt);
       if (updateDto.receivedAt)

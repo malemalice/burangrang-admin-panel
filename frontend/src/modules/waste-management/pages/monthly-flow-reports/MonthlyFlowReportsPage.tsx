@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, MoreHorizontal, Pencil, Trash2, Eye } from 'lucide-react';
+import { Plus, MoreHorizontal, Pencil, Trash2, Eye, FileText } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
@@ -16,7 +16,8 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { monthlyFlowReportService, treatmentPlantService } from '../../services/wasteManagementService';
-import { MonthlyFlowReport, ReportStatusEnum, PaginatedResponse, MonthEnum, TreatmentPlant } from '../../types/waste-management.types';
+import { MonthlyFlowReport, ReportStatusEnum, PaginatedResponse, TreatmentPlant } from '../../types/waste-management.types';
+import { formatDate } from '@/core/utils/date';
 
 export default function MonthlyFlowReportsPage() {
   const navigate = useNavigate();
@@ -61,20 +62,6 @@ export default function MonthlyFlowReportsPage() {
         value: plant.id,
       })),
     },
-    {
-      id: 'reportMonth',
-      label: 'Month',
-      type: 'select',
-      options: Object.values(MonthEnum).map((month) => ({
-        label: month,
-        value: month,
-      })),
-    },
-    {
-      id: 'reportYear',
-      label: 'Year',
-      type: 'text',
-    },
   ];
 
   const fetchData = useCallback(async () => {
@@ -86,8 +73,8 @@ export default function MonthlyFlowReportsPage() {
         search: search || undefined,
         status: activeFilters.status?.value,
         treatmentPlantId: activeFilters.treatmentPlantId?.value,
-        reportMonth: activeFilters.reportMonth?.value,
-        reportYear: activeFilters.reportYear?.value ? Number(activeFilters.reportYear.value) : undefined,
+        // reportMonth: activeFilters.reportMonth?.value,
+        // reportYear: activeFilters.reportYear?.value ? Number(activeFilters.reportYear.value) : undefined,
       };
       const response = await monthlyFlowReportService.getAll(params);
       const result = response.data as PaginatedResponse<MonthlyFlowReport>;
@@ -149,9 +136,9 @@ export default function MonthlyFlowReportsPage() {
       isSortable: true,
     },
     {
-      id: 'period',
-      header: 'Period',
-      cell: (item: MonthlyFlowReport) => `${item.reportMonth} ${item.reportYear}`,
+      id: 'reportDate',
+      header: 'Report Date',
+      cell: (item: MonthlyFlowReport) => formatDate(item.reportDate || ''),
       isSortable: true,
     },
     {
@@ -186,6 +173,9 @@ export default function MonthlyFlowReportsPage() {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/waste-management/monthly-flow-reports/${item.id}/edit`)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/waste-management/monthly-flow-reports/${item.id}?print=true`)}>
+              <FileText className="mr-2 h-4 w-4" /> Print PDF
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setDeleteId(item.id)} className="text-destructive">
               <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -230,7 +220,7 @@ export default function MonthlyFlowReportsPage() {
           </TabsList>
         </Tabs>
       </PageHeader>
-      
+
       <DataTable
         columns={columns}
         data={data}

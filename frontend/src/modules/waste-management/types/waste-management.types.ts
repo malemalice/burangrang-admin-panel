@@ -192,8 +192,9 @@ export interface MonthlyFlowReport {
   id: string;
   reportCode: string;
   treatmentPlantId: string;
-  reportMonth: MonthEnum;
-  reportYear: number;
+  reportDate?: string;
+  reportMonth?: MonthEnum;
+  reportYear?: number;
   totalVolume: number;
   averageDailyFlow: number;
   peakFlow?: number;
@@ -218,8 +219,9 @@ export interface MonthlyFlowReport {
 export interface CreateMonthlyFlowReportData {
   reportCode: string;
   treatmentPlantId: string;
-  reportMonth: MonthEnum;
-  reportYear: number;
+  reportDate: string;
+  reportMonth?: MonthEnum;
+  reportYear?: number;
   totalVolume: number;
   averageDailyFlow: number;
   peakFlow?: number;
@@ -314,8 +316,8 @@ export interface WeightReport {
   sourceId: string;
   storageLocationId: string;
   reportDate: string;
-  reportMonth: MonthEnum;
-  reportYear: number;
+  reportMonth?: MonthEnum;
+  reportYear?: number;
   reportDocumentUrl?: string;
   submittedBy: string;
   submittedAt: string;
@@ -340,8 +342,8 @@ export interface CreateWeightReportData {
   sourceId: string;
   storageLocationId: string;
   reportDate: string;
-  reportMonth: MonthEnum;
-  reportYear: number;
+  reportMonth?: MonthEnum;
+  reportYear?: number;
   reportDocumentUrl?: string;
   submittedAt: string;
   isActive?: boolean;
@@ -410,6 +412,8 @@ export interface MonthlyFlowReportFilters extends PaginationParams {
   status?: ReportStatusEnum;
   reportMonth?: MonthEnum;
   reportYear?: number;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface WaterQualityLabReportFilters extends PaginationParams {

@@ -318,6 +318,7 @@ export const seedWasteManagement = async () => {
           data: {
             reportCode: `MFR-${currentYear}-JAN-001`,
             treatmentPlantId: treatmentPlants[0].id,
+            reportDate: new Date(currentYear, 0, 31),
             reportMonth: MonthEnum.JAN,
             reportYear: currentYear,
             totalVolume: 12500.5,
@@ -334,6 +335,7 @@ export const seedWasteManagement = async () => {
           data: {
             reportCode: `MFR-${currentYear}-FEB-001`,
             treatmentPlantId: treatmentPlants[0].id,
+            reportDate: new Date(currentYear, 1, 28),
             reportMonth: MonthEnum.FEB,
             reportYear: currentYear,
             totalVolume: 11200.0,
@@ -412,6 +414,7 @@ export const seedWasteManagement = async () => {
         data: {
           reportCode: `MFR-${currentYear}-MAR-001`,
           treatmentPlantId: treatmentPlants[1]?.id ?? treatmentPlants[0].id,
+          reportDate: new Date(currentYear, 2, 31),
           reportMonth: MonthEnum.MAR,
           reportYear: currentYear,
           totalVolume: 9800.0,
