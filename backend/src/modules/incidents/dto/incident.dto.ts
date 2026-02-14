@@ -4,6 +4,8 @@ import {
   GeneralStatusEnum,
   IncidentTypeEnum,
   IncidentClassificationEnum,
+  IncidentActivitiesEnum,
+  IncidentScopeEnum,
   PriorityEnum,
   StopActivityEnum,
   TreatmentEnum,
@@ -61,6 +63,14 @@ export class IncidentDto {
   @ApiProperty({ enum: IncidentClassificationEnum })
   @Expose()
   incidentClassification: IncidentClassificationEnum;
+
+  @ApiProperty({ enum: IncidentActivitiesEnum })
+  @Expose()
+  activities: IncidentActivitiesEnum;
+
+  @ApiProperty({ enum: IncidentScopeEnum })
+  @Expose()
+  type: IncidentScopeEnum;
 
   @ApiProperty()
   @Expose()

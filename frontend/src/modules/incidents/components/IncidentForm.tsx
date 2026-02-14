@@ -30,7 +30,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/c
 import { Badge } from '@/core/components/ui/badge';
 import { SearchableSelect, SearchableSelectOption } from '@/core/components/ui/searchable-select';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
-import { Plus, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip, X, CheckCircle2, XCircle } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
+import { Label } from '@/core/components/ui/label';
+import { Plus, Trash2, FileText, Users, ShieldCheck, AlertTriangle, Eye, Package, Image, Paperclip, X, CheckCircle2, XCircle, ClipboardList } from 'lucide-react';
 import incidentsService from '../services/incidentsService';
 import uploadService, { FileCategory } from '@/modules/uploads/services/uploadService';
 import safetyEquipmentService from '@/modules/ppe/services/safetyEquipmentService';
@@ -41,6 +43,7 @@ import {
   Incident,
   IncidentTypeEnum,
   IncidentClassificationEnum,
+  IncidentActivitiesEnum,
   PriorityEnum,
   StopActivityEnum,
   TreatmentEnum,
@@ -84,7 +87,7 @@ const generateIncidentCode = (): string => {
 // Schema for injured person - gender allows blank (empty string) to match create behavior
 const injuredPersonSchema = z.object({
   injuredPersonName: z.string().optional(),
-  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.undefined()]).optional().transform((val) => (val === '' ? undefined : val)),
+  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.null(), z.undefined()]).optional().transform((val) => (val === '' || val === null ? undefined : val)),
   levelOfInjury: z.nativeEnum(LevelOfInjuryEnum).default(LevelOfInjuryEnum.NOT_SPECIFIED),
   injuredBodyPart: z.nativeEnum(InjuredBodyPartEnum).default(InjuredBodyPartEnum.NOT_SPECIFIED),
   typeOfInjury: z.nativeEnum(TypeOfInjuryEnum).default(TypeOfInjuryEnum.NOT_SPECIFIED),
@@ -95,7 +98,7 @@ const injuredPersonSchema = z.object({
 // Schema for witness - gender allows blank (empty string) to match create behavior
 const witnessSchema = z.object({
   witnessName: z.string().optional(),
-  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.undefined()]).optional().transform((val) => (val === '' ? undefined : val)),
+  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.null(), z.undefined()]).optional().transform((val) => (val === '' || val === null ? undefined : val)),
   departmentId: z.string().optional(),
 });
 
@@ -108,6 +111,7 @@ const assetSchema = z.object({
   quantity: z.union([
     z.number().int().positive(),
     z.string(),
+    z.null(),
     z.undefined(),
   ]).optional().transform((val) => {
     if (val === '' || val === undefined || val === null) return undefined;
@@ -171,6 +175,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
   const [isApproving, setIsApproving] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
   const [approvalNotes, setApprovalNotes] = useState('');
+  const [approverActivities, setApproverActivities] = useState<IncidentActivitiesEnum>(IncidentActivitiesEnum.WORK);
   const [isSuperUser, setIsSuperUser] = useState(false);
   const [roleFetched, setRoleFetched] = useState(false);
 
@@ -408,7 +413,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             injuredPersons:
               incident.injuredPersons?.map((p, index) => ({
                 injuredPersonName: p.injuredPersonName || '',
-                gender: p.gender,
+                gender: p.gender ?? undefined,
                 levelOfInjury: p.levelOfInjury,
                 injuredBodyPart: p.injuredBodyPart,
                 typeOfInjury: p.typeOfInjury,
@@ -418,7 +423,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
             witnesses:
               incident.witnesses?.map((w) => ({
                 witnessName: w.witnessName || '',
-                gender: w.gender,
+                gender: w.gender ?? undefined,
                 departmentId: w.departmentId || '',
               })) || [],
             assets:
@@ -435,7 +440,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                   entityId,
                   assetName: a.assetName,
                   assetCode: a.assetCode || '',
-                  quantity: a.quantity,
+                  quantity: a.quantity ?? undefined,
                 };
               }) || [],
           });
@@ -563,6 +568,13 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       checkPermissions();
     }
   }, [currentUser, incident, entryMode, dataReady, departments]);
+
+  // Prefill approver activities when in approver mode and incident is loaded
+  useEffect(() => {
+    if (incident && resolvedMode === 'approver') {
+      setApproverActivities(incident.activities ?? IncidentActivitiesEnum.WORK);
+    }
+  }, [incident, resolvedMode]);
 
   // Populate image/attachment uploads when editing
   useEffect(() => {
@@ -792,8 +804,8 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       return !controlMeasureFields.includes(fieldName);
     }
     
-    // Approver: all fields are read-only (approval handled separately)
-    return true;
+    // Approver: can edit all fields (including Control Measures & Outcomes); save before approve/reject
+    return false;
   };
 
   // Determine if field should be hidden based on mode
@@ -802,18 +814,122 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
     return false;
   };
 
-  const handleApprove = async (status: ApprovalStatus, notes: string) => {
+  const buildUpdateDtoFromFormData = (
+    data: FormValues,
+    options: { statusOverride?: GeneralStatusEnum; images?: CreateIncidentImageDTO[]; attachments?: CreateIncidentAttachmentDTO[] },
+  ): UpdateIncidentDTO => {
+    const { statusOverride, images, attachments } = options;
+    return {
+      code: data.code,
+      subject: data.subject,
+      incidentDate: new Date(data.incidentDate),
+      roomId: data.roomId || undefined,
+      areaId: data.areaId,
+      incidentType: data.incidentType,
+      incidentClassification: data.incidentClassification,
+      requesterId: data.requesterId,
+      reportedBy: data.reportedBy,
+      technicianId: data.technicianId || undefined,
+      priority: data.priority,
+      riskCategoryId: data.riskCategoryId,
+      description: data.description || undefined,
+      controlMeasure: data.controlMeasure || undefined,
+      dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+      expectedOutcome: data.expectedOutcome || undefined,
+      needToStopActivity: data.needToStopActivity,
+      stopActivityDescription: data.stopActivityDescription || undefined,
+      treatment: data.treatment,
+      treatmentDescription: data.treatmentDescription || undefined,
+      absence: data.absence,
+      resolution: data.resolution || undefined,
+      assignedDepartmentId: data.assignedDepartmentId,
+      assigneeId: data.assigneeId || undefined,
+      status: statusOverride ?? data.status,
+      source: data.source,
+      isActive: data.isActive,
+      injuredPersons:
+        data.injuredPersons?.map((p, index) => ({
+          injuredPersonName: p.injuredPersonName || undefined,
+          gender: p.gender,
+          levelOfInjury: p.levelOfInjury,
+          injuredBodyPart: p.injuredBodyPart,
+          typeOfInjury: p.typeOfInjury,
+          mechanismOfInjury: p.mechanismOfInjury,
+          departmentId: p.departmentId || undefined,
+          order: index,
+        })) || undefined,
+      witnesses:
+        data.witnesses?.map((w, index) => ({
+          witnessName: w.witnessName || undefined,
+          gender: w.gender,
+          departmentId: w.departmentId || undefined,
+          order: index,
+        })) || undefined,
+      assets:
+        data.assets?.map((a, index) => {
+          let entityId = a.entityId || undefined;
+          let entity = a.entity;
+          if (entityId?.startsWith('__prefilled_') && a.assetCode) {
+            const byCode = a.assetCode.trim();
+            const assetMatch = assets.find((x) => x.code === byCode);
+            const heavyMatch = heavyEquipments.find((x) => x.code === byCode);
+            const safetyMatch = safetyEquipments.find((x) => x.code === byCode);
+            if (assetMatch) {
+              entityId = assetMatch.id;
+              entity = EquipmentEntityEnum.ASSET;
+            } else if (heavyMatch) {
+              entityId = heavyMatch.id;
+              entity = EquipmentEntityEnum.HEAVY_EQUIPMENT;
+            } else if (safetyMatch) {
+              entityId = safetyMatch.id;
+              entity = EquipmentEntityEnum.SAFETY_EQUIPMENT;
+            }
+          }
+          return {
+            entity,
+            entityId: entityId || undefined,
+            assetName: a.assetName,
+            assetCode: a.assetCode || undefined,
+            quantity: a.quantity || undefined,
+            order: index,
+          };
+        }) || undefined,
+      images,
+      attachments,
+    };
+  };
+
+  const handleApprove = async (
+    status: ApprovalStatus,
+    notes: string,
+    activities: IncidentActivitiesEnum,
+  ) => {
     if (!incident) return;
-    
+
     try {
       setIsApproving(true);
-      
+
+      // Save form data (including Control Measures & Outcomes) before approve/reject
+      const valid = await form.trigger();
+      if (!valid) {
+        toast.error('Please fix form errors before submitting approval.');
+        return;
+      }
+      const data = form.getValues();
+      const updateDto = buildUpdateDtoFromFormData(data, {
+        images: undefined,
+        attachments: undefined,
+      });
+      // Omit status so backend does not run status guard; approve/reject APIs set final status
+      delete (updateDto as { status?: GeneralStatusEnum }).status;
+      await incidentsService.update(incident.id, updateDto);
+
       if (status === ApprovalStatus.APPROVED) {
-        await incidentsService.approve(incident.id, notes);
+        await incidentsService.approve(incident.id, notes, activities);
         toast.success('Incident approved successfully');
       } else {
         await incidentsService.reject(incident.id, notes);
-        toast.success('Incident rejected');
+        toast.success('Incident rejected successfully');
       }
 
       navigate('/incidents');
@@ -841,14 +957,13 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
       // Determine status based on mode and role: only SUPER_ADMIN can set any status; others only OPEN or CLOSE
       let statusToSet = data.status;
       if (isSuperUser) {
-        if (resolvedMode === 'creator') {
-          statusToSet = GeneralStatusEnum.OPEN;
-        } else if (resolvedMode === 'investigator') {
+        if (resolvedMode === 'investigator') {
           // Investigator: keep OPEN in update; submit API will move to WAITING_APPROVAL after save
           statusToSet = GeneralStatusEnum.OPEN;
         } else if (resolvedMode === 'approver') {
           return;
         }
+        // Creator: keep user's selected status (statusToSet already = data.status)
       } else if (resolvedMode === 'investigator') {
         // Investigator (non-super_admin): cannot change status; keep current incident status
         statusToSet = incident?.status ?? GeneralStatusEnum.OPEN;
@@ -1175,7 +1290,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                       <Select
                         onValueChange={field.onChange}
                         value={field.value}
-                        disabled={resolvedMode === 'investigator' && !isSuperUser}
+                        disabled={resolvedMode === 'approver' || (resolvedMode === 'investigator' && !isSuperUser)}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -2339,6 +2454,57 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
               </CardContent>
             </Card>
 
+            {/* Activities (only in approver mode) - work related vs study related */}
+            {resolvedMode === 'approver' && (
+              <Card className="border-l-4 border-l-slate-500 bg-slate-50/30 dark:bg-slate-950/10">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <ClipboardList className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                    Activities
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Define whether this incident is work related or study related.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <FormItem>
+                      <FormLabel>Activity type <span className="text-red-500">*</span></FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          value={approverActivities}
+                          onValueChange={(value) =>
+                            setApproverActivities(value as IncidentActivitiesEnum)
+                          }
+                          className="flex flex-col gap-2 sm:flex-row sm:gap-6"
+                          disabled={isApproving}
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem
+                              value={IncidentActivitiesEnum.WORK}
+                              id="activities-work"
+                            />
+                            <Label htmlFor="activities-work" className="font-normal cursor-pointer">
+                              Work related
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem
+                              value={IncidentActivitiesEnum.STUDY}
+                              id="activities-study"
+                            />
+                            <Label htmlFor="activities-study" className="font-normal cursor-pointer">
+                              Study related
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </FormControl>
+                    </FormItem>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Approval Notes (only in approver mode) */}
             {resolvedMode === 'approver' && (
               <Card className="border-l-4 border-l-blue-500 bg-blue-50/30 dark:bg-blue-950/10">
@@ -2383,9 +2549,17 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     variant="outline"
                     onClick={async () => {
                       setApprovalStatus(ApprovalStatus.REJECTED);
-                      await handleApprove(ApprovalStatus.REJECTED, approvalNotes);
+                      await handleApprove(
+                        ApprovalStatus.REJECTED,
+                        approvalNotes,
+                        approverActivities,
+                      );
                     }}
-                    disabled={isApproving || !approvalNotes.trim()}
+                    disabled={
+                      isApproving ||
+                      !approvalNotes.trim() ||
+                      !approverActivities
+                    }
                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
                   >
                     <XCircle className="mr-2 h-4 w-4" />
@@ -2395,9 +2569,17 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     type="button"
                     onClick={async () => {
                       setApprovalStatus(ApprovalStatus.APPROVED);
-                      await handleApprove(ApprovalStatus.APPROVED, approvalNotes);
+                      await handleApprove(
+                        ApprovalStatus.APPROVED,
+                        approvalNotes,
+                        approverActivities,
+                      );
                     }}
-                    disabled={isApproving || !approvalNotes.trim()}
+                    disabled={
+                      isApproving ||
+                      !approvalNotes.trim() ||
+                      !approverActivities
+                    }
                     className="bg-green-600 hover:bg-green-700"
                   >
                     <CheckCircle2 className="mr-2 h-4 w-4" />

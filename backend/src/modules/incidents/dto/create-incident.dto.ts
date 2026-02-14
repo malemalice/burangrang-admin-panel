@@ -15,6 +15,8 @@ import {
   GeneralStatusEnum,
   IncidentTypeEnum,
   IncidentClassificationEnum,
+  IncidentActivitiesEnum,
+  IncidentScopeEnum,
   PriorityEnum,
   StopActivityEnum,
   TreatmentEnum,
@@ -63,6 +65,16 @@ export class CreateIncidentDto {
   @IsEnum(IncidentClassificationEnum)
   @ApiProperty({ enum: IncidentClassificationEnum })
   incidentClassification: IncidentClassificationEnum;
+
+  @IsEnum(IncidentActivitiesEnum)
+  @IsOptional()
+  @ApiProperty({ enum: IncidentActivitiesEnum, required: false })
+  activities?: IncidentActivitiesEnum;
+
+  @IsEnum(IncidentScopeEnum)
+  @IsOptional()
+  @ApiProperty({ enum: IncidentScopeEnum, required: false })
+  type?: IncidentScopeEnum;
 
   @IsNotEmpty()
   @IsUUID()

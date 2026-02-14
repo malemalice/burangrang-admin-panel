@@ -22,7 +22,10 @@ export { UpdateMonthlyFlowReportDto } from './monthly-flow-reports';
 export { MonthlyFlowReportDto } from './monthly-flow-reports';
 
 // Weight Reports - exclude ReportStatusEnum and MonthEnum to avoid conflicts
-export { CreateWeightReportDto, CreateWeightReportItemDto } from './weight-reports';
+export {
+  CreateWeightReportDto,
+  CreateWeightReportItemDto,
+} from './weight-reports';
 export { UpdateWeightReportDto } from './weight-reports';
 export { WeightReportDto, WeightReportItemDto } from './weight-reports';
 

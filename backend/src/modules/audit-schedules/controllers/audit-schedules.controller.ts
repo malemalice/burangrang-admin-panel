@@ -228,7 +228,6 @@ export class AuditSchedulesController {
   }
 
   @Post(':id/items/:itemId/approve')
-  @Permissions('audit-result:update')
   @ApiOperation({ summary: 'Approve audit item' })
   @ApiResponse({ status: 200, type: AuditItemDto })
   async approveItem(
@@ -241,7 +240,6 @@ export class AuditSchedulesController {
   }
 
   @Post(':id/items/:itemId/reject')
-  @Permissions('audit-result:update')
   @ApiOperation({ summary: 'Reject audit item' })
   @ApiResponse({ status: 200, type: AuditItemDto })
   async rejectItem(
@@ -254,7 +252,6 @@ export class AuditSchedulesController {
   }
 
   @Get(':id/items/:itemId/approval-rights')
-  @Permissions('audit-schedule:read')
   @ApiOperation({ summary: 'Check approval rights for audit item' })
   @ApiResponse({ status: 200 })
   async checkApprovalRights(

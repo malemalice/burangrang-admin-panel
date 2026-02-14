@@ -22,6 +22,16 @@ export enum IncidentClassificationEnum {
   FATALITY = 'FATALITY',
 }
 
+export enum IncidentActivitiesEnum {
+  WORK = 'WORK',
+  STUDY = 'STUDY',
+}
+
+export enum IncidentScopeEnum {
+  GENERAL = 'GENERAL',
+  SECURITY = 'SECURITY',
+}
+
 export enum PriorityEnum {
   NOT_SPECIFIED = 'NOT_SPECIFIED',
   NORMAL = 'NORMAL',
@@ -215,6 +225,8 @@ export interface Incident {
   area?: AreaDTO;
   incidentType: IncidentTypeEnum;
   incidentClassification: IncidentClassificationEnum;
+  activities?: IncidentActivitiesEnum;
+  type?: IncidentScopeEnum;
   requesterId: string;
   requester?: User;
   reportedBy: string;
@@ -299,6 +311,7 @@ export interface CreateIncidentDTO {
   areaId: string;
   incidentType: IncidentTypeEnum;
   incidentClassification: IncidentClassificationEnum;
+  type?: IncidentScopeEnum;
   requesterId: string;
   reportedBy: string;
   technicianId?: string;

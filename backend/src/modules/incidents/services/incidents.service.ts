@@ -14,6 +14,8 @@ import {
   GeneralStatusEnum,
   IncidentTypeEnum,
   IncidentClassificationEnum,
+  IncidentActivitiesEnum,
+  IncidentScopeEnum,
   Prisma,
   PriorityEnum,
   SourceEnum,
@@ -40,6 +42,8 @@ interface FindAllOptions {
   status?: GeneralStatusEnum | GeneralStatusEnum[];
   incidentType?: IncidentTypeEnum | IncidentTypeEnum[];
   incidentClassification?: IncidentClassificationEnum;
+  activities?: IncidentActivitiesEnum | IncidentActivitiesEnum[];
+  type?: IncidentScopeEnum | IncidentScopeEnum[];
   priority?: PriorityEnum | PriorityEnum[];
   source?: SourceEnum;
   assignedDepartmentId?: string | string[];
@@ -282,6 +286,8 @@ export class IncidentsService {
       status,
       incidentType,
       incidentClassification,
+      activities,
+      type,
       priority,
       source,
       assignedDepartmentId,
@@ -326,6 +332,20 @@ export class IncidentsService {
     }
     if (incidentClassification) {
       where.incidentClassification = incidentClassification;
+    }
+    if (activities) {
+      if (Array.isArray(activities)) {
+        where.activities = { in: activities };
+      } else {
+        where.activities = activities;
+      }
+    }
+    if (type) {
+      if (Array.isArray(type)) {
+        where.type = { in: type };
+      } else {
+        where.type = type;
+      }
     }
     if (priority) {
       if (Array.isArray(priority)) {
@@ -396,9 +416,10 @@ export class IncidentsService {
                 orderBy: { order: 'asc' },
               },
             },
-            orderBy: {
-              [sortBy]: sortOrder,
-            },
+            orderBy: [
+              { [sortBy]: sortOrder },
+              { createdAt: 'desc' },
+            ],
             skip: (page - 1) * limit,
             take: limit,
           }),
@@ -839,7 +860,12 @@ export class IncidentsService {
   /**
    * Approve incident
    */
-  async approve(id: string, notes: string, userId: string): Promise<IncidentDto> {
+  async approve(
+    id: string,
+    notes: string,
+    userId: string,
+    activities?: IncidentActivitiesEnum,
+  ): Promise<IncidentDto> {
     return this.errorHandler.safeExecute(async () => {
       const incident = await this.prisma.incident.findUnique({
         where: { id },
@@ -887,11 +913,12 @@ export class IncidentsService {
         nextStatus = GeneralStatusEnum.WAITING_APPROVAL;
       }
 
-      // Update status
+      // Update status (and activities when provided by approver)
       const updated = await this.prisma.incident.update({
         where: { id },
         data: {
           status: nextStatus,
+          ...(activities != null && { activities }),
         },
         include: {
           room: true,

@@ -18,6 +18,7 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
+import { IncidentActivitiesEnum, IncidentScopeEnum } from '@prisma/client';
 import { IncidentsService } from '../services/incidents.service';
 import { CreateIncidentDto, UpdateIncidentDto, IncidentDto, FindIncidentsDto } from '../dto';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
@@ -50,7 +51,10 @@ export class IncidentsController {
     @Request() req: RequestWithUser,
     @Body() createIncidentDto: CreateIncidentDto,
   ): Promise<IncidentDto> {
-    return this.incidentsService.create(createIncidentDto, req.user.id);
+    return this.incidentsService.create(
+      { ...createIncidentDto, type: IncidentScopeEnum.GENERAL },
+      req.user.id,
+    );
   }
 
   @Get()
@@ -60,7 +64,7 @@ export class IncidentsController {
   @ApiResponse({ status: 200, type: [IncidentDto] })
   @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   async findAll(@Query() query: FindIncidentsDto) {
-    return this.incidentsService.findAll(query);
+    return this.incidentsService.findAll({ ...query, type: IncidentScopeEnum.GENERAL });
   }
 
   @Get(':id')
@@ -103,19 +107,17 @@ export class IncidentsController {
   }
 
   @Post(':id/approve')
-  @Permissions('incident:update')
   @ApiOperation({ summary: 'Approve incident' })
   @ApiResponse({ status: 200, type: IncidentDto })
   async approve(
     @Request() req: RequestWithUser,
     @Param('id') id: string,
-    @Body() body: { notes?: string },
+    @Body() body: { notes?: string; activities?: IncidentActivitiesEnum },
   ): Promise<IncidentDto> {
-    return this.incidentsService.approve(id, body.notes || '', req.user.id);
+    return this.incidentsService.approve(id, body.notes ?? '', req.user.id, body.activities);
   }
 
   @Post(':id/reject')
-  @Permissions('incident:update')
   @ApiOperation({ summary: 'Reject incident' })
   @ApiResponse({ status: 200, type: IncidentDto })
   async reject(
@@ -127,7 +129,6 @@ export class IncidentsController {
   }
 
   @Get(':id/approval-rights')
-  @Permissions('incident:read')
   @ApiOperation({ summary: 'Check if user can approve/reject incident' })
   @ApiResponse({ status: 200 })
   async checkApprovalRights(

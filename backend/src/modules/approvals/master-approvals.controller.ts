@@ -137,7 +137,6 @@ export class MasterApprovalsController {
   }
 
   @Get('check-approval/:dataId')
-  @Permissions('approval:read')
   @ApiOperation({
     summary: 'Check if current user has approval rights for an entity',
   })
@@ -295,7 +294,6 @@ export class MasterApprovalsController {
   }
 
   @Post('approval')
-  @Permissions('approval:update')
   @ApiOperation({
     summary: 'Submit an approval for an entity',
   })

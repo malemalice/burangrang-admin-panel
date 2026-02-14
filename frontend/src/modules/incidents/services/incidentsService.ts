@@ -2,6 +2,7 @@ import {
   Incident,
   CreateIncidentDTO,
   UpdateIncidentDTO,
+  IncidentActivitiesEnum,
 } from '../types/incident.types';
 import { PaginatedResponse, PaginationParams } from '@/core/lib/types';
 import api from '@/core/lib/api';
@@ -24,12 +25,10 @@ const incidentsService = {
       search?: string;
     },
   ): Promise<PaginatedResponse<Incident>> => {
-    // Serialize arrays for NestJS compatibility (NestJS expects ?status=OPEN&status=DRAFT format)
     const serializedParams = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
+    Object.entries({ ...params, type: 'GENERAL' }).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
         if (Array.isArray(value)) {
-          // For arrays, add each value with the same key
           value.forEach(item => {
             serializedParams.append(key, String(item));
           });
@@ -38,7 +37,7 @@ const incidentsService = {
         }
       }
     });
-    
+
     const response = await api.get(`/incidents?${serializedParams.toString()}`);
     return response.data;
   },
@@ -49,7 +48,7 @@ const incidentsService = {
   },
 
   create: async (data: CreateIncidentDTO): Promise<Incident> => {
-    const response = await api.post('/incidents', data);
+    const response = await api.post('/incidents', { ...data, type: 'GENERAL' });
     return response.data;
   },
 
@@ -67,8 +66,15 @@ const incidentsService = {
     return response.data;
   },
 
-  approve: async (id: string, notes?: string): Promise<Incident> => {
-    const response = await api.post(`/incidents/${id}/approve`, { notes });
+  approve: async (
+    id: string,
+    notes?: string,
+    activities?: IncidentActivitiesEnum,
+  ): Promise<Incident> => {
+    const response = await api.post(`/incidents/${id}/approve`, {
+      notes,
+      activities,
+    });
     return response.data;
   },
 

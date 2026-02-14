@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Plus, MoreHorizontal, Pencil, Trash2, Eye } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
@@ -133,7 +133,7 @@ export default function WeightReportsPage() {
       } else if (filter.id === 'storageLocationId') {
         label = locations.find((l) => l.id === filter.value)?.name || String(filter.value);
       }
-      
+
       newActiveFilters[filter.id] = {
         value: filter.value,
         label,
@@ -199,6 +199,9 @@ export default function WeightReportsPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => navigate(`/waste-management/weight-reports/${item.id}`)}>
+              <Eye className="mr-2 h-4 w-4" /> View Detail
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/waste-management/weight-reports/${item.id}/edit`)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
@@ -245,7 +248,7 @@ export default function WeightReportsPage() {
           </TabsList>
         </Tabs>
       </PageHeader>
-      
+
       <DataTable
         columns={columns}
         data={data}

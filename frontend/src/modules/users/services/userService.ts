@@ -160,6 +160,38 @@ const userService = {
       const errorMessage = error.response?.data?.message || 'Failed to send reset password email';
       throw new Error(errorMessage);
     }
+  },
+
+  // Get user permissions
+  getUserPermissions: async (userId: string): Promise<any[]> => {
+    try {
+      const response = await api.get(`/users/${userId}/permissions`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching permissions for user ${userId}:`, error);
+      throw error;
+    }
+  },
+
+  // Assign permissions to user
+  assignPermissions: async (userId: string, permissionNames: string[]): Promise<any[]> => {
+    try {
+      const response = await api.post(`/users/${userId}/permissions`, { permissionNames });
+      return response.data;
+    } catch (error) {
+      console.error(`Error assigning permissions to user ${userId}:`, error);
+      throw error;
+    }
+  },
+
+  // Remove permission from user
+  removePermission: async (userId: string, permissionName: string): Promise<void> => {
+    try {
+      await api.delete(`/users/${userId}/permissions/${permissionName}`);
+    } catch (error) {
+      console.error(`Error removing permission ${permissionName} from user ${userId}:`, error);
+      throw error;
+    }
   }
 };
 
