@@ -13,6 +13,7 @@ function getManagerUserPermissionNames(): Set<string> {
     'risk-register',
     'inspection',
     'incident',
+    'incident-security',
     'ppe',
     'safety-equipment',
     'safety-equipment-type',
@@ -27,6 +28,7 @@ function getManagerUserPermissionNames(): Set<string> {
     'risk-matrix',
   ];
   const readListOnlyModules = [
+    'dashboard',
     'audit-policy',
     'audit-criteria',
     'certificate',
@@ -87,7 +89,7 @@ export const roles = [
     name: 'Manager',
     code: 'MANAGER',
     description:
-      'Risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, certificates (read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, quizzes, work permit',
+      'Risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, incident security, certificates (read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, quizzes, work permit',
     dataLevel: DataLevelEnum.DEPARTMENT,
     permissions: (permissions: Permission[]) =>
       permissions
@@ -98,7 +100,7 @@ export const roles = [
     name: 'User',
     code: 'USER',
     description:
-      'Same as Manager: risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, certificates (read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, quizzes, work permit',
+      'Same as Manager: risk assessment, risk register, inspection, audit policy/criteria (read/list), incidents, incident security, certificates (read/list), environmental (read/list), waste (read/list), man hour (read/list), PPE, training, quizzes, work permit',
     dataLevel: DataLevelEnum.SELF,
     permissions: (permissions: Permission[]) =>
       permissions

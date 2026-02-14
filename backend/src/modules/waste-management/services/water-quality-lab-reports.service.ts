@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
-import { CreateWaterQualityLabReportDto, UpdateWaterQualityLabReportDto, WaterQualityLabReportDto } from '../dto/water-quality-lab-reports';
+import {
+  CreateWaterQualityLabReportDto,
+  UpdateWaterQualityLabReportDto,
+  WaterQualityLabReportDto,
+} from '../dto/water-quality-lab-reports';
 
 interface FindAllOptions {
   page?: number;
@@ -27,26 +31,67 @@ export class WaterQualityLabReportsService {
     this.reportMapper = this.dtoMapper.createMapper(WaterQualityLabReportDto, {
       relations: {
         treatmentPlant: {
-          mapper: (tp) => tp ? { id: tp.id, name: tp.name, code: tp.code } : undefined,
+          mapper: (tp) =>
+            tp ? { id: tp.id, name: tp.name, code: tp.code } : undefined,
         },
         submitter: {
-          mapper: (u) => u ? { id: u.id, firstName: u.firstName, lastName: u.lastName } : undefined,
+          mapper: (u) =>
+            u
+              ? { id: u.id, firstName: u.firstName, lastName: u.lastName }
+              : undefined,
         },
         preparer: {
-          mapper: (u) => u ? { id: u.id, firstName: u.firstName, lastName: u.lastName } : undefined,
+          mapper: (u) =>
+            u
+              ? { id: u.id, firstName: u.firstName, lastName: u.lastName }
+              : undefined,
         },
       },
     });
   }
 
-  async create(createDto: CreateWaterQualityLabReportDto, userId: string): Promise<WaterQualityLabReportDto> {
-    const existing = await this.prisma.waterQualityLabReport.findUnique({ where: { reportCode: createDto.reportCode } });
+  async create(
+    createDto: CreateWaterQualityLabReportDto,
+    userId: string,
+  ): Promise<WaterQualityLabReportDto> {
+    const existing = await this.prisma.waterQualityLabReport.findUnique({
+      where: { reportCode: createDto.reportCode },
+    });
     if (existing) {
-      this.errorHandler.throwConflictCustom(`Water Quality Lab Report with code ${createDto.reportCode} already exists`);
+      this.errorHandler.throwConflictCustom(
+        `Water Quality Lab Report with code ${createDto.reportCode} already exists`,
+      );
     }
 
-    const treatmentPlant = await this.prisma.treatmentPlant.findUnique({ where: { id: createDto.treatmentPlantId } });
-    this.errorHandler.throwIfNotFoundById('Treatment Plant', createDto.treatmentPlantId, treatmentPlant);
+    // Check for duplicate treatmentPlant + month + year
+    const reportDate = new Date(createDto.reportDate);
+    const month = reportDate.getMonth() + 1;
+    const year = reportDate.getFullYear();
+
+    const duplicate = await this.prisma.waterQualityLabReport.findFirst({
+      where: {
+        treatmentPlantId: createDto.treatmentPlantId,
+        reportDate: {
+          gte: new Date(year, month - 1, 1),
+          lt: new Date(year, month, 1),
+        },
+      },
+    });
+
+    if (duplicate) {
+      this.errorHandler.throwConflictCustom(
+        `Report for this Source, Month ${month}, and Year ${year} already exists`,
+      );
+    }
+
+    const treatmentPlant = await this.prisma.treatmentPlant.findUnique({
+      where: { id: createDto.treatmentPlantId },
+    });
+    this.errorHandler.throwIfNotFoundById(
+      'Treatment Plant',
+      createDto.treatmentPlantId,
+      treatmentPlant,
+    );
 
     const item = await this.prisma.waterQualityLabReport.create({
       data: {
@@ -61,8 +106,20 @@ export class WaterQualityLabReportsService {
     return this.reportMapper(item);
   }
 
-  async findAll(options?: FindAllOptions): Promise<{ data: WaterQualityLabReportDto[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
-    const { page = 1, limit = 10, sortBy = 'submittedAt', sortOrder = 'desc', isActive, search, treatmentPlantId, status } = options || {};
+  async findAll(options?: FindAllOptions): Promise<{
+    data: WaterQualityLabReportDto[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      isActive,
+      search,
+      treatmentPlantId,
+      status,
+    } = options || {};
     const where: any = {};
 
     if (search) {
@@ -92,19 +149,35 @@ export class WaterQualityLabReportsService {
   async findOne(id: string): Promise<WaterQualityLabReportDto> {
     const item = await this.prisma.waterQualityLabReport.findUnique({
       where: { id },
-      include: { treatmentPlant: true, submitter: true, preparer: true, receiver: true, reviewer: true },
+      include: {
+        treatmentPlant: true,
+        submitter: true,
+        preparer: true,
+        receiver: true,
+        reviewer: true,
+      },
     });
     this.errorHandler.throwIfNotFoundById('Water Quality Lab Report', id, item);
     return this.reportMapper(item);
   }
 
-  async update(id: string, updateDto: UpdateWaterQualityLabReportDto): Promise<WaterQualityLabReportDto> {
-    const existing = await this.prisma.waterQualityLabReport.findUnique({ where: { id } });
-    this.errorHandler.throwIfNotFoundById('Water Quality Lab Report', id, existing);
+  async update(
+    id: string,
+    updateDto: UpdateWaterQualityLabReportDto,
+  ): Promise<WaterQualityLabReportDto> {
+    const existing = await this.prisma.waterQualityLabReport.findUnique({
+      where: { id },
+    });
+    this.errorHandler.throwIfNotFoundById(
+      'Water Quality Lab Report',
+      id,
+      existing,
+    );
 
     const data: any = { ...updateDto };
     if (updateDto.reportDate) data.reportDate = new Date(updateDto.reportDate);
-    if (updateDto.submittedAt) data.submittedAt = new Date(updateDto.submittedAt);
+    if (updateDto.submittedAt)
+      data.submittedAt = new Date(updateDto.submittedAt);
     if (updateDto.receivedAt) data.receivedAt = new Date(updateDto.receivedAt);
     if (updateDto.reviewedAt) data.reviewedAt = new Date(updateDto.reviewedAt);
 
@@ -117,7 +190,9 @@ export class WaterQualityLabReportsService {
   }
 
   async remove(id: string): Promise<void> {
-    const item = await this.prisma.waterQualityLabReport.findUnique({ where: { id } });
+    const item = await this.prisma.waterQualityLabReport.findUnique({
+      where: { id },
+    });
     this.errorHandler.throwIfNotFoundById('Water Quality Lab Report', id, item);
     await this.prisma.waterQualityLabReport.delete({ where: { id } });
   }

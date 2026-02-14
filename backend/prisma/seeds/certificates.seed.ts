@@ -1,4 +1,4 @@
-import { PrismaClient, CertificateTypeEnum } from '@prisma/client';
+import { PrismaClient, CertificateTypeEnum, CertificateRenewalStatusEnum } from '@prisma/client';
 import { subDays, addDays, addMonths, subMonths } from 'date-fns';
 
 export async function seedCertificates(prisma: PrismaClient) {
@@ -369,6 +369,31 @@ export async function seedCertificates(prisma: PrismaClient) {
             const daysUntilExpiry = Math.ceil((validityDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
             return daysUntilExpiry > 0 && daysUntilExpiry <= c.reminderDays;
         }).length}`);
+
+        // Seed certificate renewals for Admin Overview dashboard (renewal backlog)
+        const expiringSoonCerts = createdCertificates.filter((c) => {
+            const validityDate = new Date(c.validityDate);
+            const daysUntilExpiry = Math.ceil((validityDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            return c.isActive && daysUntilExpiry > 0 && daysUntilExpiry <= 30;
+        });
+        const existingRenewalCount = await prisma.certificateRenewal.count();
+        if (expiringSoonCerts.length >= 2 && existingRenewalCount < 10) {
+            const statuses: CertificateRenewalStatusEnum[] = [
+                CertificateRenewalStatusEnum.PENDING,
+                CertificateRenewalStatusEnum.REQUESTED,
+                CertificateRenewalStatusEnum.IN_PROGRESS,
+            ];
+            for (let i = 0; i < Math.min(3, expiringSoonCerts.length); i++) {
+                await prisma.certificateRenewal.create({
+                    data: {
+                        certificateId: expiringSoonCerts[i].id,
+                        requestedBy: adminUser.id,
+                        status: statuses[i],
+                    },
+                });
+            }
+            console.log(`✅ Created ${Math.min(3, expiringSoonCerts.length)} certificate renewals for Admin Overview`);
+        }
 
         return createdCertificates;
     } catch (error) {

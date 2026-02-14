@@ -20,9 +20,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/cor
 import { Loader2 } from 'lucide-react';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/core/components/ui/select';
 
 import { waterQualityLabReportService, treatmentPlantService } from '../../services/wasteManagementService';
-import { CreateWaterQualityLabReportData, WaterQualityLabReport, UpdateWaterQualityLabReportData, TreatmentPlant, PaginatedResponse } from '../../types/waste-management.types';
+import { CreateWaterQualityLabReportData, WaterQualityLabReport, UpdateWaterQualityLabReportData, TreatmentPlant, PaginatedResponse, ReportStatusEnum } from '../../types/waste-management.types';
 
 const formSchema = z.object({
   reportCode: z.string().min(1, 'Report code is required'),
@@ -33,6 +40,7 @@ const formSchema = z.object({
   summary: z.string().optional(),
   recommendations: z.string().optional(),
   analystSignature: z.string().optional(),
+  status: z.string().optional(),
   isActive: z.boolean().default(true),
 });
 
@@ -93,6 +101,7 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
             summary: data.summary || '',
             recommendations: data.recommendations || '',
             analystSignature: data.analystSignature || '',
+            status: data.status,
             isActive: data.isActive,
           });
         } catch (error) {
@@ -111,6 +120,7 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
     try {
       const submitData: CreateWaterQualityLabReportData | UpdateWaterQualityLabReportData = {
         ...data,
+        status: data.status as ReportStatusEnum,
         reportDate: new Date(data.reportDate).toISOString(),
         submittedAt: new Date(data.submittedAt).toISOString(),
       };
@@ -249,6 +259,7 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
             />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
                 name="analystSignature"
@@ -262,6 +273,34 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
                   </FormItem>
                 )}
               />
+
+              {mode === 'edit' && (
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Object.values(ReportStatusEnum).map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              </div>
 
               <FormField
                 control={form.control}

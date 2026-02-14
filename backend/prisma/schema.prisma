@@ -109,6 +109,7 @@ model User {
   incidentsAsTechnician          Incident[]              @relation("IncidentTechnician")
   incidentsAsAssignee             Incident[]              @relation("IncidentAssignee")
   incidentsCreated                Incident[]               @relation("IncidentCreator")
+  permissions                     Permission[]             @relation("PermissionToUser")
 
   @@map("t_users")
 }
@@ -168,6 +169,7 @@ model Permission {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   roles       Role[]   @relation("PermissionToRole")
+  users       User[]   @relation("PermissionToUser")
 
   @@map("m_permissions")
 }
@@ -1582,7 +1584,7 @@ model Room {
   updatedAt                 DateTime                   @updatedAt
   area                      Area                       @relation(fields: [areaId], references: [id])
   environmentalMeasurements EnvironmentalMeasurement[]
-  incident                  Incident?
+  incidents                 Incident[]
 
   @@map("m_rooms")
 }
@@ -1969,6 +1971,16 @@ enum IncidentTypeEnum {
   DANGEROUS_OR_HAZARDOUS_OCCURRENCE
 }
 
+enum IncidentActivitiesEnum {
+  WORK
+  STUDY
+}
+
+enum IncidentScopeEnum {
+  GENERAL
+  SECURITY
+}
+
 enum GenderEnum {
   MALE
   FEMALE
@@ -2086,10 +2098,12 @@ model Incident {
   code                  String                    @unique
   subject               String
   incidentDate          DateTime
-  roomId                String?                   @unique
+  roomId                String?
   areaId                String
   incidentType          IncidentTypeEnum
   incidentClassification IncidentClassificationEnum
+  activities            IncidentActivitiesEnum       @default(WORK)
+  type                  IncidentScopeEnum            @default(GENERAL)
   requesterId           String
   reportedBy            String
   technicianId          String?
@@ -2140,6 +2154,8 @@ model Incident {
   @@index([assigneeId])
   @@index([status])
   @@index([source])
+  @@index([activities])
+  @@index([type])
   @@map("t_incidents")
 }
 

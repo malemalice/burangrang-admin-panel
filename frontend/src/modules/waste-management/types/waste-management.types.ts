@@ -27,10 +27,12 @@ export enum WasteTypeEnum {
 
 export enum ReportStatusEnum {
   SUBMITTED = 'SUBMITTED',
-  RECEIVED = 'RECEIVED',
-  UNDER_REVIEW = 'UNDER_REVIEW',
-  REVIEWED = 'REVIEWED',
-  ARCHIVED = 'ARCHIVED',
+  SCHEDULED = 'SCHEDULED',
+  DRAFT = 'DRAFT',
+  OPEN = 'OPEN',
+  WAITING_APPROVAL = 'WAITING_APPROVAL',
+  DONE = 'DONE',
+  REJECTED = 'REJECTED',
 }
 
 export enum MonthEnum {

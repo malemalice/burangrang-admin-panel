@@ -35,11 +35,10 @@ export const seedMenus = async () => {
     // Clear existing menus
     await prisma.menu.deleteMany({});
 
-    // Create top-level menus
-    await prisma.menu.create({
+    // Dashboard menu group (parent + sub-modules)
+    const dashboardMenu = await prisma.menu.create({
       data: {
         name: 'Dashboard',
-        path: '/',
         icon: 'LayoutDashboard',
         order: 1,
         isActive: true,
@@ -49,6 +48,118 @@ export const seedMenus = async () => {
             { id: adminRole.id },
             { id: managerRole.id },
             { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Overview',
+        path: '/',
+        icon: 'LayoutDashboard',
+        parentId: dashboardMenu.id,
+        order: 1,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Hazard Analytics',
+        path: '/dashboard/hazard-analytics',
+        icon: 'AlertTriangle',
+        parentId: dashboardMenu.id,
+        order: 2,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Incident Profile Analytic',
+        path: '/dashboard/incident-profile-analytic',
+        icon: 'Users',
+        parentId: dashboardMenu.id,
+        order: 3,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'KPI Frequency Rate',
+        path: '/dashboard/kpi-frequency-rate',
+        icon: 'BarChart3',
+        parentId: dashboardMenu.id,
+        order: 4,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Security Team',
+        path: '/dashboard/security-team',
+        icon: 'Shield',
+        parentId: dashboardMenu.id,
+        order: 5,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
+        name: 'Admin Overview',
+        path: '/dashboard/admin-overview',
+        icon: 'LayoutDashboard',
+        parentId: dashboardMenu.id,
+        order: 6,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
           ],
         },
       },
@@ -358,13 +469,32 @@ export const seedMenus = async () => {
       },
     });
 
+    // Incident Securities menu (top-level) - security incidents
+    await prisma.menu.create({
+      data: {
+        name: 'Incident Securities',
+        path: '/incident-securities',
+        icon: 'ShieldAlert',
+        order: 7,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     // Environmental Measurements menu
     await prisma.menu.create({
       data: {
         name: 'Environmental Measurements',
         path: '/environmental-measurements',
         icon: 'Thermometer',
-        order: 7,
+        order: 8,
         isActive: true,
         roles: {
           connect: [
@@ -440,7 +570,7 @@ export const seedMenus = async () => {
       data: {
         name: 'PPE Management',
         icon: 'Shield',
-        order: 10,
+        order: 11,
         isActive: true,
         roles: {
           connect: [
@@ -457,7 +587,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Certificate Management',
         icon: 'Award',
-        order: 11,
+        order: 12,
         isActive: true,
         roles: {
           connect: [
@@ -474,7 +604,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Training',
         icon: 'GraduationCap',
-        order: 12,
+        order: 13,
         isActive: true,
         roles: {
           connect: [
@@ -807,7 +937,7 @@ export const seedMenus = async () => {
         name: 'Quizzes',
         path: '/quizzes',
         icon: 'FileQuestion',
-        order: 13,
+        order: 14,
         isActive: true,
         roles: {
           connect: [
@@ -826,7 +956,7 @@ export const seedMenus = async () => {
         name: 'Work Permit',
         icon: 'FileText',
         path: '/work-permits',
-        order: 14,
+        order: 15,
         isActive: true,
         roles: {
           connect: [
@@ -892,7 +1022,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Waste Management',
         icon: 'Recycle',
-        order: 8,
+        order: 9,
         isActive: true,
         roles: {
           connect: [
@@ -1084,7 +1214,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Man Hour',
         icon: 'Clock',
-        order: 9,
+        order: 10,
         isActive: true,
         roles: {
           connect: [
@@ -1136,7 +1266,8 @@ export const seedMenus = async () => {
     });
 
     console.log(`   - Created ${await prisma.menu.count()} menu items`);
-    console.log(`   - Top-level menus: 15`);
+    console.log(`   - Dashboard submenus: 6`);
+    console.log(`   - Top-level menus: 16 (including Incident Securities)`);
     console.log(`   - Risk Assessment submenus: 5`);
     console.log(`   - Master Data submenus: 6`);
     console.log(`   - User Management submenus: 3`);

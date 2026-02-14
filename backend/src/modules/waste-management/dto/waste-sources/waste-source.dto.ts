@@ -14,5 +14,7 @@ export class WasteSourceDto {
   @ApiProperty() @Expose() createdAt: Date;
   @ApiProperty() @Expose() updatedAt: Date;
 
-  constructor(partial: Partial<WasteSourceDto>) { Object.assign(this, partial); }
+  constructor(partial: Partial<WasteSourceDto>) {
+    Object.assign(this, partial);
+  }
 }

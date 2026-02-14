@@ -166,7 +166,7 @@ export default function ManHourReportPage() {
   };
 
   return (
-    <>
+    <div className="w-full max-w-full min-w-0 overflow-hidden">
       <PageHeader
         title="Man Hour Report"
         subtitle="View aggregated man hour data"
@@ -247,8 +247,8 @@ export default function ManHourReportPage() {
       </Card>
 
       {/* Report Table */}
-      <Card>
-        <CardContent className="p-0">
+      <Card className="overflow-hidden">
+        <CardContent className="p-0 overflow-hidden">
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -259,25 +259,25 @@ export default function ManHourReportPage() {
               <p>No data available for the selected period</p>
             </div>
           ) : (
-            <div className="overflow-x-auto max-h-[600px]">
-              <table className="w-full text-sm border-collapse">
-                <thead className="sticky top-0">
+            <div className="w-full min-w-0 overflow-x-auto overflow-y-auto max-h-[600px]">
+              <table className="w-full min-w-max text-sm border-collapse">
+                <thead className="sticky top-0 z-20">
                   <tr className="bg-blue-600 text-white">
-                    <th className="sticky left-0 top-0 z-30 bg-blue-600 px-4 py-3 text-left font-semibold min-w-[150px] border-r">
+                    <th className="sticky left-0 top-0 z-30 bg-blue-600 px-4 py-3 text-left font-semibold w-[180px] border-r shadow-[4px_0_4px_-2px_rgba(0,0,0,0.1)]">
                       Classes
                     </th>
-                    <th className="sticky top-0 z-20 px-4 py-3 text-right font-semibold min-w-[80px] border-r">
+                    <th className="sticky left-[180px] top-0 z-30 bg-blue-600 px-4 py-3 text-right font-semibold w-[100px] border-r shadow-[4px_0_4px_-2px_rgba(0,0,0,0.1)]">
                       Study Hour
                     </th>
                     {columnHeaders.map(({ key, label }) => (
                       <th
                         key={key}
-                        className="sticky top-0 z-20 px-3 py-3 text-right font-semibold min-w-[80px] whitespace-nowrap border-r"
+                        className="sticky top-0 z-10 bg-blue-600 px-3 py-3 text-right font-semibold min-w-[80px] whitespace-nowrap border-r"
                       >
                         {label}
                       </th>
                     ))}
-                    <th className="sticky top-0 z-20 px-4 py-3 text-right font-semibold min-w-[100px]">
+                    <th className="sticky top-0 z-10 bg-blue-600 px-4 py-3 text-right font-semibold min-w-[100px]">
                       Total
                     </th>
                   </tr>
@@ -288,10 +288,10 @@ export default function ManHourReportPage() {
                       key={`${row.name}-${row.group}`}
                       className={index % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800'}
                     >
-                      <td className="left-0 z-10 px-4 py-2 font-medium border-b border-r bg-inherit">
+                      <td className="sticky left-0 z-10 px-4 py-2 font-medium border-b border-r bg-inherit shadow-[4px_0_4px_-2px_rgba(0,0,0,0.05)]">
                         {row.name}
                       </td>
-                      <td className="px-4 py-2 text-right border-b border-r">
+                      <td className="sticky left-[180px] z-10 px-4 py-2 text-right border-b border-r bg-inherit shadow-[4px_0_4px_-2px_rgba(0,0,0,0.05)]">
                         {row.studyHour}
                       </td>
                       {columnHeaders.map(({ key }) => (
@@ -308,11 +308,13 @@ export default function ManHourReportPage() {
                   ))}
 
                   {/* Totals Row */}
-                  <tr className="bg-blue-100 dark:bg-blue-900/50 font-bold sticky bottom-0">
-                    <td className="sticky left-0 z-10 bg-blue-100 dark:bg-blue-900/50 px-4 py-3 border-t-2 border-r">
+                  <tr className="bg-blue-100 dark:bg-blue-900/50 font-bold sticky bottom-0 z-10">
+                    <td className="sticky left-0 z-20 bg-blue-100 dark:bg-blue-900/50 px-4 py-3 border-t-2 border-r shadow-[4px_0_4px_-2px_rgba(0,0,0,0.05)]">
                       Total
                     </td>
-                    <td className="px-4 py-3 text-right border-t-2 border-r">-</td>
+                    <td className="sticky left-[180px] z-20 bg-blue-100 dark:bg-blue-900/50 px-4 py-3 text-right border-t-2 border-r shadow-[4px_0_4px_-2px_rgba(0,0,0,0.05)]">
+                      -
+                    </td>
                     {columnHeaders.map(({ key }) => (
                       <td key={key} className="px-3 py-3 text-right border-t-2 border-r">
                         {columnTotals[key]
@@ -360,6 +362,6 @@ export default function ManHourReportPage() {
           </Card>
         </div>
       )}
-    </>
+    </div>
   );
 }

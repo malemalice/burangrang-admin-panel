@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { IncidentsController } from './controllers/incidents.controller';
+import { IncidentSecuritiesController } from './controllers/incident-securities.controller';
 import { IncidentsService } from './services/incidents.service';
 import { PrismaModule } from '../../core/prisma/prisma.module';
 import { SharedModule } from '../../shared/shared.module';
@@ -8,7 +9,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [PrismaModule, SharedModule, MasterApprovalsModule, NotificationsModule],
-  controllers: [IncidentsController],
+  controllers: [IncidentsController, IncidentSecuritiesController],
   providers: [IncidentsService],
   exports: [IncidentsService],
 })

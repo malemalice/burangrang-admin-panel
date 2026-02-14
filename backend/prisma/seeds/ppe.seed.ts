@@ -1245,6 +1245,63 @@ export const seedPPE = async () => {
             return stock;
         });
 
+        // ========================================================================
+        // ADMIN OVERVIEW DASHBOARD: Low stock + expiring within 30 days
+        // ========================================================================
+        const in15Days = new Date(today);
+        in15Days.setDate(in15Days.getDate() + 15);
+        const in20Days = new Date(today);
+        in20Days.setDate(in20Days.getDate() + 20);
+        const in30Days = new Date(today);
+        in30Days.setDate(in30Days.getDate() + 30);
+        const existingLowStockOrExpiring = await prisma.pPEStockItem.count({
+            where: {
+                stock: { isActive: true, deletedAt: null },
+                OR: [
+                    { currentQuantity: { gt: 0, lte: 5 } },
+                    {
+                        expiryDate: { gte: today, lte: in30Days },
+                        status: { in: ['AVAILABLE', 'RESERVED', 'ISSUED'] },
+                    },
+                ],
+            },
+        });
+        if (existingLowStockOrExpiring < 3) {
+            console.log('📦 Creating Stock Entry – Admin Overview (low stock & expiring soon)...');
+            const adminOverviewStockCode = await generateStockCode(dateStr);
+            await prisma.$transaction(async (tx) => {
+                await createStockWithItems(
+                    tx,
+                    adminOverviewStockCode,
+                    new Date(),
+                    [
+                        {
+                            equipmentName: 'Safety Helmet - Low Stock',
+                            equipmentType: 'Full Brim',
+                            equipmentSize: 'M',
+                            expiryDate: in15Days,
+                            initialQuantity: 2,
+                            order: 1,
+                            safetyEquipmentId: safetyEquipments[0]?.id || null,
+                        },
+                        {
+                            equipmentName: 'Safety Goggles - Expiring Soon',
+                            equipmentType: 'Clear Lens',
+                            equipmentSize: 'One Size',
+                            expiryDate: in20Days,
+                            initialQuantity: 3,
+                            order: 2,
+                            safetyEquipmentId: safetyEquipments[4]?.id || null,
+                        },
+                    ],
+                    adminUser.id,
+                    true,
+                    'Admin Overview: low stock and expiring within 30 days',
+                );
+            });
+            console.log(`✅ Created stock ${adminOverviewStockCode} for Admin Overview dashboard`);
+        }
+
         // Summary
         console.log('✅ PPE sample data seeded successfully!');
         console.log('\n📊 Summary:');

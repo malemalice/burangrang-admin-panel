@@ -407,6 +407,64 @@ export const seedWasteManagement = async () => {
       ]);
       console.log(`     ✅ Created ${weightReports.length} weight reports with items`);
 
+      // Admin Overview dashboard: one report UNDER_REVIEW and one more weight report with higher total weight
+      await prisma.monthlyFlowReport.create({
+        data: {
+          reportCode: `MFR-${currentYear}-MAR-001`,
+          treatmentPlantId: treatmentPlants[1]?.id ?? treatmentPlants[0].id,
+          reportMonth: MonthEnum.MAR,
+          reportYear: currentYear,
+          totalVolume: 9800.0,
+          averageDailyFlow: 316.13,
+          peakFlow: 480.0,
+          minimumFlow: 250.0,
+          status: ReportStatusEnum.UNDER_REVIEW,
+          submittedBy: users[0].id,
+          submittedAt: new Date(),
+          isActive: true,
+        },
+      });
+      await prisma.weightReport.create({
+        data: {
+          reportCode: `WR-${currentYear}-FEB-001`,
+          sourceId: wasteSources[1]?.id ?? wasteSources[0].id,
+          storageLocationId: storageLocations[1]?.id ?? storageLocations[0].id,
+          reportDate: new Date(),
+          reportMonth: MonthEnum.FEB,
+          reportYear: currentYear,
+          status: ReportStatusEnum.SUBMITTED,
+          submittedBy: users[0].id,
+          submittedAt: new Date(),
+          isActive: true,
+          items: {
+            create: [
+              {
+                wasteTypeId: wasteTypes[0].id,
+                weight: 300.0,
+                unit: 'kg',
+                order: 1,
+                notes: 'Admin Overview - bulk waste',
+              },
+              {
+                wasteTypeId: wasteTypes[2]?.id ?? wasteTypes[0].id,
+                weight: 150.0,
+                unit: 'kg',
+                order: 2,
+                notes: 'Kardus bekas',
+              },
+              {
+                wasteTypeId: wasteTypes[3]?.id ?? wasteTypes[1].id,
+                weight: 75.0,
+                unit: 'kg',
+                order: 3,
+                notes: 'Limbah lainnya',
+              },
+            ],
+          },
+        },
+      });
+      console.log('     ✅ Created 1 monthly flow report (UNDER_REVIEW) and 1 weight report (~525 kg) for Admin Overview');
+
       // Seed sample Dispatch Orders
       console.log('  🚛 Seeding dispatch orders...');
       const dispatchOrders = await Promise.all([

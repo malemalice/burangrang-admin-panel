@@ -42,13 +42,13 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         <DynamicSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
         <div className={cn(
-          "flex-1 flex flex-col transition-all duration-300 ease-in-out",
+          "flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out",
           "ml-0", // No margin on mobile
           sidebarOpen ? "md:ml-64" : "md:ml-20" // Margin only on desktop
         )}>
           <TopNavbar toggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
-          <main className="flex-1 p-4 md:p-6 overflow-x-auto">
-            <div className="animate-fade-in">
+          <main className="flex-1 min-w-0 p-4 md:p-6 overflow-x-hidden overflow-y-auto">
+            <div className="animate-fade-in min-w-0 overflow-hidden">
               {children}
             </div>
           </main>

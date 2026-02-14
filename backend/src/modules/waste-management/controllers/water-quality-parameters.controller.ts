@@ -10,13 +10,25 @@ import {
   Query,
 } from '@nestjs/common';
 import { WaterQualityParametersService } from '../services/water-quality-parameters.service';
-import { CreateWaterQualityParameterDto, UpdateWaterQualityParameterDto, WaterQualityParameterDto } from '../dto/water-quality-parameters';
+import {
+  CreateWaterQualityParameterDto,
+  UpdateWaterQualityParameterDto,
+  WaterQualityParameterDto,
+} from '../dto/water-quality-parameters';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
 import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+  ApiBearerAuth,
+  ApiParam,
+  ApiBody,
+} from '@nestjs/swagger';
 
 @ApiTags('water-quality-parameters')
 @ApiBearerAuth()
@@ -29,12 +41,18 @@ export class WaterQualityParametersController {
   @Permissions('waste-management:create')
   @ApiOperation({ summary: 'Create a new water quality parameter' })
   @ApiBody({ type: CreateWaterQualityParameterDto })
-  @ApiResponse({ status: 201, description: 'The parameter has been successfully created.', type: WaterQualityParameterDto })
+  @ApiResponse({
+    status: 201,
+    description: 'The parameter has been successfully created.',
+    type: WaterQualityParameterDto,
+  })
   @ApiResponse({ status: 400, description: 'Bad Request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 409, description: 'Conflict' })
-  create(@Body() createDto: CreateWaterQualityParameterDto): Promise<WaterQualityParameterDto> {
+  create(
+    @Body() createDto: CreateWaterQualityParameterDto,
+  ): Promise<WaterQualityParameterDto> {
     return this.service.create(createDto);
   }
 
@@ -48,8 +66,18 @@ export class WaterQualityParametersController {
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean })
   @ApiQuery({ name: 'search', required: false, type: String })
-  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
-  @ApiResponse({ status: 200, description: 'Return all parameters.', type: [WaterQualityParameterDto] })
+  @ApiQuery({
+    name: 'options',
+    required: false,
+    type: Boolean,
+    description:
+      'Set to true to bypass permission check (requires JWT auth only)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Return all parameters.',
+    type: [WaterQualityParameterDto],
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findAll(
     @Query('page') page?: string,
@@ -73,7 +101,11 @@ export class WaterQualityParametersController {
   @Permissions('waste-management:read')
   @ApiOperation({ summary: 'Get a water quality parameter by id' })
   @ApiParam({ name: 'id', type: String })
-  @ApiResponse({ status: 200, description: 'Return the parameter.', type: WaterQualityParameterDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Return the parameter.',
+    type: WaterQualityParameterDto,
+  })
   @ApiResponse({ status: 404, description: 'Parameter not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findOne(@Param('id') id: string): Promise<WaterQualityParameterDto> {
@@ -85,7 +117,11 @@ export class WaterQualityParametersController {
   @ApiOperation({ summary: 'Update a water quality parameter' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateWaterQualityParameterDto })
-  @ApiResponse({ status: 200, description: 'The parameter has been successfully updated.', type: WaterQualityParameterDto })
+  @ApiResponse({
+    status: 200,
+    description: 'The parameter has been successfully updated.',
+    type: WaterQualityParameterDto,
+  })
   @ApiResponse({ status: 400, description: 'Bad Request' })
   @ApiResponse({ status: 404, description: 'Parameter not found' })
   @ApiResponse({ status: 409, description: 'Conflict' })
@@ -100,7 +136,10 @@ export class WaterQualityParametersController {
   @Permissions('waste-management:delete')
   @ApiOperation({ summary: 'Delete a water quality parameter' })
   @ApiParam({ name: 'id', type: String })
-  @ApiResponse({ status: 200, description: 'The parameter has been successfully deleted.' })
+  @ApiResponse({
+    status: 200,
+    description: 'The parameter has been successfully deleted.',
+  })
   @ApiResponse({ status: 404, description: 'Parameter not found' })
   remove(@Param('id') id: string): Promise<void> {
     return this.service.remove(id);

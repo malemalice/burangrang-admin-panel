@@ -62,6 +62,11 @@ export const permissions = [
   { name: 'system:backup', description: 'Create system backups' },
   { name: 'system:restore', description: 'Restore system from backup' },
 
+  // Dashboard (analytics / overview)
+  { name: 'dashboard:read', description: 'View dashboard and analytics' },
+  { name: 'dashboard:list', description: 'List dashboard data' },
+  { name: 'dashboard:admin-overview:read', description: 'View admin overview dashboard (executive-level metrics)' },
+
   // Notification Management
   { name: 'notification:create', description: 'Create new notifications' },
   { name: 'notification:read', description: 'View notifications' },
@@ -121,6 +126,7 @@ export const permissions = [
   { name: 'quiz:update', description: 'Update quiz information' },
   { name: 'quiz:delete', description: 'Delete quizzes' },
   { name: 'quiz:list', description: 'List all quizzes' },
+  { name: 'quiz:publish', description: 'Publish/unpublish quizzes' },
 
   // Incident Management
   { name: 'incident:create', description: 'Create new incidents' },
@@ -128,6 +134,13 @@ export const permissions = [
   { name: 'incident:update', description: 'Update incident information' },
   { name: 'incident:delete', description: 'Delete incidents' },
   { name: 'incident:list', description: 'List all incidents' },
+
+  // Incident Security Management
+  { name: 'incident-security:create', description: 'Create new security incidents' },
+  { name: 'incident-security:read', description: 'View security incident information' },
+  { name: 'incident-security:update', description: 'Update security incident information' },
+  { name: 'incident-security:delete', description: 'Delete security incidents' },
+  { name: 'incident-security:list', description: 'List all security incidents' },
 
   // Audit Schedule Management
   { name: 'audit-schedule:create', description: 'Create new audit schedules' },
