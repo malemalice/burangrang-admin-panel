@@ -246,7 +246,11 @@ export class EnrollmentsService {
             },
             assignedBy,
           );
+        } catch (error) {
+          console.error('Failed to create enrollment notification:', error);
+        }
 
+        try {
           const emailResult =
             await this.mailService.sendTemplatedMailWithResult({
               template: 'course-assignment',
@@ -277,7 +281,7 @@ export class EnrollmentsService {
         } catch (error) {
           emailStatus = 'failed';
           emailMessage = String(error);
-          console.error('Failed to send notification:', error);
+          console.error('Failed to send assignment email:', error);
         }
       }
 

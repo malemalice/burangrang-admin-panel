@@ -20,13 +20,7 @@ import {
   FormMessage,
   FormDescription,
 } from '@/core/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/core/components/ui/select';
+import { ModalCombobox, ModalComboboxOption } from '@/core/components/ui/modal-combobox';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
@@ -128,17 +122,31 @@ const AssignCourseDialog = ({ open, onOpenChange, onSuccess }: AssignCourseDialo
       if (onSuccess) {
         onSuccess();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error assigning course:', error);
-      console.error('Error response:', error?.response?.data);
+
+      type ApiErrorPayload = {
+        message?: string | string[] | Record<string, string | string[]>;
+        error?: string;
+      };
+
+      type ApiError = {
+        response?: {
+          data?: ApiErrorPayload;
+        };
+        message?: string;
+      };
+
+      const apiError = error as ApiError;
+      console.error('Error response:', apiError.response?.data);
 
       // Extract error message from validation errors
       // NestJS ValidationPipe returns errors in format:
       // { message: ['field must be...', 'field should not be...'], error: 'Bad Request', statusCode: 400 }
       let errorMessage = 'Failed to assign course';
 
-      if (error?.response?.data) {
-        const errorData = error.response.data;
+      if (apiError.response?.data) {
+        const errorData = apiError.response.data;
 
         // Handle array of validation messages
         if (Array.isArray(errorData.message)) {
@@ -171,8 +179,8 @@ const AssignCourseDialog = ({ open, onOpenChange, onSuccess }: AssignCourseDialo
         else if (errorData.error) {
           errorMessage = errorData.error;
         }
-      } else if (error?.message) {
-        errorMessage = error.message;
+      } else if (apiError.message) {
+        errorMessage = apiError.message;
       }
 
       toast.error(errorMessage);
@@ -180,6 +188,16 @@ const AssignCourseDialog = ({ open, onOpenChange, onSuccess }: AssignCourseDialo
       setIsLoading(false);
     }
   };
+
+  const userOptions: ModalComboboxOption[] = users.map((user) => ({
+    value: user.id,
+    label: `${user.name} (${user.email})`,
+  }));
+
+  const courseOptions: ModalComboboxOption[] = courses.map((course) => ({
+    value: course.id,
+    label: course.title,
+  }));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -199,24 +217,16 @@ const AssignCourseDialog = ({ open, onOpenChange, onSuccess }: AssignCourseDialo
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>User *</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={isLoadingOptions}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a user" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {users.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          {user.name} ({user.email})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <ModalCombobox
+                      options={userOptions}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      placeholder="Select a user"
+                      searchPlaceholder="Search user..."
+                      disabled={isLoadingOptions}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -228,24 +238,16 @@ const AssignCourseDialog = ({ open, onOpenChange, onSuccess }: AssignCourseDialo
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Course *</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={isLoadingOptions}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a course" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {courses.map((course) => (
-                        <SelectItem key={course.id} value={course.id}>
-                          {course.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <ModalCombobox
+                      options={courseOptions}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      placeholder="Select a course"
+                      searchPlaceholder="Search course..."
+                      disabled={isLoadingOptions}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

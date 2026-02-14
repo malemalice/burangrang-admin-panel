@@ -1201,64 +1201,74 @@ export class QuizzesService {
 
     this.errorHandler.throwIfNotFoundById('Quiz', quizId, quiz);
 
-    // Build where clause based on quiz type
-    const whereClause: any = {
-      quizId,
-      status: 'IN_PROGRESS',
-    };
+    const getAttemptByStatus = async (status: 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED') => {
+      const whereClause: any = {
+        quizId,
+        status,
+      };
 
-    if (quiz.entity === 'COURSE' || quiz.entity === 'CHAPTER') {
-      // Bound quiz - look by enrollmentId
-      if (enrollmentId) {
-        whereClause.enrollmentId = enrollmentId;
+      if (quiz.entity === 'COURSE' || quiz.entity === 'CHAPTER') {
+        // Bound quiz - look by enrollmentId
+        if (enrollmentId) {
+          whereClause.enrollmentId = enrollmentId;
+        } else {
+          // Fallback by user when enrollmentId is not provided
+          whereClause.enrollment = {
+            userId,
+          };
+        }
       } else {
-        // Try to find any in-progress attempt for this user via enrollment
-        whereClause.enrollment = {
-          userId,
-        };
+        // Standalone quiz - look by userId
+        whereClause.userId = userId;
       }
-    } else {
-      // Standalone quiz - look by userId
-      whereClause.userId = userId;
-    }
 
-    const attempt = await this.prisma.quizAttempt.findFirst({
-      where: whereClause,
-      include: {
-        quiz: {
-          include: {
-            questions: {
-              where: { isActive: true },
-              include: {
-                options: {
-                  orderBy: { order: 'asc' },
+      return this.prisma.quizAttempt.findFirst({
+        where: whereClause,
+        include: {
+          quiz: {
+            include: {
+              questions: {
+                where: { isActive: true },
+                include: {
+                  options: {
+                    orderBy: { order: 'asc' },
+                  },
+                },
+                orderBy: { order: 'asc' },
+              },
+            },
+          },
+          answers: {
+            include: {
+              question: {
+                include: {
+                  options: true,
                 },
               },
-              orderBy: { order: 'asc' },
+              selectedOption: true,
+            },
+          },
+          enrollment: {
+            select: {
+              id: true,
+              userId: true,
             },
           },
         },
-        answers: {
-          include: {
-            question: {
-              include: {
-                options: true,
-              },
-            },
-            selectedOption: true,
-          },
+        orderBy: {
+          startedAt: 'desc',
         },
-        enrollment: {
-          select: {
-            id: true,
-            userId: true,
-          },
-        },
-      },
-      orderBy: {
-        startedAt: 'desc',
-      },
-    });
+      });
+    };
+
+    // Priority: IN_PROGRESS for resume, then COMPLETED, then ABANDONED for persistence
+    let attempt = await getAttemptByStatus('IN_PROGRESS');
+    if (!attempt) {
+      attempt = await getAttemptByStatus('COMPLETED');
+    }
+    if (!attempt) {
+      attempt = await getAttemptByStatus('ABANDONED');
+    }
 
     if (!attempt) {
       return null;
