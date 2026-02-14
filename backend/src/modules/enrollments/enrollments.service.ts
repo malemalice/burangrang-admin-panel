@@ -57,10 +57,14 @@ export class EnrollmentsService {
         isArray: false,
       },
     });
-    this.enrollmentArrayMapper = this.dtoMapper.createArrayMapper(EnrollmentDto);
+    this.enrollmentArrayMapper =
+      this.dtoMapper.createArrayMapper(EnrollmentDto);
   }
 
-  async create(createEnrollmentDto: CreateEnrollmentDto, userId: string): Promise<EnrollmentDto> {
+  async create(
+    createEnrollmentDto: CreateEnrollmentDto,
+    userId: string,
+  ): Promise<EnrollmentDto> {
     return this.errorHandler.safeExecute(async () => {
       const { courseId } = createEnrollmentDto;
 
@@ -81,7 +85,9 @@ export class EnrollmentsService {
       });
 
       if (activeEnrollment) {
-        this.errorHandler.throwConflictCustom('User already has an active enrollment in this course');
+        this.errorHandler.throwConflictCustom(
+          'User already has an active enrollment in this course',
+        );
       }
 
       // Auto-complete any previous COMPLETED enrollments (for tracking history)
@@ -118,17 +124,27 @@ export class EnrollmentsService {
         orderBy: { enrolledAt: 'desc' },
       });
 
-      return enrollments.map(enrollment => this.enrollmentMapper(enrollment));
+      return enrollments.map((enrollment) => this.enrollmentMapper(enrollment));
     }, 'Getting user enrollments');
   }
 
-  async assignCourse(assignDto: AssignEnrollmentDto, assignedBy: string): Promise<{
+  async assignCourse(
+    assignDto: AssignEnrollmentDto,
+    assignedBy: string,
+  ): Promise<{
     enrollment: EnrollmentDto;
     emailStatus: 'sent' | 'skipped' | 'failed' | 'not_requested';
     emailMessage?: string;
   }> {
     return this.errorHandler.safeExecute(async () => {
-      const { userId, courseId, dueDate, isRequired = false, notes, sendEmail = true } = assignDto;
+      const {
+        userId,
+        courseId,
+        dueDate,
+        isRequired = false,
+        notes,
+        sendEmail = true,
+      } = assignDto;
 
       const course = await this.prisma.course.findUnique({
         where: { id: courseId },
@@ -154,7 +170,9 @@ export class EnrollmentsService {
       });
 
       if (existingEnrollment) {
-        this.errorHandler.throwConflictCustom('User already has an active or invited enrollment in this course');
+        this.errorHandler.throwConflictCustom(
+          'User already has an active or invited enrollment in this course',
+        );
       }
 
       const enrollment = await this.prisma.enrollment.create({
@@ -197,7 +215,8 @@ export class EnrollmentsService {
         },
       });
 
-      let emailStatus: 'sent' | 'skipped' | 'failed' | 'not_requested' = 'not_requested';
+      let emailStatus: 'sent' | 'skipped' | 'failed' | 'not_requested' =
+        'not_requested';
       let emailMessage: string | undefined;
 
       if (sendEmail) {
@@ -228,25 +247,29 @@ export class EnrollmentsService {
             assignedBy,
           );
 
-          const emailResult = await this.mailService.sendTemplatedMailWithResult({
-            template: 'course-assignment',
-            email: user.email,
-            context: {
-              userName: `${user.firstName} ${user.lastName}`,
-              courseTitle: course.title,
-              courseSlug: course.slug,
-              dueDate: dueDate ? new Date(dueDate).toLocaleDateString() : null,
-              notes: notes || null,
-              enrollmentId: enrollment.id,
-              isRequired: isRequired ? 'Yes' : 'No',
-            },
-          });
+          const emailResult =
+            await this.mailService.sendTemplatedMailWithResult({
+              template: 'course-assignment',
+              email: user.email,
+              context: {
+                userName: `${user.firstName} ${user.lastName}`,
+                courseTitle: course.title,
+                courseSlug: course.slug,
+                dueDate: dueDate
+                  ? new Date(dueDate).toLocaleDateString()
+                  : null,
+                notes: notes || null,
+                enrollmentId: enrollment.id,
+                isRequired: isRequired ? 'Yes' : 'No',
+              },
+            });
 
           if (emailResult.success && !emailResult.skipped) {
             emailStatus = 'sent';
           } else if (emailResult.skipped) {
             emailStatus = 'skipped';
-            emailMessage = 'SMTP not configured - email notification was skipped';
+            emailMessage =
+              'SMTP not configured - email notification was skipped';
           } else {
             emailStatus = 'failed';
             emailMessage = emailResult.error;
@@ -283,8 +306,17 @@ export class EnrollmentsService {
         assignedBy,
       } = params;
 
-      const pageNum = Math.max(1, typeof page === 'string' ? parseInt(page, 10) || 1 : page || 1);
-      const limitNum = Math.max(1, Math.min(100, typeof limit === 'string' ? parseInt(limit, 10) || 10 : limit || 10));
+      const pageNum = Math.max(
+        1,
+        typeof page === 'string' ? parseInt(page, 10) || 1 : page || 1,
+      );
+      const limitNum = Math.max(
+        1,
+        Math.min(
+          100,
+          typeof limit === 'string' ? parseInt(limit, 10) || 10 : limit || 10,
+        ),
+      );
 
       // Build where clause
       const where: any = {};
@@ -346,7 +378,11 @@ export class EnrollmentsService {
       }
 
       // Data-level scope: hide rows user is not allowed to see
-      const scopeWhere = this.dataScopeService.buildWhereForList(userContext, 'Enrollment', where);
+      const scopeWhere = this.dataScopeService.buildWhereForList(
+        userContext,
+        'Enrollment',
+        where,
+      );
       const finalWhere =
         scopeWhere && Object.keys(scopeWhere).length > 0
           ? { AND: [where, scopeWhere] }
@@ -392,7 +428,9 @@ export class EnrollmentsService {
       });
 
       return {
-        data: enrollments.map(enrollment => this.enrollmentMapper(enrollment)),
+        data: enrollments.map((enrollment) =>
+          this.enrollmentMapper(enrollment),
+        ),
         meta: {
           total,
           page: pageNum,
@@ -419,7 +457,10 @@ export class EnrollmentsService {
 
     // Calculate average score from all completed attempts
     // Or use highest score - depends on business requirement
-    const totalScore = attempts.reduce((sum, a) => sum + Number(a.score || 0), 0);
+    const totalScore = attempts.reduce(
+      (sum, a) => sum + Number(a.score || 0),
+      0,
+    );
     const averageScore = totalScore / attempts.length;
 
     // Update enrollment score
@@ -472,10 +513,20 @@ export class EnrollmentsService {
       // Data-level access: deny if user cannot access this record
       const recordForCheck = {
         ...enrollment,
-        user: enrollment.user ? { departmentId: enrollment.user.departmentId } : undefined,
+        user: enrollment.user
+          ? { departmentId: enrollment.user.departmentId }
+          : undefined,
       };
-      if (!this.dataScopeService.canAccessRecord(userContext, 'Enrollment', recordForCheck)) {
-        this.errorHandler.throwForbidden('You do not have access to this record');
+      if (
+        !this.dataScopeService.canAccessRecord(
+          userContext,
+          'Enrollment',
+          recordForCheck,
+        )
+      ) {
+        this.errorHandler.throwForbidden(
+          'You do not have access to this record',
+        );
       }
 
       // Prepare update data
@@ -484,13 +535,18 @@ export class EnrollmentsService {
       if (updateDto.status !== undefined) {
         updateData.status = updateDto.status;
         // Set completedAt if status is COMPLETED
-        if (updateDto.status === EnrollmentStatusEnum.COMPLETED && !enrollment.completedAt) {
+        if (
+          updateDto.status === EnrollmentStatusEnum.COMPLETED &&
+          !enrollment.completedAt
+        ) {
           updateData.completedAt = new Date();
         }
       }
 
       if (updateDto.dueDate !== undefined) {
-        updateData.dueDate = updateDto.dueDate ? new Date(updateDto.dueDate) : null;
+        updateData.dueDate = updateDto.dueDate
+          ? new Date(updateDto.dueDate)
+          : null;
       }
 
       if (updateDto.notes !== undefined) {
@@ -533,7 +589,10 @@ export class EnrollmentsService {
     }, 'Updating enrollment');
   }
 
-  async findOne(id: string, userContext: UserContext | undefined): Promise<EnrollmentDto> {
+  async findOne(
+    id: string,
+    userContext: UserContext | undefined,
+  ): Promise<EnrollmentDto> {
     return this.errorHandler.safeExecute(async () => {
       const enrollment = await this.prisma.enrollment.findUnique({
         where: { id },
@@ -571,17 +630,30 @@ export class EnrollmentsService {
       // Data-level access: deny if user cannot access this record
       const recordForCheck = {
         ...enrollment,
-        user: enrollment.user ? { departmentId: enrollment.user.departmentId } : undefined,
+        user: enrollment.user
+          ? { departmentId: enrollment.user.departmentId }
+          : undefined,
       };
-      if (!this.dataScopeService.canAccessRecord(userContext, 'Enrollment', recordForCheck)) {
-        this.errorHandler.throwForbidden('You do not have access to this record');
+      if (
+        !this.dataScopeService.canAccessRecord(
+          userContext,
+          'Enrollment',
+          recordForCheck,
+        )
+      ) {
+        this.errorHandler.throwForbidden(
+          'You do not have access to this record',
+        );
       }
 
       return this.enrollmentMapper(enrollment);
     }, 'Finding enrollment');
   }
 
-  async getLearningContext(id: string, userContext: UserContext | undefined): Promise<any> {
+  async getLearningContext(
+    id: string,
+    userContext: UserContext | undefined,
+  ): Promise<any> {
     return this.errorHandler.safeExecute(async () => {
       // Get enrollment with basic course info (no chapters yet)
       const enrollment = await this.prisma.enrollment.findUnique({
@@ -606,10 +678,20 @@ export class EnrollmentsService {
       // Data-level access: deny if user cannot access this record
       const recordForCheck = {
         ...enrollment,
-        user: enrollment.user ? { departmentId: enrollment.user.departmentId } : undefined,
+        user: enrollment.user
+          ? { departmentId: enrollment.user.departmentId }
+          : undefined,
       };
-      if (!this.dataScopeService.canAccessRecord(userContext, 'Enrollment', recordForCheck)) {
-        this.errorHandler.throwForbidden('You do not have access to this record');
+      if (
+        !this.dataScopeService.canAccessRecord(
+          userContext,
+          'Enrollment',
+          recordForCheck,
+        )
+      ) {
+        this.errorHandler.throwForbidden(
+          'You do not have access to this record',
+        );
       }
 
       // Fetch chapters separately
@@ -637,13 +719,13 @@ export class EnrollmentsService {
         enrollment.course.instructorId === userContext?.userId;
 
       // Fetch quizzes (both course-level and chapter-level)
-      const chapterIds = courseWithChapters.chapters.map(ch => ch.id);
+      const chapterIds = courseWithChapters.chapters.map((ch) => ch.id);
 
       const quizzes = await this.prisma.quiz.findMany({
         where: {
           OR: [
             { entity: 'COURSE', entityId: enrollment.courseId },
-            { entity: 'CHAPTER', entityId: { in: chapterIds } }
+            { entity: 'CHAPTER', entityId: { in: chapterIds } },
           ],
           isActive: true,
           ...(canViewDrafts ? {} : { isPublished: true }),
@@ -653,11 +735,39 @@ export class EnrollmentsService {
         },
       });
 
+      const quizAttempts = await this.prisma.quizAttempt.findMany({
+        where: {
+          enrollmentId: id,
+        },
+        orderBy: [
+          {
+            completedAt: 'desc',
+          },
+          {
+            startedAt: 'desc',
+          },
+        ],
+        select: {
+          id: true,
+          quizId: true,
+          attemptNumber: true,
+          status: true,
+          score: true,
+          totalPoints: true,
+          earnedPoints: true,
+          isPassed: true,
+          startedAt: true,
+          completedAt: true,
+          timeSpent: true,
+        },
+      });
+
       return {
         enrollment: this.enrollmentMapper(enrollment),
         course: courseWithChapters,
         quizzes,
         progress: enrollment.progressRecords,
+        quizAttempts,
       };
     }, 'Getting learning context');
   }

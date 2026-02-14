@@ -20,7 +20,7 @@ export interface Course {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  
+
   // Relations
   instructor?: {
     id: string;
@@ -54,7 +54,7 @@ export interface Chapter {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  
+
   // Relations
   course?: {
     id: string;
@@ -311,9 +311,24 @@ export interface Quiz {
   isActive: boolean;
 }
 
+export interface QuizAttemptSummary {
+  id: string;
+  quizId: string;
+  attemptNumber: number;
+  status: 'INVITING' | 'INVITED' | 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED';
+  score?: number;
+  totalPoints?: number;
+  earnedPoints?: number;
+  isPassed: boolean;
+  startedAt: string;
+  completedAt?: string;
+  timeSpent: number;
+}
+
 export interface LearningContext {
   enrollment: any; // Using any for now to avoid circular dependency issues
   course: Course;
   quizzes: Quiz[];
   progress: Progress[];
+  quizAttempts: QuizAttemptSummary[];
 }
