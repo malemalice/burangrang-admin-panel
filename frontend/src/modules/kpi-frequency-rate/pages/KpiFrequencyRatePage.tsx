@@ -67,14 +67,14 @@ export default function KpiFrequencyRatePage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <KpiDataTable
-              title="Total Recordable Incident Frequency Rate (TRIFR)"
+              title="TRIFR Data Table"
               data={data.trifr}
               studyLabel="IFR study related activities"
               workLabel="IFR work related activities"
               totalLabel="Total IFR"
             />
             <KpiDataTable
-              title="Total Recordable Severity Rate (TRSR)"
+              title="TRSR Data Table"
               data={data.trsr}
               studyLabel="SR study related activities"
               workLabel="SR work related activities"
@@ -83,7 +83,7 @@ export default function KpiFrequencyRatePage() {
           </div>
 
           <KpiDataTable
-            title="Lost Time Incident Case Rate"
+            title="LTICR Data Table"
             data={data.lticr}
             studyLabel="LTI CR Study Related Activities"
             workLabel="LTI CR Work Related Activities"

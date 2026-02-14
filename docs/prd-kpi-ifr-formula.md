@@ -1,14 +1,14 @@
 # PRD: KPI IFR (Incident Frequency Rate) Formula
 
-**Document Version:** 1.0  
-**Last Updated:** February 7, 2025  
+**Document Version:** 1.1  
+**Last Updated:** February 14, 2025  
 **Related Modules:** KPI Frequency Rate, Man Hours, Incidents
 
 ---
 
 ## Overview
 
-This document defines the formula and data requirements for calculating **IFR Study Related Activities** and **IFR Work Related Activities** in the HSE Dashboard KPI module.
+This document defines the formula and data requirements for calculating **IFR Study Related Activities** and **IFR Work Related Activities** in the HSE Dashboard KPI module. IFR uses **general** incidents only (not security scope).
 
 ---
 
@@ -18,8 +18,10 @@ This document defines the formula and data requirements for calculating **IFR St
 |------|------------|
 | **IFR** | Incident Frequency Rate – number of recordable incidents per million man-hours |
 | **TRIFR** | Total Recordable Incident Frequency Rate |
-| **Study Related** | Activities involving students (STUDENT group in Man Hour) |
-| **Work Related** | Activities involving staff (NON_STUDENT group in Man Hour) |
+| **Study Related** | Activities involving students; incident `activities = STUDY`; man hours from STUDENT group |
+| **Work Related** | Activities involving staff; incident `activities = WORK`; man hours from NON_STUDENT group |
+| **Activity Type** | Incident field `activities`: WORK (work-related) or STUDY (study-related) |
+| **Incident Type (Scope)** | Incident field `type`: GENERAL (HSE/safety) or SECURITY; **IFR uses GENERAL only** |
 
 ---
 
@@ -31,10 +33,14 @@ IFR = (Number of Recordable Incidents × 1,000,000) ÷ Total Man Hours Worked
 
 ### Study vs Work Split
 
+Incidents are classified by **activity type** (`activities`: WORK | STUDY). Only **general** incidents (`type = GENERAL`) are included; security incidents are excluded.
+
 ```
 IFR study related = (Study-related recordable incidents × 1,000,000) ÷ Study-related man hours
+                   where incidents: type = GENERAL, activities = STUDY
 
 IFR work related  = (Work-related recordable incidents × 1,000,000) ÷ Work-related man hours
+                   where incidents: type = GENERAL, activities = WORK
 ```
 
 ---
@@ -63,8 +69,10 @@ total = qty × manHourPerDay × 22  (22 working days per month)
 - `incidentType`: NEAR_MISS | ACCIDENT | DANGEROUS_OR_HAZARDOUS_OCCURRENCE
 - `incidentClassification`: MAJOR | MINOR | FATALITY
 - `incidentDate`: for period filtering
+- **`activities`** (activity type): `WORK` (work-related) | `STUDY` (study-related) – aligns with man hour group for IFR split
+- **`type`** (incident scope): `GENERAL` | `SECURITY` – **for IFR, count only incidents where `type = 'GENERAL'`**
 
-Recordable incidents are typically accidents and dangerous occurrences that meet organizational recording criteria (e.g., medical treatment beyond first aid, lost time, fatality).
+Recordable incidents are typically accidents and dangerous occurrences that meet organizational recording criteria (e.g., medical treatment beyond first aid, lost time, fatality). For IFR calculation, only **general** incidents (`type = GENERAL`) are included; security incidents are excluded.
 
 ---
 
@@ -79,28 +87,14 @@ Man hours and incidents must be filtered by the same fiscal period for consisten
 
 ---
 
-## Gap: Incident Classification (Study vs Work)
-
-**Current state:** The `Incident` model does not have a field to classify incidents as study-related or work-related.
-
-**Possible approaches:**
-
-| Approach | Description |
-|----------|-------------|
-| **A. Add field on Incident** | Add `activityGroup` (STUDY_RELATED \| WORK_RELATED) or similar to `t_incidents`, set during incident creation/approval |
-| **B. Use injured person's department** | Add `activityGroup` to `m_departments`, derive from `IncidentInjuredPerson.departmentId` |
-| **C. Use requester's department** | Add `activityGroup` to `m_departments`, derive from `User.departmentId` (requester/reporter) |
-
-**Recommendation:** Add `activityGroup` (or equivalent) to `t_incidents` for explicit classification during incident workflow.
-
----
-
 ## Implementation Formulas
+
+All IFR calculations use **general** incidents only: filter `t_incidents` with **`type = 'GENERAL'`**. Use **`activities`** to split study-related vs work-related counts.
 
 ### IFR Study Related
 
 ```
-IFR_study = (Count of recordable incidents with activityGroup = STUDY_RELATED in period × 1,000,000)
+IFR_study = (Count of recordable incidents WHERE type = 'GENERAL' AND activities = 'STUDY' AND incidentDate in period × 1,000,000)
             ÷
             SUM(t_man_hours.total) WHERE group = 'STUDENT' AND month, year in period
 ```
@@ -108,10 +102,12 @@ IFR_study = (Count of recordable incidents with activityGroup = STUDY_RELATED in
 ### IFR Work Related
 
 ```
-IFR_work = (Count of recordable incidents with activityGroup = WORK_RELATED in period × 1,000,000)
+IFR_work = (Count of recordable incidents WHERE type = 'GENERAL' AND activities = 'WORK' AND incidentDate in period × 1,000,000)
            ÷
            SUM(t_man_hours.total) WHERE group = 'NON_STUDENT' AND month, year in period
 ```
+
+**Recordable** criteria: apply organizational rules (e.g. `incidentType` in ACCIDENT, DANGEROUS_OR_HAZARDOUS_OCCURRENCE; `incidentClassification` MAJOR/MINOR/FATALITY as per policy).
 
 ---
 
@@ -121,8 +117,9 @@ IFR_work = (Count of recordable incidents with activityGroup = WORK_RELATED in p
 |-----------|-----------|--------|
 | Study man hours | ✅ Yes | `t_man_hours` where `group = 'STUDENT'` |
 | Work man hours | ✅ Yes | `t_man_hours` where `group = 'NON_STUDENT'` |
-| Recordable incidents | ⚠️ Partial | Filter by `incidentType`, `incidentClassification`, `incidentDate` |
-| Study vs work classification | ❌ No | Requires `activityGroup` on Incident or equivalent mapping |
+| Recordable incidents | ✅ Yes | Filter by `incidentType`, `incidentClassification`, `incidentDate` |
+| Activity type (study vs work) | ✅ Yes | `t_incidents.activities` = `STUDY` \| `WORK` |
+| Incident type (general vs security) | ✅ Yes | `t_incidents.type` = `GENERAL` \| `SECURITY`; IFR uses `type = 'GENERAL'` only |
 
 ---
 

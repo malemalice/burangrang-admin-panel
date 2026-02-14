@@ -23,9 +23,7 @@ export function TRIFRChart({ data }: TRIFRChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">
-          Total Recordable Incident Frequency Rate (TRIFR)
-        </CardTitle>
+        <CardTitle className="text-lg">TRIFR Chart</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-[320px] w-full">

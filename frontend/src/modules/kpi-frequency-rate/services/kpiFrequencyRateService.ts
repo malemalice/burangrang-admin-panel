@@ -1,23 +1,7 @@
+import api from '@/core/lib/api';
 import type { KpiDataPoint, KpiFrequencyRateData, KpiFilterParams } from '../types/kpi-frequency-rate.types';
 
-const MOCK_TRIFR: KpiDataPoint[] = [
-  { year: '2019-2020', studyRelated: 6.46, workRelated: 2.96, total: 5.4 },
-  { year: '2020-2021', studyRelated: 3.23, workRelated: 1.47, total: 1.8 },
-  { year: '2021-2022', studyRelated: 2.33, workRelated: 3.06, total: 1.27 },
-  { year: '2022-2023', studyRelated: 2.28, workRelated: 4.93, total: 1.27 },
-  { year: '2023-2024', studyRelated: 3.93, workRelated: 5.27, total: 1.5 },
-  { year: '2024-2025', studyRelated: 5.55, workRelated: 6.84, total: 1.66 },
-];
-
-const MOCK_TRSR: KpiDataPoint[] = [
-  { year: '2019-2020', studyRelated: 0, workRelated: 0, total: 0 },
-  { year: '2020-2021', studyRelated: 0, workRelated: 0, total: 0 },
-  { year: '2021-2022', studyRelated: 0, workRelated: 0, total: 0 },
-  { year: '2022-2023', studyRelated: 0.25, workRelated: 0, total: 0.08 },
-  { year: '2023-2024', studyRelated: 0.2, workRelated: 0, total: 0.05 },
-  { year: '2024-2025', studyRelated: 0.25, workRelated: 0.82, total: 0.11 },
-];
-
+/** LTICR not in scope - uses placeholder data until backend implements it */
 const MOCK_LTICR: KpiDataPoint[] = [
   { year: '2019-2020', studyRelated: 0, workRelated: 0, total: 0 },
   { year: '2020-2021', studyRelated: 0, workRelated: 0, total: 0 },
@@ -26,26 +10,6 @@ const MOCK_LTICR: KpiDataPoint[] = [
   { year: '2023-2024', studyRelated: 0.1, workRelated: 0, total: 0.1 },
   { year: '2024-2025', studyRelated: 0.08, workRelated: 0.82, total: 0.33 },
 ];
-
-const FISCAL_YEARS = ['2019-2020', '2020-2021', '2021-2022', '2022-2023', '2023-2024', '2024-2025'];
-
-/** Fiscal year "YYYY-ZZZZ" covers Aug YYYY to Jul ZZZZ. Check if [periodFrom, periodTo] overlaps. */
-function fiscalYearOverlapsRange(fy: string, periodFrom: string, periodTo: string): boolean {
-  const [startY] = fy.split('-').map(Number);
-  const endY = startY + 1;
-  const rangeStart = `${startY}-08`;
-  const rangeEnd = `${endY}-07`;
-  return periodFrom <= rangeEnd && periodTo >= rangeStart;
-}
-
-function filterByPeriod<T extends KpiDataPoint>(data: T[], params: KpiFilterParams): T[] {
-  if (!params.periodFrom && !params.periodTo) return data;
-  const from = params.periodFrom ?? '0000-00';
-  const to = params.periodTo ?? '9999-99';
-  return data.filter((row) => {
-    return FISCAL_YEARS.includes(row.year) && fiscalYearOverlapsRange(row.year, from, to);
-  });
-}
 
 const MONTH_ABBREV = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -61,13 +25,26 @@ function buildMonthYearOptions(startYear: number, endYear: number): { value: str
   return options;
 }
 
+function buildQueryParams(params?: KpiFilterParams): string {
+  const p = params ?? {};
+  const search = new URLSearchParams();
+  if (p.periodFrom) search.set('periodFrom', p.periodFrom);
+  if (p.periodTo) search.set('periodTo', p.periodTo);
+  const q = search.toString();
+  return q ? `?${q}` : '';
+}
+
 const kpiFrequencyRateService = {
   getKpiData: async (params?: KpiFilterParams): Promise<KpiFrequencyRateData> => {
-    const p = params ?? {};
+    const query = buildQueryParams(params);
+    const [trifrRes, trsrRes] = await Promise.all([
+      api.get<{ data: KpiDataPoint[] }>(`/kpi/trifr${query}`),
+      api.get<{ data: KpiDataPoint[] }>(`/kpi/trsr${query}`),
+    ]);
     return {
-      trifr: filterByPeriod(MOCK_TRIFR, p),
-      trsr: filterByPeriod(MOCK_TRSR, p),
-      lticr: filterByPeriod(MOCK_LTICR, p),
+      trifr: trifrRes.data.data,
+      trsr: trsrRes.data.data,
+      lticr: MOCK_LTICR, // LTICR not in scope - placeholder until backend implements
     };
   },
 
