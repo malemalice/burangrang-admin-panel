@@ -1,16 +1,6 @@
 import api from '@/core/lib/api';
 import type { KpiDataPoint, KpiFrequencyRateData, KpiFilterParams } from '../types/kpi-frequency-rate.types';
 
-/** LTICR not in scope - uses placeholder data until backend implements it */
-const MOCK_LTICR: KpiDataPoint[] = [
-  { year: '2019-2020', studyRelated: 0, workRelated: 0, total: 0 },
-  { year: '2020-2021', studyRelated: 0, workRelated: 0, total: 0 },
-  { year: '2021-2022', studyRelated: 0, workRelated: 0, total: 0 },
-  { year: '2022-2023', studyRelated: 0.13, workRelated: 0, total: 0.13 },
-  { year: '2023-2024', studyRelated: 0.1, workRelated: 0, total: 0.1 },
-  { year: '2024-2025', studyRelated: 0.08, workRelated: 0.82, total: 0.33 },
-];
-
 const MONTH_ABBREV = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function buildMonthYearOptions(startYear: number, endYear: number): { value: string; label: string }[] {
@@ -37,14 +27,15 @@ function buildQueryParams(params?: KpiFilterParams): string {
 const kpiFrequencyRateService = {
   getKpiData: async (params?: KpiFilterParams): Promise<KpiFrequencyRateData> => {
     const query = buildQueryParams(params);
-    const [trifrRes, trsrRes] = await Promise.all([
+    const [trifrRes, trsrRes, lticrRes] = await Promise.all([
       api.get<{ data: KpiDataPoint[] }>(`/kpi/trifr${query}`),
       api.get<{ data: KpiDataPoint[] }>(`/kpi/trsr${query}`),
+      api.get<{ data: KpiDataPoint[] }>(`/kpi/lticr${query}`),
     ]);
     return {
       trifr: trifrRes.data.data,
       trsr: trsrRes.data.data,
-      lticr: MOCK_LTICR, // LTICR not in scope - placeholder until backend implements
+      lticr: lticrRes.data.data,
     };
   },
 

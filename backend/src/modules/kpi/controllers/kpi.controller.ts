@@ -42,4 +42,15 @@ export class KpiController {
     const data = await this.kpiService.getTrsr(query.periodFrom, query.periodTo);
     return { data };
   }
+
+  @Get('lticr')
+  @Permissions('incident:list')
+  @ApiOperation({ summary: 'Get LTICR (Lost Time Incident Case Rate) data' })
+  @ApiQuery({ name: 'periodFrom', required: false, description: 'Period start YYYY-MM' })
+  @ApiQuery({ name: 'periodTo', required: false, description: 'Period end YYYY-MM' })
+  @ApiResponse({ status: 200, description: 'LTICR data by fiscal year', type: [KpiDataPointDto] })
+  async getLticr(@Query() query: FindKpiDto): Promise<{ data: KpiDataPointDto[] }> {
+    const data = await this.kpiService.getLticr(query.periodFrom, query.periodTo);
+    return { data };
+  }
 }

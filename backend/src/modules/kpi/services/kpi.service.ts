@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import {
+  AbsenceEnum,
   IncidentActivitiesEnum,
   IncidentClassificationEnum,
   IncidentScopeEnum,
@@ -167,6 +168,46 @@ export class KpiService {
     return result;
   }
 
+  /**
+   * Count LTI (Lost Time Injury) incidents per fiscal year, split by activities.
+   * LTI = recordable GENERAL incident with absence='MORE_THAN_THREE_DAYS'.
+   */
+  private async getLtiIncidentCounts(
+    fiscalYears: string[],
+  ): Promise<Map<string, { studyCount: number; workCount: number }>> {
+    const incidents = await this.prisma.incident.findMany({
+      where: {
+        isActive: true,
+        type: IncidentScopeEnum.GENERAL,
+        incidentType: { in: RECORDABLE_INCIDENT_TYPES },
+        incidentClassification: { in: RECORDABLE_CLASSIFICATIONS },
+        absence: AbsenceEnum.MORE_THAN_THREE_DAYS,
+      },
+      select: { incidentDate: true, activities: true },
+    });
+
+    const result = new Map<string, { studyCount: number; workCount: number }>();
+    for (const fy of fiscalYears) {
+      result.set(fy, { studyCount: 0, workCount: 0 });
+    }
+
+    for (const i of incidents) {
+      const d = i.incidentDate;
+      const month = d.getMonth() + 1;
+      const year = d.getFullYear();
+      const academicYear = month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+      if (!result.has(academicYear)) continue;
+
+      const row = result.get(academicYear)!;
+      if (i.activities === IncidentActivitiesEnum.STUDY) {
+        row.studyCount += 1;
+      } else {
+        row.workCount += 1;
+      }
+    }
+    return result;
+  }
+
   private round2(n: number): number {
     return Math.round(n * 100) / 100;
   }
@@ -219,6 +260,35 @@ export class KpiService {
       const totalMh = mh.student + mh.nonStudent;
       const totalSeverity = inc.studySeverityScore + inc.workSeverityScore;
       const total = totalMh > 0 ? (totalSeverity * MILLION) / totalMh : 0;
+
+      return {
+        year: fy,
+        studyRelated: this.round2(studyRelated),
+        workRelated: this.round2(workRelated),
+        total: this.round2(total),
+      };
+    });
+  }
+
+  async getLticr(periodFrom?: string, periodTo?: string): Promise<KpiDataPointDto[]> {
+    const fiscalYears = this.getFiscalYears(periodFrom, periodTo);
+    const [manHoursMap, incidentMap] = await Promise.all([
+      this.getManHoursByFiscalYear(fiscalYears),
+      this.getLtiIncidentCounts(fiscalYears),
+    ]);
+
+    const MILLION = 1_000_000;
+    return fiscalYears.map((fy) => {
+      const mh = manHoursMap.get(fy) ?? { student: 0, nonStudent: 0 };
+      const lti = incidentMap.get(fy) ?? { studyCount: 0, workCount: 0 };
+
+      const studyRelated =
+        mh.student > 0 ? (lti.studyCount * MILLION) / mh.student : 0;
+      const workRelated =
+        mh.nonStudent > 0 ? (lti.workCount * MILLION) / mh.nonStudent : 0;
+      const totalMh = mh.student + mh.nonStudent;
+      const totalLti = lti.studyCount + lti.workCount;
+      const total = totalMh > 0 ? (totalLti * MILLION) / totalMh : 0;
 
       return {
         year: fy,
