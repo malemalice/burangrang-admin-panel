@@ -143,6 +143,12 @@ export class RiskRegisterService {
           entityId: { in: matchingInspectionItemIds },
         });
       }
+      // RR-011: Include RiskMitigationRecord.code in search (e.g. RSK260202045646)
+      if (search?.trim()) {
+        entityIdConditions.push({
+          code: { contains: search.trim(), mode: 'insensitive' },
+        });
+      }
       if (entityIdConditions.length === 0) {
         return {
           data: [],
