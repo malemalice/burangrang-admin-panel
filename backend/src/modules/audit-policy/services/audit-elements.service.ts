@@ -76,8 +76,8 @@ export class AuditElementsService {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'code',
-      sortOrder = 'asc',
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
       isActive,
       search,
       code,
@@ -101,10 +101,13 @@ export class AuditElementsService {
       where.isActive = isActive;
     }
 
-    const orderBy: Prisma.AuditElementOrderByWithRelationInput = {};
     const validSortFields = ['name', 'code', 'createdAt', 'isActive'];
-    const sortField = sortBy && validSortFields.includes(sortBy) ? sortBy : 'code';
-    orderBy[sortField] = sortOrder || 'asc';
+    const sortField = sortBy && validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const order = sortOrder || 'desc';
+    const orderBy: Prisma.AuditElementOrderByWithRelationInput[] = [
+      { [sortField]: order },
+      { id: order },
+    ];
 
     const total = await this.prisma.auditElement.count({ where });
 
