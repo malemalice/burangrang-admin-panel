@@ -69,6 +69,7 @@ export const CODE_OPTIONS: Record<HseTargetType, Array<{ value: string; label: s
     { value: 'MAJOR', label: 'Major' },
     { value: 'MINOR', label: 'Minor' },
     { value: 'NEAR_MISS', label: 'Near Miss' },
+    { value: 'HAZARD', label: 'Hazard' },
   ],
   RISK: [
     { value: 'LOW', label: 'Low' },

@@ -2,7 +2,7 @@ import { Button } from '@/core/components/ui/button';
 import { Checkbox } from '@/core/components/ui/checkbox';
 import { Label } from '@/core/components/ui/label';
 import { RotateCcw } from 'lucide-react';
-import { FISCAL_YEAR_OPTIONS } from '../types/incident-profile.types';
+import { getFiscalYearOptions } from '../types/incident-profile.types';
 
 interface IncidentProfileFiltersProps {
   selectedFiscalYears: string[];
@@ -17,6 +17,8 @@ export function IncidentProfileFilters({
   onApply,
   onReset,
 }: IncidentProfileFiltersProps) {
+  const fiscalYearOptions = getFiscalYearOptions();
+
   const handleToggle = (value: string, checked: boolean) => {
     if (checked) {
       onSelectionChange([...selectedFiscalYears, value]);
@@ -26,7 +28,7 @@ export function IncidentProfileFilters({
   };
 
   const handleSelectAll = () => {
-    onSelectionChange(FISCAL_YEAR_OPTIONS.map((o) => o.value));
+    onSelectionChange(fiscalYearOptions.map((o) => o.value));
   };
 
   const handleResetClick = () => {
@@ -38,7 +40,7 @@ export function IncidentProfileFilters({
       <div className="space-y-2">
         <Label className="text-xs text-muted-foreground">Fiscal years to compare</Label>
         <div className="flex flex-wrap gap-4">
-          {FISCAL_YEAR_OPTIONS.map((option) => (
+          {fiscalYearOptions.map((option) => (
             <label
               key={option.value}
               className="flex cursor-pointer items-center gap-2 text-sm"
@@ -67,7 +69,7 @@ export function IncidentProfileFilters({
           variant="outline"
           size="sm"
           onClick={handleSelectAll}
-          disabled={selectedFiscalYears.length === FISCAL_YEAR_OPTIONS.length}
+          disabled={selectedFiscalYears.length === fiscalYearOptions.length}
         >
           Select all
         </Button>

@@ -124,11 +124,10 @@ export interface SecurityMonthlyIncidentRowData {
 
 export type SecurityMonthlyIncidentsData = SecurityMonthlyIncidentRowData[];
 
+/** Category plus one number per fiscal year key (e.g. year2020_2021, year2021_2022, ...). */
 export interface IncidentCategoryData {
   category: string;
-  year2022_2023: number;
-  year2023_2024: number;
-  year2024_2025: number;
+  [fyKey: string]: string | number;
 }
 
 export interface IncidentProfileData {

@@ -11,23 +11,18 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import type { IncidentCategoryData } from '../types/incident-profile.types';
 
-const YEAR_COLOR_MAP: Record<string, string> = {
-  year2022_2023: '#3B82F6',
-  year2023_2024: '#EF4444',
-  year2024_2025: '#22C55E',
-};
+const FISCAL_YEAR_COLOR_PALETTE = ['#3B82F6', '#EF4444', '#22C55E', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#6B7280'];
 
-const YEAR_LABEL_MAP: Record<string, string> = {
-  year2022_2023: 'Year 2022-2023',
-  year2023_2024: 'Year 2023-2024',
-  year2024_2025: 'Year 2024-2025',
-};
+function fiscalYearKeyToLabel(key: string): string {
+  const match = key.match(/^year(\d+)_(\d+)$/);
+  return match ? `${match[1]}-${match[2]}` : key;
+}
 
 function buildYearConfig(yearsToShow: string[]) {
-  return yearsToShow.map((dataKey) => ({
+  return yearsToShow.map((dataKey, i) => ({
     dataKey,
-    name: YEAR_LABEL_MAP[dataKey] ?? dataKey,
-    fill: YEAR_COLOR_MAP[dataKey] ?? '#6B7280',
+    name: fiscalYearKeyToLabel(dataKey),
+    fill: FISCAL_YEAR_COLOR_PALETTE[i % FISCAL_YEAR_COLOR_PALETTE.length],
   }));
 }
 

@@ -270,14 +270,8 @@ export class IncidentCategoryDataDto {
   @ApiProperty({ description: 'Incident category (mechanism of injury label)' })
   category: string;
 
-  @ApiProperty({ description: 'Count for fiscal year 2022-2023 (Aug 2022 - Jul 2023)' })
-  year2022_2023: number;
-
-  @ApiProperty({ description: 'Count for fiscal year 2023-2024 (Aug 2023 - Jul 2024)' })
-  year2023_2024: number;
-
-  @ApiProperty({ description: 'Count for fiscal year 2024-2025 (Aug 2024 - Jul 2025)' })
-  year2024_2025: number;
+  /** Dynamic fiscal year keys (year2020_2021, year2021_2022, ... through current FY) with count or percentage. */
+  [fyKey: string]: string | number;
 }
 
 export class IncidentProfileDto {

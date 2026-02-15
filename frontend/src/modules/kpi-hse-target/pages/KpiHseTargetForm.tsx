@@ -24,6 +24,7 @@ import {
 } from '@/core/components/ui/select';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { Switch } from '@/core/components/ui/switch';
+import { getYearOptions, getCurrentYear } from '@/core/utils/date';
 import {
   HseTarget,
   HseTargetType,
@@ -60,7 +61,7 @@ interface KpiHseTargetFormProps {
 export default function KpiHseTargetForm({ hseTarget, mode }: KpiHseTargetFormProps) {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const currentYear = new Date().getFullYear();
+  const currentYear = getCurrentYear();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -75,7 +76,7 @@ export default function KpiHseTargetForm({ hseTarget, mode }: KpiHseTargetFormPr
     },
   });
 
-  const yearOptions = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
+  const yearOptions = getYearOptions();
 
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
@@ -213,9 +214,9 @@ export default function KpiHseTargetForm({ hseTarget, mode }: KpiHseTargetFormPr
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {yearOptions.map((year) => (
-                          <SelectItem key={year} value={String(year)}>
-                            {year}
+                        {yearOptions.map((o) => (
+                          <SelectItem key={o.value} value={String(o.value)}>
+                            {o.label}
                           </SelectItem>
                         ))}
                       </SelectContent>

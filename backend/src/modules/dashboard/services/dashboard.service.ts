@@ -5,6 +5,7 @@ import {
   CompliantStatusEnum,
   EnrollmentStatusEnum,
   GeneralStatusEnum,
+  HseTargetTypeEnum,
   IncidentClassificationEnum,
   IncidentTypeEnum,
   IncidentScopeEnum,
@@ -246,6 +247,14 @@ export class DashboardService {
     };
   }
 
+  private static readonly INCIDENT_CATEGORY_TO_CODE: Record<string, string> = {
+    'Fatality': 'FATALITY',
+    'Major Accident': 'MAJOR',
+    'Minor Accident/Recordable Injuries': 'MINOR',
+    'Near Miss': 'NEAR_MISS',
+    'Hazard': 'HAZARD',
+  };
+
   async getIncidentSummary(
     periodFrom?: string,
     periodTo?: string,
@@ -266,13 +275,45 @@ export class DashboardService {
       }
     }
 
-    const incidents = await this.prisma.incident.findMany({
-      where,
-      select: {
-        incidentType: true,
-        incidentClassification: true,
-      },
-    });
+    const currentYear = new Date().getFullYear();
+    let years: number[];
+    if (periodFrom && periodTo) {
+      const [yFrom] = periodFrom.split('-').map(Number);
+      const [yTo] = periodTo.split('-').map(Number);
+      years = [];
+      for (let y = yFrom; y <= yTo; y++) years.push(y);
+    } else if (periodFrom) {
+      years = [periodFrom.split('-').map(Number)[0]];
+    } else if (periodTo) {
+      years = [periodTo.split('-').map(Number)[0]];
+    } else {
+      years = [currentYear];
+    }
+
+    const [incidents, hseTargets] = await Promise.all([
+      this.prisma.incident.findMany({
+        where,
+        select: {
+          incidentType: true,
+          incidentClassification: true,
+        },
+      }),
+      this.prisma.hseTarget.findMany({
+        where: {
+          type: HseTargetTypeEnum.INCIDENT,
+          year: { in: years },
+          month: null,
+          isActive: true,
+        },
+        select: { code: true, year: true, target: true },
+      }),
+    ]);
+
+    const targetSumByCode = new Map<string, number>();
+    for (const t of hseTargets) {
+      const sum = (targetSumByCode.get(t.code) ?? 0) + Number(t.target);
+      targetSumByCode.set(t.code, sum);
+    }
 
     const categories: Array<{ label: string; filter: (i: { incidentType: string; incidentClassification: string }) => boolean }> = [
       {
@@ -304,10 +345,13 @@ export class DashboardService {
 
     return categories.map(({ label, filter }) => {
       const actual = incidents.filter(filter).length;
+      const code = DashboardService.INCIDENT_CATEGORY_TO_CODE[label];
+      const hseTargetSum = code ? targetSumByCode.get(code) : undefined;
+      const targetValue = hseTargetSum != null ? actual - hseTargetSum : -actual;
       return {
         category: label,
         actual,
-        target: -actual,
+        target: targetValue,
       };
     });
   }
@@ -1210,56 +1254,66 @@ export class DashboardService {
     [MechanismOfInjuryEnum.OTHER]: 'Other',
   };
 
-  private static readonly FISCAL_YEARS = ['year2022_2023', 'year2023_2024', 'year2024_2025'] as const;
+  private static readonly FISCAL_YEAR_START = 2020;
 
-  private static getFiscalYearKey(date: Date): (typeof DashboardService.FISCAL_YEARS)[number] | null {
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    if (month >= 8) {
-      if (year === 2022) return 'year2022_2023';
-      if (year === 2023) return 'year2023_2024';
-      if (year === 2024) return 'year2024_2025';
-    } else {
-      if (year === 2023) return 'year2022_2023';
-      if (year === 2024) return 'year2023_2024';
-      if (year === 2025) return 'year2024_2025';
+  /** Fiscal year keys from 2020-2021 through current FY (Aug–Jul). */
+  private static getFiscalYearKeys(now: Date = new Date()): string[] {
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const currentFY = month >= 8 ? year : year - 1;
+    const keys: string[] = [];
+    for (let y = DashboardService.FISCAL_YEAR_START; y <= currentFY; y++) {
+      keys.push(`year${y}_${y + 1}`);
     }
-    return null;
+    return keys;
   }
 
-  private static readonly FISCAL_YEAR_DATE_RANGES: Record<
-    (typeof DashboardService.FISCAL_YEARS)[number],
-    { gte: Date; lte: Date }
-  > = {
-    year2022_2023: {
-      gte: new Date(2022, 7, 1),
-      lte: new Date(2023, 6, 31, 23, 59, 59, 999),
-    },
-    year2023_2024: {
-      gte: new Date(2023, 7, 1),
-      lte: new Date(2024, 6, 31, 23, 59, 59, 999),
-    },
-    year2024_2025: {
-      gte: new Date(2024, 7, 1),
-      lte: new Date(2025, 6, 31, 23, 59, 59, 999),
-    },
-  };
+  private static getFiscalYearDateRanges(now: Date = new Date()): Record<string, { gte: Date; lte: Date }> {
+    const keys = DashboardService.getFiscalYearKeys(now);
+    const record: Record<string, { gte: Date; lte: Date }> = {};
+    for (const key of keys) {
+      const match = key.match(/^year(\d+)_(\d+)$/);
+      if (match) {
+        const y = Number(match[1]);
+        record[key] = {
+          gte: new Date(y, 7, 1),
+          lte: new Date(y + 1, 6, 31, 23, 59, 59, 999),
+        };
+      }
+    }
+    return record;
+  }
+
+  /** Returns fiscal year key (e.g. year2024_2025) for date, or null if outside 2020..current FY. */
+  private static getFiscalYearKey(date: Date, now: Date = new Date()): string | null {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const fyStart = month >= 8 ? year : year - 1;
+    const fyEnd = fyStart + 1;
+    if (fyStart < DashboardService.FISCAL_YEAR_START) return null;
+    const keys = DashboardService.getFiscalYearKeys(now);
+    const key = `year${fyStart}_${fyEnd}`;
+    return keys.includes(key) ? key : null;
+  }
 
   private static parseFiscalYearsParam(
     fiscalYears: string | string[] | undefined,
-  ): (typeof DashboardService.FISCAL_YEARS)[number][] {
-    if (!fiscalYears) return [...DashboardService.FISCAL_YEARS];
+    now: Date = new Date(),
+  ): string[] {
+    const allowed = DashboardService.getFiscalYearKeys(now);
+    if (!fiscalYears) return [...allowed];
     const arr = Array.isArray(fiscalYears) ? fiscalYears : fiscalYears.split(',').map((s) => s.trim());
-    const valid = DashboardService.FISCAL_YEARS.filter((fy) => arr.includes(fy));
-    return valid.length > 0 ? valid : [...DashboardService.FISCAL_YEARS];
+    const valid = allowed.filter((fy) => arr.includes(fy));
+    return valid.length > 0 ? valid : [...allowed];
   }
 
   async getIncidentProfile(fiscalYearsParam?: string | string[]): Promise<IncidentProfileData> {
-    const selectedYears = DashboardService.parseFiscalYearsParam(fiscalYearsParam);
-
-    const dateRanges = selectedYears.map(
-      (fy) => DashboardService.FISCAL_YEAR_DATE_RANGES[fy],
-    );
+    const now = new Date();
+    const selectedYears = DashboardService.parseFiscalYearsParam(fiscalYearsParam, now);
+    const dateRangesMap = DashboardService.getFiscalYearDateRanges(now);
+    const dateRanges = selectedYears
+      .map((fy) => dateRangesMap[fy])
+      .filter((r): r is { gte: Date; lte: Date } => r != null);
     const dateFilter =
       dateRanges.length > 0
         ? {
@@ -1288,54 +1342,54 @@ export class DashboardService {
     });
 
     const yearsToShow = selectedYears;
-
-    const countMap = new Map<
-      string,
-      { year2022_2023: number; year2023_2024: number; year2024_2025: number }
-    >();
-
-    const emptyRow = () => ({ year2022_2023: 0, year2023_2024: 0, year2024_2025: 0 });
+    const emptyRow = (): Record<string, number> => {
+      const row: Record<string, number> = {};
+      for (const fy of yearsToShow) row[fy] = 0;
+      return row;
+    };
+    const countMap = new Map<string, Record<string, number>>();
 
     for (const incident of incidents) {
       const mechanism =
         incident.injuredPersons[0]?.mechanismOfInjury ?? MechanismOfInjuryEnum.NOT_SPECIFIED;
       const category = DashboardService.MECHANISM_LABEL[mechanism];
-      const fyKey = DashboardService.getFiscalYearKey(incident.incidentDate);
+      const fyKey = DashboardService.getFiscalYearKey(incident.incidentDate, now);
       if (!fyKey) continue;
 
       let row = countMap.get(category);
       if (!row) {
-        row = { ...emptyRow() };
+        row = emptyRow();
         countMap.set(category, row);
       }
       row[fyKey] = (row[fyKey] ?? 0) + 1;
     }
 
     const countData: IncidentCategoryData[] = Array.from(countMap.entries())
-      .map(([category, counts]) => ({
-        category,
-        year2022_2023: counts.year2022_2023 ?? 0,
-        year2023_2024: counts.year2023_2024 ?? 0,
-        year2024_2025: counts.year2024_2025 ?? 0,
-      }))
-      .filter((row) => row.year2022_2023 + row.year2023_2024 + row.year2024_2025 > 0)
+      .map(([category, counts]) => {
+        const row: IncidentCategoryData = { category };
+        for (const fy of yearsToShow) {
+          row[fy] = counts[fy] ?? 0;
+        }
+        return row;
+      })
+      .filter((row) => yearsToShow.some((fy) => Number(row[fy] ?? 0) > 0))
       .sort((a, b) => {
-        const totalA = a.year2022_2023 + a.year2023_2024 + a.year2024_2025;
-        const totalB = b.year2022_2023 + b.year2023_2024 + b.year2024_2025;
+        const totalA = yearsToShow.reduce((s, fy) => s + Number(a[fy] ?? 0), 0);
+        const totalB = yearsToShow.reduce((s, fy) => s + Number(b[fy] ?? 0), 0);
         return totalB - totalA;
       });
 
     const percentageData: IncidentCategoryData[] = countData.map((row) => {
-      const total = row.year2022_2023 + row.year2023_2024 + row.year2024_2025;
+      const total = yearsToShow.reduce((s, fy) => s + Number(row[fy] ?? 0), 0);
+      const out: IncidentCategoryData = { category: row.category };
       if (total === 0) {
-        return { ...row, year2022_2023: 0, year2023_2024: 0, year2024_2025: 0 };
+        for (const fy of yearsToShow) out[fy] = 0;
+        return out;
       }
-      return {
-        category: row.category,
-        year2022_2023: Math.round((row.year2022_2023 / total) * 1000) / 10,
-        year2023_2024: Math.round((row.year2023_2024 / total) * 1000) / 10,
-        year2024_2025: Math.round((row.year2024_2025 / total) * 1000) / 10,
-      };
+      for (const fy of yearsToShow) {
+        out[fy] = Math.round((Number(row[fy] ?? 0) / total) * 1000) / 10;
+      }
+      return out;
     });
 
     return {

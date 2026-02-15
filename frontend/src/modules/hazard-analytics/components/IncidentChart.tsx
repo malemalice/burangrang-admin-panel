@@ -24,7 +24,7 @@ export function IncidentChart({ data }: IncidentChartProps) {
     .map((d) => ({
       category: d.category.replace(/\/.*$/, '').replace(/\s*\(.*\)$/, '').trim(),
       actual: d.actual,
-      target: d.target <= 0 ? d.target : -d.actual,
+      target: d.target,
     }))
     .sort((a, b) => {
       const aIsFatality = a.category.toLowerCase().includes(FATALITY_KEY);

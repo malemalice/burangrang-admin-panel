@@ -32,12 +32,13 @@ export async function seedKpiHseTargets(): Promise<void> {
       target: number;
     }> = [];
 
-    // INCIDENT: FATALITY (0), MAJOR (2), MINOR (5), NEAR_MISS (10)
+    // INCIDENT: FATALITY (0), MAJOR (2), MINOR (5), NEAR_MISS (10), HAZARD (15)
     for (const row of [
       { code: 'FATALITY', name: 'Fatality', target: 0 },
       { code: 'MAJOR', name: 'Major', target: 2 },
       { code: 'MINOR', name: 'Minor', target: 5 },
       { code: 'NEAR_MISS', name: 'Near Miss', target: 10 },
+      { code: 'HAZARD', name: 'Hazard', target: 15 },
     ]) {
       targets.push({ type: HseTargetTypeEnum.INCIDENT, code: row.code, name: row.name, month: null, year: currentYear, target: row.target });
       // Add monthly for JAN as sample

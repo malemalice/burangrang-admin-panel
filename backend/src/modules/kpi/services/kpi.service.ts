@@ -44,6 +44,9 @@ const RECORDABLE_CLASSIFICATIONS = [
   IncidentClassificationEnum.FATALITY,
 ];
 
+/** Fixed start year for dashboard fiscal year range (2020-2021 through current FY). */
+const YEAR_RANGE_START = 2020;
+
 @Injectable()
 export class KpiService {
   constructor(private readonly prisma: PrismaService) {}
@@ -51,7 +54,7 @@ export class KpiService {
   /**
    * Parse period params and derive fiscal years to query.
    * Fiscal year YYYY-ZZZZ = Aug YYYY to Jul ZZZZ.
-   * If no params, use last 6 fiscal years from current date.
+   * If no params, use 2020 through current fiscal year.
    */
   private getFiscalYears(periodFrom?: string, periodTo?: string): string[] {
     const now = new Date();
@@ -66,8 +69,8 @@ export class KpiService {
       endYear = mTo >= 8 ? yTo + 1 : yTo;
     } else {
       const currentFY = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
-      startYear = currentFY - 5;
-      endYear = currentFY + 1;
+      startYear = YEAR_RANGE_START;
+      endYear = currentFY;
     }
 
     const years: string[] = [];
