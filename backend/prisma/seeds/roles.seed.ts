@@ -35,6 +35,7 @@ function getManagerUserPermissionNames(): Set<string> {
     'environmental-measurement',
     'waste-management',
     'man-hour',
+    'kpi-hse-target',
   ];
   const actions = ['create', 'read', 'update', 'delete', 'list'] as const;
   const readListActions = ['read', 'list'] as const;

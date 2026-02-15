@@ -36,27 +36,23 @@ export function HazardSummaryTable({
         <CardTitle className="text-lg">Hazard and Non-Conformance Summary</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
           <div>
-            <h4 className="font-medium text-sm mb-2">Type of Hazard</h4>
+            <h4 className="font-medium text-sm mb-2">Responsible Action</h4>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-right w-20">Total</TableHead>
+                  <TableHead>Action</TableHead>
+                  <TableHead className="text-right w-20">Count</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {hazardTypes.map((row) => (
-                  <TableRow key={row.type}>
-                    <TableCell className="font-medium">{row.type}</TableCell>
+                {responsibleActions.map((row) => (
+                  <TableRow key={row.action}>
+                    <TableCell className="font-medium">{row.action}</TableCell>
                     <TableCell className="text-right">{row.count}</TableCell>
                   </TableRow>
                 ))}
-                <TableRow className="font-semibold bg-muted/50">
-                  <TableCell>Total Type of Hazard</TableCell>
-                  <TableCell className="text-right">{hazardTypesTotal}</TableCell>
-                </TableRow>
               </TableBody>
             </Table>
           </div>
@@ -86,21 +82,25 @@ export function HazardSummaryTable({
           </div>
 
           <div>
-            <h4 className="font-medium text-sm mb-2">Responsible Action</h4>
+            <h4 className="font-medium text-sm mb-2">Type of Hazard</h4>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Action</TableHead>
-                  <TableHead className="text-right w-20">Count</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right w-20">Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {responsibleActions.map((row) => (
-                  <TableRow key={row.action}>
-                    <TableCell className="font-medium">{row.action}</TableCell>
+                {hazardTypes.map((row) => (
+                  <TableRow key={row.type}>
+                    <TableCell className="font-medium">{row.type}</TableCell>
                     <TableCell className="text-right">{row.count}</TableCell>
                   </TableRow>
                 ))}
+                <TableRow className="font-semibold bg-muted/50">
+                  <TableCell>Total Type of Hazard</TableCell>
+                  <TableCell className="text-right">{hazardTypesTotal}</TableCell>
+                </TableRow>
               </TableBody>
             </Table>
           </div>

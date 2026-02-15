@@ -331,6 +331,13 @@ export const permissions = [
   { name: 'safety-equipment-type:delete', description: 'Delete safety equipment types' },
   { name: 'safety-equipment-type:list', description: 'List all safety equipment types' },
 
+  // KPI HSE Target Management
+  { name: 'kpi-hse-target:create', description: 'Create new HSE targets' },
+  { name: 'kpi-hse-target:read', description: 'View HSE target information' },
+  { name: 'kpi-hse-target:update', description: 'Update HSE targets' },
+  { name: 'kpi-hse-target:delete', description: 'Delete HSE targets' },
+  { name: 'kpi-hse-target:list', description: 'List all HSE targets' },
+
   // Mail Template Management
   { name: 'mail-template:create', description: 'Create new mail templates' },
   { name: 'mail-template:read', description: 'View mail template information' },

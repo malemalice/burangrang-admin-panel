@@ -131,11 +131,30 @@ export const seedMenus = async () => {
 
     await prisma.menu.create({
       data: {
+        name: 'KPI HSE Target',
+        path: '/dashboard/kpi-hse-target',
+        icon: 'Target',
+        parentId: dashboardMenu.id,
+        order: 5,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
         name: 'Security Team',
         path: '/dashboard/security-team',
         icon: 'Shield',
         parentId: dashboardMenu.id,
-        order: 5,
+        order: 6,
         isActive: true,
         roles: {
           connect: [
@@ -154,7 +173,7 @@ export const seedMenus = async () => {
         path: '/dashboard/admin-overview',
         icon: 'LayoutDashboard',
         parentId: dashboardMenu.id,
-        order: 6,
+        order: 7,
         isActive: true,
         roles: {
           connect: [

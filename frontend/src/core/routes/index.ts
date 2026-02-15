@@ -20,6 +20,7 @@ import { auditCriteriaRoutes } from '@/modules/audit-criteria';
 import auditSchedulesRoutes from '@/modules/audit-schedules/routes/auditSchedulesRoutes';
 import auditResultsRoutes from '@/modules/audit-results/routes/auditResultsRoutes';
 import { kpiFrequencyRateRoutes } from '@/modules/kpi-frequency-rate';
+import { kpiHseTargetRoutes } from '@/modules/kpi-hse-target';
 import { incidentProfileAnalyticRoutes } from '@/modules/incident-profile-analytic';
 import { hazardAnalyticsRoutes } from '@/modules/hazard-analytics';
 import { securityTeamRoutes } from '@/modules/security-team';
@@ -50,6 +51,7 @@ const routes: RouteConfig[] = [
   ...auditSchedulesRoutes,
   ...auditResultsRoutes,
   ...kpiFrequencyRateRoutes,
+  ...kpiHseTargetRoutes,
   ...incidentProfileAnalyticRoutes,
   ...hazardAnalyticsRoutes,
   ...securityTeamRoutes,

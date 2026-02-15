@@ -188,6 +188,13 @@ Enum IncidentTypeEnum {
   DANGEROUS_OR_HAZARDOUS_OCCURRENCE [note: 'Dangerous or hazardous occurrence']
 }
 
+Enum HseTargetTypeEnum {
+  INCIDENT [note: 'Incident target']
+  RISK [note: 'Risk target']
+  INSPECTION [note: 'Inspection target']
+  AUDIT [note: 'Audit target']
+}
+
 Enum GenderEnum {
   MALE [note: 'Male']
   FEMALE [note: 'Female']
@@ -645,20 +652,21 @@ Table t_risk_mitigation {
 
 Table t_hse_targets {
   id varchar [pk, default: `uuid()`]
-  month MonthEnum [not null]
+  type HseTargetTypeEnum [not null, note: 'Target type: incident, risk, inspection, audit']
+  code varchar [not null, note: 'Sub-dimension identifier; meaning depends on type (e.g. FATALITY, NEAR_MISS for incident; HIGH, EXTREME for risk)']
+  name varchar [null, note: 'Display label for the target scope']
+  month MonthEnum [null, note: 'Nullable for yearly-only targets']
   year int [not null]
-  code varchar [unique, not null]
-  name varchar [not null]
   target decimal(10,2) [not null]
   isActive boolean [not null, default: true]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   createdBy varchar [not null, ref: > t_users.id]
-  
-  Note: 'HSE targets tracking monthly and yearly targets with code and name'
+
+  Note: 'HSE targets for actual vs target comparison across modules. Code is generic; each type defines its own sub-dimensions.'
   indexes {
-    code [unique]
-    (month, year)
+    (type, code, month, year) [unique]
+    (type, year)
   }
 }
 

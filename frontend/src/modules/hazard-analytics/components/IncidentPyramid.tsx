@@ -64,7 +64,7 @@ export function IncidentPyramid() {
                       y={centerY + (lineIndex - (lines.length - 1) / 2) * 14}
                       textAnchor="middle"
                       dominantBaseline="middle"
-                      fill={index === 0 ? 'white' : '#1F2937'}
+                      fill="#1F2937"
                       fontSize={index === 0 ? '11' : '12'}
                       fontWeight="500"
                     >

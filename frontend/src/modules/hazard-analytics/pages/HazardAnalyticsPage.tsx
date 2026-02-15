@@ -59,40 +59,53 @@ export default function HazardAnalyticsPage() {
         yearOptions={yearOptions}
       />
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
-          Loading...
-        </div>
-      ) : data ? (
-        <>
-          {/* Row 1: Summary Card and Pyramid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <IncidentSummaryCard data={data.incidentSummary} />
-            <IncidentPyramid />
+      <div className="max-w-7xl space-y-8">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            Loading...
           </div>
+        ) : data ? (
+          <>
+            {/* Row 1: Summary Card and Pyramid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+              <div className="min-h-[360px]">
+                <IncidentSummaryCard data={data.incidentSummary} />
+              </div>
+              <div className="min-h-[360px]">
+                <IncidentPyramid />
+              </div>
+            </div>
 
-          {/* Row 2: Incident Chart and Status Pie Chart */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <IncidentChart data={data.incidentSummary} />
-            <HazardCaseStatusChart data={data.hazardStatus} periodLabel={periodLabel} />
-          </div>
+            {/* Row 2: Incident Chart and Status Pie Chart */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="min-h-[360px]">
+                <IncidentChart data={data.incidentSummary} />
+              </div>
+              <div className="min-h-[360px]">
+                <HazardCaseStatusChart data={data.hazardStatus} periodLabel={periodLabel} />
+              </div>
+            </div>
 
-          <HazardsByMonthTable data={data.monthlyHazards} />
+            <HazardsByMonthTable data={data.monthlyHazards} />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <HazardTypeChart data={data.hazardTypes} />
-            <NonConformanceCriteriaChart data={data.nonConformanceCriteria} />
+            {/* Row 3a: Two charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <HazardTypeChart data={data.hazardTypes} />
+              <NonConformanceCriteriaChart data={data.nonConformanceCriteria} />
+            </div>
+
+            {/* Row 3b: Top 10 full width */}
             <TopUnsafeConditionsTable data={data.topUnsafeConditions} />
-          </div>
 
-          <HazardSummaryTable
-            hazardTypes={data.hazardTypes}
-            nonConformanceCriteria={data.nonConformanceCriteria}
-            responsibleActions={data.responsibleActions}
-            hazardStatus={data.hazardStatus}
-          />
-        </>
-      ) : null}
+            <HazardSummaryTable
+              hazardTypes={data.hazardTypes}
+              nonConformanceCriteria={data.nonConformanceCriteria}
+              responsibleActions={data.responsibleActions}
+              hazardStatus={data.hazardStatus}
+            />
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }
