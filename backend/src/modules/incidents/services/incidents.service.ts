@@ -1285,7 +1285,7 @@ export class IncidentsService {
 
           await this.notificationsService.createNotificationForRoles(
             {
-              title: `Incident Awaiting Approval: ${incident.code}`,
+              title: `Incident Awaiting Verification: ${incident.code}`,
               message: `Incident "${incident.subject}" (${incident.code}) is awaiting your approval.`,
               context: 'incident',
               contextId: incidentId,

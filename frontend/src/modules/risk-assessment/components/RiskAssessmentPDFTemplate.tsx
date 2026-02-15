@@ -251,7 +251,7 @@ export const RiskAssessmentPDFTemplate = ({
                       line.status === 'completed'
                         ? (lastApproval?.status || 'COMPLETED')
                         : line.status === 'current'
-                          ? 'WAITING APPROVAL'
+                          ? 'WAITING VERIFICATION'
                           : 'PENDING';
 
                     return (

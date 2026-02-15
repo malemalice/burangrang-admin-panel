@@ -166,7 +166,7 @@ export default function AdminOverviewPage() {
           <MetricCard
             title="Withdrawals Pending"
             value={ppe.withdrawalsPending}
-            description="Awaiting approval"
+            description="Awaiting verification"
             icon={ShieldCheck}
             isWarning
           />
