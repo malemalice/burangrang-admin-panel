@@ -175,6 +175,11 @@ const AuditSchedulesPage = () => {
       id: 'createdAt',
       label: 'Created At',
       type: 'dateRange',
+    },
+    {
+      id: 'auditDate',
+      label: 'Audit Date',
+      type: 'dateRange',
     }
   ];
 
@@ -336,7 +341,7 @@ const AuditSchedulesPage = () => {
         }
       }
 
-      // Handle date range filter
+      // Handle date range filters
       if (activeFilters.createdAt?.value) {
         const dateRange = activeFilters.createdAt.value as { from?: Date; to?: Date };
         if (dateRange.from) {
@@ -346,11 +351,20 @@ const AuditSchedulesPage = () => {
           params.createdAtTo = new Date(dateRange.to).toISOString().split('T')[0];
         }
       }
+      if (activeFilters.auditDate?.value) {
+        const dateRange = activeFilters.auditDate.value as { from?: Date; to?: Date };
+        if (dateRange.from) {
+          params.auditDateFrom = new Date(dateRange.from).toISOString().split('T')[0];
+        }
+        if (dateRange.to) {
+          params.auditDateTo = new Date(dateRange.to).toISOString().split('T')[0];
+        }
+      }
 
       // Add other filters (excluding handled ones)
       // Note: 'code' filter removed as backend doesn't support it
       Object.entries(activeFilters).forEach(([key, filter]) => {
-        if (!['status', 'isActive', 'auditElementId', 'areaIds', 'auditorIds', 'createdAt', 'code'].includes(key)) {
+        if (!['status', 'isActive', 'auditElementId', 'areaIds', 'auditorIds', 'createdAt', 'auditDate', 'code'].includes(key)) {
           params[key] = filter.value;
         }
       });
@@ -435,7 +449,7 @@ const AuditSchedulesPage = () => {
           value: filter.value,
           label: selectedAuditors.map(opt => opt.label).join(', ')
         };
-      } else if (filter.id === 'createdAt' && typeof filter.value === 'object' && !Array.isArray(filter.value)) {
+      } else if ((filter.id === 'createdAt' || filter.id === 'auditDate') && typeof filter.value === 'object' && !Array.isArray(filter.value)) {
         const dateRange = filter.value as { from?: Date; to?: Date };
         const fromStr = dateRange.from ? format(new Date(dateRange.from), 'PP') : '';
         const toStr = dateRange.to ? format(new Date(dateRange.to), 'PP') : '';

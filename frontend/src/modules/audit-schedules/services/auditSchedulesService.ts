@@ -16,6 +16,8 @@ const auditSchedulesService = {
     status?: string;
     createdAtFrom?: string;
     createdAtTo?: string;
+    auditDateFrom?: string;
+    auditDateTo?: string;
   }): Promise<PaginatedResponse<AuditSchedule>> => {
     // Build query params manually to ensure arrays are serialized correctly for NestJS
     const queryParams = new URLSearchParams();
@@ -29,6 +31,8 @@ const auditSchedulesService = {
     if (params.status) queryParams.append('status', params.status);
     if (params.createdAtFrom) queryParams.append('createdAtFrom', params.createdAtFrom);
     if (params.createdAtTo) queryParams.append('createdAtTo', params.createdAtTo);
+    if (params.auditDateFrom) queryParams.append('auditDateFrom', params.auditDateFrom);
+    if (params.auditDateTo) queryParams.append('auditDateTo', params.auditDateTo);
     
     // Handle array parameters - append each value separately for NestJS to parse as array
     if (params.areaId) {
