@@ -43,8 +43,14 @@ export class CreateWeightReportDto {
   @ApiProperty() @IsString() @IsNotEmpty() sourceId: string;
   @ApiProperty() @IsString() @IsNotEmpty() storageLocationId: string;
   @ApiProperty() @IsDateString() reportDate: string;
-  @ApiProperty({ enum: MonthEnum }) @IsEnum(MonthEnum) reportMonth: MonthEnum;
-  @ApiProperty() @IsNumber() reportYear: number;
+  @ApiProperty({ enum: MonthEnum, required: false })
+  @IsEnum(MonthEnum)
+  @IsOptional()
+  reportMonth?: MonthEnum;
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  reportYear?: number;
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, Pencil, Calendar, FileText, Info, Droplets, ExternalLink, Activity } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePDF } from 'react-to-pdf';
 
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -11,12 +12,18 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { monthlyFlowReportService } from '../../services/wasteManagementService';
 import { MonthlyFlowReport, ReportStatusEnum } from '../../types/waste-management.types';
 import { formatDate } from '@/core/utils/date';
+import { MonthlyFlowReportPDFTemplate } from '../../components/MonthlyFlowReportPDFTemplate';
 
 export default function MonthlyFlowReportDetailPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [data, setData] = useState<MonthlyFlowReport | null>(null);
     const [loading, setLoading] = useState(true);
+
+    const { toPDF, targetRef } = usePDF({
+        filename: data ? `monthly-flow-report-${data.reportCode}.pdf` : 'monthly-flow-report.pdf'
+    });
 
     useEffect(() => {
         const fetchData = async () => {
@@ -37,6 +44,15 @@ export default function MonthlyFlowReportDetailPage() {
         fetchData();
     }, [id, navigate]);
 
+    useEffect(() => {
+        if (!loading && data && searchParams.get('print') === 'true') {
+            const timer = setTimeout(() => {
+                toPDF();
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [loading, data, searchParams, toPDF]);
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
@@ -49,6 +65,12 @@ export default function MonthlyFlowReportDetailPage() {
 
     return (
         <div className="space-y-6">
+            <div className="absolute left-[-9999px] top-0">
+                <div ref={targetRef}>
+                    <MonthlyFlowReportPDFTemplate report={data} />
+                </div>
+            </div>
+
             <PageHeader
                 title="Monthly Flow Report Details"
                 subtitle={`Report ${data.reportCode}`}
@@ -56,6 +78,9 @@ export default function MonthlyFlowReportDetailPage() {
                     <div className="flex gap-2">
                         <Button variant="outline" onClick={() => navigate('/waste-management/monthly-flow-reports')}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+                        </Button>
+                        <Button variant="outline" onClick={() => toPDF()}>
+                            <FileText className="mr-2 h-4 w-4" /> Export PDF
                         </Button>
                         <Button onClick={() => navigate(`/waste-management/monthly-flow-reports/${id}/edit`)}>
                             <Pencil className="mr-2 h-4 w-4" /> Edit
@@ -85,10 +110,10 @@ export default function MonthlyFlowReportDetailPage() {
                                 <p className="font-medium text-lg">{data.treatmentPlant?.name || '-'}</p>
                             </div>
                             <div className="space-y-1">
-                                <span className="text-sm font-medium text-muted-foreground">Period</span>
+                                <span className="text-sm font-medium text-muted-foreground">Report Date</span>
                                 <p className="text-lg">
                                     <Badge variant="outline" className="text-base">
-                                        {data.reportMonth} {data.reportYear}
+                                        {formatDate(data.reportDate || '')}
                                     </Badge>
                                 </p>
                             </div>
@@ -140,9 +165,9 @@ export default function MonthlyFlowReportDetailPage() {
                             </span>
                             <div className="space-y-2">
                                 {data.reportDocumentUrl ? (
-                                    <a 
-                                        href={data.reportDocumentUrl} 
-                                        target="_blank" 
+                                    <a
+                                        href={data.reportDocumentUrl}
+                                        target="_blank"
                                         rel="noopener noreferrer"
                                         className="flex items-center gap-2 text-primary hover:underline"
                                     >

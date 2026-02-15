@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, MoreHorizontal, Pencil, Trash2, Eye } from 'lucide-react';
+import { Plus, MoreHorizontal, Pencil, Trash2, Eye, Printer } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
@@ -163,9 +163,9 @@ export default function WeightReportsPage() {
       isSortable: true,
     },
     {
-      id: 'period',
-      header: 'Period',
-      cell: (item: WeightReport) => `${item.reportMonth} ${item.reportYear}`,
+      id: 'reportDate',
+      header: 'Report Date',
+      cell: (item: WeightReport) => new Date(item.reportDate).toLocaleDateString(),
       isSortable: true,
     },
     {
@@ -201,6 +201,9 @@ export default function WeightReportsPage() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => navigate(`/waste-management/weight-reports/${item.id}`)}>
               <Eye className="mr-2 h-4 w-4" /> View Detail
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/waste-management/weight-reports/${item.id}?print=true`)}>
+              <Printer className="mr-2 h-4 w-4" /> Print PDF
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/waste-management/weight-reports/${item.id}/edit`)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit

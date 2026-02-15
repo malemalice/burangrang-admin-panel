@@ -5,20 +5,20 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { Button } from '@/core/components/ui/button';
-import { 
-  Form, 
-  FormControl, 
-  FormField, 
-  FormItem, 
-  FormLabel, 
-  FormMessage 
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 import { Checkbox } from '@/core/components/ui/checkbox';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, X } from 'lucide-react';
 import { useCourse } from '../hooks/useCourses';
 import courseService from '../services/courseService';
 import { CourseFormData } from '../types/course.types';
@@ -30,8 +30,8 @@ const formSchema = z.object({
   slug: z.string().min(1, 'Slug is required'),
   description: z.string().optional(),
   thumbnailUrl: z.string().optional().or(z.literal('')),
-  difficulty: z.enum(['beginner', 'intermediate', 'advanced']),
-  language: z.string().min(1, 'Language is required'),
+  difficulty: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
+  language: z.string().optional(),
   instructorId: z.string().optional(),
   status: z.enum(['draft', 'published']),
   categoryIds: z.array(z.string()).optional(),
@@ -59,8 +59,8 @@ const CourseForm = ({ mode }: CourseFormProps) => {
       slug: '',
       description: '',
       thumbnailUrl: '',
-      difficulty: 'beginner',
-      language: 'en',
+      difficulty: undefined,
+      language: undefined,
       instructorId: '',
       status: 'draft',
       categoryIds: [],
@@ -99,7 +99,7 @@ const CourseForm = ({ mode }: CourseFormProps) => {
     if (course && mode === 'edit') {
       const selectedCats = course.categories || [];
       const thumbnailUrl = course.thumbnailUrl || '';
-      
+
       form.reset({
         title: course.title,
         slug: course.slug,
@@ -111,7 +111,7 @@ const CourseForm = ({ mode }: CourseFormProps) => {
         status: course.status === 'published' ? 'published' : 'draft',
         categoryIds: selectedCats.map(cat => cat.id),
       });
-      
+
       setOriginalThumbnailUrl(thumbnailUrl);
     }
   }, [course, mode, form]);
@@ -169,8 +169,8 @@ const CourseForm = ({ mode }: CourseFormProps) => {
         slug: data.slug,
         description: data.description,
         thumbnailUrl: thumbnailUrl,
-        difficulty: data.difficulty,
-        language: data.language,
+        difficulty: data.difficulty || undefined,
+        language: data.language || undefined,
         instructorId: data.instructorId || undefined,
         status: data.status,
         categoryIds: data.categoryIds && data.categoryIds.length > 0 ? data.categoryIds : undefined,
@@ -211,8 +211,8 @@ const CourseForm = ({ mode }: CourseFormProps) => {
             {mode === 'create' ? 'Create New Course' : 'Edit Course'}
           </h1>
           <p className="text-gray-600">
-            {mode === 'create' 
-              ? 'Fill in the details to create a new course' 
+            {mode === 'create'
+              ? 'Fill in the details to create a new course'
               : 'Update the course information'
             }
           </p>
@@ -242,8 +242,8 @@ const CourseForm = ({ mode }: CourseFormProps) => {
                       <FormItem>
                         <FormLabel>Course Title *</FormLabel>
                         <FormControl>
-                          <Input 
-                            placeholder="Enter course title" 
+                          <Input
+                            placeholder="Enter course title"
                             {...field}
                             onChange={(e) => {
                               field.onChange(e);
@@ -277,10 +277,10 @@ const CourseForm = ({ mode }: CourseFormProps) => {
                       <FormItem>
                         <FormLabel>Description</FormLabel>
                         <FormControl>
-                          <Textarea 
-                            placeholder="Detailed course description" 
+                          <Textarea
+                            placeholder="Detailed course description"
                             rows={4}
-                            {...field} 
+                            {...field}
                           />
                         </FormControl>
                         <FormMessage />
@@ -373,18 +373,31 @@ const CourseForm = ({ mode }: CourseFormProps) => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Difficulty</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select difficulty" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="beginner">Beginner</SelectItem>
-                            <SelectItem value="intermediate">Intermediate</SelectItem>
-                            <SelectItem value="advanced">Advanced</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-2">
+                          <Select onValueChange={field.onChange} value={field.value || ''}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select difficulty" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="beginner">Beginner</SelectItem>
+                              <SelectItem value="intermediate">Intermediate</SelectItem>
+                              <SelectItem value="advanced">Advanced</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {field.value && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                              onClick={() => field.onChange(undefined)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -396,17 +409,30 @@ const CourseForm = ({ mode }: CourseFormProps) => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Language</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select language" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="en">English</SelectItem>
-                            <SelectItem value="id">Indonesian</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-2">
+                          <Select onValueChange={field.onChange} value={field.value || ''}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select language" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="en">English</SelectItem>
+                              <SelectItem value="id">Indonesian</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {field.value && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                              onClick={() => field.onChange(undefined)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}

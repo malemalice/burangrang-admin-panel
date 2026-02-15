@@ -39,6 +39,7 @@ export default function SafetyEquipmentsPage() {
     const [activeTab, setActiveTab] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+    const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
     const filterFields: FilterField[] = useMemo(() => [
@@ -82,6 +83,8 @@ export default function SafetyEquipmentsPage() {
             page: pageIndex + 1,
             limit,
             search: finalSearch,
+            sortBy: sorting ? (sorting.id === 'status' ? 'isActive' : sorting.id) : 'name',
+            sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'asc',
             filters: {
                 ...Object.entries(activeFilters).reduce((acc: any, [key, item]) => {
                     if (key === 'status') {
@@ -96,7 +99,7 @@ export default function SafetyEquipmentsPage() {
             }
         };
         await fetchEquipments(params);
-    }, [pageIndex, limit, searchTerm, activeFilters, fetchEquipments]);
+    }, [pageIndex, limit, searchTerm, activeFilters, sorting, fetchEquipments]);
 
     useEffect(() => {
         fetchData();
@@ -164,6 +167,11 @@ export default function SafetyEquipmentsPage() {
         setPageIndex(0);
     };
 
+    const handleSortingChange = useCallback((newSorting: { id: string; desc: boolean } | null) => {
+        setSorting(newSorting);
+        setPageIndex(0);
+    }, []);
+
     const handleTabChange = (value: string) => {
         setActiveTab(value);
         setPageIndex(0);
@@ -193,8 +201,9 @@ export default function SafetyEquipmentsPage() {
         {
             id: 'name',
             header: 'Equipment Name',
+            isSortable: true,
             cell: (equipment: SafetyEquipment) => (
-                <div 
+                <div
                     className="cursor-pointer group"
                     onClick={() => navigate(`/master/safety-equipments/${equipment.id}`)}
                 >
@@ -208,6 +217,7 @@ export default function SafetyEquipmentsPage() {
         {
             id: 'category',
             header: 'Category',
+            isSortable: true,
             cell: (equipment: SafetyEquipment) => (
                 <Badge variant="outline" className="bg-blue-100 text-blue-800 border-0">
                     {getCategoryLabel(equipment.category)}
@@ -217,6 +227,7 @@ export default function SafetyEquipmentsPage() {
         {
             id: 'size',
             header: 'Size',
+            isSortable: true,
             cell: (equipment: SafetyEquipment) => equipment.size || '-',
         },
         {
@@ -229,6 +240,7 @@ export default function SafetyEquipmentsPage() {
         {
             id: 'status',
             header: 'Status',
+            isSortable: true,
             cell: (equipment: SafetyEquipment) => (
                 <Badge
                     variant="outline"
@@ -319,6 +331,8 @@ export default function SafetyEquipmentsPage() {
                     onPageSizeChange: setLimit,
                     total: totalEquipments
                 }}
+                sorting={sorting}
+                onSortingChange={handleSortingChange}
                 filterFields={filterFields}
                 activeFilters={activeFilters}
                 onSearch={handleSearch}

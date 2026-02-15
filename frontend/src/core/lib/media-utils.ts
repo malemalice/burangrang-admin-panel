@@ -58,6 +58,10 @@ export const detectMediaType = (
     return 'youtube';
   }
 
+  if (extractYoutubeVideoId(url)) {
+    return 'youtube';
+  }
+
   if (/\.(mp3|wav|ogg|m4a|aac|flac|wma)(\?|$)/i.test(url)) {
     return 'audio';
   }

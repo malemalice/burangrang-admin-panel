@@ -38,10 +38,6 @@ const formSchema = z.object({
   sourceId: z.string().min(1, 'Waste source is required'),
   storageLocationId: z.string().min(1, 'Storage location is required'),
   reportDate: z.string().min(1, 'Report date is required'),
-  reportMonth: z.nativeEnum(MonthEnum, {
-    errorMap: () => ({ message: 'Please select a month' }),
-  }),
-  reportYear: z.preprocess((val) => (val === '' || val === undefined ? undefined : Number(val)), z.number().int().min(2000, 'Year must be valid')),
   submittedAt: z.string().min(1, 'Submission date is required'),
   reportDocumentUrl: z.string().optional(),
   isActive: z.boolean().default(true),
@@ -79,8 +75,6 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
       sourceId: '',
       storageLocationId: '',
       reportDate: new Date().toISOString().split('T')[0],
-      reportMonth: MonthEnum.JAN,
-      reportYear: new Date().getFullYear(),
       submittedAt: new Date().toISOString().split('T')[0],
       reportDocumentUrl: '',
       isActive: true,
@@ -125,8 +119,6 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
             sourceId: data.sourceId,
             storageLocationId: data.storageLocationId,
             reportDate: data.reportDate.split('T')[0],
-            reportMonth: data.reportMonth,
-            reportYear: data.reportYear,
             submittedAt: data.submittedAt.split('T')[0],
             reportDocumentUrl: data.reportDocumentUrl || '',
             isActive: data.isActive,
@@ -267,47 +259,6 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
                           value={field.value}
                           onChange={field.onChange}
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <FormField
-                  control={form.control}
-                  name="reportMonth"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Month *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select month" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {Object.values(MonthEnum).map((m) => (
-                            <SelectItem key={m} value={m}>
-                              {m}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="reportYear"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Year *</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="YYYY" {...field} value={field.value ?? ''} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

@@ -184,8 +184,34 @@ const CoursePlayerPage = () => {
         <h1 className="font-semibold truncate max-w-md" title={learningContext.course.title}>
           {learningContext.course.title}
         </h1>
-        <div className="ml-auto">
-          {/* Progress bar could go here */}
+        <div className="ml-auto flex items-center gap-3">
+          {(() => {
+            const chapters = learningContext.course.chapters || [];
+            const completedChapters = learningContext.progress.filter(
+              p => p.status === ProgressStatus.COMPLETED
+            ).length;
+            const totalQuizzes = learningContext.quizzes?.length || 0;
+            const passedQuizIds = new Set(
+              (learningContext.quizAttempts || [])
+                .filter(a => a.status === 'COMPLETED' && a.isPassed)
+                .map(a => a.quizId)
+            );
+            const totalItems = chapters.length + totalQuizzes;
+            const completedItems = completedChapters + passedQuizIds.size;
+            const progressPct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+
+            return (
+              <>
+                <span className="text-sm text-muted-foreground">{progressPct}% Complete</span>
+                <div className="h-2 w-32 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-300"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+              </>
+            );
+          })()}
         </div>
       </header>
 
@@ -196,6 +222,7 @@ const CoursePlayerPage = () => {
             chapters={learningContext.course.chapters || []}
             quizzes={learningContext.quizzes || []}
             progress={learningContext.progress}
+            quizAttempts={learningContext.quizAttempts || []}
             currentChapterId={currentChapterId}
             currentQuizId={currentQuizId}
             onChapterSelect={handleChapterSelect}

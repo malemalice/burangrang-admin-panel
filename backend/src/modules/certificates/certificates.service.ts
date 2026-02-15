@@ -5,9 +5,9 @@ import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { DataScopeService } from '../../shared/services/data-scope.service';
 import { UserContext } from '../../shared/types/user-context';
 import {
-  CertificateRenewalStatusEnum,
-  CertificateTypeEnum,
-  Prisma,
+    CertificateRenewalStatusEnum,
+    CertificateTypeEnum,
+    Prisma,
 } from '@prisma/client';
 import { CreateCertificateCategoryDto } from './dto/create-certificate-category.dto';
 import { UpdateCertificateCategoryDto } from './dto/update-certificate-category.dto';
@@ -348,57 +348,65 @@ export class CertificatesService {
 
         const validityDate = new Date(certificate.validityDate);
         const now = new Date();
+        const reminderDays = certificate.reminderDays || 30;
         const certificateTitle = certificate.certificateName || certificate.certificateNumber;
 
-        // Calculate thresholds
-        const oneMonthBefore = new Date(validityDate);
-        oneMonthBefore.setMonth(validityDate.getMonth() - 1);
+        if (validityDate <= now || reminderDays < 1) {
+            return;
+        }
+
+        const reminderStart = new Date(validityDate);
+        reminderStart.setDate(validityDate.getDate() - reminderDays);
+
+        const oneWeekBefore = new Date(validityDate);
+        oneWeekBefore.setDate(validityDate.getDate() - 7);
 
         const oneDayBefore = new Date(validityDate);
         oneDayBefore.setDate(validityDate.getDate() - 1);
 
-        // 1. Monthly Reminder: > 1 month remaining
-        // Repeats monthly until 1 month before expiry
-        if (oneMonthBefore > now) {
-            // Ensure remindAt is in future (e.g., +1 hour from now for safety, or tomorrow)
-            // Strategy: Start reminder cycle soon, repeat monthly
-            const startMonthly = new Date(now);
-            startMonthly.setHours(startMonthly.getHours() + 1);
+        const getNextHourFromNow = () => {
+            const date = new Date(now);
+            date.setHours(date.getHours() + 1);
+            return date;
+        };
 
-            await this.remindersService.create(
-                {
-                    targetType: ReminderTargetTypeEnum.USER,
-                    targetId: userId,
-                    message: `Certificate "${certificateTitle}" will expire on ${validityDate.toLocaleDateString()} (Monthly Check)`,
-                    remindAt: startMonthly.toISOString(),
-                    repeatType: ReminderRepeatTypeEnum.MONTHLY,
-                    repeatUntil: oneMonthBefore.toISOString(),
-                    entity: 't_certificates',
-                    entityId: certificate.id,
-                },
-                userId,
-            );
+        // 1. Monthly Reminder: when reminder window is longer than 30 days
+        // Repeats monthly from reminderStart until 7 days before expiry
+        if (reminderDays > 30) {
+            const monthlyEnd = oneWeekBefore;
+            const monthlyStart = reminderStart > now ? reminderStart : getNextHourFromNow();
+
+            if (monthlyEnd > monthlyStart) {
+                await this.remindersService.create(
+                    {
+                        targetType: ReminderTargetTypeEnum.USER,
+                        targetId: userId,
+                        message: `Certificate "${certificateTitle}" will expire on ${validityDate.toLocaleDateString()} (Monthly Check)`,
+                        remindAt: monthlyStart.toISOString(),
+                        repeatType: ReminderRepeatTypeEnum.MONTHLY,
+                        repeatUntil: monthlyEnd.toISOString(),
+                        entity: 't_certificates',
+                        entityId: certificate.id,
+                    },
+                    userId,
+                );
+            }
         }
 
-        // 2. Weekly Reminder: < 1 month remaining
-        // Repeats weekly from (Validity - 1 Month) until (Validity - 1 Day)
-        if (oneDayBefore > now) {
-            let startWeekly = new Date(oneMonthBefore);
+        // 2. Weekly Reminder: for reminder window longer than 7 days
+        // - >30 days: starts at 7 days before expiry (after monthly window)
+        // - 8..30 days: starts at reminderStart
+        if (reminderDays > 7) {
+            const weeklyBaseStart = reminderDays > 30 ? oneWeekBefore : reminderStart;
+            const weeklyStart = weeklyBaseStart > now ? weeklyBaseStart : getNextHourFromNow();
 
-            // If we are already past the 1-month mark, start weekly reminder soon
-            if (startWeekly <= now) {
-                startWeekly = new Date(now);
-                startWeekly.setHours(startWeekly.getHours() + 1);
-            }
-
-            // Only create if repeatUntil (oneDayBefore) is after startWeekly
-            if (oneDayBefore > startWeekly) {
+            if (oneDayBefore > weeklyStart) {
                 await this.remindersService.create(
                     {
                         targetType: ReminderTargetTypeEnum.USER,
                         targetId: userId,
                         message: `Certificate "${certificateTitle}" expires soon! Due: ${validityDate.toLocaleDateString()} (Weekly Warning)`,
-                        remindAt: startWeekly.toISOString(),
+                        remindAt: weeklyStart.toISOString(),
                         repeatType: ReminderRepeatTypeEnum.WEEKLY,
                         repeatUntil: oneDayBefore.toISOString(),
                         entity: 't_certificates',
@@ -409,33 +417,26 @@ export class CertificatesService {
             }
         }
 
-        // 3. Daily Reminder: < 1 day remaining
-        // Repeats daily from (Validity - 1 Day) until Validity
-        if (validityDate > now) {
-            let startDaily = new Date(oneDayBefore);
+        // 3. Daily Reminder
+        // - <=7 days: starts at reminderStart
+        // - >7 days: starts at 1 day before expiry
+        const dailyBaseStart = reminderDays <= 7 ? reminderStart : oneDayBefore;
+        const dailyStart = dailyBaseStart > now ? dailyBaseStart : getNextHourFromNow();
 
-            // If we are already past the 1-day mark, start daily reminder soon
-            if (startDaily <= now) {
-                startDaily = new Date(now);
-                startDaily.setHours(startDaily.getHours() + 1);
-            }
-
-            // Only create if validityDate is after startDaily
-            if (validityDate > startDaily) {
-                await this.remindersService.create(
-                    {
-                        targetType: ReminderTargetTypeEnum.USER,
-                        targetId: userId,
-                        message: `URGENT: Certificate "${certificateTitle}" expires on ${validityDate.toLocaleDateString()} (Daily Alert)`,
-                        remindAt: startDaily.toISOString(),
-                        repeatType: ReminderRepeatTypeEnum.DAILY,
-                        repeatUntil: validityDate.toISOString(),
-                        entity: 't_certificates',
-                        entityId: certificate.id,
-                    },
-                    userId,
-                );
-            }
+        if (validityDate > dailyStart) {
+            await this.remindersService.create(
+                {
+                    targetType: ReminderTargetTypeEnum.USER,
+                    targetId: userId,
+                    message: `URGENT: Certificate "${certificateTitle}" expires on ${validityDate.toLocaleDateString()} (Daily Alert)`,
+                    remindAt: dailyStart.toISOString(),
+                    repeatType: ReminderRepeatTypeEnum.DAILY,
+                    repeatUntil: validityDate.toISOString(),
+                    entity: 't_certificates',
+                    entityId: certificate.id,
+                },
+                userId,
+            );
         }
     }
 
@@ -697,12 +698,14 @@ export class CertificatesService {
             // If validity date or reminder days changed, recreate reminders
             if (shouldUpdateReminders && updatedBy) {
                 try {
-                    // 1. Cancel existing pending reminders for this certificate
+                    // 1. Cancel existing reminders for this certificate (except already cancelled)
                     await this.prisma.reminder.updateMany({
                         where: {
                             entity: 't_certificates',
                             entityId: id,
-                            status: ReminderStatusEnum.PENDING,
+                            status: {
+                                not: ReminderStatusEnum.CANCELLED,
+                            },
                         },
                         data: {
                             status: ReminderStatusEnum.CANCELLED,

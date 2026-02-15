@@ -270,20 +270,24 @@ const CoursesPage = () => {
                 ? `${course.instructor?.firstName || ''} ${course.instructor?.lastName || ''}`.trim()
                 : 'Unknown Instructor'}
             </div>
-            {course.categories && course.categories.length > 0 && (
-              <div className="flex gap-1 mt-1">
-                {course.categories.slice(0, 2).map(category => (
-                  <Badge key={category.id} variant="outline" className="text-xs">
-                    {category.name}
-                  </Badge>
-                ))}
-                {course.categories.length > 2 && (
-                  <Badge variant="outline" className="text-xs">
-                    +{course.categories.length - 2} more
-                  </Badge>
-                )}
-              </div>
-            )}
+            <div className="flex gap-1 mt-1 min-h-[22px]">
+              {course.categories && course.categories.length > 0 ? (
+                <>
+                  {course.categories.slice(0, 2).map(category => (
+                    <Badge key={category.id} variant="outline" className="text-xs">
+                      {category.name}
+                    </Badge>
+                  ))}
+                  {course.categories.length > 2 && (
+                    <Badge variant="outline" className="text-xs">
+                      +{course.categories.length - 2} more
+                    </Badge>
+                  )}
+                </>
+              ) : (
+                <span className="text-xs text-muted-foreground italic">No categories</span>
+              )}
+            </div>
           </div>
         </div>
       ),

@@ -219,11 +219,11 @@ const CourseDetailPage = () => {
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <h1 className="text-2xl font-bold line-clamp-2 break-words max-w-3xl" title={course.title}>
+              <div className="flex items-start gap-2 mb-2">
+                <h1 className="text-2xl font-bold break-words min-w-0 flex-1" title={course.title}>
                   {course.title}
                 </h1>
-                <Badge variant="outline" className={`${getStatusColor(course.status)} border-0 capitalize`}>
+                <Badge variant="outline" className={`${getStatusColor(course.status)} border-0 capitalize shrink-0 mt-1`}>
                   {course.status}
                 </Badge>
               </div>

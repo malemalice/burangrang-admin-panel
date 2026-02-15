@@ -2515,8 +2515,9 @@ model MonthlyFlowReport {
   id                String           @id @default(uuid())
   reportCode        String           @unique
   treatmentPlantId  String
-  reportMonth       MonthEnum
-  reportYear        Int
+  reportDate        DateTime?
+  reportMonth       MonthEnum?
+  reportYear        Int?
   totalVolume       Decimal          @db.Decimal(12, 4)
   averageDailyFlow  Decimal          @db.Decimal(10, 4)
   peakFlow          Decimal?         @db.Decimal(10, 4)
@@ -2660,8 +2661,8 @@ model WeightReport {
   sourceId          String
   storageLocationId String
   reportDate        DateTime
-  reportMonth       MonthEnum
-  reportYear        Int
+  reportMonth       MonthEnum?
+  reportYear        Int?
   reportDocumentUrl String?
   submittedBy       String
   submittedAt       DateTime
@@ -2684,8 +2685,9 @@ model WeightReport {
   reviewer        User?              @relation("WeightReportReviewer", fields: [reviewedBy], references: [id])
   items           WeightReportItem[]
 
-  @@unique([sourceId, reportMonth, reportYear])
+  @@unique([sourceId, reportDate])
   @@index([reportMonth, reportYear])
+  @@index([reportDate])
   @@index([status])
   @@index([receivedAt])
   @@map("t_weight_reports")
