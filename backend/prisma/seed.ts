@@ -34,6 +34,7 @@ import { seedRiskAssessmentsAndInspections } from './seeds/risk-assessments-insp
 import { seedAuditSchedules } from './seeds/audit-schedules.seed';
 import { seedWorkPermitApprovalTest } from './seeds/work-permit-approval-test.seed';
 import { seedIncidents } from './seeds/incidents.seed';
+import { seedKpiHseTargets } from './seeds/kpi-hse-targets.seed';
 
 const prisma = new PrismaClient();
 
@@ -136,6 +137,8 @@ async function main() {
       await prisma.treatmentPlant.deleteMany();
       // Clear Man Hours data
       await prisma.manHour.deleteMany();
+      // Clear KPI HSE Targets (before User deletion)
+      await prisma.hseTarget.deleteMany();
       // Clear other data
       await prisma.masterApprovalItem.deleteMany();
       await prisma.approval.deleteMany();
@@ -425,6 +428,10 @@ async function main() {
         case 'man-hours':
           await prisma.manHour.deleteMany();
           break;
+        case 'hse_targets':
+        case 'kpi-hse-targets':
+          await prisma.hseTarget.deleteMany();
+          break;
         case 'audit_policy':
         case 'audit-policy':
           await prisma.auditCriteria.deleteMany();
@@ -536,6 +543,7 @@ async function main() {
       await seedAuditSchedules(prisma);
       await seedRiskAssessmentsAndInspections(prisma);
       await seedIncidents();
+      await seedKpiHseTargets();
       console.log('All tables seeded successfully');
     } else {
       // Seed only the specified table
@@ -705,6 +713,10 @@ async function main() {
         case 'man_hours':
         case 'man-hours':
           await seedManHours();
+          break;
+        case 'hse_targets':
+        case 'kpi-hse-targets':
+          await seedKpiHseTargets();
           break;
         case 'master_approvals':
         case 'master-approvals':

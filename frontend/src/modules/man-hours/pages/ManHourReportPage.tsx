@@ -13,6 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import PageHeader from '@/core/components/ui/PageHeader';
 import manHourService from '../services/manHourService';
+import { getYearOptions, getCurrentYear } from '@/core/utils/date';
 import {
   ManHourReport,
   ManHourGroup,
@@ -26,15 +27,14 @@ export default function ManHourReportPage() {
   const [report, setReport] = useState<ManHourReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
-  const currentYear = new Date().getFullYear();
+  const currentYear = getCurrentYear();
 
   // Filter states
   const [startYear, setStartYear] = useState(currentYear - 1);
   const [endYear, setEndYear] = useState(currentYear);
   const [groupFilter, setGroupFilter] = useState<ManHourGroup | 'ALL'>('ALL');
 
-  // Generate year options
-  const yearOptions = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
+  const yearOptions = getYearOptions();
 
   // Generate column headers based on year range
   const columnHeaders = useMemo(() => {
@@ -198,9 +198,9 @@ export default function ManHourReportPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {yearOptions.map((year) => (
-                    <SelectItem key={year} value={String(year)}>
-                      {year}
+                  {yearOptions.map((o) => (
+                    <SelectItem key={o.value} value={String(o.value)}>
+                      {o.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -217,9 +217,9 @@ export default function ManHourReportPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {yearOptions.map((year) => (
-                    <SelectItem key={year} value={String(year)}>
-                      {year}
+                  {yearOptions.map((o) => (
+                    <SelectItem key={o.value} value={String(o.value)}>
+                      {o.label}
                     </SelectItem>
                   ))}
                 </SelectContent>

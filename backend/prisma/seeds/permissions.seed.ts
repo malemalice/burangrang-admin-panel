@@ -135,6 +135,13 @@ export const permissions = [
   { name: 'incident:delete', description: 'Delete incidents' },
   { name: 'incident:list', description: 'List all incidents' },
 
+  // Incident Security Management
+  { name: 'incident-security:create', description: 'Create new security incidents' },
+  { name: 'incident-security:read', description: 'View security incident information' },
+  { name: 'incident-security:update', description: 'Update security incident information' },
+  { name: 'incident-security:delete', description: 'Delete security incidents' },
+  { name: 'incident-security:list', description: 'List all security incidents' },
+
   // Audit Schedule Management
   { name: 'audit-schedule:create', description: 'Create new audit schedules' },
   { name: 'audit-schedule:read', description: 'View audit schedule information' },
@@ -323,6 +330,13 @@ export const permissions = [
   { name: 'safety-equipment-type:update', description: 'Update safety equipment type information' },
   { name: 'safety-equipment-type:delete', description: 'Delete safety equipment types' },
   { name: 'safety-equipment-type:list', description: 'List all safety equipment types' },
+
+  // KPI HSE Target Management
+  { name: 'kpi-hse-target:create', description: 'Create new HSE targets' },
+  { name: 'kpi-hse-target:read', description: 'View HSE target information' },
+  { name: 'kpi-hse-target:update', description: 'Update HSE targets' },
+  { name: 'kpi-hse-target:delete', description: 'Delete HSE targets' },
+  { name: 'kpi-hse-target:list', description: 'List all HSE targets' },
 
   // Mail Template Management
   { name: 'mail-template:create', description: 'Create new mail templates' },

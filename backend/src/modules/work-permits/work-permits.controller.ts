@@ -292,7 +292,6 @@ export class WorkPermitsController {
   }
 
   @Post(':id/approve')
-  @Permissions('work-permit:update')
   @ApiOperation({ summary: 'Approve work permit (HSE or Security)' })
   @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
   @ApiBody({ type: ApproveWorkPermitDto })
@@ -313,7 +312,6 @@ export class WorkPermitsController {
   }
 
   @Post(':id/reject')
-  @Permissions('work-permit:update')
   @ApiOperation({ summary: 'Reject work permit' })
   @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
   @ApiBody({ type: RejectWorkPermitDto })
@@ -334,7 +332,6 @@ export class WorkPermitsController {
   }
 
   @Post(':id/request-info')
-  @Permissions('work-permit:update')
   @ApiOperation({ summary: 'Request additional information from requester (HSE only)' })
   @ApiParam({ name: 'id', type: String, description: 'Work permit ID' })
   @ApiBody({ type: RequestInfoWorkPermitDto })
@@ -397,7 +394,6 @@ export class WorkPermitsController {
   }
 
   @Get(':id/approval-rights')
-  @Permissions('work-permit:read')
   @ApiOperation({ summary: 'Check approval rights for the current user' })
   @ApiResponse({ status: 200, description: 'Returns approval rights' })
   async checkApprovalRights(

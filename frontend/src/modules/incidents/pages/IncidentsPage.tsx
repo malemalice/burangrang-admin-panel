@@ -1,13 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Eye, Plus, Edit, Trash2, CheckCircle2, Info, ArrowRight, FileText, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/core/lib/auth';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
-import approvalService from '@/modules/master-data/services/approvalService';
-import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
 import api from '@/core/lib/api';
 import roleService from '@/modules/roles/services/roleService';
@@ -30,7 +28,7 @@ import { Badge } from '@/core/components/ui/badge';
 
 import { Incident, IncidentTypeEnum, IncidentClassificationEnum, PriorityEnum, SourceEnum } from '../types/incident.types';
 import incidentsService from '../services/incidentsService';
-import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
+import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS, INCIDENT_STATUS_OPTIONS_LIMITED } from '@/shared/constants/general-status.enum';
 import areaService from '@/modules/master-data/services/areaService';
 import { riskCategoryService, departmentService } from '@/modules/master-data';
 import userService from '@/modules/users/services/userService';
@@ -38,24 +36,50 @@ import { AreaDTO } from '@/modules/master-data/types/master-data.types';
 import { RiskCategory, Department } from '@/core/lib/types';
 import { User } from '@/core/lib/types';
 
+const PRIORITY_LABELS: Record<string, string> = {
+  NOT_SPECIFIED: 'Not Specified',
+  NORMAL: 'Normal',
+  HIGH: 'High',
+  VENDOR: 'Vendor',
+  LONGER_TERM: 'Longer Term',
+};
+
+const FILTER_KEYS = [
+  'code',
+  'status',
+  'priority',
+  'incidentType',
+  'incidentClassification',
+  'areaId',
+  'assignedDepartmentId',
+  'assigneeId',
+  'riskCategoryId',
+  'source',
+];
+
+const MULTI_VALUE_FILTER_KEYS = [
+  'status',
+  'priority',
+  'incidentType',
+  'areaId',
+  'assignedDepartmentId',
+  'assigneeId',
+  'riskCategoryId',
+];
+
 const IncidentsPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user: currentUser } = useAuth();
   const { hasPermission } = usePermissions();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [pageIndex, setPageIndex] = useState(0);
-  const [limit, setLimit] = useState(10);
   const [totalIncidents, setTotalIncidents] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [incidentToDelete, setIncidentToDelete] = useState<Incident | null>(null);
-  const [activeTab, setActiveTab] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [approvalRights, setApprovalRights] = useState<Record<string, boolean>>({});
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
-  const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>({ id: 'incidentDate', desc: true });
 
   // Filter options state
   const [areas, setAreas] = useState<AreaDTO[]>([]);
@@ -103,7 +127,7 @@ const IncidentsPage = () => {
       id: 'status',
       label: 'Status',
       type: 'multiSelectSearchable',
-      options: GENERAL_STATUS_OPTIONS.map(option => ({
+      options: (isSuperAdmin ? GENERAL_STATUS_OPTIONS : INCIDENT_STATUS_OPTIONS_LIMITED).map(option => ({
         label: option.label,
         value: option.value,
       })),
@@ -189,13 +213,131 @@ const IncidentsPage = () => {
     },
   ];
 
+  // Derive list state from URL (TRD: URL as source of truth)
+  const pageIndex = useMemo(() => {
+    const raw = searchParams.get('page');
+    const page = raw ? Number(raw) : 1;
+    if (!Number.isFinite(page) || page <= 0) return 0;
+    return Math.floor(page) - 1;
+  }, [searchParams]);
+
+  const limit = useMemo(() => {
+    const raw = searchParams.get('limit');
+    const parsed = raw ? Number(raw) : 10;
+    if (!Number.isFinite(parsed) || parsed <= 0) return 10;
+    return Math.floor(parsed);
+  }, [searchParams]);
+
+  const searchTerm = useMemo(() => searchParams.get('search') ?? '', [searchParams]);
+
+  const sorting = useMemo((): { id: string; desc: boolean } | null => {
+    const sortBy = searchParams.get('sortBy') || 'createdAt';
+    const sortOrder = searchParams.get('sortOrder') || 'desc';
+    return {
+      id: sortBy,
+      desc: sortOrder === 'desc',
+    };
+  }, [searchParams]);
+
+  const statusOptions = isSuperAdmin ? GENERAL_STATUS_OPTIONS : INCIDENT_STATUS_OPTIONS_LIMITED;
+  const activeFilters = useMemo(() => {
+    const filters: Record<string, { value: any; label: string }> = {};
+
+    const code = searchParams.get('code');
+    if (code) {
+      filters.code = { value: code, label: code };
+    }
+
+    MULTI_VALUE_FILTER_KEYS.forEach(key => {
+      const values = searchParams.getAll(key);
+      if (values.length === 0) return;
+      if (key === 'status') {
+        const labels = values.map(val => statusOptions.find(opt => opt.value === val)?.label || val);
+        filters[key] = { value: values.length === 1 ? values[0] : values, label: labels.join(', ') };
+      } else if (key === 'priority') {
+        const opts = [
+          { label: 'Not Specified', value: PriorityEnum.NOT_SPECIFIED },
+          { label: 'Normal', value: PriorityEnum.NORMAL },
+          { label: 'High', value: PriorityEnum.HIGH },
+          { label: 'Vendor', value: PriorityEnum.VENDOR },
+          { label: 'Longer Term', value: PriorityEnum.LONGER_TERM },
+        ];
+        const labels = values.map(val => opts.find(o => o.value === val)?.label || val);
+        filters[key] = { value: values.length === 1 ? values[0] : values, label: labels.join(', ') };
+      } else if (key === 'incidentType') {
+        const opts = [
+          { label: 'Near Miss', value: IncidentTypeEnum.NEAR_MISS },
+          { label: 'Accident', value: IncidentTypeEnum.ACCIDENT },
+          { label: 'Dangerous or Hazardous Occurrence', value: IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE },
+        ];
+        const labels = values.map(val => opts.find(o => o.value === val)?.label || val);
+        filters[key] = { value: values.length === 1 ? values[0] : values, label: labels.join(', ') };
+      } else if (key === 'areaId') {
+        const labels = values.map(val => areas.find(a => a.id === val)?.name || val);
+        filters[key] = { value: values.length === 1 ? values[0] : values, label: labels.join(', ') };
+      } else if (key === 'assignedDepartmentId') {
+        const labels = values.map(val => departments.find(d => d.id === val)?.name || val);
+        filters[key] = { value: values.length === 1 ? values[0] : values, label: labels.join(', ') };
+      } else if (key === 'assigneeId') {
+        const labels = values.map(val => {
+          const user = users.find(u => u.id === val);
+          return user ? (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.name || user.email || 'Unknown User') : val;
+        });
+        filters[key] = { value: values.length === 1 ? values[0] : values, label: labels.join(', ') };
+      } else if (key === 'riskCategoryId') {
+        const labels = values.map(val => riskCategories.find(c => c.id === val)?.name || val);
+        filters[key] = { value: values.length === 1 ? values[0] : values, label: labels.join(', ') };
+      }
+    });
+
+    const incidentClassification = searchParams.get('incidentClassification');
+    if (incidentClassification && !filters.incidentClassification) {
+      const opts = [
+        { label: 'Major', value: IncidentClassificationEnum.MAJOR },
+        { label: 'Minor', value: IncidentClassificationEnum.MINOR },
+        { label: 'Fatality', value: IncidentClassificationEnum.FATALITY },
+      ];
+      filters.incidentClassification = { value: incidentClassification, label: opts.find(o => o.value === incidentClassification)?.label || incidentClassification };
+    }
+
+    const source = searchParams.get('source');
+    if (source) {
+      const opts = [
+        { label: 'System', value: SourceEnum.SYSTEM },
+        { label: 'Zoho', value: SourceEnum.ZOHO },
+      ];
+      filters.source = { value: source, label: opts.find(o => o.value === source)?.label || source };
+    }
+
+    return filters;
+  }, [searchParams, areas, departments, users, riskCategories, statusOptions]);
+
+  const activeTab = useMemo(() => {
+    const statusFilter = activeFilters.status?.value;
+    if (!statusFilter) return 'all';
+    const arr = Array.isArray(statusFilter) ? statusFilter : [statusFilter];
+    if (arr.length !== 1) return 'all';
+    if (arr[0] === GeneralStatusEnum.OPEN) return GeneralStatusEnum.OPEN;
+    if (arr[0] === GeneralStatusEnum.CLOSE) return GeneralStatusEnum.CLOSE;
+    return 'all';
+  }, [activeFilters.status]);
+
+  const updateSearchParams = useCallback(
+    (updater: (next: URLSearchParams) => void, options: { replace?: boolean } = { replace: true }) => {
+      const next = new URLSearchParams(searchParams);
+      updater(next);
+      setSearchParams(next, options);
+    },
+    [searchParams, setSearchParams]
+  );
+
   const fetchIncidents = useCallback(async () => {
     setIsLoading(true);
     try {
       const params: any = {
         page: pageIndex + 1,
         limit,
-        sortBy: sorting?.id ?? 'incidentDate',
+        sortBy: sorting?.id ?? 'createdAt',
         sortOrder: sorting?.desc ? 'desc' : 'asc',
       };
 
@@ -308,10 +450,7 @@ const IncidentsPage = () => {
       for (const incident of incidents) {
         if (incident.status === GeneralStatusEnum.WAITING_APPROVAL) {
           try {
-            const response = await approvalService.checkApprovalRights(
-              incident.id,
-              APPROVAL_ENTITIES.INCIDENT,
-            );
+            const response = await incidentsService.checkApprovalRights(incident.id);
             rights[incident.id] = response.canApprove;
           } catch (error) {
             console.error(`Failed to check approval rights for incident ${incident.id}:`, error);
@@ -376,26 +515,24 @@ const IncidentsPage = () => {
     }
 
     // If super_admin and has permissions, show all buttons regardless of conditions
-    if (isSuperAdmin && (hasPermission('incident:update') || hasPermission('approval:update'))) {
-      if (hasPermission('incident:update')) {
-        if (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
-          actions.push({
-            label: 'Edit',
-            onClick: () => navigate(`/incidents/${incident.id}/edit?mode=creator`),
-            variant: 'default',
-            icon: <Edit className="mr-2 h-4 w-4" />,
-          });
-        }
-        if (incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
-          actions.push({
-            label: 'Submit',
-            onClick: () => navigate(`/incidents/${incident.id}/edit?mode=investigator`),
-            variant: 'default',
-            icon: <CheckCircle2 className="mr-2 h-4 w-4" />,
-          });
-        }
+    if (isSuperAdmin && hasPermission('incident:update')) {
+      if (incident.status === GeneralStatusEnum.DRAFT || incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
+        actions.push({
+          label: 'Edit',
+          onClick: () => navigate(`/incidents/${incident.id}/edit?mode=creator`),
+          variant: 'default',
+          icon: <Edit className="mr-2 h-4 w-4" />,
+        });
       }
-      if (hasPermission('approval:update') && incident.status === GeneralStatusEnum.WAITING_APPROVAL) {
+      if (incident.status === GeneralStatusEnum.OPEN || incident.status === GeneralStatusEnum.REJECTED) {
+        actions.push({
+          label: 'Submit',
+          onClick: () => navigate(`/incidents/${incident.id}/edit?mode=investigator`),
+          variant: 'default',
+          icon: <CheckCircle2 className="mr-2 h-4 w-4" />,
+        });
+      }
+      if (incident.status === GeneralStatusEnum.WAITING_APPROVAL && approvalRights[incident.id]) {
         actions.push({
           label: 'Approve',
           onClick: () => navigate(`/incidents/${incident.id}/edit?mode=approver`),
@@ -441,8 +578,8 @@ const IncidentsPage = () => {
       });
     }
 
-    // Approve button (approver mode) - for WAITING_APPROVAL status and user has approval rights
-    if (hasPermission('approval:update') && incident.status === GeneralStatusEnum.WAITING_APPROVAL && approvalRights[incident.id]) {
+    // Approve button (approver mode) - for WAITING_APPROVAL status and user has approval rights (on active approval line)
+    if (incident.status === GeneralStatusEnum.WAITING_APPROVAL && approvalRights[incident.id]) {
       actions.push({
         label: 'Approve',
         onClick: () => navigate(`/incidents/${incident.id}/edit?mode=approver`),
@@ -455,238 +592,69 @@ const IncidentsPage = () => {
   };
 
   const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    setPageIndex(0);
+    updateSearchParams(next => {
+      const trimmed = term.trim();
+      if (trimmed) next.set('search', trimmed);
+      else next.delete('search');
+      next.set('page', '1');
+    });
   };
 
   const handleSortingChange = (newSorting: { id: string; desc: boolean } | null) => {
-    setSorting(newSorting);
-    setPageIndex(0);
+    updateSearchParams(next => {
+      if (newSorting) {
+        next.set('sortBy', newSorting.id);
+        next.set('sortOrder', newSorting.desc ? 'desc' : 'asc');
+      } else {
+        next.set('sortBy', 'createdAt');
+        next.set('sortOrder', 'desc');
+      }
+      next.set('page', '1');
+    });
   };
 
   const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    setPageIndex(0);
+    updateSearchParams(next => {
+      if (value === 'all') {
+        next.delete('status');
+      } else {
+        next.set('status', value);
+      }
+      next.set('page', '1');
+    });
+  };
 
-    if (value === 'all') {
-      setActiveFilters({});
-    } else {
-      const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === value);
-      setActiveFilters({
-        status: {
-          value: value,
-          label: statusOption?.label ?? value,
-        },
-      });
-    }
+  const handlePageChange = (page: number) => {
+    updateSearchParams(next => next.set('page', String(page + 1)));
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    updateSearchParams(next => {
+      next.set('limit', String(size));
+      next.set('page', '1');
+    });
   };
 
   const handleApplyFilters = (filters: FilterValue[]) => {
-    const newActiveFilters: Record<string, { value: any; label: string }> = {};
+    updateSearchParams(next => {
+      FILTER_KEYS.forEach(k => next.delete(k));
 
-    filters.forEach(filter => {
-      // Handle status filter (supports multiple values)
-      if (filter.id === 'status') {
-        if (Array.isArray(filter.value)) {
-          const labels = filter.value.map(val => {
-            const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === val);
-            return statusOption?.label || String(val);
-          });
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: labels.join(', '),
-          };
+      filters.forEach(filter => {
+        const value = filter.value;
+        if (value === undefined || value === null || value === '') return;
+        if (Array.isArray(value) && value.length === 0) return;
+        if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) return;
+
+        if (MULTI_VALUE_FILTER_KEYS.includes(filter.id)) {
+          const arr = Array.isArray(value) ? value : [value];
+          arr.forEach(v => next.append(filter.id, String(v)));
         } else {
-          const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === filter.value);
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: statusOption?.label || String(filter.value),
-          };
+          next.set(filter.id, String(value));
         }
-      }
-      // Handle priority filter (supports multiple values)
-      else if (filter.id === 'priority') {
-        const priorityOptions = [
-          { label: 'Not Specified', value: PriorityEnum.NOT_SPECIFIED },
-          { label: 'Normal', value: PriorityEnum.NORMAL },
-          { label: 'High', value: PriorityEnum.HIGH },
-          { label: 'Vendor', value: PriorityEnum.VENDOR },
-          { label: 'Longer Term', value: PriorityEnum.LONGER_TERM },
-        ];
-        if (Array.isArray(filter.value)) {
-          const labels = filter.value.map(val => {
-            const priorityOption = priorityOptions.find(opt => opt.value === val);
-            return priorityOption?.label || String(val);
-          });
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: labels.join(', '),
-          };
-        } else {
-          const priorityOption = priorityOptions.find(opt => opt.value === filter.value);
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: priorityOption?.label || String(filter.value),
-          };
-        }
-      }
-      // Handle incident type filter (supports multiple values)
-      else if (filter.id === 'incidentType') {
-        const typeOptions = [
-          { label: 'Near Miss', value: IncidentTypeEnum.NEAR_MISS },
-          { label: 'Accident', value: IncidentTypeEnum.ACCIDENT },
-          { label: 'Dangerous or Hazardous Occurrence', value: IncidentTypeEnum.DANGEROUS_OR_HAZARDOUS_OCCURRENCE },
-        ];
-        if (Array.isArray(filter.value)) {
-          const labels = filter.value.map(val => {
-            const typeOption = typeOptions.find(opt => opt.value === val);
-            return typeOption?.label || String(val);
-          });
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: labels.join(', '),
-          };
-        } else {
-          const typeOption = typeOptions.find(opt => opt.value === filter.value);
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: typeOption?.label || String(filter.value),
-          };
-        }
-      }
-      // Handle incident classification filter
-      else if (filter.id === 'incidentClassification') {
-        const classificationOptions = [
-          { label: 'Major', value: IncidentClassificationEnum.MAJOR },
-          { label: 'Minor', value: IncidentClassificationEnum.MINOR },
-          { label: 'Fatality', value: IncidentClassificationEnum.FATALITY },
-        ];
-        const classificationOption = classificationOptions.find(opt => opt.value === filter.value);
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: classificationOption?.label || String(filter.value),
-        };
-      }
-      // Handle area filter (supports multiple values)
-      else if (filter.id === 'areaId') {
-        if (Array.isArray(filter.value)) {
-          const labels = filter.value.map(val => {
-            const area = areas.find(a => a.id === val);
-            return area?.name || String(val);
-          });
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: labels.join(', '),
-          };
-        } else {
-          const area = areas.find(a => a.id === filter.value);
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: area?.name || String(filter.value),
-          };
-        }
-      }
-      // Handle assigned department filter (supports multiple values)
-      else if (filter.id === 'assignedDepartmentId') {
-        if (Array.isArray(filter.value)) {
-          const labels = filter.value.map(val => {
-            const department = departments.find(d => d.id === val);
-            return department?.name || String(val);
-          });
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: labels.join(', '),
-          };
-        } else {
-          const department = departments.find(d => d.id === filter.value);
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: department?.name || String(filter.value),
-          };
-        }
-      }
-      // Handle assignee filter (supports multiple values)
-      else if (filter.id === 'assigneeId') {
-        if (Array.isArray(filter.value)) {
-          const labels = filter.value.map(val => {
-            const user = users.find(u => u.id === val);
-            return user 
-              ? (user.firstName && user.lastName 
-                  ? `${user.firstName} ${user.lastName}` 
-                  : user.name || user.email || 'Unknown User')
-              : String(val);
-          });
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: labels.join(', '),
-          };
-        } else {
-          const user = users.find(u => u.id === filter.value);
-          const userLabel = user 
-            ? (user.firstName && user.lastName 
-                ? `${user.firstName} ${user.lastName}` 
-                : user.name || user.email || 'Unknown User')
-            : String(filter.value);
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: userLabel,
-          };
-        }
-      }
-      // Handle risk category filter (supports multiple values)
-      else if (filter.id === 'riskCategoryId') {
-        if (Array.isArray(filter.value)) {
-          const labels = filter.value.map(val => {
-            const category = riskCategories.find(c => c.id === val);
-            return category?.name || String(val);
-          });
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: labels.join(', '),
-          };
-        } else {
-          const category = riskCategories.find(c => c.id === filter.value);
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: category?.name || String(filter.value),
-          };
-        }
-      }
-      // Handle source filter
-      else if (filter.id === 'source') {
-        const sourceOptions = [
-          { label: 'System', value: SourceEnum.SYSTEM },
-          { label: 'Zoho', value: SourceEnum.ZOHO },
-        ];
-        const sourceOption = sourceOptions.find(opt => opt.value === filter.value);
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: sourceOption?.label || String(filter.value),
-        };
-      }
-      // Handle text filters (code)
-      else {
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: String(filter.value),
-        };
-      }
+      });
+
+      next.set('page', '1');
     });
-
-    setActiveFilters(newActiveFilters);
-    setPageIndex(0);
-
-    // Sync tab with status filter (only All, Open, Close tabs)
-    if (newActiveFilters.status?.value) {
-      const statusVal = Array.isArray(newActiveFilters.status.value)
-        ? newActiveFilters.status.value[0]
-        : newActiveFilters.status.value;
-      if (statusVal === GeneralStatusEnum.OPEN || statusVal === GeneralStatusEnum.CLOSE) {
-        setActiveTab(statusVal);
-      }
-    } else if (Object.keys(newActiveFilters).length === 0) {
-      setActiveTab('all');
-    }
   };
 
   const handleDeleteClick = (incident: Incident, event?: React.MouseEvent) => {
@@ -774,7 +742,7 @@ const IncidentsPage = () => {
               : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
           }
         >
-          {row.priority}
+          {PRIORITY_LABELS[row.priority] ?? row.priority}
         </Badge>
       ),
     },
@@ -930,10 +898,11 @@ const IncidentsPage = () => {
           pageIndex,
           limit,
           pageCount: Math.ceil(totalIncidents / limit),
-          onPageChange: setPageIndex,
-          onPageSizeChange: setLimit,
+          onPageChange: handlePageChange,
+          onPageSizeChange: handlePageSizeChange,
           total: totalIncidents,
         }}
+        searchValue={searchTerm}
         onSearch={handleSearch}
         searchPlaceholder="Search by code, subject, or description..."
         filterFields={filterFields}

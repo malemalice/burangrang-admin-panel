@@ -27,6 +27,18 @@ export const GENERAL_STATUS_OPTIONS = [
 ] as const;
 
 /**
+ * Incident filter status options for non-superadmin (matches create form: Open, Close only)
+ */
+export const INCIDENT_STATUS_OPTIONS_LIMITED = [
+  { value: GeneralStatusEnum.OPEN, label: 'Open' },
+  { value: GeneralStatusEnum.CLOSE, label: 'Close' },
+  { value: GeneralStatusEnum.REJECTED, label: 'Rejected' },
+  { value: GeneralStatusEnum.WAITING_APPROVAL, label: 'Waiting Verification' },
+
+
+] as const;
+
+/**
  * Inspection Item Status Options
  * Only includes statuses valid for inspection items: OPEN, WAITING_APPROVAL, CLOSE
  */

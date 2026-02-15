@@ -110,6 +110,7 @@ model User {
   incidentsAsAssignee             Incident[]              @relation("IncidentAssignee")
   incidentsCreated                Incident[]               @relation("IncidentCreator")
   permissions                     Permission[]             @relation("PermissionToUser")
+  hseTargetsCreated               HseTarget[]              @relation("HseTargetCreator")
 
   @@map("t_users")
 }
@@ -1584,7 +1585,7 @@ model Room {
   updatedAt                 DateTime                   @updatedAt
   area                      Area                       @relation(fields: [areaId], references: [id])
   environmentalMeasurements EnvironmentalMeasurement[]
-  incident                  Incident?
+  incidents                 Incident[]
 
   @@map("m_rooms")
 }
@@ -1922,6 +1923,13 @@ enum ManHourGroupEnum {
   NON_STUDENT
 }
 
+enum HseTargetTypeEnum {
+  INCIDENT
+  RISK
+  INSPECTION
+  AUDIT
+}
+
 enum GeneralStatusEnum {
   SCHEDULED
   DRAFT
@@ -1969,6 +1977,16 @@ enum IncidentTypeEnum {
   NEAR_MISS
   ACCIDENT
   DANGEROUS_OR_HAZARDOUS_OCCURRENCE
+}
+
+enum IncidentActivitiesEnum {
+  WORK
+  STUDY
+}
+
+enum IncidentScopeEnum {
+  GENERAL
+  SECURITY
 }
 
 enum GenderEnum {
@@ -2088,10 +2106,12 @@ model Incident {
   code                  String                    @unique
   subject               String
   incidentDate          DateTime
-  roomId                String?                   @unique
+  roomId                String?
   areaId                String
   incidentType          IncidentTypeEnum
   incidentClassification IncidentClassificationEnum
+  activities            IncidentActivitiesEnum       @default(WORK)
+  type                  IncidentScopeEnum            @default(GENERAL)
   requesterId           String
   reportedBy            String
   technicianId          String?
@@ -2142,6 +2162,8 @@ model Incident {
   @@index([assigneeId])
   @@index([status])
   @@index([source])
+  @@index([activities])
+  @@index([type])
   @@map("t_incidents")
 }
 
@@ -2764,4 +2786,31 @@ model ManHour {
   @@index([month, year])
   @@index([group])
   @@map("t_man_hours")
+}
+
+// ============================================================
+// KPI HSE TARGET
+// ============================================================
+
+// HSE Target - Transactional Data
+// Targets for actual vs target comparison across modules (incident, risk, inspection, audit)
+model HseTarget {
+  id        String           @id @default(uuid())
+  type      HseTargetTypeEnum
+  code      String
+  name      String?
+  month     MonthEnum?
+  year      Int
+  target    Decimal          @db.Decimal(10, 2)
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  createdBy String
+
+  // Relations
+  creator User @relation("HseTargetCreator", fields: [createdBy], references: [id])
+
+  @@unique([type, code, month, year])
+  @@index([type, year])
+  @@map("t_hse_targets")
 }

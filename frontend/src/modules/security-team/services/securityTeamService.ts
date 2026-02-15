@@ -1,4 +1,5 @@
 import api from '@/core/lib/api';
+import { getYearOptions, getMonthYearOptions, YEAR_RANGE_START, getCurrentYear } from '@/core/utils/date';
 import type {
   SecurityTeamAnalyticsData,
   SecurityFilterParams,
@@ -9,20 +10,6 @@ import type {
   CaseStatus,
   SifrComparisonRow,
 } from '../types/security-team.types';
-
-const MONTH_ABBREV = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function buildMonthYearOptions(startYear: number, endYear: number): { value: string; label: string }[] {
-  const options: { value: string; label: string }[] = [];
-  for (let y = startYear; y <= endYear; y++) {
-    for (let m = 1; m <= 12; m++) {
-      const value = `${y}-${String(m).padStart(2, '0')}`;
-      const label = `${MONTH_ABBREV[m - 1]} ${y}`;
-      options.push({ value, label });
-    }
-  }
-  return options;
-}
 
 const securityTeamService = {
   getIncidentSummary: async (
@@ -118,7 +105,7 @@ const securityTeamService = {
   },
 
   getMonthYearOptions: (): { value: string; label: string }[] =>
-    buildMonthYearOptions(2022, 2025),
+    getMonthYearOptions(YEAR_RANGE_START, getCurrentYear()),
 
   getMonthOptions: (): { value: number; label: string }[] => {
     const months = [
@@ -128,8 +115,7 @@ const securityTeamService = {
     return months.map((label, i) => ({ value: i + 1, label }));
   },
 
-  getYearOptions: (): { value: number; label: string }[] =>
-    [2022, 2023, 2024, 2025].map((y) => ({ value: y, label: String(y) })),
+  getYearOptions,
 };
 
 export default securityTeamService;

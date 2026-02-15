@@ -45,14 +45,7 @@ const DASHBOARD_SHORTCUTS: Array<{
   { label: 'Security team', path: '/dashboard/security-team', permission: 'incident:list' },
   { label: 'Incident profile', path: '/dashboard/incident-profile-analytic', permission: 'incident:list' },
   { label: 'KPI frequency rate', path: '/dashboard/kpi-frequency-rate', permission: 'incident:list' },
-];
-
-/** Permissions that can lead to "Needs my action" items (approvals, reminders, etc.). Show card only when user has at least one. */
-const NEEDS_ACTION_RELEVANT_PERMISSIONS: PermissionName[] = [
-  'risk-assessment:read',
-  'work-permit:read',
-  'reminder:list',
-  'enrollment:list',
+  { label: 'KPI HSE Target', path: '/dashboard/kpi-hse-target', permission: 'kpi-hse-target:list' },
 ];
 
 function needsActionTypeLabel(type: NeedsMyActionItem['type']): string {
@@ -78,7 +71,7 @@ const MODULE_SHORTCUTS: Array<{ label: string; path: string; icon: string; permi
 
 const Home = () => {
   const { user } = useAuth();
-  const { hasPermission, hasAnyPermission } = usePermissions();
+  const { hasPermission } = usePermissions();
   const displayName = user?.firstName?.trim() ? user.firstName : user?.email ?? 'there';
 
   const { data: homeData, isLoading: isLoadingHome } = useQuery({
@@ -95,7 +88,7 @@ const Home = () => {
   const visibleModuleShortcuts = MODULE_SHORTCUTS.filter(
     (s) => !s.permission || hasPermission(s.permission)
   );
-  const showNeedsMyAction = hasAnyPermission(NEEDS_ACTION_RELEVANT_PERMISSIONS);
+  const showNeedsMyAction = true;
 
   const needsActionItems = homeData?.needsMyAction ?? [];
 

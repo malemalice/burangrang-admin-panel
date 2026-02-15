@@ -48,6 +48,8 @@ import { ZohoWebhooksModule } from './modules/zoho-webhooks/zoho-webhooks.module
 import { RiskRegisterModule } from './modules/risk-register/risk-register.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
 import { UserPermissionsModule } from './modules/user-permissions/user-permissions.module';
+import { KpiModule } from './modules/kpi/kpi.module';
+import { KpiHseTargetModule } from './modules/kpi-hse-target/kpi-hse-target.module';
 
 @Module({
   imports: [
@@ -106,6 +108,10 @@ import { UserPermissionsModule } from './modules/user-permissions/user-permissio
     IncidentsModule,
     // User Permissions Module
     UserPermissionsModule,
+    // KPI Module
+    KpiModule,
+    // KPI HSE Target Module
+    KpiHseTargetModule,
   ],
   providers: [
     Reflector,

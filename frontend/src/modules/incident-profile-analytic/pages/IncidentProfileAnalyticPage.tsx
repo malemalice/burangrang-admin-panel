@@ -8,17 +8,18 @@ import {
 } from '../components';
 import incidentProfileService from '../services/incidentProfileService';
 import {
-  FISCAL_YEAR_OPTIONS,
+  getFiscalYearOptions,
   type IncidentProfileFilterParams,
 } from '../types/incident-profile.types';
 
-const DEFAULT_FISCAL_YEARS = FISCAL_YEAR_OPTIONS.map((o) => o.value);
-const defaultFilters: IncidentProfileFilterParams = {
-  fiscalYears: DEFAULT_FISCAL_YEARS,
-};
-const DEFAULT_YEARS_TO_SHOW = ['year2022_2023', 'year2023_2024', 'year2024_2025'];
+function getDefaultFiscalYears(): string[] {
+  return getFiscalYearOptions().slice(-3).map((o) => o.value);
+}
 
 export default function IncidentProfileAnalyticPage() {
+  const defaultFiscalYears = getDefaultFiscalYears();
+  const defaultFilters: IncidentProfileFilterParams = { fiscalYears: defaultFiscalYears };
+
   const [filters, setFilters] = useState<IncidentProfileFilterParams>(defaultFilters);
   const [appliedFilters, setAppliedFilters] = useState<IncidentProfileFilterParams>(defaultFilters);
 
@@ -32,13 +33,12 @@ export default function IncidentProfileAnalyticPage() {
   }, [filters]);
 
   const handleReset = useCallback(() => {
-    setFilters(defaultFilters);
-    setAppliedFilters(defaultFilters);
+    const nextDefaults = { fiscalYears: getDefaultFiscalYears() };
+    setFilters(nextDefaults);
+    setAppliedFilters(nextDefaults);
   }, []);
 
-  const yearsToShow = data?.yearsToShow?.length
-    ? data.yearsToShow
-    : DEFAULT_YEARS_TO_SHOW;
+  const yearsToShow = data?.yearsToShow?.length ? data.yearsToShow : getDefaultFiscalYears();
 
   return (
     <div className="space-y-8">
@@ -48,7 +48,7 @@ export default function IncidentProfileAnalyticPage() {
       />
 
       <IncidentProfileFilters
-        selectedFiscalYears={filters.fiscalYears ?? DEFAULT_FISCAL_YEARS}
+        selectedFiscalYears={filters.fiscalYears ?? defaultFiscalYears}
         onSelectionChange={(fiscalYears) =>
           setFilters((prev) => ({ ...prev, fiscalYears }))
         }

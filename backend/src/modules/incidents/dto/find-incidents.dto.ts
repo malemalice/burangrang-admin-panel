@@ -5,6 +5,8 @@ import {
   GeneralStatusEnum,
   IncidentTypeEnum,
   IncidentClassificationEnum,
+  IncidentActivitiesEnum,
+  IncidentScopeEnum,
   PriorityEnum,
   SourceEnum,
 } from '@prisma/client';
@@ -69,6 +71,16 @@ export class FindIncidentsDto {
     description: 'Filter by incident classification',
   })
   incidentClassification?: IncidentClassificationEnum;
+
+  @IsOptional()
+  @IsEnum(IncidentActivitiesEnum, { each: true })
+  @ApiProperty({ required: false, enum: IncidentActivitiesEnum, isArray: true, description: 'Filter by activities (supports multiple values)' })
+  activities?: IncidentActivitiesEnum | IncidentActivitiesEnum[];
+
+  @IsOptional()
+  @IsEnum(IncidentScopeEnum, { each: true })
+  @ApiProperty({ required: false, enum: IncidentScopeEnum, isArray: true, description: 'Filter by type general/security (supports multiple values)' })
+  type?: IncidentScopeEnum | IncidentScopeEnum[];
 
   @IsOptional()
   @IsEnum(PriorityEnum, { each: true })
