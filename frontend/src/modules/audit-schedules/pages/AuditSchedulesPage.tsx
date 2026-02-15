@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 
 import { Button, ThemeButton } from '@/core/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,7 +83,6 @@ const AuditSchedulesPage = () => {
   const [totalAuditSchedules, setTotalAuditSchedules] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [auditScheduleToDelete, setAuditScheduleToDelete] = useState<AuditSchedule | null>(null);
-  const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
@@ -306,11 +304,6 @@ const AuditSchedulesPage = () => {
         params.search = searchTerm.trim();
       }
 
-      // Add isActive filter from filters (for active/inactive tabs)
-      if (activeFilters.isActive?.value !== undefined) {
-        params.isActive = activeFilters.isActive.value;
-      }
-
       // Add status filter (for GeneralStatusEnum values)
       if (activeFilters.status?.value) {
         params.status = activeFilters.status.value;
@@ -364,7 +357,7 @@ const AuditSchedulesPage = () => {
       // Add other filters (excluding handled ones)
       // Note: 'code' filter removed as backend doesn't support it
       Object.entries(activeFilters).forEach(([key, filter]) => {
-        if (!['status', 'isActive', 'auditElementId', 'areaIds', 'auditorIds', 'createdAt', 'auditDate', 'code'].includes(key)) {
+        if (!['status', 'auditElementId', 'areaIds', 'auditorIds', 'createdAt', 'auditDate', 'code'].includes(key)) {
           params[key] = filter.value;
         }
       });
@@ -398,31 +391,8 @@ const AuditSchedulesPage = () => {
     setPageIndex(0);
   };
 
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    setPageIndex(0);
-    
-    // Update filters based on tab
-    if (value === 'all') {
-      setActiveFilters({});
-    } else if (value === 'active') {
-      setActiveFilters({
-        isActive: { value: true, label: 'Active' }
-      });
-    } else if (value === 'inactive') {
-      setActiveFilters({
-        isActive: { value: false, label: 'Inactive' }
-      });
-    }
-  };
-
   const handleApplyFilters = (filters: FilterValue[]) => {
     const newActiveFilters: Record<string, { value: any; label: string }> = {};
-    
-    // Preserve isActive filter from current tab state (not in filter drawer)
-    if (activeFilters.isActive) {
-      newActiveFilters.isActive = activeFilters.isActive;
-    }
     
     filters.forEach(filter => {
       if (filter.id === 'status') {
@@ -467,15 +437,6 @@ const AuditSchedulesPage = () => {
     
     setActiveFilters(newActiveFilters);
     setPageIndex(0); // Reset to first page on new filters
-    
-    // Sync tab state with isActive filter
-    if (newActiveFilters.isActive?.value === true) {
-      setActiveTab('active');
-    } else if (newActiveFilters.isActive?.value === false) {
-      setActiveTab('inactive');
-    } else if (!newActiveFilters.isActive && Object.keys(newActiveFilters).length === 0) {
-      setActiveTab('all');
-    }
   };
 
   const handleDeleteClick = (auditSchedule: AuditSchedule, event?: React.MouseEvent) => {
@@ -666,15 +627,7 @@ const AuditSchedulesPage = () => {
             </ThemeButton>
           </PermissionGuard>
         }
-      >
-        <Tabs value={activeTab} className="w-full" onValueChange={handleTabChange}>
-          <TabsList>
-            <TabsTrigger value="all">All Audits</TabsTrigger>
-            <TabsTrigger value="active">Active</TabsTrigger>
-            <TabsTrigger value="inactive">Inactive</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </PageHeader>
+      />
 
       <DataTable
         columns={columns}
