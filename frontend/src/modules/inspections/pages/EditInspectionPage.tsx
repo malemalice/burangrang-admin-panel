@@ -60,7 +60,7 @@ const EditInspectionPage = () => {
   }
 
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader
         title="Edit Inspection"
         subtitle={`Modify the details of "${inspection.code}"`}
@@ -73,7 +73,7 @@ const EditInspectionPage = () => {
       <div className="max-w-4xl mx-auto">
         <InspectionForm inspection={inspection} mode="edit" />
       </div>
-    </>
+    </div>
   );
 };
 

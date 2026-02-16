@@ -199,22 +199,22 @@ const EditInspectionItemPage = () => {
   }
 
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader
         title="Edit Inspection Item"
         subtitle="Update inspection item information"
-      >
-        <Button
-          variant="ghost"
-          onClick={() => navigate(`/inspections/items/${id}`, { state: { returnTo } })}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Details
-        </Button>
-      </PageHeader>
+        actions={
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/inspections/items/${id}`, { state: { returnTo } })}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Details
+          </Button>
+        }
+      />
 
-      <div className="max-w-4xl">
+      <div className="max-w-4xl mx-auto">
         <Card>
           <CardHeader>
             <CardTitle>Inspection Item Information</CardTitle>
@@ -374,7 +374,7 @@ const EditInspectionItemPage = () => {
                   )}
                 />
 
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-4">
                   <Button
                     type="button"
                     variant="outline"
@@ -399,7 +399,7 @@ const EditInspectionItemPage = () => {
           </CardContent>
         </Card>
       </div>
-    </>
+    </div>
   );
 };
 
