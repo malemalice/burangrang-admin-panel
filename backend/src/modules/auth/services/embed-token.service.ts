@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 
 export interface EmbedTokenPayload {
+  iat: number;
   siteId?: string;
 }
 
@@ -11,9 +12,10 @@ export class EmbedTokenService {
   constructor(private readonly configService: ConfigService) {}
 
   generateToken(options?: { siteId?: string }): string {
-    const payload: EmbedTokenPayload = options?.siteId
-      ? { siteId: options.siteId }
-      : {};
+    const payload: EmbedTokenPayload = {
+      iat: Math.floor(Date.now() / 1000),
+      ...(options?.siteId && { siteId: options.siteId }),
+    };
     const payloadJson = JSON.stringify(payload);
     const payloadB64 = Buffer.from(payloadJson, 'utf8').toString('base64url');
 
