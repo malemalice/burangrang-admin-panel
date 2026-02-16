@@ -289,7 +289,7 @@ const RiskRegisterPage = () => {
         description="Unified view of all risk mitigation records from Risk Assessments and Inspections"
       />
 
-      <div className="max-w-7xl">
+      <div className="w-full">
         <RiskRegisterTable
           data={data}
           isLoading={isLoading}

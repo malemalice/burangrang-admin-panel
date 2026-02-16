@@ -226,4 +226,14 @@ export const authApi = {
   }
 };
 
+/**
+ * Validate embed token (public endpoint). Used when loading the app with ?embed_token=xxx.
+ */
+export const validateEmbedToken = async (token: string): Promise<boolean> => {
+  const response = await api.post<{ valid: boolean }>('/auth/embed/validate', {
+    embedToken: token,
+  });
+  return response.data?.valid === true;
+};
+
 export default api; 

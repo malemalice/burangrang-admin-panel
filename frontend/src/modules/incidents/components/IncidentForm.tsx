@@ -1303,7 +1303,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                               <SelectItem value={GeneralStatusEnum.DRAFT}>Draft</SelectItem>
                               <SelectItem value={GeneralStatusEnum.OPEN}>Open</SelectItem>
                               <SelectItem value={GeneralStatusEnum.SCHEDULED}>Scheduled</SelectItem>
-                              <SelectItem value={GeneralStatusEnum.WAITING_APPROVAL}>Waiting Approval</SelectItem>
+                              <SelectItem value={GeneralStatusEnum.WAITING_APPROVAL}>Waiting Verification</SelectItem>
                               <SelectItem value={GeneralStatusEnum.DONE}>Done</SelectItem>
                               <SelectItem value={GeneralStatusEnum.REJECTED}>Rejected</SelectItem>
                               <SelectItem value={GeneralStatusEnum.CLOSE}>Close</SelectItem>

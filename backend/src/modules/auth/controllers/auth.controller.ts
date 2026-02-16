@@ -13,6 +13,7 @@ import {
   ClassSerializerInterceptor,
 } from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
+import { EmbedTokenService } from '../services/embed-token.service';
 import {
   ApiTags,
   ApiOperation,
@@ -22,9 +23,12 @@ import {
 } from '@nestjs/swagger';
 import { Response, Request } from 'express';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
 import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { Roles } from '../../../shared/decorators/roles.decorator';
 import { Public } from '../../../shared/decorators/public.decorator';
+import { Role } from '../../../shared/types/role.enum';
 import { AuthGuard } from '@nestjs/passport';
 import { LoginDto } from '../dto/login.dto';
 import { AuthResponseDto } from '../dto/auth-response.dto';
@@ -32,6 +36,13 @@ import { SignupDto } from '../dto/signup.dto';
 import { ForgotPasswordDto } from '../dto/forgot-password.dto';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
 import { ForgotPasswordResponseDto } from '../dto/forgot-password-response.dto';
+import { GenerateEmbedTokenDto } from '../dto/generate-embed-token.dto';
+import { EmbedTokenResponseDto } from '../dto/embed-token-response.dto';
+import {
+  ValidateEmbedTokenRequestDto,
+  ValidateEmbedTokenResponseDto,
+} from '../dto/validate-embed-token.dto';
+import { ConfigService } from '@nestjs/config';
 
 // Create interface for the request with user property
 interface RequestWithUser extends Request {
@@ -48,7 +59,11 @@ interface RequestWithUser extends Request {
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly embedTokenService: EmbedTokenService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Post('login')
   @Public()
@@ -229,5 +244,50 @@ export class AuthController {
       );
       throw error;
     }
+  }
+
+  @Post('embed/generate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Generate embed token and URL (admin only)' })
+  @ApiBody({ type: GenerateEmbedTokenDto })
+  @ApiResponse({
+    status: 200,
+    type: EmbedTokenResponseDto,
+    description: 'Embed URL generated successfully',
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden - admin role required' })
+  async generateEmbedToken(
+    @Body() dto: GenerateEmbedTokenDto,
+    @Res() res: Response,
+  ) {
+    const token = this.embedTokenService.generateToken({
+      siteId: dto?.siteId,
+    });
+    const frontendUrl =
+      this.configService.get<string>('app.frontendUrl') ||
+      process.env.FRONTEND_URL ||
+      'http://localhost:5173';
+    const embedUrl = `${frontendUrl}?embed_token=${token}`;
+    return res.json({ embedUrl });
+  }
+
+  @Post('embed/validate')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Validate embed token (public)' })
+  @ApiBody({ type: ValidateEmbedTokenRequestDto })
+  @ApiResponse({
+    status: 200,
+    type: ValidateEmbedTokenResponseDto,
+    description: 'Token validation result',
+  })
+  async validateEmbedToken(
+    @Body() dto: ValidateEmbedTokenRequestDto,
+    @Res() res: Response,
+  ) {
+    const result = this.embedTokenService.validateToken(dto.embedToken);
+    return res.json(result);
   }
 }

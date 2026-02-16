@@ -35,7 +35,7 @@ const AuditPolicyPage = () => {
   const [elementToDelete, setElementToDelete] = useState<AuditElement | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
-  const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>({ id: 'code', desc: false });
+  const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>({ id: 'createdAt', desc: true });
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Define filter fields
@@ -79,10 +79,9 @@ const AuditPolicyPage = () => {
         params.isActive = false;
       }
 
-      if (sorting) {
-        params.sortBy = sorting.id;
-        params.sortOrder = sorting.desc ? 'desc' : 'asc';
-      }
+      const effectiveSort = sorting ?? { id: 'createdAt', desc: true };
+      params.sortBy = effectiveSort.id;
+      params.sortOrder = effectiveSort.desc ? 'desc' : 'asc';
 
       Object.entries(activeFilters).forEach(([key, filter]) => {
         if (key !== 'isActive' && key !== 'code' && filter.value !== undefined && filter.value !== null && filter.value !== '') {

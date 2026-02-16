@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './services/auth.service';
+import { EmbedTokenService } from './services/embed-token.service';
 import { AuthController } from './controllers/auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
@@ -29,7 +30,13 @@ import { MailModule } from '../mail/mail.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, PermissionsGuard],
+  providers: [
+    AuthService,
+    EmbedTokenService,
+    JwtStrategy,
+    GoogleStrategy,
+    PermissionsGuard,
+  ],
   exports: [AuthService],
 })
 export class AuthModule {}

@@ -59,23 +59,14 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
   }, [isOpen, initialValues]);
 
   const updateFilterValue = (id: string, value: string | string[] | { from?: Date; to?: Date } | boolean) => {
-    // Use functional update to avoid stale closure issues
     setFilterValues(prevFilters => {
-      console.warn(`[FilterDrawer] updateFilterValue: id=${id}, value=${JSON.stringify(value)}`);
-      console.warn(`[FilterDrawer] Previous State:`, prevFilters);
-
       const existingFilterIndex = prevFilters.findIndex(filter => filter.id === id);
-
       if (existingFilterIndex >= 0) {
         const updatedFilters = [...prevFilters];
         updatedFilters[existingFilterIndex] = { id, value };
-        console.warn(`[FilterDrawer] Updating Existing:`, updatedFilters);
         return updatedFilters;
-      } else {
-        const newFilters = [...prevFilters, { id, value }];
-        console.warn(`[FilterDrawer] Adding New:`, newFilters);
-        return newFilters;
       }
+      return [...prevFilters, { id, value }];
     });
   };
 

@@ -87,6 +87,8 @@ export class AuditSchedulesController {
     @Query('status') status?: GeneralStatusEnum,
     @Query('createdAtFrom') createdAtFrom?: string,
     @Query('createdAtTo') createdAtTo?: string,
+    @Query('auditDateFrom') auditDateFrom?: string,
+    @Query('auditDateTo') auditDateTo?: string,
   ) {
     // Normalize array parameters
     const areaIds = Array.isArray(areaId) ? areaId : areaId ? [areaId] : undefined;
@@ -106,6 +108,8 @@ export class AuditSchedulesController {
       status,
       createdAtFrom: createdAtFrom ? new Date(createdAtFrom) : undefined,
       createdAtTo: createdAtTo ? new Date(createdAtTo) : undefined,
+      auditDateFrom: auditDateFrom ? new Date(auditDateFrom) : undefined,
+      auditDateTo: auditDateTo ? new Date(auditDateTo) : undefined,
     });
   }
 

@@ -41,6 +41,8 @@ interface FindAllOptions {
   status?: GeneralStatusEnum;
   createdAtFrom?: Date;
   createdAtTo?: Date;
+  auditDateFrom?: Date;
+  auditDateTo?: Date;
 }
 
 interface FindAllAuditResultsOptions {
@@ -227,6 +229,8 @@ export class AuditSchedulesService {
       status,
       createdAtFrom,
       createdAtTo,
+      auditDateFrom,
+      auditDateTo,
     } = options || {};
 
     const where: Prisma.AuditWhereInput = {};
@@ -281,10 +285,21 @@ export class AuditSchedulesService {
         where.createdAt.gte = createdAtFrom;
       }
       if (createdAtTo) {
-        // Set to end of day for inclusive range
+        // Set to end of day UTC for inclusive range (query params are date-only YYYY-MM-DD)
         const endOfDay = new Date(createdAtTo);
-        endOfDay.setHours(23, 59, 59, 999);
+        endOfDay.setUTCHours(23, 59, 59, 999);
         where.createdAt.lte = endOfDay;
+      }
+    }
+    if (auditDateFrom || auditDateTo) {
+      where.auditDate = {};
+      if (auditDateFrom) {
+        where.auditDate.gte = auditDateFrom;
+      }
+      if (auditDateTo) {
+        const endOfDay = new Date(auditDateTo);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+        where.auditDate.lte = endOfDay;
       }
     }
 

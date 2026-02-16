@@ -7,7 +7,15 @@ import { toast } from 'sonner';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/core/components/ui/dialog';
 import PageHeader from '@/core/components/ui/PageHeader';
+import { usePermissions } from '@/core/hooks/usePermissions';
 import { approvalService, type ApprovalStatusHistory } from '@/modules/master-data';
 import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
@@ -30,6 +38,16 @@ import api from '@/core/lib/api';
 import departmentService from '@/modules/master-data/services/departmentService';
 import { Department } from '@/modules/master-data/types/master-data.types';
 import { userService } from '@/modules/users';
+import { AuditItemForm } from '../components/AuditItemForm';
+import uploadService from '@/modules/uploads/services/uploadService';
+
+interface ImageUpload {
+  id: string;
+  url: string;
+  caption: string;
+  file?: File;
+  isNew?: boolean;
+}
 
 interface AuditItem {
   id: string;
@@ -59,6 +77,7 @@ const ViewAuditCriteriaPage = () => {
   const { id, clauseId, criteriaId } = useParams<{ id: string; clauseId: string; criteriaId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { hasPermission } = usePermissions();
   const [auditSchedule, setAuditSchedule] = useState<AuditSchedule | null>(null);
   const [auditClause, setAuditClause] = useState<AuditClause | null>(null);
   const [auditCriteria, setAuditCriteria] = useState<AuditCriteria | null>(null);
@@ -69,6 +88,8 @@ const ViewAuditCriteriaPage = () => {
   const [userMap, setUserMap] = useState<Record<string, string>>({});
   const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const entityDepartmentName =
     auditItem?.departmentIds && auditItem.departmentIds.length > 0
@@ -219,6 +240,130 @@ const ViewAuditCriteriaPage = () => {
     fetchApprovalStatus();
   }, [auditItem?.id]);
 
+  const handleCloseForm = () => {
+    setIsFormDialogOpen(false);
+  };
+
+  const handleSubmitForm = async (data: {
+    compliantStatus: CompliantStatusEnum;
+    departmentIds: string[];
+    userIds?: string[];
+    evidence?: string;
+    recommendation?: string;
+    actionRealization?: string;
+    dueDate: string;
+    images: ImageUpload[];
+    status?: string;
+  }) => {
+    if (!id || !criteriaId || !auditCriteria) return;
+
+    try {
+      setIsSubmitting(true);
+
+      const uploadedImageUrls: Array<{ imageUrl: string; caption: string; order: number }> = [];
+      const existingImages = data.images.filter((img) => !img.isNew);
+      const newImages = data.images.filter((img) => img.isNew && img.file);
+
+      existingImages.forEach((img, index) => {
+        uploadedImageUrls.push({
+          imageUrl: img.url,
+          caption: img.caption || '',
+          order: index + 1,
+        });
+      });
+
+      if (newImages.length > 0) {
+        try {
+          const category = await uploadService.getCategoryByName('course-materials');
+          if (!category) throw new Error('File category not found');
+          for (let i = 0; i < newImages.length; i++) {
+            const img = newImages[i];
+            if (img.file) {
+              const uploadResponse = await uploadService.uploadFile(img.file, category.id, true);
+              const fileUrl = uploadService.getPublicFileUrl(uploadResponse.id);
+              uploadedImageUrls.push({
+                imageUrl: fileUrl,
+                caption: img.caption || '',
+                order: existingImages.length + i + 1,
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Failed to upload images:', error);
+          toast.error('Failed to upload some images');
+        }
+      }
+
+      const shouldSkipApproval = !data.status && data.compliantStatus === CompliantStatusEnum.COMPLY;
+      const payload = {
+        auditCriteriaId: criteriaId,
+        compliantStatus: data.compliantStatus,
+        departmentIds: data.departmentIds,
+        userIds: data.userIds || [],
+        evidence: data.evidence || null,
+        recommendation: data.recommendation || null,
+        actionRealization: data.actionRealization || null,
+        dueDate: new Date(data.dueDate).toISOString(),
+        order: auditCriteria.order,
+        images: uploadedImageUrls,
+        ...(data.status && { status: data.status }),
+      };
+
+      const createPayload = data.status
+        ? { ...payload, status: data.status }
+        : shouldSkipApproval
+          ? { ...payload, status: GeneralStatusEnum.DONE }
+          : payload;
+      const createResponse = await api.post(`/audits/${id}/items`, createPayload);
+      const updatedItemId = createResponse.data?.id || createResponse.data?.data?.id;
+      const itemStatus =
+        createResponse.data?.status ||
+        createResponse.data?.data?.status ||
+        (shouldSkipApproval ? GeneralStatusEnum.DONE : GeneralStatusEnum.OPEN);
+
+      if (data.status === GeneralStatusEnum.WAITING_APPROVAL) {
+        toast.success('Audit item created and submitted for approval');
+      } else if (shouldSkipApproval) {
+        toast.success('Audit item completed (COMPLY - no approval needed)');
+      } else {
+        toast.success('Audit item created successfully');
+      }
+
+      if (!data.status && !shouldSkipApproval && itemStatus === GeneralStatusEnum.OPEN) {
+        try {
+          await auditSchedulesService.submitForApproval(id, updatedItemId);
+          toast.success('Audit item submitted for approval');
+        } catch (error) {
+          if (error && typeof error === 'object' && 'response' in error) {
+            const errResponse = (error as { response?: { status?: number } })?.response;
+            if (errResponse?.status !== 403) {
+              toast.error('Item saved but failed to submit for approval');
+            }
+          }
+        }
+      }
+
+      const auditResponse = await api.get(`/audits/${id}/items`, {
+        params: { page: 1, limit: 10000 },
+      });
+      if (auditResponse?.data?.data) {
+        const items = auditResponse.data.data as AuditItem[];
+        const item = items.find((item: AuditItem) => item.auditCriteriaId === criteriaId);
+        if (item) setAuditItem(item);
+      }
+      handleCloseForm();
+    } catch (error: unknown) {
+      console.error('Failed to save audit item:', error);
+      const errorMessage =
+        error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+          : undefined;
+      toast.error(errorMessage || 'Failed to save audit item');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const getCompliantStatusBadge = (status?: CompliantStatusEnum) => {
     if (!status) {
       return (
@@ -297,12 +442,6 @@ const ViewAuditCriteriaPage = () => {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
-            {/* <Button
-              onClick={() => navigate(`/audit-schedules/${id}/clauses/${clauseId}`)}
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              {auditItem ? 'Edit' : 'Fill Audit Item'}
-            </Button> */}
           </div>
         }
       />
@@ -578,19 +717,46 @@ const ViewAuditCriteriaPage = () => {
               <p className="text-sm text-muted-foreground mb-4">
                 This criteria has not been filled yet.
               </p>
-              <Button
-                onClick={() => navigate(`/audit-schedules/${id}/clauses/${clauseId}`, {
-                  state: { returnTo: getBackPath() }
-                })}
-                variant="outline"
-              >
-                <Edit className="mr-2 h-4 w-4" />
-                Fill Audit Item
-              </Button>
+              {hasPermission('audit-result:create') && (
+                <Button onClick={() => setIsFormDialogOpen(true)} variant="outline">
+                  <Edit className="mr-2 h-4 w-4" />
+                  Fill Audit Item
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
       )}
+
+      {/* Audit Item Form Dialog */}
+      <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Assess Audit Criteria</DialogTitle>
+            <DialogDescription>
+              {auditCriteria ? `Assess criteria: ${auditCriteria.name}` : 'Assess audit criteria'}
+            </DialogDescription>
+          </DialogHeader>
+          {auditCriteria && auditSchedule && auditClause && (
+            <AuditItemForm
+              key={`fill-${criteriaId}`}
+              auditCriteriaId={auditCriteria.id}
+              auditCriteriaName={auditCriteria.name}
+              auditCriteriaDescription={auditCriteria.description}
+              auditCriteriaCode={auditCriteria.code}
+              auditScheduleCode={auditSchedule.code}
+              auditClauseName={auditClause.name}
+              auditElementName={auditClause.auditElement?.name}
+              auditSchedule={auditSchedule}
+              auditItem={undefined}
+              onSubmit={handleSubmitForm}
+              onCancel={handleCloseForm}
+              isSubmitting={isSubmitting}
+              entryMode="assessment"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -742,6 +742,8 @@ const AuditClauseCriteriaPage = () => {
     {
       id: 'status',
       header: 'Status',
+      headerClassName: 'text-center',
+      cellClassName: 'text-center',
       cell: (item: MergedCriteriaItem) => {
         const status = item.auditItem?.status;
         if (!status) {
@@ -770,6 +772,8 @@ const AuditClauseCriteriaPage = () => {
     {
       id: 'compliantStatus',
       header: 'Compliant Status',
+      headerClassName: 'text-center',
+      cellClassName: 'text-center',
       cell: (item: MergedCriteriaItem) => (
         <div>
           {getCompliantStatusBadge(item.auditItem?.compliantStatus)}
