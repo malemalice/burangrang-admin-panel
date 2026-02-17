@@ -2,18 +2,18 @@
 
 ## Overview
 
-Enable embedding the HSE dashboard in a Google Site iframe with seamless experience for both logged-in and non-logged-in users. The embed is authorized via a signed token in the URL (not bound to any user). Token validation ignores user existence in the system—no user lookup is performed. Embedding is restricted to Google Sites only; other sites cannot frame the dashboard.
+Enable embedding the HSE dashboard in a Google Site iframe with seamless experience for both logged-in and non-logged-in users. A valid embed token in the URL grants access without login—the frontend exchanges the embed token for a JWT session and renders the dashboard directly. The embed token is not bound to any user. Embedding is restricted to Google Sites only; other sites cannot frame the dashboard.
 
-**Scope:** Backend auth module (embed token service, endpoints); frontend auth flow, Settings UI; nginx CSP headers.
+**Scope:** Backend auth module (embed token service, embed session endpoint); frontend auth flow, Settings UI; nginx CSP headers.
 
 ## Requirements
 
-1. **Token applies to all** — Works for both logged-in and non-logged-in users; no user existence check.
-2. **Seamless for logged-in users** — No extra login step when opening via Google Site embed.
-3. **Fallback for non-users** — Users without an HSE account can open the embedded page and see the login form to log in or sign up.
-4. **Token not bound to user** — The embed token authorizes the embed context only; it does not identify a user. User existence in the system is ignored.
-5. **Restricted embedding** — The dashboard cannot be embedded from sites other than Google Sites (CSP `frame-ancestors`).
-6. **No expiry** — Embed token does not expire; valid until secret rotation or revocation.
+1. **Seamless for all** — Valid embed token grants access without login; no login form shown.
+2. **Token applies to all** — Works for both logged-in and non-logged-in users; no user existence check.
+3. **Token not bound to user** — The embed token authorizes the embed context only; it does not identify a user. Backend uses a special Embed Viewer system user for API auth.
+4. **Restricted embedding** — The dashboard cannot be embedded from sites other than Google Sites (CSP `frame-ancestors`).
+5. **No expiry** — Embed token does not expire; valid until secret rotation or revocation.
+6. **Minimal layout** — When embed_token is present, render main content only (no sidebar, no top header/navigation, no footer).
 
 ## Token Design
 
@@ -46,7 +46,13 @@ Embed loads with ?embed_token=xxx
  Yes  No
   │   │
   ▼   ▼
-Dashboard  Login form (non-users can log in)
+Dashboard  POST /auth/embed/session (embedToken)
+           │
+           ▼
+     Get JWT, store, set user
+           │
+           ▼
+     Render dashboard (no login form)
 ```
 
 ## Backend Implementation
@@ -57,18 +63,26 @@ Dashboard  Login form (non-users can log in)
 |--------|------|------|-------------|
 | POST | /auth/embed/generate | JWT (admin) | Generate embed token and full URL |
 | POST | /auth/embed/validate | Public | Validate embed token |
+| POST | /auth/embed/session | Public | Exchange valid embed token for JWT (accessToken, refreshToken, user) |
 
 ### DTOs
 
 - **Generate response:** `{ embedUrl: string }`
 - **Validate request:** `{ embedToken: string }`
 - **Validate response:** `{ valid: boolean }`
+- **Embed session request:** `{ embedToken: string }`
+- **Embed session response:** `{ accessToken, refreshToken, user }` (same as login)
 
 ### Service
 
 - `EmbedTokenService`:
   - `generateToken(options?: { siteId?: string }): string`
   - `validateToken(token: string): { valid: boolean }`
+
+### Embed Viewer Role and User
+
+- **Role:** "Embed Viewer" with permissions: `incident:list`, `menu:read`, `setting:read`, `setting:update`, `user:read` (for hazard analytics and basic app shell).
+- **User:** `embed-viewer@system` with role "Embed Viewer", seeded with a random password (never used for normal login). Used by `/auth/embed/session` to issue JWT.
 
 ### URL Generation
 
@@ -80,10 +94,20 @@ Dashboard  Login form (non-users can log in)
 
 1. On mount, read `embed_token` from `window.location.search`.
 2. If `embed_token` present:
-   - Call `POST /auth/embed/validate` (no user lookup; token applies to both logged and non-logged users).
-   - If valid: allow page load; do not redirect to login when no JWT (show login form for non-users).
+   - Call `POST /auth/embed/validate`.
    - If invalid: in iframe → show "Embed not authorized"; else → redirect to login.
+   - If valid: check JWT in localStorage.
+   - If JWT exists: proceed to dashboard.
+   - If no JWT: call `POST /auth/embed/session` with embed token, store accessToken/refreshToken, set user, proceed to dashboard (no login form).
 3. If no `embed_token`: keep current behavior (require JWT or redirect to login).
+
+### Layout (Embed Mode)
+
+When `embed_token` is present in the URL, the app renders a minimal layout to maximize the embedded view:
+
+- **Main content only** — No sidebar menu, no top header/navigation, no footer
+- Full-width main content area
+- Theme (light/dark) and content padding preserved
 
 ### Settings UI
 
@@ -134,6 +158,7 @@ https://panel.soulyousee.com?embed_token=eyJzaXRlSWQiOiJoc2UtZ29vZ2xlLXNpdGUifQ.
 
 ## Dependencies
 
-- **Backend:** JWT_SECRET (existing), AuthController, AuthModule, EmbedTokenService.
-- **Frontend:** AuthProvider, api.ts, SettingsPage.
+- **Backend:** JWT_SECRET (existing), AuthController, AuthModule, EmbedTokenService, Embed Viewer role and user (seed).
+- **Frontend:** AuthProvider, api.ts, SettingsPage, MainLayout (embed mode).
 - **Deployment:** nginx config (CSP frame-ancestors).
+- **Seed:** Run `npx prisma db seed` after implementation to create Embed Viewer role and user (user consent required).

@@ -236,4 +236,19 @@ export const validateEmbedToken = async (token: string): Promise<boolean> => {
   return response.data?.valid === true;
 };
 
+/**
+ * Exchange valid embed token for JWT session (public endpoint). Used for seamless embed access without login.
+ */
+export const getEmbedSession = async (embedToken: string): Promise<{ user: unknown }> => {
+  const response = await api.post<{
+    accessToken: string;
+    refreshToken: string;
+    user: unknown;
+  }>('/auth/embed/session', { embedToken });
+  const { accessToken, refreshToken, user } = response.data;
+  setAccessToken(accessToken);
+  setRefreshToken(refreshToken);
+  return { user };
+};
+
 export default api; 

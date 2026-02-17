@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { authApi, validateEmbedToken } from './api';
+import { authApi, validateEmbedToken, getEmbedSession } from './api';
 import { toast } from 'sonner';
 
 interface User {
@@ -141,14 +141,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       } else {
-        if (!['/login', '/reset-password'].includes(location.pathname)) {
-          if (hadValidEmbedToken) {
-            navigate('/login' + (location.search ? `?${location.search}` : ''));
-          } else {
-            console.log('[Auth] No tokens found, redirecting to login');
-            saveLastVisitedUrl(location.pathname + location.search);
-            navigate('/login');
+        // No JWT - for embed context, exchange embed token for session (seamless access)
+        if (hadValidEmbedToken && embedTokenFromUrl) {
+          try {
+            const { user: embedUser } = await getEmbedSession(embedTokenFromUrl);
+            setUser(embedUser as User);
+            setIsAuthenticated(true);
+          } catch {
+            const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+            setEmbedUnauthorized(isInIframe);
+            if (!isInIframe) {
+              saveLastVisitedUrl(location.pathname + location.search);
+              navigate('/login');
+            }
           }
+        } else if (!['/login', '/reset-password'].includes(location.pathname)) {
+          console.log('[Auth] No tokens found, redirecting to login');
+          saveLastVisitedUrl(location.pathname + location.search);
+          navigate('/login');
         }
       }
 

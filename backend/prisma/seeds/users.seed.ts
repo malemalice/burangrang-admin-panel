@@ -80,6 +80,14 @@ export const users = [
     departmentName: 'HSE',
     jobPositionName: 'Staff',
   },
+  {
+    email: 'embed-viewer@system',
+    password: 'embed-viewer-system-no-login-xK9mP2vL7nQ4wR8tY1zA5bC6dE0fG3hJ',
+    firstName: 'Embed',
+    lastName: 'Viewer',
+    isActive: true,
+    roleName: 'Embed Viewer',
+  },
 ];
 
 export async function seedUsers(
