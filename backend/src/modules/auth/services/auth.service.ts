@@ -83,6 +83,31 @@ export class AuthService {
     return result as AuthenticatedUser;
   }
 
+  /**
+   * Get the Embed Viewer system user for embed token session exchange.
+   * Used when a valid embed_token is exchanged for JWT without password login.
+   */
+  async getEmbedViewerUser(): Promise<AuthenticatedUser> {
+    const EMBED_VIEWER_EMAIL = 'embed-viewer@system';
+    const user = await this.prisma.user.findUnique({
+      where: { email: EMBED_VIEWER_EMAIL },
+      include: { role: { include: { permissions: { select: { name: true } } } } },
+    });
+
+    if (!user) {
+      this.logger.warn(`Embed Viewer user (${EMBED_VIEWER_EMAIL}) not found. Run seed to create it.`);
+      throw new UnauthorizedException('Embed session unavailable');
+    }
+
+    if (!user.isActive) {
+      this.logger.warn(`Embed Viewer user is inactive`);
+      throw new UnauthorizedException('Embed session unavailable');
+    }
+
+    const { password: _password, ...result } = user;
+    return result as AuthenticatedUser;
+  }
+
   async login(user: AuthenticatedUser) {
     const payload = { email: user.email, sub: user.id, role: user.role.name };
     const accessToken = this.jwtService.sign(payload, { expiresIn: 3600 }); // 1 hour in seconds

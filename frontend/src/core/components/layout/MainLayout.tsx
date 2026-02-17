@@ -7,6 +7,7 @@ import { useTheme } from '@/core/lib/theme';
 import { useAppName } from '@/modules/settings/hooks/useSettings';
 import { MenuProvider } from '@/core/contexts/MenuContext';
 import { useIsMobile } from '@/core/hooks/useIsMobile';
+import { useAuth } from '@/core/lib/auth';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -17,6 +18,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const { isDark } = useTheme();
   const { appName } = useAppName();
   const isMobile = useIsMobile();
+  const { isEmbedContext } = useAuth();
 
   // Close sidebar on mobile by default, keep open on desktop
   useEffect(() => {
@@ -30,6 +32,27 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
+
+  // Embed mode: main content only, no sidebar, no top nav, no footer
+  if (isEmbedContext) {
+    return (
+      <MenuProvider>
+        <div className={cn(
+          "min-h-screen flex",
+          isDark
+            ? "bg-gray-900 text-gray-100"
+            : "bg-admin-background text-admin-foreground"
+        )}>
+          <main className="flex-1 min-w-0 p-4 md:p-6 overflow-x-hidden overflow-y-auto">
+            <div className="animate-fade-in min-w-0 overflow-hidden">
+              {children}
+            </div>
+          </main>
+          <Toaster position="bottom-right" richColors />
+        </div>
+      </MenuProvider>
+    );
+  }
 
   return (
     <MenuProvider>

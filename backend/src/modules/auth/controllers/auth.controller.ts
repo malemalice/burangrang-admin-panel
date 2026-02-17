@@ -290,4 +290,28 @@ export class AuthController {
     const result = this.embedTokenService.validateToken(dto.embedToken);
     return res.json(result);
   }
+
+  @Post('embed/session')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Exchange valid embed token for JWT session (public)' })
+  @ApiBody({ type: ValidateEmbedTokenRequestDto })
+  @ApiResponse({
+    status: 200,
+    type: AuthResponseDto,
+    description: 'Embed session created successfully',
+  })
+  @ApiResponse({ status: 401, description: 'Invalid embed token or embed viewer unavailable' })
+  async createEmbedSession(
+    @Body() dto: ValidateEmbedTokenRequestDto,
+    @Res() res: Response,
+  ) {
+    const { valid } = this.embedTokenService.validateToken(dto.embedToken);
+    if (!valid) {
+      return res.status(401).json({ message: 'Invalid embed token' });
+    }
+    const embedViewerUser = await this.authService.getEmbedViewerUser();
+    const result = await this.authService.login(embedViewerUser);
+    return res.json(result);
+  }
 }

@@ -142,6 +142,26 @@ export const roles = [
         )
         .map((p) => p.id),
   },
+  {
+    name: 'Embed Viewer',
+    code: 'EMBED_VIEWER',
+    description: 'Read-only access for embedded dashboard on Google Site. Used by /auth/embed/session.',
+    dataLevel: DataLevelEnum.SUPER,
+    permissions: (permissions: Permission[]) =>
+      permissions
+        .filter(
+          (p) =>
+            p.name === 'incident:list' ||
+            p.name === 'menu:read' ||
+            p.name === 'setting:read' ||
+            p.name === 'setting:update' ||
+            p.name === 'user:read' ||
+            p.name === 'auth:login' ||
+            p.name === 'auth:logout' ||
+            p.name === 'auth:refresh-token'
+        )
+        .map((p) => p.id),
+  },
 ];
 
 export async function seedRoles(prisma: PrismaClient, permissions: Permission[]) {
