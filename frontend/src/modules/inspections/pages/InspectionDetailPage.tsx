@@ -466,6 +466,7 @@ const InspectionDetailPage = () => {
                   imageUrl: img.imageUrl,
                   caption: img.caption,
                   order: img.order,
+                  type: img.type,
                 })),
                 mitigation: editingItem.mitigation ? {
                   eliminate: editingItem.mitigation.eliminate,
