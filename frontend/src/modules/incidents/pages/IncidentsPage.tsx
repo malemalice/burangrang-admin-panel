@@ -924,7 +924,7 @@ const IncidentsPage = () => {
 
       {/* Workflow Information Dialog — incident workflow per docs/prd-incidents.md and TRD workflow guideline */}
       <Dialog open={isWorkflowInfoDialogOpen} onOpenChange={setIsWorkflowInfoDialogOpen}>
-        <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden">
+        <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden" hideCloseButton>
           <DialogHeader className="px-6 pt-6 pb-4">
             <DialogTitle>Incident Workflow</DialogTitle>
             <DialogDescription>

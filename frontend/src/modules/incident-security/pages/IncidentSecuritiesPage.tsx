@@ -956,7 +956,7 @@ const IncidentSecuritiesPage = () => {
 
       {/* Workflow Information Dialog — security incident workflow per TRD workflow guideline */}
       <Dialog open={isWorkflowInfoDialogOpen} onOpenChange={setIsWorkflowInfoDialogOpen}>
-        <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden">
+        <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden" hideCloseButton>
           <DialogHeader className="px-6 pt-6 pb-4">
             <DialogTitle>Security Incident Workflow</DialogTitle>
             <DialogDescription>

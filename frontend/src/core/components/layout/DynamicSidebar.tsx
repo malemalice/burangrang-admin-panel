@@ -213,7 +213,7 @@ const SidebarContent = ({
             {isOpen ? appName : (appName.substring(0, Math.min(2, appName.length)).toUpperCase() || "ON")}
           </h1>
         </div>
-        <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden scrollbar-sidebar-hover">
           <div className="flex items-center justify-center h-8">
             <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
           </div>
@@ -236,7 +236,7 @@ const SidebarContent = ({
             {isOpen ? appName : (appName.substring(0, Math.min(2, appName.length)).toUpperCase() || "ON")}
           </h1>
         </div>
-        <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden scrollbar-sidebar-hover">
           <div className="text-center text-sm" style={{ color: textColor }}>
             {isOpen ? "Failed to load menus" : "!"}
           </div>
@@ -259,7 +259,7 @@ const SidebarContent = ({
         </h1>
       </div>
 
-      <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden">
+      <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden scrollbar-sidebar-hover">
         {sidebarMenus.map((menu) => (
           <DynamicMenuItem 
             key={menu.id} 
@@ -293,7 +293,7 @@ const DynamicSidebar = ({ isOpen, onClose }: DynamicSidebarProps) => {
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
         <SheetContent
           side="left"
-          className="w-64 p-0 bg-sidebar border-r [&>button]:hidden"
+          className="w-64 p-0 bg-sidebar border-r [&>button]:hidden sidebar-root"
           style={{
             backgroundColor: currentThemeColor,
             borderColor: currentThemeColor + '30',
@@ -320,7 +320,7 @@ const DynamicSidebar = ({ isOpen, onClose }: DynamicSidebarProps) => {
   return (
     <aside
       className={cn(
-        "fixed h-full border-r shadow-sm z-20 transition-all duration-300 ease-in-out flex flex-col hidden md:flex",
+        "sidebar-root fixed h-full border-r shadow-sm z-20 transition-all duration-300 ease-in-out flex flex-col hidden md:flex",
         isOpen ? "w-64" : "w-20"
       )}
       style={{

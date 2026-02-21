@@ -759,43 +759,32 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
     return { images: imagePayload, attachments: attachmentPayload };
   }, [fileCategory, imageUploads, attachmentUploads]);
 
+  const CONTROL_MEASURE_FIELDS = [
+    'controlMeasure',
+    'dueDate',
+    'expectedOutcome',
+    'needToStopActivity',
+    'stopActivityDescription',
+    'treatment',
+    'treatmentDescription',
+    'absence',
+    'resolution',
+  ];
+
   // Determine if field should be disabled based on mode
   const isFieldDisabled = (fieldName: string): boolean => {
     if (isLoading || isApproving) return true;
-    
+
     if (resolvedMode === 'creator') {
       // Creator: cannot fill 'Control Measures & Outcomes' section
-      const controlMeasureFields = [
-        'controlMeasure',
-        'dueDate',
-        'expectedOutcome',
-        'needToStopActivity',
-        'stopActivityDescription',
-        'treatment',
-        'treatmentDescription',
-        'absence',
-        'resolution',
-      ];
-      return controlMeasureFields.includes(fieldName);
+      return CONTROL_MEASURE_FIELDS.includes(fieldName);
     }
-    
-    if (resolvedMode === 'investigator') {
-      // Investigator: only can update 'Control Measures & Outcomes' sections
-      const controlMeasureFields = [
-        'controlMeasure',
-        'dueDate',
-        'expectedOutcome',
-        'needToStopActivity',
-        'stopActivityDescription',
-        'treatment',
-        'treatmentDescription',
-        'absence',
-        'resolution',
-      ];
-      return !controlMeasureFields.includes(fieldName);
+
+    if (resolvedMode === 'investigator' || resolvedMode === 'approver') {
+      // Investigator and approver: only can update 'Control Measures & Outcomes' sections
+      return !CONTROL_MEASURE_FIELDS.includes(fieldName);
     }
-    
-    // Approver: all fields are read-only (approval handled separately)
+
     return true;
   };
 
@@ -815,12 +804,26 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
     try {
       setIsApproving(true);
 
+      const values = form.getValues();
+      const controlMeasureDto: UpdateIncidentDTO = {
+        controlMeasure: values.controlMeasure || undefined,
+        dueDate: values.dueDate ? new Date(values.dueDate) : undefined,
+        expectedOutcome: values.expectedOutcome || undefined,
+        needToStopActivity: values.needToStopActivity,
+        stopActivityDescription: values.stopActivityDescription || undefined,
+        treatment: values.treatment,
+        treatmentDescription: values.treatmentDescription || undefined,
+        absence: values.absence,
+        resolution: values.resolution || undefined,
+      };
+      await incidentSecurityService.update(incident.id, controlMeasureDto);
+
       if (status === ApprovalStatus.APPROVED) {
         await incidentSecurityService.approve(incident.id, notes, activities);
-        toast.success('Incident approved successfully');
+        toast.success('Incident Securities approved successfully');
       } else {
         await incidentSecurityService.reject(incident.id, notes);
-        toast.success('Incident rejected');
+        toast.success('Incident Securities rejected successfully');
       }
 
       navigate('/incident-securities');
