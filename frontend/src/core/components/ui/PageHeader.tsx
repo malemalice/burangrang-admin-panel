@@ -20,7 +20,7 @@ const PageHeader = ({ title, subtitle, children, actions }: PageHeaderProps) => 
       {/* Main header row: Left (title/subtitle) and Right (actions/tabs) */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         {/* Left side: Title and Subtitle */}
-        <div className="flex-shrink-0 min-w-0 max-w-full">
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold tracking-tight break-words">{title}</h1>
           {subtitle != null && (
             <div className="text-muted-foreground mt-1 break-words min-w-0">
@@ -31,8 +31,8 @@ const PageHeader = ({ title, subtitle, children, actions }: PageHeaderProps) => 
 
         {/* Right side: Actions and Tabs */}
         {hasRightContent && (
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-4">
-            {actions && <div className="flex items-center gap-2">{actions}</div>}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-4 flex-shrink-0">
+            {actions && <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>}
             {children && (
               <div className="flex-shrink-0">
                 {children}

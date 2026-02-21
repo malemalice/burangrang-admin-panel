@@ -3,7 +3,7 @@
  * Renders menu items from backend with tree hierarchy support
  * Following TRD.md patterns for component architecture
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/core/lib/utils';
 import { Icon } from '@/core/components/ui/icon';
@@ -199,6 +199,28 @@ const SidebarContent = ({
   isLoading: boolean;
   error: any;
 }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollUp, setCanScrollUp] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollUp(el.scrollTop > 0);
+    setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight);
+  }, []);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateScrollState();
+    el.addEventListener('scroll', updateScrollState);
+    const ro = new ResizeObserver(updateScrollState);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', updateScrollState);
+      ro.disconnect();
+    };
+  }, [isLoading, error, updateScrollState]);
+
   if (isLoading) {
     return (
       <>
@@ -213,7 +235,7 @@ const SidebarContent = ({
             {isOpen ? appName : (appName.substring(0, Math.min(2, appName.length)).toUpperCase() || "ON")}
           </h1>
         </div>
-        <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden scrollbar-sidebar-hover">
+        <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden scrollbar-hidden">
           <div className="flex items-center justify-center h-8">
             <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
           </div>
@@ -236,7 +258,7 @@ const SidebarContent = ({
             {isOpen ? appName : (appName.substring(0, Math.min(2, appName.length)).toUpperCase() || "ON")}
           </h1>
         </div>
-        <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden scrollbar-sidebar-hover">
+        <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden scrollbar-hidden">
           <div className="text-center text-sm" style={{ color: textColor }}>
             {isOpen ? "Failed to load menus" : "!"}
           </div>
@@ -259,15 +281,39 @@ const SidebarContent = ({
         </h1>
       </div>
 
-      <div className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden scrollbar-sidebar-hover">
-        {sidebarMenus.map((menu) => (
-          <DynamicMenuItem 
-            key={menu.id} 
-            menu={menu} 
-            isOpen={isOpen} 
-            level={0}
+      <div className="relative flex-1 min-h-0 flex flex-col">
+        {canScrollUp && (
+          <div
+            className="absolute top-0 left-0 right-0 h-12 z-10 pointer-events-none transition-opacity duration-200"
+            style={{
+              background: `linear-gradient(to bottom, ${currentThemeColor}, transparent)`,
+            }}
+            aria-hidden
           />
-        ))}
+        )}
+        <div
+          ref={scrollRef}
+          className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden scrollbar-hidden"
+          onScroll={updateScrollState}
+        >
+          {sidebarMenus.map((menu) => (
+            <DynamicMenuItem 
+              key={menu.id} 
+              menu={menu} 
+              isOpen={isOpen} 
+              level={0}
+            />
+          ))}
+        </div>
+        {canScrollDown && (
+          <div
+            className="absolute bottom-0 left-0 right-0 h-12 z-10 pointer-events-none transition-opacity duration-200"
+            style={{
+              background: `linear-gradient(to top, ${currentThemeColor}, transparent)`,
+            }}
+            aria-hidden
+          />
+        )}
       </div>
     </>
   );
@@ -293,7 +339,7 @@ const DynamicSidebar = ({ isOpen, onClose }: DynamicSidebarProps) => {
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
         <SheetContent
           side="left"
-          className="w-64 p-0 bg-sidebar border-r [&>button]:hidden sidebar-root"
+          className="w-64 p-0 bg-sidebar border-r [&>button]:hidden"
           style={{
             backgroundColor: currentThemeColor,
             borderColor: currentThemeColor + '30',
@@ -320,7 +366,7 @@ const DynamicSidebar = ({ isOpen, onClose }: DynamicSidebarProps) => {
   return (
     <aside
       className={cn(
-        "sidebar-root fixed h-full border-r shadow-sm z-20 transition-all duration-300 ease-in-out flex flex-col hidden md:flex",
+        "fixed h-full border-r shadow-sm z-20 transition-all duration-300 ease-in-out flex flex-col hidden md:flex",
         isOpen ? "w-64" : "w-20"
       )}
       style={{
