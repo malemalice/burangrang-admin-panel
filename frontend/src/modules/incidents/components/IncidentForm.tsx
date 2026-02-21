@@ -61,7 +61,7 @@ import {
   CreateIncidentAttachmentDTO,
   EquipmentEntityEnum,
 } from '../types/incident.types';
-import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
 import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
 import areaService from '@/modules/master-data/services/areaService';
 import { riskCategoryService, departmentService, roomService } from '@/modules/master-data';
@@ -1314,7 +1314,7 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                               <SelectItem value={GeneralStatusEnum.CLOSE}>Close</SelectItem>
                               {mode === 'edit' && incident?.status && incident.status !== GeneralStatusEnum.OPEN && incident.status !== GeneralStatusEnum.CLOSE && (
                                 <SelectItem value={incident.status}>
-                                  {incident.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+                                  {GENERAL_STATUS_OPTIONS.find((o) => o.value === incident.status)?.label ?? incident.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
                                 </SelectItem>
                               )}
                             </>

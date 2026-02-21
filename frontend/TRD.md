@@ -2,11 +2,11 @@
 ## Frontend Modular Architecture Restructuring
 
 ### 📋 Document Information
-- **Version**: 1.10
-- **Date**: 2025-02-03
+- **Version**: 1.11
+- **Date**: 2025-02-21
 - **Status**: Active
 - **Author**: Development Team
-- **Last Updated**: Data-Level Access (Backend) handling principles added
+- **Last Updated**: Workflow Guideline UI — dynamic approval steps from Master Approval (content, structure, UI/UX)
 
 ---
 
@@ -14,6 +14,7 @@
 
 This document outlines the technical requirements and architectural principles for restructuring the frontend application from a traditional layered architecture to a modular, feature-based architecture. The restructuring aims to improve maintainability, scalability, and developer experience while following modern frontend best practices.
 
+**Version 1.11 Updates**: Added "Workflow Guideline UI — Principles for Creating Workflow Information" under Document Workflow & Status Management Patterns. Defines content principles (status per step, concrete ownership Who/Role-Dept, one-line description, terminal state), structure principles (sequential steps, consistent fields per step, short intro), and UI/UX principles (one card per step, semantic color, connectors, terminal callout, dialog layout). **Workflow guidelines must be dynamic**: approval steps (who approves) are driven by Master Approval configuration — fetch by entity from `approval-entities`, render approval lines from `masterApproval.items` (with sentinel labels), fallback when no config. Reference: MasterApprovalForm, InspectionItemsPage.
 **Version 1.10 Updates**: Added "Data-Level Access (Backend)" — for data-scoped modules (Enrollments, Work Permits, Certificates, PPE Withdrawals) the backend enforces row-level access (SELF / DEPARTMENT / SUPER). Lists may return fewer rows or empty; single-record requests (get by id, update, delete) may return 403. Handle 403 with a clear message (e.g. "You do not have access to this record"); treat empty lists as valid, not as errors. Reference: Error Handling Patterns, docs/auth.md.
 **Version 1.9 Updates**: Added "Options Bypass for Select/Dropdown Data" — when fetching list data for form dropdowns/selects, add `options: true` to query params so users without the specific `*:list` permission can still load options for forms they have access to. Use: `departmentService.getDepartments({ page: 1, limit: 100, options: true })`. Reference: UserForm, CertificateForm, Inter-Module API Calls.
 **Version 1.8 Updates**: Added "PDF Export (Detail Page) — Implementation Principles" under Advanced Features: react-to-pdf, dedicated PDF template, full data fetch before capture, hidden target, data fallback, filename/UX, template structure. Reference: RiskAssessmentDetailPage, RiskAssessmentPDFTemplate.
@@ -444,6 +445,45 @@ When designing UI/UX for **back-office systems** (ERP, Internal Dashboards), the
    - **History items**: Full cards with status badges, notes, creator info (completed actions)
    - **Current lines**: Highlighted with blue background, pulse animation (waiting for action)
    - **Pending lines**: Muted appearance with dashed border (future steps)
+
+9. **Workflow Guideline UI — Principles for Creating Workflow Information**
+
+When exposing “how this workflow works” to users (e.g. an info dialog or help section), follow these principles so the guideline is clear, scannable, and aligned with actual statuses and roles. **Approval steps (who approves) must be dynamic from Master Approval configuration**, not hardcoded.
+
+**Dynamic data — Master Approval**
+
+0. **Approval steps driven by Master Approval**: The "who approves" (Role / Dept) content must come from the active Master Approval configuration for the entity, not from static copy (e.g. avoid hardcoding "HSE Department Head" or "default one line"). This keeps the guideline in sync with what is configured under Master Data → Master Approvals.
+   - **Entity key**: Use the module's approval entity constant from `@/modules/master-data/constants/approval-entities` (e.g. `APPROVAL_ENTITIES.INCIDENT`, `APPROVAL_ENTITIES.INSPECTION_ITEM`). Align with backend `APPROVAL_ENTITIES` so the same entity name is used in `m_approvals.entity`.
+   - **Fetch config**: Load the active Master Approval for that entity (e.g. `masterApprovalService.getAll({ search: entityName, limit: 20, isActive: true })` then take the record where `entity === entityName`, or use a dedicated by-entity API if available).
+   - **Render approval lines**: For the approval step(s), render one line or one sub-card per `masterApproval.items` entry (ordered by `order`). For each item display:
+     - **Department**: Use `item.department.name` when present; if `item.departmentId` is the sentinel `@ENTITY_DEPARTMENT`, display the label **"Dynamic: From Entity Data"**.
+     - **Job position**: Use `item.jobPosition.name` when present; if `item.jobPositionId` is the sentinel `@ENTITY_JOB_POSITION`, display **"Dynamic: From Entity Data (Department Head)"**.
+   - **Fallback**: If no active Master Approval exists for the entity, show a short fallback line (e.g. "Approval is configured in Master Data → Master Approvals.") instead of inventing static approver text.
+
+**Content principles**
+
+1. **Status per step**: For each step, state which **status(es)** apply. Use the same labels as in the app (e.g. “Open Issue / Rejected”, “Waiting Verification”), not internal enum names.
+2. **Concrete ownership**: For each step, state **who** is responsible. For approval steps, use the dynamic approval lines from Master Approval (see Dynamic data above). For non-approval steps, prefer:
+   - **Who**: Short, direct label (e.g. “Inspection creator”, “Assigned dept / Assignee”, “Approver (per approval line)”).
+   - **Role / Dept**: One line describing the role or department (e.g. “User who created the parent inspection (any department)”, “Department or person set as Assigned Department or Assignee on the item”). Avoid vague labels like “Creator” or “Verifier” without this context.
+3. **One-line description**: Add a single sentence per step describing what the responsible party does and how the step ends (e.g. “Records the finding and initial details. Editable until submitted for verification.”).
+4. **Terminal/outcome state**: If the workflow has a final state (e.g. Closed), include a short callout: one line that states the state name and that no further edits are allowed (e.g. “Closed — When all approvers have approved, status becomes Close. No further edits; view only.”).
+
+**Structure principles**
+
+5. **Sequential steps**: Present a small number of ordered steps (e.g. 3). Label each as “Step 1”, “Step 2”, “Step 3” with a clear title (e.g. Finding, Action Plan, Verify).
+6. **Consistent fields per step**: Use the same structure for every step so users can scan quickly. Recommended: **Status** | **Responsible** | **Role / Dept**, then the one-line description. Use a definition list (`<dl>`) or equivalent for the first three so layout is consistent.
+7. **Short intro**: Keep the dialog/section intro to one line (e.g. “Three stages with clear ownership. See who is responsible at each step.”).
+
+**UI/UX principles**
+
+8. **One card per step**: Each step is one card with: (a) header row: icon + step number + title, (b) definition list for Status / Responsible / Role-Dept, (c) footer: one-line description with a visual separator (e.g. `border-t`). For approval steps, Role/Dept may list multiple lines (one per Master Approval item) or a short summary when many lines exist.
+9. **Semantic color per step**: Use a distinct color per step (e.g. blue, orange, green) with light tint and border; support dark mode (e.g. `dark:bg-*-950/20`, `dark:border-*-800/50`).
+10. **Connectors**: Between steps use a simple connector (e.g. arrow icon). On desktop show horizontally with connectors; on mobile stack steps. Mark decorative connectors with `aria-hidden`.
+11. **Terminal state callout**: Render the terminal state (e.g. Closed) in a single, muted callout below the steps (e.g. `bg-muted/60`, one line with bold label and short explanation).
+12. **Dialog layout**: If the guideline is in a dialog: `p-0 gap-0` on content; header and body use consistent horizontal padding (e.g. `px-6`); body has bottom padding (e.g. `pb-6`).
+
+**Reference**: Master Approval setup: `MasterApprovalForm.tsx` (entity, items with order, department/job position, sentinel values). Workflow info dialog pattern: Inspection Items list page — “Inspection Item Workflow” info dialog (`InspectionItemsPage.tsx`). Apply the same pattern to Incidents, Incident Security, Risk Assessments, Audits, and any entity with status-based workflow and approval lines; **use dynamic approval steps from Master Approval** for the entity.
 
 **Implementation Pattern**:
 
@@ -2562,6 +2602,7 @@ const columns = [
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.11 | 2025-02-21 | Development Team | Added "Workflow Guideline UI — Principles for Creating Workflow Information" (item 9) under Document Workflow & Status Management Patterns. Workflow guidelines are dynamic: approval steps driven by Master Approval (fetch by entity, render items with sentinel labels, fallback if no config). Content/structure/UI principles as above. Reference: MasterApprovalForm, InspectionItemsPage. |
 | 1.9 | 2025-02-03 | Development Team | Added "Options Bypass for Select/Dropdown Data" under Inter-Module API Calls and Cross-Module Data Dependencies: use `options: true` in query params when fetching list data for form dropdowns so users without the specific list permission can load options. Reference: UserForm, CertificateForm. |
 | 1.8 | 2024-12-20 | Development Team | Added "PDF Export (Detail Page) — Implementation Principles" under Advanced Features: react-to-pdf, dedicated PDF template, full data fetch before capture, hidden target, data fallback, filename/UX, template structure. Reference: RiskAssessmentDetailPage, RiskAssessmentPDFTemplate. |
 | 1.7 | 2024-12-20 | Development Team | Added "List page state persistence (index → view → back)" under Search & Filters: URL as source of truth for list state, derive state from useSearchParams, sync URL on list actions, Back uses navigate(-1). Reference: AuditResultsPage, RiskRegisterPage, RisksPage. |

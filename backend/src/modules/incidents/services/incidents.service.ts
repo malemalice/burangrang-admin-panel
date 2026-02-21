@@ -1003,7 +1003,7 @@ export class IncidentsService {
         user,
       );
 
-      // Update status to REJECTED
+      // Update status to REJECTED so UI shows "Rejected"; investigator can still edit and resubmit (submit API allows REJECTED)
       const updated = await this.prisma.incident.update({
         where: { id },
         data: {

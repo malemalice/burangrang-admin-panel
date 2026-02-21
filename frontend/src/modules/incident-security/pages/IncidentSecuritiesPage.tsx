@@ -36,6 +36,14 @@ import { AreaDTO } from '@/modules/master-data/types/master-data.types';
 import { RiskCategory, Department } from '@/core/lib/types';
 import { User } from '@/core/lib/types';
 
+const PRIORITY_LABELS: Record<string, string> = {
+  NOT_SPECIFIED: 'Not Specified',
+  NORMAL: 'Normal',
+  HIGH: 'High',
+  VENDOR: 'Vendor',
+  LONGER_TERM: 'Longer Term',
+};
+
 const IncidentSecuritiesPage = () => {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
@@ -767,7 +775,7 @@ const IncidentSecuritiesPage = () => {
               : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
           }
         >
-          {row.priority}
+          {PRIORITY_LABELS[row.priority] ?? row.priority}
         </Badge>
       ),
     },
@@ -946,110 +954,118 @@ const IncidentSecuritiesPage = () => {
         variant="destructive"
       />
 
-      {/* Workflow Information Dialog */}
+      {/* Workflow Information Dialog — security incident workflow per TRD workflow guideline */}
       <Dialog open={isWorkflowInfoDialogOpen} onOpenChange={setIsWorkflowInfoDialogOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-4">
             <DialogTitle>Security Incident Workflow</DialogTitle>
             <DialogDescription>
-              The security incident goes through three main stages before reaching completion
+              Security incidents move from creation, to HSE follow-up and submit, then to approval by the configured approver(s).
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-2">
+          <div className="px-6 pb-6">
+            <div className="flex flex-col md:flex-row md:items-stretch gap-4 md:gap-2">
               {/* Step 1: Creator */}
-              <div className="flex flex-col items-center text-center flex-1">
-                <div className="relative flex items-center justify-center mb-4">
-                  <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
-                    <FileText className="h-8 w-8 text-blue-600" />
+              <div className="flex flex-1 flex-col min-w-0 rounded-lg border border-blue-200/80 bg-blue-50/40 dark:bg-blue-950/20 dark:border-blue-800/50 overflow-hidden">
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-blue-200/60 dark:border-blue-800/40">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50">
+                    <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-semibold flex items-center justify-center">
-                    1
+                  <div>
+                    <span className="text-xs font-medium text-blue-600 dark:text-blue-400">Step 1</span>
+                    <h3 className="font-semibold text-foreground leading-tight">Creator</h3>
                   </div>
                 </div>
-                <h3 className="font-semibold text-lg mb-1">Creator</h3>
-                <p className="text-sm text-muted-foreground mb-4 max-w-[200px]">
-                  Create security incident and fill all sections except Control Measures & Outcomes. Status becomes OPEN.
+                <dl className="grid gap-2 px-4 py-3 text-sm">
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Status</dt>
+                    <dd className="mt-0.5 font-medium text-foreground">Open (or Draft for Super Admin)</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Responsible</dt>
+                    <dd className="mt-0.5 font-medium text-foreground">Security incident creator</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
+                    <dd className="mt-0.5 text-muted-foreground">User who created the security incident (any department); creator or same department can edit</dd>
+                  </div>
+                </dl>
+                <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-blue-200/40 dark:border-blue-800/30 pt-2">
+                  Create security incident and fill all sections except Control Measures & Outcomes. Editable until submitted for verification.
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                  onClick={() => {
-                    setIsWorkflowInfoDialogOpen(false);
-                    toast.info('Click "Create Security Incident" button or "Edit" button on an existing security incident to create/edit as creator');
-                  }}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Create/Edit as Creator
-                </Button>
               </div>
 
-              {/* Arrow Connector 1 */}
-              <div className="hidden md:flex items-center justify-center px-4">
-                <ArrowRight className="h-6 w-6 text-muted-foreground" />
+              <div className="hidden md:flex shrink-0 items-center justify-center w-6 self-center">
+                <ArrowRight className="h-5 w-5 text-muted-foreground/60" aria-hidden />
               </div>
 
               {/* Step 2: Investigator */}
-              <div className="flex flex-col items-center text-center flex-1">
-                <div className="relative flex items-center justify-center mb-4">
-                  <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center">
-                    <ShieldCheck className="h-8 w-8 text-orange-600" />
+              <div className="flex flex-1 flex-col min-w-0 rounded-lg border border-orange-200/80 bg-orange-50/40 dark:bg-orange-950/20 dark:border-orange-800/50 overflow-hidden">
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-orange-200/60 dark:border-orange-800/40">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/50">
+                    <ShieldCheck className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                   </div>
-                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-orange-600 text-white text-xs font-semibold flex items-center justify-center">
-                    2
+                  <div>
+                    <span className="text-xs font-medium text-orange-600 dark:text-orange-400">Step 2</span>
+                    <h3 className="font-semibold text-foreground leading-tight">Investigator</h3>
                   </div>
                 </div>
-                <h3 className="font-semibold text-lg mb-1">Investigator</h3>
-                <p className="text-sm text-muted-foreground mb-4 max-w-[200px]">
-                  HSE department users can only update Control Measures & Outcomes section. Submits for approval. Status becomes WAITING_APPROVAL.
+                <dl className="grid gap-2 px-4 py-3 text-sm">
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Status</dt>
+                    <dd className="mt-0.5 font-medium text-foreground">Open / Rejected</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Responsible</dt>
+                    <dd className="mt-0.5 font-medium text-foreground">HSE department user</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
+                    <dd className="mt-0.5 text-muted-foreground">User in HSE department</dd>
+                  </div>
+                </dl>
+                <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-orange-200/40 dark:border-orange-800/30 pt-2">
+                  Updates Control Measures & Outcomes only. Submits for approval; status becomes Waiting Verification.
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700"
-                  onClick={() => {
-                    setIsWorkflowInfoDialogOpen(false);
-                    toast.info('Click "Submit" button on a security incident with OPEN status (only visible for HSE department users)');
-                  }}
-                >
-                  <ShieldCheck className="h-4 w-4 mr-2" />
-                  Submit as Investigator
-                </Button>
               </div>
 
-              {/* Arrow Connector 2 */}
-              <div className="hidden md:flex items-center justify-center px-4">
-                <ArrowRight className="h-6 w-6 text-muted-foreground" />
+              <div className="hidden md:flex shrink-0 items-center justify-center w-6 self-center">
+                <ArrowRight className="h-5 w-5 text-muted-foreground/60" aria-hidden />
               </div>
 
               {/* Step 3: Approver */}
-              <div className="flex flex-col items-center text-center flex-1">
-                <div className="relative flex items-center justify-center mb-4">
-                  <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
-                    <CheckCircle2 className="h-8 w-8 text-green-600" />
+              <div className="flex flex-1 flex-col min-w-0 rounded-lg border border-green-200/80 bg-green-50/40 dark:bg-green-950/20 dark:border-green-800/50 overflow-hidden">
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-green-200/60 dark:border-green-800/40">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+                    <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
                   </div>
-                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-semibold flex items-center justify-center">
-                    3
+                  <div>
+                    <span className="text-xs font-medium text-green-600 dark:text-green-400">Step 3</span>
+                    <h3 className="font-semibold text-foreground leading-tight">Approver</h3>
                   </div>
                 </div>
-                <h3 className="font-semibold text-lg mb-1">Approver</h3>
-                <p className="text-sm text-muted-foreground mb-4 max-w-[200px]">
-                  HSE Department Head reviews and approves/rejects. If approved, status becomes CLOSE. If rejected, status returns to OPEN.
+                <dl className="grid gap-2 px-4 py-3 text-sm">
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Status</dt>
+                    <dd className="mt-0.5 font-medium text-foreground">Waiting Verification</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Responsible</dt>
+                    <dd className="mt-0.5 font-medium text-foreground">Approver (per approval line)</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
+                    <dd className="mt-0.5 text-muted-foreground">HSE Department Head (per Master Approval for security incidents; default one line)</dd>
+                  </div>
+                </dl>
+                <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-green-200/40 dark:border-green-800/30 pt-2">
+                  Approves or rejects. If rejected, status becomes Rejected; investigator can edit and resubmit.
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
-                  onClick={() => {
-                    setIsWorkflowInfoDialogOpen(false);
-                    toast.info('Click "Approve" button on a security incident with WAITING_APPROVAL status (only visible for HSE Department Head)');
-                  }}
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Approve/Reject
-                </Button>
               </div>
+            </div>
+
+            <div className="mt-4 rounded-lg bg-muted/60 px-4 py-2.5 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Closed</span> — When all approvers have approved, status becomes <strong>Close</strong>. No further edits; view only.
             </div>
           </div>
         </DialogContent>

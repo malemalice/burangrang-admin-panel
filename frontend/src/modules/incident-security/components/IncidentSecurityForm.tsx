@@ -86,7 +86,7 @@ const generateIncidentCode = (): string => {
 // Schema for injured person - gender allows blank (empty string) to match create behavior
 const injuredPersonSchema = z.object({
   injuredPersonName: z.string().optional(),
-  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.undefined()]).optional().transform((val) => (val === '' ? undefined : val)),
+  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.null(), z.undefined()]).optional().transform((val) => (val === '' || val === null ? undefined : val)),
   levelOfInjury: z.nativeEnum(LevelOfInjuryEnum).default(LevelOfInjuryEnum.NOT_SPECIFIED),
   injuredBodyPart: z.nativeEnum(InjuredBodyPartEnum).default(InjuredBodyPartEnum.NOT_SPECIFIED),
   typeOfInjury: z.nativeEnum(TypeOfInjuryEnum).default(TypeOfInjuryEnum.NOT_SPECIFIED),
@@ -97,7 +97,7 @@ const injuredPersonSchema = z.object({
 // Schema for witness - gender allows blank (empty string) to match create behavior
 const witnessSchema = z.object({
   witnessName: z.string().optional(),
-  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.undefined()]).optional().transform((val) => (val === '' ? undefined : val)),
+  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.null(), z.undefined()]).optional().transform((val) => (val === '' || val === null ? undefined : val)),
   departmentId: z.string().optional(),
 });
 
@@ -250,13 +250,6 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
     };
     fetchUserRole();
   }, [currentUser?.id]);
-
-  // Non-super-user can only create with OPEN or CLOSE; default create to OPEN
-  useEffect(() => {
-    if (roleFetched && !isSuperUser && mode === 'create') {
-      form.setValue('status', GeneralStatusEnum.OPEN);
-    }
-  }, [roleFetched, isSuperUser, mode, form]);
 
   // Image/attachment upload state (drag-and-drop, multi-file like InspectionItemForm)
   interface ImageUploadItem {
@@ -411,7 +404,7 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
             injuredPersons:
               incident.injuredPersons?.map((p, index) => ({
                 injuredPersonName: p.injuredPersonName || '',
-                gender: p.gender,
+                gender: p.gender ?? '',
                 levelOfInjury: p.levelOfInjury,
                 injuredBodyPart: p.injuredBodyPart,
                 typeOfInjury: p.typeOfInjury,
@@ -421,7 +414,7 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
             witnesses:
               incident.witnesses?.map((w) => ({
                 witnessName: w.witnessName || '',
-                gender: w.gender,
+                gender: w.gender ?? '',
                 departmentId: w.departmentId || '',
               })) || [],
             assets:
@@ -864,8 +857,11 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
           return;
         }
       } else if (resolvedMode === 'investigator') {
-        // Investigator (non-super_admin): cannot change status; keep current incident status
-        statusToSet = incident?.status ?? GeneralStatusEnum.OPEN;
+        // Investigator (non-super_admin): allow OPEN or CLOSE from form; otherwise keep current
+        statusToSet =
+          data.status === GeneralStatusEnum.OPEN || data.status === GeneralStatusEnum.CLOSE
+            ? data.status
+            : incident?.status ?? GeneralStatusEnum.OPEN;
       }
       // Non-super-user (creator): statusToSet stays data.status (only OPEN or CLOSE allowed by UI and backend)
 
@@ -1189,7 +1185,6 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
                       <Select
                         onValueChange={field.onChange}
                         value={field.value}
-                        disabled={resolvedMode === 'investigator' && !isSuperUser}
                       >
                         <FormControl>
                           <SelectTrigger>
