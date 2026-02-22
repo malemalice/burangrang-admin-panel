@@ -746,9 +746,11 @@ model ReminderLog {
 
 enum PPEWithdrawalStatusEnum {
   PENDING
+  WAITING_APPROVAL
   APPROVED
   COLLECTED
   CANCELLED
+  REJECTED
 }
 
 enum PPEStockStatusEnum {
@@ -857,7 +859,7 @@ model PPEWithdrawal {
   jobPositionId       String?
   jobPosition         JobPosition?            @relation(fields: [jobPositionId], references: [id])
   jobPositionName     String?
-  status              PPEWithdrawalStatusEnum @default(PENDING)
+  status              PPEWithdrawalStatusEnum @default(WAITING_APPROVAL)
   withdrawalLetterUrl String?
   collectedDate       DateTime?
   collectedBy         String?

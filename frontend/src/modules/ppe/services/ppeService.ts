@@ -370,6 +370,17 @@ const ppeService = {
         }
     },
 
+    submitWithdrawal: async (id: string): Promise<PPEWithdrawal> => {
+        try {
+            const response = await api.post(`/ppe/withdrawals/${id}/submit`);
+            return mapPPEWithdrawalDtoToPPEWithdrawal(response.data);
+        } catch (error: any) {
+            console.error(`Error submitting withdrawal ${id}:`, error);
+            const errorMessage = error.response?.data?.message || 'Failed to submit withdrawal';
+            throw new Error(errorMessage);
+        }
+    },
+
     approveWithdrawal: async (id: string, updateData: UpdatePPEWithdrawalDTO): Promise<PPEWithdrawal> => {
         try {
             const response = await api.patch(`/ppe/withdrawals/${id}/approve`, updateData);

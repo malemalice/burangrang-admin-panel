@@ -14,10 +14,7 @@ const EditPPEWithdrawalPage = () => {
     const { withdrawal, isLoading } = usePPEWithdrawal(id || null);
 
     useEffect(() => {
-        if (withdrawal && withdrawal.status === PPEWithdrawalStatus.PENDING) {
-            toast.error('Editing is not allowed for pending withdrawals');
-            navigate(`/ppe/withdrawals/${id}`);
-        } else if (withdrawal && withdrawal.status !== PPEWithdrawalStatus.PENDING) {
+        if (withdrawal && withdrawal.status !== PPEWithdrawalStatus.PENDING) {
             toast.error('Only pending withdrawals can be edited');
             navigate(`/ppe/withdrawals/${id}`);
         }

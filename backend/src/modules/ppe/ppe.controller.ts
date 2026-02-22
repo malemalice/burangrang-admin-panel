@@ -360,6 +360,23 @@ export class PPEController {
         return this.ppeService.updateWithdrawal(id, updateDto, req.userContext);
     }
 
+    @Post('withdrawals/:id/submit')
+    @ApiOperation({ summary: 'Submit withdrawal for approval' })
+    @ApiParam({ name: 'id', type: String, description: 'Withdrawal ID' })
+    @ApiResponse({
+        status: 200,
+        description: 'The withdrawal has been submitted for approval.',
+        type: PPEWithdrawalDto,
+    })
+    @ApiResponse({ status: 400, description: 'Bad request - withdrawal cannot be submitted.' })
+    @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
+    @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
+    @Permissions('ppe:update')
+    @DataScoped('PPEWithdrawal')
+    submitWithdrawal(@Param('id') id: string, @Req() req: any): Promise<PPEWithdrawalDto> {
+        return this.ppeService.submitWithdrawal(id, req.user.id, req.userContext);
+    }
+
     @Patch('withdrawals/:id/approve')
     @ApiOperation({ summary: 'Approve withdrawal' })
     @ApiParam({ name: 'id', type: String, description: 'Withdrawal ID' })
@@ -375,7 +392,7 @@ export class PPEController {
     @Permissions('ppe:update')
     @DataScoped('PPEWithdrawal')
     approveWithdrawal(@Param('id') id: string, @Body() updateDto: UpdatePPEWithdrawalDto, @Req() req: any): Promise<PPEWithdrawalDto> {
-        return this.ppeService.approveWithdrawal(id, updateDto, req.userContext);
+        return this.ppeService.approveWithdrawal(id, updateDto, req.user.id, req.userContext);
     }
 
     @Patch('withdrawals/:id/collect')

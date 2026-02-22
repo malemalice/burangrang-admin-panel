@@ -56,9 +56,11 @@ const PPEWithdrawPage = () => {
             type: 'select',
             options: [
                 { label: 'Pending', value: 'PENDING' },
+                { label: 'Waiting Approval', value: 'WAITING_APPROVAL' },
                 { label: 'Approved', value: 'APPROVED' },
                 { label: 'Collected', value: 'COLLECTED' },
                 { label: 'Cancelled', value: 'CANCELLED' },
+                { label: 'Rejected', value: 'REJECTED' },
             ],
         },
         {
@@ -154,11 +156,13 @@ const PPEWithdrawPage = () => {
     const getStatusBadge = useCallback((status: PPEWithdrawalStatus) => {
         const variants: Record<PPEWithdrawalStatus, { className: string; label: string }> = {
             PENDING: { className: 'bg-yellow-100 text-yellow-800 border-0', label: 'Pending' },
+            WAITING_APPROVAL: { className: 'bg-amber-100 text-amber-800 border-0', label: 'Waiting Approval' },
             APPROVED: { className: 'bg-blue-100 text-blue-800 border-0', label: 'Approved' },
             COLLECTED: { className: 'bg-green-100 text-green-800 border-0', label: 'Collected' },
             CANCELLED: { className: 'bg-red-100 text-red-800 border-0', label: 'Cancelled' },
+            REJECTED: { className: 'bg-red-100 text-red-800 border-0', label: 'Rejected' },
         };
-        const variant = variants[status] || variants.PENDING;
+        const variant = variants[status] || { className: 'bg-gray-100 text-gray-800 border-0', label: String(status) };
         return <Badge variant="outline" className={variant.className}>{variant.label}</Badge>;
     }, []);
 
@@ -275,6 +279,7 @@ const PPEWithdrawPage = () => {
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}
                 activeFilters={activeFilters}
+                searchPlaceholder="Search by withdrawal code"
             />
 
             <ConfirmDialog

@@ -478,7 +478,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                 name="withdrawalDate"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Withdrawal Date *</FormLabel>
+                                        <FormLabel>Withdrawal Date <span className="text-red-500">*</span></FormLabel>
                                         <FormControl>
                                             <DateTimePicker mode="date" {...field} />
                                         </FormControl>
@@ -492,7 +492,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                 name="departmentId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Department *</FormLabel>
+                                        <FormLabel>Department <span className="text-red-500">*</span></FormLabel>
                                         <FormControl>
                                             <SearchableSelect
                                                 options={departments.map((dept) => ({
@@ -521,7 +521,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                 name="requestedFor"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Requested For (User) *</FormLabel>
+                                        <FormLabel>Requested For (User) <span className="text-red-500">*</span></FormLabel>
                                         <FormControl>
                                             <SearchableSelect
                                                 options={users.map((user) => ({
@@ -551,7 +551,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                 name="requestedForName"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Requested For (Name) *</FormLabel>
+                                        <FormLabel>Requested For (Name) <span className="text-red-500">*</span></FormLabel>
                                         <FormControl>
                                             <Input
                                                 placeholder="Enter name if not a user"
@@ -575,7 +575,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                 name="jobPositionId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Job Position *</FormLabel>
+                                        <FormLabel>Job Position <span className="text-red-500">*</span></FormLabel>
                                         <FormControl>
                                             <SearchableSelect
                                                 options={jobPositions.map((pos) => ({
@@ -605,7 +605,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                 name="jobPositionName"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Job Position Name *</FormLabel>
+                                        <FormLabel>Job Position Name <span className="text-red-500">*</span></FormLabel>
                                         <FormControl>
                                             <Input
                                                 placeholder="Enter job position if not from master data"
@@ -688,7 +688,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
 
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
-                                <FormLabel>Withdrawal Items *</FormLabel>
+                                <FormLabel>Withdrawal Items <span className="text-red-500">*</span></FormLabel>
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -731,7 +731,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                                 name={`items.${index}.stockItemId`}
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Stock Item *</FormLabel>
+                                                        <FormLabel>Stock Item <span className="text-red-500">*</span></FormLabel>
                                                         <FormControl>
                                                             <SearchableSelect
                                                                 options={availableStockItems.map((item) => ({
@@ -754,7 +754,7 @@ const PPEWithdrawalForm = ({ withdrawal, mode }: PPEWithdrawalFormProps) => {
                                                 name={`items.${index}.requestedQuantity`}
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Requested Quantity *</FormLabel>
+                                                        <FormLabel>Requested Quantity <span className="text-red-500">*</span></FormLabel>
                                                         <FormControl>
                                                             <Input
                                                                 type="number"
