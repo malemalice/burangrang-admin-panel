@@ -1340,6 +1340,65 @@ export class PPEService {
     }
 
     /**
+     * Reject withdrawal (via master approval workflow).
+     * Caller must have approval rights; notes are required for audit.
+     */
+    async rejectWithdrawal(
+        id: string,
+        updateDto: UpdatePPEWithdrawalDto,
+        userId: string,
+        userContext?: UserContext,
+    ): Promise<PPEWithdrawalDto> {
+        await this.ensureCanAccessPPEWithdrawal(id, userContext);
+        const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
+            where: { id, deletedAt: null },
+        });
+        this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
+
+        if (withdrawal.status !== PPEWithdrawalStatusEnum.WAITING_APPROVAL) {
+            this.errorHandler.throwBadRequest(
+                `Withdrawal ${id} cannot be rejected. Current status: ${withdrawal.status}. Only WAITING_APPROVAL withdrawals can be rejected.`,
+            );
+        }
+
+        const user = await this.getFullUser(userId);
+        const approvalRights = await this.masterApprovalsService.checkApprovalRights(
+            id,
+            user,
+            APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+        );
+        if (!approvalRights.canApprove) {
+            this.errorHandler.throwForbidden('You do not have permission to reject this withdrawal');
+        }
+
+        await this.masterApprovalsService.submitApproval(
+            {
+                entity: APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+                dataId: id,
+                status: ApprovalStatus.REJECTED,
+                notes: updateDto.notes ?? '',
+            },
+            user,
+        );
+
+        const updatedWithdrawal = await this.prisma["pPEWithdrawal"].findFirst({
+            where: { id },
+            include: {
+                items: {
+                    include: { stockItem: { include: { stock: true } } },
+                    orderBy: { order: 'asc' },
+                },
+                requester: true,
+                requestedForUser: true,
+                department: true,
+                jobPosition: true,
+                creator: true,
+            },
+        });
+        return this.ppeWithdrawalMapper(this.populateRequestedForName(updatedWithdrawal!));
+    }
+
+    /**
      * Collect withdrawal (deduct stock)
      */
     async collectWithdrawal(id: string, updateDto: UpdatePPEWithdrawalDto, userContext?: UserContext): Promise<PPEWithdrawalDto> {

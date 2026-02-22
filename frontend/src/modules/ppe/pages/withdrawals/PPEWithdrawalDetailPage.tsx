@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, CheckCircle, XCircle, Package, FileText, Download, Send } from 'lucide-react';
+import { ArrowLeft, Edit, CheckCircle, XCircle, Package, FileText, Download, Send, Ban } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from '@/core/components/ui/dialog';
+import { Label } from '@/core/components/ui/label';
+import { Textarea } from '@/core/components/ui/textarea';
 import { usePPEWithdrawal } from '../../hooks/usePPE';
 import { PPEWithdrawalStatus } from '../../types/ppe.types';
 import approvalService from '@/modules/master-data/services/approvalService';
@@ -23,11 +32,13 @@ import {
 const PPEWithdrawalDetailPage = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
-    const { withdrawal, isLoading, fetchWithdrawal, submitWithdrawal, approveWithdrawal, collectWithdrawal, cancelWithdrawal } = usePPEWithdrawal(id || null);
+    const { withdrawal, isLoading, fetchWithdrawal, submitWithdrawal, approveWithdrawal, rejectWithdrawal, collectWithdrawal, cancelWithdrawal } = usePPEWithdrawal(id || null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [actionDialogOpen, setActionDialogOpen] = useState(false);
     const [actionType, setActionType] = useState<'submit' | 'approve' | 'collect' | 'cancel' | null>(null);
     const [canApprove, setCanApprove] = useState(false);
+    const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+    const [rejectNote, setRejectNote] = useState('');
 
     useEffect(() => {
         if (!id || !withdrawal || withdrawal.status !== PPEWithdrawalStatus.WAITING_APPROVAL) {
@@ -56,6 +67,26 @@ const PPEWithdrawalDetailPage = () => {
     const handleActionClick = (type: 'submit' | 'approve' | 'collect' | 'cancel') => {
         setActionType(type);
         setActionDialogOpen(true);
+    };
+
+    const handleRejectClick = () => {
+        setRejectNote('');
+        setRejectDialogOpen(true);
+    };
+
+    const handleRejectConfirm = async () => {
+        if (!withdrawal?.id) return;
+        setIsProcessing(true);
+        try {
+            await rejectWithdrawal(withdrawal.id, { notes: rejectNote });
+            setRejectDialogOpen(false);
+            setRejectNote('');
+            if (id) fetchWithdrawal(id);
+        } catch (error) {
+            console.error('Failed to reject withdrawal:', error);
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     const handleActionConfirm = async () => {
@@ -156,7 +187,7 @@ const PPEWithdrawalDetailPage = () => {
     const showSubmitButton = withdrawal.status === PPEWithdrawalStatus.PENDING;
     const showApproveButton = withdrawal.status === PPEWithdrawalStatus.WAITING_APPROVAL && canApprove;
     const showCollectButton = withdrawal.status === PPEWithdrawalStatus.APPROVED;
-    const showCancelButton = withdrawal.status === PPEWithdrawalStatus.PENDING || withdrawal.status === PPEWithdrawalStatus.WAITING_APPROVAL;
+    const showCancelButton = withdrawal.status === PPEWithdrawalStatus.PENDING;
 
     return (
         <>
@@ -193,14 +224,24 @@ const PPEWithdrawalDetailPage = () => {
                             </Button>
                         )}
                         {showApproveButton && (
-                            <Button
-                                onClick={() => handleActionClick('approve')}
-                                disabled={isLoading || isProcessing}
-                                className="bg-blue-600 hover:bg-blue-700"
-                            >
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Approve
-                            </Button>
+                            <>
+                                <Button
+                                    onClick={() => handleActionClick('approve')}
+                                    disabled={isLoading || isProcessing}
+                                    className="bg-blue-600 hover:bg-blue-700"
+                                >
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Approve
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    onClick={handleRejectClick}
+                                    disabled={isLoading || isProcessing}
+                                >
+                                    <Ban className="mr-2 h-4 w-4" />
+                                    Reject
+                                </Button>
+                            </>
                         )}
                         {showCollectButton && (
                             <Button
@@ -386,6 +427,44 @@ const PPEWithdrawalDetailPage = () => {
                 description={getActionDialogDescription()}
                 onConfirm={handleActionConfirm}
             />
+
+            <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Reject Withdrawal</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-muted-foreground">
+                        Reject withdrawal &quot;{withdrawal?.withdrawalCode}&quot;? Provide a note for the requester (optional but recommended).
+                    </p>
+                    <div className="space-y-2">
+                        <Label htmlFor="reject-note">Note / Reason for rejection</Label>
+                        <Textarea
+                            id="reject-note"
+                            placeholder="Enter reason for rejection..."
+                            value={rejectNote}
+                            onChange={(e) => setRejectNote(e.target.value)}
+                            rows={3}
+                            className="resize-none"
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setRejectDialogOpen(false)}
+                            disabled={isProcessing}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleRejectConfirm}
+                            disabled={isProcessing}
+                        >
+                            {isProcessing ? 'Rejecting...' : 'Reject'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 };

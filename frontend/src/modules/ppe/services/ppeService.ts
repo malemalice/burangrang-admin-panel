@@ -392,6 +392,17 @@ const ppeService = {
         }
     },
 
+    rejectWithdrawal: async (id: string, updateData: UpdatePPEWithdrawalDTO): Promise<PPEWithdrawal> => {
+        try {
+            const response = await api.patch(`/ppe/withdrawals/${id}/reject`, updateData);
+            return mapPPEWithdrawalDtoToPPEWithdrawal(response.data);
+        } catch (error: any) {
+            console.error(`Error rejecting withdrawal ${id}:`, error);
+            const errorMessage = error.response?.data?.message || 'Failed to reject withdrawal';
+            throw new Error(errorMessage);
+        }
+    },
+
     collectWithdrawal: async (id: string, updateData: UpdatePPEWithdrawalDTO): Promise<PPEWithdrawal> => {
         try {
             const response = await api.patch(`/ppe/withdrawals/${id}/collect`, updateData);

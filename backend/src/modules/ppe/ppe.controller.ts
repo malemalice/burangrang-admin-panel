@@ -395,6 +395,24 @@ export class PPEController {
         return this.ppeService.approveWithdrawal(id, updateDto, req.user.id, req.userContext);
     }
 
+    @Patch('withdrawals/:id/reject')
+    @ApiOperation({ summary: 'Reject withdrawal' })
+    @ApiParam({ name: 'id', type: String, description: 'Withdrawal ID' })
+    @ApiBody({ type: UpdatePPEWithdrawalDto, description: 'Notes (reason for rejection)' })
+    @ApiResponse({
+        status: 200,
+        description: 'The withdrawal has been rejected.',
+        type: PPEWithdrawalDto,
+    })
+    @ApiResponse({ status: 400, description: 'Bad request - withdrawal cannot be rejected.' })
+    @ApiResponse({ status: 403, description: 'Forbidden - no access or no approval rights' })
+    @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
+    @Permissions('ppe:update')
+    @DataScoped('PPEWithdrawal')
+    rejectWithdrawal(@Param('id') id: string, @Body() updateDto: UpdatePPEWithdrawalDto, @Req() req: any): Promise<PPEWithdrawalDto> {
+        return this.ppeService.rejectWithdrawal(id, updateDto, req.user.id, req.userContext);
+    }
+
     @Patch('withdrawals/:id/collect')
     @ApiOperation({ summary: 'Collect withdrawal (deduct stock)' })
     @ApiParam({ name: 'id', type: String, description: 'Withdrawal ID' })

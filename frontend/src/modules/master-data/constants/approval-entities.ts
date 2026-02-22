@@ -14,9 +14,9 @@ export const APPROVAL_ENTITIES = {
   WORK_PERMIT: 'WORK_PERMIT',
   INSPECTION_ITEM: 'INSPECTION_ITEM',
   INCIDENT: 'INCIDENT',
+  PPE_WITHDRAWAL: 'PPE_WITHDRAWAL',
   // Add more entities as modules are added
   // CERTIFICATE: 'CERTIFICATE',
-  // PPE_WITHDRAWAL: 'PPE_WITHDRAWAL',
 } as const;
 
 /**
