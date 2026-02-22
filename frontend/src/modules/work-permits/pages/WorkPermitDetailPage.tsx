@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, CheckCircle, XCircle, MessageSquare, Clock, FileText } from 'lucide-react';
+import { ArrowLeft, Edit, CheckCircle, XCircle, MessageSquare, Clock, FileText, FileDown } from 'lucide-react';
+import { usePDF } from 'react-to-pdf';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
@@ -20,6 +21,7 @@ import {
 import { Textarea } from '@/core/components/ui/textarea';
 import { Label } from '@/core/components/ui/label';
 import { Input } from '@/core/components/ui/input';
+import { WorkPermitPDFTemplate } from '../components/WorkPermitPDFTemplate';
 
 const WorkPermitDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -40,6 +42,11 @@ const WorkPermitDetailPage = () => {
   const [extendDialogOpen, setExtendDialogOpen] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [timeline, setTimeline] = useState<ApprovalTimelineItem[]>([]);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+
+  const { toPDF, targetRef } = usePDF({
+    filename: `${workPermit?.code ?? 'work-permit'}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+  });
 
   const [approveNotes, setApproveNotes] = useState('');
   const [rejectReason, setRejectReason] = useState('');
@@ -178,6 +185,21 @@ const WorkPermitDetailPage = () => {
     }
   };
 
+  const handleExportPDF = async () => {
+    if (!id || !workPermit) return;
+    try {
+      setIsExportingPDF(true);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await toPDF();
+      toast.success('PDF exported successfully');
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      toast.error('Failed to export PDF');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
   const canEdit = workPermit?.status === 'DRAFT' || workPermit?.status === 'NEED_INFO';
   const canSubmit = workPermit?.status === 'DRAFT';
   
@@ -212,6 +234,15 @@ const WorkPermitDetailPage = () => {
 
   return (
     <div>
+      {workPermit && (
+        <div
+          ref={targetRef}
+          style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+          aria-hidden="true"
+        >
+          <WorkPermitPDFTemplate workPermit={workPermit} timeline={timeline} />
+        </div>
+      )}
       <PageHeader
         title={`Work Permit: ${workPermit.code}`}
         subtitle={workPermit.projectName}
@@ -219,6 +250,14 @@ const WorkPermitDetailPage = () => {
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => navigate('/work-permits')}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleExportPDF}
+              disabled={isExportingPDF}
+            >
+              <FileDown className="mr-2 h-4 w-4" />
+              {isExportingPDF ? 'Preparing PDF...' : 'Export PDF'}
             </Button>
             {canEdit && (
               <Button onClick={() => navigate(`/work-permits/${workPermit.id}/edit`)}>

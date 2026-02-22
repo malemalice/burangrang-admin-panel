@@ -121,6 +121,7 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
     const { createCertificate, updateCertificate } = useCertificates();
     const [departments, setDepartments] = useState<Department[]>([]);
     const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+    const [heavyEquipment, setHeavyEquipment] = useState<Array<{ id: string; name: string; code: string }>>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [dataReady, setDataReady] = useState(false);
     const [uploadingFile, setUploadingFile] = useState(false);
@@ -165,6 +166,33 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
         },
     });
 
+    const equipmentId = form.watch('equipmentId');
+    const equipmentName = form.watch('equipmentName');
+    const [equipmentSearchQuery, setEquipmentSearchQuery] = useState('');
+
+    const equipmentSelectValue = equipmentId || (equipmentName ? `free:${equipmentName}` : '');
+
+    const equipmentOptions: SearchableSelectOption[] = useMemo(() => {
+        const base: SearchableSelectOption[] = heavyEquipment.map((e) => ({ value: e.id, label: e.name }));
+        if (equipmentName && !equipmentId) {
+            if (!base.some((o) => o.value === `free:${equipmentName}`)) {
+                base.push({ value: `free:${equipmentName}`, label: equipmentName });
+            }
+        }
+        if (equipmentId && equipmentName && !heavyEquipment.some((e) => e.id === equipmentId)) {
+            if (!base.some((o) => o.value === equipmentId)) {
+                base.push({ value: equipmentId, label: equipmentName });
+            }
+        }
+        const q = equipmentSearchQuery.trim().toLowerCase();
+        const filtered = q ? base.filter((o) => o.label.toLowerCase().includes(q)) : base;
+        if (equipmentSelectValue && !filtered.some((o) => o.value === equipmentSelectValue)) {
+            const currentOption = base.find((o) => o.value === equipmentSelectValue);
+            if (currentOption) filtered.push(currentOption);
+        }
+        return filtered;
+    }, [heavyEquipment, equipmentId, equipmentName, equipmentSearchQuery, equipmentSelectValue]);
+
     useEffect(() => {
         const fetchOptions = async () => {
             try {
@@ -189,10 +217,11 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                     toast.error('Failed to load file categories');
                 }
 
-                // Fetch categories, departments, and users in parallel
-                const [deptsRes, usersRes] = await Promise.all([
+                // Fetch categories, departments, users, and work-permits master data (for equipment list) in parallel
+                const [deptsRes, usersRes, masterDataRes] = await Promise.all([
                     departmentService.getDepartments({ page: 1, limit: 100, options: true }),
                     userService.getUsers({ page: 1, limit: 100, options: true }),
+                    api.get<{ heavyEquipment?: Array<{ id: string; name: string; code: string }> }>('/work-permits/master-data?options=true').catch(() => ({ data: { heavyEquipment: [] } })),
                 ]);
 
                 // Ensure categories are loaded (hook will auto-fetch, but we can also call it explicitly)
@@ -207,6 +236,7 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                         name: u.name,
                     })),
                 );
+                setHeavyEquipment(masterDataRes.data?.heavyEquipment ?? []);
                 setDataReady(true);
             } catch (error) {
                 console.error('Failed to fetch options:', error);
@@ -653,38 +683,42 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                         )}
 
                         {isEquipmentCertificate && (
-                            <>
-                                <FormField
-                                    control={form.control}
-                                    name="equipmentId"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Equipment ID</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Enter equipment ID" {...field} />
-                                            </FormControl>
-                                            <FormDescription>
-                                                Equipment ID from master data (optional)
-                                            </FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="equipmentName"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Equipment Name *</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Enter equipment name" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </>
+                            <FormField
+                                control={form.control}
+                                name="equipmentName"
+                                render={() => (
+                                    <FormItem>
+                                        <FormLabel>Equipment *</FormLabel>
+                                        <FormControl>
+                                            <SearchableSelect
+                                                options={equipmentOptions}
+                                                value={equipmentSelectValue}
+                                                onValueChange={(value) => {
+                                                    if (value.startsWith('free:')) {
+                                                        form.setValue('equipmentId', '');
+                                                        form.setValue('equipmentName', value.slice(5));
+                                                    } else {
+                                                        const option = equipmentOptions.find((o) => o.value === value);
+                                                        form.setValue('equipmentId', value);
+                                                        form.setValue('equipmentName', option?.label ?? '');
+                                                    }
+                                                    setEquipmentSearchQuery('');
+                                                }}
+                                                placeholder="Select equipment or add by name"
+                                                searchPlaceholder="Search equipment..."
+                                                emptyText="No equipment found"
+                                                onSearch={setEquipmentSearchQuery}
+                                                onCreateNew={(searchQuery) => `free:${searchQuery}`}
+                                                createNewText="Use this name (not in list)"
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Select from list or use the name option when not found
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                         )}
                     </CardContent>
                 </Card>
