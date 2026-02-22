@@ -8,6 +8,7 @@ export const APPROVAL_ENTITIES = {
   INCIDENT: 'INCIDENT',
   COURSE: 'COURSE',
   CHAPTER: 'CHAPTER',
+  PPE_WITHDRAWAL: 'PPE_WITHDRAWAL',
 } as const;
 
 export type ApprovalEntity = (typeof APPROVAL_ENTITIES)[keyof typeof APPROVAL_ENTITIES];

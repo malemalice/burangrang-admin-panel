@@ -18,19 +18,13 @@ export const defaultSettings = [
   { key: 'pagination.default_limit', value: '10' },
   { key: 'pagination.max_limit', value: '100' },
 
-  // Mail Settings (moved from env to DB)
-// Mailer Configuration
-// MAIL_PROVIDER=gmail # smtp | gmail | mailgun
-// Generic settings used for all providers; provider sets smart defaults
-// For gmail defaults: host=smtp.gmail.com, port=465, secure=true
-// For mailgun defaults: host=smtp.mailgun.org, port=587, secure=false
-
-  { key: 'mail.provider', value: 'smtp' }, // smtp | gmail | mailgun
-  { key: 'mail.host', value: 'localhost' },
-  { key: 'mail.port', value: '1025' },
+  // Mail Settings (Mailtrap sandbox)
+  { key: 'mail.provider', value: 'smtp' },
+  { key: 'mail.host', value: 'sandbox.smtp.mailtrap.io' },
+  { key: 'mail.port', value: '2525' },
   { key: 'mail.secure', value: 'false' },
-  { key: 'mail.user', value: '' },
-  { key: 'mail.password', value: '' },
+  { key: 'mail.user', value: '8e821863ade893' },
+  { key: 'mail.password', value: '75223abde492c2' },
   { key: 'mail.from', value: 'Burangrang Admin <no-reply@burangrang.local>' },
 ];
 

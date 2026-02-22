@@ -116,15 +116,15 @@ export interface WorkPermitEmployee {
 
 export interface WorkPermitWorker {
   id: string;
-  guestId: string;
+  userId: string;
   idNumber?: string;
   certificateUrl?: string;
   healthDeclarationUrl: string;
-  guest?: {
+  user?: {
     id: string;
-    name: string;
-    email?: string;
-    phone?: string;
+    firstName: string;
+    lastName: string;
+    email: string;
   };
   order: number;
 }
@@ -322,7 +322,7 @@ export interface CreateWorkPermitDTO {
     order: number;
   }>;
   workers: Array<{
-    guestId: string;
+    userId: string;
     idNumber?: string;
     certificateUrl?: string;
     healthDeclarationUrl: string;
@@ -441,7 +441,7 @@ export const mapWorkPermitToUpdateDto = (workPermit: Partial<WorkPermit>): Updat
     order: e.order,
   })),
   workers: workPermit.workers?.map((w) => ({
-    guestId: w.guestId,
+    userId: w.userId,
     idNumber: w.idNumber,
     certificateUrl: w.certificateUrl,
     healthDeclarationUrl: w.healthDeclarationUrl,

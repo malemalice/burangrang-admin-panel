@@ -83,6 +83,10 @@ export class PPEWithdrawalDto {
     @Expose()
     createdBy: string;
 
+    @ApiProperty({ required: false, nullable: true })
+    @Expose()
+    createdByName: string | null;
+
     @ApiProperty({ required: false, type: [PPEWithdrawalItemDto] })
     @Expose()
     items?: PPEWithdrawalItemDto[];

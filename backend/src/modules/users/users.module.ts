@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { SharedModule } from '../../shared/shared.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
-  imports: [SharedModule],
+  imports: [SharedModule, MailModule],
   controllers: [UsersController],
   providers: [UsersService],
   exports: [UsersService],

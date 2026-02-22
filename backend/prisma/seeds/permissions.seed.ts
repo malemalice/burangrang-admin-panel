@@ -127,6 +127,9 @@ export const permissions = [
   { name: 'quiz:delete', description: 'Delete quizzes' },
   { name: 'quiz:list', description: 'List all quizzes' },
   { name: 'quiz:publish', description: 'Publish/unpublish quizzes' },
+  { name: 'quiz:grade', description: 'Grade essay questions in quizzes' },
+  { name: 'quiz:adjust-score', description: 'Manually adjust quiz attempt scores' },
+  { name: 'quiz:view-attempts', description: 'View all quiz attempts for grading' },
 
   // Incident Management
   { name: 'incident:create', description: 'Create new incidents' },
@@ -344,6 +347,10 @@ export const permissions = [
   { name: 'mail-template:update', description: 'Update mail template information' },
   { name: 'mail-template:delete', description: 'Delete mail templates' },
   { name: 'mail-template:list', description: 'List all mail templates' },
+
+  // Access Log Management
+  { name: 'access-log:list', description: 'View access logs' },
+  { name: 'access-log:read', description: 'View single access log' },
 ];
 
 export async function seedPermissions(prisma: PrismaClient) {

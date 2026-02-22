@@ -25,8 +25,9 @@ import { UpdateQuizDto } from './dto/update-quiz.dto';
 import { FindQuizzesOptions } from './dto/find-quizzes.dto';
 import { QuizDto } from './dto/quiz.dto';
 import { QuizAttemptDto, CreateQuizAttemptDto } from './dto/quiz-attempt.dto';
-import { QuizAnswerDto, SubmitAnswerDto, GradeAnswerDto } from './dto/quiz-answer.dto';
+import { QuizAnswerDto, SubmitAnswerDto, GradeAnswerDto, GradeEssayByQuestionDto } from './dto/quiz-answer.dto';
 import { AssignQuizDto } from './dto/assign-quiz.dto';
+import { AdjustAttemptScoreDto } from './dto/adjust-attempt-score.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
@@ -374,6 +375,28 @@ export class QuizzesController {
     return this.quizzesService.submitAttempt(attemptId, req.user.id);
   }
 
+  @Patch('attempts/:attemptId/grade-essay')
+  @ApiOperation({ summary: 'Grade essay question by attempt and question (creates answer if missing)' })
+  @ApiParam({ name: 'attemptId', type: String, description: 'Quiz Attempt ID' })
+  @ApiBody({ type: GradeEssayByQuestionDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Answer graded successfully',
+    type: QuizAnswerDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid input or question is not an essay question' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Attempt or question not found' })
+  @Permissions('quiz:grade')
+  async gradeEssayByQuestion(
+    @Param('attemptId') attemptId: string,
+    @Body() gradeDto: GradeEssayByQuestionDto,
+    @Req() req: RequestWithUser,
+  ): Promise<QuizAnswerDto> {
+    return this.quizzesService.gradeEssayByQuestion(attemptId, gradeDto, req.user.id);
+  }
+
   @Patch('answers/:answerId/grade')
   @ApiOperation({ summary: 'Grade essay answer manually' })
   @ApiParam({ name: 'answerId', type: String, description: 'Quiz Answer ID' })
@@ -395,5 +418,89 @@ export class QuizzesController {
     @Req() req: RequestWithUser,
   ): Promise<QuizAnswerDto> {
     return this.quizzesService.gradeEssay(answerId, gradeAnswerDto, req.user.id);
+  }
+
+  @Get('by-enrollment/:enrollmentId/attempts')
+  @ApiOperation({ summary: 'Get all quiz attempts for an enrollment' })
+  @ApiParam({ name: 'enrollmentId', type: String, description: 'Enrollment ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Quiz attempts for the enrollment',
+    schema: { type: 'array' },
+  })
+  @Permissions('quiz:view-attempts')
+  async getAttemptsByEnrollment(@Param('enrollmentId') enrollmentId: string) {
+    return this.quizzesService.getAttemptsByEnrollment(enrollmentId);
+  }
+
+  @Get('attempts/:attemptId')
+  @ApiOperation({ summary: 'Get attempt by ID with full details (for grading)' })
+  @ApiParam({ name: 'attemptId', type: String, description: 'Quiz Attempt ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Attempt retrieved successfully',
+    type: QuizAttemptDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Attempt not found' })
+  @Permissions('quiz:view-attempts')
+  async getAttemptById(@Param('attemptId') attemptId: string) {
+    return this.quizzesService.getAttemptById(attemptId);
+  }
+
+  @Get(':id/attempts/:attemptId')
+  @ApiOperation({ summary: 'Get attempt by ID (by quiz and attempt id, for grading page URL)' })
+  @ApiParam({ name: 'id', type: String, description: 'Quiz ID (optional for URL shape)' })
+  @ApiParam({ name: 'attemptId', type: String, description: 'Quiz Attempt ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Attempt retrieved successfully',
+    type: QuizAttemptDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Attempt not found' })
+  @Permissions('quiz:view-attempts')
+  async getAttemptByIdWithQuiz(@Param('attemptId') attemptId: string) {
+    return this.quizzesService.getAttemptById(attemptId);
+  }
+
+  @Get(':id/attempts')
+  @ApiOperation({ summary: 'Get all attempts for a quiz (for grading)' })
+  @ApiParam({ name: 'id', type: String, description: 'Quiz ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Quiz attempts retrieved successfully',
+    schema: { type: 'array', items: { $ref: '#/components/schemas/QuizAttemptDto' } },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Quiz not found' })
+  @Permissions('quiz:view-attempts')
+  async getQuizAttempts(@Param('id') id: string) {
+    return this.quizzesService.getQuizAttempts(id);
+  }
+
+  @Patch('attempts/:attemptId/adjust-score')
+  @ApiOperation({ summary: 'Manually adjust quiz attempt final score' })
+  @ApiParam({ name: 'attemptId', type: String, description: 'Quiz Attempt ID' })
+  @ApiBody({ type: AdjustAttemptScoreDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Score adjusted successfully',
+    type: QuizAttemptDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid input or attempt not completed' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Attempt not found' })
+  @Permissions('quiz:adjust-score')
+  async adjustAttemptScore(
+    @Param('attemptId') attemptId: string,
+    @Body() adjustScoreDto: AdjustAttemptScoreDto,
+    @Req() req: RequestWithUser,
+  ): Promise<QuizAttemptDto> {
+    return this.quizzesService.adjustAttemptScore(attemptId, adjustScoreDto, req.user.id);
   }
 }

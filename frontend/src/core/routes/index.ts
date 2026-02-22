@@ -2,6 +2,7 @@ import { RouteConfig } from './types';
 import coreRoutes from './modules/coreRoutes';
 import moduleRoutes from './modules/moduleRoutes';
 import { settingsRoutes } from '@/modules/settings';
+import { accessLogRoutes } from '@/modules/access-logs';
 import { userRoutes } from '@/modules/users';
 import { roleRoutes } from '@/modules/roles';
 import { masterDataRoutes } from '@/modules/master-data';
@@ -36,6 +37,7 @@ const routes: RouteConfig[] = [
   ...menuRoutes,
   ...masterDataRoutes,
   ...settingsRoutes,
+  ...accessLogRoutes,
   ...notificationRoutes,
   ...ppeRoutes,
   ...courseRoutes,

@@ -20,6 +20,7 @@ Project BurangrangAdminPanel {
   - Waste Management System
   - Man Hour Management System
   - Reminder System
+  - Access Log (endpoint activity logging)
   '''
 }
 
@@ -1338,6 +1339,27 @@ Table t_file_access_logs {
   }
 }
 
+Table t_access_logs {
+  id varchar [pk, default: `uuid()`]
+  userId varchar [null, ref: > t_users.id, note: 'Nullable for public endpoints']
+  method varchar [not null, note: 'HTTP method: GET, POST, PUT, PATCH, DELETE']
+  endpoint varchar [not null, note: 'Full endpoint path']
+  statusCode integer [null, note: 'HTTP status code captured after response']
+  payload jsonb [null, note: 'Request body and query parameters']
+  ipAddress varchar [null]
+  userAgent varchar [null]
+  executionTime integer [null, note: 'Request execution time in milliseconds']
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Logs all endpoint access activities from frontend'
+  indexes {
+    userId
+    endpoint
+    method
+    createdAt
+  }
+}
+
 //// -- SYSTEM CONFIGURATION --
 
 Table m_email_templates {
@@ -1837,7 +1859,6 @@ Table t_certificates {
   certificateNumber varchar [not null]
   certificateName varchar [not null]
   categoryId varchar [not null, ref: > m_certificate_categories.id]
-  certificateType CertificateTypeEnum [not null]
   issuedDate timestamp [not null]
   validityDate timestamp [not null]
   issuerName varchar [not null]
@@ -2773,6 +2794,7 @@ TableGroup system_configuration {
   m_email_templates
   m_settings
   t_zoho_webhook_logs
+  t_access_logs
 }
 
 TableGroup ppe_management {

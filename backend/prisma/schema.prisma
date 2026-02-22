@@ -50,6 +50,7 @@ model User {
   notificationRecipients       NotificationRecipient[]    @relation("NotificationRecipient")
   uploadedFiles                FileUpload[]
   fileAccessLogs               FileAccessLog[]
+  accessLogs                   AccessLog[]                @relation("AccessLogUser")
   ppeStocksCreated             PPEStock[]                 @relation("PPEStockCreator")
   ppeStockAdjustments          PPEStockAdjustment[]       @relation("PPEStockAdjuster")
   ppeExpiryAlerts              PPEExpiryAlert[]           @relation("PPEExpiryAlertRecipient")
@@ -74,6 +75,7 @@ model User {
   workPermitsCreated           WorkPermit[]               @relation("WorkPermitCreator")
   workPermitEmployees          WorkPermitEmployee[]       @relation("WorkPermitEmployee")
   workPermitHseOfficers        WorkPermitToUser[]         @relation("WorkPermitHseOfficer")
+  workPermitWorkers           WorkPermitWorker[]         @relation("WorkPermitWorker")
   environmentalMeasurements    EnvironmentalMeasurement[] @relation("EnvironmentalMeasurementCreator")
   inspectionsCreated           Inspection[]               @relation("InspectionCreator")
   inspectionItemsAssigned      InspectionItem[]           @relation("InspectionItemAssignee")
@@ -635,6 +637,30 @@ model FileAccessLog {
   @@map("t_file_access_logs")
 }
 
+// Access Log - Transactional Data
+// Logs all endpoint access activities from frontend
+model AccessLog {
+  id            String   @id @default(uuid())
+  userId        String?  // Nullable for public endpoints
+  method        String   // HTTP method: GET, POST, PUT, PATCH, DELETE
+  endpoint      String   // Full endpoint path
+  statusCode    Int?     // HTTP status code (captured after response)
+  payload       Json?    // Request body and query parameters
+  ipAddress     String?
+  userAgent     String?
+  executionTime Int?     // Request execution time in milliseconds
+  createdAt     DateTime @default(now())
+
+  // Relations
+  user User? @relation("AccessLogUser", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([endpoint])
+  @@index([method])
+  @@index([createdAt])
+  @@map("t_access_logs")
+}
+
 // Reminder System Enums
 enum ReminderStatusEnum {
   PENDING
@@ -721,9 +747,11 @@ model ReminderLog {
 
 enum PPEWithdrawalStatusEnum {
   PENDING
+  WAITING_APPROVAL
   APPROVED
   COLLECTED
   CANCELLED
+  REJECTED
 }
 
 enum PPEStockStatusEnum {
@@ -832,7 +860,7 @@ model PPEWithdrawal {
   jobPositionId       String?
   jobPosition         JobPosition?            @relation(fields: [jobPositionId], references: [id])
   jobPositionName     String?
-  status              PPEWithdrawalStatusEnum @default(PENDING)
+  status              PPEWithdrawalStatusEnum @default(WAITING_APPROVAL)
   withdrawalLetterUrl String?
   collectedDate       DateTime?
   collectedBy         String?
@@ -1256,7 +1284,6 @@ model Certificate {
   certificateNumber String
   certificateName   String
   categoryId        String
-  certificateType   CertificateTypeEnum
   issuedDate        DateTime
   validityDate      DateTime
   issuerName        String
@@ -1620,7 +1647,6 @@ model Guest {
   isActive              Boolean                       @default(true)
   createdAt             DateTime                      @default(now())
   updatedAt             DateTime                      @updatedAt
-  workPermitWorkers     WorkPermitWorker[]
   workPermitSupervisors WorkPermitSupervisorToGuest[]
 
   @@map("t_guests")
@@ -1760,7 +1786,7 @@ model WorkPermitMachine {
 model WorkPermitWorker {
   id                   String   @id @default(uuid())
   workPermitId         String
-  guestId              String
+  userId               String
   idNumber             String?
   certificateUrl       String?
   healthDeclarationUrl String
@@ -1769,7 +1795,7 @@ model WorkPermitWorker {
 
   // Relations
   workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
-  guest      Guest      @relation(fields: [guestId], references: [id])
+  user       User      @relation("WorkPermitWorker", fields: [userId], references: [id])
 
   @@map("t_work_permit_workers")
 }

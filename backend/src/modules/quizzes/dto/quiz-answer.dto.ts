@@ -112,3 +112,24 @@ export class GradeAnswerDto {
   @IsString()
   feedback?: string;
 }
+
+export class GradeEssayByQuestionDto {
+  @ApiProperty({ description: 'Question ID (essay question to grade)' })
+  @IsString()
+  @IsNotEmpty()
+  questionId: string;
+
+  @ApiProperty({ description: 'Points to award', minimum: 0 })
+  @IsNumber()
+  @Min(0)
+  pointsEarned: number;
+
+  @ApiProperty({ description: 'Whether answer is correct' })
+  @IsBoolean()
+  isCorrect: boolean;
+
+  @ApiProperty({ description: 'Feedback for the student', required: false })
+  @IsOptional()
+  @IsString()
+  feedback?: string;
+}

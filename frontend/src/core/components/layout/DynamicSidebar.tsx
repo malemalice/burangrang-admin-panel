@@ -11,9 +11,17 @@ import { useTheme } from '@/core/lib/theme';
 import { themeColors, getContrastTextColor } from '@/core/lib/theme/colors';
 import { useAppName } from '@/modules/settings/hooks/useSettings';
 import { useSidebarMenus } from '@/modules/menus';
-import { Menu, SidebarMenu } from '@/modules/menus/types/menu.types';
+import { SidebarMenu } from '@/modules/menus/types/menu.types';
 import { useIsMobile } from '@/core/hooks/useIsMobile';
 import { Sheet, SheetContent } from '@/core/components/ui/sheet';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/tooltip';
+import { Popover, PopoverAnchor, PopoverContent } from '@/core/components/ui/popover';
+
+export interface SidebarTheme {
+  currentThemeColor: string;
+  textColor: string;
+  isDark: boolean;
+}
 
 interface DynamicSidebarProps {
   isOpen: boolean;
@@ -24,12 +32,14 @@ interface DynamicNavItemProps {
   menu: SidebarMenu;
   isOpen: boolean;
   level?: number;
+  sidebarTheme?: SidebarTheme;
 }
 
 interface DynamicSubMenuProps {
   menu: SidebarMenu;
   isOpen: boolean;
   level?: number;
+  sidebarTheme?: SidebarTheme;
 }
 
 // Common styles for both NavItem and SubMenu
@@ -45,6 +55,16 @@ const getNavStyles = (isDark: boolean, isActive = false, textColor?: string) => 
     : `hover:bg-white/10`;
 };
 
+// Identical sizing for all collapsed items (leaf and parent) so spacing is consistent
+// min-h-0 so native button min-height does not override grid row height
+const COLLAPSED_ITEM_CLASS =
+  "flex items-center justify-center w-full h-full min-h-0 text-sm py-2 px-2 rounded-md transition-all";
+
+// Wrapper for collapsed items so they stay inside grid cell and center content
+const COLLAPSED_WRAPPER_CLASS = "h-full flex items-center justify-center min-h-0";
+// Inner wrapper so parent (button) vs leaf (span/NavLink) have identical hit area and spacing
+const COLLAPSED_INNER_CLASS = "h-full w-full flex items-center justify-center min-h-0 min-w-0";
+
 const DynamicNavItem = ({ menu, isOpen, level = 0 }: DynamicNavItemProps) => {
   const { isDark } = useTheme();
   
@@ -53,17 +73,21 @@ const DynamicNavItem = ({ menu, isOpen, level = 0 }: DynamicNavItemProps) => {
     ? 'hsl(240 4.8% 95.9%)' // Light text for dark sidebar
     : '#ffffff'; // White text for light sidebar with theme colors
 
+  const expandedItemClass = (isActive = false) => cn(
+    "flex items-center text-sm py-2 px-4 rounded-md transition-all",
+    getNavStyles(isDark, isActive),
+    level > 0 && "ml-4"
+  );
+
   // Parent menus with no path (e.g. "Waste Management" when user has no child access)
   // must not be rendered as NavLink to="#" — that can match current route and stay highlighted.
   const hasValidPath = menu.path && menu.path !== '#';
   if (!hasValidPath) {
-    return (
+    const spanEl = (
       <span
         className={cn(
-          "flex items-center text-sm py-2 px-4 rounded-md transition-all cursor-default",
-          getNavStyles(isDark, false),
-          !isOpen && "justify-center px-2",
-          level > 0 && "ml-4"
+          isOpen ? expandedItemClass(false) : cn(COLLAPSED_ITEM_CLASS, getNavStyles(isDark, false)),
+          "cursor-default"
         )}
         style={{ color: textColor }}
       >
@@ -71,30 +95,57 @@ const DynamicNavItem = ({ menu, isOpen, level = 0 }: DynamicNavItemProps) => {
         {isOpen && <span className={cn(menu.icon && "ml-3")}>{menu.name}</span>}
       </span>
     );
+    if (!isOpen) {
+      return (
+        <div className={COLLAPSED_WRAPPER_CLASS}>
+          <div className={COLLAPSED_INNER_CLASS}>
+            <Tooltip>
+              <TooltipTrigger asChild>{spanEl}</TooltipTrigger>
+              <TooltipContent side="right">{menu.name}</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+      );
+    }
+    return spanEl;
   }
 
-  return (
+  const linkEl = (
     <NavLink
       to={menu.path}
       end // Use exact matching to avoid parent routes being highlighted
-      className={({ isActive: linkActive }) => cn(
-        "flex items-center text-sm py-2 px-4 rounded-md transition-all",
-        getNavStyles(isDark, linkActive),
-        !isOpen && "justify-center px-2",
-        level > 0 && "ml-4" // Add indentation for nested items
-      )}
-      style={{
-        color: textColor,
-      }}
+      className={({ isActive: linkActive }) =>
+        isOpen
+          ? expandedItemClass(linkActive)
+          : cn(COLLAPSED_ITEM_CLASS, getNavStyles(isDark, linkActive))
+      }
+      style={{ color: textColor }}
     >
       {menu.icon && <Icon name={menu.icon} size={20} className={cn(!isOpen && "mx-auto")} />}
       {isOpen && <span className={cn(menu.icon && "ml-3")}>{menu.name}</span>}
     </NavLink>
   );
+  if (!isOpen) {
+    return (
+      <div className={COLLAPSED_WRAPPER_CLASS}>
+        <div className={COLLAPSED_INNER_CLASS}>
+          <Tooltip>
+            <TooltipTrigger asChild>{linkEl}</TooltipTrigger>
+            <TooltipContent side="right">{menu.name}</TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
+    );
+  }
+  return linkEl;
 };
 
-const DynamicSubMenu = ({ menu, isOpen, level = 0 }: DynamicSubMenuProps) => {
+const FLYOUT_CLOSE_DELAY_MS = 150;
+
+const DynamicSubMenu = ({ menu, isOpen, level = 0, sidebarTheme }: DynamicSubMenuProps) => {
   const [expanded, setExpanded] = useState(false);
+  const [flyoutOpen, setFlyoutOpen] = useState(false);
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { isDark } = useTheme();
   const location = useLocation();
   
@@ -115,33 +166,101 @@ const DynamicSubMenu = ({ menu, isOpen, level = 0 }: DynamicSubMenuProps) => {
     }
   }, [hasActiveChild]);
 
+  const clearCloseTimeout = useCallback(() => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleClose = useCallback(() => {
+    clearCloseTimeout();
+    closeTimeoutRef.current = setTimeout(() => setFlyoutOpen(false), FLYOUT_CLOSE_DELAY_MS);
+  }, [clearCloseTimeout]);
+
+  useEffect(() => {
+    return () => clearCloseTimeout();
+  }, [clearCloseTimeout]);
+
   const handleToggle = () => {
     setExpanded(!expanded);
   };
 
+  const triggerButton = (
+    <button
+      onClick={isOpen ? handleToggle : undefined}
+      onMouseEnter={!isOpen ? () => { clearCloseTimeout(); setFlyoutOpen(true); } : undefined}
+      onMouseLeave={!isOpen ? scheduleClose : undefined}
+      className={cn(
+        isOpen
+          ? "flex items-center w-full text-sm py-3 px-4 rounded-md transition-all"
+          : COLLAPSED_ITEM_CLASS,
+        getNavStyles(isDark),
+        level > 0 && "ml-4" // Add indentation for nested items
+      )}
+      style={{ color: textColor }}
+    >
+      {menu.icon && <Icon name={menu.icon} size={20} className={cn(!isOpen && "mx-auto")} />}
+      {isOpen && (
+        <>
+          <span className="ml-3 flex-1 text-left">{menu.name}</span>
+          {expanded ? <Icon name="ChevronDown" size={16} /> : <Icon name="ChevronRight" size={16} />}
+        </>
+      )}
+    </button>
+  );
+
+  // Collapsed: show tooltip + hover flyout with children
+  if (!isOpen) {
+    const theme = sidebarTheme ?? { currentThemeColor: isDark ? 'hsl(240 5.9% 10%)' : '#6366f1', textColor, isDark };
+    return (
+      <div className={COLLAPSED_WRAPPER_CLASS}>
+        <div className={COLLAPSED_INNER_CLASS}>
+          <Popover open={flyoutOpen} onOpenChange={setFlyoutOpen}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PopoverAnchor asChild>{triggerButton}</PopoverAnchor>
+              </TooltipTrigger>
+              <TooltipContent side="right">{menu.name}</TooltipContent>
+            </Tooltip>
+            <PopoverContent
+            side="right"
+            align="start"
+            sideOffset={4}
+            className="min-w-[200px] p-2 border shadow-md"
+            style={{
+              backgroundColor: theme.currentThemeColor,
+              color: theme.textColor,
+              borderColor: theme.currentThemeColor + '30',
+            }}
+            onMouseEnter={() => { clearCloseTimeout(); setFlyoutOpen(true); }}
+            onMouseLeave={scheduleClose}
+            role="menu"
+            aria-label={menu.name}
+          >
+            <div className="space-y-1">
+              {menu.children?.map((child) => (
+                <DynamicMenuItem
+                  key={child.id}
+                  menu={child}
+                  isOpen={true}
+                  level={0}
+                  sidebarTheme={theme}
+                />
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+        </div>
+      </div>
+    );
+  }
+
+  // Expanded: inline toggle + children
   return (
     <div>
-      <button
-        onClick={handleToggle}
-        className={cn(
-          "flex items-center w-full text-sm py-3 px-4 rounded-md transition-all",
-          getNavStyles(isDark),
-          !isOpen && "justify-center px-2",
-          level > 0 && "ml-4" // Add indentation for nested items
-        )}
-        style={{
-          color: textColor,
-        }}
-      >
-        {menu.icon && <Icon name={menu.icon} size={20} className={cn(!isOpen && "mx-auto")} />}
-        {isOpen && (
-          <>
-            <span className="ml-3 flex-1 text-left">{menu.name}</span>
-            {expanded ? <Icon name="ChevronDown" size={16} /> : <Icon name="ChevronRight" size={16} />}
-          </>
-        )}
-      </button>
-      {isOpen && expanded && (
+      {triggerButton}
+      {expanded && (
         <div className={cn("mt-1 space-y-1", level > 0 ? "pl-4" : "pl-10")}>
           {menu.children?.map((child) => (
             <DynamicMenuItem 
@@ -149,6 +268,7 @@ const DynamicSubMenu = ({ menu, isOpen, level = 0 }: DynamicSubMenuProps) => {
               menu={child} 
               isOpen={isOpen} 
               level={level + 1}
+              sidebarTheme={sidebarTheme}
             />
           ))}
         </div>
@@ -157,7 +277,7 @@ const DynamicSubMenu = ({ menu, isOpen, level = 0 }: DynamicSubMenuProps) => {
   );
 };
 
-const DynamicMenuItem = ({ menu, isOpen, level = 0 }: DynamicNavItemProps) => {
+const DynamicMenuItem = ({ menu, isOpen, level = 0, sidebarTheme }: DynamicNavItemProps) => {
   // If menu has children, render as submenu
   if (menu.children && menu.children.length > 0) {
     return (
@@ -165,6 +285,7 @@ const DynamicMenuItem = ({ menu, isOpen, level = 0 }: DynamicNavItemProps) => {
         menu={menu} 
         isOpen={isOpen} 
         level={level}
+        sidebarTheme={sidebarTheme}
       />
     );
   }
@@ -175,6 +296,7 @@ const DynamicMenuItem = ({ menu, isOpen, level = 0 }: DynamicNavItemProps) => {
       menu={menu} 
       isOpen={isOpen} 
       level={level}
+      sidebarTheme={sidebarTheme}
     />
   );
 };
@@ -293,7 +415,10 @@ const SidebarContent = ({
         )}
         <div
           ref={scrollRef}
-          className="py-4 px-2 space-y-1 flex-1 overflow-y-auto overflow-x-hidden scrollbar-hidden"
+          className={cn(
+            "py-4 px-2 flex-1 overflow-y-auto overflow-x-hidden scrollbar-hidden",
+            isOpen ? "flex flex-col gap-1" : "grid grid-cols-1 grid-auto-rows-[2.5rem] gap-1"
+          )}
           onScroll={updateScrollState}
         >
           {sidebarMenus.map((menu) => (
@@ -302,6 +427,7 @@ const SidebarContent = ({
               menu={menu} 
               isOpen={isOpen} 
               level={0}
+              sidebarTheme={isOpen ? undefined : { currentThemeColor, textColor, isDark }}
             />
           ))}
         </div>

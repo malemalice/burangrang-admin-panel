@@ -1,6 +1,14 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { CreateGuestWorkerDto } from './dto/create-guest-worker.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserDto } from './dto/user.dto';
 import { FindUsersOptions } from './dto/find-users.dto';
@@ -8,12 +16,15 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ActivityLoggerService } from '../../shared/services/activity-logger.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
   private userMapper: (user: any) => UserDto;
   private userArrayMapper: (users: any[]) => UserDto[];
   private userPaginatedMapper: (data: { data: any[]; meta: any }) => { data: UserDto[]; meta: any };
@@ -23,6 +34,8 @@ export class UsersService {
     private errorHandler: ErrorHandlingService,
     private dtoMapper: DtoMapperService,
     private activityLogger: ActivityLoggerService,
+    private mailService: MailService,
+    private config: ConfigService,
   ) {
     // Initialize mappers with password exclusion
     this.userMapper = this.dtoMapper.createMapper(UserDto, {
@@ -64,9 +77,85 @@ export class UsersService {
         email: user.email,
       }, createdBy);
 
+      // Send "user created" email (fire-and-forget; do not fail create if email fails)
+      const loginUrl =
+        (this.config.get<string>('app.frontendUrl') || 'http://localhost:5173') +
+        '/login';
+      const name =
+        `${user.firstName} ${user.lastName}`.trim() || user.email;
+      try {
+        await this.mailService.sendUserCreatedEmail({
+          email: user.email,
+          name,
+          loginUrl,
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Failed to send user-created email to ${user.email}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
       return this.userMapper(user);
     } catch (error: any) {
       // Handle Prisma unique constraint error for email
+      if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
+        throw new ConflictException('User with this email already exists');
+      }
+      throw error;
+    }
+  }
+
+  async createGuestWorker(
+    dto: CreateGuestWorkerDto,
+    createdBy: string,
+  ): Promise<UserDto> {
+    const guestRole = await this.prisma.role.findFirst({
+      where: { code: 'GUEST' },
+    });
+    if (!guestRole) {
+      throw new BadRequestException('Guest role not found');
+    }
+    const defaultOffice = await this.prisma.office.findFirst({
+      where: { isActive: true },
+    });
+    if (!defaultOffice) {
+      throw new BadRequestException('No active office found');
+    }
+    const randomPassword = crypto.randomBytes(16).toString('base64');
+    const hashedPassword = await this.errorHandler.safeHashPassword(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      () => bcrypt.hash(randomPassword, 10),
+    );
+
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          email: dto.email,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          password: hashedPassword,
+          roleId: guestRole.id,
+          officeId: defaultOffice.id,
+          isActive: true,
+        },
+        include: {
+          role: true,
+          office: true,
+          department: true,
+          jobPosition: true,
+        },
+      });
+
+      await this.activityLogger.logUserActivity('create', {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+      }, createdBy);
+
+      // Skip welcome email for guest workers (random password not shared; user can use Forgot password)
+      return this.userMapper(user);
+    } catch (error: any) {
       if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
         throw new ConflictException('User with this email already exists');
       }

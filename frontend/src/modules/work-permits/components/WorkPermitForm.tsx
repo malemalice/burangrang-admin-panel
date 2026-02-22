@@ -31,6 +31,8 @@ import uploadService from '@/modules/uploads/services/uploadService';
 import { Loader2, Upload, X as XIcon } from 'lucide-react';
 import workPermitService from '../services/workPermitService';
 import { userService, type User } from '@/modules/users';
+import { roleService } from '@/modules/roles';
+import AddWorkerModal from './AddWorkerModal';
 import { courseService, type Course } from '@/modules/courses';
 import { safetyEquipmentService, type SafetyEquipment } from '@/modules/ppe';
 
@@ -66,7 +68,7 @@ const formSchema = z.object({
   workers: z
     .array(
       z.object({
-        guestId: z.string().min(1, 'Worker is required'),
+        userId: z.string().min(1, 'Worker is required'),
         idNumber: z.string().optional(),
         certificateUrl: z.string().optional(),
         healthDeclarationUrl: z.string().min(1, 'Health declaration is required'),
@@ -169,6 +171,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [companies, setCompanies] = useState<MasterDataOption[]>([]);
   const [workClassifications, setWorkClassifications] = useState<MasterDataOption[]>([]);
   const [guests, setGuests] = useState<GuestOption[]>([]);
+  const [workerUsers, setWorkerUsers] = useState<User[]>([]);
 
   const [users, setUsers] = useState<User[]>([]);
   const [heavyEquipment, setHeavyEquipment] = useState<MasterDataOption[]>([]);
@@ -182,11 +185,23 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [workPermitDocumentsCategoryId, setWorkPermitDocumentsCategoryId] = useState<string | null>(null);
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
   const [uploadedFileNames, setUploadedFileNames] = useState<Record<string, string>>({});
+  const [addWorkerModalOpen, setAddWorkerModalOpen] = useState(false);
+  const [addWorkerForIndex, setAddWorkerForIndex] = useState<number | null>(null);
+  const [addWorkerInitialName, setAddWorkerInitialName] = useState('');
+  const [workerSearchQueries, setWorkerSearchQueries] = useState<Record<number, string>>({});
 
   // Memoized options for SearchableSelect
   const areaOptions = useMemo(() => areas.map((a) => ({ value: a.id, label: a.name })), [areas]);
   const companyOptions = useMemo(() => companies.map((c) => ({ value: c.id, label: c.name })), [companies]);
   const guestOptions = useMemo(() => guests.map((g) => ({ value: g.id, label: g.name })), [guests]);
+  const workerOptions = useMemo(
+    () =>
+      workerUsers.map((u) => ({
+        value: u.id,
+        label: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || (u.email ?? u.id),
+      })),
+    [workerUsers],
+  );
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -205,7 +220,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       employees: [],
       workers: [
         {
-          guestId: '',
+          userId: '',
           idNumber: '',
           certificateUrl: '',
           healthDeclarationUrl: '',
@@ -258,34 +273,46 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         }
 
         // Fetch master data from work permit service and other modules
-        const [masterDataResponse, usersResponse, coursesResponse, safetyEquipmentResponse] = await Promise.all([
-          workPermitService.getMasterData().catch((error) => {
-            console.error('Failed to fetch work permit master data:', error);
-            return {
-              areas: [],
-              companies: [],
-              workClassifications: [],
-              guests: [],
-              heavyEquipment: [],
-              tools: [],
-              materials: [],
-              machines: [],
-              professions: [],
-            };
-          }),
-          userService.getUsers({ page: 1, limit: 100, options: true }).catch((error) => {
-            console.error('Failed to fetch users:', error);
-            return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
-          }),
-          courseService.getCourses({ page: 1, limit: 100, isActive: true }).catch((error) => {
-            console.error('Failed to fetch courses:', error);
-            return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
-          }),
-          safetyEquipmentService.getSafetyEquipments({ page: 1, limit: 100 }).catch((error) => {
-            console.error('Failed to fetch safety equipment:', error);
-            return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
-          }),
-        ]);
+        const [masterDataResponse, usersResponse, workerUsersResponse, coursesResponse, safetyEquipmentResponse] =
+          await Promise.all([
+            workPermitService.getMasterData().catch((error) => {
+              console.error('Failed to fetch work permit master data:', error);
+              return {
+                areas: [],
+                companies: [],
+                workClassifications: [],
+                guests: [],
+                heavyEquipment: [],
+                tools: [],
+                materials: [],
+                machines: [],
+                professions: [],
+              };
+            }),
+            userService.getUsers({ page: 1, limit: 100, options: true }).catch((error) => {
+              console.error('Failed to fetch users:', error);
+              return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
+            }),
+            (async () => {
+              const roles = await roleService.getRoles({ page: 1, limit: 100, options: true }).catch(() => ({ data: [] }));
+              const guestRole = roles.data?.find((r) => r.code === 'GUEST');
+              if (!guestRole?.id) return { data: [] };
+              return userService
+                .getUsers({ page: 1, limit: 500, options: true, filters: { roleId: guestRole.id } })
+                .catch((error) => {
+                  console.error('Failed to fetch worker users (Guest role):', error);
+                  return { data: [], meta: { total: 0, page: 1, limit: 500, pageCount: 0 } };
+                });
+            })(),
+            courseService.getCourses({ page: 1, limit: 100, isActive: true }).catch((error) => {
+              console.error('Failed to fetch courses:', error);
+              return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
+            }),
+            safetyEquipmentService.getSafetyEquipments({ page: 1, limit: 100 }).catch((error) => {
+              console.error('Failed to fetch safety equipment:', error);
+              return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
+            }),
+          ]);
 
         // Set master data from work permit service
         setAreas(masterDataResponse.areas);
@@ -300,6 +327,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
 
         // Set data from other modules
         setUsers(usersResponse.data);
+        setWorkerUsers(workerUsersResponse.data ?? []);
         setCourses(coursesResponse.data);
         setSafetyEquipment(safetyEquipmentResponse.data);
       } catch (error) {
@@ -318,14 +346,14 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     if (workPermit && mode === 'edit') {
       const workersData =
         workPermit.workers?.map((w) => ({
-          guestId: w.guestId,
+          userId: w.userId,
           idNumber: w.idNumber || '',
           certificateUrl: w.certificateUrl || '',
           healthDeclarationUrl: w.healthDeclarationUrl,
           order: w.order,
         })) || [
           {
-            guestId: '',
+            userId: '',
             idNumber: '',
             certificateUrl: '',
             healthDeclarationUrl: '',
@@ -550,7 +578,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               name="projectName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Project Name *</FormLabel>
+                  <FormLabel>Project Name <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
                     <Input placeholder="Enter project name" {...field} />
                   </FormControl>
@@ -564,7 +592,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 name="areaId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Area *</FormLabel>
+                    <FormLabel>Area <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
                       <SearchableSelect
                         options={areaOptions}
@@ -583,7 +611,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 name="companyId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company *</FormLabel>
+                    <FormLabel>Company <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
                       <SearchableSelect
                         options={companyOptions}
@@ -604,7 +632,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 name="proposedStartDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Proposed Start Date *</FormLabel>
+                    <FormLabel>Proposed Start Date <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
                       <DateTimePicker mode="date" {...field} />
                     </FormControl>
@@ -617,7 +645,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 name="proposedEndDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Proposed End Date *</FormLabel>
+                    <FormLabel>Proposed End Date <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
                       <DateTimePicker mode="date" {...field} />
                     </FormControl>
@@ -641,7 +669,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               name="workStagesDescription"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Work Stages Description *</FormLabel>
+                  <FormLabel>Work Stages Description <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
                     <Textarea placeholder="Describe work stages..." rows={4} {...field} />
                   </FormControl>
@@ -654,7 +682,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               name="jobSafetyAnalysis"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Job Safety Analysis *</FormLabel>
+                  <FormLabel>Job Safety Analysis <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
                     <Textarea placeholder="Job safety analysis..." rows={4} {...field} />
                   </FormControl>
@@ -765,7 +793,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               size="sm"
               onClick={() =>
                 appendWorker({
-                  guestId: '',
+                  userId: '',
                   idNumber: '',
                   certificateUrl: '',
                   healthDeclarationUrl: '',
@@ -796,22 +824,54 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   </div>
                   <FormField
                     control={form.control}
-                    name={`workers.${index}.guestId`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Worker *</FormLabel>
-                        <FormControl>
-                          <SearchableSelect
-                            options={guestOptions}
-                            value={field.value}
-                            onValueChange={field.onChange}
-                            placeholder="Select worker"
-                            searchPlaceholder="Search worker..."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    name={`workers.${index}.userId`}
+                    render={({ field }) => {
+                      const searchQ = workerSearchQueries[index] ?? '';
+                      const optionsFiltered =
+                        searchQ.trim() === ''
+                          ? workerOptions
+                          : workerOptions.filter((o) =>
+                              o.label.toLowerCase().includes(searchQ.toLowerCase()),
+                            );
+                      return (
+                        <FormItem>
+                          <div className="flex items-center justify-between gap-2">
+                            <FormLabel>Worker <span className="text-destructive">*</span></FormLabel>
+                            <Button
+                              type="button"
+                              variant="link"
+                              className="h-auto p-0 text-sm"
+                              onClick={() => {
+                                setAddWorkerForIndex(index);
+                                setAddWorkerInitialName('');
+                                setAddWorkerModalOpen(true);
+                              }}
+                            >
+                              Add new worker
+                            </Button>
+                          </div>
+                          <FormControl>
+                            <SearchableSelect
+                              options={optionsFiltered}
+                              value={field.value}
+                              onValueChange={field.onChange}
+                              placeholder="Select worker"
+                              searchPlaceholder="Search worker..."
+                              onSearch={(q) =>
+                                setWorkerSearchQueries((prev) => ({ ...prev, [index]: q }))
+                              }
+                              onCreateNew={(query) => {
+                                setAddWorkerForIndex(index);
+                                setAddWorkerInitialName(query);
+                                setAddWorkerModalOpen(true);
+                              }}
+                              createNewText="Add new worker"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                   <FormField
                     control={form.control}
@@ -916,7 +976,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
 
                       return (
                         <FormItem>
-                          <FormLabel>Health Declaration *</FormLabel>
+                          <FormLabel>Health Declaration <span className="text-destructive">*</span></FormLabel>
                           <FormControl>
                             <div className="space-y-2">
                               {hasFile ? (
@@ -1027,6 +1087,26 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </Button>
         </div>
       </form>
+
+      <AddWorkerModal
+        open={addWorkerModalOpen}
+        onOpenChange={(open) => {
+          setAddWorkerModalOpen(open);
+          if (!open) {
+            setAddWorkerForIndex(null);
+            setAddWorkerInitialName('');
+          }
+        }}
+        initialName={addWorkerInitialName}
+        onSuccess={(user: User) => {
+          setWorkerUsers((prev) => [...prev, user]);
+          if (addWorkerForIndex !== null) {
+            form.setValue(`workers.${addWorkerForIndex}.userId`, user.id);
+          }
+          setAddWorkerForIndex(null);
+          setAddWorkerInitialName('');
+        }}
+      />
     </Form>
   );
 };

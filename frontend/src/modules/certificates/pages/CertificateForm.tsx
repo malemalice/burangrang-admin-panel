@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -35,79 +35,76 @@ import { departmentService } from '@/modules/master-data';
 import { userService } from '@/modules/users';
 import {
     Certificate,
-    CertificateFormData,
     CreateCertificateDTO,
     UpdateCertificateDTO,
-    CertificateType,
+    CertificateCategory,
 } from '../types/certificate.types';
 import { Department } from '@/core/lib/types';
 
-const formSchema = z
-    .object({
-        certificateNumber: z.string().min(1, 'Certificate number is required'),
-        certificateName: z.string().min(1, 'Certificate name is required'),
-        categoryId: z.string().min(1, 'Category is required'),
-        certificateType: z.string().min(1, 'Certificate type is required'),
-        issuedDate: z.string().min(1, 'Issued date is required'),
-        validityDate: z.string().min(1, 'Validity date is required'),
-        issuerName: z.string().min(1, 'Issuer name is required'),
-        documentUrl: z.string().optional(),
-        personnelId: z.string().optional(),
-        personnelName: z.string().optional(),
-        equipmentId: z.string().optional(),
-        equipmentName: z.string().optional(),
-        departmentId: z.string().min(1, 'Department is required'),
-        reminderDays: z.number().min(1, 'Reminder days must be at least 1').default(30),
-        notes: z.string().optional(),
-        isActive: z.boolean().default(true),
-    })
-    .refine(
-        (data) => {
-            // For personnel certificates: Either personnelId OR personnelName (not both)
-            if (
-                data.certificateType === 'PERSONNEL_LICENSE' ||
-                data.certificateType === 'PERSONNEL_CERTIFICATE'
-            ) {
-                // Must have one but not both
-                const hasPersonnelId = !!data.personnelId;
-                const hasPersonnelName = !!data.personnelName;
-                return (hasPersonnelId || hasPersonnelName) && !(hasPersonnelId && hasPersonnelName);
-            }
-            // For equipment certificates: equipmentName is required
-            if (
-                data.certificateType === 'EQUIPMENT_CALIBRATION' ||
-                data.certificateType === 'EQUIPMENT_INSTALLATION' ||
-                data.certificateType === 'EQUIPMENT_OPERATIONAL_PERMIT'
-            ) {
-                return !!data.equipmentName;
-            }
-            return true;
-        },
-        {
-            message: 'Either select from list OR enter name manually (not both)',
-            path: ['personnelName'],
-        },
-    )
-    .refine(
-        (data) => {
-            // Validate equipment name is required for equipment certificates
-            const equipmentTypes = [
-                'EQUIPMENT_CALIBRATION',
-                'EQUIPMENT_INSTALLATION',
-                'EQUIPMENT_OPERATIONAL_PERMIT',
-            ];
-            if (equipmentTypes.includes(data.certificateType)) {
-                return !!data.equipmentName;
-            }
-            return true;
-        },
-        {
-            message: 'Equipment Name is required',
-            path: ['equipmentName'],
-        },
-    );
+const getFormSchema = (categories: CertificateCategory[]) =>
+    z
+        .object({
+            certificateNumber: z.string().min(1, 'Certificate number is required'),
+            certificateName: z.string().min(1, 'Certificate name is required'),
+            categoryId: z.string().min(1, 'Category is required'),
+            issuedDate: z.string().min(1, 'Issued date is required'),
+            validityDate: z.string().min(1, 'Validity date is required'),
+            issuerName: z.string().min(1, 'Issuer name is required'),
+            documentUrl: z.string().optional(),
+            personnelId: z.string().optional(),
+            personnelName: z.string().optional(),
+            equipmentId: z.string().optional(),
+            equipmentName: z.string().optional(),
+            departmentId: z.string().min(1, 'Department is required'),
+            reminderDays: z.number().min(1, 'Reminder days must be at least 1').default(30),
+            notes: z.string().optional(),
+            isActive: z.boolean().default(true),
+        })
+        .refine(
+            (data) => {
+                const certificateType = categories.find((c) => c.id === data.categoryId)?.certificateType;
+                if (
+                    certificateType === 'PERSONNEL_LICENSE' ||
+                    certificateType === 'PERSONNEL_CERTIFICATE'
+                ) {
+                    const hasPersonnelId = !!data.personnelId;
+                    const hasPersonnelName = !!data.personnelName;
+                    return (hasPersonnelId || hasPersonnelName) && !(hasPersonnelId && hasPersonnelName);
+                }
+                if (
+                    certificateType === 'EQUIPMENT_CALIBRATION' ||
+                    certificateType === 'EQUIPMENT_INSTALLATION' ||
+                    certificateType === 'EQUIPMENT_OPERATIONAL_PERMIT'
+                ) {
+                    return !!data.equipmentName;
+                }
+                return true;
+            },
+            {
+                message: 'Either select from list OR enter name manually (not both)',
+                path: ['personnelName'],
+            },
+        )
+        .refine(
+            (data) => {
+                const certificateType = categories.find((c) => c.id === data.categoryId)?.certificateType;
+                const equipmentTypes = [
+                    'EQUIPMENT_CALIBRATION',
+                    'EQUIPMENT_INSTALLATION',
+                    'EQUIPMENT_OPERATIONAL_PERMIT',
+                ];
+                if (certificateType && equipmentTypes.includes(certificateType)) {
+                    return !!data.equipmentName;
+                }
+                return true;
+            },
+            {
+                message: 'Equipment Name is required',
+                path: ['equipmentName'],
+            },
+        );
 
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<ReturnType<typeof getFormSchema>>;
 
 interface CertificateFormProps {
     certificate?: Certificate;
@@ -124,6 +121,7 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
     const { createCertificate, updateCertificate } = useCertificates();
     const [departments, setDepartments] = useState<Department[]>([]);
     const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+    const [heavyEquipment, setHeavyEquipment] = useState<Array<{ id: string; name: string; code: string }>>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [dataReady, setDataReady] = useState(false);
     const [uploadingFile, setUploadingFile] = useState(false);
@@ -145,13 +143,7 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
         label: user.name,
     }));
 
-    const certificateTypeOptions: { value: CertificateType; label: string }[] = [
-        { value: 'PERSONNEL_LICENSE', label: 'Personnel License' },
-        { value: 'PERSONNEL_CERTIFICATE', label: 'Personnel Certificate' },
-        { value: 'EQUIPMENT_CALIBRATION', label: 'Equipment Calibration' },
-        { value: 'EQUIPMENT_INSTALLATION', label: 'Equipment Installation' },
-        { value: 'EQUIPMENT_OPERATIONAL_PERMIT', label: 'Equipment Operational Permit' },
-    ];
+    const formSchema = useMemo(() => getFormSchema(categories), [categories]);
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -159,7 +151,6 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
             certificateNumber: '',
             certificateName: '',
             categoryId: '',
-            certificateType: 'PERSONNEL_LICENSE',
             issuedDate: new Date().toISOString().split('T')[0],
             validityDate: '',
             issuerName: '',
@@ -174,6 +165,33 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
             isActive: true,
         },
     });
+
+    const equipmentId = form.watch('equipmentId');
+    const equipmentName = form.watch('equipmentName');
+    const [equipmentSearchQuery, setEquipmentSearchQuery] = useState('');
+
+    const equipmentSelectValue = equipmentId || (equipmentName ? `free:${equipmentName}` : '');
+
+    const equipmentOptions: SearchableSelectOption[] = useMemo(() => {
+        const base: SearchableSelectOption[] = heavyEquipment.map((e) => ({ value: e.id, label: e.name }));
+        if (equipmentName && !equipmentId) {
+            if (!base.some((o) => o.value === `free:${equipmentName}`)) {
+                base.push({ value: `free:${equipmentName}`, label: equipmentName });
+            }
+        }
+        if (equipmentId && equipmentName && !heavyEquipment.some((e) => e.id === equipmentId)) {
+            if (!base.some((o) => o.value === equipmentId)) {
+                base.push({ value: equipmentId, label: equipmentName });
+            }
+        }
+        const q = equipmentSearchQuery.trim().toLowerCase();
+        const filtered = q ? base.filter((o) => o.label.toLowerCase().includes(q)) : base;
+        if (equipmentSelectValue && !filtered.some((o) => o.value === equipmentSelectValue)) {
+            const currentOption = base.find((o) => o.value === equipmentSelectValue);
+            if (currentOption) filtered.push(currentOption);
+        }
+        return filtered;
+    }, [heavyEquipment, equipmentId, equipmentName, equipmentSearchQuery, equipmentSelectValue]);
 
     useEffect(() => {
         const fetchOptions = async () => {
@@ -199,10 +217,11 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                     toast.error('Failed to load file categories');
                 }
 
-                // Fetch categories, departments, and users in parallel
-                const [deptsRes, usersRes] = await Promise.all([
+                // Fetch categories, departments, users, and work-permits master data (for equipment list) in parallel
+                const [deptsRes, usersRes, masterDataRes] = await Promise.all([
                     departmentService.getDepartments({ page: 1, limit: 100, options: true }),
                     userService.getUsers({ page: 1, limit: 100, options: true }),
+                    api.get<{ heavyEquipment?: Array<{ id: string; name: string; code: string }> }>('/work-permits/master-data?options=true').catch(() => ({ data: { heavyEquipment: [] } })),
                 ]);
 
                 // Ensure categories are loaded (hook will auto-fetch, but we can also call it explicitly)
@@ -217,6 +236,7 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                         name: u.name,
                     })),
                 );
+                setHeavyEquipment(masterDataRes.data?.heavyEquipment ?? []);
                 setDataReady(true);
             } catch (error) {
                 console.error('Failed to fetch options:', error);
@@ -237,7 +257,6 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                 certificateNumber: certificateData.certificateNumber,
                 certificateName: certificateData.certificateName,
                 categoryId: certificateData.categoryId,
-                certificateType: certificateData.certificateType,
                 issuedDate: certificateData.issuedDate.split('T')[0],
                 validityDate: certificateData.validityDate.split('T')[0],
                 issuerName: certificateData.issuerName,
@@ -336,7 +355,6 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                 certificateNumber: values.certificateNumber,
                 certificateName: values.certificateName,
                 categoryId: values.categoryId,
-                certificateType: values.certificateType as CertificateType,
                 issuedDate: values.issuedDate,
                 validityDate: values.validityDate,
                 issuerName: values.issuerName,
@@ -368,7 +386,9 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
         }
     };
 
-    const certificateType = form.watch('certificateType');
+    const categoryId = form.watch('categoryId');
+    const selectedCategory = categories.find((c) => c.id === categoryId);
+    const certificateType = selectedCategory?.certificateType;
     const isPersonnelCertificate =
         certificateType === 'PERSONNEL_LICENSE' || certificateType === 'PERSONNEL_CERTIFICATE';
     const isEquipmentCertificate =
@@ -438,34 +458,6 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                                                 placeholder="Select category"
                                             />
                                         </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-
-                            <FormField
-                                control={form.control}
-                                name="certificateType"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Certificate Type *</FormLabel>
-                                        <Select
-                                            onValueChange={field.onChange}
-                                            value={field.value}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select certificate type" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {certificateTypeOptions.map((option) => (
-                                                    <SelectItem key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -691,38 +683,42 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                         )}
 
                         {isEquipmentCertificate && (
-                            <>
-                                <FormField
-                                    control={form.control}
-                                    name="equipmentId"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Equipment ID</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Enter equipment ID" {...field} />
-                                            </FormControl>
-                                            <FormDescription>
-                                                Equipment ID from master data (optional)
-                                            </FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="equipmentName"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Equipment Name *</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Enter equipment name" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </>
+                            <FormField
+                                control={form.control}
+                                name="equipmentName"
+                                render={() => (
+                                    <FormItem>
+                                        <FormLabel>Equipment *</FormLabel>
+                                        <FormControl>
+                                            <SearchableSelect
+                                                options={equipmentOptions}
+                                                value={equipmentSelectValue}
+                                                onValueChange={(value) => {
+                                                    if (value.startsWith('free:')) {
+                                                        form.setValue('equipmentId', '');
+                                                        form.setValue('equipmentName', value.slice(5));
+                                                    } else {
+                                                        const option = equipmentOptions.find((o) => o.value === value);
+                                                        form.setValue('equipmentId', value);
+                                                        form.setValue('equipmentName', option?.label ?? '');
+                                                    }
+                                                    setEquipmentSearchQuery('');
+                                                }}
+                                                placeholder="Select equipment or add by name"
+                                                searchPlaceholder="Search equipment..."
+                                                emptyText="No equipment found"
+                                                onSearch={setEquipmentSearchQuery}
+                                                onCreateNew={(searchQuery) => `free:${searchQuery}`}
+                                                createNewText="Use this name (not in list)"
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Select from list or use the name option when not found
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                         )}
                     </CardContent>
                 </Card>

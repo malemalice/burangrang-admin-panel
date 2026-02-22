@@ -7,6 +7,11 @@ import { cn } from '@/core/lib/utils';
 import { format } from 'date-fns';
 import { useTheme } from '@/core/lib/theme';
 
+/** Format a Date for datetime-local input (local time, down to minutes). */
+function toDateTimeLocalString(date: Date): string {
+  return format(date, "yyyy-MM-dd'T'HH:mm");
+}
+
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { SearchableSelect, SearchableSelectOption, MultiSelectSearchable } from './searchable-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
@@ -201,26 +206,18 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
 
               {field.type === 'searchableSelect' && field.options && (
                 <div className="relative w-full">
-                  <Select
+                  <SearchableSelect
+                    options={field.options.map((opt) => ({
+                      label: opt.label,
+                      value: typeof opt.value === 'boolean' ? opt.value.toString() : String(opt.value),
+                    }))}
                     value={String(getFilterValue(field.id) || '')}
-                    onValueChange={(value) => {
-                      updateFilterValue(field.id, value);
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={`Select ${field.label}...`} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {field.options.map((option) => (
-                        <SelectItem
-                          key={String(option.value)}
-                          value={typeof option.value === 'boolean' ? option.value.toString() : String(option.value)}
-                        >
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onValueChange={(value) => updateFilterValue(field.id, value)}
+                    placeholder={`Select ${field.label}...`}
+                    searchPlaceholder={`Search ${field.label.toLowerCase()}...`}
+                    emptyText={`No ${field.label.toLowerCase()} found`}
+                    className="w-full"
+                  />
                 </div>
               )}
 
@@ -279,16 +276,16 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                       >
                         <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
                         {(getFilterValue(field.id) as any)?.from ? (
-                          format(new Date((getFilterValue(field.id) as any).from), 'PPP')
+                          format(new Date((getFilterValue(field.id) as any).from), 'PPp')
                         ) : (
-                          <span>From date...</span>
+                          <span>From date/time...</span>
                         )}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-3" align="start">
                       <DateTimePicker
-                        mode="date"
-                        value={(getFilterValue(field.id) as any)?.from ? new Date((getFilterValue(field.id) as any).from).toISOString().split('T')[0] : ''}
+                        type="datetime-local"
+                        value={(getFilterValue(field.id) as any)?.from ? toDateTimeLocalString(new Date((getFilterValue(field.id) as any).from)) : ''}
                         onChange={(value) => {
                           const current = getFilterValue(field.id) as any || {};
                           updateFilterValue(field.id, {
@@ -309,16 +306,16 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                       >
                         <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
                         {(getFilterValue(field.id) as any)?.to ? (
-                          format(new Date((getFilterValue(field.id) as any).to), 'PPP')
+                          format(new Date((getFilterValue(field.id) as any).to), 'PPp')
                         ) : (
-                          <span>To date...</span>
+                          <span>To date/time...</span>
                         )}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-3" align="start">
                       <DateTimePicker
-                        mode="date"
-                        value={(getFilterValue(field.id) as any)?.to ? new Date((getFilterValue(field.id) as any).to).toISOString().split('T')[0] : ''}
+                        type="datetime-local"
+                        value={(getFilterValue(field.id) as any)?.to ? toDateTimeLocalString(new Date((getFilterValue(field.id) as any).to)) : ''}
                         onChange={(value) => {
                           const current = getFilterValue(field.id) as any || {};
                           updateFilterValue(field.id, {
@@ -379,8 +376,8 @@ export const FilterBadges: React.FC<{
 
         if (field.type === 'dateRange') {
           const dateRange = filter.value as { from?: Date; to?: Date };
-          const fromStr = dateRange.from ? format(new Date(dateRange.from), 'PP') : '';
-          const toStr = dateRange.to ? format(new Date(dateRange.to), 'PP') : '';
+          const fromStr = dateRange.from ? format(new Date(dateRange.from), 'PPp') : '';
+          const toStr = dateRange.to ? format(new Date(dateRange.to), 'PPp') : '';
           displayValue = fromStr && toStr ? `${fromStr} - ${toStr}` : (fromStr || toStr);
         } else if (Array.isArray(filter.value)) {
           displayValue = filter.value.map(v => {

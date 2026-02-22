@@ -273,6 +273,22 @@ export interface AssignQuizDTO {
   notes?: string;
 }
 
+export interface AdjustAttemptScoreDTO {
+  adjustedScore: number;
+  adjustmentReason?: string;
+  overridePassStatus?: boolean;
+}
+
+export interface QuizAttemptWithUser extends QuizAttempt {
+  user?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  needsGrading?: boolean;
+}
+
 // Search/Filter types
 export interface QuizSearchParams {
   page?: number;

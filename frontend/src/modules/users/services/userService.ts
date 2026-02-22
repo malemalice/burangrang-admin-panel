@@ -5,6 +5,7 @@ import {
   PaginationParams,
   UserDTO,
   CreateUserDTO,
+  CreateGuestWorkerDTO,
   UpdateUserDTO 
 } from '../types/user.types';
 
@@ -123,6 +124,18 @@ const userService = {
     } catch (error: any) {
       console.error('Error creating user:', error);
       const errorMessage = error.response?.data?.message || 'Failed to create user';
+      throw new Error(errorMessage);
+    }
+  },
+
+  // Create a guest worker (Guest role, random password; for work permit workers)
+  createGuestWorker: async (data: CreateGuestWorkerDTO): Promise<User> => {
+    try {
+      const response = await api.post('/users/guest-worker', data);
+      return mapUserDtoToUser(response.data);
+    } catch (error: any) {
+      console.error('Error creating guest worker:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to create worker';
       throw new Error(errorMessage);
     }
   },

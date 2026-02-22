@@ -287,13 +287,13 @@ export class CertificatesService {
                 department,
             );
 
-            // Validate equipment name for equipment certificates
+            // Validate equipment name for equipment certificates (type from category)
             const equipmentTypes = [
                 'EQUIPMENT_CALIBRATION',
                 'EQUIPMENT_INSTALLATION',
                 'EQUIPMENT_OPERATIONAL_PERMIT',
             ];
-            if (equipmentTypes.includes(createCertificateDto.certificateType)) {
+            if (equipmentTypes.includes(category.certificateType)) {
                 if (!createCertificateDto.equipmentName && !createCertificateDto.equipmentId) {
                     this.errorHandler.throwBadRequest('Equipment Name is required for equipment certificates');
                 }
@@ -507,7 +507,7 @@ export class CertificatesService {
         }
 
         if (certificateType) {
-            where.certificateType = certificateType;
+            where.category = { certificateType };
         }
 
         if (departmentId) {

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { ArrowLeft } from 'lucide-react';
+import { Button } from '@/core/components/ui/button';
 import PageHeader from '@/core/components/ui/PageHeader';
 import ManHourForm from './ManHourForm';
 import manHourService from '../services/manHourService';
@@ -51,8 +53,15 @@ export default function EditManHourPage() {
       <PageHeader
         title="Edit Man Hour"
         subtitle={`Editing: ${manHour.name} - ${manHour.month} ${manHour.year}`}
+        actions={
+          <Button variant="outline" onClick={() => navigate('/man-hours')}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Man Hours
+          </Button>
+        }
       />
-      <ManHourForm manHour={manHour} mode="edit" />
+      <div className="max-w-4xl mx-auto">
+        <ManHourForm manHour={manHour} mode="edit" />
+      </div>
     </>
   );
 }

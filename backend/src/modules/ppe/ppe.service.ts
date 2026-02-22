@@ -30,6 +30,10 @@ import {
   PPEWithdrawalStatusEnum,
   Prisma,
 } from '@prisma/client';
+import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
+import { MasterApprovalsService } from '../approvals/master-approvals.service';
+import { NotificationsService } from '../notifications/services/notifications.service';
+import { ApprovalStatus } from '../approvals/dto/submit-approval.dto';
 
 @Injectable()
 export class PPEService {
@@ -53,6 +57,8 @@ export class PPEService {
         private readonly errorHandler: ErrorHandlingService,
         private readonly dtoMapper: DtoMapperService,
         private readonly dataScopeService: DataScopeService,
+        private readonly masterApprovalsService: MasterApprovalsService,
+        private readonly notificationsService: NotificationsService,
     ) {
         // Initialize mappers
         this.ppeStockMapper = this.dtoMapper.createSimpleMapper(PPEStockDto);
@@ -154,6 +160,14 @@ export class PPEService {
         // Populate department name
         const departmentName = withdrawal.department?.name || null;
 
+        // Populate createdByName from creator (requested by = user who created the withdrawal)
+        let createdByName: string | null = null;
+        if (withdrawal.creator) {
+            const firstName = withdrawal.creator.firstName || '';
+            const lastName = withdrawal.creator.lastName || '';
+            createdByName = `${firstName} ${lastName}`.trim() || null;
+        }
+
         // Populate stockItem details for each withdrawal item
         const items = withdrawal.items?.map((item: any) => {
             const stockItem = item.stockItem;
@@ -169,6 +183,7 @@ export class PPEService {
             ...withdrawal,
             requestedForName: requestedForName || null,
             departmentName,
+            createdByName,
             items: items || withdrawal.items,
         };
     }
@@ -826,7 +841,7 @@ export class PPEService {
             }
         }
 
-        return await this.prisma.$transaction(async (tx) => {
+        const txResult = await this.prisma.$transaction(async (tx) => {
             // Create withdrawal header
             const withdrawal = await tx["pPEWithdrawal"].create({
                 data: {
@@ -840,7 +855,7 @@ export class PPEService {
                     jobPositionName: createWithdrawalDto.jobPositionName || null,
                     withdrawalLetterUrl: createWithdrawalDto.withdrawalLetterUrl || null,
                     notes: createWithdrawalDto.notes || null,
-                    status: PPEWithdrawalStatusEnum.PENDING,
+                    status: PPEWithdrawalStatusEnum.WAITING_APPROVAL,
                     createdBy,
                 },
             });
@@ -919,8 +934,72 @@ export class PPEService {
                 },
             });
 
-            return this.ppeWithdrawalMapper(this.populateRequestedForName(withdrawalWithItems));
+            return { withdrawalWithItems, withdrawalId: withdrawal.id };
         });
+
+        const withdrawalWithItems = txResult.withdrawalWithItems;
+        const withdrawalId = txResult.withdrawalId;
+
+        // Notify next approver (same as submit flow)
+        const approvalStatus = await this.masterApprovalsService.checkApprovalStatus(
+            withdrawalId,
+            APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+        );
+        if (approvalStatus.nextApprover) {
+            let notificationType = await this.prisma.notificationType.findFirst({
+                where: { name: 'PPE_WITHDRAWAL_SUBMITTED' },
+            });
+            if (!notificationType) {
+                notificationType = await this.prisma.notificationType.create({
+                    data: {
+                        name: 'PPE_WITHDRAWAL_SUBMITTED',
+                        description: 'PPE withdrawal submitted for approval',
+                    },
+                });
+            }
+            await this.notificationsService.createNotificationByDepartmentAndJobPosition(
+                {
+                    title: `PPE Withdrawal Submitted: ${withdrawalWithItems!.withdrawalCode}`,
+                    message: `PPE withdrawal ${withdrawalWithItems!.withdrawalCode} has been submitted for your approval.`,
+                    context: 'ppe_withdrawal',
+                    contextId: withdrawalId,
+                    typeId: notificationType!.id,
+                    departmentId: approvalStatus.nextApprover!.department.id,
+                    jobPositionId: approvalStatus.nextApprover!.jobPosition.id,
+                },
+                createdBy,
+            );
+        }
+
+        return this.ppeWithdrawalMapper(this.populateRequestedForName(withdrawalWithItems));
+    }
+
+    /**
+     * Get full user for master approval (role, department, jobPosition).
+     */
+    private async getFullUser(userId: string): Promise<{
+        id: string;
+        departmentId: string | null;
+        jobPositionId: string | null;
+        role: string;
+        department?: { id: string; name: string };
+        jobPosition?: { id: string; name: string };
+    }> {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: { role: true, department: true, jobPosition: true },
+        });
+        if (!user) {
+            this.errorHandler.throwBadRequest('User not found');
+        }
+        return {
+            id: user.id,
+            departmentId: user.departmentId,
+            jobPositionId: user.jobPositionId,
+            role: user.role?.name ?? '',
+            department: user.department ? { id: user.department.id, name: user.department.name } : undefined,
+            jobPosition: user.jobPosition ? { id: user.jobPosition.id, name: user.jobPosition.name } : undefined,
+        };
     }
 
     /**
@@ -935,6 +1014,81 @@ export class PPEService {
         if (!this.dataScopeService.canAccessRecord(userContext, 'PPEWithdrawal', withdrawal)) {
             this.errorHandler.throwForbidden('You do not have access to this record');
         }
+    }
+
+    /**
+     * Submit withdrawal for approval (PENDING → WAITING_APPROVAL).
+     * Sends notification to next approver from master approval config.
+     */
+    async submitWithdrawal(id: string, userId: string, userContext?: UserContext): Promise<PPEWithdrawalDto> {
+        await this.ensureCanAccessPPEWithdrawal(id, userContext);
+        const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
+            where: { id, deletedAt: null },
+            include: {
+                items: true,
+                requester: true,
+                department: true,
+                creator: true,
+            },
+        });
+        this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
+
+        if (withdrawal.status !== PPEWithdrawalStatusEnum.PENDING) {
+            this.errorHandler.throwBadRequest(
+                `Withdrawal ${id} cannot be submitted. Current status: ${withdrawal.status}. Only PENDING withdrawals can be submitted.`,
+            );
+        }
+
+        const updated = await this.prisma["pPEWithdrawal"].update({
+            where: { id },
+            data: { status: PPEWithdrawalStatusEnum.WAITING_APPROVAL },
+            include: {
+                items: {
+                    include: {
+                        stockItem: { include: { stock: true } },
+                    },
+                    orderBy: { order: 'asc' },
+                },
+                requester: true,
+                requestedForUser: true,
+                department: true,
+                jobPosition: true,
+                creator: true,
+            },
+        });
+
+        const approvalStatus = await this.masterApprovalsService.checkApprovalStatus(
+            id,
+            APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+        );
+
+        if (approvalStatus.nextApprover) {
+            let notificationType = await this.prisma.notificationType.findFirst({
+                where: { name: 'PPE_WITHDRAWAL_SUBMITTED' },
+            });
+            if (!notificationType) {
+                notificationType = await this.prisma.notificationType.create({
+                    data: {
+                        name: 'PPE_WITHDRAWAL_SUBMITTED',
+                        description: 'PPE withdrawal submitted for approval',
+                    },
+                });
+            }
+            await this.notificationsService.createNotificationByDepartmentAndJobPosition(
+                {
+                    title: `PPE Withdrawal Submitted: ${withdrawal.withdrawalCode}`,
+                    message: `PPE withdrawal ${withdrawal.withdrawalCode} has been submitted for your approval.`,
+                    context: 'ppe_withdrawal',
+                    contextId: id,
+                    typeId: notificationType.id,
+                    departmentId: approvalStatus.nextApprover.department.id,
+                    jobPositionId: approvalStatus.nextApprover.jobPosition.id,
+                },
+                userId,
+            );
+        }
+
+        return this.ppeWithdrawalMapper(this.populateRequestedForName(updated));
     }
 
     /**
@@ -1080,117 +1234,168 @@ export class PPEService {
     }
 
     /**
-     * Approve withdrawal
+     * Approve withdrawal (via master approval workflow).
+     * Caller must have approval rights; status is updated by MasterApprovalsService.
      */
-    async approveWithdrawal(id: string, updateDto: UpdatePPEWithdrawalDto, userContext?: UserContext): Promise<PPEWithdrawalDto> {
+    async approveWithdrawal(
+        id: string,
+        updateDto: UpdatePPEWithdrawalDto,
+        userId: string,
+        userContext?: UserContext,
+    ): Promise<PPEWithdrawalDto> {
         await this.ensureCanAccessPPEWithdrawal(id, userContext);
         const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
-            where: {
-                id,
-                deletedAt: null, // Only approve non-deleted records
-            },
-            include: {
-                items: true,
-            },
+            where: { id, deletedAt: null },
+            include: { items: true },
         });
-
         this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
 
-        if (withdrawal.status !== PPEWithdrawalStatusEnum.PENDING) {
-            this.errorHandler.throwBadRequest(`Withdrawal ${id} cannot be approved. Current status: ${withdrawal.status}`);
+        if (withdrawal.status !== PPEWithdrawalStatusEnum.WAITING_APPROVAL) {
+            this.errorHandler.throwBadRequest(
+                `Withdrawal ${id} cannot be approved. Current status: ${withdrawal.status}. Only WAITING_APPROVAL withdrawals can be approved.`,
+            );
         }
 
-        return await this.prisma.$transaction(async (tx) => {
-            // Update withdrawal items with approved quantities
-            // If approvedQuantities not provided, default to requestedQuantity
-            await Promise.all(
-                withdrawal.items.map(async (item) => {
-                    let approvedQty = item.requestedQuantity;
+        const user = await this.getFullUser(userId);
+        const approvalRights = await this.masterApprovalsService.checkApprovalRights(
+            id,
+            user,
+            APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+        );
+        if (!approvalRights.canApprove) {
+            this.errorHandler.throwForbidden('You do not have permission to approve this withdrawal');
+        }
 
-                    if (updateDto.approvedQuantities && updateDto.approvedQuantities[item.id] !== undefined) {
-                        approvedQty = updateDto.approvedQuantities[item.id];
-
-                        // Validate approved quantity
-                        if (approvedQty > item.requestedQuantity) {
-                            this.errorHandler.throwBadRequest(
-                                `Approved quantity (${approvedQty}) cannot exceed requested quantity (${item.requestedQuantity}) for item ${item.id}`,
-                            );
-                        }
-
-                        // Update reserved quantity if approved is less than requested
-                        if (approvedQty < item.requestedQuantity) {
-                            const difference = item.requestedQuantity - approvedQty;
-
-                            // Get current stock item to check status
-                            const stockItem = await tx["pPEStockItem"].findUnique({
-                                where: { id: item.stockItemId },
-                            });
-
-                            if (!stockItem) {
-                                this.errorHandler.throwBadRequest(`Stock item ${item.stockItemId} not found`);
-                            }
-
-                            const newReservedQuantity = Math.max(0, stockItem.reservedQuantity - difference);
-                            const availableQuantity = stockItem.currentQuantity - newReservedQuantity;
-
-                            // Determine new status after reducing reservation
-                            let newStatus: any;
-                            if (newReservedQuantity === 0) {
-                                newStatus = PPEStockStatusEnum.AVAILABLE;
-                            } else if (newReservedQuantity >= stockItem.currentQuantity) {
-                                newStatus = PPEStockStatusEnum.RESERVED;
-                            } else {
-                                newStatus = PPEStockStatusEnum.AVAILABLE;
-                            }
-
-                            await tx["pPEStockItem"].update({
-                                where: { id: item.stockItemId },
-                                data: {
-                                    reservedQuantity: newReservedQuantity,
-                                    status: newStatus,
-                                },
-                            });
-                        }
+        await this.prisma.$transaction(async (tx) => {
+            for (const item of withdrawal.items) {
+                let approvedQty = item.requestedQuantity;
+                if (updateDto.approvedQuantities && updateDto.approvedQuantities[item.id] !== undefined) {
+                    approvedQty = updateDto.approvedQuantities[item.id];
+                    if (approvedQty > item.requestedQuantity) {
+                        this.errorHandler.throwBadRequest(
+                            `Approved quantity (${approvedQty}) cannot exceed requested quantity (${item.requestedQuantity}) for item ${item.id}`,
+                        );
                     }
-
-                    // Always update approvedQuantity (even if same as requestedQuantity for consistency)
-                    await tx["pPEWithdrawalItem"].update({
-                        where: { id: item.id },
-                        data: {
-                            approvedQuantity: approvedQty,
-                        },
-                    });
-                }),
-            );
-
-            // Update withdrawal status
-            const updatedWithdrawal = await tx["pPEWithdrawal"].update({
-                where: { id },
-                data: {
-                    status: PPEWithdrawalStatusEnum.APPROVED,
-                    notes: updateDto.notes || withdrawal.notes,
-                },
-                include: {
-                    items: {
-                        include: {
-                            stockItem: {
-                                include: {
-                                    stock: true,
-                                },
-                            },
-                        },
-                        orderBy: { order: 'asc' },
-                    },
-                    requester: true,
-                    requestedForUser: true,
-                    department: true,
-                    jobPosition: true,
-                    creator: true,
-                },
-            });
-
-            return this.ppeWithdrawalMapper(this.populateRequestedForName(updatedWithdrawal));
+                    if (approvedQty < item.requestedQuantity) {
+                        const difference = item.requestedQuantity - approvedQty;
+                        const stockItem = await tx["pPEStockItem"].findUnique({
+                            where: { id: item.stockItemId },
+                        });
+                        if (!stockItem) {
+                            this.errorHandler.throwBadRequest(`Stock item ${item.stockItemId} not found`);
+                        }
+                        const newReservedQuantity = Math.max(0, stockItem.reservedQuantity - difference);
+                        let newStatus: PPEStockStatusEnum;
+                        if (newReservedQuantity === 0) {
+                            newStatus = PPEStockStatusEnum.AVAILABLE;
+                        } else if (newReservedQuantity >= stockItem.currentQuantity) {
+                            newStatus = PPEStockStatusEnum.RESERVED;
+                        } else {
+                            newStatus = PPEStockStatusEnum.AVAILABLE;
+                        }
+                        await tx["pPEStockItem"].update({
+                            where: { id: item.stockItemId },
+                            data: { reservedQuantity: newReservedQuantity, status: newStatus },
+                        });
+                    }
+                }
+                await tx["pPEWithdrawalItem"].update({
+                    where: { id: item.id },
+                    data: { approvedQuantity: approvedQty },
+                });
+            }
+            if (updateDto.notes !== undefined) {
+                await tx["pPEWithdrawal"].update({
+                    where: { id },
+                    data: { notes: updateDto.notes },
+                });
+            }
         });
+
+        await this.masterApprovalsService.submitApproval(
+            {
+                entity: APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+                dataId: id,
+                status: ApprovalStatus.APPROVED,
+                notes: updateDto.notes ?? '',
+            },
+            user,
+        );
+
+        const updatedWithdrawal = await this.prisma["pPEWithdrawal"].findFirst({
+            where: { id },
+            include: {
+                items: {
+                    include: { stockItem: { include: { stock: true } } },
+                    orderBy: { order: 'asc' },
+                },
+                requester: true,
+                requestedForUser: true,
+                department: true,
+                jobPosition: true,
+                creator: true,
+            },
+        });
+        return this.ppeWithdrawalMapper(this.populateRequestedForName(updatedWithdrawal!));
+    }
+
+    /**
+     * Reject withdrawal (via master approval workflow).
+     * Caller must have approval rights; notes are required for audit.
+     */
+    async rejectWithdrawal(
+        id: string,
+        updateDto: UpdatePPEWithdrawalDto,
+        userId: string,
+        userContext?: UserContext,
+    ): Promise<PPEWithdrawalDto> {
+        await this.ensureCanAccessPPEWithdrawal(id, userContext);
+        const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
+            where: { id, deletedAt: null },
+        });
+        this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
+
+        if (withdrawal.status !== PPEWithdrawalStatusEnum.WAITING_APPROVAL) {
+            this.errorHandler.throwBadRequest(
+                `Withdrawal ${id} cannot be rejected. Current status: ${withdrawal.status}. Only WAITING_APPROVAL withdrawals can be rejected.`,
+            );
+        }
+
+        const user = await this.getFullUser(userId);
+        const approvalRights = await this.masterApprovalsService.checkApprovalRights(
+            id,
+            user,
+            APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+        );
+        if (!approvalRights.canApprove) {
+            this.errorHandler.throwForbidden('You do not have permission to reject this withdrawal');
+        }
+
+        await this.masterApprovalsService.submitApproval(
+            {
+                entity: APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+                dataId: id,
+                status: ApprovalStatus.REJECTED,
+                notes: updateDto.notes ?? '',
+            },
+            user,
+        );
+
+        const updatedWithdrawal = await this.prisma["pPEWithdrawal"].findFirst({
+            where: { id },
+            include: {
+                items: {
+                    include: { stockItem: { include: { stock: true } } },
+                    orderBy: { order: 'asc' },
+                },
+                requester: true,
+                requestedForUser: true,
+                department: true,
+                jobPosition: true,
+                creator: true,
+            },
+        });
+        return this.ppeWithdrawalMapper(this.populateRequestedForName(updatedWithdrawal!));
     }
 
     /**

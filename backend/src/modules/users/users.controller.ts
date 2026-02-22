@@ -21,6 +21,7 @@ import {
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { CreateGuestWorkerDto } from './dto/create-guest-worker.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -65,6 +66,27 @@ export class UsersController {
   
   create(@Body() createUserDto: CreateUserDto, @Req() req: any): Promise<UserDto> {
     return this.usersService.create(createUserDto, req.user.id);
+  }
+
+  @Post('guest-worker')
+  @Permissions('user:create')
+  @ApiOperation({ summary: 'Create a guest worker (user with Guest role and random password)' })
+  @ApiBody({ type: CreateGuestWorkerDto })
+  @ApiResponse({
+    status: 201,
+    description: 'The guest worker has been successfully created.',
+    type: UserDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - validation error or Guest role/office not found.' })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - user with this email already exists.',
+  })
+  createGuestWorker(
+    @Body() dto: CreateGuestWorkerDto,
+    @Req() req: any,
+  ): Promise<UserDto> {
+    return this.usersService.createGuestWorker(dto, req.user.id);
   }
 
   @Get()

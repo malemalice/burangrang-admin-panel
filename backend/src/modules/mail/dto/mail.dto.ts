@@ -87,6 +87,26 @@ export class SendPasswordChangeEmailDto {
   }
 }
 
+export class SendUserCreatedEmailDto {
+  @ApiProperty()
+  @IsEmail()
+  email: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  loginUrl: string;
+
+  constructor(partial: Partial<SendUserCreatedEmailDto>) {
+    Object.assign(this, partial);
+  }
+}
+
 export class SendTemplatedEmailDto {
   @ApiProperty()
   @IsEmail()

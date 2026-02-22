@@ -667,6 +667,10 @@ export class MasterApprovalsService {
     if (entityName === APPROVAL_ENTITIES.INCIDENT) {
       return GeneralStatusEnum.CLOSE;
     }
+    // PPE Withdrawal uses APPROVED as the terminal state (PPEWithdrawalStatusEnum)
+    if (entityName === APPROVAL_ENTITIES.PPE_WITHDRAWAL) {
+      return 'APPROVED' as unknown as GeneralStatusEnum;
+    }
     return GeneralStatusEnum.DONE;
   }
 
@@ -1123,9 +1127,14 @@ export class MasterApprovalsService {
       );
     }
 
-    // Update the source entity
+    // PPE Withdrawal uses PPEWithdrawalStatusEnum; other entities use GeneralStatusEnum
+    const statusCast =
+      entityName === APPROVAL_ENTITIES.PPE_WITHDRAWAL
+        ? `'${status}'::"PPEWithdrawalStatusEnum"`
+        : `'${status}'::"GeneralStatusEnum"`;
+
     await this.prisma.$executeRaw(
-      Prisma.sql`UPDATE ${Prisma.raw(`"${tableName}"`)} SET status = ${Prisma.raw(`'${status}'::"GeneralStatusEnum"`)} WHERE id = ${entityId}`
+      Prisma.sql`UPDATE ${Prisma.raw(`"${tableName}"`)} SET status = ${Prisma.raw(statusCast)} WHERE id = ${entityId}`
     );
   }
 
@@ -1171,6 +1180,21 @@ export class MasterApprovalsService {
       // INCIDENT: t_incidents has createdBy
       if (entityName === APPROVAL_ENTITIES.INCIDENT) {
         const item = await this.prisma.incident.findUnique({
+          where: { id: entityId },
+          select: { createdBy: true },
+        });
+        const requesterId = item?.createdBy;
+        if (!requesterId) return null;
+        const requester = await this.prisma.user.findUnique({
+          where: { id: requesterId },
+          select: { id: true, roleId: true },
+        });
+        return requester;
+      }
+
+      // PPE_WITHDRAWAL: t_ppe_withdrawals has createdBy
+      if (entityName === APPROVAL_ENTITIES.PPE_WITHDRAWAL) {
+        const item = await this.prisma.pPEWithdrawal.findUnique({
           where: { id: entityId },
           select: { createdBy: true },
         });

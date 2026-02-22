@@ -5,7 +5,9 @@ import { Input } from '@/core/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/core/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import { Trash2, Plus, Image as ImageIcon } from 'lucide-react';
+import { Badge } from '@/core/components/ui/badge';
+import { Trash2, Image as ImageIcon } from 'lucide-react';
+import { cn } from '@/core/lib/utils';
 import OptionForm from './OptionForm';
 import { ImageUpload } from '@/modules/uploads';
 
@@ -16,20 +18,33 @@ interface QuestionFormProps {
 }
 
 const QuestionForm = ({ questionIndex, onRemove, onMediaFileSelect }: QuestionFormProps) => {
-  const { control, watch, setValue } = useFormContext();
+  const { control, watch, setValue, formState } = useFormContext();
   const questionType = watch(`questions.${questionIndex}.questionType`);
+  const questionErrors = formState.errors.questions?.[questionIndex] as
+    | { options?: { message?: string; root?: { message?: string } } }
+    | undefined;
+  const optionsError =
+    questionErrors?.options?.root?.message ??
+    questionErrors?.options?.message;
 
   return (
-    <Card>
+    <Card className={cn(
+      'border-l-2 border-l-muted',
+      optionsError && 'border-destructive ring-2 ring-destructive'
+    )}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-lg">Question {questionIndex + 1}</CardTitle>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Badge variant="secondary">{questionIndex + 1}</Badge>
+          Question {questionIndex + 1}
+        </CardTitle>
         <Button
           type="button"
-          variant="ghost"
-          size="icon"
+          variant="destructive"
+          size="sm"
           onClick={onRemove}
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 className="h-4 w-4 mr-1" />
+          Remove question
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">

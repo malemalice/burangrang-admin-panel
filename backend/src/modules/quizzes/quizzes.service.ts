@@ -5,8 +5,9 @@ import { UpdateQuizDto } from './dto/update-quiz.dto';
 import { QuizDto } from './dto/quiz.dto';
 import { FindQuizzesOptions } from './dto/find-quizzes.dto';
 import { QuizAttemptDto, CreateQuizAttemptDto } from './dto/quiz-attempt.dto';
-import { QuizAnswerDto, SubmitAnswerDto, GradeAnswerDto } from './dto/quiz-answer.dto';
+import { QuizAnswerDto, SubmitAnswerDto, GradeAnswerDto, GradeEssayByQuestionDto } from './dto/quiz-answer.dto';
 import { AssignQuizDto } from './dto/assign-quiz.dto';
+import { AdjustAttemptScoreDto } from './dto/adjust-attempt-score.dto';
 import { Prisma } from '@prisma/client';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
@@ -1190,6 +1191,146 @@ export class QuizzesService {
     } as any;
   }
 
+  async gradeEssayByQuestion(
+    attemptId: string,
+    gradeDto: GradeEssayByQuestionDto,
+    gradedBy: string,
+  ): Promise<QuizAnswerDto> {
+    const attempt = await this.prisma.quizAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        quiz: {
+          include: {
+            questions: {
+              where: { isActive: true },
+            },
+          },
+        },
+        answers: true,
+      },
+    });
+
+    this.errorHandler.throwIfNotFoundById('Quiz Attempt', attemptId, attempt);
+
+    if (attempt.status !== 'COMPLETED') {
+      this.errorHandler.throwBadRequest('Only completed attempts can be graded');
+    }
+
+    const question = attempt.quiz.questions.find((q) => q.id === gradeDto.questionId);
+    this.errorHandler.throwIfNotFound('Question', `ID ${gradeDto.questionId}`, question);
+
+    if (question.questionType !== 'ESSAY') {
+      this.errorHandler.throwBadRequest('Only essay questions can be manually graded');
+    }
+
+    let answer = attempt.answers.find(
+      (a) => a.attemptId === attemptId && a.questionId === gradeDto.questionId,
+    );
+
+    if (!answer) {
+      answer = await this.prisma.quizAnswer.create({
+        data: {
+          attemptId,
+          questionId: gradeDto.questionId,
+          essayAnswer: null,
+          pointsEarned: 0,
+          isCorrect: null,
+        },
+        include: {
+          question: {
+            include: {
+              options: true,
+            },
+          },
+          selectedOption: true,
+        },
+      });
+    }
+
+    const updatedAnswer = await this.prisma.quizAnswer.update({
+      where: { id: answer.id },
+      data: {
+        isCorrect: gradeDto.isCorrect,
+        pointsEarned: gradeDto.pointsEarned,
+        feedback: gradeDto.feedback,
+        gradedBy,
+        gradedAt: new Date(),
+      },
+      include: {
+        question: {
+          include: {
+            options: true,
+          },
+        },
+        selectedOption: true,
+        grader: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    const attemptWithAnswers = await this.prisma.quizAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        quiz: {
+          include: {
+            questions: {
+              where: { isActive: true },
+            },
+          },
+        },
+        answers: true,
+      },
+    });
+
+    if (attemptWithAnswers) {
+      const totalPoints = attemptWithAnswers.quiz.questions.reduce(
+        (sum, q) => sum + Number(q.points),
+        0,
+      );
+      const earnedPoints = attemptWithAnswers.answers.reduce(
+        (sum, a) => sum + Number(a.pointsEarned),
+        0,
+      );
+      const score = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 0;
+      const isPassed = score >= Number(attemptWithAnswers.quiz.passingScore);
+
+      await this.prisma.quizAttempt.update({
+        where: { id: attemptId },
+        data: {
+          score,
+          totalPoints,
+          earnedPoints,
+          isPassed,
+        },
+      });
+
+      if (attemptWithAnswers.enrollmentId) {
+        await this.enrollmentsService.updateScore(attemptWithAnswers.enrollmentId);
+      }
+    }
+
+    return {
+      id: updatedAnswer.id,
+      attemptId: updatedAnswer.attemptId,
+      questionId: updatedAnswer.questionId,
+      selectedOptionId: updatedAnswer.selectedOptionId,
+      essayAnswer: updatedAnswer.essayAnswer,
+      isCorrect: updatedAnswer.isCorrect,
+      pointsEarned: Number(updatedAnswer.pointsEarned),
+      feedback: updatedAnswer.feedback,
+      gradedBy: updatedAnswer.gradedBy,
+      gradedAt: updatedAnswer.gradedAt,
+      question: updatedAnswer.question,
+      selectedOption: updatedAnswer.selectedOption,
+    } as any;
+  }
+
   /**
    * Get current in-progress attempt for a quiz
    * Used to resume an existing attempt instead of starting a new one
@@ -1296,6 +1437,249 @@ export class QuizzesService {
       timeSpent: attempt.timeSpent,
       quiz: attempt.quiz,
       answers: attempt.answers?.map((answer) => ({
+        id: answer.id,
+        attemptId: answer.attemptId,
+        questionId: answer.questionId,
+        selectedOptionId: answer.selectedOptionId,
+        essayAnswer: answer.essayAnswer,
+        isCorrect: answer.isCorrect,
+        pointsEarned: answer.pointsEarned ? Number(answer.pointsEarned) : 0,
+        feedback: answer.feedback,
+        gradedBy: answer.gradedBy,
+        gradedAt: answer.gradedAt,
+        question: answer.question,
+        selectedOption: answer.selectedOption,
+      })),
+    } as any;
+  }
+
+  /**
+   * Get all quiz attempts for an enrollment (for enrollment detail page)
+   */
+  async getAttemptsByEnrollment(enrollmentId: string): Promise<any[]> {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+    });
+    this.errorHandler.throwIfNotFoundById('Enrollment', enrollmentId, enrollment);
+
+    const attempts = await this.prisma.quizAttempt.findMany({
+      where: { enrollmentId },
+      include: {
+        quiz: { select: { id: true, title: true, passingScore: true } },
+        answers: { include: { question: true } },
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    return attempts.map((attempt) => ({
+      id: attempt.id,
+      quizId: attempt.quizId,
+      quiz: attempt.quiz,
+      attemptNumber: attempt.attemptNumber,
+      status: attempt.status,
+      score: attempt.score ? Number(attempt.score) : null,
+      isPassed: attempt.isPassed,
+      startedAt: attempt.startedAt,
+      completedAt: attempt.completedAt,
+      needsGrading: attempt.answers.some(
+        (a) => a.question.questionType === 'ESSAY' && a.isCorrect === null,
+      ),
+    }));
+  }
+
+  /**
+   * Get a single attempt by ID with full details (for grading interface)
+   */
+  async getAttemptById(attemptId: string): Promise<any> {
+    const attempt = await this.prisma.quizAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        quiz: {
+          include: {
+            questions: {
+              where: { isActive: true },
+              include: {
+                options: { orderBy: { order: 'asc' } },
+              },
+              orderBy: { order: 'asc' },
+            },
+          },
+        },
+        enrollment: { include: { user: true } },
+        user: true,
+        answers: {
+          include: {
+            question: { include: { options: true } },
+            selectedOption: true,
+          },
+        },
+      },
+    });
+
+    this.errorHandler.throwIfNotFoundById('Quiz Attempt', attemptId, attempt);
+
+    const attemptUser = attempt.userId ? attempt.user : attempt.enrollment?.user;
+
+    return {
+      id: attempt.id,
+      quizId: attempt.quizId,
+      enrollmentId: attempt.enrollmentId,
+      userId: attempt.userId,
+      attemptNumber: attempt.attemptNumber,
+      status: attempt.status,
+      score: attempt.score ? Number(attempt.score) : null,
+      totalPoints: attempt.totalPoints ? Number(attempt.totalPoints) : null,
+      earnedPoints: attempt.earnedPoints ? Number(attempt.earnedPoints) : null,
+      isPassed: attempt.isPassed,
+      startedAt: attempt.startedAt,
+      completedAt: attempt.completedAt,
+      timeSpent: attempt.timeSpent,
+      user: attemptUser,
+      quiz: attempt.quiz,
+      answers: attempt.answers?.map((answer) => ({
+        id: answer.id,
+        attemptId: answer.attemptId,
+        questionId: answer.questionId,
+        selectedOptionId: answer.selectedOptionId,
+        essayAnswer: answer.essayAnswer,
+        isCorrect: answer.isCorrect,
+        pointsEarned: answer.pointsEarned ? Number(answer.pointsEarned) : 0,
+        feedback: answer.feedback,
+        gradedBy: answer.gradedBy,
+        gradedAt: answer.gradedAt,
+        question: answer.question,
+        selectedOption: answer.selectedOption,
+      })),
+    };
+  }
+
+  /**
+   * Get all attempts for a quiz (for grading interface)
+   */
+  async getQuizAttempts(quizId: string): Promise<any[]> {
+    const quiz = await this.prisma.quiz.findUnique({ where: { id: quizId } });
+    this.errorHandler.throwIfNotFoundById('Quiz', quizId, quiz);
+
+    const attempts = await this.prisma.quizAttempt.findMany({
+      where: { quizId },
+      include: {
+        enrollment: { include: { user: true } },
+        user: true,
+        answers: { include: { question: true } },
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    return attempts.map((attempt) => ({
+      id: attempt.id,
+      quizId: attempt.quizId,
+      enrollmentId: attempt.enrollmentId,
+      userId: attempt.userId,
+      attemptNumber: attempt.attemptNumber,
+      status: attempt.status,
+      score: attempt.score ? Number(attempt.score) : null,
+      totalPoints: attempt.totalPoints ? Number(attempt.totalPoints) : null,
+      earnedPoints: attempt.earnedPoints ? Number(attempt.earnedPoints) : null,
+      isPassed: attempt.isPassed,
+      startedAt: attempt.startedAt,
+      completedAt: attempt.completedAt,
+      timeSpent: attempt.timeSpent,
+      user: attempt.userId ? attempt.user : attempt.enrollment?.user,
+      needsGrading: attempt.answers.some(
+        (a) => a.question.questionType === 'ESSAY' && a.isCorrect === null,
+      ),
+    }));
+  }
+
+  /**
+   * Manually adjust quiz attempt final score
+   */
+  async adjustAttemptScore(
+    attemptId: string,
+    adjustScoreDto: AdjustAttemptScoreDto,
+    adjustedBy: string,
+  ): Promise<any> {
+    const attempt = await this.prisma.quizAttempt.findUnique({
+      where: { id: attemptId },
+      include: { quiz: true, answers: true },
+    });
+
+    this.errorHandler.throwIfNotFoundById('Quiz Attempt', attemptId, attempt);
+
+    if (attempt.status !== 'COMPLETED') {
+      this.errorHandler.throwBadRequest(
+        'Can only adjust score for completed attempts',
+      );
+    }
+
+    const isPassed =
+      adjustScoreDto.overridePassStatus !== undefined
+        ? adjustScoreDto.overridePassStatus
+        : adjustScoreDto.adjustedScore >= Number(attempt.quiz.passingScore);
+
+    const updatedAttempt = await this.prisma.quizAttempt.update({
+      where: { id: attemptId },
+      data: {
+        score: adjustScoreDto.adjustedScore,
+        isPassed,
+      },
+      include: {
+        quiz: {
+          include: {
+            questions: {
+              where: { isActive: true },
+              include: {
+                options: { orderBy: { order: 'asc' } },
+              },
+              orderBy: { order: 'asc' },
+            },
+          },
+        },
+        answers: {
+          include: {
+            question: { include: { options: true } },
+            selectedOption: true,
+          },
+        },
+      },
+    });
+
+    await this.activityLogger.logActivity(
+      'QUIZ_SCORE_ADJUSTED',
+      attemptId,
+      `Score adjusted to ${adjustScoreDto.adjustedScore}${
+        adjustScoreDto.adjustmentReason
+          ? `: ${adjustScoreDto.adjustmentReason}`
+          : ''
+      }`,
+      [],
+      adjustedBy,
+    );
+
+    if (updatedAttempt.enrollmentId) {
+      await this.enrollmentsService.updateScore(updatedAttempt.enrollmentId);
+    }
+
+    return {
+      id: updatedAttempt.id,
+      quizId: updatedAttempt.quizId,
+      enrollmentId: updatedAttempt.enrollmentId,
+      userId: updatedAttempt.userId,
+      attemptNumber: updatedAttempt.attemptNumber,
+      status: updatedAttempt.status,
+      score: updatedAttempt.score ? Number(updatedAttempt.score) : null,
+      totalPoints: updatedAttempt.totalPoints
+        ? Number(updatedAttempt.totalPoints)
+        : null,
+      earnedPoints: updatedAttempt.earnedPoints
+        ? Number(updatedAttempt.earnedPoints)
+        : null,
+      isPassed: updatedAttempt.isPassed,
+      startedAt: updatedAttempt.startedAt,
+      completedAt: updatedAttempt.completedAt,
+      timeSpent: updatedAttempt.timeSpent,
+      quiz: updatedAttempt.quiz,
+      answers: updatedAttempt.answers?.map((answer) => ({
         id: answer.id,
         attemptId: answer.attemptId,
         questionId: answer.questionId,

@@ -1892,6 +1892,8 @@ src/modules/mail/
     └── helpers.ts            # handlebars helpers (available to DB templates)
 ```
 
+Default template subject/body content is defined in `prisma/seeds/mail-templates.seed.ts` (no separate template files).
+
 ### Service API
 
 - `sendVerificationEmail({ email, name, verificationLink })`

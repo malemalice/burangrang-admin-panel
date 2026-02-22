@@ -4,6 +4,7 @@ import {
   SendPasswordResetEmailDto,
   SendTeamInvitationEmailDto,
   SendPasswordChangeEmailDto,
+  SendUserCreatedEmailDto,
   SendTemplatedEmailDto,
 } from './dto/mail.dto';
 import { PrismaService } from '../../core/prisma/prisma.service';
@@ -162,6 +163,15 @@ export class MailService {
     await this.sendByKey('password-change', payload.email, {
       name: payload.name,
       changedAt: payload.changedAt?.toISOString() ?? new Date().toISOString(),
+    });
+  }
+
+  async sendUserCreatedEmail(
+    payload: SendUserCreatedEmailDto,
+  ): Promise<void> {
+    await this.sendByKey('user-created', payload.email, {
+      name: payload.name,
+      loginUrl: payload.loginUrl,
     });
   }
 

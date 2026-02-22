@@ -170,15 +170,15 @@ export class WorkPermitDto {
   @IsArray()
   workers?: Array<{
     id: string;
-    guestId: string;
+    userId: string;
     idNumber?: string;
     certificateUrl?: string;
     healthDeclarationUrl: string;
-    guest?: {
+    user?: {
       id: string;
-      name: string;
-      email?: string;
-      phone?: string;
+      firstName: string;
+      lastName: string;
+      email: string;
     };
     order: number;
   }>;

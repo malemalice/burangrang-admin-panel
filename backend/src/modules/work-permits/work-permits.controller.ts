@@ -190,6 +190,7 @@ export class WorkPermitsController {
   }
 
   @Get('master-data')
+  @AllowOptionsBypass()
   @Permissions('work-permit:read')
   @ApiOperation({ summary: 'Get master data for work permit form' })
   @ApiResponse({
