@@ -11,8 +11,13 @@ interface OptionFormProps {
 }
 
 const OptionForm = ({ questionIndex }: OptionFormProps) => {
-  const { control, watch } = useFormContext();
+  const { control, watch, formState } = useFormContext();
   const questionType = watch(`questions.${questionIndex}.questionType`);
+  const questionErrors = formState.errors.questions?.[questionIndex] as
+    | { options?: { message?: string; root?: { message?: string } } }
+    | undefined;
+  const optionsError =
+    questionErrors?.options?.root?.message ?? questionErrors?.options?.message;
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -34,67 +39,85 @@ const OptionForm = ({ questionIndex }: OptionFormProps) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <FormLabel>Options</FormLabel>
-        {questionType === 'MULTIPLE_CHOICE' && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => append({ optionText: '', isCorrect: false, order: fields.length })}
-          >
-            <Plus className="h-4 w-4 mr-1" /> Add Option
-          </Button>
-        )}
-      </div>
-
-      {fields.map((field, optionIndex) => (
-        <div key={field.id} className="flex items-start gap-3 p-4 border rounded-lg">
-          <div className="flex-1 space-y-2">
-            <FormField
-              control={control}
-              name={`questions.${questionIndex}.options.${optionIndex}.optionText`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input placeholder="Option text" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={control}
-              name={`questions.${questionIndex}.options.${optionIndex}.isCorrect`}
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel className="text-sm font-normal">
-                      Correct answer
-                    </FormLabel>
-                  </div>
-                </FormItem>
-              )}
-            />
-          </div>
+      <div>
+        <div className="flex items-center justify-between">
+          <FormLabel className="text-base font-medium">Answer options</FormLabel>
           {questionType === 'MULTIPLE_CHOICE' && (
             <Button
               type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => remove(optionIndex)}
+              variant="default"
+              onClick={() => append({ optionText: '', isCorrect: false, order: fields.length })}
             >
-              <Trash2 className="h-4 w-4" />
+              <Plus className="h-4 w-4 mr-2" /> Add Option
             </Button>
           )}
         </div>
-      ))}
+        {questionType === 'MULTIPLE_CHOICE' && (
+          <p className="text-sm text-muted-foreground mt-2">
+            Add at least two options and mark the correct one(s).
+          </p>
+        )}
+      </div>
+
+      {optionsError && (
+        <p className="text-sm text-destructive font-medium">{optionsError}</p>
+      )}
+
+      {questionType === 'MULTIPLE_CHOICE' && fields.length === 0 ? (
+        <div className="text-center py-6 border-2 border-dashed border-muted-foreground/30 rounded-lg bg-muted/20 dark:bg-muted/10">
+          <Plus className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No options yet — click <strong>Add Option</strong> to add answers.</p>
+        </div>
+      ) : (
+        fields.map((field, optionIndex) => (
+          <div key={field.id} className="flex items-start gap-3 p-4 border rounded-lg bg-muted/20 dark:bg-muted/10">
+            <div className="flex-1 space-y-2">
+              <FormField
+                control={control}
+                name={`questions.${questionIndex}.options.${optionIndex}.optionText`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input placeholder="Option text" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={control}
+                name={`questions.${questionIndex}.options.${optionIndex}.isCorrect`}
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="text-sm font-normal">
+                        Correct answer
+                      </FormLabel>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            </div>
+            {questionType === 'MULTIPLE_CHOICE' && (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={() => remove(optionIndex)}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Remove
+              </Button>
+            )}
+          </div>
+        ))
+      )}
     </div>
   );
 };
