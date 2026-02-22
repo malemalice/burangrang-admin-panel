@@ -163,13 +163,32 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
   console.log(`      Step 1: ${hseDepartment.name} - ${managerPosition?.name}`);
   console.log(`      Step 2: ${securityDepartment.name} - ${headPosition?.name}`);
 
-  // 4. Get Work Permit Master Data
+  // 4. Get Work Permit Master Data and a User with role Guest (for workers)
   const area = await prisma.area.findFirst();
   const company = await prisma.company.findFirst();
-  const guest = await prisma.guest.findFirst();
+  const guestRole = roles.find((r) => r.code === 'GUEST');
+  let workerUser = guestRole
+    ? await prisma.user.findFirst({ where: { roleId: guestRole.id } })
+    : null;
+  if (!workerUser && guestRole) {
+    workerUser = await prisma.user.create({
+      data: {
+        email: 'wp.worker@test.com',
+        password: hashedPassword,
+        firstName: 'Work Permit',
+        lastName: 'Worker',
+        isActive: true,
+        roleId: guestRole.id,
+        officeId: office.id,
+        departmentId: adminDepartment.id,
+        jobPositionId: staffPosition?.id,
+      },
+    });
+    console.log(`   ✅ Created worker user (Guest role): ${workerUser.email}`);
+  }
 
-  if (!area || !company || !guest) {
-    console.log('⚠️  Missing work permit master data (Area/Company/Guest). Please run work-permits.seed first.');
+  if (!area || !company || !workerUser) {
+    console.log('⚠️  Missing work permit master data (Area/Company) or no user with Guest role. Please run work-permits.seed and ensure Guest role exists.');
     return;
   }
 
@@ -197,7 +216,7 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       createdBy: requester.id,
       workers: {
         create: [{
-          guestId: guest.id,
+          userId: workerUser.id,
           healthDeclarationUrl: 'https://test.com/health.pdf',
           order: 1,
         }],
@@ -223,7 +242,7 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       createdBy: requester.id,
       workers: {
         create: [{
-          guestId: guest.id,
+          userId: workerUser.id,
           healthDeclarationUrl: 'https://test.com/health.pdf',
           order: 1,
         }],
@@ -249,7 +268,7 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       createdBy: requester.id,
       workers: {
         create: [{
-          guestId: guest.id,
+          userId: workerUser.id,
           healthDeclarationUrl: 'https://test.com/health.pdf',
           order: 1,
         }],
@@ -291,7 +310,7 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       createdBy: requester.id,
       workers: {
         create: [{
-          guestId: guest.id,
+          userId: workerUser.id,
           healthDeclarationUrl: 'https://test.com/health.pdf',
           order: 1,
         }],
@@ -344,7 +363,7 @@ export async function seedWorkPermitApprovalTest(prisma: PrismaClient) {
       createdBy: requester.id,
       workers: {
         create: [{
-          guestId: guest.id,
+          userId: workerUser.id,
           healthDeclarationUrl: 'https://test.com/health.pdf',
           order: 1,
         }],

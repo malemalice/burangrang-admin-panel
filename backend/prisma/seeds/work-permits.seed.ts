@@ -304,14 +304,44 @@ export async function seedWorkPermits(prisma: PrismaClient) {
     return;
   }
 
-  const worker1 = guests[0];
-  const worker2 = guests[1];
   const supervisor = guests[5];
-
-  if (!worker1 || !worker2 || !supervisor) {
-    console.log('⚠️ Failed to get required guests.');
+  if (!supervisor) {
+    console.log('⚠️ Failed to get required guests for supervisor.');
     return;
   }
+
+  // Workers are now Users with role Guest (not t_guests)
+  const guestRole = await prisma.role.findFirst({ where: { code: 'GUEST' } });
+  if (!guestRole) {
+    console.log('⚠️ Guest role not found. Please run roles seed first.');
+    return;
+  }
+  let workerUsers = await prisma.user.findMany({
+    where: { roleId: guestRole.id },
+    take: 5,
+  });
+  const officeId = creator.officeId;
+  while (workerUsers.length < 5) {
+    const i = workerUsers.length + 1;
+    const u = await prisma.user.upsert({
+      where: { email: `wp.worker${i}@seed.test` },
+      update: {},
+      create: {
+        email: `wp.worker${i}@seed.test`,
+        firstName: `Worker`,
+        lastName: `${i}`,
+        isActive: true,
+        roleId: guestRole.id,
+        officeId,
+      },
+    });
+    workerUsers = [...workerUsers, u];
+  }
+  const worker1 = workerUsers[0]!;
+  const worker2 = workerUsers[1]!;
+  const worker3 = workerUsers[2]!;
+  const worker4 = workerUsers[3]!;
+  const worker5 = workerUsers[4]!;
 
   // Helper function to generate work permit code
   const generateCode = (year: number, sequence: number) => {
@@ -362,13 +392,13 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            guestId: worker1.id,
+            userId: worker1.id,
             idNumber: 'ID123456789',
             healthDeclarationUrl: 'https://example.com/health-declaration-1.pdf',
             order: 0,
           },
           {
-            guestId: worker2.id,
+            userId: worker2.id,
             idNumber: 'ID987654321',
             healthDeclarationUrl: 'https://example.com/health-declaration-2.pdf',
             order: 1,
@@ -482,7 +512,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            guestId: guests[2]!.id,
+            userId: worker3.id,
             idNumber: 'ID111222333',
             healthDeclarationUrl: 'https://example.com/health-declaration-3.pdf',
             order: 0,
@@ -531,7 +561,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            guestId: guests[3]!.id,
+            userId: worker4.id,
             idNumber: 'ID444555666',
             healthDeclarationUrl: 'https://example.com/health-declaration-4.pdf',
             order: 0,
@@ -587,7 +617,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            guestId: guests[4]!.id,
+            userId: worker5.id,
             idNumber: 'ID777888999',
             healthDeclarationUrl: 'https://example.com/health-declaration-5.pdf',
             order: 0,
@@ -617,7 +647,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            guestId: worker1.id,
+            userId: worker1.id,
             idNumber: 'ID123456789',
             healthDeclarationUrl: 'https://example.com/health-declaration-1.pdf',
             order: 0,
@@ -656,7 +686,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            guestId: guests[0]!.id,
+            userId: worker1.id,
             idNumber: 'ID111111111',
             healthDeclarationUrl: 'https://example.com/health-declaration-wp6.pdf',
             order: 0,
@@ -704,7 +734,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            guestId: guests[1]!.id,
+            userId: worker2.id,
             idNumber: 'ID222222222',
             healthDeclarationUrl: 'https://example.com/health-declaration-wp7.pdf',
             order: 0,
@@ -751,7 +781,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            guestId: worker2.id,
+            userId: worker2.id,
             idNumber: 'ID987654321',
             healthDeclarationUrl: 'https://example.com/health-declaration-wp8.pdf',
             order: 0,

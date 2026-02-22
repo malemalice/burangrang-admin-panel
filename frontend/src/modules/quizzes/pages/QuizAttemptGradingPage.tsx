@@ -48,7 +48,7 @@ const QuizAttemptGradingPage = () => {
     if (!attemptId) return;
     try {
       setLoading(true);
-      const data = await quizService.getAttemptById(attemptId);
+      const data = await quizService.getAttemptById(attemptId, quizId ?? undefined);
       setAttempt(data);
     } catch (err) {
       console.error('Failed to fetch attempt:', err);

@@ -449,6 +449,23 @@ export class QuizzesController {
     return this.quizzesService.getAttemptById(attemptId);
   }
 
+  @Get(':id/attempts/:attemptId')
+  @ApiOperation({ summary: 'Get attempt by ID (by quiz and attempt id, for grading page URL)' })
+  @ApiParam({ name: 'id', type: String, description: 'Quiz ID (optional for URL shape)' })
+  @ApiParam({ name: 'attemptId', type: String, description: 'Quiz Attempt ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Attempt retrieved successfully',
+    type: QuizAttemptDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Attempt not found' })
+  @Permissions('quiz:view-attempts')
+  async getAttemptByIdWithQuiz(@Param('attemptId') attemptId: string) {
+    return this.quizzesService.getAttemptById(attemptId);
+  }
+
   @Get(':id/attempts')
   @ApiOperation({ summary: 'Get all attempts for a quiz (for grading)' })
   @ApiParam({ name: 'id', type: String, description: 'Quiz ID' })

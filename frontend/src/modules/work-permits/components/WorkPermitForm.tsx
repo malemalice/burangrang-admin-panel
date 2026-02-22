@@ -31,6 +31,7 @@ import uploadService from '@/modules/uploads/services/uploadService';
 import { Loader2, Upload, X as XIcon } from 'lucide-react';
 import workPermitService from '../services/workPermitService';
 import { userService, type User } from '@/modules/users';
+import { roleService } from '@/modules/roles';
 import { courseService, type Course } from '@/modules/courses';
 import { safetyEquipmentService, type SafetyEquipment } from '@/modules/ppe';
 
@@ -66,7 +67,7 @@ const formSchema = z.object({
   workers: z
     .array(
       z.object({
-        guestId: z.string().min(1, 'Worker is required'),
+        userId: z.string().min(1, 'Worker is required'),
         idNumber: z.string().optional(),
         certificateUrl: z.string().optional(),
         healthDeclarationUrl: z.string().min(1, 'Health declaration is required'),
@@ -169,6 +170,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [companies, setCompanies] = useState<MasterDataOption[]>([]);
   const [workClassifications, setWorkClassifications] = useState<MasterDataOption[]>([]);
   const [guests, setGuests] = useState<GuestOption[]>([]);
+  const [workerUsers, setWorkerUsers] = useState<User[]>([]);
 
   const [users, setUsers] = useState<User[]>([]);
   const [heavyEquipment, setHeavyEquipment] = useState<MasterDataOption[]>([]);
@@ -187,6 +189,14 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const areaOptions = useMemo(() => areas.map((a) => ({ value: a.id, label: a.name })), [areas]);
   const companyOptions = useMemo(() => companies.map((c) => ({ value: c.id, label: c.name })), [companies]);
   const guestOptions = useMemo(() => guests.map((g) => ({ value: g.id, label: g.name })), [guests]);
+  const workerOptions = useMemo(
+    () =>
+      workerUsers.map((u) => ({
+        value: u.id,
+        label: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email ?? u.id,
+      })),
+    [workerUsers],
+  );
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -205,7 +215,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
       employees: [],
       workers: [
         {
-          guestId: '',
+          userId: '',
           idNumber: '',
           certificateUrl: '',
           healthDeclarationUrl: '',
@@ -258,34 +268,46 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         }
 
         // Fetch master data from work permit service and other modules
-        const [masterDataResponse, usersResponse, coursesResponse, safetyEquipmentResponse] = await Promise.all([
-          workPermitService.getMasterData().catch((error) => {
-            console.error('Failed to fetch work permit master data:', error);
-            return {
-              areas: [],
-              companies: [],
-              workClassifications: [],
-              guests: [],
-              heavyEquipment: [],
-              tools: [],
-              materials: [],
-              machines: [],
-              professions: [],
-            };
-          }),
-          userService.getUsers({ page: 1, limit: 100, options: true }).catch((error) => {
-            console.error('Failed to fetch users:', error);
-            return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
-          }),
-          courseService.getCourses({ page: 1, limit: 100, isActive: true }).catch((error) => {
-            console.error('Failed to fetch courses:', error);
-            return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
-          }),
-          safetyEquipmentService.getSafetyEquipments({ page: 1, limit: 100 }).catch((error) => {
-            console.error('Failed to fetch safety equipment:', error);
-            return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
-          }),
-        ]);
+        const [masterDataResponse, usersResponse, workerUsersResponse, coursesResponse, safetyEquipmentResponse] =
+          await Promise.all([
+            workPermitService.getMasterData().catch((error) => {
+              console.error('Failed to fetch work permit master data:', error);
+              return {
+                areas: [],
+                companies: [],
+                workClassifications: [],
+                guests: [],
+                heavyEquipment: [],
+                tools: [],
+                materials: [],
+                machines: [],
+                professions: [],
+              };
+            }),
+            userService.getUsers({ page: 1, limit: 100, options: true }).catch((error) => {
+              console.error('Failed to fetch users:', error);
+              return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
+            }),
+            (async () => {
+              const roles = await roleService.getRoles({ page: 1, limit: 100, options: true }).catch(() => ({ data: [] }));
+              const guestRole = roles.data?.find((r) => r.code === 'GUEST');
+              if (!guestRole?.id) return { data: [] };
+              return userService
+                .getUsers({ page: 1, limit: 500, options: true, filters: { roleId: guestRole.id } })
+                .catch((error) => {
+                  console.error('Failed to fetch worker users (Guest role):', error);
+                  return { data: [], meta: { total: 0, page: 1, limit: 500, pageCount: 0 } };
+                });
+            })(),
+            courseService.getCourses({ page: 1, limit: 100, isActive: true }).catch((error) => {
+              console.error('Failed to fetch courses:', error);
+              return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
+            }),
+            safetyEquipmentService.getSafetyEquipments({ page: 1, limit: 100 }).catch((error) => {
+              console.error('Failed to fetch safety equipment:', error);
+              return { data: [], meta: { total: 0, page: 1, limit: 100, pageCount: 0 } };
+            }),
+          ]);
 
         // Set master data from work permit service
         setAreas(masterDataResponse.areas);
@@ -300,6 +322,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
 
         // Set data from other modules
         setUsers(usersResponse.data);
+        setWorkerUsers(workerUsersResponse.data ?? []);
         setCourses(coursesResponse.data);
         setSafetyEquipment(safetyEquipmentResponse.data);
       } catch (error) {
@@ -318,14 +341,14 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     if (workPermit && mode === 'edit') {
       const workersData =
         workPermit.workers?.map((w) => ({
-          guestId: w.guestId,
+          userId: w.userId,
           idNumber: w.idNumber || '',
           certificateUrl: w.certificateUrl || '',
           healthDeclarationUrl: w.healthDeclarationUrl,
           order: w.order,
         })) || [
           {
-            guestId: '',
+            userId: '',
             idNumber: '',
             certificateUrl: '',
             healthDeclarationUrl: '',
@@ -765,7 +788,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               size="sm"
               onClick={() =>
                 appendWorker({
-                  guestId: '',
+                  userId: '',
                   idNumber: '',
                   certificateUrl: '',
                   healthDeclarationUrl: '',
@@ -796,13 +819,13 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   </div>
                   <FormField
                     control={form.control}
-                    name={`workers.${index}.guestId`}
+                    name={`workers.${index}.userId`}
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Worker *</FormLabel>
                         <FormControl>
                           <SearchableSelect
-                            options={guestOptions}
+                            options={workerOptions}
                             value={field.value}
                             onValueChange={field.onChange}
                             placeholder="Select worker"

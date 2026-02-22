@@ -257,10 +257,15 @@ const quizService = {
   },
 
   // GET single attempt by ID with full details (for grading)
+  // Supports both URL shapes: /quizzes/attempts/:attemptId and /quizzes/:quizId/attempts/:attemptId
   getAttemptById: async (
     attemptId: string,
+    quizId?: string,
   ): Promise<QuizAttempt & { user?: { id: string; firstName: string; lastName: string; email: string } }> => {
-    const response = await api.get(`/quizzes/attempts/${attemptId}`);
+    const url = quizId
+      ? `/quizzes/${quizId}/attempts/${attemptId}`
+      : `/quizzes/attempts/${attemptId}`;
+    const response = await api.get(url);
     const attempt = mapQuizAttemptDtoToQuizAttempt(response.data);
     return { ...attempt, user: response.data.user };
   },

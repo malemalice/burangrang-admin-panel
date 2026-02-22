@@ -219,12 +219,18 @@ export class WorkPermitsService {
         this.errorHandler.throwBadRequest('At least one worker is required');
       }
 
-      // Validate workers have guestId
+      // Validate workers: User exists and has role Guest
       for (const worker of createDto.workers) {
-        const guest = await this.prisma.guest.findUnique({
-          where: { id: worker.guestId },
+        const user = await this.prisma.user.findUnique({
+          where: { id: worker.userId },
+          include: { role: true },
         });
-        this.errorHandler.throwIfNotFoundById('Guest', worker.guestId, guest);
+        this.errorHandler.throwIfNotFoundById('User', worker.userId, user);
+        if (user?.role?.code !== 'GUEST') {
+          this.errorHandler.throwBadRequest(
+            `User ${worker.userId} must have role Guest to be assigned as a worker`,
+          );
+        }
       }
 
       // Generate code
@@ -265,7 +271,7 @@ export class WorkPermitsService {
             : undefined,
           workers: {
             create: createDto.workers.map((w) => ({
-              guestId: w.guestId,
+              userId: w.userId,
               idNumber: w.idNumber,
               certificateUrl: w.certificateUrl,
               healthDeclarationUrl: w.healthDeclarationUrl,
@@ -386,7 +392,7 @@ export class WorkPermitsService {
           },
           workers: {
             include: {
-              guest: true,
+              user: true,
             },
           },
           heavyEquipment: {
@@ -485,16 +491,16 @@ export class WorkPermitsService {
     if (workPermit.workers) {
       base.workers = workPermit.workers.map((w: any) => ({
         id: w.id,
-        guestId: w.guestId,
+        userId: w.userId,
         idNumber: w.idNumber,
         certificateUrl: w.certificateUrl,
         healthDeclarationUrl: w.healthDeclarationUrl,
-        guest: w.guest
+        user: w.user
           ? {
-            id: w.guest.id,
-            name: w.guest.name,
-            email: w.guest.email,
-            phone: w.guest.phone,
+            id: w.user.id,
+            firstName: w.user.firstName,
+            lastName: w.user.lastName,
+            email: w.user.email,
           }
           : undefined,
         order: w.order,
@@ -822,7 +828,7 @@ export class WorkPermitsService {
           },
           workers: {
             include: {
-              guest: true,
+              user: true,
             },
             orderBy: {
               order: 'asc',
@@ -1018,12 +1024,24 @@ export class WorkPermitsService {
         if (updateDto.workers.length === 0) {
           this.errorHandler.throwBadRequest('At least one worker is required');
         }
+        for (const worker of updateDto.workers) {
+          const user = await this.prisma.user.findUnique({
+            where: { id: worker.userId },
+            include: { role: true },
+          });
+          this.errorHandler.throwIfNotFoundById('User', worker.userId, user);
+          if (user?.role?.code !== 'GUEST') {
+            this.errorHandler.throwBadRequest(
+              `User ${worker.userId} must have role Guest to be assigned as a worker`,
+            );
+          }
+        }
         await this.prisma.workPermitWorker.deleteMany({
           where: { workPermitId: id },
         });
         updateData.workers = {
           create: updateDto.workers.map((w) => ({
-            guestId: w.guestId,
+            userId: w.userId,
             idNumber: w.idNumber,
             certificateUrl: w.certificateUrl,
             healthDeclarationUrl: w.healthDeclarationUrl,
@@ -1220,7 +1238,7 @@ export class WorkPermitsService {
           },
           workers: {
             include: {
-              guest: true,
+              user: true,
             },
             orderBy: {
               order: 'asc',

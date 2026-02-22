@@ -335,7 +335,11 @@ const WorkPermitDetailPage = () => {
                 {workPermit.workers.map((worker) => (
                   <div key={worker.id} className="flex items-center justify-between p-2 border rounded">
                     <div>
-                      <p className="font-medium">{worker.guest?.name || 'Unknown'}</p>
+                      <p className="font-medium">
+                        {worker.user
+                          ? `${worker.user.firstName ?? ''} ${worker.user.lastName ?? ''}`.trim() || worker.user.email || 'Unknown'
+                          : 'Unknown'}
+                      </p>
                       {worker.idNumber && <p className="text-sm text-muted-foreground">ID: {worker.idNumber}</p>}
                     </div>
                   </div>

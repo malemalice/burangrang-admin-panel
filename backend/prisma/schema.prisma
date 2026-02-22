@@ -75,6 +75,7 @@ model User {
   workPermitsCreated           WorkPermit[]               @relation("WorkPermitCreator")
   workPermitEmployees          WorkPermitEmployee[]       @relation("WorkPermitEmployee")
   workPermitHseOfficers        WorkPermitToUser[]         @relation("WorkPermitHseOfficer")
+  workPermitWorkers           WorkPermitWorker[]         @relation("WorkPermitWorker")
   environmentalMeasurements    EnvironmentalMeasurement[] @relation("EnvironmentalMeasurementCreator")
   inspectionsCreated           Inspection[]               @relation("InspectionCreator")
   inspectionItemsAssigned      InspectionItem[]           @relation("InspectionItemAssignee")
@@ -1647,7 +1648,6 @@ model Guest {
   isActive              Boolean                       @default(true)
   createdAt             DateTime                      @default(now())
   updatedAt             DateTime                      @updatedAt
-  workPermitWorkers     WorkPermitWorker[]
   workPermitSupervisors WorkPermitSupervisorToGuest[]
 
   @@map("t_guests")
@@ -1787,7 +1787,7 @@ model WorkPermitMachine {
 model WorkPermitWorker {
   id                   String   @id @default(uuid())
   workPermitId         String
-  guestId              String
+  userId               String
   idNumber             String?
   certificateUrl       String?
   healthDeclarationUrl String
@@ -1796,7 +1796,7 @@ model WorkPermitWorker {
 
   // Relations
   workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
-  guest      Guest      @relation(fields: [guestId], references: [id])
+  user       User      @relation("WorkPermitWorker", fields: [userId], references: [id])
 
   @@map("t_work_permit_workers")
 }
