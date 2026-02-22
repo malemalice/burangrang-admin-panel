@@ -93,6 +93,28 @@ The Notification System delivers in-app and email notifications to users based o
 - **Backend:** NestJS; Prisma (PostgreSQL); NotificationsService (create, list, mark read, unread count); MailService (Nodemailer, Handlebars); MailModule used by NotificationsService. Reminders use NotificationsService for creation; email must be sent only once (see Bug Register).
 - **Frontend:** React; `notifications` module: NotificationDropdown, NotificationItem, NotificationList, NotificationsPage; hooks: useNotifications, useNotification, useNotificationTypes, useUnreadCount; notificationService (API); notificationRoutes (context → route mapping). No WebSocket/polling; manual refresh only.
 
+## Frontend Implementation Details
+
+- **Components:** `NotificationDropdown` (navbar bell with unread badge, recent list, mark all read, view all); `NotificationList` (reusable list with loading/empty states); `NotificationItem` (title, message, context badge, timestamp, read indicator, click-to-navigate, optional mark read/unread actions).
+- **Pages:** `NotificationsPage` — full list with stats cards (total, unread, read), search, filters (context, type), tabs (All/Unread/Read), pagination (page controls, page size 10/25/50/100), mark all read, refresh.
+- **Hooks:** `useNotifications` (list, fetch, create, update, delete, markAsRead, markAllAsRead); `useNotification(id)` (single notification); `useNotificationTypes` (types for filters); `useUnreadCount` (badge count, markAsRead/markAllAsRead sync).
+- **Services:** `notificationService` — getNotifications (paginated), getNotificationById, getUnreadCount, getNotificationTypes, createNotification, updateNotification, markAsRead, markAllAsRead, deleteNotification; DTO mappers (DTO → frontend models).
+- **Routing:** `notificationRoutes.ts` — route config for `/notifications`; `utils/notificationRoutes.ts` — `normalizeContext()` (snake_case → kebab-case), `getNotificationRoute(context, contextId)`, `useNotificationNavigation()`; context → route map for 20+ contexts (risk-assessment, work-permit, enrollment, approval, user, role, etc.).
+- **Integration:** `NotificationDropdown` rendered in `TopNavbar`; no real-time transport (manual refresh only).
+
+## Known Frontend Limitations
+
+- **Pagination UI:** Fixed. NotificationsPage now has visible pagination controls (prev/next, page X of Y, page size selector 10/25/50/100).
+- **Missing context mappings:** Backend may send `context: 'incident'` or reminder entity contexts; frontend route map does not include `incident` or generic reminder. Clicking such notifications falls back to `/notifications`. Acknowledged; not fixed in current scope.
+- **DTO fields:** Frontend `NotificationRecipient` types omit `departmentId` and `jobPositionId`; `NotificationFormData` omits `departmentIds` and `jobPositionIds`. Acknowledged; creation/targeting from UI is limited to roles/users.
+- **No auto-refresh:** No WebSocket, SSE, or polling; users must refresh or navigate to see new notifications. By design per current scope.
+
+## Frontend–Backend Contract
+
+- **Context naming:** Backend may send context in snake_case (e.g. `work_permit`, `risk_assessment`) or kebab-case; frontend normalizes to kebab-case for route lookup. Route paths are kebab-case (e.g. `/work-permits/:id`).
+- **DTO alignment:** Backend NotificationRecipientDto includes `departmentId?`, `jobPositionId?`; frontend NotificationRecipientDTO does not. Backend create payload accepts `departmentIds?`, `jobPositionIds?`; frontend form data does not expose these. List and read behaviour is unchanged.
+- **Pagination:** API uses `page` (1-based), `limit`; frontend uses `pageIndex` (0-based) and sends `page: pageIndex + 1`. Response `meta.total` drives total count and page count on the frontend.
+
 ## Acceptance Criteria
 
 - Notification is created when an event (e.g. approval, submit) occurs.
