@@ -954,12 +954,7 @@ export class IncidentsService {
         },
       });
 
-      // Send notifications
-      if (nextStatus === GeneralStatusEnum.CLOSE) {
-        await this.sendApprovalCompletedNotification(id, updated);
-      } else {
-        await this.sendApprovalProgressNotification(id, updated);
-      }
+      // Notifications are sent by MasterApprovalsService.submitApproval() — do not send again to avoid duplicates
 
       return this.incidentMapper(updated);
     }, 'Approving incident');
@@ -1043,8 +1038,7 @@ export class IncidentsService {
         },
       });
 
-      // Send rejection notification
-      await this.sendRejectionNotification(id, updated, reason);
+      // Rejection notification is sent by MasterApprovalsService.submitApproval() — do not send again to avoid duplicates
 
       return this.incidentMapper(updated);
     }, 'Rejecting incident');
@@ -1196,150 +1190,6 @@ export class IncidentsService {
       }
     } catch (error) {
       console.error('Failed to send submission notification:', error);
-    }
-  }
-
-  /**
-   * Send notification when approval is completed (all approvers approved)
-   */
-  private async sendApprovalCompletedNotification(incidentId: string, incident: any): Promise<void> {
-    try {
-      let notificationType = await this.prisma.notificationType.findFirst({
-        where: { name: 'INCIDENT_APPROVED' },
-      });
-
-      if (!notificationType) {
-        notificationType = await this.prisma.notificationType.create({
-          data: {
-            name: 'INCIDENT_APPROVED',
-            description: 'Incident approval completed',
-          },
-        });
-      }
-
-      // Get creator's role for notification
-      const creatorUser = await this.prisma.user.findUnique({
-        where: { id: incident.createdBy },
-        select: { roleId: true },
-      });
-
-      // Notify creator
-      await this.notificationsService.createNotificationForRoles(
-        {
-          title: `Incident Approved: ${incident.code}`,
-          message: `Incident "${incident.subject}" (${incident.code}) has been approved and closed.`,
-          context: 'incident',
-          contextId: incidentId,
-          typeId: notificationType.id,
-          roleIds: creatorUser ? [creatorUser.roleId] : [],
-          userIds: [incident.createdBy],
-        },
-        incident.createdBy,
-      );
-    } catch (error) {
-      console.error('Failed to send approval completed notification:', error);
-    }
-  }
-
-  /**
-   * Send notification when approval progresses to next approver
-   */
-  private async sendApprovalProgressNotification(incidentId: string, incident: any): Promise<void> {
-    try {
-      let notificationType = await this.prisma.notificationType.findFirst({
-        where: { name: 'INCIDENT_APPROVAL_PROGRESS' },
-      });
-
-      if (!notificationType) {
-        notificationType = await this.prisma.notificationType.create({
-          data: {
-            name: 'INCIDENT_APPROVAL_PROGRESS',
-            description: 'Incident approval in progress',
-          },
-        });
-      }
-
-      // Get next approver info
-      const approvalStatus = await this.masterApprovalsService.checkApprovalStatus(
-        incidentId,
-        'INCIDENT',
-      );
-
-      if (approvalStatus.nextApprover) {
-        // Find users with matching department and job position
-        const nextApprovers = await this.prisma.user.findMany({
-          where: {
-            departmentId: approvalStatus.nextApprover.department.id,
-            jobPositionId: approvalStatus.nextApprover.jobPosition.id,
-            isActive: true,
-          },
-          select: {
-            id: true,
-            roleId: true,
-          },
-        });
-
-        if (nextApprovers.length > 0) {
-          const userIds = nextApprovers.map(u => u.id);
-          const roleIds = Array.from(new Set(nextApprovers.map(u => u.roleId)));
-
-          await this.notificationsService.createNotificationForRoles(
-            {
-              title: `Incident Awaiting Verification: ${incident.code}`,
-              message: `Incident "${incident.subject}" (${incident.code}) is awaiting your approval.`,
-              context: 'incident',
-              contextId: incidentId,
-              typeId: notificationType.id,
-              roleIds,
-              userIds,
-            },
-            incident.createdBy,
-          );
-        }
-      }
-    } catch (error) {
-      console.error('Failed to send approval progress notification:', error);
-    }
-  }
-
-  /**
-   * Send rejection notification
-   */
-  private async sendRejectionNotification(incidentId: string, incident: any, reason: string): Promise<void> {
-    try {
-      let notificationType = await this.prisma.notificationType.findFirst({
-        where: { name: 'INCIDENT_REJECTED' },
-      });
-
-      if (!notificationType) {
-        notificationType = await this.prisma.notificationType.create({
-          data: {
-            name: 'INCIDENT_REJECTED',
-            description: 'Incident rejected',
-          },
-        });
-      }
-
-      // Get creator's role for notification
-      const creatorUser = await this.prisma.user.findUnique({
-        where: { id: incident.createdBy },
-        select: { roleId: true },
-      });
-
-      await this.notificationsService.createNotificationForRoles(
-        {
-          title: `Incident Rejected: ${incident.code}`,
-          message: `Incident "${incident.subject}" (${incident.code}) has been rejected. Reason: ${reason}`,
-          context: 'incident',
-          contextId: incidentId,
-          typeId: notificationType.id,
-          roleIds: creatorUser ? [creatorUser.roleId] : [],
-          userIds: [incident.createdBy],
-        },
-        incident.createdBy,
-      );
-    } catch (error) {
-      console.error('Failed to send rejection notification:', error);
     }
   }
 }

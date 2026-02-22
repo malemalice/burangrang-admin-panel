@@ -1447,14 +1447,7 @@ export class WorkPermitsService {
         },
       });
 
-      // Send notifications
-      if (nextStatus === WorkPermitStatusEnum.APPROVED) {
-        await this.sendApprovalNotifications(id, updated);
-      } else if (nextStatus === WorkPermitStatusEnum.IN_REVIEW_SECURITY) {
-        await this.sendNotificationToSecurity(id, updated);
-      } else {
-        // Generic notification for other steps could be added here
-      }
+      // Notifications are sent by MasterApprovalsService.submitApproval() — do not send again to avoid duplicates
 
       return this.workPermitMapper(updated);
     }, 'Approving work permit');
@@ -1517,8 +1510,7 @@ export class WorkPermitsService {
         user,
       );
 
-      // Send rejection notification
-      await this.sendRejectionNotification(id, updated, rejectDto.reason);
+      // Rejection notification is sent by MasterApprovalsService.submitApproval() — do not send again to avoid duplicates
 
       return this.workPermitMapper(updated);
     }, 'Rejecting work permit');
@@ -1793,159 +1785,6 @@ export class WorkPermitsService {
       }
     } catch (error) {
       console.error('Failed to send HSE notification:', error);
-    }
-  }
-
-  /**
-   * Send notification to Security when HSE approves
-   */
-  private async sendNotificationToSecurity(workPermitId: string, workPermit: any): Promise<void> {
-    try {
-      let notificationType = await this.prisma.notificationType.findFirst({
-        where: { name: 'WORK_PERMIT_FORWARDED_TO_SECURITY' },
-      });
-
-      if (!notificationType) {
-        notificationType = await this.prisma.notificationType.create({
-          data: {
-            name: 'WORK_PERMIT_FORWARDED_TO_SECURITY',
-            description: 'Work permit forwarded to Security for review',
-          },
-        });
-      }
-
-      // Get Security role
-      const securityRole = await this.prisma.role.findFirst({
-        where: {
-          name: {
-            contains: 'SECURITY',
-            mode: 'insensitive',
-          },
-          isActive: true,
-        },
-      });
-
-      if (securityRole) {
-        await this.notificationsService.createNotificationForRoles(
-          {
-            title: `Work Permit Forwarded: ${workPermit.code}`,
-            message: `Work permit "${workPermit.projectName}" (${workPermit.code}) has been approved by HSE and forwarded for Security review.`,
-            context: 'work-permit',
-            contextId: workPermitId,
-            typeId: notificationType.id,
-            roleIds: [securityRole.id],
-          },
-          workPermit.createdBy,
-        );
-      }
-    } catch (error) {
-      console.error('Failed to send Security notification:', error);
-    }
-  }
-
-  /**
-   * Send approval notifications
-   */
-  private async sendApprovalNotifications(workPermitId: string, workPermit: any): Promise<void> {
-    try {
-      let notificationType = await this.prisma.notificationType.findFirst({
-        where: { name: 'WORK_PERMIT_APPROVED' },
-      });
-
-      if (!notificationType) {
-        notificationType = await this.prisma.notificationType.create({
-          data: {
-            name: 'WORK_PERMIT_APPROVED',
-            description: 'Work permit approved',
-          },
-        });
-      }
-
-      // Get creator's role for notification
-      const creatorUser = await this.prisma.user.findUnique({
-        where: { id: workPermit.createdBy },
-        select: { roleId: true },
-      });
-
-      // Notify creator
-      await this.notificationsService.createNotificationForRoles(
-        {
-          title: `Work Permit Approved: ${workPermit.code}`,
-          message: `Work permit "${workPermit.projectName}" (${workPermit.code}) has been approved.`,
-          context: 'work-permit',
-          contextId: workPermitId,
-          typeId: notificationType.id,
-          roleIds: creatorUser ? [creatorUser.roleId] : [],
-          userIds: [workPermit.createdBy],
-        },
-        workPermit.createdBy,
-      );
-
-      // Notify HSE officers if any
-      if (workPermit.hseOfficers && workPermit.hseOfficers.length > 0) {
-        const hseOfficerIds = workPermit.hseOfficers.map((h: any) => h.userId);
-        const hseOfficers = await this.prisma.user.findMany({
-          where: { id: { in: hseOfficerIds } },
-          select: { roleId: true },
-        });
-        const hseRoleIds = Array.from(new Set(hseOfficers.map((h) => h.roleId)));
-
-        await this.notificationsService.createNotificationForRoles(
-          {
-            title: `Work Permit Approved: ${workPermit.code}`,
-            message: `Work permit "${workPermit.projectName}" (${workPermit.code}) has been approved.`,
-            context: 'work-permit',
-            contextId: workPermitId,
-            typeId: notificationType.id,
-            roleIds: hseRoleIds,
-            userIds: hseOfficerIds,
-          },
-          workPermit.createdBy,
-        );
-      }
-    } catch (error) {
-      console.error('Failed to send approval notifications:', error);
-    }
-  }
-
-  /**
-   * Send rejection notification
-   */
-  private async sendRejectionNotification(workPermitId: string, workPermit: any, reason: string): Promise<void> {
-    try {
-      let notificationType = await this.prisma.notificationType.findFirst({
-        where: { name: 'WORK_PERMIT_REJECTED' },
-      });
-
-      if (!notificationType) {
-        notificationType = await this.prisma.notificationType.create({
-          data: {
-            name: 'WORK_PERMIT_REJECTED',
-            description: 'Work permit rejected',
-          },
-        });
-      }
-
-      // Get creator's role for notification
-      const creatorUser = await this.prisma.user.findUnique({
-        where: { id: workPermit.createdBy },
-        select: { roleId: true },
-      });
-
-      await this.notificationsService.createNotificationForRoles(
-        {
-          title: `Work Permit Rejected: ${workPermit.code}`,
-          message: `Work permit "${workPermit.projectName}" (${workPermit.code}) has been rejected. Reason: ${reason}`,
-          context: 'work-permit',
-          contextId: workPermitId,
-          typeId: notificationType.id,
-          roleIds: creatorUser ? [creatorUser.roleId] : [],
-          userIds: [workPermit.createdBy],
-        },
-        workPermit.createdBy,
-      );
-    } catch (error) {
-      console.error('Failed to send rejection notification:', error);
     }
   }
 
