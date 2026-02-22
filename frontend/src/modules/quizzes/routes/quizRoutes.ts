@@ -7,6 +7,7 @@ const CreateQuizPage = lazy(() => import('../pages/CreateQuizPage'));
 const EditQuizPage = lazy(() => import('../pages/EditQuizPage'));
 const QuizDetailPage = lazy(() => import('../pages/QuizDetailPage'));
 const QuizAttemptPage = lazy(() => import('../pages/QuizAttemptPage'));
+const QuizAttemptGradingPage = lazy(() => import('../pages/QuizAttemptGradingPage'));
 
 /**
  * Quiz management module routes
@@ -19,6 +20,10 @@ const quizRoutes: RouteConfig[] = [
   {
     path: '/quizzes/new',
     component: CreateQuizPage,
+  },
+  {
+    path: '/quizzes/:id/attempts/:attemptId/grade',
+    component: QuizAttemptGradingPage,
   },
   {
     path: '/quizzes/:id',

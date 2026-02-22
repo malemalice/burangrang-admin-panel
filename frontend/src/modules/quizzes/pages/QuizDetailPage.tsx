@@ -17,6 +17,7 @@ import {
   Play,
   Eye,
   EyeOff,
+  ClipboardCheck,
 } from 'lucide-react';
 import { Separator } from '@/core/components/ui/separator';
 import { Badge } from '@/core/components/ui/badge';
@@ -25,7 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/c
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { useQuiz, useQuizzes } from '../hooks/useQuizzes';
-import { Quiz, QuizQuestion, QuizAttempt } from '../types/quiz.types';
+import { Quiz, QuizQuestion, QuizAttempt, QuizAttemptWithUser } from '../types/quiz.types';
 import quizService from '../services/quizService';
 
 const QuizDetailPage = () => {
@@ -39,12 +40,33 @@ const QuizDetailPage = () => {
   const [completedAttempt, setCompletedAttempt] = useState<QuizAttempt | null>(
     location.state?.attempt || null
   );
+  const [attempts, setAttempts] = useState<QuizAttemptWithUser[]>([]);
+  const [pendingGradingCount, setPendingGradingCount] = useState(0);
 
   useEffect(() => {
     if (id) {
       fetchQuiz(id);
     }
   }, [id, fetchQuiz]);
+
+  const fetchAttempts = async () => {
+    if (!id) return;
+    try {
+      const attemptsData = await quizService.getQuizAttempts(id);
+      setAttempts(attemptsData);
+      setPendingGradingCount(
+        attemptsData.filter((a) => a.needsGrading && a.status === 'COMPLETED').length
+      );
+    } catch (error) {
+      console.error('Failed to fetch attempts:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (id && quiz) {
+      fetchAttempts();
+    }
+  }, [id, quiz?.id]);
 
   const handleDeleteClick = () => {
     setDeleteDialogOpen(true);
@@ -217,6 +239,15 @@ const QuizDetailPage = () => {
           {completedAttempt && quiz?.showCorrectAnswer && (
             <TabsTrigger value="results">Results</TabsTrigger>
           )}
+          <TabsTrigger value="grading" className="flex items-center gap-2">
+            <ClipboardCheck className="h-4 w-4" />
+            Grading
+            {pendingGradingCount > 0 && (
+              <Badge variant="destructive" className="ml-1">
+                {pendingGradingCount}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="statistics">Statistics</TabsTrigger>
         </TabsList>
 
@@ -378,6 +409,78 @@ const QuizDetailPage = () => {
                 </div>
               ) : (
                 <p className="text-muted-foreground text-center py-8">No questions added yet</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="grading" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Quiz attempts</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Review and grade quiz attempts. Click Grade to score essay answers or adjust the final score.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {attempts.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No attempts yet</p>
+              ) : (
+                <div className="rounded-md border">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="h-10 px-4 text-left font-medium">Student</th>
+                        <th className="h-10 px-4 text-left font-medium">Attempt</th>
+                        <th className="h-10 px-4 text-left font-medium">Score</th>
+                        <th className="h-10 px-4 text-left font-medium">Status</th>
+                        <th className="h-10 px-4 text-right font-medium">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attempts.map((attempt) => {
+                        const studentLabel = attempt.user
+                          ? `${attempt.user.firstName} ${attempt.user.lastName}`.trim() || attempt.user.email
+                          : 'Unknown';
+                        return (
+                          <tr key={attempt.id} className="border-b last:border-0">
+                            <td className="px-4 py-3">{studentLabel}</td>
+                            <td className="px-4 py-3">#{attempt.attemptNumber}</td>
+                            <td className="px-4 py-3">
+                              {attempt.score != null ? `${Number(attempt.score).toFixed(1)}%` : '—'}
+                            </td>
+                            <td className="px-4 py-3">
+                              <Badge
+                                variant="outline"
+                                className={quizService.getAttemptStatusBadge(attempt.status)}
+                              >
+                                {attempt.status}
+                              </Badge>
+                              {attempt.needsGrading && attempt.status === 'COMPLETED' && (
+                                <Badge variant="destructive" className="ml-2">
+                                  Pending grading
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  navigate(`/quizzes/${id}/attempts/${attempt.id}/grade`)
+                                }
+                              >
+                                {attempt.needsGrading && attempt.status === 'COMPLETED'
+                                  ? 'Grade'
+                                  : 'View'}
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </CardContent>
           </Card>

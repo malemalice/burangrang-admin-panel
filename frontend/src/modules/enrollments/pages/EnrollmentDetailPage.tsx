@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, Calendar, User, BookOpen, CheckCircle, XCircle, PlayCircle } from 'lucide-react';
+import { ArrowLeft, Edit, Calendar, User, BookOpen, CheckCircle, PlayCircle, ClipboardCheck } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
@@ -11,6 +11,7 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import enrollmentService from '../services/enrollmentService';
 import { Enrollment } from '../types/enrollment.types';
 import { useAuth } from '@/core/lib/auth';
+import quizService from '@/modules/quizzes/services/quizService';
 
 const EnrollmentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -19,6 +20,20 @@ const EnrollmentDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [quizAttempts, setQuizAttempts] = useState<
+    Array<{
+      id: string;
+      quizId: string;
+      quiz: { id: string; title: string; passingScore?: number };
+      attemptNumber: number;
+      status: string;
+      score: number | null;
+      isPassed: boolean;
+      startedAt: string;
+      completedAt: string | null;
+      needsGrading: boolean;
+    }>
+  >([]);
 
   const isAdmin = currentUser?.role === 'Administrator' || currentUser?.role === 'Super Admin';
 
@@ -47,6 +62,21 @@ const EnrollmentDetailPage = () => {
 
     fetchEnrollment();
   }, [id]);
+
+  useEffect(() => {
+    const fetchQuizAttempts = async () => {
+      if (!id) return;
+      try {
+        const data = await quizService.getAttemptsByEnrollment(id);
+        setQuizAttempts(data);
+      } catch {
+        setQuizAttempts([]);
+      }
+    };
+    if (enrollment?.id) {
+      fetchQuizAttempts();
+    }
+  }, [enrollment?.id, id]);
 
   if (loading) {
     return (
@@ -283,6 +313,75 @@ const EnrollmentDetailPage = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Quiz attempts */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5" />
+              Quiz attempts
+            </CardTitle>
+            <CardDescription>
+              Quiz attempts for this enrollment. Click Grade to score essay answers or adjust the final score.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {quizAttempts.length === 0 ? (
+              <p className="text-muted-foreground text-center py-6">No quiz attempts yet</p>
+            ) : (
+              <div className="rounded-md border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="h-10 px-4 text-left font-medium">Quiz</th>
+                      <th className="h-10 px-4 text-left font-medium">Attempt</th>
+                      <th className="h-10 px-4 text-left font-medium">Score</th>
+                      <th className="h-10 px-4 text-left font-medium">Status</th>
+                      <th className="h-10 px-4 text-right font-medium">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quizAttempts.map((attempt) => (
+                      <tr key={attempt.id} className="border-b last:border-0">
+                        <td className="px-4 py-3">{attempt.quiz?.title ?? 'Unknown'}</td>
+                        <td className="px-4 py-3">#{attempt.attemptNumber}</td>
+                        <td className="px-4 py-3">
+                          {attempt.score != null ? `${Number(attempt.score).toFixed(1)}%` : '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            variant="outline"
+                            className={quizService.getAttemptStatusBadge(attempt.status as any)}
+                          >
+                            {attempt.status}
+                          </Badge>
+                          {attempt.needsGrading && attempt.status === 'COMPLETED' && (
+                            <Badge variant="destructive" className="ml-2">
+                              Pending grading
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              navigate(`/quizzes/${attempt.quizId}/attempts/${attempt.id}/grade`)
+                            }
+                          >
+                            {attempt.needsGrading && attempt.status === 'COMPLETED'
+                              ? 'Grade'
+                              : 'View'}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

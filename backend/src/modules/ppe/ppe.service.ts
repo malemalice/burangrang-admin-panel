@@ -841,7 +841,7 @@ export class PPEService {
             }
         }
 
-        return await this.prisma.$transaction(async (tx) => {
+        const txResult = await this.prisma.$transaction(async (tx) => {
             // Create withdrawal header
             const withdrawal = await tx["pPEWithdrawal"].create({
                 data: {
@@ -959,13 +959,13 @@ export class PPEService {
             }
             await this.notificationsService.createNotificationByDepartmentAndJobPosition(
                 {
-                    title: `PPE Withdrawal Submitted: ${withdrawalWithItems.withdrawalCode}`,
-                    message: `PPE withdrawal ${withdrawalWithItems.withdrawalCode} has been submitted for your approval.`,
+                    title: `PPE Withdrawal Submitted: ${withdrawalWithItems!.withdrawalCode}`,
+                    message: `PPE withdrawal ${withdrawalWithItems!.withdrawalCode} has been submitted for your approval.`,
                     context: 'ppe_withdrawal',
                     contextId: withdrawalId,
-                    typeId: notificationType.id,
-                    departmentId: approvalStatus.nextApprover.department.id,
-                    jobPositionId: approvalStatus.nextApprover.jobPosition.id,
+                    typeId: notificationType!.id,
+                    departmentId: approvalStatus.nextApprover!.department.id,
+                    jobPositionId: approvalStatus.nextApprover!.jobPosition.id,
                 },
                 createdBy,
             );
