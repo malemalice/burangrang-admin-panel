@@ -261,14 +261,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
         </Card>
 
         {/* Actions */}
-        <div className="flex justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate('/man-hours')}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back
-          </Button>
+        <div className="flex justify-end gap-4">
           <ThemeButton type="submit" disabled={isSubmitting}>
             <Save className="mr-2 h-4 w-4" />
             {isSubmitting ? 'Saving...' : mode === 'create' ? 'Create' : 'Update'}
