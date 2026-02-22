@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsDateString, IsInt, IsUUID, Min } from 'class-validator';
-import { CertificateTypeEnum } from '@prisma/client';
+import { IsString, IsNotEmpty, IsOptional, IsDateString, IsInt, IsUUID, Min } from 'class-validator';
 
 export class CreateCertificateDto {
   @ApiProperty({ description: 'Certificate number' })
@@ -17,11 +16,6 @@ export class CreateCertificateDto {
   @IsUUID()
   @IsNotEmpty()
   categoryId: string;
-
-  @ApiProperty({ enum: CertificateTypeEnum, description: 'Type of certificate' })
-  @IsEnum(CertificateTypeEnum)
-  @IsNotEmpty()
-  certificateType: CertificateTypeEnum;
 
   @ApiProperty({ description: 'Issued date' })
   @IsDateString()

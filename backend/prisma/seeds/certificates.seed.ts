@@ -1,4 +1,4 @@
-import { PrismaClient, CertificateTypeEnum, CertificateRenewalStatusEnum } from '@prisma/client';
+import { PrismaClient, CertificateRenewalStatusEnum } from '@prisma/client';
 import { subDays, addDays, addMonths, subMonths } from 'date-fns';
 
 export async function seedCertificates(prisma: PrismaClient) {
@@ -68,7 +68,6 @@ export async function seedCertificates(prisma: PrismaClient) {
                 certificateNumber: getCertNumber('CERT'),
                 certificateName: 'Safety Officer License - John Doe',
                 categoryId: getCategory('SO-LICENSE')?.id || categories[0].id,
-                certificateType: CertificateTypeEnum.PERSONNEL_LICENSE,
                 issuedDate: subMonths(today, 6),
                 validityDate: addMonths(today, 6),
                 issuerName: 'Ministry of Manpower',
@@ -85,7 +84,6 @@ export async function seedCertificates(prisma: PrismaClient) {
                 certificateNumber: getCertNumber('CERT'),
                 certificateName: 'Forklift Operator License - Jane Smith',
                 categoryId: getCategory('FL-OP-LICENSE')?.id || categories[1].id,
-                certificateType: CertificateTypeEnum.PERSONNEL_LICENSE,
                 issuedDate: subMonths(today, 3),
                 validityDate: addMonths(today, 9),
                 issuerName: 'Occupational Safety Authority',
@@ -102,7 +100,6 @@ export async function seedCertificates(prisma: PrismaClient) {
                 certificateNumber: getCertNumber('CERT'),
                 certificateName: 'First Aid Certificate - Bob Johnson',
                 categoryId: getCategory('FA-CERT')?.id || categories[2].id,
-                certificateType: CertificateTypeEnum.PERSONNEL_CERTIFICATE,
                 issuedDate: subMonths(today, 2),
                 validityDate: addMonths(today, 10),
                 issuerName: 'Red Cross Society',
@@ -119,7 +116,6 @@ export async function seedCertificates(prisma: PrismaClient) {
                 certificateNumber: getCertNumber('CERT'),
                 certificateName: 'Fire Safety Certificate - Alice Brown',
                 categoryId: getCategory('FS-CERT')?.id || categories[3].id,
-                certificateType: CertificateTypeEnum.PERSONNEL_CERTIFICATE,
                 issuedDate: subMonths(today, 4),
                 validityDate: addMonths(today, 8),
                 issuerName: 'Fire Safety Training Institute',
@@ -136,7 +132,6 @@ export async function seedCertificates(prisma: PrismaClient) {
                 certificateNumber: getCertNumber('CERT'),
                 certificateName: 'Pressure Vessel Calibration - PV-001',
                 categoryId: getCategory('PV-CAL')?.id || categories[4].id,
-                certificateType: CertificateTypeEnum.EQUIPMENT_CALIBRATION,
                 issuedDate: subMonths(today, 1),
                 validityDate: addMonths(today, 11),
                 issuerName: 'Calibration Lab Services',
@@ -153,7 +148,6 @@ export async function seedCertificates(prisma: PrismaClient) {
                 certificateNumber: getCertNumber('CERT'),
                 certificateName: 'Fire Extinguisher Calibration - FE-001',
                 categoryId: getCategory('FE-CAL')?.id || categories[5].id,
-                certificateType: CertificateTypeEnum.EQUIPMENT_CALIBRATION,
                 issuedDate: subMonths(today, 2),
                 validityDate: addMonths(today, 10),
                 issuerName: 'Fire Safety Equipment Services',
@@ -170,7 +164,6 @@ export async function seedCertificates(prisma: PrismaClient) {
                 certificateNumber: getCertNumber('CERT'),
                 certificateName: 'Boiler Operational Permit - BO-001',
                 categoryId: getCategory('BO-PERMIT')?.id || categories[7].id,
-                certificateType: CertificateTypeEnum.EQUIPMENT_OPERATIONAL_PERMIT,
                 issuedDate: subMonths(today, 5),
                 validityDate: addMonths(today, 7),
                 issuerName: 'Boiler Safety Authority',
@@ -191,7 +184,6 @@ export async function seedCertificates(prisma: PrismaClient) {
                 certificateNumber: getCertNumber('CERT'),
                 certificateName: 'Safety Officer License - Expiring Soon',
                 categoryId: getCategory('SO-LICENSE')?.id || categories[0].id,
-                certificateType: CertificateTypeEnum.PERSONNEL_LICENSE,
                 issuedDate: subMonths(today, 11),
                 validityDate: addDays(today, 25), // Expiring in 25 days
                 issuerName: 'Ministry of Manpower',
@@ -208,7 +200,6 @@ export async function seedCertificates(prisma: PrismaClient) {
                 certificateNumber: getCertNumber('CERT'),
                 certificateName: 'First Aid Certificate - Expiring Soon',
                 categoryId: getCategory('FA-CERT')?.id || categories[2].id,
-                certificateType: CertificateTypeEnum.PERSONNEL_CERTIFICATE,
                 issuedDate: subMonths(today, 11),
                 validityDate: addDays(today, 20), // Expiring in 20 days
                 issuerName: 'Red Cross Society',
@@ -225,7 +216,6 @@ export async function seedCertificates(prisma: PrismaClient) {
                 certificateNumber: getCertNumber('CERT'),
                 certificateName: 'Pressure Vessel Calibration - Expiring Soon',
                 categoryId: getCategory('PV-CAL')?.id || categories[4].id,
-                certificateType: CertificateTypeEnum.EQUIPMENT_CALIBRATION,
                 issuedDate: subMonths(today, 11),
                 validityDate: addDays(today, 15), // Expiring in 15 days
                 issuerName: 'Calibration Lab Services',
@@ -246,7 +236,6 @@ export async function seedCertificates(prisma: PrismaClient) {
                 certificateNumber: getCertNumber('CERT'),
                 certificateName: 'Forklift Operator License - Expired',
                 categoryId: getCategory('FL-OP-LICENSE')?.id || categories[1].id,
-                certificateType: CertificateTypeEnum.PERSONNEL_LICENSE,
                 issuedDate: subMonths(today, 13),
                 validityDate: subDays(today, 30), // Expired 30 days ago
                 issuerName: 'Occupational Safety Authority',
@@ -263,7 +252,6 @@ export async function seedCertificates(prisma: PrismaClient) {
                 certificateNumber: getCertNumber('CERT'),
                 certificateName: 'Fire Safety Certificate - Expired',
                 categoryId: getCategory('FS-CERT')?.id || categories[3].id,
-                certificateType: CertificateTypeEnum.PERSONNEL_CERTIFICATE,
                 issuedDate: subMonths(today, 13),
                 validityDate: subDays(today, 15), // Expired 15 days ago
                 issuerName: 'Fire Safety Training Institute',
@@ -280,7 +268,6 @@ export async function seedCertificates(prisma: PrismaClient) {
                 certificateNumber: getCertNumber('CERT'),
                 certificateName: 'Fire Extinguisher Calibration - Expired',
                 categoryId: getCategory('FE-CAL')?.id || categories[5].id,
-                certificateType: CertificateTypeEnum.EQUIPMENT_CALIBRATION,
                 issuedDate: subMonths(today, 13),
                 validityDate: subDays(today, 60), // Expired 60 days ago
                 issuerName: 'Fire Safety Equipment Services',
@@ -297,7 +284,6 @@ export async function seedCertificates(prisma: PrismaClient) {
                 certificateNumber: getCertNumber('CERT'),
                 certificateName: 'Boiler Operational Permit - Expired',
                 categoryId: getCategory('BO-PERMIT')?.id || categories[7].id,
-                certificateType: CertificateTypeEnum.EQUIPMENT_OPERATIONAL_PERMIT,
                 issuedDate: subMonths(today, 13),
                 validityDate: subDays(today, 90), // Expired 90 days ago
                 issuerName: 'Boiler Safety Authority',
@@ -318,7 +304,6 @@ export async function seedCertificates(prisma: PrismaClient) {
                 certificateNumber: getCertNumber('CERT'),
                 certificateName: 'Safety Officer License - Inactive',
                 categoryId: getCategory('SO-LICENSE')?.id || categories[0].id,
-                certificateType: CertificateTypeEnum.PERSONNEL_LICENSE,
                 issuedDate: subMonths(today, 8),
                 validityDate: addMonths(today, 4),
                 issuerName: 'Ministry of Manpower',
@@ -335,7 +320,6 @@ export async function seedCertificates(prisma: PrismaClient) {
                 certificateNumber: getCertNumber('CERT'),
                 certificateName: 'Electrical Installation Permit - Inactive',
                 categoryId: getCategory('EI-PERMIT')?.id || categories[6].id,
-                certificateType: CertificateTypeEnum.EQUIPMENT_INSTALLATION,
                 issuedDate: subMonths(today, 6),
                 validityDate: addMonths(today, 6),
                 issuerName: 'Electrical Safety Authority',

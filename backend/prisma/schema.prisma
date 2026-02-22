@@ -1284,7 +1284,6 @@ model Certificate {
   certificateNumber String
   certificateName   String
   categoryId        String
-  certificateType   CertificateTypeEnum
   issuedDate        DateTime
   validityDate      DateTime
   issuerName        String

@@ -98,6 +98,7 @@ export class CertificateDto {
 
   constructor(partial: Partial<CertificateDto>) {
     Object.assign(this, partial);
+    this.certificateType = partial.category?.certificateType ?? this.certificateType;
   }
 }
 

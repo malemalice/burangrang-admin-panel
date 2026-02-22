@@ -1859,7 +1859,6 @@ Table t_certificates {
   certificateNumber varchar [not null]
   certificateName varchar [not null]
   categoryId varchar [not null, ref: > m_certificate_categories.id]
-  certificateType CertificateTypeEnum [not null]
   issuedDate timestamp [not null]
   validityDate timestamp [not null]
   issuerName varchar [not null]

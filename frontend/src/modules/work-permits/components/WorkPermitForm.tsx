@@ -32,6 +32,7 @@ import { Loader2, Upload, X as XIcon } from 'lucide-react';
 import workPermitService from '../services/workPermitService';
 import { userService, type User } from '@/modules/users';
 import { roleService } from '@/modules/roles';
+import AddWorkerModal from './AddWorkerModal';
 import { courseService, type Course } from '@/modules/courses';
 import { safetyEquipmentService, type SafetyEquipment } from '@/modules/ppe';
 
@@ -184,6 +185,10 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
   const [workPermitDocumentsCategoryId, setWorkPermitDocumentsCategoryId] = useState<string | null>(null);
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
   const [uploadedFileNames, setUploadedFileNames] = useState<Record<string, string>>({});
+  const [addWorkerModalOpen, setAddWorkerModalOpen] = useState(false);
+  const [addWorkerForIndex, setAddWorkerForIndex] = useState<number | null>(null);
+  const [addWorkerInitialName, setAddWorkerInitialName] = useState('');
+  const [workerSearchQueries, setWorkerSearchQueries] = useState<Record<number, string>>({});
 
   // Memoized options for SearchableSelect
   const areaOptions = useMemo(() => areas.map((a) => ({ value: a.id, label: a.name })), [areas]);
@@ -193,7 +198,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     () =>
       workerUsers.map((u) => ({
         value: u.id,
-        label: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email ?? u.id,
+        label: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || (u.email ?? u.id),
       })),
     [workerUsers],
   );
@@ -573,7 +578,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               name="projectName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Project Name *</FormLabel>
+                  <FormLabel>Project Name <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
                     <Input placeholder="Enter project name" {...field} />
                   </FormControl>
@@ -587,7 +592,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 name="areaId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Area *</FormLabel>
+                    <FormLabel>Area <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
                       <SearchableSelect
                         options={areaOptions}
@@ -606,7 +611,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 name="companyId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company *</FormLabel>
+                    <FormLabel>Company <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
                       <SearchableSelect
                         options={companyOptions}
@@ -627,7 +632,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 name="proposedStartDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Proposed Start Date *</FormLabel>
+                    <FormLabel>Proposed Start Date <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
                       <DateTimePicker mode="date" {...field} />
                     </FormControl>
@@ -640,7 +645,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                 name="proposedEndDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Proposed End Date *</FormLabel>
+                    <FormLabel>Proposed End Date <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
                       <DateTimePicker mode="date" {...field} />
                     </FormControl>
@@ -664,7 +669,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               name="workStagesDescription"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Work Stages Description *</FormLabel>
+                  <FormLabel>Work Stages Description <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
                     <Textarea placeholder="Describe work stages..." rows={4} {...field} />
                   </FormControl>
@@ -677,7 +682,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
               name="jobSafetyAnalysis"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Job Safety Analysis *</FormLabel>
+                  <FormLabel>Job Safety Analysis <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
                     <Textarea placeholder="Job safety analysis..." rows={4} {...field} />
                   </FormControl>
@@ -820,21 +825,53 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                   <FormField
                     control={form.control}
                     name={`workers.${index}.userId`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Worker *</FormLabel>
-                        <FormControl>
-                          <SearchableSelect
-                            options={workerOptions}
-                            value={field.value}
-                            onValueChange={field.onChange}
-                            placeholder="Select worker"
-                            searchPlaceholder="Search worker..."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const searchQ = workerSearchQueries[index] ?? '';
+                      const optionsFiltered =
+                        searchQ.trim() === ''
+                          ? workerOptions
+                          : workerOptions.filter((o) =>
+                              o.label.toLowerCase().includes(searchQ.toLowerCase()),
+                            );
+                      return (
+                        <FormItem>
+                          <div className="flex items-center justify-between gap-2">
+                            <FormLabel>Worker <span className="text-destructive">*</span></FormLabel>
+                            <Button
+                              type="button"
+                              variant="link"
+                              className="h-auto p-0 text-sm"
+                              onClick={() => {
+                                setAddWorkerForIndex(index);
+                                setAddWorkerInitialName('');
+                                setAddWorkerModalOpen(true);
+                              }}
+                            >
+                              Add new worker
+                            </Button>
+                          </div>
+                          <FormControl>
+                            <SearchableSelect
+                              options={optionsFiltered}
+                              value={field.value}
+                              onValueChange={field.onChange}
+                              placeholder="Select worker"
+                              searchPlaceholder="Search worker..."
+                              onSearch={(q) =>
+                                setWorkerSearchQueries((prev) => ({ ...prev, [index]: q }))
+                              }
+                              onCreateNew={(query) => {
+                                setAddWorkerForIndex(index);
+                                setAddWorkerInitialName(query);
+                                setAddWorkerModalOpen(true);
+                              }}
+                              createNewText="Add new worker"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                   <FormField
                     control={form.control}
@@ -939,7 +976,7 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
 
                       return (
                         <FormItem>
-                          <FormLabel>Health Declaration *</FormLabel>
+                          <FormLabel>Health Declaration <span className="text-destructive">*</span></FormLabel>
                           <FormControl>
                             <div className="space-y-2">
                               {hasFile ? (
@@ -1050,6 +1087,26 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
           </Button>
         </div>
       </form>
+
+      <AddWorkerModal
+        open={addWorkerModalOpen}
+        onOpenChange={(open) => {
+          setAddWorkerModalOpen(open);
+          if (!open) {
+            setAddWorkerForIndex(null);
+            setAddWorkerInitialName('');
+          }
+        }}
+        initialName={addWorkerInitialName}
+        onSuccess={(user: User) => {
+          setWorkerUsers((prev) => [...prev, user]);
+          if (addWorkerForIndex !== null) {
+            form.setValue(`workers.${addWorkerForIndex}.userId`, user.id);
+          }
+          setAddWorkerForIndex(null);
+          setAddWorkerInitialName('');
+        }}
+      />
     </Form>
   );
 };

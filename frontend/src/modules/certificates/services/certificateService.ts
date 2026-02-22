@@ -40,7 +40,7 @@ const mapCertificateDtoToCertificate = (
                 updatedAt: certificateDto.category.updatedAt,
             }
             : undefined,
-        certificateType: certificateDto.certificateType,
+        certificateType: certificateDto.certificateType ?? certificateDto.category?.certificateType,
         issuedDate: certificateDto.issuedDate,
         validityDate: certificateDto.validityDate,
         issuerName: certificateDto.issuerName,

@@ -37,7 +37,7 @@
 ### Certificate Management System
 - **CertificateCategory** (id, name, code, certificateType, description, isActive)
 - **CertificateTypeEnum**: PERSONNEL_LICENSE, PERSONNEL_CERTIFICATE, EQUIPMENT_CALIBRATION, EQUIPMENT_INSTALLATION, EQUIPMENT_OPERATIONAL_PERMIT
-- **Certificate** (id, certificateNumber, certificateName, categoryId, certificateType, issuedDate, validityDate, issuerName, documentUrl, personnelId?, personnelName?, equipmentId?, equipmentName?, departmentId, reminderDays, notes, isActive, createdBy)
+- **Certificate** (id, certificateNumber, certificateName, categoryId, issuedDate, validityDate, issuerName, documentUrl, personnelId?, personnelName?, equipmentId?, equipmentName?, departmentId, reminderDays, notes, isActive, createdBy)
 - **CertificateRenewal** (id, certificateId, requestDate, requestedBy, status, processedBy?, processedDate?, newValidityDate?, newDocumentUrl?, notes)
 - **CertificateRenewalStatusEnum**: PENDING, REQUESTED, IN_PROGRESS, COMPLETED, REJECTED, EXPIRED
 - **CertificateReminder** (id, certificateId, reminderDate, isSent, sentAt?, recipientId)
