@@ -86,7 +86,7 @@ const generateIncidentCode = (): string => {
 // Schema for injured person - gender allows blank (empty string) to match create behavior
 const injuredPersonSchema = z.object({
   injuredPersonName: z.string().optional(),
-  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.undefined()]).optional().transform((val) => (val === '' ? undefined : val)),
+  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.null(), z.undefined()]).optional().transform((val) => (val === '' || val === null ? undefined : val)),
   levelOfInjury: z.nativeEnum(LevelOfInjuryEnum).default(LevelOfInjuryEnum.NOT_SPECIFIED),
   injuredBodyPart: z.nativeEnum(InjuredBodyPartEnum).default(InjuredBodyPartEnum.NOT_SPECIFIED),
   typeOfInjury: z.nativeEnum(TypeOfInjuryEnum).default(TypeOfInjuryEnum.NOT_SPECIFIED),
@@ -97,7 +97,7 @@ const injuredPersonSchema = z.object({
 // Schema for witness - gender allows blank (empty string) to match create behavior
 const witnessSchema = z.object({
   witnessName: z.string().optional(),
-  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.undefined()]).optional().transform((val) => (val === '' ? undefined : val)),
+  gender: z.union([z.nativeEnum(GenderEnum), z.literal(''), z.null(), z.undefined()]).optional().transform((val) => (val === '' || val === null ? undefined : val)),
   departmentId: z.string().optional(),
 });
 
@@ -250,13 +250,6 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
     };
     fetchUserRole();
   }, [currentUser?.id]);
-
-  // Non-super-user can only create with OPEN or CLOSE; default create to OPEN
-  useEffect(() => {
-    if (roleFetched && !isSuperUser && mode === 'create') {
-      form.setValue('status', GeneralStatusEnum.OPEN);
-    }
-  }, [roleFetched, isSuperUser, mode, form]);
 
   // Image/attachment upload state (drag-and-drop, multi-file like InspectionItemForm)
   interface ImageUploadItem {
@@ -411,7 +404,7 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
             injuredPersons:
               incident.injuredPersons?.map((p, index) => ({
                 injuredPersonName: p.injuredPersonName || '',
-                gender: p.gender,
+                gender: p.gender ?? '',
                 levelOfInjury: p.levelOfInjury,
                 injuredBodyPart: p.injuredBodyPart,
                 typeOfInjury: p.typeOfInjury,
@@ -421,7 +414,7 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
             witnesses:
               incident.witnesses?.map((w) => ({
                 witnessName: w.witnessName || '',
-                gender: w.gender,
+                gender: w.gender ?? '',
                 departmentId: w.departmentId || '',
               })) || [],
             assets:
@@ -766,43 +759,32 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
     return { images: imagePayload, attachments: attachmentPayload };
   }, [fileCategory, imageUploads, attachmentUploads]);
 
+  const CONTROL_MEASURE_FIELDS = [
+    'controlMeasure',
+    'dueDate',
+    'expectedOutcome',
+    'needToStopActivity',
+    'stopActivityDescription',
+    'treatment',
+    'treatmentDescription',
+    'absence',
+    'resolution',
+  ];
+
   // Determine if field should be disabled based on mode
   const isFieldDisabled = (fieldName: string): boolean => {
     if (isLoading || isApproving) return true;
-    
+
     if (resolvedMode === 'creator') {
       // Creator: cannot fill 'Control Measures & Outcomes' section
-      const controlMeasureFields = [
-        'controlMeasure',
-        'dueDate',
-        'expectedOutcome',
-        'needToStopActivity',
-        'stopActivityDescription',
-        'treatment',
-        'treatmentDescription',
-        'absence',
-        'resolution',
-      ];
-      return controlMeasureFields.includes(fieldName);
+      return CONTROL_MEASURE_FIELDS.includes(fieldName);
     }
-    
-    if (resolvedMode === 'investigator') {
-      // Investigator: only can update 'Control Measures & Outcomes' sections
-      const controlMeasureFields = [
-        'controlMeasure',
-        'dueDate',
-        'expectedOutcome',
-        'needToStopActivity',
-        'stopActivityDescription',
-        'treatment',
-        'treatmentDescription',
-        'absence',
-        'resolution',
-      ];
-      return !controlMeasureFields.includes(fieldName);
+
+    if (resolvedMode === 'investigator' || resolvedMode === 'approver') {
+      // Investigator and approver: only can update 'Control Measures & Outcomes' sections
+      return !CONTROL_MEASURE_FIELDS.includes(fieldName);
     }
-    
-    // Approver: all fields are read-only (approval handled separately)
+
     return true;
   };
 
@@ -822,12 +804,26 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
     try {
       setIsApproving(true);
 
+      const values = form.getValues();
+      const controlMeasureDto: UpdateIncidentDTO = {
+        controlMeasure: values.controlMeasure || undefined,
+        dueDate: values.dueDate ? new Date(values.dueDate) : undefined,
+        expectedOutcome: values.expectedOutcome || undefined,
+        needToStopActivity: values.needToStopActivity,
+        stopActivityDescription: values.stopActivityDescription || undefined,
+        treatment: values.treatment,
+        treatmentDescription: values.treatmentDescription || undefined,
+        absence: values.absence,
+        resolution: values.resolution || undefined,
+      };
+      await incidentSecurityService.update(incident.id, controlMeasureDto);
+
       if (status === ApprovalStatus.APPROVED) {
         await incidentSecurityService.approve(incident.id, notes, activities);
-        toast.success('Incident approved successfully');
+        toast.success('Incident Securities approved successfully');
       } else {
         await incidentSecurityService.reject(incident.id, notes);
-        toast.success('Incident rejected');
+        toast.success('Incident Securities rejected successfully');
       }
 
       navigate('/incident-securities');
@@ -864,8 +860,11 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
           return;
         }
       } else if (resolvedMode === 'investigator') {
-        // Investigator (non-super_admin): cannot change status; keep current incident status
-        statusToSet = incident?.status ?? GeneralStatusEnum.OPEN;
+        // Investigator (non-super_admin): allow OPEN or CLOSE from form; otherwise keep current
+        statusToSet =
+          data.status === GeneralStatusEnum.OPEN || data.status === GeneralStatusEnum.CLOSE
+            ? data.status
+            : incident?.status ?? GeneralStatusEnum.OPEN;
       }
       // Non-super-user (creator): statusToSet stays data.status (only OPEN or CLOSE allowed by UI and backend)
 
@@ -1189,7 +1188,6 @@ const IncidentSecurityForm = ({ incident, mode, entryMode }: IncidentSecurityFor
                       <Select
                         onValueChange={field.onChange}
                         value={field.value}
-                        disabled={resolvedMode === 'investigator' && !isSuperUser}
                       >
                         <FormControl>
                           <SelectTrigger>

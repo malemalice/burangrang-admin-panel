@@ -38,9 +38,9 @@ import { CreateInspectionItemDTO } from '../../types/inspection.types';
 import inspectionItemsService from '../services/inspectionItemsService';
 import InspectionItemForm from '../../components/InspectionItemForm';
 import { GeneralStatusEnum, INSPECTION_ITEM_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
-import { departmentService, riskService, riskCategoryService } from '@/modules/master-data';
+import { departmentService, riskService, riskCategoryService, masterApprovalService } from '@/modules/master-data';
 import { Department } from '@/modules/master-data/types/master-data.types';
-import { Risk, RiskCategory } from '@/core/lib/types';
+import { Risk, RiskCategory, MasterApprovalItem, PaginationParams } from '@/core/lib/types';
 import userService from '@/modules/users/services/userService';
 import { User } from '@/core/lib/types';
 import { useAuth } from '@/core/lib/auth';
@@ -84,6 +84,7 @@ const InspectionItemsPage = () => {
   const [editingItem, setEditingItem] = useState<InspectionItem | null>(null);
   const [editingFormMode, setEditingFormMode] = useState<'creator' | 'updater' | 'verifier' | null>(null);
   const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
+  const [inspectionItemApprovalLines, setInspectionItemApprovalLines] = useState<MasterApprovalItem[] | null>(null);
   const [approvalRights, setApprovalRights] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -107,6 +108,30 @@ const InspectionItemsPage = () => {
     };
     fetchUserRole();
   }, [currentUser?.id]);
+
+  // Fetch Master Approval lines for INSPECTION_ITEM when workflow dialog opens (for dynamic workflow guideline)
+  useEffect(() => {
+    if (!isWorkflowInfoDialogOpen) return;
+    let cancelled = false;
+    const fetchInspectionItemApprovalLines = async () => {
+      setInspectionItemApprovalLines(null);
+      try {
+        const response = await masterApprovalService.getAll({
+          page: 1,
+          limit: 10,
+          search: 'INSPECTION_ITEM',
+          isActive: true,
+        } as PaginationParams);
+        if (cancelled) return;
+        const approval = response.data?.find((a: { entity: string }) => a.entity === 'INSPECTION_ITEM');
+        setInspectionItemApprovalLines(approval?.items ?? []);
+      } catch {
+        if (!cancelled) setInspectionItemApprovalLines([]);
+      }
+    };
+    fetchInspectionItemApprovalLines();
+    return () => { cancelled = true; };
+  }, [isWorkflowInfoDialogOpen]);
 
   // Fetch filter options
   useEffect(() => {
@@ -699,6 +724,7 @@ const InspectionItemsPage = () => {
                   imageUrl: img.imageUrl,
                   caption: img.caption,
                   order: img.order,
+                  type: img.type,
                 })),
                 mitigation: editingItem.mitigation ? {
                   eliminate: editingItem.mitigation.eliminate,
@@ -721,74 +747,178 @@ const InspectionItemsPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Workflow Information Dialog */}
+      {/* Workflow Information Dialog — inspection item workflow per docs/prd-inspections.md and TRD workflow guideline */}
       <Dialog open={isWorkflowInfoDialogOpen} onOpenChange={setIsWorkflowInfoDialogOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-4">
             <DialogTitle>Inspection Item Workflow</DialogTitle>
             <DialogDescription>
-              The inspection item goes through three main stages before reaching completion
+              Inspection items move from recording the finding, to follow-up by the assigned department or assignee, then to verification by an approver.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-2">
+          <div className="px-6 pb-6">
+            <div className="flex flex-col md:flex-row md:items-stretch gap-4 md:gap-2">
               {/* Step 1: Finding */}
-              <div className="flex flex-col items-center text-center flex-1">
-                <div className="relative flex items-center justify-center mb-4">
-                  <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
-                    <FileText className="h-8 w-8 text-blue-600" />
+              <div className="flex flex-1 flex-col min-w-0 rounded-lg border border-blue-200/80 bg-blue-50/40 dark:bg-blue-950/20 dark:border-blue-800/50 overflow-hidden">
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-blue-200/60 dark:border-blue-800/40">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50">
+                    <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-semibold flex items-center justify-center">
-                    1
+                  <div>
+                    <span className="text-xs font-medium text-blue-600 dark:text-blue-400">Step 1</span>
+                    <h3 className="font-semibold text-foreground leading-tight">Finding</h3>
                   </div>
                 </div>
-                <h3 className="font-semibold text-lg mb-1">Finding</h3>
-                <p className="text-sm text-muted-foreground max-w-[200px]">
-                  Record inspection findings and initial details
+                <dl className="grid gap-2 px-4 py-3 text-sm">
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Status</dt>
+                    <dd className="mt-0.5 font-medium text-foreground">Open Issue / Rejected</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Responsible</dt>
+                    <dd className="mt-0.5 font-medium text-foreground">Inspection creator</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
+                    <dd className="mt-0.5 text-muted-foreground">User who created the parent inspection or adds the item to the inspection (any department)</dd>
+                  </div>
+                </dl>
+                <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-blue-200/40 dark:border-blue-800/30 pt-2">
+                  Records the finding and initial details (area, risk category, risk, assigned department, assignee, due date). Editable until submitted for verification.
                 </p>
               </div>
 
-              {/* Arrow Connector 1 */}
-              <div className="hidden md:flex items-center justify-center px-4">
-                <ArrowRight className="h-6 w-6 text-muted-foreground" />
+              <div className="hidden md:flex shrink-0 items-center justify-center w-6 self-center">
+                <ArrowRight className="h-5 w-5 text-muted-foreground/60" aria-hidden />
               </div>
 
               {/* Step 2: Action Plan */}
-              <div className="flex flex-col items-center text-center flex-1">
-                <div className="relative flex items-center justify-center mb-4">
-                  <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center">
-                    <Wrench className="h-8 w-8 text-orange-600" />
+              <div className="flex flex-1 flex-col min-w-0 rounded-lg border border-orange-200/80 bg-orange-50/40 dark:bg-orange-950/20 dark:border-orange-800/50 overflow-hidden">
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-orange-200/60 dark:border-orange-800/40">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/50">
+                    <Wrench className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                   </div>
-                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-orange-600 text-white text-xs font-semibold flex items-center justify-center">
-                    2
+                  <div>
+                    <span className="text-xs font-medium text-orange-600 dark:text-orange-400">Step 2</span>
+                    <h3 className="font-semibold text-foreground leading-tight">Action Plan</h3>
                   </div>
                 </div>
-                <h3 className="font-semibold text-lg mb-1">Action Plan</h3>
-                <p className="text-sm text-muted-foreground max-w-[200px]">
-                  Update action item progress with images and notes
+                <dl className="grid gap-2 px-4 py-3 text-sm">
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Status</dt>
+                    <dd className="mt-0.5 font-medium text-foreground">Open Issue / Rejected</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Responsible</dt>
+                    <dd className="mt-0.5 font-medium text-foreground">Assigned dept / Assignee</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
+                    <dd className="mt-0.5 text-muted-foreground">Department or person set as Assigned Department or Assignee on the inspection item</dd>
+                  </div>
+                </dl>
+                <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-orange-200/40 dark:border-orange-800/30 pt-2">
+                  Updates progress with follow-up notes, images (BEFORE/AFTER/GENERAL), and action items. Can submit for verification when ready.
                 </p>
               </div>
 
-              {/* Arrow Connector 2 */}
-              <div className="hidden md:flex items-center justify-center px-4">
-                <ArrowRight className="h-6 w-6 text-muted-foreground" />
-              </div>
+              {inspectionItemApprovalLines === null ? (
+                <>
+                  <div className="hidden md:flex shrink-0 items-center justify-center w-6 self-center">
+                    <ArrowRight className="h-5 w-5 text-muted-foreground/60" aria-hidden />
+                  </div>
+                  <div className="flex flex-1 flex-col min-w-0 rounded-lg border border-green-200/80 bg-green-50/40 dark:bg-green-950/20 dark:border-green-800/50 overflow-hidden">
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-green-200/60 dark:border-green-800/40">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+                        <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-medium text-green-600 dark:text-green-400">Step 3</span>
+                        <h3 className="font-semibold text-foreground leading-tight">Verify</h3>
+                      </div>
+                    </div>
+                    <div className="px-4 py-4 text-sm text-muted-foreground">
+                      Loading approval steps...
+                    </div>
+                  </div>
+                </>
+              ) : inspectionItemApprovalLines.length > 0 ? (
+                inspectionItemApprovalLines.map((item, index) => (
+                  <div key={item.id} className="contents">
+                    <div className="hidden md:flex shrink-0 items-center justify-center w-6 self-center">
+                      <ArrowRight className="h-5 w-5 text-muted-foreground/60" aria-hidden />
+                    </div>
+                    <div className="flex flex-1 flex-col min-w-0 rounded-lg border border-green-200/80 bg-green-50/40 dark:bg-green-950/20 dark:border-green-800/50 overflow-hidden">
+                      <div className="flex items-center gap-3 px-4 py-3 border-b border-green-200/60 dark:border-green-800/40">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+                          <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-medium text-green-600 dark:text-green-400">Step {3 + index}</span>
+                          <h3 className="font-semibold text-foreground leading-tight">Verify</h3>
+                        </div>
+                      </div>
+                      <dl className="grid gap-2 px-4 py-3 text-sm">
+                        <div>
+                          <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Status</dt>
+                          <dd className="mt-0.5 font-medium text-foreground">Waiting Verification</dd>
+                        </div>
+                        <div>
+                          <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Responsible</dt>
+                          <dd className="mt-0.5 font-medium text-foreground">{item.jobPosition?.name ?? `Approver (line ${index + 1})`}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
+                          <dd className="mt-0.5 text-muted-foreground">
+                            {[item.jobPosition?.name, item.department?.name].filter(Boolean).join(', ') || 'Per Master Approval'}
+                          </dd>
+                        </div>
+                      </dl>
+                      <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-green-200/40 dark:border-green-800/30 pt-2">
+                        Approves or rejects. If rejected, item returns to Open for edits.
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div className="hidden md:flex shrink-0 items-center justify-center w-6 self-center">
+                    <ArrowRight className="h-5 w-5 text-muted-foreground/60" aria-hidden />
+                  </div>
+                  <div className="flex flex-1 flex-col min-w-0 rounded-lg border border-green-200/80 bg-green-50/40 dark:bg-green-950/20 dark:border-green-800/50 overflow-hidden">
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-green-200/60 dark:border-green-800/40">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+                        <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-medium text-green-600 dark:text-green-400">Step 3</span>
+                        <h3 className="font-semibold text-foreground leading-tight">Verify</h3>
+                      </div>
+                    </div>
+                    <dl className="grid gap-2 px-4 py-3 text-sm">
+                      <div>
+                        <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Status</dt>
+                        <dd className="mt-0.5 font-medium text-foreground">Waiting Verification</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Responsible</dt>
+                        <dd className="mt-0.5 font-medium text-foreground">Approver (per approval line)</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
+                        <dd className="mt-0.5 text-muted-foreground">User from the item&apos;s Assigned Department with approver job position (e.g. Dept Head), per Master Approval for inspection items</dd>
+                      </div>
+                    </dl>
+                    <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-green-200/40 dark:border-green-800/30 pt-2">
+                      Approves or rejects. If rejected, item returns to Open for edits.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
 
-              {/* Step 3: Verify */}
-              <div className="flex flex-col items-center text-center flex-1">
-                <div className="relative flex items-center justify-center mb-4">
-                  <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
-                    <CheckCircle2 className="h-8 w-8 text-green-600" />
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-semibold flex items-center justify-center">
-                    3
-                  </div>
-                </div>
-                <h3 className="font-semibold text-lg mb-1">Verify</h3>
-                <p className="text-sm text-muted-foreground max-w-[200px]">
-                  Verify and finalize inspection item
-                </p>
-              </div>
+            <div className="mt-4 rounded-lg bg-muted/60 px-4 py-2.5 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Closed</span> — When all approvers have approved, status becomes <strong>Close</strong>. No further edits; view only.
             </div>
           </div>
         </DialogContent>

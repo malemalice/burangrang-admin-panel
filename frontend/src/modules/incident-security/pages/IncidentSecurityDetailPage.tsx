@@ -24,6 +24,14 @@ import { approvalService, type ApprovalStatusHistory } from '@/modules/master-da
 import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
 import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 
+const PRIORITY_LABELS: Record<string, string> = {
+  NOT_SPECIFIED: 'Not Specified',
+  NORMAL: 'Normal',
+  HIGH: 'High',
+  VENDOR: 'Vendor',
+  LONGER_TERM: 'Longer Term',
+};
+
 const IncidentSecurityDetailPage = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -239,7 +247,7 @@ const IncidentSecurityDetailPage = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Priority</h3>
-                  <p className="mt-1 text-sm">{incident.priority}</p>
+                  <p className="mt-1 text-sm">{PRIORITY_LABELS[incident.priority] ?? incident.priority}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
