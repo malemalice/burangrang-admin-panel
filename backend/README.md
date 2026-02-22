@@ -105,9 +105,8 @@ MAIL_SECURE=false
 
 ### 4) Templates and Helpers
 
-- Templates live in `src/modules/mail/templates/*.hbs`
-- Handlebars helpers are defined in `src/modules/mail/templates/helpers.ts`
-- Subjects and file mapping are managed in `src/modules/mail/templates/registry.ts`
+- Email templates are stored in the database (`m_email_templates`). Default template content is seeded from `prisma/seeds/mail-templates.seed.ts`.
+- Handlebars helpers are defined in `src/modules/mail/templates/helpers.ts` and are used when compiling template bodies at send-time.
 
 ### 5) Using the MailService
 

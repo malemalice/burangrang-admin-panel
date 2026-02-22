@@ -344,6 +344,10 @@ export const permissions = [
   { name: 'mail-template:update', description: 'Update mail template information' },
   { name: 'mail-template:delete', description: 'Delete mail templates' },
   { name: 'mail-template:list', description: 'List all mail templates' },
+
+  // Access Log Management
+  { name: 'access-log:list', description: 'View access logs' },
+  { name: 'access-log:read', description: 'View single access log' },
 ];
 
 export async function seedPermissions(prisma: PrismaClient) {

@@ -50,6 +50,7 @@ model User {
   notificationRecipients       NotificationRecipient[]    @relation("NotificationRecipient")
   uploadedFiles                FileUpload[]
   fileAccessLogs               FileAccessLog[]
+  accessLogs                   AccessLog[]                @relation("AccessLogUser")
   ppeStocksCreated             PPEStock[]                 @relation("PPEStockCreator")
   ppeStockAdjustments          PPEStockAdjustment[]       @relation("PPEStockAdjuster")
   ppeExpiryAlerts              PPEExpiryAlert[]           @relation("PPEExpiryAlertRecipient")
@@ -633,6 +634,30 @@ model FileAccessLog {
   user User?      @relation(fields: [accessedBy], references: [id])
 
   @@map("t_file_access_logs")
+}
+
+// Access Log - Transactional Data
+// Logs all endpoint access activities from frontend
+model AccessLog {
+  id            String   @id @default(uuid())
+  userId        String?  // Nullable for public endpoints
+  method        String   // HTTP method: GET, POST, PUT, PATCH, DELETE
+  endpoint      String   // Full endpoint path
+  statusCode    Int?     // HTTP status code (captured after response)
+  payload       Json?    // Request body and query parameters
+  ipAddress     String?
+  userAgent     String?
+  executionTime Int?     // Request execution time in milliseconds
+  createdAt     DateTime @default(now())
+
+  // Relations
+  user User? @relation("AccessLogUser", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([endpoint])
+  @@index([method])
+  @@index([createdAt])
+  @@map("t_access_logs")
 }
 
 // Reminder System Enums

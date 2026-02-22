@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAuthGuard } from './shared/guards/jwt-auth.guard';
+import { AccessLogInterceptor } from './modules/access-logs/interceptors/access-log.interceptor';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { RolesModule } from './modules/roles/roles.module';
@@ -50,6 +51,7 @@ import { IncidentsModule } from './modules/incidents/incidents.module';
 import { UserPermissionsModule } from './modules/user-permissions/user-permissions.module';
 import { KpiModule } from './modules/kpi/kpi.module';
 import { KpiHseTargetModule } from './modules/kpi-hse-target/kpi-hse-target.module';
+import { AccessLogsModule } from './modules/access-logs/access-logs.module';
 
 @Module({
   imports: [
@@ -112,12 +114,17 @@ import { KpiHseTargetModule } from './modules/kpi-hse-target/kpi-hse-target.modu
     KpiModule,
     // KPI HSE Target Module
     KpiHseTargetModule,
+    AccessLogsModule,
   ],
   providers: [
     Reflector,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AccessLogInterceptor,
     },
   ],
 })

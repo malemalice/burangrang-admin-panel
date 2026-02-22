@@ -1,4 +1,10 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -11,9 +17,11 @@ import * as bcrypt from 'bcrypt';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ActivityLoggerService } from '../../shared/services/activity-logger.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
   private userMapper: (user: any) => UserDto;
   private userArrayMapper: (users: any[]) => UserDto[];
   private userPaginatedMapper: (data: { data: any[]; meta: any }) => { data: UserDto[]; meta: any };
@@ -23,6 +31,8 @@ export class UsersService {
     private errorHandler: ErrorHandlingService,
     private dtoMapper: DtoMapperService,
     private activityLogger: ActivityLoggerService,
+    private mailService: MailService,
+    private config: ConfigService,
   ) {
     // Initialize mappers with password exclusion
     this.userMapper = this.dtoMapper.createMapper(UserDto, {
@@ -63,6 +73,24 @@ export class UsersService {
         lastName: user.lastName,
         email: user.email,
       }, createdBy);
+
+      // Send "user created" email (fire-and-forget; do not fail create if email fails)
+      const loginUrl =
+        (this.config.get<string>('app.frontendUrl') || 'http://localhost:5173') +
+        '/login';
+      const name =
+        `${user.firstName} ${user.lastName}`.trim() || user.email;
+      try {
+        await this.mailService.sendUserCreatedEmail({
+          email: user.email,
+          name,
+          loginUrl,
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Failed to send user-created email to ${user.email}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
 
       return this.userMapper(user);
     } catch (error: any) {

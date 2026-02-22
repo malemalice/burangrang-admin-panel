@@ -1036,6 +1036,20 @@ export const seedMenus = async () => {
       },
     });
 
+    await prisma.menu.create({
+      data: {
+        name: 'Access Logs',
+        path: '/access-logs',
+        icon: 'ScrollText',
+        parentId: settingsMenu.id,
+        order: 12,
+        isActive: true,
+        roles: {
+          connect: [{ id: superAdminRole.id }],
+        },
+      },
+    });
+
     // Create Waste Management menu
     const wasteManagementMenu = await prisma.menu.create({
       data: {

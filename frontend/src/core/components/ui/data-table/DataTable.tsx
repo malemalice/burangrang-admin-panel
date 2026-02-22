@@ -176,27 +176,42 @@ const DataTable = <T extends Record<string, any>>({
     }
   };
 
+  const showToolbar = !hideSearch || filterFields.length > 0;
+
   return (
     <div className={cn("rounded-md border bg-card flex flex-col min-h-0", wrapperClassName)}>
-      {!hideSearch && (
+      {showToolbar && (
         <div className="flex shrink-0 items-center justify-between p-4 border-b">
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-            <Input
-              placeholder={searchPlaceholder}
-              value={searchValue ?? searchTerm}
-              onChange={handleSearch}
-              className="pl-10 pr-4"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            {filterFields.length > 0 && (
-              <FilterButton 
-                onClick={() => setIsFilterOpen(true)} 
-                filterCount={localActiveFilters.length}
-              />
-            )}
-          </div>
+          {!hideSearch ? (
+            <>
+              <div className="relative w-full max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                <Input
+                  placeholder={searchPlaceholder}
+                  value={searchValue ?? searchTerm}
+                  onChange={handleSearch}
+                  className="pl-10 pr-4"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                {filterFields.length > 0 && (
+                  <FilterButton 
+                    onClick={() => setIsFilterOpen(true)} 
+                    filterCount={localActiveFilters.length}
+                  />
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex w-full items-center justify-end gap-2">
+              {filterFields.length > 0 && (
+                <FilterButton 
+                  onClick={() => setIsFilterOpen(true)} 
+                  filterCount={localActiveFilters.length}
+                />
+              )}
+            </div>
+          )}
         </div>
       )}
       
