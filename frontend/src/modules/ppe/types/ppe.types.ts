@@ -187,6 +187,7 @@ export interface PPEWithdrawalDTO {
     createdAt: string;
     updatedAt: string;
     createdBy: string;
+    createdByName?: string | null;
     items?: PPEWithdrawalItemDTO[];
 }
 
@@ -211,6 +212,7 @@ export interface PPEWithdrawal {
     createdAt: string;
     updatedAt: string;
     createdBy: string;
+    createdByName?: string | null;
     items?: PPEWithdrawalItem[];
 }
 

@@ -130,7 +130,11 @@ const PPEWithdrawalDetailPage = () => {
         );
     }
 
-    const canEdit = withdrawal.status === PPEWithdrawalStatus.PENDING;
+    // When pending, editing is not allowed; only when not pending do we allow view (no edit for any status from detail)
+    const canEdit = false;
+    const showApproveButton = withdrawal.status === PPEWithdrawalStatus.PENDING;
+    const showCollectButton = withdrawal.status === PPEWithdrawalStatus.APPROVED;
+    const showCancelButton = withdrawal.status === PPEWithdrawalStatus.PENDING;
 
     return (
         <>
@@ -156,30 +160,36 @@ const PPEWithdrawalDetailPage = () => {
                                 Edit Withdrawal
                             </Button>
                         )}
-                        <Button
-                            onClick={() => handleActionClick('approve')}
-                            disabled={isLoading || isProcessing}
-                            className="bg-blue-600 hover:bg-blue-700"
-                        >
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Approve
-                        </Button>
-                        <Button
-                            onClick={() => handleActionClick('collect')}
-                            disabled={isLoading || isProcessing}
-                            className="bg-green-600 hover:bg-green-700"
-                        >
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Collect
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            onClick={() => handleActionClick('cancel')}
-                            disabled={isLoading || isProcessing}
-                        >
-                            <XCircle className="mr-2 h-4 w-4" />
-                            Cancel
-                        </Button>
+                        {showApproveButton && (
+                            <Button
+                                onClick={() => handleActionClick('approve')}
+                                disabled={isLoading || isProcessing}
+                                className="bg-blue-600 hover:bg-blue-700"
+                            >
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                Approve
+                            </Button>
+                        )}
+                        {showCollectButton && (
+                            <Button
+                                onClick={() => handleActionClick('collect')}
+                                disabled={isLoading || isProcessing}
+                                className="bg-green-600 hover:bg-green-700"
+                            >
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                Collect
+                            </Button>
+                        )}
+                        {showCancelButton && (
+                            <Button
+                                variant="destructive"
+                                onClick={() => handleActionClick('cancel')}
+                                disabled={isLoading || isProcessing}
+                            >
+                                <XCircle className="mr-2 h-4 w-4" />
+                                Cancel
+                            </Button>
+                        )}
                     </div>
                 }
             />
@@ -205,6 +215,10 @@ const PPEWithdrawalDetailPage = () => {
                             <div>
                                 <h3 className="text-sm font-medium text-gray-500">Status</h3>
                                 <div className="mt-1">{getStatusBadge(withdrawal.status)}</div>
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-medium text-gray-500">Requested By</h3>
+                                <p className="mt-1">{withdrawal.createdByName || withdrawal.createdBy || 'N/A'}</p>
                             </div>
                             <div>
                                 <h3 className="text-sm font-medium text-gray-500">Requested For</h3>

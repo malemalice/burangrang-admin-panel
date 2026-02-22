@@ -154,6 +154,14 @@ export class PPEService {
         // Populate department name
         const departmentName = withdrawal.department?.name || null;
 
+        // Populate createdByName from creator (requested by = user who created the withdrawal)
+        let createdByName: string | null = null;
+        if (withdrawal.creator) {
+            const firstName = withdrawal.creator.firstName || '';
+            const lastName = withdrawal.creator.lastName || '';
+            createdByName = `${firstName} ${lastName}`.trim() || null;
+        }
+
         // Populate stockItem details for each withdrawal item
         const items = withdrawal.items?.map((item: any) => {
             const stockItem = item.stockItem;
@@ -169,6 +177,7 @@ export class PPEService {
             ...withdrawal,
             requestedForName: requestedForName || null,
             departmentName,
+            createdByName,
             items: items || withdrawal.items,
         };
     }

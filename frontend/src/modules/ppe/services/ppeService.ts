@@ -92,6 +92,7 @@ const mapPPEWithdrawalDtoToPPEWithdrawal = (withdrawalDto: PPEWithdrawalDTO): PP
     createdAt: withdrawalDto.createdAt,
     updatedAt: withdrawalDto.updatedAt,
     createdBy: withdrawalDto.createdBy,
+    createdByName: (withdrawalDto as any).createdByName ?? null,
     items: withdrawalDto.items?.map(mapPPEWithdrawalItemDtoToPPEWithdrawalItem),
 });
 
