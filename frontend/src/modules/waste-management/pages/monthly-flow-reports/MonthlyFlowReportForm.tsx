@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { Loader2, X, ExternalLink } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
   Form,
@@ -16,12 +17,11 @@ import {
 import { Input } from '@/core/components/ui/input';
 import { Switch } from '@/core/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
-import { Loader2 } from 'lucide-react';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
+import uploadService from '@/modules/uploads/services/uploadService';
 
 import { monthlyFlowReportService, treatmentPlantService } from '../../services/wasteManagementService';
-import { CreateMonthlyFlowReportData, MonthlyFlowReport, UpdateMonthlyFlowReportData, MonthEnum, ReportStatusEnum, TreatmentPlant } from '../../types/waste-management.types';
+import { CreateMonthlyFlowReportData, MonthlyFlowReport, UpdateMonthlyFlowReportData, ReportStatusEnum, TreatmentPlant } from '../../types/waste-management.types';
 
 const formSchema = z.object({
   reportCode: z.string().min(1, 'Report code is required'),
@@ -42,12 +42,26 @@ interface MonthlyFlowReportFormProps {
   mode: 'create' | 'edit';
 }
 
+const ALLOWED_DOCUMENT_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+];
+const MAX_DOCUMENT_SIZE = 50 * 1024 * 1024; // 50MB
+
 export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormProps) {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [plants, setPlants] = useState<TreatmentPlant[]>([]);
+  const [fileCategoryId, setFileCategoryId] = useState<string | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -76,6 +90,58 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
   }, []);
 
   useEffect(() => {
+    const loadFileCategory = async () => {
+      try {
+        const category = await uploadService.getCategoryByName('documents');
+        if (category) setFileCategoryId(category.id);
+      } catch (error) {
+        console.error('Failed to load file category', error);
+      }
+    };
+    loadFileCategory();
+  }, []);
+
+  const handleFileUpload = async (file: File) => {
+    if (!file) return;
+    if (!ALLOWED_DOCUMENT_TYPES.includes(file.type)) {
+      toast.error('Invalid file type. Please upload PDF, DOC, DOCX, or image files.');
+      return;
+    }
+    if (file.size > MAX_DOCUMENT_SIZE) {
+      toast.error('File size exceeds 50MB limit.');
+      return;
+    }
+    if (!fileCategoryId) {
+      toast.error('File category not found. Please refresh the page.');
+      return;
+    }
+    setUploadingFile(true);
+    try {
+      const response = await uploadService.uploadFile(file, fileCategoryId, true);
+      const fileUrl = uploadService.getPublicFileUrl(response.id);
+      form.setValue('reportDocumentUrl', fileUrl);
+      setUploadedFileName(file.name);
+      toast.success('File uploaded successfully');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Failed to upload file';
+      toast.error(errorMessage);
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const handleFileRemove = () => {
+    form.setValue('reportDocumentUrl', '');
+    setUploadedFileName(null);
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileUpload(file);
+    e.target.value = '';
+  };
+
+  useEffect(() => {
     const fetchData = async () => {
       if (mode === 'edit' && id) {
         setLoading(true);
@@ -94,6 +160,7 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
             status: data.status,
             isActive: data.isActive,
           });
+          if (data.reportDocumentUrl) setUploadedFileName('Current document');
         } catch (error) {
           toast.error('Failed to fetch data');
           navigate('/waste-management/monthly-flow-reports');
@@ -277,10 +344,53 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
               name="reportDocumentUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Document URL</FormLabel>
+                  <FormLabel>Document</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter URL" {...field} />
+                    <div className="space-y-2">
+                      {field.value || uploadedFileName ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm text-muted-foreground truncate max-w-[200px]">
+                            {uploadedFileName || 'Document attached'}
+                          </span>
+                          {field.value && (
+                            <a
+                              href={field.value}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                            >
+                              <ExternalLink className="h-4 w-4" /> View
+                            </a>
+                          )}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleFileRemove}
+                            disabled={uploadingFile}
+                          >
+                            <X className="h-4 w-4" /> Remove
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="file"
+                            accept=".pdf,.doc,.docx,image/jpeg,image/png,image/gif,image/webp"
+                            onChange={handleFileInputChange}
+                            disabled={uploadingFile}
+                            className="cursor-pointer"
+                          />
+                          {uploadingFile && (
+                            <span className="text-sm text-muted-foreground">Uploading...</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </FormControl>
+                  <p className="text-sm text-muted-foreground">
+                    PDF, DOC, DOCX, or images (max 50MB)
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

@@ -442,8 +442,8 @@ export interface MonthlyFlowReportFilters extends PaginationParams {
   status?: ReportStatusEnum;
   reportMonth?: MonthEnum;
   reportYear?: number;
-  startDate?: string;
-  endDate?: string;
+  reportDateFrom?: string;
+  reportDateTo?: string;
 }
 
 export interface WaterQualityLabReportFilters extends PaginationParams {
