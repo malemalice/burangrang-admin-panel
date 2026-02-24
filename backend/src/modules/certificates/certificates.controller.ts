@@ -167,6 +167,7 @@ export class CertificatesController {
   @ApiQuery({ name: 'certificateType', required: false, enum: ['PERSONNEL_LICENSE', 'PERSONNEL_CERTIFICATE', 'EQUIPMENT_CALIBRATION', 'EQUIPMENT_INSTALLATION', 'EQUIPMENT_OPERATIONAL_PERMIT'], description: 'Filter by certificate type' })
   @ApiQuery({ name: 'departmentId', required: false, type: String, description: 'Filter by department ID' })
   @ApiQuery({ name: 'personnelId', required: false, type: String, description: 'Filter by personnel ID' })
+  @ApiQuery({ name: 'personnelName', required: false, type: String, description: 'Filter by personnel name (manual entry, partial match)' })
   @ApiQuery({ name: 'expired', required: false, type: Boolean, description: 'Filter expired certificates' })
   @ApiQuery({ name: 'expiringSoon', required: false, type: Boolean, description: 'Filter certificates expiring soon (within reminder days)' })
   @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
@@ -185,6 +186,7 @@ export class CertificatesController {
     @Query('certificateType') certificateType?: string,
     @Query('departmentId') departmentId?: string,
     @Query('personnelId') personnelId?: string,
+    @Query('personnelName') personnelName?: string,
     @Query('expired') expired?: string,
     @Query('expiringSoon') expiringSoon?: string,
     @Req() req?: RequestWithUser,
@@ -207,6 +209,7 @@ export class CertificatesController {
         certificateType: certificateType as any,
         departmentId,
         personnelId,
+        personnelName,
         expired: expiredBoolean,
         expiringSoon: expiringSoonBoolean,
       },
