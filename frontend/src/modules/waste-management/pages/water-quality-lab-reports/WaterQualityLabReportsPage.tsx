@@ -212,12 +212,7 @@ export default function WaterQualityLabReportsPage() {
     const timer = setTimeout(async () => {
       try {
         await toPDF();
-        const count = aggregateForPDF.rows.length;
-        toast.success(
-          count === 1
-            ? 'Exported 1 report as PDF'
-            : `Exported ${count} reports as one PDF`,
-        );
+        toast.success('Exported as PDF');
       } catch (err) {
         toast.error('Failed to export PDF');
       } finally {
@@ -354,7 +349,7 @@ export default function WaterQualityLabReportsPage() {
               disabled={isExportingAllPDF || loading}
             >
               <FileDown className="mr-2 h-4 w-4" />
-              {isExportingAllPDF ? 'Exporting…' : 'Export all PDF'}
+              {isExportingAllPDF ? 'Exporting…' : 'Export PDF'}
             </Button>
             <Button onClick={() => navigate('/waste-management/water-quality-lab-reports/create')}>
               <Plus className="mr-2 h-4 w-4" /> Add Report

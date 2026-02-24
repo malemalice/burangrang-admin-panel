@@ -1090,7 +1090,7 @@ export const seedMenus = async () => {
 
     await prisma.menu.create({
       data: {
-        name: 'Waste Water Lab Results',
+        name: 'Water Lab Results',
         path: '/waste-management/water-quality-lab-reports',
         icon: 'FlaskConical',
         parentId: wasteManagementMenu.id,
