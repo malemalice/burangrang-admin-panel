@@ -69,6 +69,11 @@ export class WaterQualityLabReportsController {
   @ApiQuery({ name: 'reportDateFrom', required: false, type: String })
   @ApiQuery({ name: 'reportDateTo', required: false, type: String })
   @ApiQuery({
+    name: 'category',
+    required: false,
+    enum: ['WASTEWATER', 'CLEAN_WATER', 'SWIMMING_POOL_WATER', 'DRINKING_WATER'],
+  })
+  @ApiQuery({
     name: 'options',
     required: false,
     type: Boolean,
@@ -88,6 +93,7 @@ export class WaterQualityLabReportsController {
     @Query('treatmentPlantId') treatmentPlantId?: string,
     @Query('reportDateFrom') reportDateFrom?: string,
     @Query('reportDateTo') reportDateTo?: string,
+    @Query('category') category?: string,
   ) {
     return this.service.findAll({
       page: page ? parseInt(page, 10) : undefined,
@@ -96,6 +102,7 @@ export class WaterQualityLabReportsController {
       treatmentPlantId,
       reportDateFrom,
       reportDateTo,
+      category: category as any,
     });
   }
 

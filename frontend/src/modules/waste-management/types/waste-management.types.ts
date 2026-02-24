@@ -55,6 +55,14 @@ export enum WaterQualityLabReportStatusEnum {
   REJECTED = 'REJECTED',
 }
 
+/** Water quality lab report category (water type). */
+export enum WaterQualityLabReportCategoryEnum {
+  WASTEWATER = 'WASTEWATER',
+  CLEAN_WATER = 'CLEAN_WATER',
+  SWIMMING_POOL_WATER = 'SWIMMING_POOL_WATER',
+  DRINKING_WATER = 'DRINKING_WATER',
+}
+
 /** Water quality parameter category (Chemistry / Physics / Microbiology). */
 export enum WaterQualityParameterCategoryEnum {
   CHEMISTRY = 'CHEMISTRY',
@@ -299,14 +307,23 @@ export interface WaterQualityLabReportResultInput {
   notes?: string;
 }
 
+// Water Quality Lab Report Attachment
+export interface WaterQualityLabReportAttachment {
+  id: string;
+  fileUrl: string;
+  fileName?: string;
+  order: number;
+  createdAt?: string;
+}
+
 // Water Quality Lab Report
 export interface WaterQualityLabReport {
   id: string;
   reportCode: string;
   treatmentPlantId: string;
+  category: WaterQualityLabReportCategoryEnum;
   reportDate: string;
   preparedBy: string;
-  reportDocumentUrl?: string;
   summary?: string;
   recommendations?: string;
   analystSignature?: string;
@@ -324,18 +341,20 @@ export interface WaterQualityLabReport {
   submitter?: { id: string; firstName: string; lastName: string; };
   preparer?: { id: string; firstName: string; lastName: string; };
   labReportResults?: WaterQualityLabReportResult[];
+  attachments?: WaterQualityLabReportAttachment[];
 }
 
 export interface CreateWaterQualityLabReportData {
   reportCode: string;
   treatmentPlantId: string;
+  category: WaterQualityLabReportCategoryEnum;
   reportDate: string;
-  reportDocumentUrl?: string;
   summary?: string;
   recommendations?: string;
   analystSignature?: string;
   submittedAt: string;
   results?: WaterQualityLabReportResultInput[];
+  attachments?: { fileUrl: string; fileName?: string; order: number }[];
 }
 
 export type UpdateWaterQualityLabReportData = Partial<CreateWaterQualityLabReportData> & {
@@ -487,6 +506,7 @@ export interface WaterQualityLabReportFilters extends PaginationParams {
   treatmentPlantId?: string;
   reportDateFrom?: string;
   reportDateTo?: string;
+  category?: WaterQualityLabReportCategoryEnum;
 }
 
 export interface WeightReportFilters extends PaginationParams {

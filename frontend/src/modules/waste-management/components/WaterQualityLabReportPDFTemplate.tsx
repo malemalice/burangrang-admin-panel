@@ -3,7 +3,15 @@ import {
   WaterQualityLabReport,
   WaterQualityLabReportResult,
   WaterQualityParameterCategoryEnum,
+  WaterQualityLabReportCategoryEnum,
 } from '../types/waste-management.types';
+
+const WATER_LAB_REPORT_CATEGORY_LABELS: Record<WaterQualityLabReportCategoryEnum, string> = {
+  [WaterQualityLabReportCategoryEnum.WASTEWATER]: 'Wastewater',
+  [WaterQualityLabReportCategoryEnum.CLEAN_WATER]: 'Clean water',
+  [WaterQualityLabReportCategoryEnum.SWIMMING_POOL_WATER]: 'Swimming pool water',
+  [WaterQualityLabReportCategoryEnum.DRINKING_WATER]: 'Drinking water',
+};
 
 const CATEGORY_LABELS: Record<string, string> = {
   [WaterQualityParameterCategoryEnum.CHEMISTRY]: 'Chemistry',
@@ -55,6 +63,12 @@ export function WaterQualityLabReportPDFTemplate({ report }: WaterQualityLabRepo
             <tr>
               <td className="py-1 font-semibold text-gray-700 w-1/3">Treatment Plant</td>
               <td className="py-1 text-gray-900">{report.treatmentPlant?.name || '-'}</td>
+            </tr>
+            <tr>
+              <td className="py-1 font-semibold text-gray-700">Category</td>
+              <td className="py-1 text-gray-900">
+                {report.category ? WATER_LAB_REPORT_CATEGORY_LABELS[report.category] : '-'}
+              </td>
             </tr>
             <tr>
               <td className="py-1 font-semibold text-gray-700">Report Date</td>

@@ -1946,6 +1946,13 @@ enum WaterQualityLabReportStatusEnum {
   REJECTED
 }
 
+enum WaterQualityLabReportCategoryEnum {
+  WASTEWATER
+  CLEAN_WATER
+  SWIMMING_POOL_WATER
+  DRINKING_WATER
+}
+
 enum WaterQualityParameterCategoryEnum {
   CHEMISTRY
   PHYSICS
@@ -2632,9 +2639,9 @@ model WaterQualityLabReport {
   id                String           @id @default(uuid())
   reportCode        String           @unique
   treatmentPlantId  String
+  category          WaterQualityLabReportCategoryEnum @default(WASTEWATER)
   reportDate        DateTime
   preparedBy        String
-  reportDocumentUrl String?
   summary           String?          @db.Text
   recommendations   String?          @db.Text
   analystSignature  String?
@@ -2652,18 +2659,37 @@ model WaterQualityLabReport {
   updatedAt         DateTime         @updatedAt
 
   // Relations
-  treatmentPlant   TreatmentPlant              @relation(fields: [treatmentPlantId], references: [id])
-  preparer         User                        @relation("WaterQualityLabReportPreparer", fields: [preparedBy], references: [id])
-  submitter        User                        @relation("WaterQualityLabReportSubmitter", fields: [submittedBy], references: [id])
-  receiver         User?                       @relation("WaterQualityLabReportReceiver", fields: [receivedBy], references: [id])
-  reviewer         User?                       @relation("WaterQualityLabReportReviewer", fields: [reviewedBy], references: [id])
+  treatmentPlant   TreatmentPlant                      @relation(fields: [treatmentPlantId], references: [id])
+  preparer         User                                @relation("WaterQualityLabReportPreparer", fields: [preparedBy], references: [id])
+  submitter        User                                @relation("WaterQualityLabReportSubmitter", fields: [submittedBy], references: [id])
+  receiver         User?                               @relation("WaterQualityLabReportReceiver", fields: [receivedBy], references: [id])
+  reviewer         User?                               @relation("WaterQualityLabReportReviewer", fields: [reviewedBy], references: [id])
   labReportResults WaterQualityLabReportResult[]
+  attachments      WaterQualityLabReportAttachment[]
 
   @@index([treatmentPlantId, reportDate])
   @@index([reportDate])
   @@index([status])
+  @@index([category])
   @@index([receivedAt])
   @@map("t_water_quality_lab_reports")
+}
+
+// Water Quality Lab Report Attachment - Transactional Data
+model WaterQualityLabReportAttachment {
+  id          String   @id @default(uuid())
+  labReportId String
+  fileUrl     String
+  fileName    String?
+  order       Int
+  createdAt   DateTime @default(now())
+
+  // Relations
+  labReport WaterQualityLabReport @relation(fields: [labReportId], references: [id], onDelete: Cascade)
+
+  @@index([labReportId])
+  @@index([order])
+  @@map("t_water_quality_lab_report_attachments")
 }
 
 // Water Quality Lab Report Result - Transactional Data (per-parameter result values)

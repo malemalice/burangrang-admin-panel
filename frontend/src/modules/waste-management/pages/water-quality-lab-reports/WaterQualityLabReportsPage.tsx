@@ -15,9 +15,25 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { waterQualityLabReportService, treatmentPlantService } from '../../services/wasteManagementService';
-import { WaterQualityLabReport, PaginatedResponse, TreatmentPlant } from '../../types/waste-management.types';
+import {
+  WaterQualityLabReport,
+  PaginatedResponse,
+  TreatmentPlant,
+  WaterQualityLabReportCategoryEnum,
+} from '../../types/waste-management.types';
+
+const WATER_LAB_REPORT_CATEGORY_LABELS: Record<WaterQualityLabReportCategoryEnum, string> = {
+  [WaterQualityLabReportCategoryEnum.WASTEWATER]: 'Wastewater',
+  [WaterQualityLabReportCategoryEnum.CLEAN_WATER]: 'Clean water',
+  [WaterQualityLabReportCategoryEnum.SWIMMING_POOL_WATER]: 'Swimming pool water',
+  [WaterQualityLabReportCategoryEnum.DRINKING_WATER]: 'Drinking water',
+};
 import { format } from 'date-fns';
-import { WaterQualityLabReportPDFTemplate } from '../../components/WaterQualityLabReportPDFTemplate';
+import {
+  buildWaterQualityLabReportAggregate,
+  type WaterQualityLabReportAggregateData,
+} from '../../utils/water-quality-lab-report-export';
+import { WaterQualityLabReportAggregatePDFTemplate } from '../../components/WaterQualityLabReportAggregatePDFTemplate';
 
 export default function WaterQualityLabReportsPage() {
   const navigate = useNavigate();
@@ -27,23 +43,15 @@ export default function WaterQualityLabReportsPage() {
   const [total, setTotal] = useState(0);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [treatmentPlants, setTreatmentPlants] = useState<TreatmentPlant[]>([]);
-  const [exportQueue, setExportQueue] = useState<WaterQualityLabReport[]>([]);
-  const [exportIndex, setExportIndex] = useState(0);
+  const [aggregateForPDF, setAggregateForPDF] =
+    useState<WaterQualityLabReportAggregateData | null>(null);
   const [isExportingAllPDF, setIsExportingAllPDF] = useState(false);
-
-  const currentReportForPDF = useMemo(
-    () =>
-      isExportingAllPDF && exportQueue.length > 0 && exportIndex < exportQueue.length
-        ? exportQueue[exportIndex]
-        : null,
-    [isExportingAllPDF, exportQueue, exportIndex],
-  );
   const pdfFilename = useMemo(
     () =>
-      currentReportForPDF
-        ? `${currentReportForPDF.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}-${exportIndex + 1}.pdf`
-        : 'water-quality-lab-report.pdf',
-    [currentReportForPDF, exportIndex],
+      aggregateForPDF
+        ? `water-quality-lab-reports-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
+        : 'water-quality-lab-reports.pdf',
+    [aggregateForPDF],
   );
   const { toPDF, targetRef } = usePDF({ filename: pdfFilename });
 
@@ -69,6 +77,13 @@ export default function WaterQualityLabReportsPage() {
       filters.treatmentPlantId = {
         value: treatmentPlantId,
         label: plant?.name ?? treatmentPlantId,
+      };
+    }
+    const category = searchParams.get('category');
+    if (category && Object.values(WaterQualityLabReportCategoryEnum).includes(category as WaterQualityLabReportCategoryEnum)) {
+      filters.category = {
+        value: category,
+        label: WATER_LAB_REPORT_CATEGORY_LABELS[category as WaterQualityLabReportCategoryEnum],
       };
     }
     const reportDateFrom = searchParams.get('reportDateFrom');
@@ -115,6 +130,15 @@ export default function WaterQualityLabReportsPage() {
       options: treatmentPlants.map((tp) => ({ label: tp.name, value: tp.id })),
     },
     {
+      id: 'category',
+      label: 'Category',
+      type: 'select',
+      options: (Object.keys(WATER_LAB_REPORT_CATEGORY_LABELS) as WaterQualityLabReportCategoryEnum[]).map((key) => ({
+        label: WATER_LAB_REPORT_CATEGORY_LABELS[key],
+        value: key,
+      })),
+    },
+    {
       id: 'reportDateRange',
       label: 'Report Date',
       type: 'dateRange',
@@ -129,6 +153,7 @@ export default function WaterQualityLabReportsPage() {
         limit: limitNum,
         search: search || undefined,
         treatmentPlantId: activeFilters.treatmentPlantId?.value as string | undefined,
+        category: activeFilters.category?.value as WaterQualityLabReportCategoryEnum | undefined,
         reportDateFrom: reportDateRange?.from
           ? (typeof reportDateRange.from === 'string' ? reportDateRange.from : reportDateRange.from.toISOString())
           : undefined,
@@ -170,9 +195,12 @@ export default function WaterQualityLabReportsPage() {
         toast.error('No reports to export');
         return;
       }
+      const aggregate = buildWaterQualityLabReportAggregate(
+        list,
+        WATER_LAB_REPORT_CATEGORY_LABELS,
+      );
       setIsExportingAllPDF(true);
-      setExportQueue(list);
-      setExportIndex(0);
+      setAggregateForPDF(aggregate);
     } catch (error) {
       console.error(error);
       toast.error('Failed to load reports for export');
@@ -180,30 +208,25 @@ export default function WaterQualityLabReportsPage() {
   }, [buildListParams]);
 
   useEffect(() => {
-    if (!isExportingAllPDF || exportQueue.length === 0 || exportIndex >= exportQueue.length) {
-      return;
-    }
-    const count = exportQueue.length;
+    if (!aggregateForPDF || !isExportingAllPDF) return;
     const timer = setTimeout(async () => {
       try {
         await toPDF();
-        if (exportIndex + 1 < count) {
-          setExportIndex((i) => i + 1);
-        } else {
-          setIsExportingAllPDF(false);
-          setExportQueue([]);
-          setExportIndex(0);
-          toast.success(`Exported ${count} PDF(s) successfully`);
-        }
+        const count = aggregateForPDF.rows.length;
+        toast.success(
+          count === 1
+            ? 'Exported 1 report as PDF'
+            : `Exported ${count} reports as one PDF`,
+        );
       } catch (err) {
         toast.error('Failed to export PDF');
+      } finally {
+        setAggregateForPDF(null);
         setIsExportingAllPDF(false);
-        setExportQueue([]);
-        setExportIndex(0);
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [isExportingAllPDF, exportQueue.length, exportIndex, toPDF]);
+  }, [aggregateForPDF, isExportingAllPDF, toPDF]);
 
   const handleSearch = (term: string) => {
     updateSearchParams((next) => {
@@ -215,7 +238,7 @@ export default function WaterQualityLabReportsPage() {
 
   const handleApplyFilters = (filters: FilterValue[]) => {
     updateSearchParams((next) => {
-      ['treatmentPlantId', 'reportDateFrom', 'reportDateTo'].forEach((k) => next.delete(k));
+      ['treatmentPlantId', 'category', 'reportDateFrom', 'reportDateTo'].forEach((k) => next.delete(k));
       filters.forEach((filter) => {
         if (filter.id === 'reportDateRange') {
           const v = filter.value as { from?: Date; to?: Date };
@@ -273,6 +296,12 @@ export default function WaterQualityLabReportsPage() {
       isSortable: true,
     },
     {
+      id: 'category',
+      header: 'Category',
+      cell: (item: WaterQualityLabReport) => (item.category ? WATER_LAB_REPORT_CATEGORY_LABELS[item.category] : '-'),
+      isSortable: true,
+    },
+    {
       id: 'actions',
       header: 'Actions',
       cell: (item: WaterQualityLabReport) => (
@@ -300,7 +329,7 @@ export default function WaterQualityLabReportsPage() {
 
   return (
     <>
-      {currentReportForPDF && (
+      {aggregateForPDF && (
         <div
           ref={targetRef}
           style={{
@@ -311,7 +340,7 @@ export default function WaterQualityLabReportsPage() {
           }}
           aria-hidden="true"
         >
-          <WaterQualityLabReportPDFTemplate report={currentReportForPDF} />
+          <WaterQualityLabReportAggregatePDFTemplate data={aggregateForPDF} />
         </div>
       )}
       <PageHeader

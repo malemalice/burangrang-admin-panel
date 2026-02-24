@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePDF } from 'react-to-pdf';
-import { Loader2, ArrowLeft, Pencil, FileText, FileDown } from 'lucide-react';
+import { Loader2, ArrowLeft, Pencil, FileText, FileDown, Image } from 'lucide-react';
 import { format } from 'date-fns';
 
 import PageHeader from '@/core/components/ui/PageHeader';
@@ -23,8 +23,16 @@ import {
   WaterQualityLabReport,
   WaterQualityLabReportResult,
   WaterQualityParameterCategoryEnum,
+  WaterQualityLabReportCategoryEnum,
 } from '../../types/waste-management.types';
 import { WaterQualityLabReportPDFTemplate } from '../../components/WaterQualityLabReportPDFTemplate';
+
+const WATER_LAB_REPORT_CATEGORY_LABELS: Record<WaterQualityLabReportCategoryEnum, string> = {
+  [WaterQualityLabReportCategoryEnum.WASTEWATER]: 'Wastewater',
+  [WaterQualityLabReportCategoryEnum.CLEAN_WATER]: 'Clean water',
+  [WaterQualityLabReportCategoryEnum.SWIMMING_POOL_WATER]: 'Swimming pool water',
+  [WaterQualityLabReportCategoryEnum.DRINKING_WATER]: 'Drinking water',
+};
 
 const CATEGORY_LABELS: Record<string, string> = {
   [WaterQualityParameterCategoryEnum.CHEMISTRY]: 'Chemistry',
@@ -146,6 +154,10 @@ export default function DetailWaterQualityLabReportPage() {
               <p className="font-medium">{data.treatmentPlant?.name || '-'}</p>
             </div>
             <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-1">Category</h4>
+              <p className="font-medium">{data.category ? WATER_LAB_REPORT_CATEGORY_LABELS[data.category] : '-'}</p>
+            </div>
+            <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-1">Report Date</h4>
               <p className="font-medium">{format(new Date(data.reportDate), 'PPP')}</p>
             </div>
@@ -181,27 +193,43 @@ export default function DetailWaterQualityLabReportPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground mb-1">Analyst Signature</h4>
-                <p className="font-medium">{data.analystSignature || '-'}</p>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground mb-1">Document</h4>
-                {data.reportDocumentUrl ? (
-                  <a
-                    href={data.reportDocumentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center text-primary hover:underline"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    View Document
-                  </a>
-                ) : (
-                  <p className="text-muted-foreground italic">No document attached</p>
-                )}
-              </div>
+            <div className="pt-4">
+              <h4 className="text-sm font-medium text-muted-foreground mb-1">Analyst Signature</h4>
+              <p className="font-medium">{data.analystSignature || '-'}</p>
+            </div>
+
+            <div className="pt-4">
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">Documents</h4>
+              {data.attachments && data.attachments.length > 0 ? (
+                <ul className="space-y-2">
+                  {data.attachments
+                    .slice()
+                    .sort((a, b) => a.order - b.order)
+                    .map((att) => {
+                      const isImage = /\.(jpe?g|png|gif|webp)$/i.test(att.fileName ?? '') || att.fileUrl.match(/\.(jpe?g|png|gif|webp)/i);
+                      const label = att.fileName ?? att.fileUrl.split('/').pop() ?? 'Document';
+                      return (
+                        <li key={att.id} className="flex items-center gap-2">
+                          {isImage ? (
+                            <Image className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          ) : (
+                            <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          )}
+                          <a
+                            href={att.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline truncate"
+                          >
+                            {label}
+                          </a>
+                        </li>
+                      );
+                    })}
+                </ul>
+              ) : (
+                <p className="text-muted-foreground italic">No documents attached</p>
+              )}
             </div>
           </CardContent>
         </Card>

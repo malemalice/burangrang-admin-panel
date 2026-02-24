@@ -8,8 +8,11 @@ import {
   IsArray,
   ValidateNested,
   IsNumber,
+  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { WaterQualityLabReportCategoryEnum } from '@prisma/client';
+import { CreateWaterQualityLabReportAttachmentDto } from './water-quality-lab-report-attachment.dto';
 
 export class CreateWaterQualityLabReportResultDto {
   @ApiProperty()
@@ -40,11 +43,19 @@ export class CreateWaterQualityLabReportResultDto {
 export class CreateWaterQualityLabReportDto {
   @ApiProperty() @IsString() @IsNotEmpty() reportCode: string;
   @ApiProperty() @IsString() @IsNotEmpty() treatmentPlantId: string;
+  @ApiProperty({ enum: WaterQualityLabReportCategoryEnum })
+  @IsEnum(WaterQualityLabReportCategoryEnum)
+  category: WaterQualityLabReportCategoryEnum;
   @ApiProperty() @IsDateString() reportDate: string;
-  @ApiProperty({ required: false })
-  @IsString()
+  @ApiProperty({
+    type: [CreateWaterQualityLabReportAttachmentDto],
+    required: false,
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateWaterQualityLabReportAttachmentDto)
   @IsOptional()
-  reportDocumentUrl?: string;
+  attachments?: CreateWaterQualityLabReportAttachmentDto[];
   @ApiProperty({ required: false }) @IsString() @IsOptional() summary?: string;
   @ApiProperty({ required: false })
   @IsString()

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,9 +16,10 @@ import {
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Paperclip, Trash2, FileText, Image } from 'lucide-react';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
+import uploadService from '@/modules/uploads/services/uploadService';
 
 import { waterQualityLabReportService, treatmentPlantService, waterQualityParameterService } from '../../services/wasteManagementService';
 import {
@@ -29,14 +30,43 @@ import {
   PaginatedResponse,
   WaterQualityParameter,
   WaterQualityParameterCategoryEnum,
+  WaterQualityLabReportCategoryEnum,
   WaterQualityLabReportResultInput,
 } from '../../types/waste-management.types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/core/components/ui/select';
+
+const WATER_LAB_REPORT_CATEGORY_LABELS: Record<WaterQualityLabReportCategoryEnum, string> = {
+  [WaterQualityLabReportCategoryEnum.WASTEWATER]: 'Wastewater',
+  [WaterQualityLabReportCategoryEnum.CLEAN_WATER]: 'Clean water',
+  [WaterQualityLabReportCategoryEnum.SWIMMING_POOL_WATER]: 'Swimming pool water',
+  [WaterQualityLabReportCategoryEnum.DRINKING_WATER]: 'Drinking water',
+};
 
 const CATEGORY_LABELS: Record<WaterQualityParameterCategoryEnum, string> = {
   [WaterQualityParameterCategoryEnum.CHEMISTRY]: 'Chemistry',
   [WaterQualityParameterCategoryEnum.PHYSICS]: 'Physics',
   [WaterQualityParameterCategoryEnum.MICROBIOLOGY]: 'Microbiology',
 };
+
+const ALLOWED_ATTACHMENT_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+];
+const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_ATTACHMENTS = 10;
+
+type AttachmentListItem =
+  | { type: 'existing'; id: string; fileUrl: string; fileName?: string; order: number }
+  | { type: 'new'; key: string; file: File; fileName: string; order: number };
 
 function groupParametersByCategory(parameters: WaterQualityParameter[]) {
   const groups: Record<string, WaterQualityParameter[]> = {
@@ -54,9 +84,9 @@ function groupParametersByCategory(parameters: WaterQualityParameter[]) {
 const formSchema = z.object({
   reportCode: z.string().min(1, 'Report code is required'),
   treatmentPlantId: z.string().min(1, 'Treatment plant is required'),
+  category: z.nativeEnum(WaterQualityLabReportCategoryEnum),
   reportDate: z.string().min(1, 'Report date is required'),
   submittedAt: z.string().min(1, 'Submission date is required'),
-  reportDocumentUrl: z.string().optional(),
   summary: z.string().optional(),
   recommendations: z.string().optional(),
   analystSignature: z.string().optional(),
@@ -76,15 +106,18 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
   const [treatmentPlants, setTreatmentPlants] = useState<TreatmentPlant[]>([]);
   const [parameters, setParameters] = useState<WaterQualityParameter[]>([]);
   const [resultsByParam, setResultsByParam] = useState<Record<string, { resultValue: string; unit?: string; isCompliant?: boolean; notes?: string }>>({});
+  const [attachmentList, setAttachmentList] = useState<AttachmentListItem[]>([]);
+  const [fileCategoryId, setFileCategoryId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       reportCode: '',
       treatmentPlantId: '',
+      category: WaterQualityLabReportCategoryEnum.WASTEWATER,
       reportDate: new Date().toISOString().split('T')[0],
       submittedAt: new Date().toISOString().split('T')[0],
-      reportDocumentUrl: '',
       summary: '',
       recommendations: '',
       analystSignature: '',
@@ -125,6 +158,18 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
   }, [fetchTreatmentPlants, fetchParameters]);
 
   useEffect(() => {
+    const loadFileCategory = async () => {
+      try {
+        const category = await uploadService.getCategoryByName('certificate-documents');
+        if (category) setFileCategoryId(category.id);
+      } catch (error) {
+        console.error('Failed to load file category', error);
+      }
+    };
+    loadFileCategory();
+  }, []);
+
+  useEffect(() => {
     const fetchData = async () => {
       if (mode === 'edit' && id) {
         setLoading(true);
@@ -134,13 +179,23 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
           form.reset({
             reportCode: data.reportCode,
             treatmentPlantId: data.treatmentPlantId,
+            category: data.category ?? WaterQualityLabReportCategoryEnum.WASTEWATER,
             reportDate: data.reportDate.split('T')[0],
             submittedAt: data.submittedAt.split('T')[0],
-            reportDocumentUrl: data.reportDocumentUrl || '',
             summary: data.summary || '',
             recommendations: data.recommendations || '',
             analystSignature: data.analystSignature || '',
           });
+          const attachments = (data.attachments ?? []).slice().sort((a, b) => a.order - b.order);
+          setAttachmentList(
+            attachments.map((a) => ({
+              type: 'existing' as const,
+              id: a.id,
+              fileUrl: a.fileUrl,
+              fileName: a.fileName,
+              order: a.order,
+            })),
+          );
           if (data.labReportResults && data.labReportResults.length > 0) {
             const byParam: Record<string, { resultValue: string; unit?: string; isCompliant?: boolean; notes?: string }> = {};
             for (const r of data.labReportResults) {
@@ -188,14 +243,77 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
     });
   };
 
+  const handleAttachmentFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+    const next: AttachmentListItem[] = [];
+    let order = attachmentList.length;
+    Array.from(files).forEach((file) => {
+      if (!ALLOWED_ATTACHMENT_TYPES.includes(file.type)) {
+        toast.error(`Invalid type for ${file.name}. Use PDF or images only.`);
+        return;
+      }
+      if (file.size > MAX_ATTACHMENT_SIZE) {
+        toast.error(`${file.name} exceeds 10MB`);
+        return;
+      }
+      if (attachmentList.length + next.length >= MAX_ATTACHMENTS) {
+        toast.error(`Maximum ${MAX_ATTACHMENTS} attachments allowed`);
+        return;
+      }
+      next.push({
+        type: 'new',
+        key: `new-${Date.now()}-${Math.random()}`,
+        file,
+        fileName: file.name,
+        order: order++,
+      });
+    });
+    if (next.length) setAttachmentList((prev) => [...prev, ...next]);
+    e.target.value = '';
+  }, [attachmentList.length]);
+
+  const removeAttachment = useCallback((index: number) => {
+    setAttachmentList((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.map((item, i) => ({ ...item, order: i }));
+    });
+  }, []);
+
+  const buildAttachmentsPayload = useCallback(async (): Promise<{ fileUrl: string; fileName?: string; order: number }[]> => {
+    if (!attachmentList.length) return [];
+    if (attachmentList.some((a) => a.type === 'new') && !fileCategoryId) {
+      toast.error('Upload category not available. Please refresh and try again.');
+      throw new Error('File category not loaded');
+    }
+    const result: { fileUrl: string; fileName?: string; order: number }[] = [];
+    for (let i = 0; i < attachmentList.length; i++) {
+      const item = attachmentList[i];
+      if (item.type === 'existing') {
+        result.push({
+          fileUrl: item.fileUrl,
+          fileName: item.fileName,
+          order: i,
+        });
+      } else {
+        const res = await uploadService.uploadFile(item.file, fileCategoryId!, true);
+        const fileUrl = uploadService.getPublicFileUrl(res.id);
+        result.push({ fileUrl, fileName: item.fileName, order: i });
+      }
+    }
+    return result;
+  }, [attachmentList, fileCategoryId]);
+
   const onSubmit = async (data: FormValues) => {
     setSaving(true);
     try {
+      const attachments = await buildAttachmentsPayload();
       const submitData: CreateWaterQualityLabReportData | UpdateWaterQualityLabReportData = {
         ...data,
         reportDate: new Date(data.reportDate).toISOString(),
         submittedAt: new Date(data.submittedAt).toISOString(),
         results: buildResultsPayload(),
+        ...(mode === 'edit' ? { attachments } : attachments.length ? { attachments } : {}),
       };
 
       if (mode === 'create') {
@@ -207,7 +325,9 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
       }
       navigate('/waste-management/water-quality-lab-reports');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Operation failed');
+      if (error?.message !== 'File category not loaded') {
+        toast.error(error.response?.data?.message || 'Operation failed');
+      }
     } finally {
       setSaving(false);
     }
@@ -259,6 +379,31 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
                         placeholder="Select plant"
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category *</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {(Object.keys(WATER_LAB_REPORT_CATEGORY_LABELS) as WaterQualityLabReportCategoryEnum[]).map((key) => (
+                          <SelectItem key={key} value={key}>
+                            {WATER_LAB_REPORT_CATEGORY_LABELS[key]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -331,33 +476,71 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
               )}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="analystSignature"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Analyst Signature</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter analyst signature" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            <FormField
+              control={form.control}
+              name="analystSignature"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Analyst Signature</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter analyst signature" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="space-y-2">
+              <FormLabel>Documents</FormLabel>
+              <p className="text-sm text-muted-foreground">
+                PDF and images (JPEG, PNG, GIF, WebP), max 10MB each, up to {MAX_ATTACHMENTS} files
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,image/jpeg,image/png,image/gif,image/webp"
+                multiple
+                className="hidden"
+                onChange={handleAttachmentFileChange}
               />
-              <FormField
-                control={form.control}
-                name="reportDocumentUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Document URL</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter document URL" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={attachmentList.length >= MAX_ATTACHMENTS}
+              >
+                <Paperclip className="mr-2 h-4 w-4" />
+                Add document(s)
+              </Button>
+              {attachmentList.length > 0 && (
+                <ul className="mt-2 space-y-2 rounded-md border p-3">
+                  {attachmentList.map((item, index) => (
+                    <li
+                      key={item.type === 'existing' ? item.id : item.key}
+                      className="flex items-center justify-between gap-2 text-sm"
+                    >
+                      <span className="flex items-center gap-2 truncate">
+                        {item.type === 'new' && item.file.type === 'application/pdf' ? (
+                          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <Image className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        )}
+                        {item.type === 'existing' ? (item.fileName ?? item.fileUrl.split('/').pop() ?? 'File') : item.fileName}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => removeAttachment(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {parameters.length > 0 && (
