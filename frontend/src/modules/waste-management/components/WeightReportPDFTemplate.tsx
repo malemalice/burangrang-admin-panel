@@ -2,16 +2,16 @@ import { format } from 'date-fns';
 import { Badge } from '@/core/components/ui/badge';
 import { Separator } from '@/core/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/core/components/ui/table';
-import { WeightReport, ReportStatusEnum } from '../types/waste-management.types';
+import { WeightReport, WeightReportStatusEnum } from '../types/waste-management.types';
 
 interface WeightReportPDFTemplateProps {
     report: WeightReport;
 }
 
 export function WeightReportPDFTemplate({ report }: WeightReportPDFTemplateProps) {
-    const getStatusBadge = (status: ReportStatusEnum) => {
+    const getStatusBadge = (status: WeightReportStatusEnum) => {
         return (
-            <Badge variant={status === ReportStatusEnum.SUBMITTED ? 'default' : 'secondary'}>
+            <Badge variant={status === WeightReportStatusEnum.DONE ? 'default' : 'secondary'}>
                 {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
             </Badge>
         );

@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { FileEdit, ArrowLeft, FileDown, Loader2 } from 'lucide-react';
+import { FileEdit, ArrowLeft, FileDown, Loader2, Activity } from 'lucide-react';
 import { usePDF } from 'react-to-pdf';
 
 import { Button } from '@/core/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 
@@ -79,7 +79,19 @@ export default function EnvironmentalMeasurementDetailPage() {
   }
 
   if (!measurement) {
-    return null;
+    return (
+      <div className="text-center py-12">
+        <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-foreground mb-2">Environmental measurement not found</h3>
+        <p className="text-muted-foreground mb-4">
+          The record you're looking for doesn't exist or has been deleted.
+        </p>
+        <Button onClick={() => navigate(-1)}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to List
+        </Button>
+      </div>
+    );
   }
 
   const roomLabel = measurement.room
@@ -87,7 +99,7 @@ export default function EnvironmentalMeasurementDetailPage() {
     : '-';
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6">
       <PageHeader
         title="Environmental Measurement"
         subtitle={format(new Date(measurement.date), 'PPP')}
@@ -95,7 +107,7 @@ export default function EnvironmentalMeasurementDetailPage() {
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+              Back to List
             </Button>
             <Button variant="outline" size="sm" onClick={handleExportPDF}>
               <FileDown className="h-4 w-4 mr-2" />
@@ -111,59 +123,62 @@ export default function EnvironmentalMeasurementDetailPage() {
         }
       />
 
-      {/* PDF Template - hidden, used for export only */}
-      <div
-        ref={targetRef}
-        style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
-        aria-hidden="true"
-      >
-        <EnvironmentalMeasurementPDFTemplate measurement={measurement} />
-      </div>
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* PDF Template - hidden, used for export only */}
+        <div
+          ref={targetRef}
+          style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+          aria-hidden="true"
+        >
+          <EnvironmentalMeasurementPDFTemplate measurement={measurement} />
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Measurement Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Date</p>
-              <p>{format(new Date(measurement.date), 'dd MMM yyyy')}</p>
+        <Card>
+          <CardHeader>
+            <CardTitle>Measurement Details</CardTitle>
+            <CardDescription>Date, room, and measurement values</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Date</p>
+                <p>{format(new Date(measurement.date), 'dd MMM yyyy')}</p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Room</p>
+                <p>{roomLabel}</p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Lighting (lux)</p>
+                <p>{measurement.lighting ?? '-'}</p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Noise (dB)</p>
+                <p>{measurement.noise ?? '-'}</p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Humidity (%)</p>
+                <p>{measurement.humidity ?? '-'}</p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Temperature (°C)</p>
+                <p>{measurement.temperature ?? '-'}</p>
+              </div>
+              {measurement.remarks && (
+                <div className="space-y-2 md:col-span-2">
+                  <p className="text-sm font-medium text-muted-foreground">Remarks</p>
+                  <p className="whitespace-pre-wrap">{measurement.remarks}</p>
+                </div>
+              )}
             </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Room</p>
-              <p>{roomLabel}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Lighting (lux)</p>
-              <p>{measurement.lighting ?? '-'}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Noise (dB)</p>
-              <p>{measurement.noise ?? '-'}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Humidity (%)</p>
-              <p>{measurement.humidity ?? '-'}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Temperature (°C)</p>
-              <p>{measurement.temperature ?? '-'}</p>
-            </div>
-            {measurement.remarks && (
-              <div className="space-y-2 md:col-span-2">
-                <p className="text-sm font-medium text-muted-foreground">Remarks</p>
-                <p className="whitespace-pre-wrap">{measurement.remarks}</p>
+            {measurement.creator && (
+              <div className="pt-4 border-t text-sm text-muted-foreground">
+                Recorded by: {measurement.creator.firstName} {measurement.creator.lastName}
               </div>
             )}
-          </div>
-          {measurement.creator && (
-            <div className="pt-4 border-t text-sm text-muted-foreground">
-              Recorded by: {measurement.creator.firstName} {measurement.creator.lastName}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

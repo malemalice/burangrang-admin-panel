@@ -2,7 +2,7 @@
  * Waste Management seed data
  * Seeds master data for waste management module
  */
-import { PrismaClient, WasteTypeEnum, MonthEnum, ReportStatusEnum, GeneralStatusEnum } from '@prisma/client';
+import { PrismaClient, WasteTypeEnum, MonthEnum, ReportStatusEnum, WeightReportStatusEnum, WaterQualityLabReportStatusEnum, GeneralStatusEnum } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -362,7 +362,7 @@ export const seedWasteManagement = async () => {
             preparedBy: users[0].id,
             summary: 'Hasil pengujian kualitas air bulan ini menunjukkan parameter dalam batas normal',
             recommendations: 'Lanjutkan monitoring rutin',
-            status: ReportStatusEnum.SUBMITTED,
+            status: WaterQualityLabReportStatusEnum.DRAFT,
             submittedBy: users[0].id,
             submittedAt: new Date(),
             isActive: true,
@@ -382,7 +382,7 @@ export const seedWasteManagement = async () => {
             reportDate: new Date(),
             reportMonth: MonthEnum.JAN,
             reportYear: currentYear,
-            status: ReportStatusEnum.SUBMITTED,
+            status: WeightReportStatusEnum.DRAFT,
             submittedBy: users[0].id,
             submittedAt: new Date(),
             isActive: true,
@@ -435,7 +435,7 @@ export const seedWasteManagement = async () => {
           reportDate: new Date(),
           reportMonth: MonthEnum.FEB,
           reportYear: currentYear,
-          status: ReportStatusEnum.SUBMITTED,
+          status: WeightReportStatusEnum.OPEN,
           submittedBy: users[0].id,
           submittedAt: new Date(),
           isActive: true,

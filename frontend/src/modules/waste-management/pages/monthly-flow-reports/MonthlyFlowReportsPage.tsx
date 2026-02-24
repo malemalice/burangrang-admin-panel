@@ -4,8 +4,6 @@ import { toast } from 'sonner';
 import { Plus, MoreHorizontal, Pencil, Trash2, Eye, FileText } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
-import { Badge } from '@/core/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +14,7 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { monthlyFlowReportService, treatmentPlantService } from '../../services/wasteManagementService';
-import { MonthlyFlowReport, ReportStatusEnum, PaginatedResponse, TreatmentPlant } from '../../types/waste-management.types';
+import { MonthlyFlowReport, PaginatedResponse, TreatmentPlant } from '../../types/waste-management.types';
 import { formatDate } from '@/core/utils/date';
 
 export default function MonthlyFlowReportsPage() {
@@ -45,15 +43,6 @@ export default function MonthlyFlowReportsPage() {
 
   const filterFields: FilterField[] = [
     {
-      id: 'status',
-      label: 'Status',
-      type: 'select',
-      options: Object.values(ReportStatusEnum).map((status) => ({
-        label: status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
-        value: status,
-      })),
-    },
-    {
       id: 'treatmentPlantId',
       label: 'Treatment Plant',
       type: 'searchableSelect',
@@ -71,7 +60,6 @@ export default function MonthlyFlowReportsPage() {
         page,
         limit,
         search: search || undefined,
-        status: activeFilters.status?.value,
         treatmentPlantId: activeFilters.treatmentPlantId?.value,
         // reportMonth: activeFilters.reportMonth?.value,
         // reportYear: activeFilters.reportYear?.value ? Number(activeFilters.reportYear.value) : undefined,
@@ -148,16 +136,6 @@ export default function MonthlyFlowReportsPage() {
       isSortable: true,
     },
     {
-      id: 'status',
-      header: 'Status',
-      cell: (item: MonthlyFlowReport) => (
-        <Badge variant={item.status === ReportStatusEnum.SUBMITTED ? 'default' : 'secondary'}>
-          {item.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-        </Badge>
-      ),
-      isSortable: true,
-    },
-    {
       id: 'actions',
       header: 'Actions',
       cell: (item: MonthlyFlowReport) => (
@@ -196,30 +174,7 @@ export default function MonthlyFlowReportsPage() {
             <Plus className="mr-2 h-4 w-4" /> Add Report
           </Button>
         }
-      >
-        <Tabs defaultValue="all" className="w-auto" onValueChange={(value) => {
-          setPage(1);
-          if (value === 'all') {
-            const newFilters = { ...activeFilters };
-            delete newFilters.status;
-            setActiveFilters(newFilters);
-          } else {
-            setActiveFilters({
-              ...activeFilters,
-              status: { value: value, label: value },
-            });
-          }
-        }}>
-          <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            {Object.values(ReportStatusEnum).map((status) => (
-              <TabsTrigger key={status} value={status}>
-                {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </PageHeader>
+      />
 
       <DataTable
         columns={columns}

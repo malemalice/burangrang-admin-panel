@@ -286,33 +286,6 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
               )}
             />
 
-            {mode === 'edit' && (
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {Object.values(ReportStatusEnum).map((status) => (
-                          <SelectItem key={status} value={status}>
-                            {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
             <FormField
               control={form.control}
               name="isActive"

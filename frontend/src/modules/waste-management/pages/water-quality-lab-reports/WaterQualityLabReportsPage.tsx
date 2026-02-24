@@ -16,7 +16,7 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { waterQualityLabReportService, treatmentPlantService } from '../../services/wasteManagementService';
-import { WaterQualityLabReport, PaginatedResponse, ReportStatusEnum, TreatmentPlant } from '../../types/waste-management.types';
+import { WaterQualityLabReport, PaginatedResponse, WaterQualityLabReportStatusEnum, TreatmentPlant } from '../../types/waste-management.types';
 
 export default function WaterQualityLabReportsPage() {
   const navigate = useNavigate();
@@ -53,14 +53,14 @@ export default function WaterQualityLabReportsPage() {
       id: 'status',
       label: 'Status',
       type: 'select',
-      options: Object.values(ReportStatusEnum).map((status) => ({
+      options: Object.values(WaterQualityLabReportStatusEnum).map((status) => ({
         label: status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
         value: status,
       })),
     },
     {
       id: 'isActive',
-      label: 'Status',
+      label: 'Active',
       type: 'select',
       options: [
         { label: 'Active', value: 'true' },
@@ -77,7 +77,7 @@ export default function WaterQualityLabReportsPage() {
         limit,
         search: search || undefined,
         treatmentPlantId: activeFilters.treatmentPlantId?.value as string | undefined,
-        status: activeFilters.status?.value as ReportStatusEnum | undefined,
+        status: activeFilters.status?.value as WaterQualityLabReportStatusEnum | undefined,
         isActive: activeFilters.isActive?.value === 'true' ? true : activeFilters.isActive?.value === 'false' ? false : undefined,
       };
       const response = await waterQualityLabReportService.getAll(params);
@@ -148,7 +148,7 @@ export default function WaterQualityLabReportsPage() {
       id: 'reportStatus',
       header: 'Report Status',
       cell: (item: WaterQualityLabReport) => (
-        <Badge variant={item.status === ReportStatusEnum.DONE || item.status === ReportStatusEnum.OPEN ? 'default' : 'secondary'}>
+        <Badge variant={item.status === WaterQualityLabReportStatusEnum.DONE || item.status === WaterQualityLabReportStatusEnum.OPEN ? 'default' : 'secondary'}>
           {item.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
         </Badge>
       ),
@@ -216,7 +216,7 @@ export default function WaterQualityLabReportsPage() {
         }}>
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
-            {Object.values(ReportStatusEnum).map((status) => (
+            {Object.values(WaterQualityLabReportStatusEnum).map((status) => (
               <TabsTrigger key={status} value={status}>
                 {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
               </TabsTrigger>

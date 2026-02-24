@@ -1928,6 +1928,24 @@ enum ReportStatusEnum {
   ARCHIVED
 }
 
+enum WeightReportStatusEnum {
+  SCHEDULED
+  DRAFT
+  OPEN
+  WAITING_APPROVAL
+  DONE
+  REJECTED
+}
+
+enum WaterQualityLabReportStatusEnum {
+  SCHEDULED
+  DRAFT
+  OPEN
+  WAITING_APPROVAL
+  DONE
+  REJECTED
+}
+
 enum MonthEnum {
   JAN
   FEB
@@ -2611,7 +2629,7 @@ model WaterQualityLabReport {
   submittedAt       DateTime
   receivedBy        String?
   receivedAt        DateTime?
-  status            ReportStatusEnum @default(SUBMITTED)
+  status            WaterQualityLabReportStatusEnum @default(DRAFT)
   reviewedBy        String?
   reviewedAt        DateTime?
   reviewNotes       String?          @db.Text
@@ -2715,7 +2733,7 @@ model WeightReport {
   submittedAt       DateTime
   receivedBy        String?
   receivedAt        DateTime?
-  status            ReportStatusEnum @default(SUBMITTED)
+  status            WeightReportStatusEnum @default(DRAFT)
   reviewedBy        String?
   reviewedAt        DateTime?
   reviewNotes       String?          @db.Text

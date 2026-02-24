@@ -8,7 +8,6 @@ import {
   Eye,
   BookOpen,
   Clock,
-  Users,
   Star,
   MoreHorizontal,
   Play,
@@ -272,24 +271,6 @@ const CoursesPage = () => {
                 ? `${course.instructor?.firstName || ''} ${course.instructor?.lastName || ''}`.trim()
                 : 'Unknown Instructor'}
             </div>
-            <div className="flex gap-1 mt-1 min-h-[22px]">
-              {course.categories && course.categories.length > 0 ? (
-                <>
-                  {course.categories.slice(0, 2).map(category => (
-                    <Badge key={category.id} variant="outline" className="text-xs">
-                      {category.name}
-                    </Badge>
-                  ))}
-                  {course.categories.length > 2 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{course.categories.length - 2} more
-                    </Badge>
-                  )}
-                </>
-              ) : (
-                <span className="text-xs text-muted-foreground italic">No categories</span>
-              )}
-            </div>
           </div>
         </div>
       ),
@@ -328,12 +309,6 @@ const CoursesPage = () => {
             <Clock className="h-3 w-3 text-gray-400" />
             <span>{formatDuration(course.totalDuration)}</span>
           </div>
-          {Number(course.rating) > 0 && (
-            <div className="flex items-center gap-1">
-              <Star className="h-3 w-3 text-yellow-400 fill-current" />
-              <span>{Number(course.rating).toFixed(1)} ({course.reviewCount})</span>
-            </div>
-          )}
         </div>
       ),
       isSortable: false

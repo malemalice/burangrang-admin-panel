@@ -19,6 +19,8 @@ import { Textarea } from '@/core/components/ui/textarea';
 import { usePPEWithdrawal } from '../../hooks/usePPE';
 import { PPEWithdrawalStatus } from '../../types/ppe.types';
 import approvalService from '@/modules/master-data/services/approvalService';
+import type { ApprovalStatusHistory } from '@/modules/master-data';
+import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
 import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import {
     Table,
@@ -28,6 +30,13 @@ import {
     TableHeader,
     TableRow,
 } from '@/core/components/ui/table';
+
+const emptyApprovalHistory: ApprovalStatusHistory = {
+    history: [],
+    nextApprover: null,
+    allApprovalLines: [],
+    currentStatus: 'UNKNOWN',
+};
 
 const PPEWithdrawalDetailPage = () => {
     const navigate = useNavigate();
@@ -39,6 +48,8 @@ const PPEWithdrawalDetailPage = () => {
     const [canApprove, setCanApprove] = useState(false);
     const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
     const [rejectNote, setRejectNote] = useState('');
+    const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
     useEffect(() => {
         if (!id || !withdrawal || withdrawal.status !== PPEWithdrawalStatus.WAITING_APPROVAL) {
@@ -49,6 +60,27 @@ const PPEWithdrawalDetailPage = () => {
             .then((res: { canApprove?: boolean }) => setCanApprove(Boolean(res?.canApprove)))
             .catch(() => setCanApprove(false));
     }, [id, withdrawal?.status]);
+
+    useEffect(() => {
+        const fetchApprovalStatus = async () => {
+            if (!id) return;
+            setIsLoadingHistory(true);
+            try {
+                const status = await approvalService.checkApprovalStatus(id, APPROVAL_ENTITIES.PPE_WITHDRAWAL);
+                if (status && !(status as unknown as { error?: boolean }).error) {
+                    setApprovalHistory(status);
+                } else {
+                    setApprovalHistory(emptyApprovalHistory);
+                }
+            } catch (error) {
+                console.error('Failed to fetch approval status:', error);
+                setApprovalHistory(emptyApprovalHistory);
+            } finally {
+                setIsLoadingHistory(false);
+            }
+        };
+        fetchApprovalStatus();
+    }, [id]);
 
     const getStatusBadge = (status: PPEWithdrawalStatus) => {
         const statusConfig = {
@@ -74,6 +106,18 @@ const PPEWithdrawalDetailPage = () => {
         setRejectDialogOpen(true);
     };
 
+    const refetchApprovalStatus = async () => {
+        if (!id) return;
+        try {
+            const status = await approvalService.checkApprovalStatus(id, APPROVAL_ENTITIES.PPE_WITHDRAWAL);
+            if (status && !(status as unknown as { error?: boolean }).error) {
+                setApprovalHistory(status);
+            }
+        } catch (error) {
+            console.error('Failed to refetch approval status:', error);
+        }
+    };
+
     const handleRejectConfirm = async () => {
         if (!withdrawal?.id) return;
         setIsProcessing(true);
@@ -81,7 +125,10 @@ const PPEWithdrawalDetailPage = () => {
             await rejectWithdrawal(withdrawal.id, { notes: rejectNote });
             setRejectDialogOpen(false);
             setRejectNote('');
-            if (id) fetchWithdrawal(id);
+            if (id) {
+                fetchWithdrawal(id);
+                refetchApprovalStatus();
+            }
         } catch (error) {
             console.error('Failed to reject withdrawal:', error);
         } finally {
@@ -112,6 +159,7 @@ const PPEWithdrawalDetailPage = () => {
             setActionType(null);
             if (id) {
                 fetchWithdrawal(id);
+                refetchApprovalStatus();
             }
         } catch (error) {
             console.error(`Failed to ${actionType} withdrawal:`, error);
@@ -267,122 +315,108 @@ const PPEWithdrawalDetailPage = () => {
                 }
             />
 
-            <div className="container mx-auto py-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Package className="h-5 w-5" />
-                                Withdrawal Information
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-500">Withdrawal Code</h3>
-                                <p className="mt-1 font-medium">{withdrawal.withdrawalCode}</p>
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-500">Withdrawal Date</h3>
-                                <p className="mt-1">{new Date(withdrawal.withdrawalDate).toLocaleDateString()}</p>
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-500">Status</h3>
-                                <div className="mt-1">{getStatusBadge(withdrawal.status)}</div>
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-500">Requested By</h3>
-                                <p className="mt-1">{withdrawal.createdByName || withdrawal.createdBy || 'N/A'}</p>
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-500">Requested For</h3>
-                                <p className="mt-1">{withdrawal.requestedForName || 'N/A'}</p>
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-500">Department</h3>
-                                <p className="mt-1">{withdrawal.departmentName || withdrawal.departmentId}</p>
-                            </div>
-                            {withdrawal.jobPositionName && (
-                                <div>
-                                    <h3 className="text-sm font-medium text-gray-500">Job Position</h3>
-                                    <p className="mt-1">{withdrawal.jobPositionName}</p>
+            <div className="container mx-auto py-6 space-y-4 max-w-5xl">
+                <Card>
+                    <CardHeader className="pb-4">
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                            <Package className="h-5 w-5" />
+                            Withdrawal Details
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium text-muted-foreground">Withdrawal Code</h3>
+                                    <p className="text-sm font-medium">{withdrawal.withdrawalCode}</p>
                                 </div>
-                            )}
-                            {withdrawal.notes && (
-                                <div>
-                                    <h3 className="text-sm font-medium text-gray-500">Notes</h3>
-                                    <p className="mt-1">{withdrawal.notes}</p>
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium text-muted-foreground">Withdrawal Date</h3>
+                                    <p className="text-sm">{new Date(withdrawal.withdrawalDate).toLocaleDateString()}</p>
                                 </div>
-                            )}
-                            {withdrawal.withdrawalLetterUrl && (
-                                <div>
-                                    <h3 className="text-sm font-medium text-gray-500">Withdrawal Letter</h3>
-                                    <div className="mt-1">
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
+                                    <div className="text-sm">{getStatusBadge(withdrawal.status)}</div>
+                                </div>
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium text-muted-foreground">Requested By</h3>
+                                    <p className="text-sm">{withdrawal.createdByName || withdrawal.createdBy || 'N/A'}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium text-muted-foreground">Requested For</h3>
+                                    <p className="text-sm">{withdrawal.requestedForName || 'N/A'}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium text-muted-foreground">Department</h3>
+                                    <p className="text-sm">{withdrawal.departmentName || withdrawal.departmentId}</p>
+                                </div>
+                                {withdrawal.jobPositionName && (
+                                    <div className="space-y-1">
+                                        <h3 className="text-sm font-medium text-muted-foreground">Job Position</h3>
+                                        <p className="text-sm">{withdrawal.jobPositionName}</p>
+                                    </div>
+                                )}
+                                {withdrawal.collectedDate && (
+                                    <div className="space-y-1">
+                                        <h3 className="text-sm font-medium text-muted-foreground">Collected Date</h3>
+                                        <p className="text-sm">{new Date(withdrawal.collectedDate).toLocaleString()}</p>
+                                    </div>
+                                )}
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium text-muted-foreground">Created At</h3>
+                                    <p className="text-sm">{new Date(withdrawal.createdAt).toLocaleString()}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium text-muted-foreground">Last Updated</h3>
+                                    <p className="text-sm">{new Date(withdrawal.updatedAt).toLocaleString()}</p>
+                                </div>
+                                {withdrawal.notes && (
+                                    <div className="space-y-1 col-span-2 md:col-span-3">
+                                        <h3 className="text-sm font-medium text-muted-foreground">Notes</h3>
+                                        <p className="text-sm">{withdrawal.notes}</p>
+                                    </div>
+                                )}
+                                {withdrawal.withdrawalLetterUrl && (
+                                    <div className="space-y-1 col-span-2 md:col-span-3">
+                                        <h3 className="text-sm font-medium text-muted-foreground">Withdrawal Letter</h3>
                                         <a
                                             href={(() => {
                                                 const url = withdrawal.withdrawalLetterUrl!;
-                                                // If already a full URL, use it
-                                                if (url.startsWith('http://') || url.startsWith('https://')) {
-                                                    return url;
-                                                }
-                                                // If starts with /, it's already a path
-                                                if (url.startsWith('/')) {
-                                                    return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${url}`;
-                                                }
-                                                // If it's a UUID (36 chars with dashes), construct proper URL
-                                                // Check if it looks like a UUID (contains dashes and is 36 chars)
-                                                if (url.length === 36 && url.includes('-')) {
-                                                    // This is likely a file ID, but we need accessToken for private files
-                                                    // For now, try public endpoint (might need to fetch file metadata to get accessToken)
-                                                    return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/uploads/public/${url}`;
-                                                }
-                                                // Otherwise, treat as path
+                                                if (url.startsWith('http://') || url.startsWith('https://')) return url;
+                                                if (url.startsWith('/')) return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${url}`;
+                                                if (url.length === 36 && url.includes('-')) return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/uploads/public/${url}`;
                                                 return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${url}`;
                                             })()}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 underline"
+                                            className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
                                         >
-                                            <FileText className="h-4 w-4" />
+                                            <FileText className="h-4 w-4 shrink-0" />
                                             <span>View Withdrawal Letter</span>
-                                            <Download className="h-4 w-4" />
+                                            <Download className="h-4 w-4 shrink-0" />
                                         </a>
                                     </div>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Additional Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {withdrawal.collectedDate && (
-                                <div>
-                                    <h3 className="text-sm font-medium text-gray-500">Collected Date</h3>
-                                    <p className="mt-1">
-                                        {new Date(withdrawal.collectedDate).toLocaleString()}
-                                    </p>
-                                </div>
-                            )}
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-500">Created At</h3>
-                                <p className="mt-1">
-                                    {new Date(withdrawal.createdAt).toLocaleString()}
-                                </p>
+                                )}
                             </div>
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-500">Last Updated</h3>
-                                <p className="mt-1">
-                                    {new Date(withdrawal.updatedAt).toLocaleString()}
-                                </p>
+                            <div className="lg:border-l lg:pl-6 flex flex-col">
+                                <ApprovalTimelineCard
+                                    approvalHistory={approvalHistory}
+                                    isLoading={isLoadingHistory}
+                                    assessmentStatus={
+                                        [PPEWithdrawalStatus.COLLECTED, PPEWithdrawalStatus.APPROVED, PPEWithdrawalStatus.REJECTED, PPEWithdrawalStatus.CANCELLED].includes(withdrawal.status)
+                                            ? 'DONE'
+                                            : withdrawal.status
+                                    }
+                                    entityDepartmentName={withdrawal.departmentName ?? undefined}
+                                    entityJobPositionName="Approver"
+                                />
                             </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
                 <Card>
-                    <CardHeader>
+                    <CardHeader className="pb-4">
                         <CardTitle>Withdrawal Items</CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -390,31 +424,31 @@ const PPEWithdrawalDetailPage = () => {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Equipment Name</TableHead>
-                                        <TableHead>Type</TableHead>
-                                        <TableHead>Size</TableHead>
-                                        <TableHead>Requested Qty</TableHead>
-                                        <TableHead>Approved Qty</TableHead>
-                                        <TableHead>Issued Qty</TableHead>
+                                        <TableHead className="text-sm">Equipment Name</TableHead>
+                                        <TableHead className="text-sm">Type</TableHead>
+                                        <TableHead className="text-sm">Size</TableHead>
+                                        <TableHead className="text-sm">Requested Qty</TableHead>
+                                        <TableHead className="text-sm">Approved Qty</TableHead>
+                                        <TableHead className="text-sm">Issued Qty</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {withdrawal.items.map((item) => (
                                         <TableRow key={item.id}>
-                                            <TableCell className="font-medium">
+                                            <TableCell className="text-sm font-medium">
                                                 {item.stockItemEquipmentName || item.stockItemId || '-'}
                                             </TableCell>
-                                            <TableCell>{item.stockItemEquipmentType || '-'}</TableCell>
-                                            <TableCell>{item.stockItemEquipmentSize || '-'}</TableCell>
-                                            <TableCell>{item.requestedQuantity}</TableCell>
-                                            <TableCell>{item.approvedQuantity || '-'}</TableCell>
-                                            <TableCell>{item.issuedQuantity || '-'}</TableCell>
+                                            <TableCell className="text-sm">{item.stockItemEquipmentType || '-'}</TableCell>
+                                            <TableCell className="text-sm">{item.stockItemEquipmentSize || '-'}</TableCell>
+                                            <TableCell className="text-sm">{item.requestedQuantity}</TableCell>
+                                            <TableCell className="text-sm">{item.approvedQuantity || '-'}</TableCell>
+                                            <TableCell className="text-sm">{item.issuedQuantity || '-'}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
                             </Table>
                         ) : (
-                            <p className="text-center text-gray-500 py-8">No items found</p>
+                            <p className="text-center text-sm text-muted-foreground py-4">No items found</p>
                         )}
                     </CardContent>
                 </Card>

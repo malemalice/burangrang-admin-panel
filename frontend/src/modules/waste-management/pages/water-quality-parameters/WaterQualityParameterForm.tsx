@@ -93,8 +93,10 @@ export default function WaterQualityParameterForm({ mode }: WaterQualityParamete
   const onSubmit = async (data: FormValues) => {
     setSaving(true);
     try {
+      // Backend expects full ISO 8601 for dateSampleTaken (date input gives YYYY-MM-DD only)
       const submitData: CreateWaterQualityParameterData | UpdateWaterQualityParameterData = {
         ...data,
+        dateSampleTaken: data.dateSampleTaken ? `${data.dateSampleTaken}T00:00:00.000Z` : undefined,
       };
 
       if (mode === 'create') {

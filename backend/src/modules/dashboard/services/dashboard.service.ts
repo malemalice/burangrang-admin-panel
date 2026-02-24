@@ -16,6 +16,8 @@ import {
   PPEWithdrawalStatusEnum,
   ReportStatusEnum,
   RiskRatingEnum,
+  WaterQualityLabReportStatusEnum,
+  WeightReportStatusEnum,
 } from '@prisma/client';
 import {
   RiskOverview,
@@ -1569,13 +1571,13 @@ export class DashboardService {
       this.prisma.waterQualityLabReport.count({
         where: {
           isActive: true,
-          status: { in: [ReportStatusEnum.SUBMITTED, ReportStatusEnum.UNDER_REVIEW] },
+          status: { in: [WaterQualityLabReportStatusEnum.DRAFT, WaterQualityLabReportStatusEnum.WAITING_APPROVAL] },
         },
       }),
       this.prisma.weightReport.count({
         where: {
           isActive: true,
-          status: { in: [ReportStatusEnum.SUBMITTED, ReportStatusEnum.UNDER_REVIEW] },
+          status: { in: [WeightReportStatusEnum.OPEN, WeightReportStatusEnum.WAITING_APPROVAL] },
         },
       }),
       this.prisma.monthlyFlowReport.count({ where: { isActive: true } }),

@@ -24,7 +24,7 @@ import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 
 import { weightReportService, wasteSourceService, storageLocationService, wasteTypeService } from '../../services/wasteManagementService';
-import { CreateWeightReportData, WeightReport, UpdateWeightReportData, WasteSource, StorageLocation, WasteType, MonthEnum, PaginatedResponse, ReportStatusEnum } from '../../types/waste-management.types';
+import { CreateWeightReportData, WeightReport, UpdateWeightReportData, WasteSource, StorageLocation, WasteType, MonthEnum, PaginatedResponse, WeightReportStatusEnum } from '../../types/waste-management.types';
 
 const itemSchema = z.object({
   wasteTypeId: z.string().min(1, 'Waste type is required'),
@@ -41,16 +41,8 @@ const formSchema = z.object({
   submittedAt: z.string().min(1, 'Submission date is required'),
   reportDocumentUrl: z.string().optional(),
   isActive: z.boolean().default(true),
-  status: z.nativeEnum(ReportStatusEnum).optional(),
+  status: z.nativeEnum(WeightReportStatusEnum).optional(),
   items: z.array(itemSchema).optional(),
-}).refine((data) => {
-  if (!data.items || data.items.length === 0) return true;
-  const wasteTypeIds = data.items.map(i => i.wasteTypeId).filter(Boolean);
-  const uniqueIds = new Set(wasteTypeIds);
-  return uniqueIds.size === wasteTypeIds.length;
-}, {
-  message: "Duplicate waste types are not allowed",
-  path: ["items"],
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -143,6 +135,23 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
 
   const onSubmit = async (data: FormValues) => {
     setSaving(true);
+    form.clearErrors('items');
+
+    if (data.items && data.items.length > 0) {
+      const wasteTypeIds = data.items.map((i) => i.wasteTypeId).filter(Boolean);
+      const duplicateIndex = wasteTypeIds.findIndex((id, index) => wasteTypeIds.indexOf(id) !== index);
+      if (duplicateIndex >= 0) {
+        const duplicateId = wasteTypeIds[duplicateIndex];
+        const wasteTypeName = wasteTypes.find((wt) => wt.id === duplicateId)?.name || 'Unknown';
+        form.setError('items', {
+          type: 'manual',
+          message: `Item ${wasteTypeName} is inputed more then 1`,
+        });
+        setSaving(false);
+        return;
+      }
+    }
+
     try {
       const itemsWithOrder = data.items?.map((item, index) => ({
         wasteTypeId: item.wasteTypeId,
@@ -168,7 +177,11 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
       }
       navigate('/waste-management/weight-reports');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Operation failed');
+      const message = error.response?.data?.message || 'Operation failed';
+      toast.error(message);
+      if (error.response?.status === 409 && typeof message === 'string' && message.includes('inputed more then')) {
+        form.setError('items', { type: 'manual', message });
+      }
     } finally {
       setSaving(false);
     }
@@ -326,7 +339,7 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {Object.values(ReportStatusEnum).map((status) => (
+                          {Object.values(WeightReportStatusEnum).map((status) => (
                             <SelectItem key={status} value={status}>
                               {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
                             </SelectItem>
@@ -357,6 +370,11 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
               </Button>
             </CardHeader>
             <CardContent>
+              {form.formState.errors.items?.message && (
+                <div className="rounded-md bg-destructive/10 text-destructive text-sm px-3 py-2 mb-4">
+                  {form.formState.errors.items.message}
+                </div>
+              )}
               {fields.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   No items added yet. Click "Add Item" to start.

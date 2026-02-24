@@ -29,7 +29,9 @@ import {
 } from '@/core/components/ui/select';
 
 import { waterQualityLabReportService, treatmentPlantService } from '../../services/wasteManagementService';
-import { CreateWaterQualityLabReportData, WaterQualityLabReport, UpdateWaterQualityLabReportData, TreatmentPlant, PaginatedResponse, ReportStatusEnum } from '../../types/waste-management.types';
+import { CreateWaterQualityLabReportData, WaterQualityLabReport, UpdateWaterQualityLabReportData, TreatmentPlant, PaginatedResponse, WaterQualityLabReportStatusEnum } from '../../types/waste-management.types';
+
+const VALID_REPORT_STATUSES = Object.values(WaterQualityLabReportStatusEnum);
 
 const formSchema = z.object({
   reportCode: z.string().min(1, 'Report code is required'),
@@ -120,10 +122,12 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
     try {
       const submitData: CreateWaterQualityLabReportData | UpdateWaterQualityLabReportData = {
         ...data,
-        status: data.status as ReportStatusEnum,
         reportDate: new Date(data.reportDate).toISOString(),
         submittedAt: new Date(data.submittedAt).toISOString(),
       };
+      if (data.status && VALID_REPORT_STATUSES.includes(data.status as WaterQualityLabReportStatusEnum)) {
+        (submitData as UpdateWaterQualityLabReportData).status = data.status as WaterQualityLabReportStatusEnum;
+      }
 
       if (mode === 'create') {
         await waterQualityLabReportService.create(submitData as CreateWaterQualityLabReportData);
@@ -281,14 +285,17 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select
+                        value={field.value ?? ''}
+                        onValueChange={field.onChange}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select status" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {Object.values(ReportStatusEnum).map((status) => (
+                          {VALID_REPORT_STATUSES.map((status) => (
                             <SelectItem key={status} value={status}>
                               {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
                             </SelectItem>

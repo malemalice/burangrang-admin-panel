@@ -3,19 +3,20 @@ import { CreateWeightReportDto } from './create-weight-report.dto';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsOptional, IsDateString, IsEnum } from 'class-validator';
 
-export enum ReportStatusEnum {
-  SUBMITTED = 'SUBMITTED',
-  RECEIVED = 'RECEIVED',
-  UNDER_REVIEW = 'UNDER_REVIEW',
-  REVIEWED = 'REVIEWED',
-  ARCHIVED = 'ARCHIVED',
+export enum WeightReportStatusEnum {
+  SCHEDULED = 'SCHEDULED',
+  DRAFT = 'DRAFT',
+  OPEN = 'OPEN',
+  WAITING_APPROVAL = 'WAITING_APPROVAL',
+  DONE = 'DONE',
+  REJECTED = 'REJECTED',
 }
 
 export class UpdateWeightReportDto extends PartialType(CreateWeightReportDto) {
-  @ApiProperty({ required: false, enum: ReportStatusEnum })
-  @IsEnum(ReportStatusEnum)
+  @ApiProperty({ required: false, enum: WeightReportStatusEnum })
+  @IsEnum(WeightReportStatusEnum)
   @IsOptional()
-  status?: ReportStatusEnum;
+  status?: WeightReportStatusEnum;
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()

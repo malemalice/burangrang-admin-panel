@@ -155,7 +155,7 @@ export class WeightReportsService {
         });
         const typeName = duplicateType?.name || 'Unknown';
         this.errorHandler.throwConflictCustom(
-          `Item ${typeName} is inputted more than 1`,
+          `Item ${typeName} is inputed more then 1`,
         );
       }
     }
@@ -303,7 +303,7 @@ export class WeightReportsService {
             });
             const typeName = duplicateType?.name || 'Unknown';
             this.errorHandler.throwConflictCustom(
-              `Item ${typeName} is inputted more than 1`,
+              `Item ${typeName} is inputed more then 1`,
             );
           }
         }
