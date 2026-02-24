@@ -683,23 +683,26 @@ export class CertificatesService {
                 );
             }
 
-            // Build sanitized update data: only Prisma Certificate scalar fields; empty string -> null for optional fields
+            // Build sanitized update data: use relation inputs for category, department, personnel; scalars for the rest
             const raw = updateCertificateDto;
             const optionalNullables = (v: string | undefined) => (v === '' || v === undefined ? null : v);
             const updateData: Prisma.CertificateUpdateInput = {};
 
             if (raw.certificateNumber !== undefined) updateData.certificateNumber = raw.certificateNumber;
             if (raw.certificateName !== undefined) updateData.certificateName = raw.certificateName;
-            if (raw.categoryId !== undefined) updateData.categoryId = raw.categoryId;
+            if (raw.categoryId !== undefined) updateData.category = { connect: { id: raw.categoryId } };
             if (raw.issuedDate !== undefined) updateData.issuedDate = new Date(raw.issuedDate);
             if (raw.validityDate !== undefined) updateData.validityDate = new Date(raw.validityDate);
             if (raw.issuerName !== undefined) updateData.issuerName = raw.issuerName;
             if (raw.documentUrl !== undefined) updateData.documentUrl = optionalNullables(raw.documentUrl);
-            if (raw.personnelId !== undefined) updateData.personnelId = optionalNullables(raw.personnelId);
+            if (raw.personnelId !== undefined) {
+                const pid = optionalNullables(raw.personnelId);
+                updateData.personnel = pid ? { connect: { id: pid } } : { disconnect: true };
+            }
             if (raw.personnelName !== undefined) updateData.personnelName = optionalNullables(raw.personnelName);
             if (raw.equipmentId !== undefined) updateData.equipmentId = optionalNullables(raw.equipmentId);
             if (raw.equipmentName !== undefined) updateData.equipmentName = optionalNullables(raw.equipmentName);
-            if (raw.departmentId !== undefined) updateData.departmentId = raw.departmentId;
+            if (raw.departmentId !== undefined) updateData.department = { connect: { id: raw.departmentId } };
             if (raw.reminderDays !== undefined) updateData.reminderDays = raw.reminderDays;
             if (raw.notes !== undefined) updateData.notes = optionalNullables(raw.notes);
             if (raw.isActive !== undefined) updateData.isActive = raw.isActive;
