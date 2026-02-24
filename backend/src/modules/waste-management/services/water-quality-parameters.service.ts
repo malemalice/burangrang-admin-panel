@@ -32,6 +32,7 @@ export class WaterQualityParametersService {
         transform: {
           standardLimit: (val) => (val ? Number(val) : undefined),
           regulatoryLimit: (val) => (val ? Number(val) : undefined),
+          displayOrder: (val) => (val != null ? Number(val) : undefined),
         },
       },
     );
@@ -61,7 +62,7 @@ export class WaterQualityParametersService {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'name',
+      sortBy = 'displayOrder',
       sortOrder = 'asc',
       isActive,
       search,
@@ -78,10 +79,15 @@ export class WaterQualityParametersService {
     }
     if (isActive !== undefined) where.isActive = isActive;
 
+    const orderBy: any =
+      sortBy === 'displayOrder'
+        ? [{ displayOrder: sortOrder }, { name: 'asc' }]
+        : { [sortBy]: sortOrder };
+
     const [items, total] = await Promise.all([
       this.prisma.waterQualityParameter.findMany({
         where,
-        orderBy: { [sortBy]: sortOrder },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),

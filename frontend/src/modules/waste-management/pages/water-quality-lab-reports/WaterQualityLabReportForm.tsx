@@ -15,23 +15,41 @@ import {
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
-import { Switch } from '@/core/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
+
+import { waterQualityLabReportService, treatmentPlantService, waterQualityParameterService } from '../../services/wasteManagementService';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/core/components/ui/select';
+  CreateWaterQualityLabReportData,
+  WaterQualityLabReport,
+  UpdateWaterQualityLabReportData,
+  TreatmentPlant,
+  PaginatedResponse,
+  WaterQualityParameter,
+  WaterQualityParameterCategoryEnum,
+  WaterQualityLabReportResultInput,
+} from '../../types/waste-management.types';
 
-import { waterQualityLabReportService, treatmentPlantService } from '../../services/wasteManagementService';
-import { CreateWaterQualityLabReportData, WaterQualityLabReport, UpdateWaterQualityLabReportData, TreatmentPlant, PaginatedResponse, WaterQualityLabReportStatusEnum } from '../../types/waste-management.types';
+const CATEGORY_LABELS: Record<WaterQualityParameterCategoryEnum, string> = {
+  [WaterQualityParameterCategoryEnum.CHEMISTRY]: 'Chemistry',
+  [WaterQualityParameterCategoryEnum.PHYSICS]: 'Physics',
+  [WaterQualityParameterCategoryEnum.MICROBIOLOGY]: 'Microbiology',
+};
 
-const VALID_REPORT_STATUSES = Object.values(WaterQualityLabReportStatusEnum);
+function groupParametersByCategory(parameters: WaterQualityParameter[]) {
+  const groups: Record<string, WaterQualityParameter[]> = {
+    [WaterQualityParameterCategoryEnum.CHEMISTRY]: [],
+    [WaterQualityParameterCategoryEnum.PHYSICS]: [],
+    [WaterQualityParameterCategoryEnum.MICROBIOLOGY]: [],
+  };
+  for (const p of parameters) {
+    const cat = p.category || WaterQualityParameterCategoryEnum.CHEMISTRY;
+    if (groups[cat]) groups[cat].push(p);
+  }
+  return groups;
+}
 
 const formSchema = z.object({
   reportCode: z.string().min(1, 'Report code is required'),
@@ -42,8 +60,6 @@ const formSchema = z.object({
   summary: z.string().optional(),
   recommendations: z.string().optional(),
   analystSignature: z.string().optional(),
-  status: z.string().optional(),
-  isActive: z.boolean().default(true),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -58,6 +74,8 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [treatmentPlants, setTreatmentPlants] = useState<TreatmentPlant[]>([]);
+  const [parameters, setParameters] = useState<WaterQualityParameter[]>([]);
+  const [resultsByParam, setResultsByParam] = useState<Record<string, { resultValue: string; unit?: string; isCompliant?: boolean; notes?: string }>>({});
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -70,7 +88,6 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
       summary: '',
       recommendations: '',
       analystSignature: '',
-      isActive: true,
     },
   });
 
@@ -83,9 +100,29 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
     }
   }, []);
 
+  const fetchParameters = useCallback(async () => {
+    try {
+      const response = await waterQualityParameterService.getAll({ limit: 200, isActive: true });
+      const list = (response.data as PaginatedResponse<WaterQualityParameter>).data;
+      setParameters(list);
+      setResultsByParam((prev) => {
+        const next = { ...prev };
+        for (const p of list) {
+          if (next[p.id] === undefined) {
+            next[p.id] = { resultValue: '' };
+          }
+        }
+        return next;
+      });
+    } catch (error) {
+      console.error('Failed to fetch parameters:', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchTreatmentPlants();
-  }, [fetchTreatmentPlants]);
+    fetchParameters();
+  }, [fetchTreatmentPlants, fetchParameters]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -103,9 +140,19 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
             summary: data.summary || '',
             recommendations: data.recommendations || '',
             analystSignature: data.analystSignature || '',
-            status: data.status,
-            isActive: data.isActive,
           });
+          if (data.labReportResults && data.labReportResults.length > 0) {
+            const byParam: Record<string, { resultValue: string; unit?: string; isCompliant?: boolean; notes?: string }> = {};
+            for (const r of data.labReportResults) {
+              byParam[r.parameterId] = {
+                resultValue: String(r.resultValue),
+                unit: r.unit,
+                isCompliant: r.isCompliant,
+                notes: r.notes,
+              };
+            }
+            setResultsByParam(byParam);
+          }
         } catch (error) {
           toast.error('Failed to fetch data');
           navigate('/waste-management/water-quality-lab-reports');
@@ -117,6 +164,30 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
     fetchData();
   }, [id, mode, navigate, form]);
 
+  const setResult = (parameterId: string, field: 'resultValue' | 'unit' | 'isCompliant' | 'notes', value: string | boolean) => {
+    setResultsByParam((prev) => ({
+      ...prev,
+      [parameterId]: {
+        ...prev[parameterId],
+        [field]: value,
+      },
+    }));
+  };
+
+  const buildResultsPayload = (): WaterQualityLabReportResultInput[] => {
+    return parameters.map((p) => {
+      const r = resultsByParam[p.id];
+      const resultValue = r?.resultValue !== undefined && r.resultValue !== '' ? Number(r.resultValue) : 0;
+      return {
+        parameterId: p.id,
+        resultValue,
+        unit: r?.unit || p.unit,
+        isCompliant: r?.isCompliant,
+        notes: r?.notes,
+      };
+    });
+  };
+
   const onSubmit = async (data: FormValues) => {
     setSaving(true);
     try {
@@ -124,10 +195,8 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
         ...data,
         reportDate: new Date(data.reportDate).toISOString(),
         submittedAt: new Date(data.submittedAt).toISOString(),
+        results: buildResultsPayload(),
       };
-      if (data.status && VALID_REPORT_STATUSES.includes(data.status as WaterQualityLabReportStatusEnum)) {
-        (submitData as UpdateWaterQualityLabReportData).status = data.status as WaterQualityLabReportStatusEnum;
-      }
 
       if (mode === 'create') {
         await waterQualityLabReportService.create(submitData as CreateWaterQualityLabReportData);
@@ -263,7 +332,6 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
             />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
                 name="analystSignature"
@@ -277,38 +345,6 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
                   </FormItem>
                 )}
               />
-
-              {mode === 'edit' && (
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select
-                        value={field.value ?? ''}
-                        onValueChange={field.onChange}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {VALID_REPORT_STATUSES.map((status) => (
-                            <SelectItem key={status} value={status}>
-                              {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-              </div>
-
               <FormField
                 control={form.control}
                 name="reportDocumentUrl"
@@ -324,19 +360,47 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="isActive"
-              render={({ field }) => (
-                <FormItem className="flex items-center space-x-2">
-                  <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <FormLabel className="!mt-0">Active</FormLabel>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {parameters.length > 0 && (
+              <div className="space-y-6 pt-4 border-t">
+                <h3 className="text-lg font-medium">Results</h3>
+                <p className="text-sm text-muted-foreground">
+                  Enter result values per parameter (grouped by category).
+                </p>
+                {Object.entries(groupParametersByCategory(parameters)).map(([category, params]) => {
+                  if (params.length === 0) return null;
+                  return (
+                    <div key={category} className="space-y-3">
+                      <h4 className="text-sm font-medium text-muted-foreground">
+                        {CATEGORY_LABELS[category as WaterQualityParameterCategoryEnum] ?? category}
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {params.map((param) => (
+                          <div key={param.id} className="flex flex-col gap-2 rounded-md border p-3">
+                            <FormLabel className="text-sm">{param.name}</FormLabel>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Input
+                                type="number"
+                                step="0.0001"
+                                placeholder={`Value (${param.unit})`}
+                                value={resultsByParam[param.id]?.resultValue ?? ''}
+                                onChange={(e) => setResult(param.id, 'resultValue', e.target.value)}
+                              />
+                              <span className="text-xs text-muted-foreground">{param.unit}</span>
+                            </div>
+                            <Input
+                              className="text-sm"
+                              placeholder="Notes (optional)"
+                              value={resultsByParam[param.id]?.notes ?? ''}
+                              onChange={(e) => setResult(param.id, 'notes', e.target.value)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="flex justify-end gap-4">
               <Button type="button" variant="outline" onClick={() => navigate('/waste-management/water-quality-lab-reports')}>

@@ -1946,6 +1946,12 @@ enum WaterQualityLabReportStatusEnum {
   REJECTED
 }
 
+enum WaterQualityParameterCategoryEnum {
+  CHEMISTRY
+  PHYSICS
+  MICROBIOLOGY
+}
+
 enum MonthEnum {
   JAN
   FEB
@@ -2555,19 +2561,26 @@ model TreatmentPlant {
 
 // Water Quality Parameter - Master Data
 model WaterQualityParameter {
-  id              String   @id @default(uuid())
+  id              String                            @id @default(uuid())
   name            String
-  code            String   @unique
+  code            String                            @unique
+  category        WaterQualityParameterCategoryEnum @default(CHEMISTRY)
   unit            String
-  standardLimit   Decimal? @db.Decimal(10, 4)
-  regulatoryLimit Decimal? @db.Decimal(10, 4)
+  standardLimit   Decimal?                          @db.Decimal(10, 4)
+  regulatoryLimit Decimal?                          @db.Decimal(10, 4)
   testMethod      String?
-  description     String?  @db.Text
-  isActive        Boolean  @default(true)
+  description     String?                           @db.Text
+  displayOrder    Int?
+  isActive        Boolean                           @default(true)
   dateSampleTaken DateTime
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime                         @default(now())
+  updatedAt       DateTime                         @updatedAt
 
+  // Relations
+  labReportResults WaterQualityLabReportResult[]
+
+  @@index([category])
+  @@index([displayOrder])
   @@map("m_water_quality_parameters")
 }
 
@@ -2639,17 +2652,40 @@ model WaterQualityLabReport {
   updatedAt         DateTime         @updatedAt
 
   // Relations
-  treatmentPlant TreatmentPlant @relation(fields: [treatmentPlantId], references: [id])
-  preparer       User           @relation("WaterQualityLabReportPreparer", fields: [preparedBy], references: [id])
-  submitter      User           @relation("WaterQualityLabReportSubmitter", fields: [submittedBy], references: [id])
-  receiver       User?          @relation("WaterQualityLabReportReceiver", fields: [receivedBy], references: [id])
-  reviewer       User?          @relation("WaterQualityLabReportReviewer", fields: [reviewedBy], references: [id])
+  treatmentPlant   TreatmentPlant              @relation(fields: [treatmentPlantId], references: [id])
+  preparer         User                        @relation("WaterQualityLabReportPreparer", fields: [preparedBy], references: [id])
+  submitter        User                        @relation("WaterQualityLabReportSubmitter", fields: [submittedBy], references: [id])
+  receiver         User?                       @relation("WaterQualityLabReportReceiver", fields: [receivedBy], references: [id])
+  reviewer         User?                       @relation("WaterQualityLabReportReviewer", fields: [reviewedBy], references: [id])
+  labReportResults WaterQualityLabReportResult[]
 
   @@index([treatmentPlantId, reportDate])
   @@index([reportDate])
   @@index([status])
   @@index([receivedAt])
   @@map("t_water_quality_lab_reports")
+}
+
+// Water Quality Lab Report Result - Transactional Data (per-parameter result values)
+model WaterQualityLabReportResult {
+  id           String   @id @default(uuid())
+  labReportId  String
+  parameterId  String
+  resultValue  Decimal  @db.Decimal(12, 4)
+  unit         String?
+  isCompliant  Boolean?
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  labReport  WaterQualityLabReport  @relation(fields: [labReportId], references: [id], onDelete: Cascade)
+  parameter  WaterQualityParameter  @relation(fields: [parameterId], references: [id])
+
+  @@unique([labReportId, parameterId])
+  @@index([labReportId])
+  @@index([parameterId])
+  @@map("t_water_quality_lab_report_results")
 }
 
 // ============================================================

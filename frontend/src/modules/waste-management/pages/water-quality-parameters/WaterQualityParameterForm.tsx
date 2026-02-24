@@ -17,15 +17,34 @@ import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Switch } from '@/core/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/core/components/ui/select';
 import { Loader2 } from 'lucide-react';
 
 import { waterQualityParameterService } from '../../services/wasteManagementService';
-import { CreateWaterQualityParameterData, WaterQualityParameter, UpdateWaterQualityParameterData } from '../../types/waste-management.types';
+import {
+  CreateWaterQualityParameterData,
+  WaterQualityParameter,
+  UpdateWaterQualityParameterData,
+  WaterQualityParameterCategoryEnum,
+} from '../../types/waste-management.types';
+
+const CATEGORY_OPTIONS = Object.values(WaterQualityParameterCategoryEnum);
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   code: z.string().min(1, 'Code is required'),
+  category: z.nativeEnum(WaterQualityParameterCategoryEnum),
   unit: z.string().min(1, 'Unit is required'),
+  displayOrder: z.preprocess(
+    (val) => (val === '' || val === undefined ? undefined : Number(val)),
+    z.number().int().optional(),
+  ),
   standardLimit: z.preprocess((val) => (val === '' || val === undefined ? undefined : Number(val)), z.number().optional()),
   regulatoryLimit: z.preprocess((val) => (val === '' || val === undefined ? undefined : Number(val)), z.number().optional()),
   testMethod: z.string().optional(),
@@ -51,7 +70,9 @@ export default function WaterQualityParameterForm({ mode }: WaterQualityParamete
     defaultValues: {
       name: '',
       code: '',
+      category: WaterQualityParameterCategoryEnum.CHEMISTRY,
       unit: '',
+      displayOrder: undefined,
       standardLimit: undefined,
       regulatoryLimit: undefined,
       testMethod: '',
@@ -71,7 +92,9 @@ export default function WaterQualityParameterForm({ mode }: WaterQualityParamete
           form.reset({
             name: data.name,
             code: data.code,
+            category: data.category ?? WaterQualityParameterCategoryEnum.CHEMISTRY,
             unit: data.unit,
+            displayOrder: data.displayOrder ?? undefined,
             standardLimit: data.standardLimit,
             regulatoryLimit: data.regulatoryLimit,
             testMethod: data.testMethod || '',
@@ -166,6 +189,51 @@ export default function WaterQualityParameterForm({ mode }: WaterQualityParamete
                     <FormLabel>Code *</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter code" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category *</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {CATEGORY_OPTIONS.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {value.charAt(0) + value.slice(1).toLowerCase()}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="displayOrder"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Display Order</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder="Order"
+                        value={field.value ?? ''}
+                        onChange={(e) =>
+                          field.onChange(e.target.value === '' ? undefined : Number(e.target.value))
+                        }
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

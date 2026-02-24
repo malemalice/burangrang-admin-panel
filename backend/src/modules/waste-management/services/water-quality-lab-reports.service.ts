@@ -6,21 +6,33 @@ import {
   CreateWaterQualityLabReportDto,
   UpdateWaterQualityLabReportDto,
   WaterQualityLabReportDto,
+  WaterQualityLabReportResultDto,
 } from '../dto/water-quality-lab-reports';
+
+const reportInclude = {
+  treatmentPlant: true,
+  submitter: true,
+  preparer: true,
+  labReportResults: {
+    include: { parameter: true },
+    orderBy: { parameter: { displayOrder: 'asc' as const } },
+  },
+};
 
 interface FindAllOptions {
   page?: number;
   limit?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
-  isActive?: boolean;
   search?: string;
   treatmentPlantId?: string;
-  status?: string;
+  reportDateFrom?: string;
+  reportDateTo?: string;
 }
 
 @Injectable()
 export class WaterQualityLabReportsService {
+  private resultMapper: (entity: any) => WaterQualityLabReportResultDto;
   private reportMapper: (entity: any) => WaterQualityLabReportDto;
 
   constructor(
@@ -28,6 +40,28 @@ export class WaterQualityLabReportsService {
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
   ) {
+    this.resultMapper = this.dtoMapper.createMapper(
+      WaterQualityLabReportResultDto,
+      {
+        transform: {
+          resultValue: (val) => (val != null ? Number(val) : 0),
+        },
+        relations: {
+          parameter: {
+            mapper: (p) =>
+              p
+                ? {
+                    id: p.id,
+                    name: p.name,
+                    code: p.code,
+                    unit: p.unit,
+                    category: p.category,
+                  }
+                : undefined,
+          },
+        },
+      },
+    );
     this.reportMapper = this.dtoMapper.createMapper(WaterQualityLabReportDto, {
       relations: {
         treatmentPlant: {
@@ -45,6 +79,10 @@ export class WaterQualityLabReportsService {
             u
               ? { id: u.id, firstName: u.firstName, lastName: u.lastName }
               : undefined,
+        },
+        labReportResults: {
+          mapper: (r: any) => this.resultMapper(r),
+          isArray: true,
         },
       },
     });
@@ -93,17 +131,47 @@ export class WaterQualityLabReportsService {
       treatmentPlant,
     );
 
-    const item = await this.prisma.waterQualityLabReport.create({
-      data: {
-        ...createDto,
-        preparedBy: userId,
-        submittedBy: userId,
-        reportDate: new Date(createDto.reportDate),
-        submittedAt: new Date(createDto.submittedAt),
-      },
-      include: { treatmentPlant: true, submitter: true, preparer: true },
+    const { results, ...reportData } = createDto;
+    const item = await this.prisma.$transaction(async (tx) => {
+      const report = await tx.waterQualityLabReport.create({
+        data: {
+          ...reportData,
+          preparedBy: userId,
+          submittedBy: userId,
+          reportDate: new Date(createDto.reportDate),
+          submittedAt: new Date(createDto.submittedAt),
+        },
+      });
+
+      if (results && results.length > 0) {
+        for (const row of results) {
+          const param = await tx.waterQualityParameter.findUnique({
+            where: { id: row.parameterId },
+          });
+          this.errorHandler.throwIfNotFoundById(
+            'Water Quality Parameter',
+            row.parameterId,
+            param,
+          );
+        }
+        await tx.waterQualityLabReportResult.createMany({
+          data: results.map((row) => ({
+            labReportId: report.id,
+            parameterId: row.parameterId,
+            resultValue: row.resultValue,
+            unit: row.unit ?? undefined,
+            isCompliant: row.isCompliant ?? undefined,
+            notes: row.notes ?? undefined,
+          })),
+        });
+      }
+
+      return tx.waterQualityLabReport.findUnique({
+        where: { id: report.id },
+        include: reportInclude,
+      });
     });
-    return this.reportMapper(item);
+    return this.reportMapper(item!);
   }
 
   async findAll(options?: FindAllOptions): Promise<{
@@ -115,19 +183,22 @@ export class WaterQualityLabReportsService {
       limit = 10,
       sortBy = 'createdAt',
       sortOrder = 'desc',
-      isActive,
       search,
       treatmentPlantId,
-      status,
+      reportDateFrom,
+      reportDateTo,
     } = options || {};
     const where: any = {};
 
     if (search) {
       where.OR = [{ reportCode: { contains: search, mode: 'insensitive' } }];
     }
-    if (isActive !== undefined) where.isActive = isActive;
     if (treatmentPlantId) where.treatmentPlantId = treatmentPlantId;
-    if (status) where.status = status;
+    if (reportDateFrom || reportDateTo) {
+      where.reportDate = {};
+      if (reportDateFrom) where.reportDate.gte = new Date(reportDateFrom);
+      if (reportDateTo) where.reportDate.lte = new Date(reportDateTo);
+    }
 
     const [items, total] = await Promise.all([
       this.prisma.waterQualityLabReport.findMany({
@@ -135,7 +206,7 @@ export class WaterQualityLabReportsService {
         orderBy: { [sortBy]: sortOrder },
         skip: (page - 1) * limit,
         take: limit,
-        include: { treatmentPlant: true, submitter: true, preparer: true },
+        include: reportInclude,
       }),
       this.prisma.waterQualityLabReport.count({ where }),
     ]);
@@ -150,9 +221,7 @@ export class WaterQualityLabReportsService {
     const item = await this.prisma.waterQualityLabReport.findUnique({
       where: { id },
       include: {
-        treatmentPlant: true,
-        submitter: true,
-        preparer: true,
+        ...reportInclude,
         receiver: true,
         reviewer: true,
       },
@@ -174,19 +243,54 @@ export class WaterQualityLabReportsService {
       existing,
     );
 
-    const data: any = { ...updateDto };
+    const { results, ...rest } = updateDto;
+    const data: any = { ...rest };
     if (updateDto.reportDate) data.reportDate = new Date(updateDto.reportDate);
     if (updateDto.submittedAt)
       data.submittedAt = new Date(updateDto.submittedAt);
     if (updateDto.receivedAt) data.receivedAt = new Date(updateDto.receivedAt);
     if (updateDto.reviewedAt) data.reviewedAt = new Date(updateDto.reviewedAt);
 
-    const updated = await this.prisma.waterQualityLabReport.update({
-      where: { id },
-      data,
-      include: { treatmentPlant: true, submitter: true, preparer: true },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.waterQualityLabReport.update({
+        where: { id },
+        data,
+      });
+
+      if (results !== undefined) {
+        await tx.waterQualityLabReportResult.deleteMany({
+          where: { labReportId: id },
+        });
+        if (results.length > 0) {
+          for (const row of results) {
+            const param = await tx.waterQualityParameter.findUnique({
+              where: { id: row.parameterId },
+            });
+            this.errorHandler.throwIfNotFoundById(
+              'Water Quality Parameter',
+              row.parameterId,
+              param,
+            );
+          }
+          await tx.waterQualityLabReportResult.createMany({
+            data: results.map((row) => ({
+              labReportId: id,
+              parameterId: row.parameterId,
+              resultValue: row.resultValue,
+              unit: row.unit ?? undefined,
+              isCompliant: row.isCompliant ?? undefined,
+              notes: row.notes ?? undefined,
+            })),
+          });
+        }
+      }
+
+      return tx.waterQualityLabReport.findUnique({
+        where: { id },
+        include: reportInclude,
+      });
     });
-    return this.reportMapper(updated);
+    return this.reportMapper(updated!);
   }
 
   async remove(id: string): Promise<void> {

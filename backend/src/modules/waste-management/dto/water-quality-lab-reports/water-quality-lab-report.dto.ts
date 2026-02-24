@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
+import { WaterQualityLabReportResultDto } from './water-quality-lab-report-result.dto';
 
 export class WaterQualityLabReportDto {
   @ApiProperty() @Expose() id: string;
@@ -15,12 +16,10 @@ export class WaterQualityLabReportDto {
   @ApiProperty() @Expose() submittedAt: Date;
   @ApiProperty({ required: false }) @Expose() receivedBy?: string;
   @ApiProperty({ required: false }) @Expose() receivedAt?: Date;
-  @ApiProperty() @Expose() status: string;
   @ApiProperty({ required: false }) @Expose() reviewedBy?: string;
   @ApiProperty({ required: false }) @Expose() reviewedAt?: Date;
   @ApiProperty({ required: false }) @Expose() reviewNotes?: string;
   @ApiProperty({ required: false }) @Expose() archivedAt?: Date;
-  @ApiProperty() @Expose() isActive: boolean;
   @ApiProperty() @Expose() createdAt: Date;
   @ApiProperty() @Expose() updatedAt: Date;
   @ApiProperty({ required: false }) @Expose() treatmentPlant?: {
@@ -38,6 +37,12 @@ export class WaterQualityLabReportDto {
     firstName: string;
     lastName: string;
   };
+  @ApiProperty({
+    required: false,
+    type: [WaterQualityLabReportResultDto],
+  })
+  @Expose()
+  labReportResults?: WaterQualityLabReportResultDto[];
 
   constructor(partial: Partial<WaterQualityLabReportDto>) {
     Object.assign(this, partial);

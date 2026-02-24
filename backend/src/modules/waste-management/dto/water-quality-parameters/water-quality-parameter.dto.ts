@@ -14,6 +14,10 @@ export class WaterQualityParameterDto {
   @Expose()
   code: string;
 
+  @ApiProperty({ enum: ['CHEMISTRY', 'PHYSICS', 'MICROBIOLOGY'] })
+  @Expose()
+  category: string;
+
   @ApiProperty()
   @Expose()
   unit: string;
@@ -33,6 +37,10 @@ export class WaterQualityParameterDto {
   @ApiProperty({ required: false })
   @Expose()
   description?: string;
+
+  @ApiProperty({ required: false })
+  @Expose()
+  displayOrder?: number;
 
   @ApiProperty()
   @Expose()

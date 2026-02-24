@@ -2,7 +2,7 @@
  * Waste Management seed data
  * Seeds master data for waste management module
  */
-import { PrismaClient, WasteTypeEnum, MonthEnum, ReportStatusEnum, WeightReportStatusEnum, WaterQualityLabReportStatusEnum, GeneralStatusEnum } from '@prisma/client';
+import { PrismaClient, WasteTypeEnum, MonthEnum, ReportStatusEnum, WeightReportStatusEnum, WaterQualityLabReportStatusEnum, WaterQualityParameterCategoryEnum, GeneralStatusEnum } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -37,6 +37,7 @@ export const seedWasteManagement = async () => {
     await prisma.weightReportItem.deleteMany({});
     await prisma.dispatchOrder.deleteMany({});
     await prisma.weightReport.deleteMany({});
+    await prisma.waterQualityLabReportResult.deleteMany({});
     await prisma.waterQualityLabReport.deleteMany({});
     await prisma.monthlyFlowReport.deleteMany({});
     await prisma.storageLocation.deleteMany({});
@@ -99,11 +100,13 @@ export const seedWasteManagement = async () => {
         data: {
           name: 'pH',
           code: 'WQ-PH',
+          category: WaterQualityParameterCategoryEnum.CHEMISTRY,
           unit: '-',
           standardLimit: 9.0,
           regulatoryLimit: 9.0,
           description: 'Tingkat keasaman air (6-9)',
           testMethod: 'pH Meter',
+          displayOrder: 1,
           isActive: true,
           dateSampleTaken: new Date(),
         },
@@ -112,11 +115,13 @@ export const seedWasteManagement = async () => {
         data: {
           name: 'BOD',
           code: 'WQ-BOD',
+          category: WaterQualityParameterCategoryEnum.CHEMISTRY,
           unit: 'mg/L',
           standardLimit: 30,
           regulatoryLimit: 30,
           description: 'Biological Oxygen Demand (max 30 mg/L)',
           testMethod: 'Titrimetri',
+          displayOrder: 2,
           isActive: true,
           dateSampleTaken: new Date(),
         },
@@ -125,11 +130,13 @@ export const seedWasteManagement = async () => {
         data: {
           name: 'COD',
           code: 'WQ-COD',
+          category: WaterQualityParameterCategoryEnum.CHEMISTRY,
           unit: 'mg/L',
           standardLimit: 100,
           regulatoryLimit: 100,
           description: 'Chemical Oxygen Demand (max 100 mg/L)',
           testMethod: 'Spektrofotometri',
+          displayOrder: 3,
           isActive: true,
           dateSampleTaken: new Date(),
         },
@@ -138,11 +145,13 @@ export const seedWasteManagement = async () => {
         data: {
           name: 'TSS',
           code: 'WQ-TSS',
+          category: WaterQualityParameterCategoryEnum.PHYSICS,
           unit: 'mg/L',
           standardLimit: 50,
           regulatoryLimit: 50,
           description: 'Total Suspended Solid (max 50 mg/L)',
           testMethod: 'Gravimetri',
+          displayOrder: 4,
           isActive: true,
           dateSampleTaken: new Date(),
         },
@@ -151,11 +160,13 @@ export const seedWasteManagement = async () => {
         data: {
           name: 'Ammonia',
           code: 'WQ-NH3',
+          category: WaterQualityParameterCategoryEnum.CHEMISTRY,
           unit: 'mg/L',
           standardLimit: 5,
           regulatoryLimit: 5,
           description: 'Kadar Ammonia (max 5 mg/L)',
           testMethod: 'Spektrofotometri',
+          displayOrder: 5,
           isActive: true,
           dateSampleTaken: new Date(),
         },
@@ -370,6 +381,20 @@ export const seedWasteManagement = async () => {
         }),
       ]);
       console.log(`     ✅ Created ${waterQualityLabReports.length} water quality lab reports`);
+
+      // Seed sample lab report results (one per parameter)
+      if (waterQualityLabReports.length > 0 && waterQualityParams.length > 0) {
+        const sampleValues = [7.2, 25, 80, 35, 3]; // pH, BOD, COD, TSS, Ammonia
+        await prisma.waterQualityLabReportResult.createMany({
+          data: waterQualityParams.slice(0, sampleValues.length).map((param, i) => ({
+            labReportId: waterQualityLabReports[0].id,
+            parameterId: param.id,
+            resultValue: sampleValues[i] ?? 0,
+            unit: param.unit,
+          })),
+        });
+        console.log(`     ✅ Created ${Math.min(waterQualityParams.length, sampleValues.length)} water quality lab report results`);
+      }
 
       // Seed sample Weight Reports
       console.log('  ⚖️ Seeding weight reports...');

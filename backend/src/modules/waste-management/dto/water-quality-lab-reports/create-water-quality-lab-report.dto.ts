@@ -5,7 +5,37 @@ import {
   IsOptional,
   IsDateString,
   IsBoolean,
+  IsArray,
+  ValidateNested,
+  IsNumber,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class CreateWaterQualityLabReportResultDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  parameterId: string;
+
+  @ApiProperty()
+  @IsNumber()
+  resultValue: number;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  unit?: string;
+
+  @ApiProperty({ required: false })
+  @IsBoolean()
+  @IsOptional()
+  isCompliant?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}
 
 export class CreateWaterQualityLabReportDto {
   @ApiProperty() @IsString() @IsNotEmpty() reportCode: string;
@@ -25,8 +55,13 @@ export class CreateWaterQualityLabReportDto {
   @IsOptional()
   analystSignature?: string;
   @ApiProperty() @IsDateString() submittedAt: string;
-  @ApiProperty({ required: false })
-  @IsBoolean()
+  @ApiProperty({
+    type: [CreateWaterQualityLabReportResultDto],
+    required: false,
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateWaterQualityLabReportResultDto)
   @IsOptional()
-  isActive?: boolean;
+  results?: CreateWaterQualityLabReportResultDto[];
 }
