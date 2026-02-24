@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
+import { DispatchOrderAttachmentDto } from './dispatch-order-attachment.dto';
 
 export class DispatchOrderDto {
   @ApiProperty() @Expose() id: string;
@@ -23,6 +24,9 @@ export class DispatchOrderDto {
     firstName: string;
     lastName: string;
   };
+  @ApiProperty({ required: false, type: [DispatchOrderAttachmentDto] })
+  @Expose()
+  attachments?: DispatchOrderAttachmentDto[];
 
   constructor(partial: Partial<DispatchOrderDto>) {
     Object.assign(this, partial);

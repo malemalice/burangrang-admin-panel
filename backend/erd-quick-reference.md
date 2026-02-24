@@ -17,7 +17,7 @@
 - **AchievementRate** (id, name, code, rangeMin, rangeMax, description, isActive)
 
 ### Learning Management System (LMS)
-- **Course** (id, title, slug, description, thumbnailUrl, totalChapters, totalDuration, difficulty, language, rating, reviewCount, studentCount, instructorId, status, isPublished, publishedAt, isActive)
+- **Course** (id, title, slug, description, thumbnailUrl, totalChapters, totalDuration, difficulty, language, rating, reviewCount, studentCount, instructorId, status, publishedAt, isActive)
 - **Chapter** (id, courseId, title, description, order, duration, contentType, contentUrl, youtubeVideoId, content, isFree, isPublished, publishedAt, isActive)
 - **Enrollment** (id, userId, courseId, orderId?, status, enrolledAt, completedAt?, progress, lastAccessedAt?)
 - **Progress** (id, enrollmentId, chapterId, status, timeSpent, progress, startedAt?, completedAt?, lastAccessedAt?)
@@ -303,7 +303,6 @@ prisma.course.findUnique({
 prisma.course.findMany({
   where: {
     isActive: true,
-    isPublished: true,
     status: 'published'
   },
   include: { instructor: true, categories: true },

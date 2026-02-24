@@ -1091,7 +1091,6 @@ Table t_courses {
   studentCount int [default: 0, not null]
   instructorId varchar [not null, ref: > t_users.id]
   status varchar [default: 'draft', not null]
-  isPublished boolean [default: false, not null]
   publishedAt timestamp
   isActive boolean [default: true, not null]
   createdAt timestamp [default: `now()`, not null]

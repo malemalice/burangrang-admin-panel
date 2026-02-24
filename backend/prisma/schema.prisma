@@ -989,7 +989,6 @@ model Course {
   studentCount     Int       @default(0)
   instructorId     String?
   status           String    @default("draft") // draft, review, published, archived
-  isPublished      Boolean   @default(false)
   publishedAt      DateTime?
   isActive         Boolean   @default(true)
   createdAt        DateTime  @default(now())
@@ -2776,13 +2775,31 @@ model DispatchOrder {
   createdBy    String
 
   // Relations
-  orderer User @relation("DispatchOrderOrderer", fields: [orderedBy], references: [id])
-  creator User @relation("DispatchOrderCreator", fields: [createdBy], references: [id])
+  orderer     User                        @relation("DispatchOrderOrderer", fields: [orderedBy], references: [id])
+  creator     User                        @relation("DispatchOrderCreator", fields: [createdBy], references: [id])
+  attachments DispatchOrderAttachment[]
 
   @@index([dispatchDate])
   @@index([orderedBy])
   @@index([status])
   @@map("t_dispatch_orders")
+}
+
+// Dispatch Order Attachment - Transactional Data
+model DispatchOrderAttachment {
+  id              String       @id @default(uuid())
+  dispatchOrderId String
+  fileUrl         String
+  fileName        String?
+  order           Int
+  createdAt       DateTime     @default(now())
+
+  // Relations
+  dispatchOrder DispatchOrder @relation(fields: [dispatchOrderId], references: [id], onDelete: Cascade)
+
+  @@index([dispatchOrderId])
+  @@index([order])
+  @@map("t_dispatch_order_attachments")
 }
 
 // ============================================================

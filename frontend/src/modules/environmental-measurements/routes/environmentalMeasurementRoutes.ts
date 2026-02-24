@@ -3,6 +3,7 @@ import {
   EnvironmentalMeasurementsPage,
   CreateEnvironmentalMeasurementPage,
   EditEnvironmentalMeasurementPage,
+  EnvironmentalMeasurementDetailPage,
 } from '../pages';
 
 /**
@@ -20,6 +21,10 @@ const environmentalMeasurementRoutes: RouteConfig[] = [
   {
     path: '/environmental-measurements/:id/edit',
     component: EditEnvironmentalMeasurementPage,
+  },
+  {
+    path: '/environmental-measurements/:id',
+    component: EnvironmentalMeasurementDetailPage,
   },
 ];
 

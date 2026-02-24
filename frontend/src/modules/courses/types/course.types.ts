@@ -15,7 +15,6 @@ export interface Course {
   studentCount: number;
   instructorId: string;
   status: 'draft' | 'review' | 'published' | 'archived';
-  isPublished: boolean;
   publishedAt?: string;
   isActive: boolean;
   createdAt: string;
@@ -80,7 +79,6 @@ export interface CourseDTO {
   studentCount: number;
   instructorId: string;
   status: string;
-  isPublished: boolean;
   publishedAt?: string;
   isActive: boolean;
   createdAt: string;
@@ -144,7 +142,6 @@ export interface CreateCourseDTO {
 }
 
 export interface UpdateCourseDTO extends Partial<CreateCourseDTO> {
-  isPublished?: boolean;
   publishedAt?: string;
   isActive?: boolean;
 }
@@ -176,7 +173,6 @@ export interface CourseSearchParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
-  isPublished?: boolean;
   status?: 'draft' | 'review' | 'published' | 'archived';
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
   instructorId?: string;
@@ -241,7 +237,6 @@ export interface CourseFormData {
   instructorId: string;
   status: 'draft' | 'review' | 'published' | 'archived';
   categoryIds: string[];
-  isPublished: boolean;
 }
 
 export interface ChapterFormData {
@@ -261,7 +256,6 @@ export interface ChapterFormData {
 export interface CourseFilters {
   status?: 'draft' | 'review' | 'published' | 'archived';
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
-  isPublished?: boolean;
   instructorId?: string;
   categoryId?: string;
   language?: string;

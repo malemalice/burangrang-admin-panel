@@ -4,11 +4,6 @@ import { Transform, Type } from 'class-transformer';
 import { CreateCourseDto } from './create-course.dto';
 
 export class UpdateCourseDto extends PartialType(CreateCourseDto) {
-  @ApiProperty({ description: 'Whether course is published', required: false })
-  @IsOptional()
-  @IsBoolean()
-  isPublished?: boolean;
-
   @ApiProperty({ description: 'Course published date', required: false })
   @IsOptional()
   @IsDateString()
