@@ -25,18 +25,21 @@ import { UpdateSettingDto } from './dto/update-setting.dto';
 import { SettingDto } from './dto/setting.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
-import { Roles } from '../../shared/decorators/roles.decorator';
-import { Role } from '../../shared/types/role.enum';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { Public } from 'src/shared/decorators/public.decorator';
+import { SETTINGS_KEYS } from './constants/settings-keys';
 
 @ApiTags('settings')
 @ApiBearerAuth()
 @Controller('settings')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
   @Post()
+  @Permissions('setting:create')
   @ApiOperation({ summary: 'Create a new setting' })
   @ApiBody({ type: CreateSettingDto })
   @ApiResponse({
@@ -46,7 +49,7 @@ export class SettingsController {
   })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
   @ApiResponse({ status: 409, description: 'Conflict - setting with this key already exists.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   create(@Body() createSettingDto: CreateSettingDto): Promise<SettingDto> {
     return this.settingsService.create(createSettingDto);
   }
@@ -69,13 +72,14 @@ export class SettingsController {
     const name = await this.settingsService.getValueByKey('app.name');
 
     return {
-      name: name || 'Office Nexus',
+      name: name || 'HSE System',
     };
   }
 
   @Patch('app-name')
+  @Permissions('setting:update')
   @ApiOperation({ summary: 'Update application name' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   @ApiBody({
     schema: {
       type: 'object',
@@ -90,7 +94,7 @@ export class SettingsController {
     type: SettingDto,
   })
   @ApiResponse({ status: 400, description: 'Bad request - invalid name.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   async updateAppName(@Body('name') name: string): Promise<SettingDto> {
     return this.settingsService.updateByKey('app.name', {
       value: name,
@@ -100,8 +104,9 @@ export class SettingsController {
 
   // Theme-specific endpoints (must come before generic routes)
   @Get('theme')
+  @Permissions('setting:read')
   @ApiOperation({ summary: 'Get theme settings' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  
   @ApiResponse({
     status: 200,
     description: 'Return theme settings.',
@@ -124,8 +129,9 @@ export class SettingsController {
   }
 
   @Patch('theme/color')
+  @Permissions('setting:update')
   @ApiOperation({ summary: 'Update theme color' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   @ApiBody({
     schema: {
       type: 'object',
@@ -147,8 +153,9 @@ export class SettingsController {
   }
 
   @Patch('theme/mode')
+  @Permissions('setting:update')
   @ApiOperation({ summary: 'Update theme mode' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   @ApiBody({
     schema: {
       type: 'object',
@@ -172,7 +179,7 @@ export class SettingsController {
   // Move generic routes AFTER specific routes to prevent conflicts
   // Specific routes must come BEFORE generic routes to prevent conflicts
   @Get('by-key/:key')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('setting:read')
   async getByKey(@Param('key') key: string): Promise<SettingDto> {
     const setting = await this.settingsService.findByKey(key);
     if (!setting) {
@@ -182,13 +189,13 @@ export class SettingsController {
   }
 
   @Get('value/:key')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('setting:read')
   async getValueByKey(@Param('key') key: string): Promise<{ value: string }> {
     let value = await this.settingsService.getValueByKey(key);
 
     // If theme setting doesn't exist, create it with default value
     if (value === null && key.startsWith('theme.')) {
-      const defaultValue = key === 'theme.color' ? 'blue' : 'light';
+      const defaultValue = key === SETTINGS_KEYS.THEME_COLOR ? 'blue' : 'light';
       console.log(`Creating default theme setting: ${key} = ${defaultValue}`);
 
       await this.settingsService.updateByKey(key, {
@@ -208,6 +215,7 @@ export class SettingsController {
 
   // Generic routes come LAST to prevent conflicts with specific routes above
   @Get(':id')
+  @Permissions('setting:read')
   @ApiOperation({ summary: 'Get a setting by ID' })
   @ApiParam({ name: 'id', description: 'Setting ID', type: String })
   @ApiResponse({
@@ -216,12 +224,14 @@ export class SettingsController {
     type: SettingDto,
   })
   @ApiResponse({ status: 404, description: 'Setting not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   findOne(@Param('id') id: string): Promise<SettingDto> {
     return this.settingsService.findOne(id);
   }
 
   @Get()
+  @AllowOptionsBypass()
+  @Permissions('setting:list')
   @ApiOperation({ summary: 'Get all settings with pagination and filtering' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (starts from 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of items per page' })
@@ -229,6 +239,7 @@ export class SettingsController {
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Sort order' })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term for key or value' })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({
     status: 200,
     description: 'Return paginated list of settings.',
@@ -248,7 +259,7 @@ export class SettingsController {
       },
     },
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -274,6 +285,7 @@ export class SettingsController {
   }
 
   @Patch(':id')
+  @Permissions('setting:update')
   @ApiOperation({ summary: 'Update a setting by ID' })
   @ApiParam({ name: 'id', description: 'Setting ID', type: String })
   @ApiBody({ type: UpdateSettingDto })
@@ -284,7 +296,7 @@ export class SettingsController {
   })
   @ApiResponse({ status: 404, description: 'Setting not found.' })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   update(
     @Param('id') id: string,
     @Body() updateSettingDto: UpdateSettingDto,
@@ -293,7 +305,7 @@ export class SettingsController {
   }
 
   @Patch('by-key/:key')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('setting:update')
   updateByKey(
     @Param('key') key: string,
     @Body() updateSettingDto: UpdateSettingDto,
@@ -309,13 +321,13 @@ export class SettingsController {
     description: 'The setting has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Setting not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   remove(@Param('id') id: string): Promise<void> {
     return this.settingsService.remove(id);
   }
 
   @Delete('by-key/:key')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('setting:delete')
   removeByKey(@Param('key') key: string): Promise<void> {
     return this.settingsService.removeByKey(key);
   }

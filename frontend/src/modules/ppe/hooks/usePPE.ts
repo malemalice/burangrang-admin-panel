@@ -339,6 +339,18 @@ export const usePPEWithdrawal = (id: string | null = null) => {
         }
     }, []);
 
+    const submitWithdrawal = useCallback(async (withdrawalId: string) => {
+        try {
+            const updatedWithdrawal = await ppeService.submitWithdrawal(withdrawalId);
+            setWithdrawal(updatedWithdrawal);
+            toast.success('Withdrawal submitted for approval');
+            return updatedWithdrawal;
+        } catch (err) {
+            toast.error('Failed to submit withdrawal');
+            throw err;
+        }
+    }, []);
+
     const approveWithdrawal = useCallback(async (withdrawalId: string, updateData: UpdatePPEWithdrawalDTO) => {
         try {
             const updatedWithdrawal = await ppeService.approveWithdrawal(withdrawalId, updateData);
@@ -347,6 +359,18 @@ export const usePPEWithdrawal = (id: string | null = null) => {
             return updatedWithdrawal;
         } catch (err) {
             toast.error('Failed to approve withdrawal');
+            throw err;
+        }
+    }, []);
+
+    const rejectWithdrawal = useCallback(async (withdrawalId: string, updateData: UpdatePPEWithdrawalDTO) => {
+        try {
+            const updatedWithdrawal = await ppeService.rejectWithdrawal(withdrawalId, updateData);
+            setWithdrawal(updatedWithdrawal);
+            toast.success('Withdrawal rejected');
+            return updatedWithdrawal;
+        } catch (err) {
+            toast.error('Failed to reject withdrawal');
             throw err;
         }
     }, []);
@@ -387,7 +411,9 @@ export const usePPEWithdrawal = (id: string | null = null) => {
         error,
         fetchWithdrawal,
         setWithdrawal,
+        submitWithdrawal,
         approveWithdrawal,
+        rejectWithdrawal,
         collectWithdrawal,
         cancelWithdrawal,
     };

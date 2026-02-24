@@ -2,6 +2,7 @@ import { RouteConfig } from './types';
 import coreRoutes from './modules/coreRoutes';
 import moduleRoutes from './modules/moduleRoutes';
 import { settingsRoutes } from '@/modules/settings';
+import { accessLogRoutes } from '@/modules/access-logs';
 import { userRoutes } from '@/modules/users';
 import { roleRoutes } from '@/modules/roles';
 import { masterDataRoutes } from '@/modules/master-data';
@@ -19,6 +20,11 @@ import { emailTemplateRoutes } from '@/modules/mail-templates';
 import { auditCriteriaRoutes } from '@/modules/audit-criteria';
 import auditSchedulesRoutes from '@/modules/audit-schedules/routes/auditSchedulesRoutes';
 import auditResultsRoutes from '@/modules/audit-results/routes/auditResultsRoutes';
+import { kpiFrequencyRateRoutes } from '@/modules/kpi-frequency-rate';
+import { kpiHseTargetRoutes } from '@/modules/kpi-hse-target';
+import { incidentProfileAnalyticRoutes } from '@/modules/incident-profile-analytic';
+import { hazardAnalyticsRoutes } from '@/modules/hazard-analytics';
+import { securityTeamRoutes } from '@/modules/security-team';
 
 /**
  * Application routes registry
@@ -31,6 +37,7 @@ const routes: RouteConfig[] = [
   ...menuRoutes,
   ...masterDataRoutes,
   ...settingsRoutes,
+  ...accessLogRoutes,
   ...notificationRoutes,
   ...ppeRoutes,
   ...courseRoutes,
@@ -45,6 +52,11 @@ const routes: RouteConfig[] = [
   ...auditCriteriaRoutes,
   ...auditSchedulesRoutes,
   ...auditResultsRoutes,
+  ...kpiFrequencyRateRoutes,
+  ...kpiHseTargetRoutes,
+  ...incidentProfileAnalyticRoutes,
+  ...hazardAnalyticsRoutes,
+  ...securityTeamRoutes,
 ];
 
 // Public routes that don't require authentication

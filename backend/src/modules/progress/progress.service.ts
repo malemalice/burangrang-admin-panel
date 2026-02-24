@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EnrollmentStatusEnum } from '@prisma/client';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ProgressDto, ProgressStatus } from './dto/progress.dto';
 import { UpdateProgressDto } from './dto/update-progress.dto';
@@ -129,41 +130,35 @@ export class ProgressService {
 
     if (!enrollment) return;
 
-    // Get total chapters
     const totalChapters = await this.prisma.chapter.count({
       where: {
         courseId: enrollment.courseId,
         isActive: true,
-        isPublished: true,
       },
     });
 
     if (totalChapters === 0) return;
 
-    // Get sum of progress
     const progressRecords = await this.prisma.progress.findMany({
       where: { enrollmentId },
     });
 
-    // Sum progress (capped at 100 per chapter)
     const totalProgressSum = progressRecords.reduce((sum, record) => {
       const p = Number(record.progress);
       return sum + (p > 100 ? 100 : p);
     }, 0);
 
-    // Calculate average
     const overallProgress = Math.min(100, Math.round((totalProgressSum / totalChapters) * 100) / 100);
 
-    // Update enrollment
     const updateData: any = {
       progress: overallProgress,
     };
 
-    if (overallProgress === 100 && enrollment.status !== 'COMPLETED') {
-      updateData.status = 'COMPLETED';
+    if (overallProgress === 100 && enrollment.status !== EnrollmentStatusEnum.COMPLETED) {
+      updateData.status = EnrollmentStatusEnum.COMPLETED;
       updateData.completedAt = new Date();
-    } else if (enrollment.status === 'INVITED') {
-      updateData.status = 'ACTIVE';
+    } else if (enrollment.status === EnrollmentStatusEnum.INVITED) {
+      updateData.status = EnrollmentStatusEnum.ACTIVE;
       if (!enrollment.enrolledAt) {
         updateData.enrolledAt = new Date();
       }

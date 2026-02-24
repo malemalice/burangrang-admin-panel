@@ -27,10 +27,47 @@ export enum WasteTypeEnum {
 
 export enum ReportStatusEnum {
   SUBMITTED = 'SUBMITTED',
-  RECEIVED = 'RECEIVED',
-  UNDER_REVIEW = 'UNDER_REVIEW',
-  REVIEWED = 'REVIEWED',
-  ARCHIVED = 'ARCHIVED',
+  SCHEDULED = 'SCHEDULED',
+  DRAFT = 'DRAFT',
+  OPEN = 'OPEN',
+  WAITING_APPROVAL = 'WAITING_APPROVAL',
+  DONE = 'DONE',
+  REJECTED = 'REJECTED',
+}
+
+/** Solid Waste (weight reports) only – 6 statuses for edit/filter. */
+export enum WeightReportStatusEnum {
+  SCHEDULED = 'SCHEDULED',
+  DRAFT = 'DRAFT',
+  OPEN = 'OPEN',
+  WAITING_APPROVAL = 'WAITING_APPROVAL',
+  DONE = 'DONE',
+  REJECTED = 'REJECTED',
+}
+
+/** Waste Water Lab (water quality lab reports) only – 6 statuses for edit/filter. */
+export enum WaterQualityLabReportStatusEnum {
+  SCHEDULED = 'SCHEDULED',
+  DRAFT = 'DRAFT',
+  OPEN = 'OPEN',
+  WAITING_APPROVAL = 'WAITING_APPROVAL',
+  DONE = 'DONE',
+  REJECTED = 'REJECTED',
+}
+
+/** Water quality lab report category (water type). */
+export enum WaterQualityLabReportCategoryEnum {
+  WASTEWATER = 'WASTEWATER',
+  CLEAN_WATER = 'CLEAN_WATER',
+  SWIMMING_POOL_WATER = 'SWIMMING_POOL_WATER',
+  DRINKING_WATER = 'DRINKING_WATER',
+}
+
+/** Water quality parameter category (Chemistry / Physics / Microbiology). */
+export enum WaterQualityParameterCategoryEnum {
+  CHEMISTRY = 'CHEMISTRY',
+  PHYSICS = 'PHYSICS',
+  MICROBIOLOGY = 'MICROBIOLOGY',
 }
 
 export enum MonthEnum {
@@ -81,12 +118,15 @@ export interface WaterQualityParameter {
   id: string;
   name: string;
   code: string;
+  category: WaterQualityParameterCategoryEnum;
   unit: string;
   standardLimit?: number;
   regulatoryLimit?: number;
   testMethod?: string;
   description?: string;
+  displayOrder?: number;
   isActive: boolean;
+  dateSampleTaken: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -94,12 +134,15 @@ export interface WaterQualityParameter {
 export interface CreateWaterQualityParameterData {
   name: string;
   code: string;
+  category: WaterQualityParameterCategoryEnum;
   unit: string;
   standardLimit?: number;
   regulatoryLimit?: number;
   testMethod?: string;
   description?: string;
+  displayOrder?: number;
   isActive?: boolean;
+  dateSampleTaken: string;
 }
 
 export type UpdateWaterQualityParameterData = Partial<CreateWaterQualityParameterData>;
@@ -188,8 +231,9 @@ export interface MonthlyFlowReport {
   id: string;
   reportCode: string;
   treatmentPlantId: string;
-  reportMonth: MonthEnum;
-  reportYear: number;
+  reportDate?: string;
+  reportMonth?: MonthEnum;
+  reportYear?: number;
   totalVolume: number;
   averageDailyFlow: number;
   peakFlow?: number;
@@ -214,8 +258,9 @@ export interface MonthlyFlowReport {
 export interface CreateMonthlyFlowReportData {
   reportCode: string;
   treatmentPlantId: string;
-  reportMonth: MonthEnum;
-  reportYear: number;
+  reportDate: string;
+  reportMonth?: MonthEnum;
+  reportYear?: number;
   totalVolume: number;
   averageDailyFlow: number;
   peakFlow?: number;
@@ -234,14 +279,51 @@ export type UpdateMonthlyFlowReportData = Partial<CreateMonthlyFlowReportData> &
   reviewNotes?: string;
 };
 
+// Water Quality Lab Report Result
+export interface WaterQualityLabReportResult {
+  id: string;
+  labReportId: string;
+  parameterId: string;
+  resultValue: number;
+  unit?: string;
+  isCompliant?: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  parameter?: {
+    id: string;
+    name: string;
+    code: string;
+    unit: string;
+    category: string;
+  };
+}
+
+export interface WaterQualityLabReportResultInput {
+  parameterId: string;
+  resultValue: number;
+  unit?: string;
+  isCompliant?: boolean;
+  notes?: string;
+}
+
+// Water Quality Lab Report Attachment
+export interface WaterQualityLabReportAttachment {
+  id: string;
+  fileUrl: string;
+  fileName?: string;
+  order: number;
+  createdAt?: string;
+}
+
 // Water Quality Lab Report
 export interface WaterQualityLabReport {
   id: string;
   reportCode: string;
   treatmentPlantId: string;
+  category: WaterQualityLabReportCategoryEnum;
   reportDate: string;
   preparedBy: string;
-  reportDocumentUrl?: string;
   summary?: string;
   recommendations?: string;
   analystSignature?: string;
@@ -249,33 +331,33 @@ export interface WaterQualityLabReport {
   submittedAt: string;
   receivedBy?: string;
   receivedAt?: string;
-  status: ReportStatusEnum;
   reviewedBy?: string;
   reviewedAt?: string;
   reviewNotes?: string;
   archivedAt?: string;
-  isActive: boolean;
   createdAt: string;
   updatedAt: string;
   treatmentPlant?: { id: string; name: string; code: string; };
   submitter?: { id: string; firstName: string; lastName: string; };
   preparer?: { id: string; firstName: string; lastName: string; };
+  labReportResults?: WaterQualityLabReportResult[];
+  attachments?: WaterQualityLabReportAttachment[];
 }
 
 export interface CreateWaterQualityLabReportData {
   reportCode: string;
   treatmentPlantId: string;
+  category: WaterQualityLabReportCategoryEnum;
   reportDate: string;
-  reportDocumentUrl?: string;
   summary?: string;
   recommendations?: string;
   analystSignature?: string;
   submittedAt: string;
-  isActive?: boolean;
+  results?: WaterQualityLabReportResultInput[];
+  attachments?: { fileUrl: string; fileName?: string; order: number }[];
 }
 
 export type UpdateWaterQualityLabReportData = Partial<CreateWaterQualityLabReportData> & {
-  status?: ReportStatusEnum;
   receivedBy?: string;
   receivedAt?: string;
   reviewedBy?: string;
@@ -310,14 +392,14 @@ export interface WeightReport {
   sourceId: string;
   storageLocationId: string;
   reportDate: string;
-  reportMonth: MonthEnum;
-  reportYear: number;
+  reportMonth?: MonthEnum;
+  reportYear?: number;
   reportDocumentUrl?: string;
   submittedBy: string;
   submittedAt: string;
   receivedBy?: string;
   receivedAt?: string;
-  status: ReportStatusEnum;
+  status: WeightReportStatusEnum;
   reviewedBy?: string;
   reviewedAt?: string;
   reviewNotes?: string;
@@ -336,8 +418,8 @@ export interface CreateWeightReportData {
   sourceId: string;
   storageLocationId: string;
   reportDate: string;
-  reportMonth: MonthEnum;
-  reportYear: number;
+  reportMonth?: MonthEnum;
+  reportYear?: number;
   reportDocumentUrl?: string;
   submittedAt: string;
   isActive?: boolean;
@@ -345,7 +427,7 @@ export interface CreateWeightReportData {
 }
 
 export type UpdateWeightReportData = Partial<CreateWeightReportData> & {
-  status?: ReportStatusEnum;
+  status?: WeightReportStatusEnum;
   receivedBy?: string;
   receivedAt?: string;
   reviewedBy?: string;
@@ -354,6 +436,14 @@ export type UpdateWeightReportData = Partial<CreateWeightReportData> & {
 };
 
 // Dispatch Order
+export interface DispatchOrderAttachment {
+  id?: string;
+  fileUrl: string;
+  fileName?: string;
+  order: number;
+  createdAt?: string;
+}
+
 export interface DispatchOrder {
   id: string;
   dispatchCode: string;
@@ -368,6 +458,7 @@ export interface DispatchOrder {
   createdBy: string;
   orderer?: { id: string; firstName: string; lastName: string; };
   creator?: { id: string; firstName: string; lastName: string; };
+  attachments?: DispatchOrderAttachment[];
 }
 
 export interface CreateDispatchOrderData {
@@ -376,6 +467,7 @@ export interface CreateDispatchOrderData {
   quantity: number;
   memo?: string;
   isActive?: boolean;
+  attachments?: { fileUrl: string; fileName?: string; order: number }[];
 }
 
 export type UpdateDispatchOrderData = Partial<CreateDispatchOrderData> & {
@@ -387,7 +479,7 @@ export interface TreatmentPlantFilters extends PaginationParams {
   officeId?: string;
 }
 
-export interface WaterQualityParameterFilters extends PaginationParams {}
+export interface WaterQualityParameterFilters extends PaginationParams { }
 
 export interface WasteTypeFilters extends PaginationParams {
   wasteType?: WasteTypeEnum;
@@ -406,17 +498,21 @@ export interface MonthlyFlowReportFilters extends PaginationParams {
   status?: ReportStatusEnum;
   reportMonth?: MonthEnum;
   reportYear?: number;
+  reportDateFrom?: string;
+  reportDateTo?: string;
 }
 
 export interface WaterQualityLabReportFilters extends PaginationParams {
   treatmentPlantId?: string;
-  status?: ReportStatusEnum;
+  reportDateFrom?: string;
+  reportDateTo?: string;
+  category?: WaterQualityLabReportCategoryEnum;
 }
 
 export interface WeightReportFilters extends PaginationParams {
   sourceId?: string;
   storageLocationId?: string;
-  status?: ReportStatusEnum;
+  status?: WeightReportStatusEnum;
   reportMonth?: MonthEnum;
   reportYear?: number;
 }

@@ -12,21 +12,23 @@ import {
 import { AuditClausesService } from '../services/audit-clauses.service';
 import { CreateAuditClauseDto } from '../dto/create-audit-clause.dto';
 import { UpdateAuditClauseDto } from '../dto/update-audit-clause.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
-import { Roles } from '../../../shared/decorators/roles.decorator';
-import { Role } from '../../../shared/types/role.enum';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 import { AuditClauseDto } from '../dto/audit-clause.dto';
 
 @ApiTags('audit-clauses')
 @ApiBearerAuth()
 @Controller('audit-clauses')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class AuditClausesController {
   constructor(private readonly auditClausesService: AuditClausesService) {}
 
   @Post()
+  @Permissions('audit-policy:create')
   @ApiOperation({ summary: 'Create a new audit clause' })
   @ApiResponse({
     status: 201,
@@ -34,7 +36,6 @@ export class AuditClausesController {
     type: AuditClauseDto,
   })
   @ApiResponse({ status: 400, description: 'Bad request.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   create(
     @Body() createAuditClauseDto: CreateAuditClauseDto,
   ): Promise<AuditClauseDto> {
@@ -42,13 +43,15 @@ export class AuditClausesController {
   }
 
   @Get()
+  @AllowOptionsBypass()
+  @Permissions('audit-policy:list')
   @ApiOperation({ summary: 'Get all audit clauses' })
   @ApiResponse({
     status: 200,
     description: 'Return all audit clauses.',
     type: [AuditClauseDto],
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -74,7 +77,24 @@ export class AuditClausesController {
     });
   }
 
+  @Post('reorder')
+  @Permissions('audit-policy:update')
+  @ApiOperation({ summary: 'Reorder clauses within an audit element' })
+  @ApiResponse({
+    status: 200,
+    description: 'Clauses reordered successfully.',
+  })
+  @ApiResponse({ status: 404, description: 'Audit element not found.' })
+  
+  async reorder(
+    @Body() body: { auditElementId: string; clauseIds: string[] },
+  ): Promise<{ message: string }> {
+    await this.auditClausesService.reorder(body.auditElementId, body.clauseIds);
+    return { message: 'Clause reordered successfully' };
+  }
+
   @Get(':id')
+  @Permissions('audit-policy:read')
   @ApiOperation({ summary: 'Get an audit clause by id' })
   @ApiResponse({
     status: 200,
@@ -82,13 +102,13 @@ export class AuditClausesController {
     type: AuditClauseDto,
   })
   @ApiResponse({ status: 404, description: 'Audit clause not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  
   findOne(@Param('id') id: string): Promise<AuditClauseDto> {
     return this.auditClausesService.findOne(id);
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('audit-policy:update')
   @ApiOperation({ summary: 'Update an audit clause' })
   @ApiResponse({
     status: 200,
@@ -104,7 +124,7 @@ export class AuditClausesController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('audit-policy:delete')
   @ApiOperation({ summary: 'Delete an audit clause' })
   @ApiResponse({
     status: 200,
@@ -116,6 +136,7 @@ export class AuditClausesController {
   }
 
   @Get('code/:code')
+  @Permissions('audit-policy:read')
   @ApiOperation({ summary: 'Get an audit clause by code' })
   @ApiResponse({
     status: 200,
@@ -123,19 +144,20 @@ export class AuditClausesController {
     type: AuditClauseDto,
   })
   @ApiResponse({ status: 404, description: 'Audit clause not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  
   findByCode(@Param('code') code: string): Promise<AuditClauseDto> {
     return this.auditClausesService.findByCode(code);
   }
 
   @Post('regenerate-codes/:auditElementId')
+  @Permissions('audit-policy:update')
   @ApiOperation({ summary: 'Regenerate codes for all clauses in an audit element' })
   @ApiResponse({
     status: 200,
     description: 'Codes have been successfully regenerated.',
   })
   @ApiResponse({ status: 404, description: 'Audit element not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   async regenerateCodes(@Param('auditElementId') auditElementId: string): Promise<{ message: string }> {
     await this.auditClausesService.regenerateClauseCodes(auditElementId);
     return { message: 'Codes regenerated successfully' };

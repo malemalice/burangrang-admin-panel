@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -50,6 +50,8 @@ type FormValues = z.infer<typeof formSchema>;
 const EditInspectionItemPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo ?? '';
   const [item, setItem] = useState<InspectionItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,9 +82,9 @@ const EditInspectionItemPage = () => {
         setIsLoading(true);
         const [itemData, deptsRes, usersRes, riskCategoriesRes] = await Promise.all([
           inspectionItemsService.getById(id),
-          departmentService.getDepartments({ page: 1, limit: 100 }),
-          userService.getUsers({ page: 1, limit: 100 }),
-          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true }),
+          departmentService.getDepartments({ page: 1, limit: 100, options: true }),
+          userService.getUsers({ page: 1, limit: 100, options: true }),
+          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
         ]);
 
         setItem(itemData);
@@ -108,7 +110,7 @@ const EditInspectionItemPage = () => {
       } catch (error) {
         console.error('Failed to fetch data:', error);
         toast.error('Failed to load inspection item');
-        navigate('/inspections/items');
+        navigate(`/inspections/items${returnTo}`);
       } finally {
         setIsLoading(false);
       }
@@ -125,6 +127,7 @@ const EditInspectionItemPage = () => {
         limit: 100,
         isActive: true,
         riskCategoryId,
+        options: true,
       });
       setRisks(response.data);
     } catch (error) {
@@ -178,7 +181,7 @@ const EditInspectionItemPage = () => {
 
       await inspectionItemsService.update(id, updateData);
       toast.success('Inspection item updated successfully');
-      navigate(`/inspections/items/${id}`);
+      navigate(`/inspections/items${returnTo}`);
     } catch (error) {
       console.error('Failed to update inspection item:', error);
       toast.error('Failed to update inspection item');
@@ -196,22 +199,22 @@ const EditInspectionItemPage = () => {
   }
 
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader
         title="Edit Inspection Item"
         subtitle="Update inspection item information"
-      >
-        <Button
-          variant="ghost"
-          onClick={() => navigate(`/inspections/items/${id}`)}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Details
-        </Button>
-      </PageHeader>
+        actions={
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/inspections/items/${id}`, { state: { returnTo } })}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Details
+          </Button>
+        }
+      />
 
-      <div className="max-w-4xl">
+      <div className="max-w-4xl mx-auto">
         <Card>
           <CardHeader>
             <CardTitle>Inspection Item Information</CardTitle>
@@ -371,11 +374,11 @@ const EditInspectionItemPage = () => {
                   )}
                 />
 
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-4">
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => navigate(`/inspections/items/${id}`)}
+                    onClick={() => navigate(`/inspections/items/${id}`, { state: { returnTo } })}
                     disabled={isSubmitting}
                   >
                     Cancel
@@ -396,7 +399,7 @@ const EditInspectionItemPage = () => {
           </CardContent>
         </Card>
       </div>
-    </>
+    </div>
   );
 };
 

@@ -2,7 +2,28 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
-import { CreateWeightReportDto, UpdateWeightReportDto, WeightReportDto, WeightReportItemDto } from '../dto/weight-reports';
+import {
+  CreateWeightReportDto,
+  UpdateWeightReportDto,
+  WeightReportDto,
+  WeightReportItemDto,
+  MonthEnum,
+} from '../dto/weight-reports';
+
+const MONTH_MAP = [
+  MonthEnum.JAN,
+  MonthEnum.FEB,
+  MonthEnum.MAR,
+  MonthEnum.APR,
+  MonthEnum.MAY,
+  MonthEnum.JUN,
+  MonthEnum.JUL,
+  MonthEnum.AUG,
+  MonthEnum.SEP,
+  MonthEnum.OCT,
+  MonthEnum.NOV,
+  MonthEnum.DEC,
+];
 
 interface FindAllOptions {
   page?: number;
@@ -30,11 +51,19 @@ export class WeightReportsService {
   ) {
     this.itemMapper = this.dtoMapper.createMapper(WeightReportItemDto, {
       transform: {
-        weight: (val) => val ? Number(val) : 0,
+        weight: (val) => (val ? Number(val) : 0),
       },
       relations: {
         wasteType: {
-          mapper: (wt) => wt ? { id: wt.id, name: wt.name, code: wt.code, wasteType: wt.wasteType } : undefined,
+          mapper: (wt) =>
+            wt
+              ? {
+                id: wt.id,
+                name: wt.name,
+                code: wt.code,
+                wasteType: wt.wasteType,
+              }
+              : undefined,
         },
       },
     });
@@ -42,13 +71,18 @@ export class WeightReportsService {
     this.reportMapper = this.dtoMapper.createMapper(WeightReportDto, {
       relations: {
         source: {
-          mapper: (s) => s ? { id: s.id, name: s.name, code: s.code } : undefined,
+          mapper: (s) =>
+            s ? { id: s.id, name: s.name, code: s.code } : undefined,
         },
         storageLocation: {
-          mapper: (sl) => sl ? { id: sl.id, name: sl.name, code: sl.code } : undefined,
+          mapper: (sl) =>
+            sl ? { id: sl.id, name: sl.name, code: sl.code } : undefined,
         },
         submitter: {
-          mapper: (u) => u ? { id: u.id, firstName: u.firstName, lastName: u.lastName } : undefined,
+          mapper: (u) =>
+            u
+              ? { id: u.id, firstName: u.firstName, lastName: u.lastName }
+              : undefined,
         },
         items: {
           mapper: (item) => this.itemMapper(item),
@@ -58,33 +92,72 @@ export class WeightReportsService {
     });
   }
 
-  async create(createDto: CreateWeightReportDto, userId: string): Promise<WeightReportDto> {
-    const existing = await this.prisma.weightReport.findUnique({ where: { reportCode: createDto.reportCode } });
+  async create(
+    createDto: CreateWeightReportDto,
+    userId: string,
+  ): Promise<WeightReportDto> {
+    const existing = await this.prisma.weightReport.findUnique({
+      where: { reportCode: createDto.reportCode },
+    });
     if (existing) {
-      this.errorHandler.throwConflictCustom(`Weight Report with code ${createDto.reportCode} already exists`);
+      this.errorHandler.throwConflictCustom(
+        `Report with code ${createDto.reportCode} already exists`,
+      );
     }
 
-    const source = await this.prisma.wasteSource.findUnique({ where: { id: createDto.sourceId } });
-    this.errorHandler.throwIfNotFoundById('Waste Source', createDto.sourceId, source);
+    const source = await this.prisma.wasteSource.findUnique({
+      where: { id: createDto.sourceId },
+    });
+    this.errorHandler.throwIfNotFoundById(
+      'Waste Source',
+      createDto.sourceId,
+      source,
+    );
 
-    const storageLocation = await this.prisma.storageLocation.findUnique({ where: { id: createDto.storageLocationId } });
-    this.errorHandler.throwIfNotFoundById('Storage Location', createDto.storageLocationId, storageLocation);
+    const storageLocation = await this.prisma.storageLocation.findUnique({
+      where: { id: createDto.storageLocationId },
+    });
+    this.errorHandler.throwIfNotFoundById(
+      'Storage Location',
+      createDto.storageLocationId,
+      storageLocation,
+    );
+
+    const reportDate = new Date(createDto.reportDate);
+    const reportMonth =
+      createDto.reportMonth || MONTH_MAP[reportDate.getMonth()];
+    const reportYear = createDto.reportYear || reportDate.getFullYear();
 
     // Check for composite unique constraint
-    const existingPeriod = await this.prisma.weightReport.findUnique({
+    const existingReport = await this.prisma.weightReport.findFirst({
       where: {
-        sourceId_reportMonth_reportYear: {
-          sourceId: createDto.sourceId,
-          reportMonth: createDto.reportMonth,
-          reportYear: createDto.reportYear,
-        },
+        sourceId: createDto.sourceId,
+        reportDate: reportDate,
       },
     });
-    
-    if (existingPeriod) {
+
+    if (existingReport) {
       this.errorHandler.throwConflictCustom(
-        `Weight Report for this Source, Month (${createDto.reportMonth}), and Year (${createDto.reportYear}) already exists`
+        `Report for this Source and Date ${createDto.reportDate} already exists`,
       );
+    }
+
+    // Check for duplicate waste types in items
+    if (createDto.items && createDto.items.length > 0) {
+      const wasteTypeIds = createDto.items.map((i) => i.wasteTypeId);
+      const duplicates = wasteTypeIds.filter(
+        (id, index) => wasteTypeIds.indexOf(id) !== index,
+      );
+
+      if (duplicates.length > 0) {
+        const duplicateType = await this.prisma.wasteType.findUnique({
+          where: { id: duplicates[0] },
+        });
+        const typeName = duplicateType?.name || 'Unknown';
+        this.errorHandler.throwConflictCustom(
+          `Item ${typeName} is inputed more then 1`,
+        );
+      }
     }
 
     return this.errorHandler.safeExecute(async () => {
@@ -92,18 +165,22 @@ export class WeightReportsService {
       const item = await this.prisma.weightReport.create({
         data: {
           ...reportData,
+          reportMonth,
+          reportYear,
           submittedBy: userId,
-          reportDate: new Date(createDto.reportDate),
+          reportDate: reportDate,
           submittedAt: new Date(createDto.submittedAt),
-          items: items ? {
-            create: items.map(i => ({
-              wasteTypeId: i.wasteTypeId,
-              weight: i.weight,
-              unit: i.unit || 'kg',
-              order: i.order,
-              notes: i.notes,
-            })),
-          } : undefined,
+          items: items
+            ? {
+              create: items.map((i) => ({
+                wasteTypeId: i.wasteTypeId,
+                weight: i.weight,
+                unit: i.unit || 'kg',
+                order: i.order,
+                notes: i.notes,
+              })),
+            }
+            : undefined,
         },
         include: {
           source: true,
@@ -116,8 +193,23 @@ export class WeightReportsService {
     }, 'creating weight report');
   }
 
-  async findAll(options?: FindAllOptions): Promise<{ data: WeightReportDto[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
-    const { page = 1, limit = 10, sortBy = 'submittedAt', sortOrder = 'desc', isActive, search, sourceId, storageLocationId, status, reportMonth, reportYear } = options || {};
+  async findAll(options?: FindAllOptions): Promise<{
+    data: WeightReportDto[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      isActive,
+      search,
+      sourceId,
+      storageLocationId,
+      status,
+      reportMonth,
+      reportYear,
+    } = options || {};
     const where: any = {};
 
     if (search) {
@@ -168,22 +260,57 @@ export class WeightReportsService {
     return this.reportMapper(item);
   }
 
-  async update(id: string, updateDto: UpdateWeightReportDto): Promise<WeightReportDto> {
-    const existing = await this.prisma.weightReport.findUnique({ where: { id } });
+  async update(
+    id: string,
+    updateDto: UpdateWeightReportDto,
+  ): Promise<WeightReportDto> {
+    const existing = await this.prisma.weightReport.findUnique({
+      where: { id },
+    });
     this.errorHandler.throwIfNotFoundById('Weight Report', id, existing);
 
     return this.errorHandler.safeExecute(async () => {
       const { items, ...reportData } = updateDto;
       const data: any = { ...reportData };
-      if (updateDto.reportDate) data.reportDate = new Date(updateDto.reportDate);
-      if (updateDto.submittedAt) data.submittedAt = new Date(updateDto.submittedAt);
-      if (updateDto.receivedAt) data.receivedAt = new Date(updateDto.receivedAt);
-      if (updateDto.reviewedAt) data.reviewedAt = new Date(updateDto.reviewedAt);
+      if (updateDto.reportDate) {
+        const reportDate = new Date(updateDto.reportDate);
+        data.reportDate = reportDate;
+        if (!updateDto.reportMonth) {
+          data.reportMonth = MONTH_MAP[reportDate.getMonth()];
+        }
+        if (!updateDto.reportYear) {
+          data.reportYear = reportDate.getFullYear();
+        }
+      }
+      if (updateDto.submittedAt)
+        data.submittedAt = new Date(updateDto.submittedAt);
+      if (updateDto.receivedAt)
+        data.receivedAt = new Date(updateDto.receivedAt);
+      if (updateDto.reviewedAt)
+        data.reviewedAt = new Date(updateDto.reviewedAt);
 
       if (items) {
+        // Check for duplicate waste types in items (for update)
+        if (items.length > 0) {
+          const wasteTypeIds = items.map((i) => i.wasteTypeId);
+          const duplicates = wasteTypeIds.filter(
+            (id, index) => wasteTypeIds.indexOf(id) !== index,
+          );
+
+          if (duplicates.length > 0) {
+            const duplicateType = await this.prisma.wasteType.findUnique({
+              where: { id: duplicates[0] },
+            });
+            const typeName = duplicateType?.name || 'Unknown';
+            this.errorHandler.throwConflictCustom(
+              `Item ${typeName} is inputed more then 1`,
+            );
+          }
+        }
+
         data.items = {
           deleteMany: {},
-          create: items.map(i => ({
+          create: items.map((i) => ({
             wasteTypeId: i.wasteTypeId,
             weight: i.weight,
             unit: i.unit || 'kg',

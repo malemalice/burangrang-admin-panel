@@ -69,6 +69,7 @@ const chapterService = {
     }
     if (params.contentType) queryParams.append('contentType', params.contentType);
     if (params.courseId) queryParams.append('courseId', params.courseId);
+    if (params.options) queryParams.append('options', 'true');
 
     const response = await api.get(`/chapters?${queryParams.toString()}`);
     return {

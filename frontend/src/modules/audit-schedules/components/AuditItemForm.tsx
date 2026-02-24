@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useState, useEffect, useRef } from 'react';
+import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { X, Upload, Image as ImageIcon, ChevronRight } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, ChevronRight, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/core/components/ui/button';
 import {
@@ -26,30 +26,42 @@ import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import { ModalMultiSelect, ModalMultiSelectOption } from '@/core/components/ui/modal-multi-select';
 import { departmentService } from '@/modules/master-data';
 import { userService } from '@/modules/users';
-import { Department, User } from '@/core/lib/types';
+import { Department, User, ApprovalStatus } from '@/core/lib/types';
 import uploadService, { FileCategory } from '@/modules/uploads/services/uploadService';
 import { useAuth } from '@/core/lib/auth';
 import api from '@/core/lib/api';
 import { roleService } from '@/modules/roles';
 import { AuditSchedule } from '../types/audit-schedule.types';
+import approvalService from '@/modules/master-data/services/approvalService';
+import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { CompliantStatusEnum } from '@/shared/constants/compliant-status.enum';
+import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
+import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
 
-enum CompliantStatusEnum {
-  COMPLY = 'COMPLY',
-  NOT_COMPLY_MAJOR = 'NOT_COMPLY_MAJOR',
-  NOT_COMPLY_MINOR = 'NOT_COMPLY_MINOR',
-}
-
-const formSchema = z.object({
-  compliantStatus: z.nativeEnum(CompliantStatusEnum, {
-    required_error: 'Compliant status is required',
-  }),
-  departmentIds: z.array(z.string()).min(1, 'At least one department is required'),
-  userIds: z.array(z.string()).optional(),
-  evidence: z.string().optional(),
-  recommendation: z.string().optional(),
-  actionRealization: z.string().optional(),
-  dueDate: z.string().min(1, 'Due date is required'),
-});
+const formSchema = z
+  .object({
+    compliantStatus: z.nativeEnum(CompliantStatusEnum, {
+      required_error: 'Compliant status is required',
+    }),
+    // Conditionally required when compliantStatus is outside COMPLY.
+    departmentIds: z.array(z.string()),
+    userIds: z.array(z.string()).optional(),
+    evidence: z.string().optional(),
+    recommendation: z.string().optional(),
+    actionRealization: z.string().optional(),
+    dueDate: z.string().min(1, 'Due date is required'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.compliantStatus !== CompliantStatusEnum.COMPLY) {
+      if (!data.departmentIds || data.departmentIds.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['departmentIds'],
+          message: 'Assigned Departments is required when Compliant Status is not Comply',
+        });
+      }
+    }
+  });
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -60,6 +72,8 @@ interface ImageUpload {
   file?: File;
   isNew?: boolean;
 }
+
+type AuditItemFormMode = 'assessment' | 'update_action_item' | 'approval';
 
 interface AuditItemFormProps {
   auditCriteriaId: string;
@@ -72,7 +86,8 @@ interface AuditItemFormProps {
   auditSchedule?: AuditSchedule | null;
   auditItem?: {
     id: string;
-    compliantStatus: string;
+    status?: GeneralStatusEnum;
+    compliantStatus: CompliantStatusEnum;
     departmentIds?: string[];
     userIds?: string[];
     evidence?: string;
@@ -86,9 +101,22 @@ interface AuditItemFormProps {
       order: number;
     }>;
   };
-  onSubmit: (data: FormValues & { images: ImageUpload[] }) => Promise<void>;
+  onSubmit: (data: FormValues & { images: ImageUpload[]; status?: string }) => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
+  /**
+   * Preferred explicit mode to avoid ambiguity:
+   * - `assessment`: assessor/auditor fills compliance + assignments + recommendations
+   * - `update_action_item`: assigned dept updates corrective action & images (will submit to WAITING_APPROVAL)
+   * - `approval`: approver reviews and approves/rejects
+   */
+  entryMode?: AuditItemFormMode;
+  /**
+   * @deprecated Use `entryMode` instead. Kept for backward compatibility with existing callers.
+   */
+  mode?: 'edit' | 'approval';
+  onApprove?: (status: ApprovalStatus, notes: string) => Promise<void>;
+  auditId?: string;
 }
 
 export const AuditItemForm = ({
@@ -104,6 +132,10 @@ export const AuditItemForm = ({
   onSubmit,
   onCancel,
   isSubmitting = false,
+  entryMode,
+  mode = 'edit',
+  onApprove,
+  auditId,
 }: AuditItemFormProps) => {
   const { user: currentUser } = useAuth();
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -114,7 +146,13 @@ export const AuditItemForm = ({
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isAuditor, setIsAuditor] = useState(false);
   const [canEditActionRealization, setCanEditActionRealization] = useState(false);
-  const [isReadOnly, setIsReadOnly] = useState(false);
+  const [canApprove, setCanApprove] = useState(false);
+  const [resolvedMode, setResolvedMode] = useState<AuditItemFormMode>('assessment');
+  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
+  const [approvalNotes, setApprovalNotes] = useState('');
+  const [isApproving, setIsApproving] = useState(false);
+  const explicitMode: AuditItemFormMode | null =
+    entryMode ?? (mode === 'approval' ? 'approval' : null);
 
   const departmentOptions: ModalMultiSelectOption[] = departments.map(dept => ({
     value: dept.id,
@@ -126,7 +164,7 @@ export const AuditItemForm = ({
     label: `${user.firstName} ${user.lastName}`,
   }));
 
-  // Check user permissions and role
+  // Check user permissions and resolve form mode (assessment / update action item / approval)
   useEffect(() => {
     const checkPermissions = async () => {
       if (!currentUser?.id) return;
@@ -155,7 +193,7 @@ export const AuditItemForm = ({
           }
         }
 
-        const isUserSuperAdmin = roleCode === 'SUPER_ADMIN';
+        const isUserSuperAdmin = roleCode === ROLE_CODES.SUPER_ADMIN;
         setIsSuperAdmin(isUserSuperAdmin);
 
         // Check if user is an auditor assigned to the audit schedule
@@ -181,29 +219,66 @@ export const AuditItemForm = ({
         const userCanEditActionRealization = userInAssignedDept || userIsAssignedUser;
         setCanEditActionRealization(userCanEditActionRealization);
 
-        // Determine read-only state:
-        // - Read-only if user is not SUPER_ADMIN and not an auditor and is assigned dept/user
-        // - SUPER_ADMIN and auditors have full access
-        const readOnly = !isUserSuperAdmin && !userIsAuditor && userCanEditActionRealization;
-        setIsReadOnly(readOnly);
+        // Check approval rights if item is waiting for approval
+        let hasApprovalRights = false;
+        if (auditItem && auditItem.status === GeneralStatusEnum.WAITING_APPROVAL) {
+          try {
+            const approvalResponse = await approvalService.checkApprovalRights(
+              auditItem.id,
+              APPROVAL_ENTITIES.AUDIT_ITEM,
+            );
+            hasApprovalRights = approvalResponse.canApprove;
+            setCanApprove(hasApprovalRights);
+          } catch (error) {
+            console.error('Failed to check approval rights:', error);
+            setCanApprove(false);
+          }
+        }
 
-        // If user is not SUPER_ADMIN, not an auditor, and not assigned dept/user, they shouldn't be able to edit at all
-        // This case should be handled at the parent component level to prevent form from opening
+        // Resolve mode:
+        // - If caller explicitly sets entryMode, always respect it (removes ambiguity).
+        // - Otherwise, infer based on item status + approval rights + assignment.
+        let nextMode: AuditItemFormMode = 'assessment';
+
+        if (explicitMode) {
+          nextMode = explicitMode;
+        } else if (auditItem) {
+          // 1) Approval mode if waiting approval and user has approval rights
+          if (auditItem.status === GeneralStatusEnum.WAITING_APPROVAL && hasApprovalRights) {
+            nextMode = 'approval';
+          }
+          // 2) Update action item mode for assigned users (OPEN or REJECTED)
+          else if (
+            userCanEditActionRealization &&
+            !isUserSuperAdmin &&
+            !userIsAuditor &&
+            (auditItem.status === GeneralStatusEnum.OPEN ||
+              auditItem.status === GeneralStatusEnum.REJECTED)
+          ) {
+            nextMode = 'update_action_item';
+          }
+          // 3) Default to assessment for auditors / super admin
+          else if (isUserSuperAdmin || userIsAuditor) {
+            nextMode = 'assessment';
+          }
+        }
+
+        setResolvedMode(nextMode);
       } catch (error) {
         console.error('Failed to check user permissions:', error);
       }
     };
 
     checkPermissions();
-  }, [currentUser, auditSchedule, auditItem]);
+  }, [currentUser, auditSchedule, auditItem, explicitMode]);
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoadingData(true);
       try {
         const [deptsResponse, usersResponse] = await Promise.all([
-          departmentService.getDepartments({ page: 1, limit: 1000 }),
-          userService.getAll({ page: 1, limit: 1000 }),
+          departmentService.getDepartments({ page: 1, limit: 1000, options: true }),
+          userService.getAll({ page: 1, limit: 1000, options: true }),
         ]);
         setDepartments(deptsResponse.data);
         setUsers(usersResponse.data);
@@ -268,6 +343,10 @@ export const AuditItemForm = ({
         : convertToDateTimeLocal(new Date().toISOString()),
     },
   });
+
+  const watchedCompliantStatus = form.watch('compliantStatus');
+  const isDepartmentRequired =
+    watchedCompliantStatus !== undefined && watchedCompliantStatus !== CompliantStatusEnum.COMPLY;
 
   // Reset form when auditItem changes (important for reopening form with different data)
   useEffect(() => {
@@ -340,8 +419,79 @@ export const AuditItemForm = ({
     ));
   };
 
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const scrollToFirstError = (errors: FieldErrors<FormValues>) => {
+    const firstKey = Object.keys(errors)[0] as keyof FormValues | undefined;
+    if (!firstKey || !formRef.current) return;
+    const el = formRef.current.querySelector(`[data-field="${firstKey}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const focusable = el.querySelector<HTMLElement>(
+        'input:not([type="hidden"]), select, textarea, [role="combobox"], button'
+      );
+      if (focusable && typeof focusable.focus === 'function') {
+        (focusable as HTMLElement).focus({ preventScroll: true });
+      }
+    }
+  };
+
   const handleSubmit = async (data: FormValues) => {
-    await onSubmit({ ...data, images });
+    // Determine status based on mode
+    let statusToSet: string | undefined;
+    
+    if (resolvedMode === 'update_action_item') {
+      // Update Action Item: submit to WAITING_APPROVAL
+      statusToSet = GeneralStatusEnum.WAITING_APPROVAL;
+    } else if (resolvedMode === 'approval') {
+      // Approval: status handled by approve/reject handlers (should not submit via main form)
+      return;
+    }
+    // Assessment: no status change (use backend default or existing)
+    
+    await onSubmit({ ...data, images, status: statusToSet });
+  };
+
+  const handleApprove = async () => {
+    if (!onApprove || !auditItem) return;
+    
+    try {
+      setIsApproving(true);
+      await onApprove(approvalStatus, approvalNotes);
+    } catch (error) {
+      console.error('Failed to submit approval:', error);
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  // Determine if field should be disabled based on mode
+  const isFieldDisabled = (fieldName: string): boolean => {
+    if (isSubmitting || isApproving) return true;
+    
+    if (resolvedMode === 'update_action_item') {
+      // Update Action Item: only actionRealization and images are editable
+      return fieldName !== 'actionRealization' && fieldName !== 'images';
+    }
+    
+    if (resolvedMode === 'approval') {
+      // Approval: all fields are editable
+      return false;
+    }
+    
+    // Assessment: all fields are editable
+    return false;
+  };
+
+  // Determine if field should be hidden based on mode
+  const isFieldHidden = (fieldName: string): boolean => {
+    if (resolvedMode === 'update_action_item') {
+      // Update Action Item: hide all fields except actionRealization and images
+      return fieldName !== 'actionRealization' && fieldName !== 'images';
+    }
+    
+    // Assessment and approval: show all fields
+    return false;
   };
 
   if (isLoadingData) {
@@ -356,7 +506,11 @@ export const AuditItemForm = ({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form
+        ref={formRef}
+        onSubmit={form.handleSubmit(handleSubmit, scrollToFirstError)}
+        className="space-y-6"
+      >
         {/* Header Section */}
         <div className="space-y-4 pb-6 border-b">
           {/* Compact Breadcrumb */}
@@ -400,6 +554,11 @@ export const AuditItemForm = ({
               <h2 className="text-xl font-semibold leading-tight break-words">
                 {auditCriteriaName}
               </h2>
+              {resolvedMode === 'update_action_item' && (
+                <p className="text-sm text-muted-foreground">
+                  Update Action Item
+                </p>
+              )}
               {auditCriteriaCode && (
                 <p className="text-sm text-muted-foreground font-mono">
                   {auditCriteriaCode}
@@ -419,253 +578,347 @@ export const AuditItemForm = ({
         {/* Form Fields Section */}
         <div className="space-y-6">
           {/* Status and Due Date Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
-              control={form.control}
-              name="compliantStatus"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Compliant Status <span className="text-destructive">*</span>
-                  </FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={isReadOnly || isSubmitting}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select compliant status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value={CompliantStatusEnum.COMPLY}>Comply</SelectItem>
-                      <SelectItem value={CompliantStatusEnum.NOT_COMPLY_MAJOR}>
-                        Not Comply - Major
-                      </SelectItem>
-                      <SelectItem value={CompliantStatusEnum.NOT_COMPLY_MINOR}>
-                        Not Comply - Minor
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Due Date <span className="text-destructive">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <DateTimePicker
-                      type="datetime-local"
-                      value={field.value ? field.value : undefined}
-                      onChange={(value) => {
-                        // Ensure we store the value in datetime-local format (yyyy-MM-ddThh:mm)
-                        const dateValue = typeof value === 'string' ? value : '';
-                        field.onChange(dateValue);
-                      }}
-                      disabled={isReadOnly || isSubmitting}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          {/* Assignment Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
-              control={form.control}
-              name="departmentIds"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Assigned Departments <span className="text-destructive">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <ModalMultiSelect
-                      options={departmentOptions}
-                      value={field.value || []}
-                      onValueChange={(value) => {
-                        if (!isReadOnly && !isSubmitting) {
-                          field.onChange(value);
-                        }
-                      }}
-                      placeholder="Select departments"
-                      searchPlaceholder="Search departments..."
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="userIds"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Assigned Users</FormLabel>
-                  <FormControl>
-                    <ModalMultiSelect
-                      options={userOptions}
-                      value={field.value || []}
-                      onValueChange={(value) => {
-                        if (!isReadOnly && !isSubmitting) {
-                          field.onChange(value);
-                        }
-                      }}
-                      placeholder="Select users (optional)"
-                      searchPlaceholder="Search users..."
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <FormField
-            control={form.control}
-            name="evidence"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Evidence</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Enter evidence..."
-                    className="min-h-[100px]"
-                    {...field}
-                    disabled={isReadOnly || isSubmitting}
-                    readOnly={isReadOnly}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="recommendation"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Recommendation</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Enter recommendation..."
-                    className="min-h-[100px]"
-                    {...field}
-                    disabled={isReadOnly || isSubmitting}
-                    readOnly={isReadOnly}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="actionRealization"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Action Realization</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Enter action realization..."
-                    className="min-h-[100px]"
-                    {...field}
-                    disabled={(!canEditActionRealization && !isSuperAdmin && !isAuditor) || isSubmitting}
-                    readOnly={!canEditActionRealization && !isSuperAdmin && !isAuditor}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Image Upload Section */}
-          <div className="space-y-4 pt-2">
-            <FormLabel>Images</FormLabel>
-            <div className="space-y-4">
-              <div>
-                <Input
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  multiple
-                  onChange={handleImageSelect}
-                  className="cursor-pointer"
-                  disabled={isReadOnly || isSubmitting}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Upload multiple images (JPEG, PNG, GIF, WebP, max 5MB each)
-                </p>
+          {!isFieldHidden('compliantStatus') && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div data-field="compliantStatus">
+                <FormField
+                  control={form.control}
+                  name="compliantStatus"
+                  render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>
+                      Compliant Status <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={isFieldDisabled('compliantStatus')}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select compliant status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={CompliantStatusEnum.COMPLY}>Comply</SelectItem>
+                        <SelectItem value={CompliantStatusEnum.NOT_COMPLY_MAJOR}>
+                          Not Comply - Major
+                        </SelectItem>
+                        <SelectItem value={CompliantStatusEnum.NOT_COMPLY_MINOR}>
+                          Not Comply - Minor
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               </div>
 
-              {images.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {images.map((image, index) => (
-                    <div key={image.id} className="relative group">
-                      <div className="aspect-square rounded-lg overflow-hidden border border-gray-200">
-                        <img
-                          src={image.url}
-                          alt={`Upload ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      {!isReadOnly && (
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleRemoveImage(image.id)}
-                          disabled={isSubmitting}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <div className="mt-2">
-                        <Input
-                          type="text"
-                          placeholder="Caption (optional)"
-                          value={image.caption}
-                          onChange={(e) => handleUpdateImageCaption(image.id, e.target.value)}
-                          disabled={isReadOnly || isSubmitting}
-                          readOnly={isReadOnly}
-                          className="text-xs"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div data-field="dueDate">
+                <FormField
+                  control={form.control}
+                  name="dueDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Due Date <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <DateTimePicker
+                        type="datetime-local"
+                        value={field.value ? field.value : undefined}
+                        onChange={(value) => {
+                          // Ensure we store the value in datetime-local format (yyyy-MM-ddThh:mm)
+                          const dateValue = typeof value === 'string' ? value : '';
+                          field.onChange(dateValue);
+                        }}
+                        disabled={isFieldDisabled('dueDate')}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Assignment Section */}
+          {!isFieldHidden('departmentIds') && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div data-field="departmentIds">
+                <FormField
+                  control={form.control}
+                  name="departmentIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Assigned Departments
+                      {isDepartmentRequired && <span className="text-destructive"> *</span>}
+                    </FormLabel>
+                    <FormControl>
+                      <ModalMultiSelect
+                        options={departmentOptions}
+                        value={field.value || []}
+                        onValueChange={(value) => {
+                          if (!isFieldDisabled('departmentIds')) {
+                            field.onChange(value);
+                          }
+                        }}
+                        placeholder="Select departments"
+                        searchPlaceholder="Search departments..."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              </div>
+
+              <div data-field="userIds">
+                <FormField
+                  control={form.control}
+                  name="userIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Assigned Users</FormLabel>
+                    <FormControl>
+                      <ModalMultiSelect
+                        options={userOptions}
+                        value={field.value || []}
+                        onValueChange={(value) => {
+                          if (!isFieldDisabled('userIds')) {
+                            field.onChange(value);
+                          }
+                        }}
+                        placeholder="Select users (optional)"
+                        searchPlaceholder="Search users..."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              </div>
+            </div>
+          )}
+
+          {!isFieldHidden('evidence') && (
+            <div data-field="evidence">
+              <FormField
+                control={form.control}
+                name="evidence"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Evidence</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter evidence..."
+                      className="min-h-[100px]"
+                      {...field}
+                      disabled={isFieldDisabled('evidence')}
+                      readOnly={isFieldDisabled('evidence')}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            </div>
+          )}
+
+          {!isFieldHidden('recommendation') && (
+            <div data-field="recommendation">
+              <FormField
+                control={form.control}
+                name="recommendation"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Recommendation</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter recommendation..."
+                      className="min-h-[100px]"
+                      {...field}
+                      disabled={isFieldDisabled('recommendation')}
+                      readOnly={isFieldDisabled('recommendation')}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            </div>
+          )}
+
+          {!isFieldHidden('actionRealization') && (
+            <div data-field="actionRealization">
+              <FormField
+                control={form.control}
+                name="actionRealization"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Action Realization</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter action realization..."
+                      className="min-h-[100px]"
+                      {...field}
+                      disabled={isFieldDisabled('actionRealization')}
+                      readOnly={isFieldDisabled('actionRealization')}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            </div>
+          )}
+
+          {/* Image Upload Section */}
+          {!isFieldHidden('images') && (
+            <div className="space-y-4 pt-2">
+              <FormLabel>Images</FormLabel>
+              <div className="space-y-4">
+                <div>
+                  <Input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    multiple
+                    onChange={handleImageSelect}
+                    className="cursor-pointer"
+                    disabled={isFieldDisabled('images')}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Upload multiple images (JPEG, PNG, GIF, WebP, max 5MB each)
+                  </p>
+                </div>
+
+                {images.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {images.map((image, index) => (
+                      <div key={image.id} className="relative group">
+                        <div className="aspect-square rounded-lg overflow-hidden border border-gray-200">
+                          <img
+                            src={image.url}
+                            alt={`Upload ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        {!isFieldDisabled('images') && (
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => handleRemoveImage(image.id)}
+                            disabled={isSubmitting}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <div className="mt-2">
+                          <Input
+                            type="text"
+                            placeholder="Caption (optional)"
+                            value={image.caption}
+                            onChange={(e) => handleUpdateImageCaption(image.id, e.target.value)}
+                            disabled={isFieldDisabled('images')}
+                            readOnly={isFieldDisabled('images')}
+                            className="text-xs"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Approval Notes (only in approval mode) */}
+        {resolvedMode === 'approval' && (
+          <div className="space-y-4 pt-4 border-t">
+            <FormItem>
+              <FormLabel>Approval Notes</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="Enter your approval notes..."
+                  value={approvalNotes}
+                  onChange={(e) => setApprovalNotes(e.target.value)}
+                  className="min-h-[100px]"
+                  disabled={isApproving}
+                />
+              </FormControl>
+            </FormItem>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-4 pt-4 border-t">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting || isApproving}>
             Cancel
           </Button>
-          {/* Show submit button based on permissions:
-              - For new items: Only auditors or SUPER_ADMIN can add
-              - For existing items: Auditors/SUPER_ADMIN can edit all, assigned dept/users can edit actionRealization */}
-          {((isSuperAdmin || isAuditor) || (auditItem && canEditActionRealization)) && (
+          
+          {resolvedMode === 'approval' ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={async () => {
+                  setApprovalStatus(ApprovalStatus.REJECTED);
+                  setIsApproving(true);
+                  try {
+                    if (onApprove) {
+                      await onApprove(ApprovalStatus.REJECTED, approvalNotes);
+                    }
+                  } catch (error) {
+                    console.error('Failed to reject:', error);
+                    toast.error('Failed to reject audit item');
+                  } finally {
+                    setIsApproving(false);
+                  }
+                }}
+                disabled={isApproving || !approvalNotes.trim()}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                {isApproving ? 'Submitting...' : 'Reject'}
+              </Button>
+              <Button
+                type="button"
+                onClick={async () => {
+                  setApprovalStatus(ApprovalStatus.APPROVED);
+                  setIsApproving(true);
+                  try {
+                    if (onApprove) {
+                      await onApprove(ApprovalStatus.APPROVED, approvalNotes);
+                    }
+                  } catch (error) {
+                    console.error('Failed to approve:', error);
+                    toast.error('Failed to approve audit item');
+                  } finally {
+                    setIsApproving(false);
+                  }
+                }}
+                disabled={isApproving || !approvalNotes.trim()}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                {isApproving ? 'Submitting...' : 'Approve'}
+              </Button>
+            </>
+          ) : (
             <Button 
               type="submit" 
-              disabled={isSubmitting || (isReadOnly && !canEditActionRealization)}
+              disabled={isSubmitting}
             >
-              {isSubmitting ? 'Saving...' : auditItem ? 'Update' : 'Save'}
+              {isSubmitting 
+                ? 'Submitting...'
+                : resolvedMode === 'update_action_item' ? 'Update Action Item' : 'Submit'
+              }
             </Button>
           )}
         </div>

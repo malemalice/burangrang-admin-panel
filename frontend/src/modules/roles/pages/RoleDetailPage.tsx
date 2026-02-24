@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, Trash2, Lock, Check, X } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Lock, Check, X, Copy } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Badge } from '@/core/components/ui/badge';
@@ -14,8 +14,10 @@ import {
 } from '@/core/components/ui/card';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Separator } from '@/core/components/ui/separator';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import roleService from '../services/roleService';
 import { Role, Permission } from '@/core/lib/types';
+import { groupPermissionsByResource } from '../utils/groupPermissions';
 
 const RoleDetailPage = () => {
   const navigate = useNavigate();
@@ -24,6 +26,7 @@ const RoleDetailPage = () => {
   const [role, setRole] = useState<Role | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
   useEffect(() => {
@@ -69,6 +72,21 @@ const RoleDetailPage = () => {
     }
   };
 
+  const handleDuplicate = async () => {
+    if (!roleId) return;
+    setIsDuplicating(true);
+    try {
+      const newRole = await roleService.duplicateRole(roleId);
+      toast.success(`Role duplicated as "${newRole.name}"`);
+      navigate(`/roles/${newRole.id}`);
+    } catch (error) {
+      console.error('Failed to duplicate role:', error);
+      toast.error('Failed to duplicate role');
+    } finally {
+      setIsDuplicating(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -89,15 +107,10 @@ const RoleDetailPage = () => {
     );
   }
 
-  // Group permissions by alphabetical order
-  const sortedPermissions = (role.permissions || [])
-    .filter(permission => permission && permission.name) // Filter out invalid permissions
-    .sort((a, b) => {
-      // Handle cases where name might be undefined or null
-      const nameA = a.name || '';
-      const nameB = b.name || '';
-      return nameA.localeCompare(nameB);
-    });
+  const validPermissions = (role.permissions || []).filter(
+    (p): p is Permission => !!p && !!p.name
+  );
+  const permissionGroups = groupPermissionsByResource(validPermissions);
 
   return (
     <>
@@ -120,6 +133,23 @@ const RoleDetailPage = () => {
             <Button variant="outline" onClick={() => navigate(`/roles/${roleId}/edit`)}>
               <Edit className="mr-2 h-4 w-4" /> Edit Role
             </Button>
+            <PermissionGuard permission="role:create">
+              <Button variant="outline" onClick={handleDuplicate} disabled={isDuplicating}>
+                {isDuplicating ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Duplicating...
+                  </span>
+                ) : (
+                  <>
+                    <Copy className="mr-2 h-4 w-4" /> Duplicate
+                  </>
+                )}
+              </Button>
+            </PermissionGuard>
             <Button variant="destructive" onClick={handleDeleteClick} disabled={isDeleting}>
               {isDeleting ? (
                 <span className="flex items-center">
@@ -176,6 +206,11 @@ const RoleDetailPage = () => {
                 </Badge>
               </div>
             </div>
+
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Data Level</h3>
+              <p className="mt-1 capitalize">{role.dataLevel ?? 'Super'}</p>
+            </div>
             
             <div>
               <h3 className="text-sm font-medium text-gray-500">Created At</h3>
@@ -191,31 +226,42 @@ const RoleDetailPage = () => {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Permissions ({sortedPermissions.length})</CardTitle>
+            <CardTitle>Permissions ({validPermissions.length})</CardTitle>
             <CardDescription>List of permissions assigned to this role</CardDescription>
           </CardHeader>
           <CardContent>
-            {sortedPermissions.length === 0 ? (
+            {permissionGroups.length === 0 ? (
               <p className="text-center py-6 text-gray-500">No permissions assigned to this role.</p>
             ) : (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {sortedPermissions.map(permission => (
-                    <div key={permission.id} className="p-3 border rounded-md">
-                      <div className="flex items-start gap-3">
-                        <div className="h-6 w-6 flex-shrink-0 rounded-full bg-blue-100 flex items-center justify-center">
-                          <Lock className="h-3 w-3 text-blue-600" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-sm">{permission.name}</h4>
-                          {permission.description && (
-                            <p className="text-sm text-gray-500 mt-1">{permission.description}</p>
-                          )}
-                        </div>
+                {permissionGroups.map(group => (
+                  <Card key={group.groupKey} className="border-muted/50">
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        {group.groupLabel}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0 px-4 pb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {group.permissions.map(permission => (
+                          <div key={permission.id} className="p-3 border rounded-md">
+                            <div className="flex items-start gap-3">
+                              <div className="h-6 w-6 flex-shrink-0 rounded-full bg-blue-100 flex items-center justify-center">
+                                <Lock className="h-3 w-3 text-blue-600" />
+                              </div>
+                              <div>
+                                <h4 className="font-medium text-sm">{permission.name}</h4>
+                                {permission.description && (
+                                  <p className="text-sm text-gray-500 mt-1">{permission.description}</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             )}
           </CardContent>

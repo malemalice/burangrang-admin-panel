@@ -36,9 +36,9 @@ export async function seedManHours(): Promise<void> {
       { name: 'Cleaning Staff', group: ManHourGroupEnum.NON_STUDENT, qty: 12, manHourPerDay: 8.0 },
     ];
 
-    // Define months to seed (last 2 years)
+    // Define months to seed (2020-2026 for LTICR/KPI sample data)
     const currentYear = new Date().getFullYear();
-    const years = [currentYear - 1, currentYear];
+    const years = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
     const allMonths: MonthEnum[] = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
     // Working days per month approximation

@@ -160,18 +160,18 @@ export const authApi = {
         // Make a lightweight request to get user info without refreshing token
         const response = await api.get('/users/me');
         
-        // Ensure the role is formatted consistently before returning
+        // Ensure the role and permissions are formatted consistently before returning
         const user = response.data;
         if (user && user.role) {
-          // Normalize role to string format for consistency
           if (typeof user.role === 'object' && 'name' in user.role) {
             user.role = user.role.name;
           } else if (typeof user.role !== 'string') {
-            // Fallback: convert any non-string role to string
             user.role = String(user.role);
           }
         }
-        
+        if (user && !Array.isArray(user.permissions)) {
+          user.permissions = [];
+        }
         return { user };
       } catch (error) {
         // If there's an error (like 401), proceed to refresh the token
@@ -182,17 +182,14 @@ export const authApi = {
     try {
       const result = await authApi.refreshToken();
       
-      // Ensure role format is consistent 
-      if (result.user && result.user.role) {
-        // Normalize role to string format for consistency
-        if (typeof result.user.role === 'object' && 'name' in result.user.role) {
+      if (result.user) {
+        if (result.user.role && typeof result.user.role === 'object' && 'name' in result.user.role) {
           result.user.role = result.user.role.name;
-        } else if (typeof result.user.role !== 'string') {
-          // Fallback: convert any non-string role to string
+        } else if (result.user.role && typeof result.user.role !== 'string') {
           result.user.role = String(result.user.role);
         }
+        if (!Array.isArray(result.user.permissions)) result.user.permissions = [];
       }
-      
       return result;
     } catch (error) {
       console.error('Failed to refresh token:', error);
@@ -227,6 +224,31 @@ export const authApi = {
     const token = getAccessToken();
     return token ? !isTokenExpired(token) : false;
   }
+};
+
+/**
+ * Validate embed token (public endpoint). Used when loading the app with ?embed_token=xxx.
+ */
+export const validateEmbedToken = async (token: string): Promise<boolean> => {
+  const response = await api.post<{ valid: boolean }>('/auth/embed/validate', {
+    embedToken: token,
+  });
+  return response.data?.valid === true;
+};
+
+/**
+ * Exchange valid embed token for JWT session (public endpoint). Used for seamless embed access without login.
+ */
+export const getEmbedSession = async (embedToken: string): Promise<{ user: unknown }> => {
+  const response = await api.post<{
+    accessToken: string;
+    refreshToken: string;
+    user: unknown;
+  }>('/auth/embed/session', { embedToken });
+  const { accessToken, refreshToken, user } = response.data;
+  setAccessToken(accessToken);
+  setRefreshToken(refreshToken);
+  return { user };
 };
 
 export default api; 

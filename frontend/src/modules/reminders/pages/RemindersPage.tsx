@@ -18,9 +18,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/t
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import reminderService from '../services/reminderService';
 import { Reminder, ReminderStatus } from '../types/reminder.types';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const RemindersPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -309,30 +312,40 @@ const RemindersPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/reminders/${reminder.id}`)}>
-              <Eye className="mr-2 h-4 w-4" /> View details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/reminders/${reminder.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => handleTriggerNotification(reminder, e)}
-            >
-              <Bell className="mr-2 h-4 w-4" /> Trigger notification
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => handleDeleteClick(reminder, e)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            {hasPermission('reminder:read') && (
+              <DropdownMenuItem onClick={() => navigate(`/reminders/${reminder.id}`)}>
+                <Eye className="mr-2 h-4 w-4" /> View details
+              </DropdownMenuItem>
+            )}
+            {hasPermission('reminder:update') && (
+              <>
+                <DropdownMenuItem onClick={() => navigate(`/reminders/${reminder.id}/edit`)}>
+                  <Edit className="mr-2 h-4 w-4" /> Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => handleTriggerNotification(reminder, e)}
+                >
+                  <Bell className="mr-2 h-4 w-4" /> Trigger notification
+                </DropdownMenuItem>
+              </>
+            )}
+            {(hasPermission('reminder:read') || hasPermission('reminder:update')) && hasPermission('reminder:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('reminder:delete') && (
+              <DropdownMenuItem
+                onClick={(e) => handleDeleteClick(reminder, e)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
       isSortable: false,
     },
-  ], [openDropdownId, navigate, handleDeleteClick, handleTriggerNotification, getStatusBadgeVariant, formatDate]);
+  ], [openDropdownId, navigate, handleDeleteClick, handleTriggerNotification, getStatusBadgeVariant, formatDate, hasPermission]);
 
   return (
     <>
@@ -340,9 +353,11 @@ const RemindersPage = () => {
         title="Reminders"
         subtitle="Manage your reminders and notifications"
         actions={
-          <ThemeButton onClick={() => navigate('/reminders/new')}>
-            <BellPlus className="mr-2 h-4 w-4" /> Add Reminder
-          </ThemeButton>
+          <PermissionGuard permission="reminder:create">
+            <ThemeButton onClick={() => navigate('/reminders/new')}>
+              <BellPlus className="mr-2 h-4 w-4" /> Add Reminder
+            </ThemeButton>
+          </PermissionGuard>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

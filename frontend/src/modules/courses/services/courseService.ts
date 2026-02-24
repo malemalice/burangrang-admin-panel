@@ -26,7 +26,6 @@ const mapCourseDtoToCourse = (courseDto: CourseDTO): Course => ({
   studentCount: courseDto.studentCount,
   instructorId: courseDto.instructorId,
   status: courseDto.status as 'draft' | 'review' | 'published' | 'archived',
-  isPublished: courseDto.isPublished,
   publishedAt: courseDto.publishedAt,
   isActive: courseDto.isActive,
   createdAt: courseDto.createdAt,
@@ -46,7 +45,6 @@ const mapCourseToUpdateDto = (course: Partial<Course>): UpdateCourseDTO => ({
   language: course.language,
   instructorId: course.instructorId,
   status: course.status,
-  isPublished: course.isPublished,
   publishedAt: course.publishedAt,
   isActive: course.isActive,
 });
@@ -67,14 +65,12 @@ const courseService = {
     if (params.isActive !== undefined) {
       queryParams.append('isActive', params.isActive.toString());
     }
-    if (params.isPublished !== undefined) {
-      queryParams.append('isPublished', params.isPublished.toString());
-    }
     if (params.status) queryParams.append('status', params.status);
     if (params.difficulty) queryParams.append('difficulty', params.difficulty);
     if (params.instructorId) queryParams.append('instructorId', params.instructorId);
     if (params.categoryId) queryParams.append('categoryId', params.categoryId);
     if (params.language) queryParams.append('language', params.language);
+    if (params.title) queryParams.append('title', params.title);
 
     const response = await api.get(`/courses?${queryParams.toString()}`);
     return {

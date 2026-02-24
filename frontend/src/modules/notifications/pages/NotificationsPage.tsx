@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/core/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
-import { RefreshCw, Search, Check } from 'lucide-react';
+import { RefreshCw, Search, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNotifications, useNotificationTypes, useUnreadCount } from '../hooks/useNotifications';
 import NotificationList from '../components/NotificationList';
 import { NotificationSearchParams, NotificationFilters } from '../types/notification.types';
@@ -119,6 +119,13 @@ const NotificationsPage: React.FC = () => {
   // Use totalAllNotifications for overall count, fallback to totalNotifications if not set yet
   const allCount = totalAllNotifications !== null ? totalAllNotifications : totalNotifications;
   const readCount = Math.max(0, allCount - unreadCount);
+
+  // Pagination
+  const pageCount = Math.max(1, Math.ceil(totalNotifications / limit));
+  const handlePageSizeChange = (size: number) => {
+    setLimit(size);
+    setPageIndex(0);
+  };
 
   return (
     <>
@@ -290,6 +297,59 @@ const NotificationsPage: React.FC = () => {
                   : 'No notifications found'
               }
             />
+            {!isLoading && totalNotifications > 0 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 mt-4 border-t">
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={limit.toString()}
+                    onValueChange={(value) => handlePageSizeChange(Number(value))}
+                  >
+                    <SelectTrigger className="w-[100px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[10, 25, 50, 100].map((size) => (
+                        <SelectItem key={size} value={size.toString()}>
+                          {size} per page
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground">
+                    Showing{' '}
+                    <span className="font-medium">
+                      {totalNotifications === 0 ? 0 : pageIndex * limit + 1}
+                    </span>{' '}
+                    to{' '}
+                    <span className="font-medium">
+                      {Math.min((pageIndex + 1) * limit, totalNotifications)}
+                    </span>{' '}
+                    of <span className="font-medium">{totalNotifications}</span> results
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+                    disabled={pageIndex === 0}
+                  >
+                    <ChevronLeft size={18} />
+                  </Button>
+                  <span className="text-sm text-muted-foreground px-2">
+                    Page {pageIndex + 1} of {pageCount}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setPageIndex((p) => Math.min(pageCount - 1, p + 1))}
+                    disabled={pageIndex >= pageCount - 1}
+                  >
+                    <ChevronRight size={18} />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </Tabs>

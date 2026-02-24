@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ActivityLoggerService } from '../../shared/services/activity-logger.service';
+import { COURSE_STATUS } from './constants/course-status';
 
 @Injectable()
 export class CoursesService {
@@ -80,6 +81,7 @@ export class CoursesService {
       createCourseDto.slug = await this.generateUniqueSlug(createCourseDto.slug);
     }
 
+    const status = createCourseDto.status || 'draft';
     const course = await this.prisma.course.create({
       data: {
         title: createCourseDto.title,
@@ -90,7 +92,8 @@ export class CoursesService {
         difficulty: createCourseDto.difficulty || 'beginner',
         language: createCourseDto.language || 'en',
         instructorId: createCourseDto.instructorId,
-        status: createCourseDto.status || 'draft',
+        status,
+        publishedAt: status === COURSE_STATUS.PUBLISHED ? new Date() : undefined,
         categories: createCourseDto.categoryIds ? {
           connect: createCourseDto.categoryIds.map(id => ({ id }))
         } : undefined,
@@ -126,7 +129,6 @@ export class CoursesService {
       sortBy = 'createdAt',
       sortOrder = 'desc',
       isActive,
-      isPublished,
       status,
       difficulty,
       instructorId,
@@ -158,10 +160,6 @@ export class CoursesService {
 
     if (isActive !== undefined) {
       where.isActive = isActive;
-    }
-
-    if (isPublished !== undefined) {
-      where.isPublished = isPublished;
     }
 
     if (status) {
@@ -271,14 +269,13 @@ export class CoursesService {
       }
     }
 
-    // Handle publishing
-    if (updateCourseDto.isPublished === true && !existingCourse.isPublished) {
-      updateCourseDto.publishedAt = new Date();
-      updateCourseDto.status = 'published';
-    } else if (updateCourseDto.isPublished === false && existingCourse.isPublished) {
-      updateCourseDto.publishedAt = null;
-      if (existingCourse.status === 'published') {
-        updateCourseDto.status = 'draft';
+    // Handle publishedAt based on status
+    let publishedAt: Date | null | undefined = updateCourseDto.publishedAt;
+    if (updateCourseDto.status !== undefined) {
+      if (updateCourseDto.status === COURSE_STATUS.PUBLISHED && existingCourse.status !== COURSE_STATUS.PUBLISHED) {
+        publishedAt = new Date();
+      } else if (updateCourseDto.status !== COURSE_STATUS.PUBLISHED && existingCourse.status === COURSE_STATUS.PUBLISHED) {
+        publishedAt = null;
       }
     }
 
@@ -294,8 +291,7 @@ export class CoursesService {
         language: updateCourseDto.language,
         instructorId: updateCourseDto.instructorId,
         status: updateCourseDto.status,
-        isPublished: updateCourseDto.isPublished,
-        publishedAt: updateCourseDto.publishedAt,
+        ...(publishedAt !== undefined && { publishedAt }),
         isActive: updateCourseDto.isActive,
         categories: updateCourseDto.categoryIds ? {
           set: updateCourseDto.categoryIds.map(id => ({ id }))
@@ -364,8 +360,8 @@ export class CoursesService {
       statusArchived,
     ] = await Promise.all([
       this.prisma.course.count({ where: { isActive: true } }),
-      this.prisma.course.count({ where: { isActive: true, isPublished: true } }),
-      this.prisma.course.count({ where: { isActive: true, isPublished: false } }),
+      this.prisma.course.count({ where: { isActive: true, status: 'published' } }),
+      this.prisma.course.count({ where: { isActive: true, status: 'draft' } }),
       this.prisma.course.count({ where: { isActive: true, difficulty: 'beginner' } }),
       this.prisma.course.count({ where: { isActive: true, difficulty: 'intermediate' } }),
       this.prisma.course.count({ where: { isActive: true, difficulty: 'advanced' } }),

@@ -1,5 +1,19 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsBoolean,
+  IsNumber,
+  IsDateString,
+  IsEnum,
+} from 'class-validator';
+
+export enum WaterQualityParameterCategoryEnum {
+  CHEMISTRY = 'CHEMISTRY',
+  PHYSICS = 'PHYSICS',
+  MICROBIOLOGY = 'MICROBIOLOGY',
+}
 
 export class CreateWaterQualityParameterDto {
   @ApiProperty()
@@ -12,10 +26,20 @@ export class CreateWaterQualityParameterDto {
   @IsNotEmpty()
   code: string;
 
+  @ApiProperty({ enum: WaterQualityParameterCategoryEnum })
+  @IsEnum(WaterQualityParameterCategoryEnum)
+  @IsNotEmpty()
+  category: WaterQualityParameterCategoryEnum;
+
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
   unit: string;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  displayOrder?: number;
 
   @ApiProperty({ required: false })
   @IsNumber()
@@ -41,4 +65,9 @@ export class CreateWaterQualityParameterDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiProperty()
+  @IsDateString()
+  @IsNotEmpty()
+  dateSampleTaken: Date;
 }

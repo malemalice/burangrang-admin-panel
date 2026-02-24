@@ -14,6 +14,9 @@ import {
   SubmitAnswerDTO,
   GradeAnswerDTO,
   AssignQuizDTO,
+  AdjustAttemptScoreDTO,
+  QuizAttemptWithUser,
+  QuizAttemptStatus,
   QuizQuestion,
   QuizQuestionOption,
 } from '../types/quiz.types';
@@ -234,10 +237,94 @@ const quizService = {
     return mapQuizAnswerDtoToQuizAnswer(response.data);
   },
 
+  // GRADE essay by attempt + question (creates answer if missing, e.g. empty essay)
+  gradeEssayByQuestion: async (
+    attemptId: string,
+    questionId: string,
+    gradeData: GradeAnswerDTO,
+  ): Promise<QuizAnswer> => {
+    const response = await api.patch(`/quizzes/attempts/${attemptId}/grade-essay`, {
+      questionId,
+      ...gradeData,
+    });
+    return mapQuizAnswerDtoToQuizAnswer(response.data);
+  },
+
   // LINK quiz to course or chapter
   linkQuiz: async (quizId: string, entity: 'COURSE' | 'CHAPTER', entityId: string): Promise<Quiz> => {
     const response = await api.patch(`/quizzes/${quizId}/link`, { entity, entityId });
     return mapQuizDtoToQuiz(response.data);
+  },
+
+  // GET single attempt by ID with full details (for grading)
+  // Supports both URL shapes: /quizzes/attempts/:attemptId and /quizzes/:quizId/attempts/:attemptId
+  getAttemptById: async (
+    attemptId: string,
+    quizId?: string,
+  ): Promise<QuizAttempt & { user?: { id: string; firstName: string; lastName: string; email: string } }> => {
+    const url = quizId
+      ? `/quizzes/${quizId}/attempts/${attemptId}`
+      : `/quizzes/attempts/${attemptId}`;
+    const response = await api.get(url);
+    const attempt = mapQuizAttemptDtoToQuizAttempt(response.data);
+    return { ...attempt, user: response.data.user };
+  },
+
+  // GET all attempts for an enrollment (for enrollment detail page)
+  getAttemptsByEnrollment: async (
+    enrollmentId: string,
+  ): Promise<
+    Array<{
+      id: string;
+      quizId: string;
+      quiz: { id: string; title: string; passingScore?: number };
+      attemptNumber: number;
+      status: string;
+      score: number | null;
+      isPassed: boolean;
+      startedAt: string;
+      completedAt: string | null;
+      needsGrading: boolean;
+    }>
+  > => {
+    const response = await api.get(`/quizzes/by-enrollment/${enrollmentId}/attempts`);
+    return response.data;
+  },
+
+  // GET all attempts for a quiz (for grading)
+  getQuizAttempts: async (quizId: string): Promise<QuizAttemptWithUser[]> => {
+    const response = await api.get(`/quizzes/${quizId}/attempts`);
+    return response.data.map((attempt: any) => ({
+      ...mapQuizAttemptDtoToQuizAttempt(attempt),
+      user: attempt.user,
+      needsGrading: attempt.needsGrading,
+    }));
+  },
+
+  // ADJUST attempt score
+  adjustAttemptScore: async (
+    attemptId: string,
+    adjustData: AdjustAttemptScoreDTO,
+  ): Promise<QuizAttempt> => {
+    const response = await api.patch(
+      `/quizzes/attempts/${attemptId}/adjust-score`,
+      adjustData,
+    );
+    return mapQuizAttemptDtoToQuizAttempt(response.data);
+  },
+
+  // Helper: Get attempt status badge
+  getAttemptStatusBadge: (status: QuizAttemptStatus): string => {
+    switch (status) {
+      case 'COMPLETED':
+        return 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200';
+      case 'IN_PROGRESS':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200';
+      case 'ABANDONED':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-200';
+      default:
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200';
+    }
   },
 
   // Helper function to get status badge color classes

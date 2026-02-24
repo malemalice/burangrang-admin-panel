@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
-import { CreateWasteSourceDto, UpdateWasteSourceDto, WasteSourceDto } from '../dto/waste-sources';
+import {
+  CreateWasteSourceDto,
+  UpdateWasteSourceDto,
+  WasteSourceDto,
+} from '../dto/waste-sources';
 
 interface FindAllOptions {
   page?: number;
@@ -27,16 +31,31 @@ export class WasteSourcesService {
   }
 
   async create(createDto: CreateWasteSourceDto): Promise<WasteSourceDto> {
-    const existing = await this.prisma.wasteSource.findUnique({ where: { code: createDto.code } });
+    const existing = await this.prisma.wasteSource.findUnique({
+      where: { code: createDto.code },
+    });
     if (existing) {
-      this.errorHandler.throwConflictCustom(`Waste Source with code ${createDto.code} already exists`);
+      this.errorHandler.throwConflictCustom(
+        `Waste Source with code ${createDto.code} already exists`,
+      );
     }
     const item = await this.prisma.wasteSource.create({ data: createDto });
     return this.wasteSourceMapper(item);
   }
 
-  async findAll(options?: FindAllOptions): Promise<{ data: WasteSourceDto[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
-    const { page = 1, limit = 10, sortBy = 'name', sortOrder = 'asc', isActive, search, sourceType } = options || {};
+  async findAll(options?: FindAllOptions): Promise<{
+    data: WasteSourceDto[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'name',
+      sortOrder = 'asc',
+      isActive,
+      search,
+      sourceType,
+    } = options || {};
     const where: any = {};
     if (search) {
       where.OR = [
@@ -69,18 +88,30 @@ export class WasteSourcesService {
     return this.wasteSourceMapper(item);
   }
 
-  async update(id: string, updateDto: UpdateWasteSourceDto): Promise<WasteSourceDto> {
-    const existing = await this.prisma.wasteSource.findUnique({ where: { id } });
+  async update(
+    id: string,
+    updateDto: UpdateWasteSourceDto,
+  ): Promise<WasteSourceDto> {
+    const existing = await this.prisma.wasteSource.findUnique({
+      where: { id },
+    });
     this.errorHandler.throwIfNotFoundById('Waste Source', id, existing);
 
     if (updateDto.code && updateDto.code !== existing.code) {
-      const existingByCode = await this.prisma.wasteSource.findUnique({ where: { code: updateDto.code } });
+      const existingByCode = await this.prisma.wasteSource.findUnique({
+        where: { code: updateDto.code },
+      });
       if (existingByCode) {
-        this.errorHandler.throwConflictCustom(`Waste Source with code ${updateDto.code} already exists`);
+        this.errorHandler.throwConflictCustom(
+          `Waste Source with code ${updateDto.code} already exists`,
+        );
       }
     }
 
-    const updated = await this.prisma.wasteSource.update({ where: { id }, data: updateDto });
+    const updated = await this.prisma.wasteSource.update({
+      where: { id },
+      data: updateDto,
+    });
     return this.wasteSourceMapper(updated);
   }
 
@@ -91,7 +122,9 @@ export class WasteSourcesService {
     });
     this.errorHandler.throwIfNotFoundById('Waste Source', id, item);
     if (item.weightReports.length > 0) {
-      this.errorHandler.throwConflictCustom(`Cannot delete Waste Source with associated weight reports`);
+      this.errorHandler.throwConflictCustom(
+        `Cannot delete Waste Source with associated weight reports`,
+      );
     }
     await this.prisma.wasteSource.delete({ where: { id } });
   }

@@ -15,12 +15,11 @@ export interface Course {
   studentCount: number;
   instructorId: string;
   status: 'draft' | 'review' | 'published' | 'archived';
-  isPublished: boolean;
   publishedAt?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  
+
   // Relations
   instructor?: {
     id: string;
@@ -54,7 +53,7 @@ export interface Chapter {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  
+
   // Relations
   course?: {
     id: string;
@@ -80,7 +79,6 @@ export interface CourseDTO {
   studentCount: number;
   instructorId: string;
   status: string;
-  isPublished: boolean;
   publishedAt?: string;
   isActive: boolean;
   createdAt: string;
@@ -144,7 +142,6 @@ export interface CreateCourseDTO {
 }
 
 export interface UpdateCourseDTO extends Partial<CreateCourseDTO> {
-  isPublished?: boolean;
   publishedAt?: string;
   isActive?: boolean;
 }
@@ -176,7 +173,6 @@ export interface CourseSearchParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
-  isPublished?: boolean;
   status?: 'draft' | 'review' | 'published' | 'archived';
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
   instructorId?: string;
@@ -195,6 +191,7 @@ export interface ChapterSearchParams {
   isFree?: boolean;
   contentType?: 'video' | 'pdf' | 'text' | 'youtube';
   courseId?: string;
+  options?: boolean;
 }
 
 // Response types
@@ -240,7 +237,6 @@ export interface CourseFormData {
   instructorId: string;
   status: 'draft' | 'review' | 'published' | 'archived';
   categoryIds: string[];
-  isPublished: boolean;
 }
 
 export interface ChapterFormData {
@@ -260,7 +256,6 @@ export interface ChapterFormData {
 export interface CourseFilters {
   status?: 'draft' | 'review' | 'published' | 'archived';
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
-  isPublished?: boolean;
   instructorId?: string;
   categoryId?: string;
   language?: string;
@@ -310,9 +305,24 @@ export interface Quiz {
   isActive: boolean;
 }
 
+export interface QuizAttemptSummary {
+  id: string;
+  quizId: string;
+  attemptNumber: number;
+  status: 'INVITING' | 'INVITED' | 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED';
+  score?: number;
+  totalPoints?: number;
+  earnedPoints?: number;
+  isPassed: boolean;
+  startedAt: string;
+  completedAt?: string;
+  timeSpent: number;
+}
+
 export interface LearningContext {
   enrollment: any; // Using any for now to avoid circular dependency issues
   course: Course;
   quizzes: Quiz[];
   progress: Progress[];
+  quizAttempts: QuizAttemptSummary[];
 }

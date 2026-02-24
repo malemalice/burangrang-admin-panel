@@ -19,9 +19,12 @@ import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { useCertificateCategories } from '../hooks/useCertificates';
 import certificateCategoryService from '../services/certificateCategoryService';
 import { CertificateCategory } from '../types/certificate.types';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const CertificateCategoriesPage = () => {
     const navigate = useNavigate();
+    const { hasPermission } = usePermissions();
     const { categories, isLoading, fetchCategories, pagination } = useCertificateCategories();
     const [pageIndex, setPageIndex] = useState(0);
     const [limit, setLimit] = useState(10);
@@ -283,31 +286,37 @@ const CertificateCategoriesPage = () => {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                                onSelect={(e) => {
-                                    e.preventDefault();
-                                    setOpenDropdownId(null);
-                                    navigate(`/master/certificate-categories/${category.id}/edit`);
-                                }}
-                            >
-                                <Edit className="mr-2 h-4 w-4" /> Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                onSelect={(e) => {
-                                    e.preventDefault();
-                                    handleDeleteClick(category, e as any);
-                                }}
-                            >
-                                <Trash2 className="mr-2 h-4 w-4 text-red-600" /> Delete
-                            </DropdownMenuItem>
+                            {hasPermission('certificate-category:update') && (
+                                <DropdownMenuItem
+                                    onSelect={(e) => {
+                                        e.preventDefault();
+                                        setOpenDropdownId(null);
+                                        navigate(`/master/certificate-categories/${category.id}/edit`);
+                                    }}
+                                >
+                                    <Edit className="mr-2 h-4 w-4" /> Edit
+                                </DropdownMenuItem>
+                            )}
+                            {hasPermission('certificate-category:update') && hasPermission('certificate-category:delete') && (
+                                <DropdownMenuSeparator />
+                            )}
+                            {hasPermission('certificate-category:delete') && (
+                                <DropdownMenuItem
+                                    onSelect={(e) => {
+                                        e.preventDefault();
+                                        handleDeleteClick(category, e as any);
+                                    }}
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4 text-red-600" /> Delete
+                                </DropdownMenuItem>
+                            )}
                         </DropdownMenuContent>
                     </DropdownMenu>
                 );
             },
             isSortable: false,
         },
-    ], [openDropdownId, navigate, handleDeleteClick]);
+    ], [openDropdownId, navigate, handleDeleteClick, hasPermission]);
 
     return (
         <>
@@ -315,9 +324,11 @@ const CertificateCategoriesPage = () => {
                 title="Certificate Categories"
                 subtitle="Manage certificate, license, and permit categories"
                 actions={
-                    <Button onClick={() => navigate('/master/certificate-categories/new')}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Category
-                    </Button>
+                    <PermissionGuard permission="certificate-category:create">
+                        <Button onClick={() => navigate('/master/certificate-categories/new')}>
+                            <Plus className="mr-2 h-4 w-4" /> Add Category
+                        </Button>
+                    </PermissionGuard>
                 }
             >
                 <Tabs value={activeTab} className="w-full" onValueChange={handleTabChange}>

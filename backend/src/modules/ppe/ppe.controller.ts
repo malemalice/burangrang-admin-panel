@@ -44,13 +44,16 @@ import { StockMovementDto } from './dto/stock-movement.dto';
 import { UpdateStockItemDto } from './dto/update-stock-item.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
-import { Roles } from '../../shared/decorators/roles.decorator';
-import { Role } from '../../shared/types/role.enum';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { DataScopeGuard } from '../../shared/guards/data-scope.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
+import { DataScoped } from '../../shared/decorators/data-scoped.decorator';
 
 @ApiTags('ppe')
 @ApiBearerAuth()
 @Controller('ppe')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, DataScopeGuard)
 export class PPEController {
     constructor(private readonly ppeService: PPEService) { }
 
@@ -92,7 +95,7 @@ export class PPEController {
             },
         },
     })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    @Permissions('ppe:read')
     getAvailableStockItems(@Query() query: FindPPEStockItemDto) {
         return this.ppeService.getAvailableStockItems(query);
     }
@@ -129,7 +132,7 @@ export class PPEController {
             },
         },
     })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    @Permissions('ppe:read')
     getStockItems(@Query() query: FindPPEStockItemDto) {
         return this.ppeService.getAvailableStockItems({ ...query, availableOnly: false });
     }
@@ -147,7 +150,7 @@ export class PPEController {
         type: PPEStockDto,
     })
     @ApiResponse({ status: 400, description: 'Bad request.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+    @Permissions('ppe:create')
     createStock(@Body() createStockDto: CreatePPEStockDto, @Req() req: any): Promise<PPEStockDto> {
         return this.ppeService.createStock(createStockDto, req.user.id);
     }
@@ -184,7 +187,9 @@ export class PPEController {
             },
         },
     })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    @AllowOptionsBypass()
+    @Permissions('ppe:list')
+    @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
     findAllStocks(@Query() query: FindPPEStockDto) {
         return this.ppeService.findAllStocks(query);
     }
@@ -198,7 +203,7 @@ export class PPEController {
         type: PPEStockDto,
     })
     @ApiResponse({ status: 404, description: 'Stock not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    @Permissions('ppe:read')
     findStockById(@Param('id') id: string): Promise<PPEStockDto> {
         return this.ppeService.findStockById(id);
     }
@@ -213,7 +218,7 @@ export class PPEController {
         type: PPEStockDto,
     })
     @ApiResponse({ status: 404, description: 'Stock not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+    @Permissions('ppe:update')
     updateStock(@Param('id') id: string, @Body() updateStockDto: UpdatePPEStockDto): Promise<PPEStockDto> {
         return this.ppeService.updateStock(id, updateStockDto);
     }
@@ -229,7 +234,7 @@ export class PPEController {
         type: PPEStockItemDto,
     })
     @ApiResponse({ status: 404, description: 'Stock item not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+    @Permissions('ppe:update')
     updateStockItem(
         @Param('id') stockId: string,
         @Param('itemId') itemId: string,
@@ -251,7 +256,7 @@ export class PPEController {
         description: 'Stock adjustment has been successfully created.',
     })
     @ApiResponse({ status: 404, description: 'Stock item not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+    @Permissions('ppe:update')
     adjustStockItem(
         @Param('id') stockId: string,
         @Param('itemId') itemId: string,
@@ -274,7 +279,7 @@ export class PPEController {
         type: PPEWithdrawalDto,
     })
     @ApiResponse({ status: 400, description: 'Bad request - insufficient stock or invalid data.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    @Permissions('ppe:create')
     createWithdrawal(@Body() createWithdrawalDto: CreatePPEWithdrawalDto, @Req() req: any): Promise<PPEWithdrawalDto> {
         return this.ppeService.createWithdrawal(createWithdrawalDto, req.user.id);
     }
@@ -313,9 +318,12 @@ export class PPEController {
             },
         },
     })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
-    findAllWithdrawals(@Query() query: FindPPEWithdrawalDto) {
-        return this.ppeService.findAllWithdrawals(query);
+    @AllowOptionsBypass()
+    @Permissions('ppe:list')
+    @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
+    @DataScoped('PPEWithdrawal')
+    findAllWithdrawals(@Query() query: FindPPEWithdrawalDto, @Req() req: any) {
+        return this.ppeService.findAllWithdrawals(query, req.userContext);
     }
 
     @Get('withdrawals/:id')
@@ -326,10 +334,12 @@ export class PPEController {
         description: 'Return the withdrawal.',
         type: PPEWithdrawalDto,
     })
+    @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
     @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
-    findWithdrawalById(@Param('id') id: string): Promise<PPEWithdrawalDto> {
-        return this.ppeService.findWithdrawalById(id);
+    @Permissions('ppe:read')
+    @DataScoped('PPEWithdrawal')
+    findWithdrawalById(@Param('id') id: string, @Req() req: any): Promise<PPEWithdrawalDto> {
+        return this.ppeService.findWithdrawalById(id, req.userContext);
     }
 
     @Patch('withdrawals/:id')
@@ -342,10 +352,29 @@ export class PPEController {
         type: PPEWithdrawalDto,
     })
     @ApiResponse({ status: 400, description: 'Bad request - withdrawal cannot be updated.' })
+    @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
     @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
-    updateWithdrawal(@Param('id') id: string, @Body() updateDto: CreatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
-        return this.ppeService.updateWithdrawal(id, updateDto);
+    @Permissions('ppe:update')
+    @DataScoped('PPEWithdrawal')
+    updateWithdrawal(@Param('id') id: string, @Body() updateDto: CreatePPEWithdrawalDto, @Req() req: any): Promise<PPEWithdrawalDto> {
+        return this.ppeService.updateWithdrawal(id, updateDto, req.userContext);
+    }
+
+    @Post('withdrawals/:id/submit')
+    @ApiOperation({ summary: 'Submit withdrawal for approval' })
+    @ApiParam({ name: 'id', type: String, description: 'Withdrawal ID' })
+    @ApiResponse({
+        status: 200,
+        description: 'The withdrawal has been submitted for approval.',
+        type: PPEWithdrawalDto,
+    })
+    @ApiResponse({ status: 400, description: 'Bad request - withdrawal cannot be submitted.' })
+    @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
+    @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
+    @Permissions('ppe:update')
+    @DataScoped('PPEWithdrawal')
+    submitWithdrawal(@Param('id') id: string, @Req() req: any): Promise<PPEWithdrawalDto> {
+        return this.ppeService.submitWithdrawal(id, req.user.id, req.userContext);
     }
 
     @Patch('withdrawals/:id/approve')
@@ -358,10 +387,30 @@ export class PPEController {
         type: PPEWithdrawalDto,
     })
     @ApiResponse({ status: 400, description: 'Bad request - withdrawal cannot be approved.' })
+    @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
     @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
-    approveWithdrawal(@Param('id') id: string, @Body() updateDto: UpdatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
-        return this.ppeService.approveWithdrawal(id, updateDto);
+    @Permissions('ppe:update')
+    @DataScoped('PPEWithdrawal')
+    approveWithdrawal(@Param('id') id: string, @Body() updateDto: UpdatePPEWithdrawalDto, @Req() req: any): Promise<PPEWithdrawalDto> {
+        return this.ppeService.approveWithdrawal(id, updateDto, req.user.id, req.userContext);
+    }
+
+    @Patch('withdrawals/:id/reject')
+    @ApiOperation({ summary: 'Reject withdrawal' })
+    @ApiParam({ name: 'id', type: String, description: 'Withdrawal ID' })
+    @ApiBody({ type: UpdatePPEWithdrawalDto, description: 'Notes (reason for rejection)' })
+    @ApiResponse({
+        status: 200,
+        description: 'The withdrawal has been rejected.',
+        type: PPEWithdrawalDto,
+    })
+    @ApiResponse({ status: 400, description: 'Bad request - withdrawal cannot be rejected.' })
+    @ApiResponse({ status: 403, description: 'Forbidden - no access or no approval rights' })
+    @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
+    @Permissions('ppe:update')
+    @DataScoped('PPEWithdrawal')
+    rejectWithdrawal(@Param('id') id: string, @Body() updateDto: UpdatePPEWithdrawalDto, @Req() req: any): Promise<PPEWithdrawalDto> {
+        return this.ppeService.rejectWithdrawal(id, updateDto, req.user.id, req.userContext);
     }
 
     @Patch('withdrawals/:id/collect')
@@ -374,10 +423,12 @@ export class PPEController {
         type: PPEWithdrawalDto,
     })
     @ApiResponse({ status: 400, description: 'Bad request - withdrawal cannot be collected.' })
+    @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
     @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
-    collectWithdrawal(@Param('id') id: string, @Body() updateDto: UpdatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
-        return this.ppeService.collectWithdrawal(id, updateDto);
+    @Permissions('ppe:update')
+    @DataScoped('PPEWithdrawal')
+    collectWithdrawal(@Param('id') id: string, @Body() updateDto: UpdatePPEWithdrawalDto, @Req() req: any): Promise<PPEWithdrawalDto> {
+        return this.ppeService.collectWithdrawal(id, updateDto, req.userContext);
     }
 
     @Patch('withdrawals/:id/cancel')
@@ -390,10 +441,12 @@ export class PPEController {
         type: PPEWithdrawalDto,
     })
     @ApiResponse({ status: 400, description: 'Bad request - withdrawal cannot be cancelled.' })
+    @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
     @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
-    cancelWithdrawal(@Param('id') id: string, @Body() updateDto?: UpdatePPEWithdrawalDto): Promise<PPEWithdrawalDto> {
-        return this.ppeService.cancelWithdrawal(id, updateDto);
+    @Permissions('ppe:update')
+    @DataScoped('PPEWithdrawal')
+    cancelWithdrawal(@Param('id') id: string, @Body() updateDto: UpdatePPEWithdrawalDto | undefined, @Req() req: any): Promise<PPEWithdrawalDto> {
+        return this.ppeService.cancelWithdrawal(id, updateDto ?? undefined, req.userContext);
     }
 
     @Delete('stocks/:id')
@@ -405,7 +458,7 @@ export class PPEController {
     })
     @ApiResponse({ status: 400, description: 'Bad request - stock cannot be deleted.' })
     @ApiResponse({ status: 404, description: 'Stock not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    @Permissions('ppe:delete')
     deleteStock(@Param('id') id: string): Promise<void> {
         return this.ppeService.deleteStock(id);
     }
@@ -418,10 +471,12 @@ export class PPEController {
         description: 'The withdrawal has been successfully deleted.',
     })
     @ApiResponse({ status: 400, description: 'Bad request - withdrawal cannot be deleted.' })
+    @ApiResponse({ status: 403, description: 'Forbidden - no access to this record' })
     @ApiResponse({ status: 404, description: 'Withdrawal not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
-    deleteWithdrawal(@Param('id') id: string): Promise<void> {
-        return this.ppeService.deleteWithdrawal(id);
+    @Permissions('ppe:delete')
+    @DataScoped('PPEWithdrawal')
+    deleteWithdrawal(@Param('id') id: string, @Req() req: any): Promise<void> {
+        return this.ppeService.deleteWithdrawal(id, req.userContext);
     }
 
     // ============================================================================
@@ -437,7 +492,7 @@ export class PPEController {
         type: SafetyEquipmentTypeDto,
     })
     @ApiResponse({ status: 400, description: 'Bad request.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    @Permissions('safety-equipment-type:create')
     createSafetyEquipmentType(
         @Body() createSafetyEquipmentTypeDto: CreateSafetyEquipmentTypeDto,
     ): Promise<SafetyEquipmentTypeDto> {
@@ -474,7 +529,9 @@ export class PPEController {
             },
         },
     })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    @AllowOptionsBypass()
+    @Permissions('safety-equipment-type:list')
+    @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
     findAllSafetyEquipmentTypes(
         @Query() query: FindSafetyEquipmentTypeDto,
         @Req() req: any,
@@ -500,7 +557,7 @@ export class PPEController {
         type: SafetyEquipmentTypeDto,
     })
     @ApiResponse({ status: 404, description: 'Safety equipment type not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    @Permissions('safety-equipment-type:read')
     findOneSafetyEquipmentType(@Param('id') id: string): Promise<SafetyEquipmentTypeDto> {
         return this.ppeService.findOneSafetyEquipmentType(id);
     }
@@ -515,7 +572,7 @@ export class PPEController {
         type: SafetyEquipmentTypeDto,
     })
     @ApiResponse({ status: 404, description: 'Safety equipment type not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    @Permissions('safety-equipment-type:update')
     updateSafetyEquipmentType(
         @Param('id') id: string,
         @Body() updateSafetyEquipmentTypeDto: UpdateSafetyEquipmentTypeDto,
@@ -531,7 +588,7 @@ export class PPEController {
         description: 'The safety equipment type has been successfully deleted.',
     })
     @ApiResponse({ status: 404, description: 'Safety equipment type not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    @Permissions('safety-equipment-type:delete')
     removeSafetyEquipmentType(@Param('id') id: string): Promise<void> {
         return this.ppeService.removeSafetyEquipmentType(id);
     }
@@ -545,7 +602,7 @@ export class PPEController {
         type: SafetyEquipmentTypeDto,
     })
     @ApiResponse({ status: 404, description: 'Safety equipment type not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    @Permissions('safety-equipment-type:read')
     findSafetyEquipmentTypeByCode(@Param('code') code: string): Promise<SafetyEquipmentTypeDto> {
         return this.ppeService.findSafetyEquipmentTypeByCode(code);
     }
@@ -563,7 +620,7 @@ export class PPEController {
         type: SafetyEquipmentDto,
     })
     @ApiResponse({ status: 400, description: 'Bad request.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    @Permissions('safety-equipment:create')
     createSafetyEquipment(
         @Body() createSafetyEquipmentDto: CreateSafetyEquipmentDto,
     ): Promise<SafetyEquipmentDto> {
@@ -604,7 +661,9 @@ export class PPEController {
             },
         },
     })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    @AllowOptionsBypass()
+    @Permissions('safety-equipment:list')
+    @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
     findAllSafetyEquipments(
         @Query() query: FindSafetyEquipmentDto,
     ): Promise<{ data: SafetyEquipmentDto[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
@@ -620,7 +679,7 @@ export class PPEController {
         type: SafetyEquipmentDto,
     })
     @ApiResponse({ status: 404, description: 'Safety equipment not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    @Permissions('safety-equipment:read')
     findOneSafetyEquipment(@Param('id') id: string): Promise<SafetyEquipmentDto> {
         return this.ppeService.findOneSafetyEquipment(id);
     }
@@ -635,7 +694,7 @@ export class PPEController {
         type: SafetyEquipmentDto,
     })
     @ApiResponse({ status: 404, description: 'Safety equipment not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    @Permissions('safety-equipment:update')
     updateSafetyEquipment(
         @Param('id') id: string,
         @Body() updateSafetyEquipmentDto: UpdateSafetyEquipmentDto,
@@ -651,7 +710,7 @@ export class PPEController {
         description: 'The safety equipment has been successfully deleted.',
     })
     @ApiResponse({ status: 404, description: 'Safety equipment not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+    @Permissions('safety-equipment:delete')
     removeSafetyEquipment(@Param('id') id: string): Promise<void> {
         return this.ppeService.removeSafetyEquipment(id);
     }
@@ -665,7 +724,7 @@ export class PPEController {
         type: SafetyEquipmentDto,
     })
     @ApiResponse({ status: 404, description: 'Safety equipment not found.' })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    @Permissions('safety-equipment:read')
     findSafetyEquipmentByCode(@Param('code') code: string): Promise<SafetyEquipmentDto> {
         return this.ppeService.findSafetyEquipmentByCode(code);
     }
@@ -683,7 +742,7 @@ export class PPEController {
         status: 200,
         description: 'Return paginated stock movements with summary.',
     })
-    @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+    @Permissions('safety-equipment:read')
     findMovementsBySafetyEquipmentId(
         @Param('id') id: string,
         @Query() query: FindMovementsDto,

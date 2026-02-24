@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 
 import { Button, ThemeButton } from '@/core/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,10 +28,13 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/core/components/ui/to
 import { AuditSchedule } from '../types/audit-schedule.types';
 import auditSchedulesService from '../services/auditSchedulesService';
 import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
+import { CompliantStatusEnum } from '@/shared/constants/compliant-status.enum';
 import api from '@/core/lib/api';
 import areaService from '@/modules/master-data/services/areaService';
 import { userService } from '@/modules/users';
 import auditPolicyService from '@/modules/audit-policy/services/auditPolicyService';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 // Component for assessment status with tooltip
 const AssessmentStatusCell = ({ stats }: { stats: { total: number; filled: number; comply: number; notComply: number } }) => {
@@ -73,6 +75,7 @@ const AssessmentStatusCell = ({ stats }: { stats: { total: number; filled: numbe
 
 const AuditSchedulesPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [auditSchedules, setAuditSchedules] = useState<AuditSchedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -80,7 +83,6 @@ const AuditSchedulesPage = () => {
   const [totalAuditSchedules, setTotalAuditSchedules] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [auditScheduleToDelete, setAuditScheduleToDelete] = useState<AuditSchedule | null>(null);
-  const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
@@ -100,14 +102,15 @@ const AuditSchedulesPage = () => {
       try {
         const [auditElementsResponse, areasResponse, usersResponse] = await Promise.all([
           api.get('/audit-elements', {
-            params: { page: 1, limit: 1000, isActive: true },
+            params: { page: 1, limit: 1000, isActive: true, options: true },
           }),
           areaService.getAreas({ 
             page: 1, 
             limit: 1000,
-            filters: { isActive: true }
+            filters: { isActive: true },
+            options: true
           }),
-          userService.getAll({ page: 1, limit: 1000 }),
+          userService.getAll({ page: 1, limit: 1000, options: true }),
         ]);
 
         setAuditElements(
@@ -140,11 +143,6 @@ const AuditSchedulesPage = () => {
   // Define filter fields
   const filterFields: FilterField[] = [
     {
-      id: 'code',
-      label: 'Audit Code',
-      type: 'text',
-    },
-    {
       id: 'auditElementId',
       label: 'Audit Element',
       type: 'multiSelectSearchable',
@@ -174,6 +172,11 @@ const AuditSchedulesPage = () => {
     {
       id: 'createdAt',
       label: 'Created At',
+      type: 'dateRange',
+    },
+    {
+      id: 'auditDate',
+      label: 'Audit Date',
       type: 'dateRange',
     }
   ];
@@ -244,9 +247,10 @@ const AuditSchedulesPage = () => {
             const items = auditItems.filter((item: any) => item.auditId === schedule.id);
             const total = criteriaCounts[schedule.auditElementId] || 0;
             const filled = items.length;
-            const comply = items.filter((item: any) => item.compliantStatus === 'COMPLY').length;
+            const comply = items.filter((item: any) => item.compliantStatus === CompliantStatusEnum.COMPLY).length;
             const notComply = items.filter((item: any) => 
-              item.compliantStatus === 'NOT_COMPLY_MAJOR' || item.compliantStatus === 'NOT_COMPLY_MINOR'
+              item.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MAJOR ||
+              item.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MINOR
             ).length;
 
             stats[schedule.id] = {
@@ -292,16 +296,12 @@ const AuditSchedulesPage = () => {
       const params: any = {
         page: pageIndex + 1, // API expects 1-based page index
         limit,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
       };
 
-      // Add search term if exists
-      if (searchTerm) {
-        params.search = searchTerm;
-      }
-
-      // Add isActive filter from filters (for active/inactive tabs)
-      if (activeFilters.isActive?.value !== undefined) {
-        params.isActive = activeFilters.isActive.value;
+      if (searchTerm?.trim()) {
+        params.search = searchTerm.trim();
       }
 
       // Add status filter (for GeneralStatusEnum values)
@@ -334,7 +334,7 @@ const AuditSchedulesPage = () => {
         }
       }
 
-      // Handle date range filter
+      // Handle date range filters
       if (activeFilters.createdAt?.value) {
         const dateRange = activeFilters.createdAt.value as { from?: Date; to?: Date };
         if (dateRange.from) {
@@ -344,10 +344,20 @@ const AuditSchedulesPage = () => {
           params.createdAtTo = new Date(dateRange.to).toISOString().split('T')[0];
         }
       }
+      if (activeFilters.auditDate?.value) {
+        const dateRange = activeFilters.auditDate.value as { from?: Date; to?: Date };
+        if (dateRange.from) {
+          params.auditDateFrom = new Date(dateRange.from).toISOString().split('T')[0];
+        }
+        if (dateRange.to) {
+          params.auditDateTo = new Date(dateRange.to).toISOString().split('T')[0];
+        }
+      }
 
       // Add other filters (excluding handled ones)
+      // Note: 'code' filter removed as backend doesn't support it
       Object.entries(activeFilters).forEach(([key, filter]) => {
-        if (!['status', 'isActive', 'auditElementId', 'areaIds', 'auditorIds', 'createdAt'].includes(key)) {
+        if (!['status', 'auditElementId', 'areaIds', 'auditorIds', 'createdAt', 'auditDate', 'code'].includes(key)) {
           params[key] = filter.value;
         }
       });
@@ -381,24 +391,6 @@ const AuditSchedulesPage = () => {
     setPageIndex(0);
   };
 
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    setPageIndex(0);
-    
-    // Update filters based on tab
-    if (value === 'all') {
-      setActiveFilters({});
-    } else if (value === 'active') {
-      setActiveFilters({
-        isActive: { value: true, label: 'Active' }
-      });
-    } else if (value === 'inactive') {
-      setActiveFilters({
-        isActive: { value: false, label: 'Inactive' }
-      });
-    }
-  };
-
   const handleApplyFilters = (filters: FilterValue[]) => {
     const newActiveFilters: Record<string, { value: any; label: string }> = {};
     
@@ -427,7 +419,7 @@ const AuditSchedulesPage = () => {
           value: filter.value,
           label: selectedAuditors.map(opt => opt.label).join(', ')
         };
-      } else if (filter.id === 'createdAt' && typeof filter.value === 'object' && !Array.isArray(filter.value)) {
+      } else if ((filter.id === 'createdAt' || filter.id === 'auditDate') && typeof filter.value === 'object' && !Array.isArray(filter.value)) {
         const dateRange = filter.value as { from?: Date; to?: Date };
         const fromStr = dateRange.from ? format(new Date(dateRange.from), 'PP') : '';
         const toStr = dateRange.to ? format(new Date(dateRange.to), 'PP') : '';
@@ -445,15 +437,6 @@ const AuditSchedulesPage = () => {
     
     setActiveFilters(newActiveFilters);
     setPageIndex(0); // Reset to first page on new filters
-    
-    // Sync tab state with isActive filter
-    if (newActiveFilters.isActive?.value === true) {
-      setActiveTab('active');
-    } else if (newActiveFilters.isActive?.value === false) {
-      setActiveTab('inactive');
-    } else if (!newActiveFilters.isActive && Object.keys(newActiveFilters).length === 0) {
-      setActiveTab('all');
-    }
   };
 
   const handleDeleteClick = (auditSchedule: AuditSchedule, event?: React.MouseEvent) => {
@@ -488,17 +471,19 @@ const AuditSchedulesPage = () => {
     setOpenDropdownId(null);
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: GeneralStatusEnum | string) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
       [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
       [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'outline' },
       [GeneralStatusEnum.OPEN]: { label: 'Open', variant: 'secondary' },
-      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Approval', variant: 'secondary' },
+      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
       [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
       [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
+      [GeneralStatusEnum.CLOSE]: { label: 'Close', variant: 'default' },
     };
 
-    const statusInfo = statusMap[status] || { label: status, variant: 'outline' };
+    const statusKey = String(status);
+    const statusInfo = statusMap[statusKey] || { label: statusKey, variant: 'outline' };
 
     return (
       <Badge variant={statusInfo.variant}>
@@ -636,19 +621,13 @@ const AuditSchedulesPage = () => {
         title="Audit Schedules"
         subtitle="Create and manage audit schedules"
         actions={
-          <ThemeButton onClick={() => navigate('/audit-schedules/new')}>
-            <Plus className="mr-2 h-4 w-4" /> New Audit Schedule
-          </ThemeButton>
+          <PermissionGuard permission="audit-schedule:create">
+            <ThemeButton onClick={() => navigate('/audit-schedules/new')}>
+              <Plus className="mr-2 h-4 w-4" /> New Audit Schedule
+            </ThemeButton>
+          </PermissionGuard>
         }
-      >
-        <Tabs value={activeTab} className="w-full" onValueChange={handleTabChange}>
-          <TabsList>
-            <TabsTrigger value="all">All Audits</TabsTrigger>
-            <TabsTrigger value="active">Active</TabsTrigger>
-            <TabsTrigger value="inactive">Inactive</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </PageHeader>
+      />
 
       <DataTable
         columns={columns}
@@ -664,8 +643,10 @@ const AuditSchedulesPage = () => {
         }}
         filterFields={filterFields}
         activeFilters={activeFilters}
+        searchValue={searchTerm}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+        searchPlaceholder="Search by code or element name..."
       />
 
       <ConfirmDialog

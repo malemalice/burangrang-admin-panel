@@ -304,14 +304,44 @@ export async function seedWorkPermits(prisma: PrismaClient) {
     return;
   }
 
-  const worker1 = guests[0];
-  const worker2 = guests[1];
   const supervisor = guests[5];
-
-  if (!worker1 || !worker2 || !supervisor) {
-    console.log('⚠️ Failed to get required guests.');
+  if (!supervisor) {
+    console.log('⚠️ Failed to get required guests for supervisor.');
     return;
   }
+
+  // Workers are now Users with role Guest (not t_guests)
+  const guestRole = await prisma.role.findFirst({ where: { code: 'GUEST' } });
+  if (!guestRole) {
+    console.log('⚠️ Guest role not found. Please run roles seed first.');
+    return;
+  }
+  let workerUsers = await prisma.user.findMany({
+    where: { roleId: guestRole.id },
+    take: 5,
+  });
+  const officeId = creator.officeId;
+  while (workerUsers.length < 5) {
+    const i = workerUsers.length + 1;
+    const u = await prisma.user.upsert({
+      where: { email: `wp.worker${i}@seed.test` },
+      update: {},
+      create: {
+        email: `wp.worker${i}@seed.test`,
+        firstName: `Worker`,
+        lastName: `${i}`,
+        isActive: true,
+        roleId: guestRole.id,
+        officeId,
+      },
+    });
+    workerUsers = [...workerUsers, u];
+  }
+  const worker1 = workerUsers[0]!;
+  const worker2 = workerUsers[1]!;
+  const worker3 = workerUsers[2]!;
+  const worker4 = workerUsers[3]!;
+  const worker5 = workerUsers[4]!;
 
   // Helper function to generate work permit code
   const generateCode = (year: number, sequence: number) => {
@@ -362,13 +392,13 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            guestId: worker1.id,
+            userId: worker1.id,
             idNumber: 'ID123456789',
             healthDeclarationUrl: 'https://example.com/health-declaration-1.pdf',
             order: 0,
           },
           {
-            guestId: worker2.id,
+            userId: worker2.id,
             idNumber: 'ID987654321',
             healthDeclarationUrl: 'https://example.com/health-declaration-2.pdf',
             order: 1,
@@ -482,7 +512,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            guestId: guests[2]!.id,
+            userId: worker3.id,
             idNumber: 'ID111222333',
             healthDeclarationUrl: 'https://example.com/health-declaration-3.pdf',
             order: 0,
@@ -531,7 +561,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            guestId: guests[3]!.id,
+            userId: worker4.id,
             idNumber: 'ID444555666',
             healthDeclarationUrl: 'https://example.com/health-declaration-4.pdf',
             order: 0,
@@ -587,7 +617,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            guestId: guests[4]!.id,
+            userId: worker5.id,
             idNumber: 'ID777888999',
             healthDeclarationUrl: 'https://example.com/health-declaration-5.pdf',
             order: 0,
@@ -617,7 +647,7 @@ export async function seedWorkPermits(prisma: PrismaClient) {
       workers: {
         create: [
           {
-            guestId: worker1.id,
+            userId: worker1.id,
             idNumber: 'ID123456789',
             healthDeclarationUrl: 'https://example.com/health-declaration-1.pdf',
             order: 0,
@@ -628,9 +658,143 @@ export async function seedWorkPermits(prisma: PrismaClient) {
   });
   console.log(`✅ Created work permit: ${wp5.code} (CLOSED)`);
 
+  // Admin Overview dashboard: WAITING_APPROVAL and one more APPROVED
+  const wp6 = await prisma.workPermit.create({
+    data: {
+      code: generateCode(currentYear, 6),
+      projectName: 'Admin Overview - Confined Space Entry',
+      areaId: area.id,
+      companyId: company.id,
+      proposedStartDate: nextWeek,
+      proposedEndDate: nextMonth,
+      workStagesDescription: 'Confined space inspection and maintenance',
+      jobSafetyAnalysis: 'Risk: Confined space\nControl: Entry permit, gas monitoring',
+      workRequirements: 'Confined space training',
+      safetyGuideline: 'Follow confined space procedures',
+      requireCourseVerification: true,
+      status: 'WAITING_APPROVAL',
+      createdBy: creator.id,
+      classifications: {
+        create: [
+          {
+            workClassificationId:
+              masters.workClassifications.length > 1 ? masters.workClassifications[1]!.id : workClassification.id,
+            order: 0,
+          },
+        ],
+      },
+      workers: {
+        create: [
+          {
+            userId: worker1.id,
+            idNumber: 'ID111111111',
+            healthDeclarationUrl: 'https://example.com/health-declaration-wp6.pdf',
+            order: 0,
+          },
+        ],
+      },
+      hazards: {
+        create: [
+          {
+            hazardName: 'Confined Space',
+            description: 'Limited entry and exit',
+            controlMeasure: 'Permit to work, attendant',
+            order: 0,
+          },
+        ],
+      },
+    },
+  });
+  console.log(`✅ Created work permit: ${wp6.code} (WAITING_APPROVAL)`);
+
+  const wp7 = await prisma.workPermit.create({
+    data: {
+      code: generateCode(currentYear, 7),
+      projectName: 'Admin Overview - Height Work',
+      areaId: masters.areas.length > 1 ? masters.areas[1]!.id : area.id,
+      companyId: company.id,
+      proposedStartDate: tomorrow,
+      proposedEndDate: nextWeek,
+      workStagesDescription: 'Work at height - facade inspection',
+      jobSafetyAnalysis: 'Risk: Fall from height\nControl: Harness, guardrails',
+      workRequirements: 'Height work certification',
+      safetyGuideline: 'Follow work at height procedures',
+      requireCourseVerification: true,
+      status: 'WAITING_APPROVAL',
+      createdBy: creator.id,
+      classifications: {
+        create: [
+          {
+            workClassificationId:
+              masters.workClassifications.length > 3 ? masters.workClassifications[3]!.id : workClassification.id,
+            order: 0,
+          },
+        ],
+      },
+      workers: {
+        create: [
+          {
+            userId: worker2.id,
+            idNumber: 'ID222222222',
+            healthDeclarationUrl: 'https://example.com/health-declaration-wp7.pdf',
+            order: 0,
+          },
+        ],
+      },
+      hazards: {
+        create: [
+          {
+            hazardName: 'Fall from height',
+            description: 'Working above 1.5m',
+            controlMeasure: 'Fall arrest, barriers',
+            order: 0,
+          },
+        ],
+      },
+    },
+  });
+  console.log(`✅ Created work permit: ${wp7.code} (WAITING_APPROVAL)`);
+
+  const wp8 = await prisma.workPermit.create({
+    data: {
+      code: generateCode(currentYear, 8),
+      projectName: 'Admin Overview - Approved Permit',
+      areaId: area.id,
+      companyId: company.id,
+      proposedStartDate: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000),
+      proposedEndDate: nextWeek,
+      workStagesDescription: 'General repair work - approved',
+      jobSafetyAnalysis: 'Standard risks and controls',
+      workRequirements: 'General safety training',
+      safetyGuideline: 'Follow standard procedures',
+      requireCourseVerification: false,
+      status: 'APPROVED',
+      createdBy: creator.id,
+      classifications: {
+        create: [
+          {
+            workClassificationId: workClassification.id,
+            order: 0,
+          },
+        ],
+      },
+      workers: {
+        create: [
+          {
+            userId: worker2.id,
+            idNumber: 'ID987654321',
+            healthDeclarationUrl: 'https://example.com/health-declaration-wp8.pdf',
+            order: 0,
+          },
+        ],
+      },
+    },
+  });
+  console.log(`✅ Created work permit: ${wp8.code} (APPROVED)`);
+
   console.log('✅ Work permit seeding completed');
   return {
-    workPermits: [wp1, wp2, wp3, wp4, wp5],
+    workPermits: [wp1, wp2, wp3, wp4, wp5, wp6, wp7, wp8],
     masters,
     guests,
   };

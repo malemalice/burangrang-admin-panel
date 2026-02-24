@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, Edit } from 'lucide-react';
 import { format } from 'date-fns';
 
+import { useAuth } from '@/core/lib/auth';
+import api from '@/core/lib/api';
+import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
+import roleService from '@/modules/roles/services/roleService';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Separator } from '@/core/components/ui/separator';
@@ -19,10 +23,36 @@ import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/Appro
 const ViewInspectionItemPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo ?? '';
+  const { user: currentUser } = useAuth();
+  const [isSuperUser, setIsSuperUser] = useState(false);
   const [item, setItem] = useState<InspectionItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!currentUser?.id) return;
+      try {
+        const response = await api.get('/users/me');
+        const userData = response.data;
+        let roleCode: string | null = null;
+        if (userData.role && typeof userData.role === 'object' && 'code' in userData.role) {
+          roleCode = userData.role.code;
+        }
+        if (!roleCode && userData.roleId) {
+          const role = await roleService.getRoleById(userData.roleId);
+          roleCode = role.code;
+        }
+        setIsSuperUser(roleCode === ROLE_CODES.SUPER_ADMIN);
+      } catch (error) {
+        console.error('Failed to fetch user role:', error);
+      }
+    };
+    fetchUserRole();
+  }, [currentUser?.id]);
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -35,7 +65,7 @@ const ViewInspectionItemPage = () => {
       } catch (error) {
         console.error('Failed to fetch inspection item:', error);
         toast.error('Failed to load inspection item');
-        navigate('/inspections/items');
+        navigate(`/inspections/items${returnTo}`);
       } finally {
         setIsLoading(false);
       }
@@ -85,7 +115,7 @@ const ViewInspectionItemPage = () => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
       [GeneralStatusEnum.OPEN]: { label: 'Open Issue', variant: 'secondary' },
       [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
-      [GeneralStatusEnum.CLOSE]: { label: 'Closed', variant: 'default' },
+      [GeneralStatusEnum.CLOSE]: { label: 'Close', variant: 'default' },
     };
 
     const statusInfo = statusMap[status] || { label: status, variant: 'outline' };
@@ -118,20 +148,22 @@ const ViewInspectionItemPage = () => {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={() => navigate('/inspections/items')}
+              onClick={() => navigate(`/inspections/items${returnTo}`)}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Inspection Items
             </Button>
-            <Button onClick={() => navigate(`/inspections/items/${id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
-            </Button>
+            {(!item || item.status !== GeneralStatusEnum.WAITING_APPROVAL || isSuperUser) && (
+              <Button onClick={() => navigate(`/inspections/items/${id}/edit`)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+              </Button>
+            )}
           </div>
         }
       />
 
-      <div className="space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6">
         {/* Basic Information and Approval Timeline */}
         <Card>
           <CardHeader>
@@ -218,6 +250,8 @@ const ViewInspectionItemPage = () => {
                   approvalHistory={approvalHistory}
                   isLoading={isLoadingHistory}
                   assessmentStatus={item.status === GeneralStatusEnum.CLOSE ? 'DONE' : item.status}
+                  entityDepartmentName={item.assignedDepartment?.name}
+                  entityJobPositionName="Department Head"
                 />
               </div>
             </div>

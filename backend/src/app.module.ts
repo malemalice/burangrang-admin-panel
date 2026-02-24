@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAuthGuard } from './shared/guards/jwt-auth.guard';
+import { AccessLogInterceptor } from './modules/access-logs/interceptors/access-log.interceptor';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { RolesModule } from './modules/roles/roles.module';
@@ -37,6 +38,7 @@ import { WorkPermitsModule } from './modules/work-permits/work-permits.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { EnvironmentalMeasurementsModule } from './modules/environmental-measurements/environmental-measurements.module';
 import { AreasModule } from './modules/areas/areas.module';
+import { AssetsModule } from './modules/assets/assets.module';
 
 import { WasteManagementModule } from './modules/waste-management/waste-management.module';
 import { ManHoursModule } from './modules/man-hours/man-hours.module';
@@ -45,6 +47,11 @@ import { AuditPolicyModule } from './modules/audit-policy/audit-policy.module';
 import { AuditSchedulesModule } from './modules/audit-schedules/audit-schedules.module';
 import { ZohoWebhooksModule } from './modules/zoho-webhooks/zoho-webhooks.module';
 import { RiskRegisterModule } from './modules/risk-register/risk-register.module';
+import { IncidentsModule } from './modules/incidents/incidents.module';
+import { UserPermissionsModule } from './modules/user-permissions/user-permissions.module';
+import { KpiModule } from './modules/kpi/kpi.module';
+import { KpiHseTargetModule } from './modules/kpi-hse-target/kpi-hse-target.module';
+import { AccessLogsModule } from './modules/access-logs/access-logs.module';
 
 @Module({
   imports: [
@@ -84,6 +91,7 @@ import { RiskRegisterModule } from './modules/risk-register/risk-register.module
     RoomsModule,
     EnvironmentalMeasurementsModule,
     AreasModule,
+    AssetsModule,
     // Waste Management Module (consolidated - includes all waste-related features)
     WasteManagementModule,
     // Man Hours Module
@@ -98,12 +106,25 @@ import { RiskRegisterModule } from './modules/risk-register/risk-register.module
     ZohoWebhooksModule,
     // Risk Register Module
     RiskRegisterModule,
+    // Incidents Module
+    IncidentsModule,
+    // User Permissions Module
+    UserPermissionsModule,
+    // KPI Module
+    KpiModule,
+    // KPI HSE Target Module
+    KpiHseTargetModule,
+    AccessLogsModule,
   ],
   providers: [
     Reflector,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AccessLogInterceptor,
     },
   ],
 })

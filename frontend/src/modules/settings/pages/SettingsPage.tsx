@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Copy } from 'lucide-react';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import { Input } from '@/core/components/ui/input';
 import { Label } from '@/core/components/ui/label';
@@ -42,7 +42,10 @@ const SettingsPage = () => {
   const [testEmail, setTestEmail] = useState<string>('');
   const [isSendingTest, setIsSendingTest] = useState<boolean>(false);
   const [isTestDialogOpen, setIsTestDialogOpen] = useState<boolean>(false);
-  
+  // Embed tab state
+  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
+  const [isGeneratingEmbed, setIsGeneratingEmbed] = useState<boolean>(false);
+
   // Update temp app name when app name loads
   useEffect(() => {
     setTempAppName(appName);
@@ -187,6 +190,7 @@ const SettingsPage = () => {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="email">Email Setup</TabsTrigger>
+          <TabsTrigger value="embed">Embed</TabsTrigger>
         </TabsList>
         
         <TabsContent value="appearance" className="space-y-6">
@@ -461,6 +465,88 @@ const SettingsPage = () => {
               </div>
             </DialogContent>
           </Dialog>
+        </TabsContent>
+
+        <TabsContent value="embed" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Embed Dashboard in Google Sites</CardTitle>
+              <CardDescription>
+                Generate a secure embed URL to display this dashboard in Google Sites. The token never expires.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <ThemeButton
+                onClick={async () => {
+                  try {
+                    setIsGeneratingEmbed(true);
+                    const url = await settingsService.generateEmbedToken();
+                    setEmbedUrl(url);
+                    toast.success('Embed URL generated');
+                  } catch (e: any) {
+                    const msg = e?.response?.data?.message || e?.message || 'Failed to generate embed URL';
+                    toast.error(msg);
+                  } finally {
+                    setIsGeneratingEmbed(false);
+                  }
+                }}
+                disabled={isGeneratingEmbed}
+              >
+                {isGeneratingEmbed ? 'Generating...' : 'Generate Embed URL'}
+              </ThemeButton>
+
+              {embedUrl && (
+                <>
+                  <div className="space-y-2">
+                    <Label>URL</Label>
+                    <div className="flex gap-2">
+                      <Input readOnly value={embedUrl} className="font-mono text-sm" />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          navigator.clipboard.writeText(embedUrl);
+                          toast.success('URL copied to clipboard');
+                        }}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>HTML Snippet</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        readOnly
+                        value={`<iframe src="${embedUrl}" width="100%" height="900" frameborder="0" allowfullscreen></iframe>`}
+                        className="font-mono text-sm"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            `<iframe src="${embedUrl}" width="100%" height="900" frameborder="0" allowfullscreen></iframe>`,
+                          );
+                          toast.success('HTML copied to clipboard');
+                        }}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="rounded-md border bg-muted/50 p-4 text-sm text-muted-foreground">
+                    <p className="font-medium text-foreground mb-2">How to embed</p>
+                    <ol className="list-decimal list-inside space-y-1">
+                      <li>Copy the URL or HTML snippet above</li>
+                      <li>In Google Sites: Insert → Embed</li>
+                      <li>Paste the URL or HTML code</li>
+                    </ol>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

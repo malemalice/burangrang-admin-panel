@@ -17,9 +17,12 @@ import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { Edit, Trash2, Eye, MoreHorizontal, ToggleLeft, ToggleRight, FilePlus2 } from 'lucide-react';
 import emailTemplateService from '../services/emailTemplateService';
 import { EmailTemplate } from '@/modules/mail-templates/types/email-template.types';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const EmailTemplatesPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -98,7 +101,7 @@ const EmailTemplatesPage = () => {
     setIsLoading(true);
     try {
       await emailTemplateService.deleteEmailTemplate(templateToDelete.id);
-      toast.success('Template deleted successfully');
+      toast.success('Email Template has been deleted');
       fetchTemplates();
     } catch (error) {
       console.error('Error deleting template:', error);
@@ -191,30 +194,40 @@ const EmailTemplatesPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/mail-templates/${t.id}`)}>
-              <Eye className="mr-2 h-4 w-4" /> View details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/mail-templates/${t.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleToggle(t)}>
-              {t.status === 'active' ? (
-                <>
-                  <ToggleLeft className="mr-2 h-4 w-4" /> Deactivate
-                </>
-              ) : (
-                <>
-                  <ToggleRight className="mr-2 h-4 w-4" /> Activate
-                </>
-              )}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => handleDeleteClick(t)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            {hasPermission('mail-template:read') && (
+              <DropdownMenuItem onClick={() => navigate(`/mail-templates/${t.id}`)}>
+                <Eye className="mr-2 h-4 w-4" /> View details
+              </DropdownMenuItem>
+            )}
+            {hasPermission('mail-template:update') && (
+              <>
+                <DropdownMenuItem onClick={() => navigate(`/mail-templates/${t.id}/edit`)}>
+                  <Edit className="mr-2 h-4 w-4" /> Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleToggle(t)}>
+                  {t.status === 'active' ? (
+                    <>
+                      <ToggleLeft className="mr-2 h-4 w-4" /> Deactivate
+                    </>
+                  ) : (
+                    <>
+                      <ToggleRight className="mr-2 h-4 w-4" /> Activate
+                    </>
+                  )}
+                </DropdownMenuItem>
+              </>
+            )}
+            {(hasPermission('mail-template:read') || hasPermission('mail-template:update')) && hasPermission('mail-template:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('mail-template:delete') && (
+              <DropdownMenuItem
+                onClick={() => handleDeleteClick(t)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -228,9 +241,11 @@ const EmailTemplatesPage = () => {
         title="Email Templates"
         subtitle="Manage system email templates"
         actions={
-          <ThemeButton onClick={() => navigate('/mail-templates/new')}>
-            <FilePlus2 className="mr-2 h-4 w-4" /> New Template
-          </ThemeButton>
+          <PermissionGuard permission="mail-template:create">
+            <ThemeButton onClick={() => navigate('/mail-templates/new')}>
+              <FilePlus2 className="mr-2 h-4 w-4" /> New Template
+            </ThemeButton>
+          </PermissionGuard>
         }
       />
 
@@ -257,6 +272,8 @@ const EmailTemplatesPage = () => {
         title="Delete Template"
         description={`Are you sure you want to delete "${templateToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleDeleteConfirm}
+        variant="destructive"
+        confirmText="Delete"
       />
     </>
   );

@@ -25,8 +25,9 @@ import { MailService } from './mail.service';
 import { SendTemplatedEmailDto } from './dto/mail.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
-import { Roles } from '../../shared/decorators/roles.decorator';
-import { Role } from '../../shared/types/role.enum';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 import { CreateEmailTemplateDto } from './dto/create-email-template.dto';
 import { UpdateEmailTemplateDto } from './dto/update-email-template.dto';
 import { EmailTemplateDto } from './dto/email-template.dto';
@@ -34,7 +35,7 @@ import { EmailTemplateDto } from './dto/email-template.dto';
 @ApiTags('mail')
 @ApiBearerAuth()
 @Controller('mail')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class MailController {
   constructor(private readonly mailService: MailService) {}
 
@@ -82,6 +83,8 @@ export class MailController {
   }
 
   @Get('templates')
+  @AllowOptionsBypass()
+  @Permissions('mail-template:list')
   @ApiOperation({ summary: 'List email templates (private)' })
   @ApiQuery({
     name: 'page',
@@ -119,11 +122,29 @@ export class MailController {
     type: String,
     description: 'Search by code, name or subject',
   })
+  @ApiQuery({
+    name: 'code',
+    required: false,
+    type: String,
+    description: 'Filter by code (partial match)',
+  })
+  @ApiQuery({
+    name: 'name',
+    required: false,
+    type: String,
+    description: 'Filter by name (partial match)',
+  })
+  @ApiQuery({
+    name: 'options',
+    required: false,
+    type: Boolean,
+    description: 'Set to true to bypass permission check (requires JWT auth only)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Return paginated list of email templates.',
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   findAllTemplates(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -131,6 +152,8 @@ export class MailController {
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
+    @Query('code') code?: string,
+    @Query('name') name?: string,
   ): Promise<{
     data: EmailTemplateDto[];
     meta: { total: number; page: number; limit: number };
@@ -147,23 +170,27 @@ export class MailController {
       sortOrder,
       isActive: isActiveBoolean,
       search,
+      code,
+      name,
     });
   }
 
   @Get('templates/:id')
+  @Permissions('mail-template:read')
   @ApiOperation({ summary: 'Get email template by ID (private)' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, type: EmailTemplateDto })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   findOneTemplate(@Param('id') id: string): Promise<EmailTemplateDto> {
     return this.mailService.findOneTemplate(id);
   }
 
   @Post('templates')
+  @Permissions('mail-template:create')
   @ApiOperation({ summary: 'Create email template (private)' })
   @ApiBody({ type: CreateEmailTemplateDto })
   @ApiResponse({ status: 201, type: EmailTemplateDto })
-  @Roles(Role.SUPER_ADMIN)
+  
   createTemplate(
     @Body() dto: CreateEmailTemplateDto,
   ): Promise<EmailTemplateDto> {
@@ -171,11 +198,12 @@ export class MailController {
   }
 
   @Patch('templates/:id')
+  @Permissions('mail-template:update')
   @ApiOperation({ summary: 'Update email template (private)' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateEmailTemplateDto })
   @ApiResponse({ status: 200, type: EmailTemplateDto })
-  @Roles(Role.SUPER_ADMIN)
+  
   updateTemplate(
     @Param('id') id: string,
     @Body() dto: UpdateEmailTemplateDto,
@@ -184,19 +212,21 @@ export class MailController {
   }
 
   @Patch('templates/:id/toggle')
+  @Permissions('mail-template:update')
   @ApiOperation({ summary: 'Toggle email template active state (private)' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, type: EmailTemplateDto })
-  @Roles(Role.SUPER_ADMIN)
+  
   toggleTemplate(@Param('id') id: string): Promise<EmailTemplateDto> {
     return this.mailService.toggleTemplate(id);
   }
 
   @Delete('templates/:id')
+  @Permissions('mail-template:delete')
   @ApiOperation({ summary: 'Delete email template (private)' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'Template deleted successfully' })
-  @Roles(Role.SUPER_ADMIN)
+  
   async removeTemplate(@Param('id') id: string): Promise<{ ok: boolean }> {
     await this.mailService.removeTemplate(id);
     return { ok: true };

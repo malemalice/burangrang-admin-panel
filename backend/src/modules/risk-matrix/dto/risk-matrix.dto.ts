@@ -33,7 +33,7 @@ export class RiskMatrixDto {
 
   @ApiProperty({ enum: RiskRatingEnum })
   @Expose()
-  risk_rating: RiskRatingEnum;
+  interpretation: RiskRatingEnum;
 
   @ApiProperty()
   @Expose()

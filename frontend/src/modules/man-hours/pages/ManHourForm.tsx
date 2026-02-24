@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/core/components/ui/select';
 import { Card, CardContent } from '@/core/components/ui/card';
+import { getYearOptions, getCurrentYear } from '@/core/utils/date';
 import { ManHour, ManHourGroup, Month, MONTHS, MONTH_LABELS, GROUP_LABELS } from '../types/man-hour.types';
 import manHourService from '../services/manHourService';
 
@@ -53,7 +54,7 @@ interface ManHourFormProps {
 export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const currentYear = new Date().getFullYear();
+  const currentYear = getCurrentYear();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -69,8 +70,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
     },
   });
 
-  // Generate year options
-  const yearOptions = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
+  const yearOptions = getYearOptions();
 
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
@@ -223,9 +223,9 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {yearOptions.map((year) => (
-                          <SelectItem key={year} value={String(year)}>
-                            {year}
+                        {yearOptions.map((o) => (
+                          <SelectItem key={o.value} value={String(o.value)}>
+                            {o.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -261,14 +261,7 @@ export default function ManHourForm({ manHour, mode }: ManHourFormProps) {
         </Card>
 
         {/* Actions */}
-        <div className="flex justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate('/man-hours')}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back
-          </Button>
+        <div className="flex justify-end gap-4">
           <ThemeButton type="submit" disabled={isSubmitting}>
             <Save className="mr-2 h-4 w-4" />
             {isSubmitting ? 'Saving...' : mode === 'create' ? 'Create' : 'Update'}

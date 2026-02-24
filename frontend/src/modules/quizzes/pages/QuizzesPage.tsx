@@ -30,9 +30,12 @@ import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { useQuizzes } from '../hooks/useQuizzes';
 import { Quiz, QuizSearchParams } from '../types/quiz.types';
 import quizService from '../services/quizService';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const QuizzesPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const {
     quizzes,
     totalQuizzes,
@@ -313,19 +316,27 @@ const QuizzesPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/quizzes/${quiz.id}`)}>
-              <Eye className="mr-2 h-4 w-4" /> View details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/quizzes/${quiz.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => handleDeleteClick(quiz, e)}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            {hasPermission('quiz:read') && (
+              <DropdownMenuItem onClick={() => navigate(`/quizzes/${quiz.id}`)}>
+                <Eye className="mr-2 h-4 w-4" /> View details
+              </DropdownMenuItem>
+            )}
+            {hasPermission('quiz:update') && (
+              <DropdownMenuItem onClick={() => navigate(`/quizzes/${quiz.id}/edit`)}>
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+            )}
+            {(hasPermission('quiz:read') || hasPermission('quiz:update')) && hasPermission('quiz:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('quiz:delete') && (
+              <DropdownMenuItem
+                onClick={(e) => handleDeleteClick(quiz, e)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -339,9 +350,11 @@ const QuizzesPage = () => {
         title="Quizzes"
         subtitle="Manage quizzes and assessments"
         actions={
-          <Button onClick={() => navigate('/quizzes/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Create Quiz
-          </Button>
+          <PermissionGuard permission="quiz:create">
+            <Button onClick={() => navigate('/quizzes/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Create Quiz
+            </Button>
+          </PermissionGuard>
         }
       >
         <Tabs value={activeStatusTab} onValueChange={handleActiveStatusTabChange} className="w-full">

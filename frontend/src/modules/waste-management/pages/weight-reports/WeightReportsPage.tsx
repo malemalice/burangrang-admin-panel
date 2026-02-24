@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Plus, MoreHorizontal, Pencil, Trash2, Eye, Printer } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
@@ -16,7 +16,7 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { weightReportService, wasteSourceService, storageLocationService } from '../../services/wasteManagementService';
-import { WeightReport, PaginatedResponse, ReportStatusEnum } from '../../types/waste-management.types';
+import { WeightReport, PaginatedResponse, WeightReportStatusEnum } from '../../types/waste-management.types';
 
 export default function WeightReportsPage() {
   const navigate = useNavigate();
@@ -53,7 +53,7 @@ export default function WeightReportsPage() {
       id: 'status',
       label: 'Report Status',
       type: 'select',
-      options: Object.values(ReportStatusEnum).map((status) => ({
+      options: Object.values(WeightReportStatusEnum).map((status) => ({
         label: status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
         value: status,
       })),
@@ -88,7 +88,7 @@ export default function WeightReportsPage() {
         page,
         limit,
         search: search || undefined,
-        status: activeFilters.status?.value as ReportStatusEnum | undefined,
+        status: activeFilters.status?.value as WeightReportStatusEnum | undefined,
         sourceId: activeFilters.sourceId?.value,
         storageLocationId: activeFilters.storageLocationId?.value,
         isActive: activeFilters.isActive?.value === 'true' ? true : activeFilters.isActive?.value === 'false' ? false : undefined,
@@ -132,8 +132,10 @@ export default function WeightReportsPage() {
         label = sources.find((s) => s.id === filter.value)?.name || String(filter.value);
       } else if (filter.id === 'storageLocationId') {
         label = locations.find((l) => l.id === filter.value)?.name || String(filter.value);
+      } else if (filter.id === 'status' && typeof filter.value === 'string') {
+        label = filter.value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase());
       }
-      
+
       newActiveFilters[filter.id] = {
         value: filter.value,
         label,
@@ -163,16 +165,16 @@ export default function WeightReportsPage() {
       isSortable: true,
     },
     {
-      id: 'period',
-      header: 'Period',
-      cell: (item: WeightReport) => `${item.reportMonth} ${item.reportYear}`,
+      id: 'reportDate',
+      header: 'Report Date',
+      cell: (item: WeightReport) => new Date(item.reportDate).toLocaleDateString(),
       isSortable: true,
     },
     {
       id: 'reportStatus',
       header: 'Report Status',
       cell: (item: WeightReport) => (
-        <Badge variant={item.status === ReportStatusEnum.SUBMITTED ? 'default' : 'secondary'}>
+        <Badge variant={item.status === WeightReportStatusEnum.DONE ? 'default' : 'secondary'}>
           {item.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
         </Badge>
       ),
@@ -199,6 +201,12 @@ export default function WeightReportsPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => navigate(`/waste-management/weight-reports/${item.id}`)}>
+              <Eye className="mr-2 h-4 w-4" /> View Detail
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/waste-management/weight-reports/${item.id}?print=true`)}>
+              <Printer className="mr-2 h-4 w-4" /> Print PDF
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/waste-management/weight-reports/${item.id}/edit`)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
@@ -229,15 +237,16 @@ export default function WeightReportsPage() {
             delete newFilters.status;
             setActiveFilters(newFilters);
           } else {
+            const label = value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase());
             setActiveFilters({
               ...activeFilters,
-              status: { value: value, label: value },
+              status: { value, label },
             });
           }
         }}>
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
-            {Object.values(ReportStatusEnum).map((status) => (
+            {Object.values(WeightReportStatusEnum).map((status) => (
               <TabsTrigger key={status} value={status}>
                 {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
               </TabsTrigger>
@@ -245,7 +254,7 @@ export default function WeightReportsPage() {
           </TabsList>
         </Tabs>
       </PageHeader>
-      
+
       <DataTable
         columns={columns}
         data={data}

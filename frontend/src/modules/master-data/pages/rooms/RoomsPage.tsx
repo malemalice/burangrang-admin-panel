@@ -18,9 +18,12 @@ import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import roomService from '../../services/roomService';
 import { RoomDTO } from '../../types/master-data.types';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 export default function RoomsPage() {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [rooms, setRooms] = useState<RoomDTO[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
@@ -224,16 +227,22 @@ export default function RoomsPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/master/rooms/${room.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => handleDeleteClick(room, e)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            {hasPermission('room:update') && (
+              <DropdownMenuItem onClick={() => navigate(`/master/rooms/${room.id}/edit`)}>
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+            )}
+            {hasPermission('room:update') && hasPermission('room:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('room:delete') && (
+              <DropdownMenuItem
+                onClick={(e) => handleDeleteClick(room, e)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -246,9 +255,11 @@ export default function RoomsPage() {
         title="Rooms"
         subtitle="Manage room master data"
         actions={
-          <ThemeButton onClick={() => navigate('/master/rooms/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Room
-          </ThemeButton>
+          <PermissionGuard permission="room:create">
+            <ThemeButton onClick={() => navigate('/master/rooms/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Add Room
+            </ThemeButton>
+          </PermissionGuard>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

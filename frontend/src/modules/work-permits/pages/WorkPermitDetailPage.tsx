@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, CheckCircle, XCircle, MessageSquare, Clock, FileText } from 'lucide-react';
+import { ArrowLeft, Edit, CheckCircle, XCircle, MessageSquare, Clock, FileText, FileDown } from 'lucide-react';
+import { usePDF } from 'react-to-pdf';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
@@ -20,6 +21,9 @@ import {
 import { Textarea } from '@/core/components/ui/textarea';
 import { Label } from '@/core/components/ui/label';
 import { Input } from '@/core/components/ui/input';
+import { WorkPermitPDFTemplate } from '../components/WorkPermitPDFTemplate';
+import { approvalService, APPROVAL_ENTITIES, type ApprovalStatusHistory } from '@/modules/master-data';
+import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
 
 const WorkPermitDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -27,12 +31,26 @@ const WorkPermitDetailPage = () => {
   const { workPermit, isLoading, fetchWorkPermit } = useWorkPermit(id || null);
   const { submit, approve, reject, requestInfo, extend, close, isLoading: isActionLoading } = useWorkPermitActions();
 
+  const [approvalRights, setApprovalRights] = useState<{
+    canApprove: boolean;
+    canReject: boolean;
+    canRequestInfo: boolean;
+    nextApprover: any;
+  } | null>(null);
+
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [requestInfoDialogOpen, setRequestInfoDialogOpen] = useState(false);
   const [extendDialogOpen, setExtendDialogOpen] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [timeline, setTimeline] = useState<ApprovalTimelineItem[]>([]);
+  const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+
+  const { toPDF, targetRef } = usePDF({
+    filename: `${workPermit?.code ?? 'work-permit'}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+  });
 
   const [approveNotes, setApproveNotes] = useState('');
   const [rejectReason, setRejectReason] = useState('');
@@ -45,7 +63,7 @@ const WorkPermitDetailPage = () => {
   useEffect(() => {
     if (id) {
       fetchWorkPermit(id);
-      // Fetch timeline
+      // Fetch timeline (for PDF export)
       import('../services/workPermitService').then((module) => {
         module.default
           .getTimeline(id)
@@ -56,6 +74,61 @@ const WorkPermitDetailPage = () => {
       });
     }
   }, [id]);
+
+  // Fetch approval status/history for ApprovalTimelineCard
+  useEffect(() => {
+    const fetchApprovalStatus = async () => {
+      if (!id) return;
+
+      setIsLoadingHistory(true);
+      try {
+        const approvalStatus = await approvalService.checkApprovalStatus(id, APPROVAL_ENTITIES.WORK_PERMIT);
+        if (approvalStatus && !(approvalStatus as { error?: boolean }).error) {
+          setApprovalHistory(approvalStatus);
+        } else {
+          setApprovalHistory({
+            history: [],
+            nextApprover: null,
+            allApprovalLines: [],
+            currentStatus: 'UNKNOWN',
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch approval status:', error);
+        setApprovalHistory({
+          history: [],
+          nextApprover: null,
+          allApprovalLines: [],
+          currentStatus: 'UNKNOWN',
+        });
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    fetchApprovalStatus();
+  }, [id]);
+
+  // Fetch approval rights when work permit is loaded
+  useEffect(() => {
+    if (id && workPermit) {
+      const status = workPermit.status;
+      // Only check rights if in review status
+      if (['IN_REVIEW_HSE', 'IN_REVIEW_SECURITY', 'WAITING_APPROVAL', 'IN_REVIEW'].includes(status)) {
+        import('../services/workPermitService').then((module) => {
+          module.default
+            .checkApprovalRights(id)
+            .then(setApprovalRights)
+            .catch((error) => {
+              console.error('Failed to fetch approval rights:', error);
+              setApprovalRights(null);
+            });
+        });
+      } else {
+        setApprovalRights(null);
+      }
+    }
+  }, [id, workPermit]);
 
   const handleSubmitForApproval = async () => {
     if (!id) return;
@@ -150,11 +223,29 @@ const WorkPermitDetailPage = () => {
     }
   };
 
+  const handleExportPDF = async () => {
+    if (!id || !workPermit) return;
+    try {
+      setIsExportingPDF(true);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await toPDF();
+      toast.success('PDF exported successfully');
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      toast.error('Failed to export PDF');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
   const canEdit = workPermit?.status === 'DRAFT' || workPermit?.status === 'NEED_INFO';
   const canSubmit = workPermit?.status === 'DRAFT';
-  const canApprove = ['IN_REVIEW_HSE', 'IN_REVIEW_SECURITY'].includes(workPermit?.status || '');
-  const canReject = ['IN_REVIEW_HSE', 'IN_REVIEW_SECURITY'].includes(workPermit?.status || '');
-  const canRequestInfo = ['IN_REVIEW_HSE'].includes(workPermit?.status || '');
+  
+  // Permission-based actions using checkApprovalRights result
+  const canApprove = approvalRights?.canApprove ?? false;
+  const canReject = approvalRights?.canReject ?? false;
+  const canRequestInfo = approvalRights?.canRequestInfo ?? false;
+  
   const canExtend = workPermit?.status === 'APPROVED';
   const canClose = ['APPROVED', 'EXTENDED'].includes(workPermit?.status || '');
 
@@ -181,6 +272,15 @@ const WorkPermitDetailPage = () => {
 
   return (
     <div>
+      {workPermit && (
+        <div
+          ref={targetRef}
+          style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+          aria-hidden="true"
+        >
+          <WorkPermitPDFTemplate workPermit={workPermit} timeline={timeline} />
+        </div>
+      )}
       <PageHeader
         title={`Work Permit: ${workPermit.code}`}
         subtitle={workPermit.projectName}
@@ -188,6 +288,14 @@ const WorkPermitDetailPage = () => {
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => navigate('/work-permits')}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleExportPDF}
+              disabled={isExportingPDF}
+            >
+              <FileDown className="mr-2 h-4 w-4" />
+              {isExportingPDF ? 'Preparing PDF...' : 'Export PDF'}
             </Button>
             {canEdit && (
               <Button onClick={() => navigate(`/work-permits/${workPermit.id}/edit`)}>
@@ -229,37 +337,52 @@ const WorkPermitDetailPage = () => {
       />
 
       <div className="grid gap-6">
-        {/* Basic Information */}
+        {/* Basic Information and Approval Timeline */}
         <Card>
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-gray-500">Status</Label>
-              <div className="mt-1">
-                <Badge>{workPermit.status.replace(/_/g, ' ')}</Badge>
+          <CardContent>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-500">Status</Label>
+                  <div className="mt-1">
+                    <Badge>{workPermit.status.replace(/_/g, ' ')}</Badge>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Project Name</Label>
+                  <p className="mt-1">{workPermit.projectName}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Area</Label>
+                  <p className="mt-1">{workPermit.area?.name || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Company</Label>
+                  <p className="mt-1">{workPermit.company?.name || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Start Date</Label>
+                  <p className="mt-1">{format(new Date(workPermit.proposedStartDate), 'MMM dd, yyyy')}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">End Date</Label>
+                  <p className="mt-1">{format(new Date(workPermit.proposedEndDate), 'MMM dd, yyyy')}</p>
+                </div>
               </div>
-            </div>
-            <div>
-              <Label className="text-gray-500">Project Name</Label>
-              <p className="mt-1">{workPermit.projectName}</p>
-            </div>
-            <div>
-              <Label className="text-gray-500">Area</Label>
-              <p className="mt-1">{workPermit.area?.name || '-'}</p>
-            </div>
-            <div>
-              <Label className="text-gray-500">Company</Label>
-              <p className="mt-1">{workPermit.company?.name || '-'}</p>
-            </div>
-            <div>
-              <Label className="text-gray-500">Start Date</Label>
-              <p className="mt-1">{format(new Date(workPermit.proposedStartDate), 'MMM dd, yyyy')}</p>
-            </div>
-            <div>
-              <Label className="text-gray-500">End Date</Label>
-              <p className="mt-1">{format(new Date(workPermit.proposedEndDate), 'MMM dd, yyyy')}</p>
+              <div className="lg:border-l lg:pl-6 flex flex-col">
+                <ApprovalTimelineCard
+                  approvalHistory={approvalHistory}
+                  isLoading={isLoadingHistory}
+                  assessmentStatus={
+                    ['APPROVED', 'REJECTED', 'CLOSED'].includes(workPermit.status) ? 'DONE' : workPermit.status
+                  }
+                  entityDepartmentName={workPermit.area?.name}
+                  entityJobPositionName="Department Head"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -304,39 +427,12 @@ const WorkPermitDetailPage = () => {
                 {workPermit.workers.map((worker) => (
                   <div key={worker.id} className="flex items-center justify-between p-2 border rounded">
                     <div>
-                      <p className="font-medium">{worker.guest?.name || 'Unknown'}</p>
+                      <p className="font-medium">
+                        {worker.user
+                          ? `${worker.user.firstName ?? ''} ${worker.user.lastName ?? ''}`.trim() || worker.user.email || 'Unknown'
+                          : 'Unknown'}
+                      </p>
                       {worker.idNumber && <p className="text-sm text-muted-foreground">ID: {worker.idNumber}</p>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Approval Timeline */}
-        {timeline.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Approval Timeline</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {timeline.map((item) => (
-                  <div key={item.id} className="flex items-start gap-4 border-l-2 pl-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <Badge>{item.status}</Badge>
-                        <span className="text-sm text-muted-foreground">
-                          {format(new Date(item.createdAt), 'MMM dd, yyyy HH:mm')}
-                        </span>
-                      </div>
-                      {item.createdBy && (
-                        <p className="text-sm mt-1">
-                          By: {item.createdBy.firstName} {item.createdBy.lastName}
-                        </p>
-                      )}
-                      {item.notes && <p className="text-sm mt-1 text-muted-foreground">{item.notes}</p>}
                     </div>
                   </div>
                 ))}

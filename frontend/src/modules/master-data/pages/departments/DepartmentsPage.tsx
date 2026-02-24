@@ -18,9 +18,12 @@ import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { Department, PaginationParams } from '@/core/lib/types';
 import departmentService from '../../services/departmentService';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 export default function DepartmentsPage() {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
   const [limit, setLimit] = useState(10);
@@ -267,9 +270,11 @@ export default function DepartmentsPage() {
         title="Departments"
         subtitle="Manage your organization's departments"
         actions={
-          <ThemeButton onClick={() => navigate('/master/departments/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Department
-          </ThemeButton>
+          <PermissionGuard permission="department:create">
+            <ThemeButton onClick={() => navigate('/master/departments/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Add Department
+            </ThemeButton>
+          </PermissionGuard>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

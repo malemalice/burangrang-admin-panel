@@ -92,6 +92,7 @@ const mapPPEWithdrawalDtoToPPEWithdrawal = (withdrawalDto: PPEWithdrawalDTO): PP
     createdAt: withdrawalDto.createdAt,
     updatedAt: withdrawalDto.updatedAt,
     createdBy: withdrawalDto.createdBy,
+    createdByName: (withdrawalDto as any).createdByName ?? null,
     items: withdrawalDto.items?.map(mapPPEWithdrawalItemDtoToPPEWithdrawalItem),
 });
 
@@ -369,6 +370,17 @@ const ppeService = {
         }
     },
 
+    submitWithdrawal: async (id: string): Promise<PPEWithdrawal> => {
+        try {
+            const response = await api.post(`/ppe/withdrawals/${id}/submit`);
+            return mapPPEWithdrawalDtoToPPEWithdrawal(response.data);
+        } catch (error: any) {
+            console.error(`Error submitting withdrawal ${id}:`, error);
+            const errorMessage = error.response?.data?.message || 'Failed to submit withdrawal';
+            throw new Error(errorMessage);
+        }
+    },
+
     approveWithdrawal: async (id: string, updateData: UpdatePPEWithdrawalDTO): Promise<PPEWithdrawal> => {
         try {
             const response = await api.patch(`/ppe/withdrawals/${id}/approve`, updateData);
@@ -376,6 +388,17 @@ const ppeService = {
         } catch (error: any) {
             console.error(`Error approving withdrawal ${id}:`, error);
             const errorMessage = error.response?.data?.message || 'Failed to approve withdrawal';
+            throw new Error(errorMessage);
+        }
+    },
+
+    rejectWithdrawal: async (id: string, updateData: UpdatePPEWithdrawalDTO): Promise<PPEWithdrawal> => {
+        try {
+            const response = await api.patch(`/ppe/withdrawals/${id}/reject`, updateData);
+            return mapPPEWithdrawalDtoToPPEWithdrawal(response.data);
+        } catch (error: any) {
+            console.error(`Error rejecting withdrawal ${id}:`, error);
+            const errorMessage = error.response?.data?.message || 'Failed to reject withdrawal';
             throw new Error(errorMessage);
         }
     },

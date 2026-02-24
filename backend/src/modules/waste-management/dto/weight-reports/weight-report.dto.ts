@@ -9,9 +9,16 @@ export class WeightReportItemDto {
   @ApiProperty() @Expose() unit: string;
   @ApiProperty() @Expose() order: number;
   @ApiProperty({ required: false }) @Expose() notes?: string;
-  @ApiProperty({ required: false }) @Expose() wasteType?: { id: string; name: string; code: string; wasteType: string; };
+  @ApiProperty({ required: false }) @Expose() wasteType?: {
+    id: string;
+    name: string;
+    code: string;
+    wasteType: string;
+  };
 
-  constructor(partial: Partial<WeightReportItemDto>) { Object.assign(this, partial); }
+  constructor(partial: Partial<WeightReportItemDto>) {
+    Object.assign(this, partial);
+  }
 }
 
 export class WeightReportDto {
@@ -35,10 +42,26 @@ export class WeightReportDto {
   @ApiProperty() @Expose() isActive: boolean;
   @ApiProperty() @Expose() createdAt: Date;
   @ApiProperty() @Expose() updatedAt: Date;
-  @ApiProperty({ required: false }) @Expose() source?: { id: string; name: string; code: string; };
-  @ApiProperty({ required: false }) @Expose() storageLocation?: { id: string; name: string; code: string; };
-  @ApiProperty({ required: false }) @Expose() submitter?: { id: string; firstName: string; lastName: string; };
-  @ApiProperty({ required: false, type: [WeightReportItemDto] }) @Expose() items?: WeightReportItemDto[];
+  @ApiProperty({ required: false }) @Expose() source?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  @ApiProperty({ required: false }) @Expose() storageLocation?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  @ApiProperty({ required: false }) @Expose() submitter?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+  @ApiProperty({ required: false, type: [WeightReportItemDto] })
+  @Expose()
+  items?: WeightReportItemDto[];
 
-  constructor(partial: Partial<WeightReportDto>) { Object.assign(this, partial); }
+  constructor(partial: Partial<WeightReportDto>) {
+    Object.assign(this, partial);
+  }
 }

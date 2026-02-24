@@ -128,27 +128,12 @@ export class RemindersScheduler {
         error = `Notification creation failed: ${notificationError.message}`;
       }
 
-      // Send email to all recipients (optional based on requirements)
-      for (const recipient of recipients) {
-        try {
-          await this.sendReminderEmail(recipient, reminder);
-          emailSentCount++;
-        } catch (emailError) {
-          this.logger.warn(
-            `Failed to send email to ${recipient.email} for reminder ${reminder.id}: ${emailError.message}`,
-          );
-          // Don't mark as failed if only email failed
-          if (!error) {
-            error = `Email sending failed for some recipients: ${emailError.message}`;
-          }
-        }
-      }
-
-      emailSent = emailSentCount > 0;
-
-      if (emailSent) {
+      // Emails are sent by NotificationsService.createNotificationForRoles() — do not send again to avoid duplicate emails
+      if (notificationId && recipients.length > 0) {
+        emailSent = true;
+        emailSentCount = recipients.length;
         this.logger.debug(
-          `Sent ${emailSentCount}/${recipients.length} emails for reminder ${reminder.id}`,
+          `Notification created for reminder ${reminder.id}; emails sent via NotificationsService to ${recipients.length} recipient(s)`,
         );
       }
 

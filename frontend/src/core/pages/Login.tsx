@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from "@/core/components/ui/button";
 import { Input } from "@/core/components/ui/input";
 import { Label } from "@/core/components/ui/label";
@@ -15,7 +15,8 @@ import { toast } from 'sonner';
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
+  const location = useLocation();
+  const { login, isAuthenticated, isLoading: authLoading, isEmbedContext } = useAuth();
   const { isDark, theme } = useTheme();
   const { appName } = useAppName();
   const [email, setEmail] = useState('');
@@ -30,12 +31,13 @@ const Login = () => {
   const currentThemeColor = themeColors[theme]?.primary || '#6366f1';
   const textColor = getContrastTextColor(currentThemeColor);
 
-  // If already authenticated, redirect to dashboard
+  // If already authenticated, redirect to dashboard (preserve embed_token in embed context)
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
-      navigate('/');
+      const search = isEmbedContext && location.search ? location.search : '';
+      navigate(search ? `/${search}` : '/');
     }
-  }, [isAuthenticated, authLoading, navigate]);
+  }, [isAuthenticated, authLoading, isEmbedContext, location.search, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

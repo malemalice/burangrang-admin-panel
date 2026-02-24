@@ -56,8 +56,8 @@
     @apply border-border;
   }
 
-  body {
-    @apply bg-background text-foreground;
+  html, body {
+    @apply bg-background text-foreground overflow-x-hidden;
   }
 }
 
@@ -82,5 +82,12 @@
 
   .scrollbar-thin:hover::-webkit-scrollbar-thumb {
     background-color: hsl(var(--muted-foreground) / 0.3);
+  }
+
+  .scrollbar-hidden {
+    scrollbar-width: none;
+  }
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
   }
 }

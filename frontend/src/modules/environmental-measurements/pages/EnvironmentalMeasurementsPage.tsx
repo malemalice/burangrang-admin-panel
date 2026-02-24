@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Thermometer, MoreHorizontal } from 'lucide-react';
+import { usePDF } from 'react-to-pdf';
+import { Edit, Trash2, Plus, MoreHorizontal, Eye, FileDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button, ThemeButton } from '@/core/components/ui/button';
 import {
@@ -11,75 +12,121 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/core/components/ui/dropdown-menu';
-import { Badge } from '@/core/components/ui/badge';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
-import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import environmentalMeasurementService from '../services/environmentalMeasurementService';
 import { EnvironmentalMeasurement } from '../types/environmental-measurement.types';
+import { EnvironmentalMeasurementListPDFTemplate } from '../components/EnvironmentalMeasurementListPDFTemplate';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 export default function EnvironmentalMeasurementsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { hasPermission } = usePermissions();
   const [measurements, setMeasurements] = useState<EnvironmentalMeasurement[]>([]);
-  const [pageIndex, setPageIndex] = useState(0);
-  const [limit, setLimit] = useState(10);
   const [totalMeasurements, setTotalMeasurements] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [measurementToDelete, setMeasurementToDelete] = useState<EnvironmentalMeasurement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [allMeasurementsForPDF, setAllMeasurementsForPDF] = useState<EnvironmentalMeasurement[]>([]);
+  const [isExportingAllPDF, setIsExportingAllPDF] = useState(false);
+
+  const { toPDF, targetRef } = usePDF({
+    filename: `environmental-measurements-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+  });
+
+  const pageIndex = useMemo(() => {
+    const raw = searchParams.get('page');
+    const page = raw ? Number(raw) : 1;
+    if (!Number.isFinite(page) || page <= 0) return 0;
+    return Math.floor(page) - 1;
+  }, [searchParams]);
+
+  const limit = useMemo(() => {
+    const raw = searchParams.get('limit');
+    const parsed = raw ? Number(raw) : 10;
+    if (!Number.isFinite(parsed) || parsed <= 0) return 10;
+    return Math.floor(parsed);
+  }, [searchParams]);
+
+  const searchTerm = useMemo(() => searchParams.get('search') ?? '', [searchParams]);
+
+  const activeFilters = useMemo(() => {
+    const filters: Record<string, { value: any; label: string }> = {};
+    const roomName = searchParams.get('roomName');
+    if (roomName) {
+      filters.roomName = { value: roomName, label: roomName };
+    }
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
+    if (startDate || endDate) {
+      const from = startDate ? (startDate.includes('T') ? startDate.split('T')[0] : startDate) : undefined;
+      const to = endDate ? (endDate.includes('T') ? endDate.split('T')[0] : endDate) : undefined;
+      filters.dateRange = {
+        value: { from: from || undefined, to: to || undefined },
+        label: [from, to].filter(Boolean).map((d) => format(new Date(d!), 'dd MMM yyyy')).join(' – ') || 'Date range',
+      };
+    }
+    return filters;
+  }, [searchParams]);
 
   // Define filter fields
   const filterFields: FilterField[] = [
+    {
+      id: 'dateRange',
+      label: 'Measurement date range',
+      type: 'dateRange',
+    },
     {
       id: 'roomName',
       label: 'Room Name',
       type: 'text',
     },
-    {
-      id: 'status',
-      label: 'Status',
-      type: 'select',
-      options: [
-        { label: 'Active', value: 'active' },
-        { label: 'Inactive', value: 'inactive' },
-      ],
-    },
   ];
+
+  const updateSearchParams = useCallback(
+    (updater: (next: URLSearchParams) => void, options: { replace?: boolean } = { replace: true }) => {
+      const next = new URLSearchParams(searchParams);
+      updater(next);
+      setSearchParams(next, options);
+    },
+    [searchParams, setSearchParams]
+  );
+
+  const getDateRangeParams = useCallback(() => {
+    const range = activeFilters.dateRange?.value as { from?: string; to?: string } | undefined;
+    if (!range) return {};
+    const from = range.from ? (range.from.includes('T') ? range.from.split('T')[0] : range.from) : undefined;
+    const to = range.to ? (range.to.includes('T') ? range.to.split('T')[0] : range.to) : undefined;
+    return { startDate: from, endDate: to };
+  }, [activeFilters.dateRange]);
 
   const fetchMeasurements = useCallback(async () => {
     setIsLoading(true);
     try {
+      const { startDate, endDate } = getDateRangeParams();
       const response = await environmentalMeasurementService.getMeasurements({
         page: pageIndex + 1,
         limit,
-        search: searchTerm || undefined,
+        search: searchTerm.trim() || activeFilters.roomName?.value || undefined,
         sortBy: 'date',
         sortOrder: 'desc',
-        isActive: activeFilters.status?.value === 'active' ? true :
-                 activeFilters.status?.value === 'inactive' ? false :
-                 undefined
+        startDate,
+        endDate,
       });
       setMeasurements(response.data);
       setTotalMeasurements(response.meta.total);
-      
-      // Ensure we have data from the correct page
-      const actualPage = response.meta.page;
-      if (actualPage && actualPage - 1 !== pageIndex) {
-        setPageIndex(actualPage - 1);
-      }
     } catch (error) {
       console.error('Failed to fetch measurements:', error);
       toast.error('Failed to load environmental measurements');
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, searchTerm, activeFilters]);
+  }, [pageIndex, limit, searchTerm, activeFilters, getDateRangeParams]);
 
   // Fetch measurements when pagination, search, filters change
   useEffect(() => {
@@ -119,48 +166,60 @@ export default function EnvironmentalMeasurementsPage() {
   };
 
   const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    setPageIndex(0); // Reset to first page on new search
+    updateSearchParams((next) => {
+      if (term.trim() === '') next.delete('search');
+      else next.set('search', term.trim());
+      next.set('page', '1');
+    });
   };
 
   const handleApplyFilters = (filters: FilterValue[]) => {
-    const newActiveFilters: Record<string, { value: any; label: string }> = {};
-    
-    filters.forEach(filter => {
-      if (filter.id === 'status') {
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: filter.value === 'active' ? 'Active' : 'Inactive'
-        };
-      } else {
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: String(filter.value)
-        };
-      }
+    updateSearchParams((next) => {
+      next.delete('roomName');
+      next.delete('startDate');
+      next.delete('endDate');
+      filters.forEach((filter) => {
+        const value = filter.value;
+        if (value === undefined || value === null || value === '') return;
+        if (filter.id === 'dateRange' && typeof value === 'object' && value !== null && !Array.isArray(value)) {
+          const range = value as { from?: string | Date; to?: string | Date };
+          const from = range.from ? (typeof range.from === 'string' ? range.from.split('T')[0] : format(new Date(range.from), 'yyyy-MM-dd')) : undefined;
+          const to = range.to ? (typeof range.to === 'string' ? range.to.split('T')[0] : format(new Date(range.to), 'yyyy-MM-dd')) : undefined;
+          if (from) next.set('startDate', from);
+          if (to) next.set('endDate', to);
+          return;
+        }
+        next.set(filter.id, String(value));
+      });
+      next.set('page', '1');
     });
-    
-    setActiveFilters(newActiveFilters);
-    setPageIndex(0); // Reset to first page on new filters
   };
 
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    setPageIndex(0);
-    
-    // Update filters based on tab
-    if (value === 'all') {
-      setActiveFilters({});
-    } else if (value === 'active') {
-      setActiveFilters({
-        status: { value: 'active', label: 'Active' }
+  const handleExportAllPDF = useCallback(async () => {
+    setIsExportingAllPDF(true);
+    try {
+      const searchVal = searchTerm.trim() || activeFilters.roomName?.value || undefined;
+      const { startDate, endDate } = getDateRangeParams();
+      const response = await environmentalMeasurementService.getMeasurements({
+        page: 1,
+        limit: 10000,
+        search: searchVal,
+        sortBy: 'date',
+        sortOrder: 'desc',
+        startDate,
+        endDate,
       });
-    } else if (value === 'inactive') {
-      setActiveFilters({
-        status: { value: 'inactive', label: 'Inactive' }
-      });
+      setAllMeasurementsForPDF(response.data);
+      await new Promise((r) => setTimeout(r, 200));
+      await toPDF();
+      toast.success('PDF exported successfully');
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      toast.error('Failed to export PDF');
+    } finally {
+      setIsExportingAllPDF(false);
     }
-  };
+  }, [searchTerm, activeFilters, getDateRangeParams, toPDF]);
 
   const columns = [
     {
@@ -217,22 +276,6 @@ export default function EnvironmentalMeasurementsPage() {
       ),
     },
     {
-      id: 'status',
-      header: 'Status',
-      cell: (measurement: EnvironmentalMeasurement) => (
-        <Badge
-          variant="outline"
-          className={`${
-            measurement.isActive
-              ? 'bg-green-100 text-green-800'
-              : 'bg-gray-100 text-gray-800'
-          } border-0`}
-        >
-          {measurement.isActive ? 'Active' : 'Inactive'}
-        </Badge>
-      ),
-    },
-    {
       id: 'actions',
       header: 'Actions',
       cell: (measurement: EnvironmentalMeasurement) => (
@@ -249,16 +292,28 @@ export default function EnvironmentalMeasurementsPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/environmental-measurements/${measurement.id}/edit`)}>
-              <Edit className="mr-2 h-4 w-4" /> Edit
+            <DropdownMenuItem onClick={() => navigate(`/environmental-measurements/${measurement.id}`)}>
+              <Eye className="mr-2 h-4 w-4" /> View
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={(e) => handleDeleteClick(measurement, e)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
+            <DropdownMenuItem onClick={() => navigate(`/environmental-measurements/${measurement.id}?print=true`)}>
+              <FileDown className="mr-2 h-4 w-4" /> Export PDF
             </DropdownMenuItem>
+            {hasPermission('environmental-measurement:update') && (
+              <DropdownMenuItem onClick={() => navigate(`/environmental-measurements/${measurement.id}/edit`)}>
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+            )}
+            {hasPermission('environmental-measurement:update') && hasPermission('environmental-measurement:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('environmental-measurement:delete') && (
+              <DropdownMenuItem
+                onClick={(e) => handleDeleteClick(measurement, e)}
+                className="text-red-600 focus:text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -271,19 +326,24 @@ export default function EnvironmentalMeasurementsPage() {
         title="Environmental Measurements"
         subtitle="Record and manage environmental measurements for rooms"
         actions={
-          <ThemeButton onClick={() => navigate('/environmental-measurements/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Measurement
-          </ThemeButton>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportAllPDF}
+              disabled={isExportingAllPDF}
+            >
+              <FileDown className="mr-2 h-4 w-4" />
+              {isExportingAllPDF ? 'Preparing PDF…' : 'Export all as PDF'}
+            </Button>
+            <PermissionGuard permission="environmental-measurement:create">
+              <ThemeButton onClick={() => navigate('/environmental-measurements/new')}>
+                <Plus className="mr-2 h-4 w-4" /> Add Measurement
+              </ThemeButton>
+            </PermissionGuard>
+          </div>
         }
-      >
-        <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
-          <TabsList>
-            <TabsTrigger value="all">All Measurements</TabsTrigger>
-            <TabsTrigger value="active">Active</TabsTrigger>
-            <TabsTrigger value="inactive">Inactive</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </PageHeader>
+      />
 
       <DataTable
         columns={columns}
@@ -293,15 +353,33 @@ export default function EnvironmentalMeasurementsPage() {
           pageIndex,
           limit,
           pageCount: Math.ceil(totalMeasurements / limit),
-          onPageChange: setPageIndex,
-          onPageSizeChange: setLimit,
+          onPageChange: (nextPageIndex) => {
+            updateSearchParams((next) => next.set('page', String(nextPageIndex + 1)));
+          },
+          onPageSizeChange: (nextLimit) => {
+            updateSearchParams((next) => {
+              next.set('limit', String(nextLimit));
+              next.set('page', '1');
+            });
+          },
           total: totalMeasurements
         }}
         filterFields={filterFields}
         activeFilters={activeFilters}
+        searchValue={searchTerm}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+        searchPlaceholder="Search by room name, room code, or remarks"
       />
+
+      {/* Hidden PDF target for "Export all as PDF" */}
+      <div
+        ref={targetRef}
+        style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+        aria-hidden="true"
+      >
+        <EnvironmentalMeasurementListPDFTemplate measurements={allMeasurementsForPDF} />
+      </div>
 
       <ConfirmDialog
         open={deleteDialogOpen}

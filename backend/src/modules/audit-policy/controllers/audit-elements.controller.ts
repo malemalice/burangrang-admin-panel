@@ -12,21 +12,23 @@ import {
 import { AuditElementsService } from '../services/audit-elements.service';
 import { CreateAuditElementDto } from '../dto/create-audit-element.dto';
 import { UpdateAuditElementDto } from '../dto/update-audit-element.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
-import { Roles } from '../../../shared/decorators/roles.decorator';
-import { Role } from '../../../shared/types/role.enum';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 import { AuditElementDto } from '../dto/audit-element.dto';
 
 @ApiTags('audit-elements')
 @ApiBearerAuth()
 @Controller('audit-elements')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class AuditElementsController {
   constructor(private readonly auditElementsService: AuditElementsService) {}
 
   @Post()
+  @Permissions('audit-policy:create')
   @ApiOperation({ summary: 'Create a new audit element' })
   @ApiResponse({
     status: 201,
@@ -34,7 +36,6 @@ export class AuditElementsController {
     type: AuditElementDto,
   })
   @ApiResponse({ status: 400, description: 'Bad request.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   create(
     @Body() createAuditElementDto: CreateAuditElementDto,
   ): Promise<AuditElementDto> {
@@ -42,13 +43,15 @@ export class AuditElementsController {
   }
 
   @Get()
+  @AllowOptionsBypass()
+  @Permissions('audit-policy:list')
   @ApiOperation({ summary: 'Get all audit elements' })
   @ApiResponse({
     status: 200,
     description: 'Return all audit elements.',
     type: [AuditElementDto],
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -56,6 +59,7 @@ export class AuditElementsController {
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
+    @Query('code') code?: string,
   ): Promise<{ data: AuditElementDto[]; meta: { total: number } }> {
     const pageNumber = page ? parseInt(page, 10) : undefined;
     const limitNumber = limit ? parseInt(limit, 10) : undefined;
@@ -69,10 +73,12 @@ export class AuditElementsController {
       sortOrder,
       isActive: isActiveBoolean,
       search,
+      code,
     });
   }
 
   @Get(':id')
+  @Permissions('audit-policy:read')
   @ApiOperation({ summary: 'Get an audit element by id' })
   @ApiResponse({
     status: 200,
@@ -80,13 +86,13 @@ export class AuditElementsController {
     type: AuditElementDto,
   })
   @ApiResponse({ status: 404, description: 'Audit element not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  
   findOne(@Param('id') id: string): Promise<AuditElementDto> {
     return this.auditElementsService.findOne(id);
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('audit-policy:update')
   @ApiOperation({ summary: 'Update an audit element' })
   @ApiResponse({
     status: 200,
@@ -102,7 +108,7 @@ export class AuditElementsController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('audit-policy:delete')
   @ApiOperation({ summary: 'Delete an audit element' })
   @ApiResponse({
     status: 200,
@@ -114,6 +120,7 @@ export class AuditElementsController {
   }
 
   @Get('code/:code')
+  @Permissions('audit-policy:read')
   @ApiOperation({ summary: 'Get an audit element by code' })
   @ApiResponse({
     status: 200,
@@ -121,7 +128,7 @@ export class AuditElementsController {
     type: AuditElementDto,
   })
   @ApiResponse({ status: 404, description: 'Audit element not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  
   findByCode(@Param('code') code: string): Promise<AuditElementDto> {
     return this.auditElementsService.findByCode(code);
   }

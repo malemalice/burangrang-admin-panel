@@ -24,7 +24,7 @@ import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 
 import { weightReportService, wasteSourceService, storageLocationService, wasteTypeService } from '../../services/wasteManagementService';
-import { CreateWeightReportData, WeightReport, UpdateWeightReportData, WasteSource, StorageLocation, WasteType, MonthEnum, PaginatedResponse } from '../../types/waste-management.types';
+import { CreateWeightReportData, WeightReport, UpdateWeightReportData, WasteSource, StorageLocation, WasteType, MonthEnum, PaginatedResponse, WeightReportStatusEnum } from '../../types/waste-management.types';
 
 const itemSchema = z.object({
   wasteTypeId: z.string().min(1, 'Waste type is required'),
@@ -38,13 +38,10 @@ const formSchema = z.object({
   sourceId: z.string().min(1, 'Waste source is required'),
   storageLocationId: z.string().min(1, 'Storage location is required'),
   reportDate: z.string().min(1, 'Report date is required'),
-  reportMonth: z.nativeEnum(MonthEnum, {
-    errorMap: () => ({ message: 'Please select a month' }),
-  }),
-  reportYear: z.preprocess((val) => (val === '' || val === undefined ? undefined : Number(val)), z.number().int().min(2000, 'Year must be valid')),
   submittedAt: z.string().min(1, 'Submission date is required'),
   reportDocumentUrl: z.string().optional(),
   isActive: z.boolean().default(true),
+  status: z.nativeEnum(WeightReportStatusEnum).optional(),
   items: z.array(itemSchema).optional(),
 });
 
@@ -70,11 +67,10 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
       sourceId: '',
       storageLocationId: '',
       reportDate: new Date().toISOString().split('T')[0],
-      reportMonth: MonthEnum.JAN,
-      reportYear: new Date().getFullYear(),
       submittedAt: new Date().toISOString().split('T')[0],
       reportDocumentUrl: '',
       isActive: true,
+      status: undefined,
       items: [],
     },
   });
@@ -115,11 +111,10 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
             sourceId: data.sourceId,
             storageLocationId: data.storageLocationId,
             reportDate: data.reportDate.split('T')[0],
-            reportMonth: data.reportMonth,
-            reportYear: data.reportYear,
             submittedAt: data.submittedAt.split('T')[0],
             reportDocumentUrl: data.reportDocumentUrl || '',
             isActive: data.isActive,
+            status: data.status,
             items: data.items?.map((item) => ({
               wasteTypeId: item.wasteTypeId,
               weight: item.weight,
@@ -140,6 +135,23 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
 
   const onSubmit = async (data: FormValues) => {
     setSaving(true);
+    form.clearErrors('items');
+
+    if (data.items && data.items.length > 0) {
+      const wasteTypeIds = data.items.map((i) => i.wasteTypeId).filter(Boolean);
+      const duplicateIndex = wasteTypeIds.findIndex((id, index) => wasteTypeIds.indexOf(id) !== index);
+      if (duplicateIndex >= 0) {
+        const duplicateId = wasteTypeIds[duplicateIndex];
+        const wasteTypeName = wasteTypes.find((wt) => wt.id === duplicateId)?.name || 'Unknown';
+        form.setError('items', {
+          type: 'manual',
+          message: `Item ${wasteTypeName} is inputed more then 1`,
+        });
+        setSaving(false);
+        return;
+      }
+    }
+
     try {
       const itemsWithOrder = data.items?.map((item, index) => ({
         wasteTypeId: item.wasteTypeId,
@@ -165,7 +177,11 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
       }
       navigate('/waste-management/weight-reports');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Operation failed');
+      const message = error.response?.data?.message || 'Operation failed';
+      toast.error(message);
+      if (error.response?.status === 409 && typeof message === 'string' && message.includes('inputed more then')) {
+        form.setError('items', { type: 'manual', message });
+      }
     } finally {
       setSaving(false);
     }
@@ -243,7 +259,7 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="reportDate"
@@ -256,47 +272,6 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
                           value={field.value}
                           onChange={field.onChange}
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <FormField
-                  control={form.control}
-                  name="reportMonth"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Month *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select month" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {Object.values(MonthEnum).map((m) => (
-                            <SelectItem key={m} value={m}>
-                              {m}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="reportYear"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Year *</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="YYYY" {...field} value={field.value ?? ''} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -349,6 +324,33 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
                   </FormItem>
                 )}
               />
+
+              {mode === 'edit' && (
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Report Status</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Object.values(WeightReportStatusEnum).map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </CardContent>
           </Card>
 
@@ -368,6 +370,11 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
               </Button>
             </CardHeader>
             <CardContent>
+              {form.formState.errors.items?.message && (
+                <div className="rounded-md bg-destructive/10 text-destructive text-sm px-3 py-2 mb-4">
+                  {form.formState.errors.items.message}
+                </div>
+              )}
               {fields.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   No items added yet. Click "Add Item" to start.

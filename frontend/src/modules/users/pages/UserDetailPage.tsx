@@ -6,6 +6,7 @@ import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import { Label } from '@/core/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -18,10 +19,13 @@ import {
 } from '@/core/components/ui/alert-dialog';
 import userService from '../services/userService';
 import type { User } from '@/core/lib/types';
+import { UserPermissionsManager } from '../components/UserPermissionsManager';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const UserDetailPage = () => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -98,6 +102,9 @@ const UserDetailPage = () => {
     );
   }
 
+  // Check if current user has permission to manage users
+  const canManagePermissions = hasPermission('user:update');
+
   return (
     <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
@@ -118,75 +125,92 @@ const UserDetailPage = () => {
           </div>
       </div>
 
-        <Card>
-          <CardHeader>
-          <CardTitle>User Information</CardTitle>
-          <CardDescription>View user details and permissions</CardDescription>
-          </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-500">Name</Label>
-              <div className="text-base">{user.name}</div>
-            </div>
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          {canManagePermissions && (
+            <TabsTrigger value="permissions">Permissions</TabsTrigger>
+          )}
+        </TabsList>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-500">Email</Label>
-              <div className="text-base">{user.email}</div>
-            </div>
+        <TabsContent value="overview">
+          <Card>
+            <CardHeader>
+            <CardTitle>User Information</CardTitle>
+            <CardDescription>View user details and permissions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-500">Name</Label>
+                  <div className="text-base">{user.name}</div>
+                </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-500">Role</Label>
-              <div className="text-base">{user.role}</div>
-            </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-500">Email</Label>
+                  <div className="text-base">{user.email}</div>
+                </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-500">Office</Label>
-              <div className="text-base">{user.office}</div>
-            </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-500">Role</Label>
+                  <div className="text-base">{user.role}</div>
+                </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-500">Department</Label>
-              <div className="text-base">{user.department || '-'}</div>
-            </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-500">Office</Label>
+                  <div className="text-base">{user.office}</div>
+                </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-500">Job Position</Label>
-              <div className="text-base">{user.position || '-'}</div>
-            </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-500">Department</Label>
+                  <div className="text-base">{user.department || '-'}</div>
+                </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-500">Status</Label>
-              <div>
-                <Badge variant={user.status === 'active' ? 'default' : 'destructive'}>
-                  {user.status}
-                </Badge>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-500">Job Position</Label>
+                  <div className="text-base">{user.position || '-'}</div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-500">Status</Label>
+                  <div>
+                    <Badge variant={user.status === 'active' ? 'default' : 'destructive'}>
+                      {user.status}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-500">Last Login</Label>
+                  <div className="text-base">
+                    {user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-500">Created At</Label>
+                  <div className="text-base">
+                    {new Date(user.createdAt).toLocaleString()}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-500">Updated At</Label>
+                  <div className="text-base">
+                    {new Date(user.updatedAt).toLocaleString()}
+                  </div>
+                </div>
               </div>
-            </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-500">Last Login</Label>
-              <div className="text-base">
-                {user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-500">Created At</Label>
-              <div className="text-base">
-                {new Date(user.createdAt).toLocaleString()}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-500">Updated At</Label>
-              <div className="text-base">
-                {new Date(user.updatedAt).toLocaleString()}
-            </div>
-            </div>
-              </div>
-          </CardContent>
-        </Card>
+        {canManagePermissions && userId && (
+          <TabsContent value="permissions">
+            <UserPermissionsManager userId={userId} userName={user.name} />
+          </TabsContent>
+        )}
+      </Tabs>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>

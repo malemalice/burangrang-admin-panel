@@ -5,6 +5,7 @@ import {
   PaginationParams,
   UserDTO,
   CreateUserDTO,
+  CreateGuestWorkerDTO,
   UpdateUserDTO 
 } from '../types/user.types';
 
@@ -14,6 +15,8 @@ const mapUserDtoToUser = (userDto: UserDTO): User => {
     id: userDto.id,
     name: `${userDto.firstName} ${userDto.lastName}`,
     email: userDto.email,
+    firstName: userDto.firstName,
+    lastName: userDto.lastName,
     roleId: userDto.roleId,
     officeId: userDto.officeId,
     departmentId: userDto.departmentId,
@@ -23,7 +26,9 @@ const mapUserDtoToUser = (userDto: UserDTO): User => {
     department: userDto.department?.name,
     position: userDto.jobPosition?.name,
     status: userDto.isActive ? 'active' : 'inactive',
+    isActive: userDto.isActive,
     lastLogin: userDto.lastLoginAt || undefined,
+    lastLoginAt: userDto.lastLoginAt ? new Date(userDto.lastLoginAt) : undefined,
     createdAt: userDto.createdAt,
     updatedAt: userDto.updatedAt
   };
@@ -85,6 +90,10 @@ const userService = {
         });
       }
 
+      if (params.options) {
+        queryParams.append('options', 'true');
+      }
+
       const response = await api.get(`/users?${queryParams.toString()}`);
       return {
         data: response.data.data.map(mapUserDtoToUser),
@@ -115,6 +124,18 @@ const userService = {
     } catch (error: any) {
       console.error('Error creating user:', error);
       const errorMessage = error.response?.data?.message || 'Failed to create user';
+      throw new Error(errorMessage);
+    }
+  },
+
+  // Create a guest worker (Guest role, random password; for work permit workers)
+  createGuestWorker: async (data: CreateGuestWorkerDTO): Promise<User> => {
+    try {
+      const response = await api.post('/users/guest-worker', data);
+      return mapUserDtoToUser(response.data);
+    } catch (error: any) {
+      console.error('Error creating guest worker:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to create worker';
       throw new Error(errorMessage);
     }
   },
@@ -151,6 +172,38 @@ const userService = {
       console.error(`Error sending reset password email to ${email}:`, error);
       const errorMessage = error.response?.data?.message || 'Failed to send reset password email';
       throw new Error(errorMessage);
+    }
+  },
+
+  // Get user permissions
+  getUserPermissions: async (userId: string): Promise<any[]> => {
+    try {
+      const response = await api.get(`/users/${userId}/permissions`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching permissions for user ${userId}:`, error);
+      throw error;
+    }
+  },
+
+  // Assign permissions to user
+  assignPermissions: async (userId: string, permissionNames: string[]): Promise<any[]> => {
+    try {
+      const response = await api.post(`/users/${userId}/permissions`, { permissionNames });
+      return response.data;
+    } catch (error) {
+      console.error(`Error assigning permissions to user ${userId}:`, error);
+      throw error;
+    }
+  },
+
+  // Remove permission from user
+  removePermission: async (userId: string, permissionName: string): Promise<void> => {
+    try {
+      await api.delete(`/users/${userId}/permissions/${permissionName}`);
+    } catch (error) {
+      console.error(`Error removing permission ${permissionName} from user ${userId}:`, error);
+      throw error;
     }
   }
 };

@@ -19,6 +19,7 @@ import { Prisma, GeneralStatusEnum, RiskMitigationRecord } from '@prisma/client'
 import { RemindersService } from '../../reminders/reminders.service';
 import {
   ReminderRepeatTypeEnum,
+  ReminderStatusEnum,
   ReminderTargetTypeEnum,
 } from '../../reminders/dto/reminder.dto';
 import { RiskMitigationDataDto, RiskMitigationRecordDto } from '../../risk-assessment/dto/risk-mitigation-data.dto';
@@ -31,6 +32,8 @@ interface FindAllOptions {
   limit?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  search?: string;
+  code?: string;
   isActive?: boolean;
   areaId?: string;
   status?: GeneralStatusEnum;
@@ -239,12 +242,20 @@ export class InspectionsService {
       limit = 10,
       sortBy = 'code',
       sortOrder = 'asc',
+      search,
+      code,
       isActive,
       areaId,
       status,
     } = options || {};
 
     const where: Prisma.InspectionWhereInput = {};
+
+    // Search / code filter: filter by inspection code (contains, case-insensitive)
+    const searchOrCode = (search?.trim() || code?.trim()) || undefined;
+    if (searchOrCode) {
+      where.code = { contains: searchOrCode, mode: 'insensitive' };
+    }
 
     if (isActive !== undefined) {
       where.isActive = isActive;
@@ -1200,15 +1211,14 @@ export class InspectionsService {
         where: {
           entity: 't_inspections',
           entityId: inspectionId,
-          status: 'PENDING', // Only cancel pending reminders
+          status: ReminderStatusEnum.PENDING,
         },
       });
 
-      // Cancel each reminder by updating status to CANCELLED
       for (const reminder of reminders) {
         await this.prisma.reminder.update({
           where: { id: reminder.id },
-          data: { status: 'CANCELLED' },
+          data: { status: ReminderStatusEnum.CANCELLED },
         });
       }
     } catch (error) {
@@ -1257,8 +1267,16 @@ export class InspectionsService {
     // Validate and sanitize sortBy
     const validatedSortBy = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
 
+    // Validate status is a valid GeneralStatusEnum before applying filter
+    const validStatus =
+      status && Object.values(GeneralStatusEnum).includes(status as GeneralStatusEnum)
+        ? (status as GeneralStatusEnum)
+        : undefined;
+
+    const trimmedSearch = typeof search === 'string' ? search.trim() : undefined;
+
     const where: Prisma.InspectionItemWhereInput = {
-      ...(status && { status }),
+      ...(validStatus && { status: validStatus }),
       ...(assignedDepartmentId && { assignedDepartmentId }),
       ...(assigneeId && { assigneeId }),
       ...(riskId && { riskId }),
@@ -1271,38 +1289,38 @@ export class InspectionsService {
           },
         },
       }),
-      ...(search && {
+      ...(trimmedSearch && trimmedSearch.length > 0 && {
         OR: [
           {
             risk: {
               OR: [
-                { name: { contains: search, mode: 'insensitive' } },
-                { code: { contains: search, mode: 'insensitive' } },
+                { name: { contains: trimmedSearch, mode: 'insensitive' } },
+                { code: { contains: trimmedSearch, mode: 'insensitive' } },
               ],
             },
           },
           {
             riskCategory: {
               OR: [
-                { name: { contains: search, mode: 'insensitive' } },
-                { code: { contains: search, mode: 'insensitive' } },
+                { name: { contains: trimmedSearch, mode: 'insensitive' } },
+                { code: { contains: trimmedSearch, mode: 'insensitive' } },
               ],
             },
           },
           {
             inspection: {
-              code: { contains: search, mode: 'insensitive' },
+              code: { contains: trimmedSearch, mode: 'insensitive' },
             },
           },
           {
             description: {
-              contains: search,
+              contains: trimmedSearch,
               mode: 'insensitive',
             },
           },
           {
             followUpNotes: {
-              contains: search,
+              contains: trimmedSearch,
               mode: 'insensitive',
             },
           },

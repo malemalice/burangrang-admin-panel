@@ -24,17 +24,19 @@ import { UpdateJobPositionDto } from './dto/update-job-position.dto';
 import { JobPositionDto } from './dto/job-position.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
-import { Roles } from '../../shared/decorators/roles.decorator';
-import { Role } from '../../shared/types/role.enum';
+import { PermissionsGuard } from '../../shared/guards/permissions.guard';
+import { Permissions } from '../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../shared/decorators/allow-options-bypass.decorator';
 
 @ApiTags('job-positions')
 @ApiBearerAuth()
 @Controller('job-positions')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class JobPositionsController {
   constructor(private readonly jobPositionsService: JobPositionsService) {}
 
   @Post()
+  @Permissions('job-position:create')
   @ApiOperation({ summary: 'Create a new job position' })
   @ApiBody({ type: CreateJobPositionDto })
   @ApiResponse({
@@ -44,7 +46,7 @@ export class JobPositionsController {
   })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
   @ApiResponse({ status: 409, description: 'Conflict - job position with this code already exists.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   create(
     @Body() createJobPositionDto: CreateJobPositionDto,
   ): Promise<JobPositionDto> {
@@ -52,6 +54,8 @@ export class JobPositionsController {
   }
 
   @Get()
+  @AllowOptionsBypass()
+  @Permissions('job-position:list')
   @ApiOperation({ summary: 'Get all job positions with pagination and filtering' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (starts from 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of items per page' })
@@ -59,6 +63,7 @@ export class JobPositionsController {
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Sort order' })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term for name or code' })
+  @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({
     status: 200,
     description: 'Return paginated list of job positions.',
@@ -78,7 +83,7 @@ export class JobPositionsController {
       },
     },
   })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -103,6 +108,7 @@ export class JobPositionsController {
   }
 
   @Get(':id')
+  @Permissions('job-position:read')
   @ApiOperation({ summary: 'Get a job position by ID' })
   @ApiParam({ name: 'id', description: 'Job Position ID', type: String })
   @ApiResponse({
@@ -111,12 +117,13 @@ export class JobPositionsController {
     type: JobPositionDto,
   })
   @ApiResponse({ status: 404, description: 'Job position not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  
   findOne(@Param('id') id: string): Promise<JobPositionDto> {
     return this.jobPositionsService.findOne(id);
   }
 
   @Patch(':id')
+  @Permissions('job-position:update')
   @ApiOperation({ summary: 'Update a job position' })
   @ApiParam({ name: 'id', description: 'Job Position ID', type: String })
   @ApiBody({ type: UpdateJobPositionDto })
@@ -127,7 +134,7 @@ export class JobPositionsController {
   })
   @ApiResponse({ status: 404, description: 'Job position not found.' })
   @ApiResponse({ status: 400, description: 'Bad request - validation error.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   update(
     @Param('id') id: string,
     @Body() updateJobPositionDto: UpdateJobPositionDto,
@@ -136,6 +143,7 @@ export class JobPositionsController {
   }
 
   @Delete(':id')
+  @Permissions('job-position:delete')
   @ApiOperation({ summary: 'Delete a job position' })
   @ApiParam({ name: 'id', description: 'Job Position ID', type: String })
   @ApiResponse({
@@ -143,7 +151,7 @@ export class JobPositionsController {
     description: 'The job position has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Job position not found.' })
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  
   remove(@Param('id') id: string): Promise<void> {
     return this.jobPositionsService.remove(id);
   }

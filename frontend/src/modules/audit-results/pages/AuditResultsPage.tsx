@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { 
@@ -38,6 +38,9 @@ import { normalizeAuditItem } from '@/modules/audit-schedules/utils/auditItemUti
 import uploadService from '@/modules/uploads/services/uploadService';
 import departmentService from '@/modules/master-data/services/departmentService';
 import { Department } from '@/modules/master-data/types/master-data.types';
+import approvalService from '@/modules/master-data/services/approvalService';
+import { ApprovalStatus } from '@/core/lib/types';
+import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 
 interface ImageUpload {
   id: string;
@@ -51,8 +54,8 @@ interface AuditItem {
   id: string;
   auditId: string;
   auditCriteriaId: string;
-  status: string;
-  compliantStatus: string;
+  status: GeneralStatusEnum;
+  compliantStatus: CompliantStatusEnum;
   evidence?: string;
   recommendation?: string;
   actionRealization?: string;
@@ -72,16 +75,15 @@ interface AuditItem {
 
 const AuditResultsPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [auditResults, setAuditResults] = useState<AuditResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [pageIndex, setPageIndex] = useState(0);
-  const [limit, setLimit] = useState(10);
   const [totalAuditResults, setTotalAuditResults] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [auditElements, setAuditElements] = useState<Array<{ value: string; label: string }>>([]);
   const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [formEntryMode, setFormEntryMode] = useState<'assessment' | 'update_action_item' | 'approval'>('assessment');
   const [selectedResult, setSelectedResult] = useState<AuditResult | null>(null);
   const [auditSchedule, setAuditSchedule] = useState<AuditSchedule | null>(null);
   const [auditClause, setAuditClause] = useState<AuditClause | null>(null);
@@ -116,7 +118,7 @@ const AuditResultsPage = () => {
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
-        const response = await departmentService.getDepartments({ page: 1, limit: 1000 });
+        const response = await departmentService.getDepartments({ page: 1, limit: 1000, options: true });
         setDepartments(response.data);
         // Create a map of department ID to name for quick lookup
         const map: Record<string, string> = {};
@@ -131,23 +133,24 @@ const AuditResultsPage = () => {
     fetchDepartments();
   }, []);
 
-  // Define filter fields
+  // Define filter fields (same component types as AuditSchedulesPage)
   const filterFields: FilterField[] = [
     {
       id: 'auditScheduleCode',
       label: 'Audit Schedule Code',
       type: 'text',
+      placeholder: 'Search by audit schedule code...',
     },
     {
       id: 'auditElementId',
       label: 'Audit Element',
-      type: 'select',
+      type: 'searchableSelect',
       options: auditElements,
     },
     {
       id: 'compliantStatus',
       label: 'Compliant Status',
-      type: 'select',
+      type: 'searchableSelect',
       options: COMPLIANT_STATUS_OPTIONS.map(option => ({
         label: option.label,
         value: option.value,
@@ -156,13 +159,76 @@ const AuditResultsPage = () => {
     {
       id: 'status',
       label: 'Status',
-      type: 'select',
+      type: 'searchableSelect',
       options: GENERAL_STATUS_OPTIONS.map(option => ({
         label: option.label,
         value: option.value,
       })),
     }
   ];
+
+  const pageIndex = useMemo(() => {
+    const raw = searchParams.get('page');
+    const page = raw ? Number(raw) : 1;
+    if (!Number.isFinite(page) || page <= 0) return 0;
+    return Math.floor(page) - 1;
+  }, [searchParams]);
+
+  const limit = useMemo(() => {
+    const raw = searchParams.get('limit');
+    const parsed = raw ? Number(raw) : 10;
+    if (!Number.isFinite(parsed) || parsed <= 0) return 10;
+    return Math.floor(parsed);
+  }, [searchParams]);
+
+  const searchTerm = useMemo(() => searchParams.get('search') ?? '', [searchParams]);
+
+  const activeFilters = useMemo(() => {
+    const filters: Record<string, { value: any; label: string }> = {};
+
+    const auditScheduleCode = searchParams.get('auditScheduleCode');
+    if (auditScheduleCode) {
+      filters.auditScheduleCode = { value: auditScheduleCode, label: auditScheduleCode };
+    }
+
+    const auditElementId = searchParams.get('auditElementId');
+    if (auditElementId) {
+      const elementOption = auditElements.find(opt => opt.value === auditElementId);
+      filters.auditElementId = {
+        value: auditElementId,
+        label: elementOption?.label || auditElementId,
+      };
+    }
+
+    const compliantStatus = searchParams.get('compliantStatus');
+    if (compliantStatus) {
+      const compliantOption = COMPLIANT_STATUS_OPTIONS.find(opt => opt.value === compliantStatus);
+      filters.compliantStatus = {
+        value: compliantStatus,
+        label: compliantOption?.label || compliantStatus,
+      };
+    }
+
+    const status = searchParams.get('status');
+    if (status) {
+      const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === status);
+      filters.status = {
+        value: status,
+        label: statusOption?.label || status,
+      };
+    }
+
+    return filters;
+  }, [searchParams, auditElements]);
+
+  const updateSearchParams = useCallback((
+    updater: (next: URLSearchParams) => void,
+    options: { replace?: boolean } = { replace: true }
+  ) => {
+    const next = new URLSearchParams(searchParams);
+    updater(next);
+    setSearchParams(next, options);
+  }, [searchParams, setSearchParams]);
 
   const fetchAuditResults = useCallback(async () => {
     setIsLoading(true);
@@ -172,9 +238,10 @@ const AuditResultsPage = () => {
         limit,
       };
 
-      // Add search term if exists
-      if (searchTerm) {
-        params.search = searchTerm;
+      // Add search term if exists (trim for API; input may contain spaces)
+      const searchTrimmed = searchTerm.trim();
+      if (searchTrimmed) {
+        params.search = searchTrimmed;
       }
 
       // Add filters
@@ -211,45 +278,40 @@ const AuditResultsPage = () => {
   }, [fetchAuditResults]);
 
   const handleSearch = (term: string) => {
-    setSearchTerm(term);
-    setPageIndex(0);
+    updateSearchParams((next) => {
+      if (term === '') {
+        next.delete('search');
+      } else {
+        next.set('search', term);
+      }
+      next.set('page', '1');
+    });
   };
 
   const handleApplyFilters = (filters: FilterValue[]) => {
-    const newActiveFilters: Record<string, { value: any; label: string }> = {};
-    
-    filters.forEach(filter => {
-      if (filter.id === 'status') {
-        const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === filter.value);
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: statusOption?.label || String(filter.value)
-        };
-      } else if (filter.id === 'compliantStatus') {
-        const compliantOption = COMPLIANT_STATUS_OPTIONS.find(opt => opt.value === filter.value);
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: compliantOption?.label || String(filter.value)
-        };
-      } else if (filter.id === 'auditElementId') {
-        const elementOption = auditElements.find(opt => opt.value === filter.value);
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: elementOption?.label || String(filter.value)
-        };
-      } else {
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: String(filter.value)
-        };
-      }
+    updateSearchParams((next) => {
+      // Clear known filter keys first
+      ['auditScheduleCode', 'auditElementId', 'compliantStatus', 'status'].forEach((k) => next.delete(k));
+
+      // Re-apply filters with values
+      filters.forEach((filter) => {
+        const value = filter.value;
+        if (value === undefined || value === null || value === '') return;
+        if (Array.isArray(value) && value.length === 0) return;
+        if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) return;
+
+        next.set(filter.id, String(value));
+      });
+
+      next.set('page', '1');
     });
-    
-    setActiveFilters(newActiveFilters);
-    setPageIndex(0); // Reset to first page on new filters
   };
 
-  const handleOpenForm = async (result: AuditResult) => {
+  const handleOpenForm = async (
+    result: AuditResult,
+    entryMode: 'assessment' | 'update_action_item' | 'approval' = 'assessment',
+  ) => {
+    setFormEntryMode(entryMode);
     setSelectedResult(result);
     setIsLoadingFormData(true);
     setIsFormDialogOpen(true);
@@ -303,11 +365,83 @@ const AuditResultsPage = () => {
 
   const handleCloseForm = () => {
     setIsFormDialogOpen(false);
+    setFormEntryMode('assessment');
     setSelectedResult(null);
     setAuditSchedule(null);
     setAuditClause(null);
     setAuditCriteria(null);
     setAuditItem(null);
+  };
+
+  const handleOpenApprovalForm = async (result: AuditResult) => {
+    // First fetch the audit item to get its ID and check status
+    try {
+      const auditResponse = await api.get(`/audits/${result.auditId}/items`, {
+        params: {
+          page: 1,
+          limit: 10000,
+        },
+      });
+      
+      if (auditResponse?.data?.data) {
+        const normalizedItems = auditResponse.data.data.map((item: any) => normalizeAuditItem(item));
+        const item = normalizedItems.find((item: any) => item.auditCriteriaId === result.auditCriteria.id);
+        
+        if (item) {
+          // Check if audit item status is WAITING_APPROVAL
+          if (item.status !== GeneralStatusEnum.WAITING_APPROVAL) {
+            toast.error('This audit item is not waiting for approval');
+            return;
+          }
+
+          // Check approval rights using the audit item ID
+          const response = await approvalService.checkApprovalRights(item.id, APPROVAL_ENTITIES.AUDIT_ITEM);
+          if (!response.canApprove) {
+            toast.error('You do not have permission to approve this audit item');
+            return;
+          }
+        } else {
+          toast.error('Audit item not found');
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check approval rights:', error);
+      toast.error('Failed to check approval rights');
+      return;
+    }
+    
+    await handleOpenForm(result, 'approval');
+  };
+
+  const handleApprove = async (status: ApprovalStatus, notes: string) => {
+    if (!selectedResult || !auditItem) return;
+
+    try {
+      setIsSubmitting(true);
+      
+      await approvalService.submitApproval({
+        dataId: auditItem.id,
+        entity: APPROVAL_ENTITIES.AUDIT_ITEM,
+        status,
+        notes,
+      });
+
+      toast.success(`Audit item ${status === ApprovalStatus.APPROVED ? 'approved' : 'rejected'} successfully`);
+      
+      // Refresh audit results
+      await fetchAuditResults();
+      
+      handleCloseForm();
+    } catch (error: unknown) {
+      console.error('Failed to submit approval:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+        : undefined;
+      toast.error(errorMessage || 'Failed to submit approval');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmitForm = async (data: {
@@ -319,6 +453,7 @@ const AuditResultsPage = () => {
     actionRealization?: string;
     dueDate: string;
     images: ImageUpload[];
+    status?: string;
   }) => {
     if (!selectedResult) return;
 
@@ -380,6 +515,7 @@ const AuditResultsPage = () => {
         dueDate: new Date(data.dueDate).toISOString(),
         order: auditCriteria?.order || 0,
         images: uploadedImageUrls,
+        ...(data.status ? { status: data.status } : {}),
       };
 
       if (auditItem) {
@@ -408,87 +544,113 @@ const AuditResultsPage = () => {
   };
 
   const getCompliantStatusBadge = (status: CompliantStatusEnum) => {
+    const badgeClass = "text-[10px] px-1.5 py-0 h-5 font-medium";
     switch (status) {
       case CompliantStatusEnum.COMPLY:
         return (
-          <Badge className="bg-green-100 text-green-800 border-green-800">
+          <Badge className={`${badgeClass} bg-green-100 text-green-800 border-green-800`}>
             Comply
           </Badge>
         );
       case CompliantStatusEnum.NOT_COMPLY_MAJOR:
         return (
-          <Badge className="bg-red-100 text-red-800 border-red-800">
-            Not Comply - Major
+          <Badge className={`${badgeClass} bg-red-100 text-red-800 border-red-800`}>
+            Major
           </Badge>
         );
       case CompliantStatusEnum.NOT_COMPLY_MINOR:
         return (
-          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-800">
-            Not Comply - Minor
+          <Badge className={`${badgeClass} bg-yellow-100 text-yellow-800 border-yellow-800`}>
+            Minor
           </Badge>
         );
       default:
         return (
-          <Badge variant="outline">
+          <Badge variant="outline" className={badgeClass}>
             {status}
           </Badge>
         );
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: GeneralStatusEnum | string) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
       [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
       [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'outline' },
       [GeneralStatusEnum.OPEN]: { label: 'Open', variant: 'secondary' },
-      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Approval', variant: 'secondary' },
+      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Verifying', variant: 'secondary' },
       [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
       [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
+      [GeneralStatusEnum.CLOSE]: { label: 'Close', variant: 'default' },
     };
 
-    const statusInfo = statusMap[status] || { label: status, variant: 'outline' };
+    const statusKey = String(status);
+    const statusInfo = statusMap[statusKey] || { label: statusKey, variant: 'outline' };
 
     return (
-      <Badge variant={statusInfo.variant}>
+      <Badge variant={statusInfo.variant} className="text-[10px] px-1.5 py-0 h-5 font-medium">
         {statusInfo.label}
       </Badge>
     );
   };
 
+  // Column width classes: fixed layout so table fits viewport (totals 100%)
+  // Department kept compact; actions column centered
+  const colCodeAndCompliant = 'w-[14%] min-w-0';
+  const colElementClause = 'w-[18%] min-w-0';
+  const colCriteria = 'w-[28%] min-w-0';
+  const colStatus = 'w-[8%] min-w-0';
+  const colDates = 'w-[11%] min-w-0';
+  const colDepartment = 'w-[10%] min-w-0';
+  const colActions = 'w-[11%] min-w-0 text-center justify-center';
+  const cellOverflow = 'min-w-0 overflow-hidden';
+
   const columns = [
     {
       id: 'auditScheduleCode',
-      header: 'Audit Schedule Code',
+      header: 'Schedule Code / Compliant',
+      headerClassName: colCodeAndCompliant,
+      cellClassName: cellOverflow,
       cell: (result: AuditResult) => (
-        <button
-          onClick={() => navigate(`/audit-schedules/${result.auditId}`)}
-          className="font-medium text-primary hover:underline focus:outline-none focus:underline"
-          aria-label={`View audit schedule ${result.auditScheduleCode}`}
-        >
-          {result.auditScheduleCode}
-        </button>
+        <div className="space-y-1">
+          <button
+            onClick={() => navigate(`/audit-schedules/${result.auditId}`, {
+              state: { returnTo: `${location.pathname}${location.search}` }
+            })}
+            className="block text-xs font-medium text-primary hover:underline focus:outline-none focus:underline text-left leading-tight"
+            aria-label={`View audit schedule ${result.auditScheduleCode}`}
+          >
+            {result.auditScheduleCode}
+          </button>
+          {getCompliantStatusBadge(result.compliantStatus)}
+        </div>
       ),
     },
     {
       id: 'auditElementClause',
       header: 'Element / Clause',
+      headerClassName: colElementClause,
+      cellClassName: cellOverflow,
       cell: (result: AuditResult) => {
         const element = result.auditElement;
         const clause = result.auditClause;
         
-        if (!element && !clause) return <div>N/A</div>;
+        if (!element && !clause) return <div className="text-xs text-muted-foreground">-</div>;
         
         return (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {element && (
-              <div className="font-semibold text-sm">
-                <span className="font-mono text-xs text-muted-foreground mr-1">{element.code}</span>
+              <div className="text-xs font-medium leading-tight" title={`${element.code} ${element.name}`}>
+                <span className="font-mono text-[10px] text-muted-foreground mr-1">{element.code}</span>
                 <span className="text-foreground">{element.name}</span>
               </div>
             )}
             {clause && (
-              <div className="text-sm text-muted-foreground pl-4 border-l-2 border-muted">
-                <span className="font-mono text-xs mr-1">{clause.code}</span>
+              <div 
+                className="text-xs text-muted-foreground pl-2 border-l border-muted leading-tight truncate"
+                title={`${clause.code} ${clause.name}`}
+              >
+                <span className="font-mono text-[10px] mr-1">{clause.code}</span>
                 <span>{clause.name}</span>
               </div>
             )}
@@ -499,74 +661,82 @@ const AuditResultsPage = () => {
     {
       id: 'auditCriteria',
       header: 'Audit Criteria',
+      headerClassName: colCriteria,
+      cellClassName: cellOverflow,
       cell: (result: AuditResult) => {
         const criteria = result.auditCriteria;
-        if (!criteria) return <div>N/A</div>;
+        if (!criteria) return <div className="text-xs text-muted-foreground">-</div>;
+        const fullText = `${criteria.code} - ${criteria.name}`;
         return (
-          <div>
-            <span className="font-mono text-xs text-muted-foreground">{criteria.code}</span>
-            <span className="mx-1">-</span>
-            <span>{criteria.name}</span>
+          <div className="min-w-0 w-full max-w-full" title={fullText}>
+            <span className="block truncate text-xs leading-tight">
+              <span className="font-mono text-[10px] text-muted-foreground">{criteria.code}</span>
+              <span className="mx-0.5">-</span>
+              <span>{criteria.name}</span>
+            </span>
           </div>
         );
       },
     },
     {
-      id: 'compliantStatus',
-      header: 'Compliant Status',
-      cell: (result: AuditResult) => getCompliantStatusBadge(result.compliantStatus),
-    },
-    {
-      id: 'status',
-      header: 'Status',
-      cell: (result: AuditResult) => getStatusBadge(result.status),
-    },
-    {
-      id: 'dates',
-      header: 'Created At / Due Date',
-      cell: (result: AuditResult) => (
-        <div className="space-y-1">
-          <div className="text-sm">
-            <span className="text-muted-foreground">Created: </span>
-            <span>{result.createdAt 
-              ? format(new Date(result.createdAt), 'dd MMM yyyy') 
-              : 'N/A'}</span>
-          </div>
-          <div className="text-sm">
-            <span className="text-muted-foreground">Due: </span>
-            <span>{result.dueDate 
-              ? format(new Date(result.dueDate), 'dd MMM yyyy') 
-              : 'N/A'}</span>
-          </div>
-        </div>
-      ),
-    },
-    {
       id: 'departments',
-      header: 'Department Assigned',
+      header: 'Department',
+      headerClassName: colDepartment,
+      cellClassName: 'min-w-0 overflow-hidden px-1',
       cell: (result: AuditResult) => {
         const departmentIds = result.departmentIds || [];
         if (departmentIds.length === 0) {
-          return <div className="text-muted-foreground">N/A</div>;
+          return <div className="text-muted-foreground text-xs">-</div>;
         }
         // Map department IDs to names, fallback to ID if name not found
         const departmentNames = departmentIds
           .map((id) => {
             const name = departmentMap[id];
-            return name || id; // Fallback to ID if name not in map yet
+            return name || id;
           })
-          .filter((name) => name) // Filter out any empty values
-          .join(', ');
+          .filter((name) => name);
+        
+        const displayText = departmentNames.join(', ');
         return (
-          <div className="text-sm">
-            {departmentNames || 'N/A'}
+          <div 
+            className="text-xs truncate w-full" 
+            title={displayText}
+          >
+            {displayText || '-'}
           </div>
         );
       },
     },
     {
+      id: 'status',
+      header: 'Status',
+      headerClassName: colStatus,
+      cellClassName: cellOverflow,
+      cell: (result: AuditResult) => getStatusBadge(result.status),
+    },
+    {
+      id: 'dates',
+      header: 'Created / Due',
+      headerClassName: colDates,
+      cellClassName: cellOverflow,
+      cell: (result: AuditResult) => (
+        <div className="space-y-0.5">
+          <div className="text-[10px] text-muted-foreground leading-tight">Created</div>
+          <div className="text-xs font-medium leading-tight tabular-nums">
+            {result.createdAt ? format(new Date(result.createdAt), 'dd-MM-yyyy') : '-'}
+          </div>
+          <div className="text-[10px] text-muted-foreground leading-tight pt-0.5">Due</div>
+          <div className="text-xs font-medium leading-tight tabular-nums">
+            {result.dueDate ? format(new Date(result.dueDate), 'dd-MM-yyyy') : '-'}
+          </div>
+        </div>
+      ),
+    },
+    {
       id: 'actions',
       header: 'Actions',
+      headerClassName: colActions,
+      cellClassName: 'min-w-0 overflow-visible',
       cell: (result: AuditResult) => {
         const isDraft = result.status === GeneralStatusEnum.DRAFT;
         const isOpen = result.status === GeneralStatusEnum.OPEN;
@@ -575,20 +745,20 @@ const AuditResultsPage = () => {
         const isRejected = result.status === GeneralStatusEnum.REJECTED;
 
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-0.5">
             {/* View button - always shown */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="sm"
                   onClick={() => navigate(`/audit-schedules/${result.auditId}/clauses/${result.auditClause.id}/criteria/${result.auditCriteria.id}`, {
-                    state: { returnTo: '/audit-results' }
+                    state: { returnTo: `${location.pathname}${location.search}` }
                   })}
-                  className="text-primary hover:text-primary hover:bg-primary/10"
+                  className="h-7 w-7 p-0 text-primary hover:text-primary hover:bg-primary/10"
                   aria-label={`View audit criteria ${result.auditCriteria.code}`}
                 >
-                  <Eye className="h-4 w-4" />
+                  <Eye className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -596,18 +766,18 @@ const AuditResultsPage = () => {
               </TooltipContent>
             </Tooltip>
 
-            {/* Assess button - shown when status is DRAFT or OPEN */}
-            {(isDraft || isOpen) && (
+            {/* Assess button - shown when status is DRAFT, OPEN, or REJECTED */}
+            {(isDraft || isOpen || isRejected) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    onClick={() => handleOpenForm(result)}
-                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    size="sm"
+                    onClick={() => handleOpenForm(result, 'assessment')}
+                    className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                     aria-label={`Assess audit criteria ${result.auditCriteria.code}`}
                   >
-                    <ClipboardCheck className="h-4 w-4" />
+                    <ClipboardCheck className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -616,42 +786,42 @@ const AuditResultsPage = () => {
               </Tooltip>
             )}
 
-            {/* Update button - shown when status is OPEN or WAITING_APPROVAL */}
-            {(isOpen || isWaitingApproval) && (
+            {/* Update Action Item button - shown when status is OPEN or REJECTED */}
+            {(isOpen || isRejected) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    onClick={() => handleOpenForm(result)}
-                    className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                    aria-label={`Update audit criteria ${result.auditCriteria.code}`}
+                    size="sm"
+                    onClick={() => handleOpenForm(result, 'update_action_item')}
+                    className="h-7 w-7 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                    aria-label={`Update action item for audit criteria ${result.auditCriteria.code}`}
                   >
-                    <Wrench className="h-4 w-4" />
+                    <Wrench className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Update</p>
+                  <p>Update Action Item</p>
                 </TooltipContent>
               </Tooltip>
             )}
 
-            {/* Verify button - shown when status is WAITING_APPROVAL */}
+            {/* Approve button - shown when status is WAITING_APPROVAL */}
             {isWaitingApproval && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    onClick={() => handleOpenForm(result)}
-                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                    aria-label={`Verify audit criteria ${result.auditCriteria.code}`}
+                    size="sm"
+                    onClick={() => handleOpenApprovalForm(result)}
+                    className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                    aria-label={`Approve audit criteria ${result.auditCriteria.code}`}
                   >
-                    <CheckCircle2 className="h-4 w-4" />
+                    <CheckCircle2 className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Verify</p>
+                  <p>Approve</p>
                 </TooltipContent>
               </Tooltip>
             )}
@@ -690,18 +860,34 @@ const AuditResultsPage = () => {
         columns={columns}
         data={auditResults}
         isLoading={isLoading}
+        tableClassName="table-fixed w-full text-xs"
+        tableContainerClassName="min-w-0 overflow-x-hidden"
+        tableHeaderClassName="h-8 px-2 text-xs"
+        tableCellClassName="p-2 text-xs"
+        stickyHeader
         pagination={{
           pageIndex,
           limit,
           pageCount: Math.ceil(totalAuditResults / limit),
-          onPageChange: setPageIndex,
-          onPageSizeChange: setLimit,
+          onPageChange: (nextPageIndex) => {
+            updateSearchParams((next) => {
+              next.set('page', String(nextPageIndex + 1));
+            });
+          },
+          onPageSizeChange: (nextLimit) => {
+            updateSearchParams((next) => {
+              next.set('limit', String(nextLimit));
+              next.set('page', '1');
+            });
+          },
           total: totalAuditResults
         }}
         filterFields={filterFields}
         activeFilters={activeFilters}
+        searchValue={searchTerm}
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
+        searchPlaceholder="Search by code, criteria, clause, or element name..."
       />
 
       {/* Audit Item Form Dialog */}
@@ -712,11 +898,25 @@ const AuditResultsPage = () => {
       }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Assess Audit Criteria</DialogTitle>
+            <DialogTitle>
+              {formEntryMode === 'update_action_item'
+                ? 'Update Action Item'
+                : formEntryMode === 'approval'
+                  ? 'Approve Audit Item'
+                  : 'Assess Audit Criteria'}
+            </DialogTitle>
             <DialogDescription>
-              {selectedResult && auditCriteria 
-                ? `Assess criteria: ${auditCriteria.name}`
-                : 'Assess audit criteria'}
+              {selectedResult && auditCriteria
+                ? formEntryMode === 'update_action_item'
+                  ? `Update action item for criteria: ${auditCriteria.name}`
+                  : formEntryMode === 'approval'
+                    ? `Review and approve criteria: ${auditCriteria.name}`
+                    : `Assess criteria: ${auditCriteria.name}`
+                : formEntryMode === 'update_action_item'
+                  ? 'Update action item'
+                  : formEntryMode === 'approval'
+                    ? 'Review and approve audit item'
+                    : 'Assess audit criteria'}
             </DialogDescription>
           </DialogHeader>
           {isLoadingFormData ? (
@@ -735,6 +935,7 @@ const AuditResultsPage = () => {
               auditSchedule={auditSchedule}
               auditItem={auditItem ? {
                 id: auditItem.id,
+                status: auditItem.status,
                 compliantStatus: auditItem.compliantStatus,
                 departmentIds: auditItem.departmentIds || [],
                 userIds: auditItem.userIds || [],
@@ -747,6 +948,10 @@ const AuditResultsPage = () => {
               onSubmit={handleSubmitForm}
               onCancel={handleCloseForm}
               isSubmitting={isSubmitting}
+              entryMode={formEntryMode}
+              mode={formEntryMode === 'approval' ? 'approval' : 'edit'}
+              onApprove={formEntryMode === 'approval' ? handleApprove : undefined}
+              auditId={selectedResult.auditId}
             />
           ) : null}
         </DialogContent>

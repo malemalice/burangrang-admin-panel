@@ -17,20 +17,40 @@ import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Switch } from '@/core/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/core/components/ui/select';
 import { Loader2 } from 'lucide-react';
 
 import { waterQualityParameterService } from '../../services/wasteManagementService';
-import { CreateWaterQualityParameterData, WaterQualityParameter, UpdateWaterQualityParameterData } from '../../types/waste-management.types';
+import {
+  CreateWaterQualityParameterData,
+  WaterQualityParameter,
+  UpdateWaterQualityParameterData,
+  WaterQualityParameterCategoryEnum,
+} from '../../types/waste-management.types';
+
+const CATEGORY_OPTIONS = Object.values(WaterQualityParameterCategoryEnum);
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   code: z.string().min(1, 'Code is required'),
+  category: z.nativeEnum(WaterQualityParameterCategoryEnum),
   unit: z.string().min(1, 'Unit is required'),
+  displayOrder: z.preprocess(
+    (val) => (val === '' || val === undefined ? undefined : Number(val)),
+    z.number().int().optional(),
+  ),
   standardLimit: z.preprocess((val) => (val === '' || val === undefined ? undefined : Number(val)), z.number().optional()),
   regulatoryLimit: z.preprocess((val) => (val === '' || val === undefined ? undefined : Number(val)), z.number().optional()),
   testMethod: z.string().optional(),
   description: z.string().optional(),
   isActive: z.boolean().default(true),
+  dateSampleTaken: z.string().min(1, 'Date sample taken is required'),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -50,12 +70,15 @@ export default function WaterQualityParameterForm({ mode }: WaterQualityParamete
     defaultValues: {
       name: '',
       code: '',
+      category: WaterQualityParameterCategoryEnum.CHEMISTRY,
       unit: '',
+      displayOrder: undefined,
       standardLimit: undefined,
       regulatoryLimit: undefined,
       testMethod: '',
       description: '',
       isActive: true,
+      dateSampleTaken: '',
     },
   });
 
@@ -69,12 +92,15 @@ export default function WaterQualityParameterForm({ mode }: WaterQualityParamete
           form.reset({
             name: data.name,
             code: data.code,
+            category: data.category ?? WaterQualityParameterCategoryEnum.CHEMISTRY,
             unit: data.unit,
+            displayOrder: data.displayOrder ?? undefined,
             standardLimit: data.standardLimit,
             regulatoryLimit: data.regulatoryLimit,
             testMethod: data.testMethod || '',
             description: data.description || '',
             isActive: data.isActive,
+            dateSampleTaken: data.dateSampleTaken ? data.dateSampleTaken.split('T')[0] : '',
           });
         } catch (error) {
           toast.error('Failed to fetch data');
@@ -90,8 +116,10 @@ export default function WaterQualityParameterForm({ mode }: WaterQualityParamete
   const onSubmit = async (data: FormValues) => {
     setSaving(true);
     try {
+      // Backend expects full ISO 8601 for dateSampleTaken (date input gives YYYY-MM-DD only)
       const submitData: CreateWaterQualityParameterData | UpdateWaterQualityParameterData = {
         ...data,
+        dateSampleTaken: data.dateSampleTaken ? `${data.dateSampleTaken}T00:00:00.000Z` : undefined,
       };
 
       if (mode === 'create') {
@@ -126,10 +154,23 @@ export default function WaterQualityParameterForm({ mode }: WaterQualityParamete
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="name"
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="dateSampleTaken"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date Sample Taken *</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="name"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Name *</FormLabel>
@@ -148,6 +189,51 @@ export default function WaterQualityParameterForm({ mode }: WaterQualityParamete
                     <FormLabel>Code *</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter code" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category *</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {CATEGORY_OPTIONS.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {value.charAt(0) + value.slice(1).toLowerCase()}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="displayOrder"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Display Order</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder="Order"
+                        value={field.value ?? ''}
+                        onChange={(e) =>
+                          field.onChange(e.target.value === '' ? undefined : Number(e.target.value))
+                        }
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

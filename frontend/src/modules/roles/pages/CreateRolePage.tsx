@@ -17,8 +17,15 @@ import {
 } from '@/core/components/ui/card';
 import { Checkbox } from '@/core/components/ui/checkbox';
 import roleService from '../services/roleService';
-import { CreateRoleDTO } from '../types/role.types';
+import { CreateRoleDTO, DataLevel } from '../types/role.types';
 import { Permission } from '@/core/lib/types';
+
+const DATA_LEVEL_OPTIONS: { value: DataLevel; label: string }[] = [
+  { value: 'SELF', label: 'Self' },
+  { value: 'DEPARTMENT', label: 'Department' },
+  { value: 'SUPER', label: 'Super' },
+];
+import { groupPermissionsByResource } from '../utils/groupPermissions';
 import { Badge } from '@/core/components/ui/badge';
 import {
   Select,
@@ -40,6 +47,7 @@ const CreateRolePage = () => {
     description: '',
     permissions: [],
     isActive: true,
+    dataLevel: 'SUPER',
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -100,6 +108,10 @@ const CreateRolePage = () => {
 
   const handleStatusChange = (value: string) => {
     setFormData(prev => ({ ...prev, isActive: value === 'active' }));
+  };
+
+  const handleDataLevelChange = (value: DataLevel) => {
+    setFormData(prev => ({ ...prev, dataLevel: value }));
   };
 
   const validateForm = (): boolean => {
@@ -236,8 +248,28 @@ const CreateRolePage = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dataLevel">Data Level</Label>
+              <Select
+                value={formData.dataLevel ?? 'SUPER'}
+                onValueChange={(v) => handleDataLevelChange(v as DataLevel)}
+              >
+                <SelectTrigger id="dataLevel">
+                  <SelectValue placeholder="Select data level" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DATA_LEVEL_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500">Data access scope for users with this role (Self, Department, or Super)</p>
+            </div>
             
-            <div className="space-y-3">
+            <div className="space-y-4">
               <Label>Permissions</Label>
               {isLoadingPermissions ? (
                 <div className="flex justify-center py-4">
@@ -246,40 +278,53 @@ const CreateRolePage = () => {
               ) : permissions.length === 0 ? (
                 <p className="text-sm text-gray-500">No permissions available.</p>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border rounded-md p-4">
-                  {permissions.map(permission => {
-                    const isDefault = roleService.isDefaultPermission(permission.name, defaultPermissions);
-                    return (
-                    <div key={permission.id} className="flex items-start space-x-3">
-                      <Checkbox
-                        id={`permission-${permission.id}`}
-                          checked={(formData.permissions || []).includes(permission.id)}
-                        onCheckedChange={(checked) => 
-                          handlePermissionChange(permission.id, checked === true)
-                        }
-                          disabled={isDefault}
-                      />
-                      <div className="space-y-1">
-                        <Label
-                          htmlFor={`permission-${permission.id}`}
-                            className={`font-medium cursor-pointer ${isDefault ? 'text-gray-400' : ''}`}
-                        >
-                            <span className="flex items-center gap-2">
-                          {permission.name || 'Unknown Permission'}
-                              {isDefault && (
-                                <Badge variant="secondary" className="text-xs">
-                                  Default
-                                </Badge>
-                              )}
-                            </span>
-                        </Label>
-                        {permission.description && (
-                          <p className="text-xs text-gray-500">{permission.description}</p>
-                        )}
-                      </div>
-                    </div>
-                    );
-                  })}
+                <div className="space-y-4">
+                  {groupPermissionsByResource(permissions).map(group => (
+                    <Card key={group.groupKey} className="border-muted/50">
+                      <CardHeader className="py-3 px-4">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                          {group.groupLabel}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0 px-4 pb-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {group.permissions.map(permission => {
+                            const isDefault = roleService.isDefaultPermission(permission.name, defaultPermissions);
+                            return (
+                              <div key={permission.id} className="flex items-start space-x-3">
+                                <Checkbox
+                                  id={`permission-${permission.id}`}
+                                  checked={(formData.permissions || []).includes(permission.id)}
+                                  onCheckedChange={(checked) =>
+                                    handlePermissionChange(permission.id, checked === true)
+                                  }
+                                  disabled={isDefault}
+                                />
+                                <div className="space-y-1">
+                                  <Label
+                                    htmlFor={`permission-${permission.id}`}
+                                    className={`font-medium cursor-pointer ${isDefault ? 'text-gray-400' : ''}`}
+                                  >
+                                    <span className="flex items-center gap-2">
+                                      {permission.name || 'Unknown Permission'}
+                                      {isDefault && (
+                                        <Badge variant="secondary" className="text-xs">
+                                          Default
+                                        </Badge>
+                                      )}
+                                    </span>
+                                  </Label>
+                                  {permission.description && (
+                                    <p className="text-xs text-gray-500">{permission.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               )}
             </div>

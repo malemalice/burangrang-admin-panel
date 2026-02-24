@@ -294,7 +294,7 @@ export class ManHoursService {
 
     // Calculate totals
     const totalStudentHour = rows
-      .filter(r => r.group === 'STUDENT')
+      .filter(r => r.group === ManHourGroupEnum.STUDENT)
       .reduce((sum, r) => sum + r.yearlyTotal, 0);
 
     const totalAccumulationStudentHour = rows.reduce((sum, r) => sum + r.yearlyTotal, 0);

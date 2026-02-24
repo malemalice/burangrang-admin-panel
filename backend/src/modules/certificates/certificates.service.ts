@@ -2,7 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
-import { Prisma, CertificateTypeEnum } from '@prisma/client';
+import { DataScopeService } from '../../shared/services/data-scope.service';
+import { UserContext } from '../../shared/types/user-context';
+import {
+    CertificateRenewalStatusEnum,
+    CertificateTypeEnum,
+    Prisma,
+} from '@prisma/client';
 import { CreateCertificateCategoryDto } from './dto/create-certificate-category.dto';
 import { UpdateCertificateCategoryDto } from './dto/update-certificate-category.dto';
 import { CertificateCategoryDto } from './dto/certificate-category.dto';
@@ -16,8 +22,9 @@ import { CertificateRenewalDto } from './dto/certificate-renewal.dto';
 import { CertificateReminderDto } from './dto/certificate-reminder.dto';
 import { RemindersService } from '../reminders/reminders.service';
 import {
-  ReminderRepeatTypeEnum,
-  ReminderTargetTypeEnum,
+    ReminderRepeatTypeEnum,
+    ReminderStatusEnum,
+    ReminderTargetTypeEnum,
 } from '../reminders/dto/reminder.dto';
 
 @Injectable()
@@ -46,6 +53,7 @@ export class CertificatesService {
         private prisma: PrismaService,
         private errorHandler: ErrorHandlingService,
         private dtoMapper: DtoMapperService,
+        private dataScopeService: DataScopeService,
         private remindersService: RemindersService,
     ) {
         // Initialize mappers
@@ -279,13 +287,13 @@ export class CertificatesService {
                 department,
             );
 
-            // Validate equipment name for equipment certificates
+            // Validate equipment name for equipment certificates (type from category)
             const equipmentTypes = [
                 'EQUIPMENT_CALIBRATION',
                 'EQUIPMENT_INSTALLATION',
                 'EQUIPMENT_OPERATIONAL_PERMIT',
             ];
-            if (equipmentTypes.includes(createCertificateDto.certificateType)) {
+            if (equipmentTypes.includes(category.certificateType)) {
                 if (!createCertificateDto.equipmentName && !createCertificateDto.equipmentId) {
                     this.errorHandler.throwBadRequest('Equipment Name is required for equipment certificates');
                 }
@@ -328,59 +336,77 @@ export class CertificatesService {
     }
 
     private async createChainedReminders(certificate: any, userId: string) {
+        // Validate user exists before creating reminders
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+        });
+
+        if (!user) {
+            console.warn(`User ${userId} not found, skipping reminder creation for certificate ${certificate.id}`);
+            return;
+        }
+
         const validityDate = new Date(certificate.validityDate);
         const now = new Date();
+        const reminderDays = certificate.reminderDays || 30;
         const certificateTitle = certificate.certificateName || certificate.certificateNumber;
 
-        // Calculate thresholds
-        const oneMonthBefore = new Date(validityDate);
-        oneMonthBefore.setMonth(validityDate.getMonth() - 1);
+        if (validityDate <= now || reminderDays < 1) {
+            return;
+        }
+
+        const reminderStart = new Date(validityDate);
+        reminderStart.setDate(validityDate.getDate() - reminderDays);
+
+        const oneWeekBefore = new Date(validityDate);
+        oneWeekBefore.setDate(validityDate.getDate() - 7);
 
         const oneDayBefore = new Date(validityDate);
         oneDayBefore.setDate(validityDate.getDate() - 1);
 
-        // 1. Monthly Reminder: > 1 month remaining
-        // Repeats monthly until 1 month before expiry
-        if (oneMonthBefore > now) {
-            // Ensure remindAt is in future (e.g., +1 hour from now for safety, or tomorrow)
-            // Strategy: Start reminder cycle soon, repeat monthly
-            const startMonthly = new Date(now);
-            startMonthly.setHours(startMonthly.getHours() + 1);
+        const getNextHourFromNow = () => {
+            const date = new Date(now);
+            date.setHours(date.getHours() + 1);
+            return date;
+        };
 
-            await this.remindersService.create(
-                {
-                    targetType: ReminderTargetTypeEnum.USER,
-                    targetId: userId,
-                    message: `Certificate "${certificateTitle}" will expire on ${validityDate.toLocaleDateString()} (Monthly Check)`,
-                    remindAt: startMonthly.toISOString(),
-                    repeatType: ReminderRepeatTypeEnum.MONTHLY,
-                    repeatUntil: oneMonthBefore.toISOString(),
-                    entity: 't_certificates',
-                    entityId: certificate.id,
-                },
-                userId,
-            );
+        // 1. Monthly Reminder: when reminder window is longer than 30 days
+        // Repeats monthly from reminderStart until 7 days before expiry
+        if (reminderDays > 30) {
+            const monthlyEnd = oneWeekBefore;
+            const monthlyStart = reminderStart > now ? reminderStart : getNextHourFromNow();
+
+            if (monthlyEnd > monthlyStart) {
+                await this.remindersService.create(
+                    {
+                        targetType: ReminderTargetTypeEnum.USER,
+                        targetId: userId,
+                        message: `Certificate "${certificateTitle}" will expire on ${validityDate.toLocaleDateString()} (Monthly Check)`,
+                        remindAt: monthlyStart.toISOString(),
+                        repeatType: ReminderRepeatTypeEnum.MONTHLY,
+                        repeatUntil: monthlyEnd.toISOString(),
+                        entity: 't_certificates',
+                        entityId: certificate.id,
+                    },
+                    userId,
+                );
+            }
         }
 
-        // 2. Weekly Reminder: < 1 month remaining
-        // Repeats weekly from (Validity - 1 Month) until (Validity - 1 Day)
-        if (oneDayBefore > now) {
-            let startWeekly = new Date(oneMonthBefore);
+        // 2. Weekly Reminder: for reminder window longer than 7 days
+        // - >30 days: starts at 7 days before expiry (after monthly window)
+        // - 8..30 days: starts at reminderStart
+        if (reminderDays > 7) {
+            const weeklyBaseStart = reminderDays > 30 ? oneWeekBefore : reminderStart;
+            const weeklyStart = weeklyBaseStart > now ? weeklyBaseStart : getNextHourFromNow();
 
-            // If we are already past the 1-month mark, start weekly reminder soon
-            if (startWeekly <= now) {
-                startWeekly = new Date(now);
-                startWeekly.setHours(startWeekly.getHours() + 1);
-            }
-
-            // Only create if repeatUntil (oneDayBefore) is after startWeekly
-            if (oneDayBefore > startWeekly) {
+            if (oneDayBefore > weeklyStart) {
                 await this.remindersService.create(
                     {
                         targetType: ReminderTargetTypeEnum.USER,
                         targetId: userId,
                         message: `Certificate "${certificateTitle}" expires soon! Due: ${validityDate.toLocaleDateString()} (Weekly Warning)`,
-                        remindAt: startWeekly.toISOString(),
+                        remindAt: weeklyStart.toISOString(),
                         repeatType: ReminderRepeatTypeEnum.WEEKLY,
                         repeatUntil: oneDayBefore.toISOString(),
                         entity: 't_certificates',
@@ -391,37 +417,50 @@ export class CertificatesService {
             }
         }
 
-        // 3. Daily Reminder: < 1 day remaining
-        // Repeats daily from (Validity - 1 Day) until Validity
-        if (validityDate > now) {
-            let startDaily = new Date(oneDayBefore);
+        // 3. Daily Reminder
+        // - <=7 days: starts at reminderStart
+        // - >7 days: starts at 1 day before expiry
+        const dailyBaseStart = reminderDays <= 7 ? reminderStart : oneDayBefore;
+        const dailyStart = dailyBaseStart > now ? dailyBaseStart : getNextHourFromNow();
 
-            // If we are already past the 1-day mark, start daily reminder soon
-            if (startDaily <= now) {
-                startDaily = new Date(now);
-                startDaily.setHours(startDaily.getHours() + 1);
-            }
-
-            // Only create if validityDate is after startDaily
-            if (validityDate > startDaily) {
-                await this.remindersService.create(
-                    {
-                        targetType: ReminderTargetTypeEnum.USER,
-                        targetId: userId,
-                        message: `URGENT: Certificate "${certificateTitle}" expires on ${validityDate.toLocaleDateString()} (Daily Alert)`,
-                        remindAt: startDaily.toISOString(),
-                        repeatType: ReminderRepeatTypeEnum.DAILY,
-                        repeatUntil: validityDate.toISOString(),
-                        entity: 't_certificates',
-                        entityId: certificate.id,
-                    },
-                    userId,
-                );
-            }
+        if (validityDate > dailyStart) {
+            await this.remindersService.create(
+                {
+                    targetType: ReminderTargetTypeEnum.USER,
+                    targetId: userId,
+                    message: `URGENT: Certificate "${certificateTitle}" expires on ${validityDate.toLocaleDateString()} (Daily Alert)`,
+                    remindAt: dailyStart.toISOString(),
+                    repeatType: ReminderRepeatTypeEnum.DAILY,
+                    repeatUntil: validityDate.toISOString(),
+                    entity: 't_certificates',
+                    entityId: certificate.id,
+                },
+                userId,
+            );
         }
     }
 
-    async findAll(options?: FindCertificatesOptions): Promise<{
+    /**
+     * Ensure current user can access the certificate (data-level). Throws 403 if not.
+     */
+    private async ensureCanAccessCertificate(
+        id: string,
+        userContext: UserContext | undefined,
+    ): Promise<void> {
+        const certificate = await this.prisma.certificate.findFirst({
+            where: { id, deletedAt: null },
+            select: { createdBy: true, personnelId: true, departmentId: true },
+        });
+        this.errorHandler.throwIfNotFoundById('Certificate', id, certificate);
+        if (!this.dataScopeService.canAccessRecord(userContext, 'Certificate', certificate)) {
+            this.errorHandler.throwForbidden('You do not have access to this record');
+        }
+    }
+
+    async findAll(
+        options?: FindCertificatesOptions,
+        userContext?: UserContext,
+    ): Promise<{
         data: CertificateDto[];
         meta: { total: number; page: number; limit: number };
     }> {
@@ -436,6 +475,7 @@ export class CertificatesService {
             certificateType,
             departmentId,
             personnelId,
+            personnelName,
             expired,
             expiringSoon,
         } = options || {};
@@ -452,6 +492,9 @@ export class CertificatesService {
                     { certificateName: { contains: searchTerm, mode: 'insensitive' } },
                     { personnelName: { contains: searchTerm, mode: 'insensitive' } },
                     { equipmentName: { contains: searchTerm, mode: 'insensitive' } },
+                    // Add search in personnel relation
+                    { personnel: { firstName: { contains: searchTerm, mode: 'insensitive' } } },
+                    { personnel: { lastName: { contains: searchTerm, mode: 'insensitive' } } },
                 ];
             }
         }
@@ -465,7 +508,7 @@ export class CertificatesService {
         }
 
         if (certificateType) {
-            where.certificateType = certificateType;
+            where.category = { certificateType };
         }
 
         if (departmentId) {
@@ -476,29 +519,47 @@ export class CertificatesService {
             where.personnelId = personnelId;
         }
 
-        // Filter expired certificates
-        if (expired === true) {
-            where.validityDate = {
-                lt: new Date(),
-            };
+        if (personnelName) {
+            const nameTerm = personnelName.trim();
+            if (nameTerm.length > 0) {
+                where.personnelName = { contains: nameTerm, mode: 'insensitive' };
+            }
         }
 
-        // Filter expiring soon certificates
-        if (expiringSoon === true) {
-            const now = new Date();
-            const reminderDays = 30; // Default reminder days
-            const futureDate = new Date();
-            futureDate.setDate(now.getDate() + reminderDays);
+        // Filter expired and expiring soon certificates
+        const now = new Date();
+        const reminderDays = 30; // Default reminder days
+        const futureDate = new Date();
+        futureDate.setDate(now.getDate() + reminderDays);
 
+        if (expired === true && expiringSoon === true) {
+            // Both filters: Use OR condition
+            where.OR = [
+                ...(where.OR || []),
+                { validityDate: { lt: now } },
+                { validityDate: { gte: now, lte: futureDate } },
+            ];
+        } else if (expired === true) {
+            where.validityDate = {
+                lt: now,
+            };
+        } else if (expiringSoon === true) {
             where.validityDate = {
                 gte: now,
                 lte: futureDate,
             };
         }
 
+        // Data-level scope: hide rows user is not allowed to see
+        const scopeWhere = this.dataScopeService.buildWhereForList(userContext, 'Certificate', where);
+        const finalWhere =
+            scopeWhere && Object.keys(scopeWhere).length > 0
+                ? { AND: [where, scopeWhere] }
+                : where;
+
         const [certificates, total] = await Promise.all([
             this.prisma.certificate.findMany({
-                where,
+                where: finalWhere,
                 include: {
                     category: true,
                     department: true,
@@ -511,7 +572,7 @@ export class CertificatesService {
                 skip: (page - 1) * limit,
                 take: limit,
             }),
-            this.prisma.certificate.count({ where }),
+            this.prisma.certificate.count({ where: finalWhere }),
         ]);
 
         return this.certificatePaginatedMapper({
@@ -520,7 +581,8 @@ export class CertificatesService {
         });
     }
 
-    async findOne(id: string): Promise<CertificateDto> {
+    async findOne(id: string, userContext?: UserContext): Promise<CertificateDto> {
+        await this.ensureCanAccessCertificate(id, userContext);
         const certificate = await this.prisma.certificate.findFirst({
             where: {
                 id,
@@ -552,7 +614,10 @@ export class CertificatesService {
     async update(
         id: string,
         updateCertificateDto: UpdateCertificateDto,
+        updatedBy?: string,
+        userContext?: UserContext,
     ): Promise<CertificateDto> {
+        await this.ensureCanAccessCertificate(id, userContext);
         const existingCertificate = await this.prisma.certificate.findFirst({
             where: {
                 id,
@@ -563,14 +628,17 @@ export class CertificatesService {
         this.errorHandler.throwIfNotFoundById('Certificate', id, existingCertificate);
 
         return this.errorHandler.safeExecute(async () => {
-            const updateData: any = { ...updateCertificateDto };
-
-            if (updateCertificateDto.issuedDate) {
-                updateData.issuedDate = new Date(updateCertificateDto.issuedDate);
-            }
+            let shouldUpdateReminders = false;
 
             if (updateCertificateDto.validityDate) {
-                updateData.validityDate = new Date(updateCertificateDto.validityDate);
+                const newValidityDate = new Date(updateCertificateDto.validityDate);
+                if (newValidityDate.getTime() !== existingCertificate.validityDate.getTime()) {
+                    shouldUpdateReminders = true;
+                }
+            }
+
+            if (updateCertificateDto.reminderDays !== undefined && updateCertificateDto.reminderDays !== existingCertificate.reminderDays) {
+                shouldUpdateReminders = true;
             }
 
             // Validate category if provided
@@ -602,7 +670,7 @@ export class CertificatesService {
                 );
             }
 
-            // Validate personnel if provided
+            // Validate personnel if provided (non-empty)
             if (updateCertificateDto.personnelId) {
                 const personnel = await this.prisma.user.findUnique({
                     where: { id: updateCertificateDto.personnelId },
@@ -615,6 +683,30 @@ export class CertificatesService {
                 );
             }
 
+            // Build sanitized update data: use relation inputs for category, department, personnel; scalars for the rest
+            const raw = updateCertificateDto;
+            const optionalNullables = (v: string | undefined) => (v === '' || v === undefined ? null : v);
+            const updateData: Prisma.CertificateUpdateInput = {};
+
+            if (raw.certificateNumber !== undefined) updateData.certificateNumber = raw.certificateNumber;
+            if (raw.certificateName !== undefined) updateData.certificateName = raw.certificateName;
+            if (raw.categoryId !== undefined) updateData.category = { connect: { id: raw.categoryId } };
+            if (raw.issuedDate !== undefined) updateData.issuedDate = new Date(raw.issuedDate);
+            if (raw.validityDate !== undefined) updateData.validityDate = new Date(raw.validityDate);
+            if (raw.issuerName !== undefined) updateData.issuerName = raw.issuerName;
+            if (raw.documentUrl !== undefined) updateData.documentUrl = optionalNullables(raw.documentUrl);
+            if (raw.personnelId !== undefined) {
+                const pid = optionalNullables(raw.personnelId);
+                updateData.personnel = pid ? { connect: { id: pid } } : { disconnect: true };
+            }
+            if (raw.personnelName !== undefined) updateData.personnelName = optionalNullables(raw.personnelName);
+            if (raw.equipmentId !== undefined) updateData.equipmentId = optionalNullables(raw.equipmentId);
+            if (raw.equipmentName !== undefined) updateData.equipmentName = optionalNullables(raw.equipmentName);
+            if (raw.departmentId !== undefined) updateData.department = { connect: { id: raw.departmentId } };
+            if (raw.reminderDays !== undefined) updateData.reminderDays = raw.reminderDays;
+            if (raw.notes !== undefined) updateData.notes = optionalNullables(raw.notes);
+            if (raw.isActive !== undefined) updateData.isActive = raw.isActive;
+
             const updatedCertificate = await this.prisma.certificate.update({
                 where: { id },
                 data: updateData,
@@ -626,11 +718,41 @@ export class CertificatesService {
                 },
             });
 
+            // If validity date or reminder days changed, recreate reminders
+            if (shouldUpdateReminders && updatedBy) {
+                try {
+                    // 1. Cancel existing reminders for this certificate (except already cancelled)
+                    await this.prisma.reminder.updateMany({
+                        where: {
+                            entity: 't_certificates',
+                            entityId: id,
+                            status: {
+                                not: ReminderStatusEnum.CANCELLED,
+                            },
+                        },
+                        data: {
+                            status: ReminderStatusEnum.CANCELLED,
+                        },
+                    });
+
+                    // 2. Create new chained reminders based on new dates
+                    // Use updatedBy as fallback if createdBy user doesn't exist
+                    const reminderTargetUser = updatedBy || updatedCertificate.createdBy;
+                    await this.createChainedReminders(updatedCertificate, reminderTargetUser);
+                } catch (reminderError) {
+                    // Log error but don't fail the certificate update
+                    console.error('Failed to update reminders for certificate:', id, reminderError);
+                    // Certificate update was successful, reminder update failed
+                    // This is non-critical, so we continue
+                }
+            }
+
             return this.certificateMapper(updatedCertificate);
         }, 'update certificate');
     }
 
-    async remove(id: string): Promise<void> {
+    async remove(id: string, userContext?: UserContext): Promise<void> {
+        await this.ensureCanAccessCertificate(id, userContext);
         const existingCertificate = await this.prisma.certificate.findFirst({
             where: {
                 id,
@@ -640,7 +762,11 @@ export class CertificatesService {
                 renewals: {
                     where: {
                         status: {
-                            in: ['PENDING', 'REQUESTED', 'IN_PROGRESS'],
+                            in: [
+                                CertificateRenewalStatusEnum.PENDING,
+                                CertificateRenewalStatusEnum.REQUESTED,
+                                CertificateRenewalStatusEnum.IN_PROGRESS,
+                            ],
                         },
                     },
                 },
@@ -668,7 +794,11 @@ export class CertificatesService {
 
     // ==================== Certificate Renewals ====================
 
-    async findRenewalsByCertificateId(certificateId: string): Promise<CertificateRenewalDto[]> {
+    async findRenewalsByCertificateId(
+        certificateId: string,
+        userContext?: UserContext,
+    ): Promise<CertificateRenewalDto[]> {
+        await this.ensureCanAccessCertificate(certificateId, userContext);
         const certificate = await this.prisma.certificate.findFirst({
             where: {
                 id: certificateId,
@@ -699,7 +829,9 @@ export class CertificatesService {
         certificateId: string,
         createRenewalDto: CreateCertificateRenewalDto,
         requestedBy: string,
+        userContext?: UserContext,
     ): Promise<CertificateRenewalDto> {
+        await this.ensureCanAccessCertificate(certificateId, userContext);
         const certificate = await this.prisma.certificate.findFirst({
             where: {
                 id: certificateId,
@@ -746,7 +878,7 @@ export class CertificatesService {
             }
 
             // If status is being updated to COMPLETED, update certificate validity date
-            if (updateRenewalDto.status === 'COMPLETED' && updateRenewalDto.newValidityDate) {
+            if (updateRenewalDto.status === CertificateRenewalStatusEnum.COMPLETED && updateRenewalDto.newValidityDate) {
                 await this.prisma.certificate.update({
                     where: { id: existingRenewal.certificateId },
                     data: {
@@ -777,7 +909,11 @@ export class CertificatesService {
 
     // ==================== Certificate Reminders ====================
 
-    async findRemindersByCertificateId(certificateId: string): Promise<CertificateReminderDto[]> {
+    async findRemindersByCertificateId(
+        certificateId: string,
+        userContext?: UserContext,
+    ): Promise<CertificateReminderDto[]> {
+        await this.ensureCanAccessCertificate(certificateId, userContext);
         const certificate = await this.prisma.certificate.findFirst({
             where: {
                 id: certificateId,
@@ -800,7 +936,7 @@ export class CertificatesService {
 
         // Fetch recipients for USER type reminders
         const recipientIds = reminders
-            .filter((r: any) => r.targetType === 'USER')
+            .filter((r: any) => r.targetType === ReminderTargetTypeEnum.USER)
             .map((r: any) => r.targetId);
 
         const recipients = recipientIds.length > 0
@@ -816,14 +952,14 @@ export class CertificatesService {
         // Map general Reminder to CertificateReminderDto structure to maintain frontend compatibility
         return reminders.map((reminder: any) => {
             // For USER type, use targetId as recipientId, otherwise use targetId (for future support of ROLE/DEPARTMENT)
-            const recipientId = reminder.targetType === 'USER' ? reminder.targetId : reminder.targetId;
-            const recipient = reminder.targetType === 'USER' ? recipientMap.get(reminder.targetId) : null;
+            const recipientId = reminder.targetType === ReminderTargetTypeEnum.USER ? reminder.targetId : reminder.targetId;
+            const recipient = reminder.targetType === ReminderTargetTypeEnum.USER ? recipientMap.get(reminder.targetId) : null;
 
             const certReminder = new CertificateReminderDto({
                 id: reminder.id,
                 certificateId: reminder.entityId ?? '',
                 reminderDate: reminder.remindAt,
-                isSent: reminder.status === 'SENT',
+                isSent: reminder.status === ReminderStatusEnum.SENT,
                 sentAt: reminder.lastSentAt,
                 recipientId,
                 recipient,

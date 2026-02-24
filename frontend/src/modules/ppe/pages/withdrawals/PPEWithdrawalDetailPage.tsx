@@ -1,14 +1,27 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, CheckCircle, XCircle, Package, FileText, Download } from 'lucide-react';
+import { ArrowLeft, Edit, CheckCircle, XCircle, Package, FileText, Download, Send, Ban } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from '@/core/components/ui/dialog';
+import { Label } from '@/core/components/ui/label';
+import { Textarea } from '@/core/components/ui/textarea';
 import { usePPEWithdrawal } from '../../hooks/usePPE';
 import { PPEWithdrawalStatus } from '../../types/ppe.types';
+import approvalService from '@/modules/master-data/services/approvalService';
+import type { ApprovalStatusHistory } from '@/modules/master-data';
+import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
+import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import {
     Table,
     TableBody,
@@ -18,29 +31,109 @@ import {
     TableRow,
 } from '@/core/components/ui/table';
 
+const emptyApprovalHistory: ApprovalStatusHistory = {
+    history: [],
+    nextApprover: null,
+    allApprovalLines: [],
+    currentStatus: 'UNKNOWN',
+};
+
 const PPEWithdrawalDetailPage = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
-    const { withdrawal, isLoading, fetchWithdrawal, approveWithdrawal, collectWithdrawal, cancelWithdrawal } = usePPEWithdrawal(id || null);
+    const { withdrawal, isLoading, fetchWithdrawal, submitWithdrawal, approveWithdrawal, rejectWithdrawal, collectWithdrawal, cancelWithdrawal } = usePPEWithdrawal(id || null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [actionDialogOpen, setActionDialogOpen] = useState(false);
-    const [actionType, setActionType] = useState<'approve' | 'collect' | 'cancel' | null>(null);
+    const [actionType, setActionType] = useState<'submit' | 'approve' | 'collect' | 'cancel' | null>(null);
+    const [canApprove, setCanApprove] = useState(false);
+    const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+    const [rejectNote, setRejectNote] = useState('');
+    const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+    useEffect(() => {
+        if (!id || !withdrawal || withdrawal.status !== PPEWithdrawalStatus.WAITING_APPROVAL) {
+            setCanApprove(false);
+            return;
+        }
+        approvalService.checkApprovalRights(id, APPROVAL_ENTITIES.PPE_WITHDRAWAL)
+            .then((res: { canApprove?: boolean }) => setCanApprove(Boolean(res?.canApprove)))
+            .catch(() => setCanApprove(false));
+    }, [id, withdrawal?.status]);
+
+    useEffect(() => {
+        const fetchApprovalStatus = async () => {
+            if (!id) return;
+            setIsLoadingHistory(true);
+            try {
+                const status = await approvalService.checkApprovalStatus(id, APPROVAL_ENTITIES.PPE_WITHDRAWAL);
+                if (status && !(status as unknown as { error?: boolean }).error) {
+                    setApprovalHistory(status);
+                } else {
+                    setApprovalHistory(emptyApprovalHistory);
+                }
+            } catch (error) {
+                console.error('Failed to fetch approval status:', error);
+                setApprovalHistory(emptyApprovalHistory);
+            } finally {
+                setIsLoadingHistory(false);
+            }
+        };
+        fetchApprovalStatus();
+    }, [id]);
 
     const getStatusBadge = (status: PPEWithdrawalStatus) => {
         const statusConfig = {
             [PPEWithdrawalStatus.PENDING]: { label: 'Pending', className: 'bg-yellow-100 text-yellow-800 border-0' },
+            [PPEWithdrawalStatus.WAITING_APPROVAL]: { label: 'Waiting Approval', className: 'bg-amber-100 text-amber-800 border-0' },
             [PPEWithdrawalStatus.APPROVED]: { label: 'Approved', className: 'bg-blue-100 text-blue-800 border-0' },
             [PPEWithdrawalStatus.COLLECTED]: { label: 'Collected', className: 'bg-green-100 text-green-800 border-0' },
             [PPEWithdrawalStatus.CANCELLED]: { label: 'Cancelled', className: 'bg-red-100 text-red-800 border-0' },
+            [PPEWithdrawalStatus.REJECTED]: { label: 'Rejected', className: 'bg-red-100 text-red-800 border-0' },
         };
 
         const config = statusConfig[status] || { label: status, className: 'bg-gray-100 text-gray-800 border-0' };
         return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
     };
 
-    const handleActionClick = (type: 'approve' | 'collect' | 'cancel') => {
+    const handleActionClick = (type: 'submit' | 'approve' | 'collect' | 'cancel') => {
         setActionType(type);
         setActionDialogOpen(true);
+    };
+
+    const handleRejectClick = () => {
+        setRejectNote('');
+        setRejectDialogOpen(true);
+    };
+
+    const refetchApprovalStatus = async () => {
+        if (!id) return;
+        try {
+            const status = await approvalService.checkApprovalStatus(id, APPROVAL_ENTITIES.PPE_WITHDRAWAL);
+            if (status && !(status as unknown as { error?: boolean }).error) {
+                setApprovalHistory(status);
+            }
+        } catch (error) {
+            console.error('Failed to refetch approval status:', error);
+        }
+    };
+
+    const handleRejectConfirm = async () => {
+        if (!withdrawal?.id) return;
+        setIsProcessing(true);
+        try {
+            await rejectWithdrawal(withdrawal.id, { notes: rejectNote });
+            setRejectDialogOpen(false);
+            setRejectNote('');
+            if (id) {
+                fetchWithdrawal(id);
+                refetchApprovalStatus();
+            }
+        } catch (error) {
+            console.error('Failed to reject withdrawal:', error);
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     const handleActionConfirm = async () => {
@@ -49,6 +142,9 @@ const PPEWithdrawalDetailPage = () => {
         setIsProcessing(true);
         try {
             switch (actionType) {
+                case 'submit':
+                    await submitWithdrawal(withdrawal.id);
+                    break;
                 case 'approve':
                     await approveWithdrawal(withdrawal.id, {});
                     break;
@@ -63,6 +159,7 @@ const PPEWithdrawalDetailPage = () => {
             setActionType(null);
             if (id) {
                 fetchWithdrawal(id);
+                refetchApprovalStatus();
             }
         } catch (error) {
             console.error(`Failed to ${actionType} withdrawal:`, error);
@@ -73,6 +170,8 @@ const PPEWithdrawalDetailPage = () => {
 
     const getActionDialogTitle = () => {
         switch (actionType) {
+            case 'submit':
+                return 'Submit for Approval';
             case 'approve':
                 return 'Approve Withdrawal';
             case 'collect':
@@ -86,6 +185,8 @@ const PPEWithdrawalDetailPage = () => {
 
     const getActionDialogDescription = () => {
         switch (actionType) {
+            case 'submit':
+                return `Submit withdrawal "${withdrawal?.withdrawalCode}" for approval? It will be sent to the configured approver.`;
             case 'approve':
                 return `Are you sure you want to approve withdrawal "${withdrawal?.withdrawalCode}"?`;
             case 'collect':
@@ -130,7 +231,11 @@ const PPEWithdrawalDetailPage = () => {
         );
     }
 
-    const canEdit = withdrawal.status === PPEWithdrawalStatus.PENDING;
+    const canEdit = false;
+    const showSubmitButton = withdrawal.status === PPEWithdrawalStatus.PENDING;
+    const showApproveButton = withdrawal.status === PPEWithdrawalStatus.WAITING_APPROVAL && canApprove;
+    const showCollectButton = withdrawal.status === PPEWithdrawalStatus.APPROVED;
+    const showCancelButton = withdrawal.status === PPEWithdrawalStatus.PENDING;
 
     return (
         <>
@@ -156,146 +261,162 @@ const PPEWithdrawalDetailPage = () => {
                                 Edit Withdrawal
                             </Button>
                         )}
-                        <Button
-                            onClick={() => handleActionClick('approve')}
-                            disabled={isLoading || isProcessing}
-                            className="bg-blue-600 hover:bg-blue-700"
-                        >
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Approve
-                        </Button>
-                        <Button
-                            onClick={() => handleActionClick('collect')}
-                            disabled={isLoading || isProcessing}
-                            className="bg-green-600 hover:bg-green-700"
-                        >
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Collect
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            onClick={() => handleActionClick('cancel')}
-                            disabled={isLoading || isProcessing}
-                        >
-                            <XCircle className="mr-2 h-4 w-4" />
-                            Cancel
-                        </Button>
+                        {showSubmitButton && (
+                            <Button
+                                onClick={() => handleActionClick('submit')}
+                                disabled={isLoading || isProcessing}
+                                className="bg-amber-600 hover:bg-amber-700"
+                            >
+                                <Send className="mr-2 h-4 w-4" />
+                                Submit for Approval
+                            </Button>
+                        )}
+                        {showApproveButton && (
+                            <>
+                                <Button
+                                    onClick={() => handleActionClick('approve')}
+                                    disabled={isLoading || isProcessing}
+                                    className="bg-blue-600 hover:bg-blue-700"
+                                >
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Approve
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    onClick={handleRejectClick}
+                                    disabled={isLoading || isProcessing}
+                                >
+                                    <Ban className="mr-2 h-4 w-4" />
+                                    Reject
+                                </Button>
+                            </>
+                        )}
+                        {showCollectButton && (
+                            <Button
+                                onClick={() => handleActionClick('collect')}
+                                disabled={isLoading || isProcessing}
+                                className="bg-green-600 hover:bg-green-700"
+                            >
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                Collect
+                            </Button>
+                        )}
+                        {showCancelButton && (
+                            <Button
+                                variant="destructive"
+                                onClick={() => handleActionClick('cancel')}
+                                disabled={isLoading || isProcessing}
+                            >
+                                <XCircle className="mr-2 h-4 w-4" />
+                                Cancel
+                            </Button>
+                        )}
                     </div>
                 }
             />
 
-            <div className="container mx-auto py-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Package className="h-5 w-5" />
-                                Withdrawal Information
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-500">Withdrawal Code</h3>
-                                <p className="mt-1 font-medium">{withdrawal.withdrawalCode}</p>
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-500">Withdrawal Date</h3>
-                                <p className="mt-1">{new Date(withdrawal.withdrawalDate).toLocaleDateString()}</p>
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-500">Status</h3>
-                                <div className="mt-1">{getStatusBadge(withdrawal.status)}</div>
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-500">Requested For</h3>
-                                <p className="mt-1">{withdrawal.requestedForName || 'N/A'}</p>
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-500">Department</h3>
-                                <p className="mt-1">{withdrawal.departmentName || withdrawal.departmentId}</p>
-                            </div>
-                            {withdrawal.jobPositionName && (
-                                <div>
-                                    <h3 className="text-sm font-medium text-gray-500">Job Position</h3>
-                                    <p className="mt-1">{withdrawal.jobPositionName}</p>
+            <div className="container mx-auto py-6 space-y-4 max-w-5xl">
+                <Card>
+                    <CardHeader className="pb-4">
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                            <Package className="h-5 w-5" />
+                            Withdrawal Details
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium text-muted-foreground">Withdrawal Code</h3>
+                                    <p className="text-sm font-medium">{withdrawal.withdrawalCode}</p>
                                 </div>
-                            )}
-                            {withdrawal.notes && (
-                                <div>
-                                    <h3 className="text-sm font-medium text-gray-500">Notes</h3>
-                                    <p className="mt-1">{withdrawal.notes}</p>
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium text-muted-foreground">Withdrawal Date</h3>
+                                    <p className="text-sm">{new Date(withdrawal.withdrawalDate).toLocaleDateString()}</p>
                                 </div>
-                            )}
-                            {withdrawal.withdrawalLetterUrl && (
-                                <div>
-                                    <h3 className="text-sm font-medium text-gray-500">Withdrawal Letter</h3>
-                                    <div className="mt-1">
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
+                                    <div className="text-sm">{getStatusBadge(withdrawal.status)}</div>
+                                </div>
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium text-muted-foreground">Requested By</h3>
+                                    <p className="text-sm">{withdrawal.createdByName || withdrawal.createdBy || 'N/A'}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium text-muted-foreground">Requested For</h3>
+                                    <p className="text-sm">{withdrawal.requestedForName || 'N/A'}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium text-muted-foreground">Department</h3>
+                                    <p className="text-sm">{withdrawal.departmentName || withdrawal.departmentId}</p>
+                                </div>
+                                {withdrawal.jobPositionName && (
+                                    <div className="space-y-1">
+                                        <h3 className="text-sm font-medium text-muted-foreground">Job Position</h3>
+                                        <p className="text-sm">{withdrawal.jobPositionName}</p>
+                                    </div>
+                                )}
+                                {withdrawal.collectedDate && (
+                                    <div className="space-y-1">
+                                        <h3 className="text-sm font-medium text-muted-foreground">Collected Date</h3>
+                                        <p className="text-sm">{new Date(withdrawal.collectedDate).toLocaleString()}</p>
+                                    </div>
+                                )}
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium text-muted-foreground">Created At</h3>
+                                    <p className="text-sm">{new Date(withdrawal.createdAt).toLocaleString()}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium text-muted-foreground">Last Updated</h3>
+                                    <p className="text-sm">{new Date(withdrawal.updatedAt).toLocaleString()}</p>
+                                </div>
+                                {withdrawal.notes && (
+                                    <div className="space-y-1 col-span-2 md:col-span-3">
+                                        <h3 className="text-sm font-medium text-muted-foreground">Notes</h3>
+                                        <p className="text-sm">{withdrawal.notes}</p>
+                                    </div>
+                                )}
+                                {withdrawal.withdrawalLetterUrl && (
+                                    <div className="space-y-1 col-span-2 md:col-span-3">
+                                        <h3 className="text-sm font-medium text-muted-foreground">Withdrawal Letter</h3>
                                         <a
                                             href={(() => {
                                                 const url = withdrawal.withdrawalLetterUrl!;
-                                                // If already a full URL, use it
-                                                if (url.startsWith('http://') || url.startsWith('https://')) {
-                                                    return url;
-                                                }
-                                                // If starts with /, it's already a path
-                                                if (url.startsWith('/')) {
-                                                    return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${url}`;
-                                                }
-                                                // If it's a UUID (36 chars with dashes), construct proper URL
-                                                // Check if it looks like a UUID (contains dashes and is 36 chars)
-                                                if (url.length === 36 && url.includes('-')) {
-                                                    // This is likely a file ID, but we need accessToken for private files
-                                                    // For now, try public endpoint (might need to fetch file metadata to get accessToken)
-                                                    return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/uploads/public/${url}`;
-                                                }
-                                                // Otherwise, treat as path
+                                                if (url.startsWith('http://') || url.startsWith('https://')) return url;
+                                                if (url.startsWith('/')) return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${url}`;
+                                                if (url.length === 36 && url.includes('-')) return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/uploads/public/${url}`;
                                                 return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${url}`;
                                             })()}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 underline"
+                                            className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
                                         >
-                                            <FileText className="h-4 w-4" />
+                                            <FileText className="h-4 w-4 shrink-0" />
                                             <span>View Withdrawal Letter</span>
-                                            <Download className="h-4 w-4" />
+                                            <Download className="h-4 w-4 shrink-0" />
                                         </a>
                                     </div>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Additional Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {withdrawal.collectedDate && (
-                                <div>
-                                    <h3 className="text-sm font-medium text-gray-500">Collected Date</h3>
-                                    <p className="mt-1">
-                                        {new Date(withdrawal.collectedDate).toLocaleString()}
-                                    </p>
-                                </div>
-                            )}
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-500">Created At</h3>
-                                <p className="mt-1">
-                                    {new Date(withdrawal.createdAt).toLocaleString()}
-                                </p>
+                                )}
                             </div>
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-500">Last Updated</h3>
-                                <p className="mt-1">
-                                    {new Date(withdrawal.updatedAt).toLocaleString()}
-                                </p>
+                            <div className="lg:border-l lg:pl-6 flex flex-col">
+                                <ApprovalTimelineCard
+                                    approvalHistory={approvalHistory}
+                                    isLoading={isLoadingHistory}
+                                    assessmentStatus={
+                                        [PPEWithdrawalStatus.COLLECTED, PPEWithdrawalStatus.APPROVED, PPEWithdrawalStatus.REJECTED, PPEWithdrawalStatus.CANCELLED].includes(withdrawal.status)
+                                            ? 'DONE'
+                                            : withdrawal.status
+                                    }
+                                    entityDepartmentName={withdrawal.departmentName ?? undefined}
+                                    entityJobPositionName="Approver"
+                                />
                             </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
                 <Card>
-                    <CardHeader>
+                    <CardHeader className="pb-4">
                         <CardTitle>Withdrawal Items</CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -303,31 +424,31 @@ const PPEWithdrawalDetailPage = () => {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Equipment Name</TableHead>
-                                        <TableHead>Type</TableHead>
-                                        <TableHead>Size</TableHead>
-                                        <TableHead>Requested Qty</TableHead>
-                                        <TableHead>Approved Qty</TableHead>
-                                        <TableHead>Issued Qty</TableHead>
+                                        <TableHead className="text-sm">Equipment Name</TableHead>
+                                        <TableHead className="text-sm">Type</TableHead>
+                                        <TableHead className="text-sm">Size</TableHead>
+                                        <TableHead className="text-sm">Requested Qty</TableHead>
+                                        <TableHead className="text-sm">Approved Qty</TableHead>
+                                        <TableHead className="text-sm">Issued Qty</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {withdrawal.items.map((item) => (
                                         <TableRow key={item.id}>
-                                            <TableCell className="font-medium">
+                                            <TableCell className="text-sm font-medium">
                                                 {item.stockItemEquipmentName || item.stockItemId || '-'}
                                             </TableCell>
-                                            <TableCell>{item.stockItemEquipmentType || '-'}</TableCell>
-                                            <TableCell>{item.stockItemEquipmentSize || '-'}</TableCell>
-                                            <TableCell>{item.requestedQuantity}</TableCell>
-                                            <TableCell>{item.approvedQuantity || '-'}</TableCell>
-                                            <TableCell>{item.issuedQuantity || '-'}</TableCell>
+                                            <TableCell className="text-sm">{item.stockItemEquipmentType || '-'}</TableCell>
+                                            <TableCell className="text-sm">{item.stockItemEquipmentSize || '-'}</TableCell>
+                                            <TableCell className="text-sm">{item.requestedQuantity}</TableCell>
+                                            <TableCell className="text-sm">{item.approvedQuantity || '-'}</TableCell>
+                                            <TableCell className="text-sm">{item.issuedQuantity || '-'}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
                             </Table>
                         ) : (
-                            <p className="text-center text-gray-500 py-8">No items found</p>
+                            <p className="text-center text-sm text-muted-foreground py-4">No items found</p>
                         )}
                     </CardContent>
                 </Card>
@@ -340,6 +461,44 @@ const PPEWithdrawalDetailPage = () => {
                 description={getActionDialogDescription()}
                 onConfirm={handleActionConfirm}
             />
+
+            <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Reject Withdrawal</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-muted-foreground">
+                        Reject withdrawal &quot;{withdrawal?.withdrawalCode}&quot;? Provide a note for the requester (optional but recommended).
+                    </p>
+                    <div className="space-y-2">
+                        <Label htmlFor="reject-note">Note / Reason for rejection</Label>
+                        <Textarea
+                            id="reject-note"
+                            placeholder="Enter reason for rejection..."
+                            value={rejectNote}
+                            onChange={(e) => setRejectNote(e.target.value)}
+                            rows={3}
+                            className="resize-none"
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setRejectDialogOpen(false)}
+                            disabled={isProcessing}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleRejectConfirm}
+                            disabled={isProcessing}
+                        >
+                            {isProcessing ? 'Rejecting...' : 'Reject'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 };

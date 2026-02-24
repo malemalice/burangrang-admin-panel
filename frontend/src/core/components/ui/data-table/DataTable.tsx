@@ -29,6 +29,7 @@ interface DataTableProps<T> {
     isSortable?: boolean;
     isFilterable?: boolean;
     headerClassName?: string;
+    cellClassName?: string;
   }[];
   data: T[];
   isLoading?: boolean;
@@ -42,11 +43,22 @@ interface DataTableProps<T> {
   };
   filterFields?: FilterField[];
   activeFilters?: Record<string, { value: any; label: string }>;
+  searchValue?: string;
   onSearch?: (searchTerm: string) => void;
   onApplyFilters?: (filters: FilterValue[]) => void;
   sorting?: { id: string; desc: boolean } | null;
   onSortingChange?: (sorting: { id: string; desc: boolean } | null) => void;
   hideSearch?: boolean;
+  searchPlaceholder?: string;
+  tableContainerClassName?: string;
+  tableClassName?: string;
+  stickyHeader?: boolean;
+  /** Optional class applied to every header cell (e.g. for compact/dense layout) */
+  tableHeaderClassName?: string;
+  /** Optional class applied to every body cell (e.g. for compact/dense layout) */
+  tableCellClassName?: string;
+  /** Optional class for the card wrapper (e.g. flex-1 min-h-0 for no page scroll) */
+  wrapperClassName?: string;
 }
 
 const DataTable = <T extends Record<string, any>>({
@@ -56,15 +68,30 @@ const DataTable = <T extends Record<string, any>>({
   pagination,
   filterFields = [],
   activeFilters = {},
+  searchValue,
   onSearch,
   onApplyFilters,
   sorting,
   onSortingChange,
   hideSearch = false,
+  searchPlaceholder = 'Search...',
+  tableContainerClassName,
+  tableClassName,
+  stickyHeader = false,
+  tableHeaderClassName,
+  tableCellClassName,
+  wrapperClassName,
 }: DataTableProps<T>) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchValue ?? '');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [localActiveFilters, setLocalActiveFilters] = useState<FilterValue[]>([]);
+
+  // Keep internal state in sync when controlled
+  useEffect(() => {
+    if (searchValue !== undefined) {
+      setSearchTerm(searchValue);
+    }
+  }, [searchValue]);
 
   // Create a stable string representation of activeFilters for comparison
   const activeFiltersKey = useMemo(() => {
@@ -92,7 +119,10 @@ const DataTable = <T extends Record<string, any>>({
   // Search handler
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
-    setSearchTerm(term);
+    // If uncontrolled, update internal state. If controlled, parent drives value.
+    if (searchValue === undefined) {
+      setSearchTerm(term);
+    }
     
     // If external search handler is provided, use it
     if (onSearch) {
@@ -146,33 +176,48 @@ const DataTable = <T extends Record<string, any>>({
     }
   };
 
+  const showToolbar = !hideSearch || filterFields.length > 0;
+
   return (
-    <div className="rounded-md border bg-card">
-      {!hideSearch && (
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-            <Input
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={handleSearch}
-              className="pl-10 pr-4"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            {filterFields.length > 0 && (
-              <FilterButton 
-                onClick={() => setIsFilterOpen(true)} 
-                filterCount={localActiveFilters.length}
-              />
-            )}
-          </div>
+    <div className={cn("rounded-md border bg-card flex flex-col min-h-0", wrapperClassName)}>
+      {showToolbar && (
+        <div className="flex shrink-0 items-center justify-between p-4 border-b">
+          {!hideSearch ? (
+            <>
+              <div className="relative w-full max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                <Input
+                  placeholder={searchPlaceholder}
+                  value={searchValue ?? searchTerm}
+                  onChange={handleSearch}
+                  className="pl-10 pr-4"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                {filterFields.length > 0 && (
+                  <FilterButton 
+                    onClick={() => setIsFilterOpen(true)} 
+                    filterCount={localActiveFilters.length}
+                  />
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex w-full items-center justify-end gap-2">
+              {filterFields.length > 0 && (
+                <FilterButton 
+                  onClick={() => setIsFilterOpen(true)} 
+                  filterCount={localActiveFilters.length}
+                />
+              )}
+            </div>
+          )}
         </div>
       )}
       
       {/* Display filter badges if there are active filters */}
       {localActiveFilters.length > 0 && (
-        <div className="px-4 py-2 border-b">
+        <div className="shrink-0 px-4 py-2 border-b">
           <FilterBadges
             filters={localActiveFilters}
             fields={filterFields}
@@ -181,15 +226,15 @@ const DataTable = <T extends Record<string, any>>({
         </div>
       )}
       
-      <div className="relative">
+      <div className="relative flex-1 min-h-0 flex flex-col">
         {isLoading && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
             <div className="h-8 w-8 rounded-full border-4 border-admin-primary/30 border-t-admin-primary animate-spin-slow" />
           </div>
         )}
         
-        <div className="overflow-x-auto">
-          <Table>
+        <div className={cn('overflow-x-auto', tableContainerClassName)}>
+          <Table className={tableClassName}>
             <TableHeader>
               <TableRow>
                 {columns.map((column) => (
@@ -197,7 +242,10 @@ const DataTable = <T extends Record<string, any>>({
                     key={column.id}
                     className={cn(
                       column.isSortable && "cursor-pointer hover:bg-muted",
-                      sorting?.id === column.id && "bg-muted"
+                      sorting?.id === column.id && "bg-muted",
+                      stickyHeader && "sticky top-0 z-10 bg-card shadow-[0_1px_0_0_hsl(var(--border))]",
+                      tableHeaderClassName,
+                      column.headerClassName
                     )}
                     onClick={() => column.isSortable && handleSort(column.id)}
                   >
@@ -215,10 +263,10 @@ const DataTable = <T extends Record<string, any>>({
             </TableHeader>
             <TableBody>
               {data.length > 0 ? (
-                data.map((item, index) => (
-                  <TableRow key={index}>
+                data.map((item) => (
+                  <TableRow key={item.id || JSON.stringify(item)}>
                     {columns.map((column) => (
-                      <TableCell key={column.id}>
+                      <TableCell key={column.id} className={cn(tableCellClassName, column.cellClassName)}>
                         {column.cell(item)}
                       </TableCell>
                     ))}
@@ -226,7 +274,7 @@ const DataTable = <T extends Record<string, any>>({
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={columns.length} className={cn("text-center py-8 text-gray-500", tableCellClassName)}>
                     No data found
                   </TableCell>
                 </TableRow>
@@ -237,7 +285,7 @@ const DataTable = <T extends Record<string, any>>({
       </div>
       
       {pagination && (
-        <div className="flex items-center justify-between px-4 py-3 border-t">
+        <div className="flex shrink-0 items-center justify-between px-4 py-3 border-t">
           <div className="flex items-center gap-2">
             <Select
               value={pagination.limit.toString()}

@@ -143,7 +143,7 @@ const createWithdrawalForStock = async (
         }
     }
 
-    // Create withdrawal header
+    // Create withdrawal header (WAITING_APPROVAL to align with app create flow)
     const withdrawal = await tx.pPEWithdrawal.create({
         data: {
             withdrawalCode,
@@ -152,7 +152,7 @@ const createWithdrawalForStock = async (
             requestedFor: requestedFor || null,
             departmentId,
             jobPositionId: jobPositionId || null,
-            status: 'PENDING',
+            status: 'WAITING_APPROVAL',
             notes: notes || null,
             createdBy,
             isActive: true,
@@ -230,7 +230,7 @@ const approveWithdrawal = async (
         throw new Error(`Withdrawal ${withdrawalId} not found`);
     }
 
-    if (withdrawal.status !== 'PENDING') {
+    if (withdrawal.status !== 'WAITING_APPROVAL') {
         throw new Error(`Withdrawal ${withdrawalId} cannot be approved. Current status: ${withdrawal.status}`);
     }
 
@@ -912,8 +912,8 @@ export const seedPPE = async () => {
             orderBy: { order: 'asc' },
         });
 
-        // Withdrawal 1: PENDING
-        console.log('📋 Creating Withdrawal 1: PENDING...');
+        // Withdrawal 1: WAITING_APPROVAL (no PENDING in seed; aligns with app create flow)
+        console.log('📋 Creating Withdrawal 1: WAITING_APPROVAL...');
         const withdrawal1 = await prisma.$transaction(async (tx) => {
             const withdrawalCode = getNextWithdrawalCode();
             const { withdrawal } = await createWithdrawalForStock(
@@ -927,7 +927,7 @@ export const seedPPE = async () => {
                 department.id,
                 jobPosition?.id || null,
                 adminUser.id,
-                'Withdrawal 1: PENDING status',
+                'Withdrawal 1: WAITING_APPROVAL status',
             );
             return withdrawal;
         });
@@ -1245,6 +1245,63 @@ export const seedPPE = async () => {
             return stock;
         });
 
+        // ========================================================================
+        // ADMIN OVERVIEW DASHBOARD: Low stock + expiring within 30 days
+        // ========================================================================
+        const in15Days = new Date(today);
+        in15Days.setDate(in15Days.getDate() + 15);
+        const in20Days = new Date(today);
+        in20Days.setDate(in20Days.getDate() + 20);
+        const in30Days = new Date(today);
+        in30Days.setDate(in30Days.getDate() + 30);
+        const existingLowStockOrExpiring = await prisma.pPEStockItem.count({
+            where: {
+                stock: { isActive: true, deletedAt: null },
+                OR: [
+                    { currentQuantity: { gt: 0, lte: 5 } },
+                    {
+                        expiryDate: { gte: today, lte: in30Days },
+                        status: { in: ['AVAILABLE', 'RESERVED', 'ISSUED'] },
+                    },
+                ],
+            },
+        });
+        if (existingLowStockOrExpiring < 3) {
+            console.log('📦 Creating Stock Entry – Admin Overview (low stock & expiring soon)...');
+            const adminOverviewStockCode = await generateStockCode(dateStr);
+            await prisma.$transaction(async (tx) => {
+                await createStockWithItems(
+                    tx,
+                    adminOverviewStockCode,
+                    new Date(),
+                    [
+                        {
+                            equipmentName: 'Safety Helmet - Low Stock',
+                            equipmentType: 'Full Brim',
+                            equipmentSize: 'M',
+                            expiryDate: in15Days,
+                            initialQuantity: 2,
+                            order: 1,
+                            safetyEquipmentId: safetyEquipments[0]?.id || null,
+                        },
+                        {
+                            equipmentName: 'Safety Goggles - Expiring Soon',
+                            equipmentType: 'Clear Lens',
+                            equipmentSize: 'One Size',
+                            expiryDate: in20Days,
+                            initialQuantity: 3,
+                            order: 2,
+                            safetyEquipmentId: safetyEquipments[4]?.id || null,
+                        },
+                    ],
+                    adminUser.id,
+                    true,
+                    'Admin Overview: low stock and expiring within 30 days',
+                );
+            });
+            console.log(`✅ Created stock ${adminOverviewStockCode} for Admin Overview dashboard`);
+        }
+
         // Summary
         console.log('✅ PPE sample data seeded successfully!');
         console.log('\n📊 Summary:');
@@ -1254,7 +1311,7 @@ export const seedPPE = async () => {
         console.log(`   - Stock Entry 4 (EXPIRED): ${stock4Code}`);
         console.log(`   - Stock Entry 5 (DISPOSED): ${stock5Code}`);
         console.log(`   - Stock Entry 6 (Mixed Status): ${stock6Code}`);
-        console.log(`   - Withdrawal 1 (PENDING): ${withdrawal1.withdrawalCode}`);
+        console.log(`   - Withdrawal 1 (WAITING_APPROVAL): ${withdrawal1.withdrawalCode}`);
         console.log(`   - Withdrawal 2 (APPROVED): ${withdrawal2.withdrawalCode}`);
         console.log(`   - Withdrawal 3 (COLLECTED): ${withdrawal3.withdrawalCode}`);
         console.log(`   - Withdrawal 4 (CANCELLED): ${withdrawal4.withdrawalCode}`);

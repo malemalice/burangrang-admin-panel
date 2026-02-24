@@ -39,6 +39,15 @@ const questionSchema = z.object({
 }, {
   message: 'Multiple choice and true/false questions require at least 2 options with text',
   path: ['options'],
+}).refine((data) => {
+  if (data.questionType === 'MULTIPLE_CHOICE' || data.questionType === 'TRUE_FALSE') {
+    if (!data.options || data.options.length < 2) return true;
+    return data.options.some(opt => opt.isCorrect === true);
+  }
+  return true;
+}, {
+  message: 'Each multiple choice or true/false question must have at least one option marked as Correct Answer',
+  path: ['options'],
 });
 
 const formSchema = z.object({
@@ -214,6 +223,16 @@ const CreateQuizPage = () => {
       return;
     }
     if (errors.questions) {
+      if (Array.isArray(errors.questions)) {
+        const optionError = errors.questions.find(
+          (q: any) => q?.options?.root?.message ?? q?.options?.message
+        );
+        const message = optionError?.options?.root?.message ?? optionError?.options?.message;
+        if (message) {
+          toast.error(message);
+          return;
+        }
+      }
       toast.error(errors.questions.message || 'At least one question is required');
       return;
     }

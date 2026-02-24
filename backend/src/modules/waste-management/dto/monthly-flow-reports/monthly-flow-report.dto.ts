@@ -5,8 +5,9 @@ export class MonthlyFlowReportDto {
   @ApiProperty() @Expose() id: string;
   @ApiProperty() @Expose() reportCode: string;
   @ApiProperty() @Expose() treatmentPlantId: string;
-  @ApiProperty() @Expose() reportMonth: string;
-  @ApiProperty() @Expose() reportYear: number;
+  @ApiProperty({ required: false }) @Expose() reportDate?: Date;
+  @ApiProperty({ required: false }) @Expose() reportMonth?: string;
+  @ApiProperty({ required: false }) @Expose() reportYear?: number;
   @ApiProperty() @Expose() totalVolume: number;
   @ApiProperty() @Expose() averageDailyFlow: number;
   @ApiProperty({ required: false }) @Expose() peakFlow?: number;
@@ -24,8 +25,18 @@ export class MonthlyFlowReportDto {
   @ApiProperty() @Expose() isActive: boolean;
   @ApiProperty() @Expose() createdAt: Date;
   @ApiProperty() @Expose() updatedAt: Date;
-  @ApiProperty({ required: false }) @Expose() treatmentPlant?: { id: string; name: string; code: string; };
-  @ApiProperty({ required: false }) @Expose() submitter?: { id: string; firstName: string; lastName: string; };
+  @ApiProperty({ required: false }) @Expose() treatmentPlant?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  @ApiProperty({ required: false }) @Expose() submitter?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
 
-  constructor(partial: Partial<MonthlyFlowReportDto>) { Object.assign(this, partial); }
+  constructor(partial: Partial<MonthlyFlowReportDto>) {
+    Object.assign(this, partial);
+  }
 }

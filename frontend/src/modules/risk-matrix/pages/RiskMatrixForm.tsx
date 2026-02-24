@@ -27,7 +27,7 @@ const formSchema = z.object({
   consequenceLevel: z.number().min(1).max(99),
   consequenceName: z.string().min(1, 'Consequence name is required'),
   consequenceDesc: z.string().min(1, 'Consequence description is required'),
-  risk_rating: z.nativeEnum(RiskRatingEnum),
+  interpretation: z.nativeEnum(RiskRatingEnum),
   isActive: z.boolean().default(true),
 });
 
@@ -52,7 +52,7 @@ const RiskMatrixForm = ({ riskMatrix, mode }: RiskMatrixFormProps) => {
       consequenceLevel: 1,
       consequenceName: '',
       consequenceDesc: '',
-      risk_rating: RiskRatingEnum.LOW,
+      interpretation: RiskRatingEnum.LOW,
       isActive: true,
     },
   });
@@ -66,7 +66,7 @@ const RiskMatrixForm = ({ riskMatrix, mode }: RiskMatrixFormProps) => {
         consequenceLevel: riskMatrix.consequenceLevel,
         consequenceName: riskMatrix.consequenceName,
         consequenceDesc: riskMatrix.consequenceDesc,
-        risk_rating: riskMatrix.riskRating,
+        interpretation: riskMatrix.interpretation,
         isActive: riskMatrix.isActive,
       });
     }
@@ -247,7 +247,7 @@ const RiskMatrixForm = ({ riskMatrix, mode }: RiskMatrixFormProps) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
-                name="risk_rating"
+                name="interpretation"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Risk Rating</FormLabel>

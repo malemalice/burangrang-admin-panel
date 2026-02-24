@@ -35,7 +35,7 @@ export default function StorageLocationsPage() {
   useEffect(() => {
     const fetchAreas = async () => {
       try {
-        const response = await areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true } });
+        const response = await areaService.getAreas({ page: 1, limit: 100, filters: { isActive: true }, options: true });
         setAreas(response.data);
       } catch (error) {
         console.error('Failed to fetch areas', error);
@@ -167,6 +167,9 @@ export default function StorageLocationsPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => navigate(`/waste-management/storage-locations/${item.id}`)}>
+              <Eye className="mr-2 h-4 w-4" /> View
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/waste-management/storage-locations/${item.id}/edit`)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
@@ -210,7 +213,7 @@ export default function StorageLocationsPage() {
           </TabsList>
         </Tabs>
       </PageHeader>
-      
+
       <DataTable
         columns={columns}
         data={data}

@@ -22,6 +22,7 @@ import {
   RiskMitigationsPage,
   CreateRiskMitigationPage,
   EditRiskMitigationPage,
+  ViewRiskMitigationPage,
   MasterApprovalsPage,
   CreateMasterApprovalPage,
   EditMasterApprovalPage,
@@ -123,8 +124,12 @@ const masterDataRoutes: RouteConfig[] = [
     component: CreateRiskMitigationPage,
   },
   {
-    path: '/master/risk-mitigations/:id',
+    path: '/master/risk-mitigations/:id/edit',
     component: EditRiskMitigationPage,
+  },
+  {
+    path: '/master/risk-mitigations/:id',
+    component: ViewRiskMitigationPage,
   },
   {
     path: '/master/approvals',

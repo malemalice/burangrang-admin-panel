@@ -209,7 +209,7 @@ const settingsService = {
       return response.data.name;
     } catch (error: any) {
       console.warn('Failed to get app name, using default:', error);
-      return 'Office Nexus';
+      return 'HSE System';
     }
   },
 
@@ -280,7 +280,15 @@ const settingsService = {
       const errorMessage = error.response?.data?.message || 'Failed to delete setting';
       throw new Error(errorMessage);
     }
-  }
+  },
+
+  // Generate embed URL (admin only) for embedding dashboard in Google Sites
+  generateEmbedToken: async (siteId?: string): Promise<string> => {
+    const response = await api.post<{ embedUrl: string }>('/auth/embed/generate', {
+      ...(siteId && { siteId }),
+    });
+    return response.data.embedUrl;
+  },
 };
 
 export default settingsService;

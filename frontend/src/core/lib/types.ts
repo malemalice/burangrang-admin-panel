@@ -25,6 +25,8 @@ export interface User {
   lastLoginAt?: Date;
 }
 
+export type DataLevel = 'SELF' | 'DEPARTMENT' | 'SUPER';
+
 export interface Role {
   id: string;
   name: string;
@@ -32,6 +34,7 @@ export interface Role {
   description: string;
   status: 'active' | 'inactive';
   isActive: boolean;
+  dataLevel: DataLevel;
   permissions: Permission[];
   createdAt: string;
   updatedAt: string;
@@ -211,11 +214,11 @@ export interface RiskAssessmentItem {
   mRiskCategory?: RiskCategory;
   likelihoodLevel: string;
   consequenceLevel: number;
-  riskMatrixRating: RiskRatingEnum;
+  riskMatrixRating: string; // Format: "A1", "D2", etc. (likelihoodLevel + consequenceLevel)
   interpretation: RiskRatingEnum;
   postLikelihoodLevel: string;
   postConsequenceLevel: number;
-  postRiskMatrixRating: RiskRatingEnum;
+  postRiskMatrixRating: string; // Format: "A1", "D2", etc. (postLikelihoodLevel + postConsequenceLevel)
   postInterpretation: RiskRatingEnum;
   mitigation?: {
     id: string;
@@ -271,6 +274,8 @@ export interface PaginationParams {
   sortOrder?: 'asc' | 'desc';
   search?: string;
   filters?: Record<string, any>;
+  /** Set to true when fetching list data for form/filter select options; bypasses *:list permission on backend */
+  options?: boolean;
 }
 
 export interface MasterApprovalItem {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, Shield, MoreHorizontal } from 'lucide-react';
+import { Edit, Trash2, Plus, MoreHorizontal, Eye } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import {
   DropdownMenu,
@@ -40,7 +40,7 @@ const RiskMitigationsPage = () => {
   useEffect(() => {
     const fetchRisks = async () => {
       try {
-        const response = await riskService.getAll({ limit: 100 });
+        const response = await riskService.getAll({ limit: 100, options: true });
         setRisks(response.data);
       } catch (error) {
         toast.error('Failed to fetch risks for filtering');
@@ -214,18 +214,37 @@ const RiskMitigationsPage = () => {
     return risk ? risk.name : 'Unknown';
   };
 
+  // Truncated cell with ellipsis and full text on hover (respects column width)
+  const TruncateCell = ({ text }: { text: string | null | undefined }) => {
+    if (!text) return <span className="text-gray-400 text-sm">-</span>;
+    return (
+      <div className="min-w-0 w-full max-w-full" title={text}>
+        <span className="block truncate text-sm">{text}</span>
+      </div>
+    );
+  };
+
+  // Column width classes: fixed layout so table fits viewport (totals 100%)
+  const colRisk = 'w-[16%] min-w-0';
+  const colStrategy = 'w-[15%] min-w-0';
+  const colStatus = 'w-[9%] min-w-0';
+  const colActions = 'w-[6%] min-w-0';
+  const cellOverflow = 'overflow-hidden';
+
   // Table columns
   const columns = [
     {
       id: 'riskId',
       header: 'Risk',
+      headerClassName: colRisk,
+      cellClassName: cellOverflow,
       cell: (mitigation: RiskMitigation) => (
-        <div>
-          <div className="font-medium">
+        <div className="min-w-0 w-full max-w-full">
+          <div className="font-medium truncate" title={mitigation.risk?.name || getRiskName(mitigation.riskId)}>
             {mitigation.risk?.name || getRiskName(mitigation.riskId)}
           </div>
           {mitigation.risk && (
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-xs text-gray-500 truncate">
               {mitigation.risk.code}
             </div>
           )}
@@ -236,62 +255,40 @@ const RiskMitigationsPage = () => {
     {
       id: 'eliminate',
       header: 'Eliminate',
-      cell: (mitigation: RiskMitigation) => (
-        <div className="max-w-xs">
-          {mitigation.eliminate ? (
-            <div className="truncate text-sm">{mitigation.eliminate}</div>
-          ) : (
-            <span className="text-gray-400 text-sm">-</span>
-          )}
-        </div>
-      ),
+      headerClassName: colStrategy,
+      cellClassName: cellOverflow,
+      cell: (mitigation: RiskMitigation) => <TruncateCell text={mitigation.eliminate ?? undefined} />,
       isSortable: false,
     },
     {
       id: 'transfer',
       header: 'Transfer',
-      cell: (mitigation: RiskMitigation) => (
-        <div className="max-w-xs">
-          {mitigation.transfer ? (
-            <div className="truncate text-sm">{mitigation.transfer}</div>
-          ) : (
-            <span className="text-gray-400 text-sm">-</span>
-          )}
-        </div>
-      ),
+      headerClassName: colStrategy,
+      cellClassName: cellOverflow,
+      cell: (mitigation: RiskMitigation) => <TruncateCell text={mitigation.transfer ?? undefined} />,
       isSortable: false,
     },
     {
       id: 'reduce',
       header: 'Reduce',
-      cell: (mitigation: RiskMitigation) => (
-        <div className="max-w-xs">
-          {mitigation.reduce ? (
-            <div className="truncate text-sm">{mitigation.reduce}</div>
-          ) : (
-            <span className="text-gray-400 text-sm">-</span>
-          )}
-        </div>
-      ),
+      headerClassName: colStrategy,
+      cellClassName: cellOverflow,
+      cell: (mitigation: RiskMitigation) => <TruncateCell text={mitigation.reduce ?? undefined} />,
       isSortable: false,
     },
     {
       id: 'accept',
       header: 'Accept',
-      cell: (mitigation: RiskMitigation) => (
-        <div className="max-w-xs">
-          {mitigation.accept ? (
-            <div className="truncate text-sm">{mitigation.accept}</div>
-          ) : (
-            <span className="text-gray-400 text-sm">-</span>
-          )}
-        </div>
-      ),
+      headerClassName: colStrategy,
+      cellClassName: cellOverflow,
+      cell: (mitigation: RiskMitigation) => <TruncateCell text={mitigation.accept ?? undefined} />,
       isSortable: false,
     },
     {
       id: 'isActive',
       header: 'Status',
+      headerClassName: colStatus,
+      cellClassName: cellOverflow,
       cell: (mitigation: RiskMitigation) => (
         <Badge
           variant="outline"
@@ -309,6 +306,8 @@ const RiskMitigationsPage = () => {
     {
       id: 'actions',
       header: '',
+      headerClassName: colActions,
+      cellClassName: 'overflow-visible',
       cell: (mitigation: RiskMitigation) => (
         <DropdownMenu
           open={openDropdownId === mitigation.id}
@@ -323,6 +322,10 @@ const RiskMitigationsPage = () => {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => navigate(`/master/risk-mitigations/${mitigation.id}`)}>
+              <Eye className="mr-2 h-4 w-4" />
+              View
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/master/risk-mitigations/${mitigation.id}/edit`)}>
               <Edit className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
@@ -379,6 +382,9 @@ const RiskMitigationsPage = () => {
         onApplyFilters={handleApplyFilters}
         sorting={sorting}
         onSortingChange={handleSortingChange}
+        searchPlaceholder="Search by risk name..."
+        tableClassName="table-fixed w-full"
+        tableContainerClassName="max-h-[calc(100vh-320px)] overflow-y-auto min-w-0"
       />
 
       <ConfirmDialog

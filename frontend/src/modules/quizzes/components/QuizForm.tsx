@@ -7,7 +7,8 @@ import { Checkbox } from '@/core/components/ui/checkbox';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/core/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Separator } from '@/core/components/ui/separator';
-import { Plus } from 'lucide-react';
+import { Badge } from '@/core/components/ui/badge';
+import { Plus, ListOrdered } from 'lucide-react';
 import { toast } from 'sonner';
 import QuestionForm from './QuestionForm';
 import { useEffect, useState } from 'react';
@@ -44,7 +45,7 @@ const QuizForm = ({ mode, entity, entityId, onQuestionMediaFileSelect }: QuizFor
         if (selectedEntity === 'CHAPTER') {
           // Load all chapters immediately when CHAPTER is selected
           try {
-            const chaptersResponse = await chapterService.getChapters({ page: 1, limit: 1000, isActive: true });
+            const chaptersResponse = await chapterService.getChapters({ page: 1, limit: 1000, isActive: true, options: true });
             setChapters(chaptersResponse.data.map(ch => ({ id: ch.id, title: ch.title, courseId: ch.courseId })));
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to load chapters';
@@ -53,7 +54,7 @@ const QuizForm = ({ mode, entity, entityId, onQuestionMediaFileSelect }: QuizFor
         } else if (selectedEntity === 'COURSE' && selectedEntityId) {
           // Load chapters for selected course (if needed for reference)
           try {
-            const chaptersResponse = await chapterService.getChapters({ page: 1, limit: 100, courseId: selectedEntityId });
+            const chaptersResponse = await chapterService.getChapters({ page: 1, limit: 100, courseId: selectedEntityId, options: true });
             setChapters(chaptersResponse.data.map(ch => ({ id: ch.id, title: ch.title, courseId: ch.courseId })));
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to load chapters';
@@ -399,27 +400,44 @@ const QuizForm = ({ mode, entity, entityId, onQuestionMediaFileSelect }: QuizFor
       </Card>
 
       {/* Questions Section */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Questions</CardTitle>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => append({
-              questionType: 'MULTIPLE_CHOICE',
-              questionText: '',
-              points: 1,
-              order: fields.length,
-              options: [],
-            })}
-          >
-            <Plus className="h-4 w-4 mr-2" /> Add Question
-          </Button>
+      <Card className="border-l-4 border-l-primary bg-primary/5 dark:bg-primary/10">
+        <CardHeader className="pb-4">
+          <div className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ListOrdered className="h-5 w-5 text-primary" />
+                Questions
+              </CardTitle>
+              {fields.length > 0 && (
+                <Badge variant="secondary">
+                  {fields.length} {fields.length === 1 ? 'question' : 'questions'}
+                </Badge>
+              )}
+            </div>
+            <Button
+              type="button"
+              variant="default"
+              onClick={() => append({
+                questionType: 'MULTIPLE_CHOICE',
+                questionText: '',
+                points: 1,
+                order: fields.length,
+                options: [],
+              })}
+            >
+              <Plus className="h-4 w-4 mr-2" /> Add Question
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground mt-2">
+            Add one or more questions. You can reorder and remove them anytime.
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
           {fields.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No questions added yet. Click "Add Question" to get started.
+            <div className="text-center py-8 border-2 border-dashed border-muted-foreground/30 rounded-lg bg-muted/30 dark:bg-muted/20">
+              <ListOrdered className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm font-medium text-muted-foreground">No questions yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Click <strong>Add Question</strong> above to add your first question.</p>
             </div>
           ) : (
             fields.map((field, index) => (

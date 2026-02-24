@@ -49,6 +49,13 @@ export interface CreateUserDTO {
   jobPositionId?: string;
 }
 
+// Interface for creating a guest worker (name + email; backend assigns Guest role and random password)
+export interface CreateGuestWorkerDTO {
+  email: string;
+  firstName: string;
+  lastName: string;
+}
+
 // Interface for updating a user
 export interface UpdateUserDTO {
   email?: string;

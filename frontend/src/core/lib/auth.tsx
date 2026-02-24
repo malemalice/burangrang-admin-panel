@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { authApi } from './api';
+import { authApi, validateEmbedToken, getEmbedSession } from './api';
 import { toast } from 'sonner';
 
 interface User {
@@ -8,7 +8,8 @@ interface User {
   email: string;
   firstName: string;
   lastName: string;
-  role: string | { name: string; [key: string]: any };
+  role: string | { name: string; [key: string]: unknown };
+  permissions?: string[];
 }
 
 interface AuthContextType {
@@ -17,6 +18,10 @@ interface AuthContextType {
   logout: () => void;
   user: User | null;
   isLoading: boolean;
+  /** True when URL had a valid embed_token; allows showing login form instead of redirect. */
+  isEmbedContext: boolean;
+  /** True when embed token was invalid and we are inside an iframe (show error). */
+  embedUnauthorized: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,8 +47,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isEmbedContext, setIsEmbedContext] = useState<boolean>(false);
+  const [embedUnauthorized, setEmbedUnauthorized] = useState<boolean>(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const searchParams = new URLSearchParams(location.search);
+  const embedTokenFromUrl = searchParams.get('embed_token');
 
   // Track route changes and save last visited URL for authenticated users
   useEffect(() => {
@@ -52,22 +62,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [location.pathname, location.search, isAuthenticated]);
 
-  // Check if user is already authenticated on mount and route changes
+  // Check if user is already authenticated on mount and route changes; validate embed token if present
   useEffect(() => {
     const checkAuth = async () => {
+      setEmbedUnauthorized(false);
+      setIsEmbedContext(false);
+
+      let hadValidEmbedToken = false;
+
+      if (embedTokenFromUrl) {
+        try {
+          const valid = await validateEmbedToken(embedTokenFromUrl);
+          if (!valid) {
+            const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+            setEmbedUnauthorized(isInIframe);
+            if (!isInIframe) {
+              saveLastVisitedUrl(location.pathname + location.search);
+              navigate('/login');
+            }
+            setIsLoading(false);
+            return;
+          }
+          hadValidEmbedToken = true;
+          setIsEmbedContext(true);
+        } catch {
+          const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+          setEmbedUnauthorized(isInIframe);
+          if (!isInIframe) {
+            saveLastVisitedUrl(location.pathname + location.search);
+            navigate('/login');
+          }
+          setIsLoading(false);
+          return;
+        }
+      }
+
       const accessToken = localStorage.getItem('access_token');
       const refreshToken = localStorage.getItem('refresh_token');
-      
+
       if (accessToken && refreshToken) {
         try {
-          // Only call the refresh endpoint if the token needs refreshing
           const result = await authApi.checkAndRefreshAuth();
-          
+
           if (result) {
             setUser(result.user);
             setIsAuthenticated(true);
-            
-            // If we were on login page, redirect to last visited URL or dashboard
+
             if (location.pathname === '/login') {
               const lastUrl = getLastVisitedUrl();
               if (lastUrl) {
@@ -78,64 +118,75 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             }
           } else {
-            // This shouldn't happen but handle it just in case
             localStorage.removeItem('access_token');
             localStorage.removeItem('refresh_token');
             setIsAuthenticated(false);
             setUser(null);
-            
+
             if (location.pathname !== '/login') {
-              // Save current URL before redirecting
               saveLastVisitedUrl(location.pathname + location.search);
               navigate('/login');
             }
           }
         } catch (error) {
           console.error('[Auth] Auth check failed:', error);
-          // If token refresh fails, clear auth state
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
           setIsAuthenticated(false);
           setUser(null);
-          
+
           if (location.pathname !== '/login') {
-            console.log('[Auth] Redirecting to login page after auth failure');
-            // Save current URL before redirecting
             saveLastVisitedUrl(location.pathname + location.search);
             navigate('/login');
           }
         }
-      } else if (!['/login', '/reset-password'].includes(location.pathname)) {
-        console.log('[Auth] No tokens found, redirecting to login');
-        // Save current URL before redirecting
-        saveLastVisitedUrl(location.pathname + location.search);
-        // Redirect to login if not authenticated and not already on login page
-        navigate('/login');
+      } else {
+        // No JWT - for embed context, exchange embed token for session (seamless access)
+        if (hadValidEmbedToken && embedTokenFromUrl) {
+          try {
+            const { user: embedUser } = await getEmbedSession(embedTokenFromUrl);
+            setUser(embedUser as User);
+            setIsAuthenticated(true);
+          } catch {
+            const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+            setEmbedUnauthorized(isInIframe);
+            if (!isInIframe) {
+              saveLastVisitedUrl(location.pathname + location.search);
+              navigate('/login');
+            }
+          }
+        } else if (!['/login', '/reset-password'].includes(location.pathname)) {
+          console.log('[Auth] No tokens found, redirecting to login');
+          saveLastVisitedUrl(location.pathname + location.search);
+          navigate('/login');
+        }
       }
-      
+
       setIsLoading(false);
     };
 
     checkAuth();
-  }, [navigate, location.pathname]);
+  }, [navigate, location.pathname, location.search, embedTokenFromUrl]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       const { user } = await authApi.login(email, password);
-      
+
       setIsAuthenticated(true);
       setUser(user);
       toast.success('Login successful!');
-      
-      // Redirect to last visited URL or dashboard
+
       const lastUrl = getLastVisitedUrl();
+      const search = location.search || '';
+      const preserveEmbed = isEmbedContext && search;
+
       if (lastUrl) {
         clearLastVisitedUrl();
-        navigate(lastUrl);
+        navigate(preserveEmbed ? `${lastUrl}${lastUrl.includes('?') ? '&' : '?'}${search.slice(1)}` : lastUrl);
       } else {
-        navigate('/');
+        navigate(preserveEmbed ? `/${search}` : '/');
       }
-      
+
       return true;
     } catch (error) {
       console.error('[Auth] Login error:', error);
@@ -166,7 +217,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, user, isLoading }}>
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        login,
+        logout,
+        user,
+        isLoading,
+        isEmbedContext,
+        embedUnauthorized,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -181,21 +242,31 @@ export const useAuth = (): AuthContextType => {
 };
 
 export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isEmbedContext, embedUnauthorized } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
+    if (embedUnauthorized) return;
     if (!isLoading && !isAuthenticated && !['/login', '/reset-password'].includes(location.pathname)) {
       console.log('[ProtectedRoute] Not authenticated, redirecting to login');
-      // Save current URL before redirecting
       saveLastVisitedUrl(location.pathname + location.search);
-      navigate('/login');
+      const search = location.search ? `?${location.search}` : '';
+      navigate(isEmbedContext ? `/login${search}` : '/login');
     }
-  }, [isAuthenticated, isLoading, navigate, location]);
+  }, [isAuthenticated, isLoading, isEmbedContext, embedUnauthorized, navigate, location]);
 
-  // Show nothing while checking authentication
   if (isLoading) return null;
-  
-  return isAuthenticated ? <>{children}</> : null;
+
+  if (embedUnauthorized) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <p className="text-center text-muted-foreground">Embed not authorized</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) return null;
+
+  return <>{children}</>;
 }; 

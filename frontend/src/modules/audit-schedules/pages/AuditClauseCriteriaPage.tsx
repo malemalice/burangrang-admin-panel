@@ -27,14 +27,12 @@ import api from '@/core/lib/api';
 import { AuditItemForm } from '../components/AuditItemForm';
 import uploadService from '@/modules/uploads/services/uploadService';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
+import { CompliantStatusEnum } from '@/shared/constants/compliant-status.enum';
+import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import departmentService from '@/modules/master-data/services/departmentService';
 import { Department } from '@/modules/master-data/types/master-data.types';
-
-enum CompliantStatusEnum {
-  COMPLY = 'COMPLY',
-  NOT_COMPLY_MAJOR = 'NOT_COMPLY_MAJOR',
-  NOT_COMPLY_MINOR = 'NOT_COMPLY_MINOR',
-}
+import approvalService from '@/modules/master-data/services/approvalService';
+import { ApprovalStatus } from '@/core/lib/types';
 
 interface ImageUpload {
   id: string;
@@ -48,8 +46,8 @@ interface AuditItem {
   id: string;
   auditId: string;
   auditCriteriaId: string;
-  status: string;
-  compliantStatus: string;
+  status: GeneralStatusEnum;
+  compliantStatus: CompliantStatusEnum;
   evidence?: string;
   recommendation?: string;
   actionRealization?: string;
@@ -91,10 +89,14 @@ const AuditClauseCriteriaPage = () => {
   const [isLoadingClause, setIsLoadingClause] = useState(true);
   const [isLoadingCriteria, setIsLoadingCriteria] = useState(false);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [formEntryMode, setFormEntryMode] = useState<'assessment' | 'update_action_item'>('assessment');
   const [selectedCriteria, setSelectedCriteria] = useState<MergedCriteriaItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [departmentMap, setDepartmentMap] = useState<Record<string, string>>({});
+  const [isApprovalFormOpen, setIsApprovalFormOpen] = useState(false);
+  const [selectedItemForApprovalForm, setSelectedItemForApprovalForm] = useState<MergedCriteriaItem | null>(null);
+  const [criteriaSearchTerm, setCriteriaSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -125,7 +127,7 @@ const AuditClauseCriteriaPage = () => {
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
-        const response = await departmentService.getDepartments({ page: 1, limit: 1000 });
+        const response = await departmentService.getDepartments({ page: 1, limit: 1000, options: true });
         setDepartments(response.data);
         // Create a map of department ID to name for quick lookup
         const map: Record<string, string> = {};
@@ -257,30 +259,139 @@ const AuditClauseCriteriaPage = () => {
     return Array.from(criteriaMap.values()).sort((a, b) => a.order - b.order);
   }, [masterCriteria, auditItems]);
 
+  // Filter criteria by search term (client-side)
+  const filteredMergedCriteria = useMemo(() => {
+    if (!criteriaSearchTerm?.trim()) return mergedCriteria;
+    const term = criteriaSearchTerm.trim().toLowerCase();
+    return mergedCriteria.filter(
+      (item) =>
+        item.code?.toLowerCase().includes(term) ||
+        item.name?.toLowerCase().includes(term) ||
+        (item.description && item.description.toLowerCase().includes(term))
+    );
+  }, [mergedCriteria, criteriaSearchTerm]);
+
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
     const total = mergedCriteria.length;
     const filled = mergedCriteria.filter(item => item.isFromAuditItem).length;
     const comply = mergedCriteria.filter(
-      item => item.auditItem?.compliantStatus === 'COMPLY'
+      item => item.auditItem?.compliantStatus === CompliantStatusEnum.COMPLY
     ).length;
     const notComply = mergedCriteria.filter(
       item => item.auditItem?.compliantStatus && 
-      (item.auditItem.compliantStatus === 'NOT_COMPLY_MAJOR' || 
-       item.auditItem.compliantStatus === 'NOT_COMPLY_MINOR')
+      (item.auditItem.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MAJOR || 
+       item.auditItem.compliantStatus === CompliantStatusEnum.NOT_COMPLY_MINOR)
     ).length;
     
     return { total, filled, comply, notComply };
   }, [mergedCriteria]);
 
-  const handleOpenForm = (item: MergedCriteriaItem) => {
+  const handleOpenForm = (
+    item: MergedCriteriaItem,
+    entryMode: 'assessment' | 'update_action_item' = 'assessment',
+  ) => {
+    setFormEntryMode(entryMode);
     setSelectedCriteria(item);
     setIsFormDialogOpen(true);
   };
 
   const handleCloseForm = () => {
     setIsFormDialogOpen(false);
+    setFormEntryMode('assessment');
     setSelectedCriteria(null);
+  };
+
+
+  const handleOpenApprovalForm = async (item: MergedCriteriaItem) => {
+    if (!id || !item.auditItem) return;
+
+    // Check if audit item status is WAITING_APPROVAL
+    if (item.auditItem.status !== GeneralStatusEnum.WAITING_APPROVAL) {
+      toast.error('This audit item is not waiting for approval');
+      return;
+    }
+
+    // Check approval rights
+    try {
+      const response = await approvalService.checkApprovalRights(
+        item.auditItem.id,
+        APPROVAL_ENTITIES.AUDIT_ITEM,
+      );
+      if (!response.canApprove) {
+        toast.error('You do not have permission to approve this audit item');
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to check approval rights:', error);
+      toast.error('Failed to check approval rights');
+      return;
+    }
+
+    setSelectedItemForApprovalForm(item);
+    setIsApprovalFormOpen(true);
+  };
+
+  const handleCloseApprovalForm = () => {
+    setIsApprovalFormOpen(false);
+    setSelectedItemForApprovalForm(null);
+  };
+
+  const handleApprove = async (status: ApprovalStatus, notes: string) => {
+    if (!id || !selectedItemForApprovalForm?.auditItem) return;
+
+    try {
+      setIsSubmitting(true);
+      
+      await approvalService.submitApproval({
+        dataId: selectedItemForApprovalForm.auditItem.id,
+        entity: APPROVAL_ENTITIES.AUDIT_ITEM,
+        status,
+        notes,
+      });
+
+      toast.success(`Audit item ${status === ApprovalStatus.APPROVED ? 'approved' : 'rejected'} successfully`);
+      
+      // Refresh data
+      const criteriaResponse = await auditPolicyService.getCriteria({
+        page: 1,
+        limit: 10000,
+        auditClauseId: clauseId!,
+        isActive: true,
+        sortBy: 'order',
+        sortOrder: 'asc',
+      });
+      setMasterCriteria(criteriaResponse.data);
+
+      // Fetch audit items again
+      const criteriaIds = criteriaResponse.data.map(c => c.id);
+      try {
+        const auditResponse = await api.get(`/audits/${id}/items`, {
+          params: {
+            page: 1,
+            limit: 10000,
+          },
+        });
+        if (auditResponse?.data?.data) {
+          const filteredItems = auditResponse.data.data.filter((item: AuditItem) => {
+            return criteriaIds.includes(item.auditCriteriaId);
+          });
+          setAuditItems(filteredItems);
+        }
+      } catch (error) {
+        // Silently fail - items will refresh on next page load
+      }
+
+      handleCloseApprovalForm();
+    } catch (error: unknown) {
+      console.error('Failed to submit approval:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+        : undefined;
+      toast.error(errorMessage || 'Failed to submit approval');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmitForm = async (data: {
@@ -292,6 +403,7 @@ const AuditClauseCriteriaPage = () => {
     actionRealization?: string;
     dueDate: string;
     images: ImageUpload[];
+    status?: string;
   }) => {
     if (!id || !selectedCriteria) return;
 
@@ -353,16 +465,76 @@ const AuditClauseCriteriaPage = () => {
         dueDate: new Date(data.dueDate).toISOString(),
         order: selectedCriteria.order,
         images: uploadedImageUrls,
+        // Include status if provided (from form mode)
+        ...(data.status && { status: data.status }),
       };
 
+      let updatedItemId: string;
+      let itemStatus: string | undefined;
+      
+      // If status is explicitly provided (from form), use it
+      // Otherwise, if compliant status is COMPLY, skip approval and set status to DONE directly
+      const shouldSkipApproval = !data.status && data.compliantStatus === CompliantStatusEnum.COMPLY;
+      
       if (selectedCriteria.auditItem) {
         // Update existing audit item
-        await api.patch(`/audits/${id}/items/${selectedCriteria.auditItem.id}`, payload);
-        toast.success('Audit item updated successfully');
+        const updatePayload = data.status 
+          ? { ...payload, status: data.status }
+          : shouldSkipApproval 
+          ? { ...payload, status: GeneralStatusEnum.DONE }
+          : payload;
+        const updateResponse = await api.patch(`/audits/${id}/items/${selectedCriteria.auditItem.id}`, updatePayload);
+        updatedItemId = selectedCriteria.auditItem.id;
+        itemStatus = updateResponse.data?.status || selectedCriteria.auditItem.status;
+        
+        // Show appropriate success message
+        if (data.status === GeneralStatusEnum.WAITING_APPROVAL) {
+          toast.success('Audit item submitted for approval');
+        } else if (data.status === GeneralStatusEnum.CLOSE) {
+          toast.success('Audit item approved and closed');
+        } else if (shouldSkipApproval) {
+          toast.success('Audit item completed (COMPLY - no approval needed)');
+        } else {
+          toast.success('Audit item updated successfully');
+        }
       } else {
         // Create new audit item
-        await api.post(`/audits/${id}/items`, payload);
-        toast.success('Audit item created successfully');
+        const createPayload = data.status
+          ? { ...payload, status: data.status }
+          : shouldSkipApproval
+          ? { ...payload, status: GeneralStatusEnum.DONE }
+          : payload;
+        const createResponse = await api.post(`/audits/${id}/items`, createPayload);
+        updatedItemId = createResponse.data?.id || createResponse.data?.data?.id;
+        itemStatus = createResponse.data?.status || createResponse.data?.data?.status || (shouldSkipApproval ? GeneralStatusEnum.DONE : GeneralStatusEnum.OPEN);
+        
+        // Show appropriate success message
+        if (data.status === GeneralStatusEnum.WAITING_APPROVAL) {
+          toast.success('Audit item created and submitted for approval');
+        } else if (shouldSkipApproval) {
+          toast.success('Audit item completed (COMPLY - no approval needed)');
+        } else {
+          toast.success('Audit item created successfully');
+        }
+      }
+
+      // If status is not explicitly set and compliant status is NOT COMPLY and item status is OPEN, 
+      // automatically submit for approval (legacy behavior for assessment mode)
+      if (!data.status && !shouldSkipApproval && (itemStatus === GeneralStatusEnum.OPEN || (!selectedCriteria.auditItem && itemStatus === GeneralStatusEnum.OPEN))) {
+        try {
+          await auditSchedulesService.submitForApproval(id, updatedItemId);
+          toast.success('Audit item submitted for approval');
+        } catch (error) {
+          console.error('Failed to submit for approval:', error);
+          // Don't show error if user doesn't have permission - item is still saved
+          // Only show error if it's a real issue
+          if (error && typeof error === 'object' && 'response' in error) {
+            const errorResponse = (error as { response?: { status?: number } })?.response;
+            if (errorResponse?.status !== 403) {
+              toast.error('Item saved but failed to submit for approval');
+            }
+          }
+        }
       }
 
       // Refresh data
@@ -434,7 +606,7 @@ const AuditClauseCriteriaPage = () => {
     );
   }
 
-  const getCompliantStatusBadge = (status?: string) => {
+  const getCompliantStatusBadge = (status?: CompliantStatusEnum) => {
     if (!status) {
       return (
         <Badge variant="outline" className="bg-gray-100 text-gray-600">
@@ -444,19 +616,19 @@ const AuditClauseCriteriaPage = () => {
     }
     
     switch (status) {
-      case 'COMPLY':
+      case CompliantStatusEnum.COMPLY:
         return (
           <Badge className="bg-green-100 text-green-800 border-green-800">
             Comply
           </Badge>
         );
-      case 'NOT_COMPLY_MAJOR':
+      case CompliantStatusEnum.NOT_COMPLY_MAJOR:
         return (
           <Badge className="bg-red-100 text-red-800 border-red-800">
             Not Comply - Major
           </Badge>
         );
-      case 'NOT_COMPLY_MINOR':
+      case CompliantStatusEnum.NOT_COMPLY_MINOR:
         return (
           <Badge className="bg-yellow-100 text-yellow-800 border-yellow-800">
             Not Comply - Minor
@@ -568,8 +740,40 @@ const AuditClauseCriteriaPage = () => {
       isSortable: false,
     },
     {
+      id: 'status',
+      header: 'Status',
+      headerClassName: 'text-center',
+      cellClassName: 'text-center',
+      cell: (item: MergedCriteriaItem) => {
+        const status = item.auditItem?.status;
+        if (!status) {
+          return <Badge variant="outline" className="bg-gray-100 text-gray-600">Not Started</Badge>;
+        }
+
+        switch (status) {
+          case GeneralStatusEnum.DRAFT:
+            return <Badge variant="outline" className="bg-gray-100 text-gray-600">Draft</Badge>;
+          case GeneralStatusEnum.OPEN:
+            return <Badge variant="outline" className="bg-blue-100 text-blue-800">Open</Badge>;
+          case GeneralStatusEnum.WAITING_APPROVAL:
+            return <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Waiting Verification</Badge>;
+          case GeneralStatusEnum.DONE:
+            return <Badge className="bg-green-100 text-green-800">Done</Badge>;
+          case GeneralStatusEnum.REJECTED:
+            return <Badge className="bg-red-100 text-red-800">Rejected</Badge>;
+          case GeneralStatusEnum.CLOSE:
+            return <Badge variant="outline" className="bg-gray-100 text-gray-800">Close</Badge>;
+          default:
+            return <Badge variant="outline">{status}</Badge>;
+        }
+      },
+      isSortable: false,
+    },
+    {
       id: 'compliantStatus',
       header: 'Compliant Status',
+      headerClassName: 'text-center',
+      cellClassName: 'text-center',
       cell: (item: MergedCriteriaItem) => (
         <div>
           {getCompliantStatusBadge(item.auditItem?.compliantStatus)}
@@ -609,14 +813,14 @@ const AuditClauseCriteriaPage = () => {
               </TooltipContent>
             </Tooltip>
 
-            {/* Assess button - shown when no item exists or status is DRAFT/OPEN */}
-            {(hasNoItem || isDraft || isOpen) && (
+            {/* Assess button - shown when no item exists or status is DRAFT/OPEN/REJECTED */}
+            {(hasNoItem || isDraft || isOpen || isRejected) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleOpenForm(item)}
+                    onClick={() => handleOpenForm(item, 'assessment')}
                     className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                   >
                     <ClipboardCheck className="h-4 w-4" />
@@ -628,40 +832,40 @@ const AuditClauseCriteriaPage = () => {
               </Tooltip>
             )}
 
-            {/* Update button - shown when item exists and status is OPEN or WAITING_APPROVAL */}
-            {item.isFromAuditItem && (isOpen || isWaitingApproval) && (
+            {/* Update Action Item button - shown when item exists and status is OPEN or REJECTED */}
+            {item.isFromAuditItem && (isOpen || isRejected) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleOpenForm(item)}
+                    onClick={() => handleOpenForm(item, 'update_action_item')}
                     className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                   >
                     <Wrench className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Update</p>
+                  <p>Update Action Item</p>
                 </TooltipContent>
               </Tooltip>
             )}
 
-            {/* Verify button - shown when status is WAITING_APPROVAL */}
+            {/* Approve button - shown when status is WAITING_APPROVAL */}
             {item.isFromAuditItem && isWaitingApproval && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleOpenForm(item)}
+                    onClick={() => handleOpenApprovalForm(item)}
                     className="text-green-600 hover:text-green-700 hover:bg-green-50"
                   >
                     <CheckCircle2 className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Verify</p>
+                  <p>Approve</p>
                 </TooltipContent>
               </Tooltip>
             )}
@@ -762,11 +966,13 @@ const AuditClauseCriteriaPage = () => {
         <CardContent>
           <DataTable
             columns={auditCriteriaColumns}
-            data={mergedCriteria}
+            data={filteredMergedCriteria}
             isLoading={isLoadingCriteria}
             filterFields={[]}
-            onSearch={() => {}}
+            searchValue={criteriaSearchTerm}
+            onSearch={(term) => setCriteriaSearchTerm(term)}
             onApplyFilters={() => {}}
+            searchPlaceholder="Search criteria by code or name..."
           />
         </CardContent>
       </Card>
@@ -775,9 +981,17 @@ const AuditClauseCriteriaPage = () => {
       <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Assess Audit Criteria</DialogTitle>
+            <DialogTitle>
+              {formEntryMode === 'update_action_item' ? 'Update Action Item' : 'Assess Audit Criteria'}
+            </DialogTitle>
             <DialogDescription>
-              {selectedCriteria ? `Assess criteria: ${selectedCriteria.name}` : 'Assess audit criteria'}
+              {selectedCriteria
+                ? formEntryMode === 'update_action_item'
+                  ? `Update action item for criteria: ${selectedCriteria.name}`
+                  : `Assess criteria: ${selectedCriteria.name}`
+                : formEntryMode === 'update_action_item'
+                  ? 'Update action item'
+                  : 'Assess audit criteria'}
             </DialogDescription>
           </DialogHeader>
           {selectedCriteria && (
@@ -793,6 +1007,7 @@ const AuditClauseCriteriaPage = () => {
               auditSchedule={auditSchedule}
               auditItem={selectedCriteria.auditItem ? {
                 id: selectedCriteria.auditItem.id,
+                status: selectedCriteria.auditItem.status,
                 compliantStatus: selectedCriteria.auditItem.compliantStatus,
                 departmentIds: selectedCriteria.auditItem.departmentIds || [],
                 userIds: selectedCriteria.auditItem.userIds || [],
@@ -805,6 +1020,50 @@ const AuditClauseCriteriaPage = () => {
               onSubmit={handleSubmitForm}
               onCancel={handleCloseForm}
               isSubmitting={isSubmitting}
+              entryMode={formEntryMode}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval Form Dialog */}
+      <Dialog open={isApprovalFormOpen} onOpenChange={setIsApprovalFormOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Approve Audit Item</DialogTitle>
+            <DialogDescription>
+              {selectedItemForApprovalForm ? `Review and approve criteria: ${selectedItemForApprovalForm.name}` : 'Review and approve audit criteria'}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedItemForApprovalForm && auditSchedule && auditClause && (
+            <AuditItemForm
+              key={`approval-${selectedItemForApprovalForm.auditItem?.id || selectedItemForApprovalForm.id}`}
+              auditCriteriaId={selectedItemForApprovalForm.masterCriteria?.id || selectedItemForApprovalForm.id}
+              auditCriteriaName={selectedItemForApprovalForm.name}
+              auditCriteriaDescription={selectedItemForApprovalForm.description}
+              auditCriteriaCode={selectedItemForApprovalForm.code}
+              auditScheduleCode={auditSchedule?.code}
+              auditClauseName={auditClause?.name}
+              auditElementName={auditClause?.auditElement?.name}
+              auditSchedule={auditSchedule}
+              auditItem={selectedItemForApprovalForm.auditItem ? {
+                id: selectedItemForApprovalForm.auditItem.id,
+                status: selectedItemForApprovalForm.auditItem.status,
+                compliantStatus: selectedItemForApprovalForm.auditItem.compliantStatus,
+                departmentIds: selectedItemForApprovalForm.auditItem.departmentIds || [],
+                userIds: selectedItemForApprovalForm.auditItem.userIds || [],
+                evidence: selectedItemForApprovalForm.auditItem.evidence,
+                recommendation: selectedItemForApprovalForm.auditItem.recommendation,
+                actionRealization: selectedItemForApprovalForm.auditItem.actionRealization,
+                dueDate: new Date(selectedItemForApprovalForm.auditItem.dueDate),
+                images: selectedItemForApprovalForm.auditItem.images || [],
+              } : undefined}
+              onSubmit={handleSubmitForm}
+              onCancel={handleCloseApprovalForm}
+              isSubmitting={isSubmitting}
+              mode="approval"
+              onApprove={handleApprove}
+              auditId={id}
             />
           )}
         </DialogContent>

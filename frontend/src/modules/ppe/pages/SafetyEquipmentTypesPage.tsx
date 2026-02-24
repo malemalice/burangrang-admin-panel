@@ -19,9 +19,12 @@ import { PaginationParams } from '@/core/lib/types';
 import { useSafetyEquipmentTypes } from '../hooks/useSafetyEquipmentTypes';
 import { SafetyEquipmentType } from '../types/ppe-master-data.types';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 export default function SafetyEquipmentTypesPage() {
     const navigate = useNavigate();
+    const { hasPermission } = usePermissions();
     const {
         types,
         totalTypes,
@@ -37,6 +40,7 @@ export default function SafetyEquipmentTypesPage() {
     const [activeTab, setActiveTab] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+    const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
     const filterFields: FilterField[] = useMemo(() => [
@@ -66,6 +70,8 @@ export default function SafetyEquipmentTypesPage() {
             page: pageIndex + 1,
             limit,
             search: searchTerm,
+            sortBy: sorting ? (sorting.id === 'status' ? 'isActive' : sorting.id) : 'name',
+            sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'asc',
             filters: {
                 // Exclude status filter, only include other filters
                 ...Object.entries(activeFilters)
@@ -81,7 +87,7 @@ export default function SafetyEquipmentTypesPage() {
             }
         };
         await fetchTypes(params);
-    }, [pageIndex, limit, searchTerm, activeFilters, fetchTypes]);
+    }, [pageIndex, limit, searchTerm, activeFilters, sorting, fetchTypes]);
 
     useEffect(() => {
         fetchData();
@@ -138,6 +144,11 @@ export default function SafetyEquipmentTypesPage() {
         setPageIndex(0);
     }, []);
 
+    const handleSortingChange = useCallback((newSorting: { id: string; desc: boolean } | null) => {
+        setSorting(newSorting);
+        setPageIndex(0);
+    }, []);
+
     const handleTabChange = useCallback((value: string) => {
         setActiveTab(value);
         setPageIndex(0);
@@ -154,6 +165,7 @@ export default function SafetyEquipmentTypesPage() {
         {
             id: 'name',
             header: 'Type Name',
+            isSortable: true,
             cell: (type: SafetyEquipmentType) => (
                 <div>
                     <div className="font-medium">{type.name}</div>
@@ -164,11 +176,13 @@ export default function SafetyEquipmentTypesPage() {
         {
             id: 'description',
             header: 'Description',
+            isSortable: true,
             cell: (type: SafetyEquipmentType) => type.description || '-',
         },
         {
             id: 'status',
             header: 'Status',
+            isSortable: true,
             cell: (type: SafetyEquipmentType) => (
                 <Badge
                     variant="outline"
@@ -212,7 +226,7 @@ export default function SafetyEquipmentTypesPage() {
                 </DropdownMenu>
             ),
         },
-    ], [openDropdownId, navigate, handleDeleteClick]);
+    ], [openDropdownId, navigate, handleDeleteClick, hasPermission]);
 
     return (
         <>
@@ -220,9 +234,11 @@ export default function SafetyEquipmentTypesPage() {
                 title="Safety Equipment Types"
                 subtitle="Manage safety equipment types"
                 actions={
-                    <Button onClick={() => navigate('/master/safety-equipment-types/new')}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Type
-                    </Button>
+                    <PermissionGuard permission="safety-equipment-type:create">
+                        <Button onClick={() => navigate('/master/safety-equipment-types/new')}>
+                            <Plus className="mr-2 h-4 w-4" /> Add Type
+                        </Button>
+                    </PermissionGuard>
                 }
             >
                 <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
@@ -246,6 +262,8 @@ export default function SafetyEquipmentTypesPage() {
                     onPageSizeChange: setLimit,
                     total: totalTypes
                 }}
+                sorting={sorting}
+                onSortingChange={handleSortingChange}
                 filterFields={filterFields}
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}

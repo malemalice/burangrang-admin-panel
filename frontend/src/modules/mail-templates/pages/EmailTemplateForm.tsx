@@ -79,9 +79,10 @@ const EmailTemplateForm = ({ template, mode }: EmailTemplateFormProps) => {
         toast.success('Email template updated successfully');
       }
       navigate('/mail-templates');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving template:', error);
-      toast.error(`Failed to ${mode} template`);
+      const message = error?.message || `Failed to ${mode} template`;
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -100,7 +101,7 @@ const EmailTemplateForm = ({ template, mode }: EmailTemplateFormProps) => {
               name="code"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Code</FormLabel>
+                  <FormLabel>Code <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
                     <Input placeholder="unique_code" {...field} disabled={mode === 'edit'} />
                   </FormControl>
@@ -113,7 +114,7 @@ const EmailTemplateForm = ({ template, mode }: EmailTemplateFormProps) => {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>Name <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
                     <Input placeholder="Template name" {...field} />
                   </FormControl>
@@ -126,7 +127,7 @@ const EmailTemplateForm = ({ template, mode }: EmailTemplateFormProps) => {
               name="subject"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Subject</FormLabel>
+                  <FormLabel>Subject <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
                     <Input placeholder="Email subject (supports handlebars)" {...field} />
                   </FormControl>
@@ -139,7 +140,7 @@ const EmailTemplateForm = ({ template, mode }: EmailTemplateFormProps) => {
               name="body"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Body</FormLabel>
+                  <FormLabel>Body <span className="text-destructive">*</span></FormLabel>
                   <FormControl>
                     <Textarea placeholder="Email body (supports handlebars)" className="min-h-[200px]" {...field} />
                   </FormControl>

@@ -1,24 +1,53 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { WasteTypesService } from '../services/waste-types.service';
-import { CreateWasteTypeDto, UpdateWasteTypeDto, WasteTypeDto } from '../dto/waste-types';
+import {
+  CreateWasteTypeDto,
+  UpdateWasteTypeDto,
+  WasteTypeDto,
+} from '../dto/waste-types';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
+import { PermissionsGuard } from '../../../shared/guards/permissions.guard';
+import { Permissions } from '../../../shared/decorators/permissions.decorator';
+import { AllowOptionsBypass } from '../../../shared/decorators/allow-options-bypass.decorator';
 import { Roles } from '../../../shared/decorators/roles.decorator';
 import { Role } from '../../../shared/types/role.enum';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+  ApiBearerAuth,
+  ApiParam,
+  ApiBody,
+} from '@nestjs/swagger';
 
 @ApiTags('waste-types')
 @ApiBearerAuth()
 @Controller('waste-types')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class WasteTypesController {
   constructor(private readonly service: WasteTypesService) {}
 
   @Post()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:create')
   @ApiOperation({ summary: 'Create a new waste type' })
   @ApiBody({ type: CreateWasteTypeDto })
-  @ApiResponse({ status: 201, description: 'The waste type has been successfully created.', type: WasteTypeDto })
+  @ApiResponse({
+    status: 201,
+    description: 'The waste type has been successfully created.',
+    type: WasteTypeDto,
+  })
   @ApiResponse({ status: 400, description: 'Bad Request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
@@ -28,14 +57,25 @@ export class WasteTypesController {
   }
 
   @Get()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @AllowOptionsBypass()
   @ApiOperation({ summary: 'Get all waste types' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean })
   @ApiQuery({ name: 'wasteType', required: false, type: String })
-  @ApiResponse({ status: 200, description: 'Return all waste types.', type: [WasteTypeDto] })
+  @ApiQuery({
+    name: 'options',
+    required: false,
+    type: Boolean,
+    description:
+      'Set to true to bypass permission check (requires JWT auth only)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Return all waste types.',
+    type: [WasteTypeDto],
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findAll(
     @Query('page') page?: string,
@@ -54,10 +94,14 @@ export class WasteTypesController {
   }
 
   @Get(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.USER)
+  @Permissions('waste-management:read')
   @ApiOperation({ summary: 'Get waste type by id' })
   @ApiParam({ name: 'id', type: String })
-  @ApiResponse({ status: 200, description: 'Return the waste type.', type: WasteTypeDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Return the waste type.',
+    type: WasteTypeDto,
+  })
   @ApiResponse({ status: 404, description: 'Waste type not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findOne(@Param('id') id: string): Promise<WasteTypeDto> {
@@ -65,23 +109,33 @@ export class WasteTypesController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:update')
   @ApiOperation({ summary: 'Update waste type' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateWasteTypeDto })
-  @ApiResponse({ status: 200, description: 'The waste type has been successfully updated.', type: WasteTypeDto })
+  @ApiResponse({
+    status: 200,
+    description: 'The waste type has been successfully updated.',
+    type: WasteTypeDto,
+  })
   @ApiResponse({ status: 400, description: 'Bad Request' })
   @ApiResponse({ status: 404, description: 'Waste type not found' })
   @ApiResponse({ status: 409, description: 'Conflict' })
-  update(@Param('id') id: string, @Body() dto: UpdateWasteTypeDto): Promise<WasteTypeDto> {
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateWasteTypeDto,
+  ): Promise<WasteTypeDto> {
     return this.service.update(id, dto);
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Permissions('waste-management:delete')
   @ApiOperation({ summary: 'Delete waste type' })
   @ApiParam({ name: 'id', type: String })
-  @ApiResponse({ status: 200, description: 'The waste type has been successfully deleted.' })
+  @ApiResponse({
+    status: 200,
+    description: 'The waste type has been successfully deleted.',
+  })
   @ApiResponse({ status: 404, description: 'Waste type not found' })
   @ApiResponse({ status: 409, description: 'Conflict' })
   remove(@Param('id') id: string): Promise<void> {

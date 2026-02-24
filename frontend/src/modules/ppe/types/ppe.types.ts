@@ -19,9 +19,11 @@ export enum PPEStockStatus {
 
 export enum PPEWithdrawalStatus {
     PENDING = 'PENDING',
+    WAITING_APPROVAL = 'WAITING_APPROVAL',
     APPROVED = 'APPROVED',
     COLLECTED = 'COLLECTED',
     CANCELLED = 'CANCELLED',
+    REJECTED = 'REJECTED',
 }
 
 export enum AdjustmentType {
@@ -187,6 +189,7 @@ export interface PPEWithdrawalDTO {
     createdAt: string;
     updatedAt: string;
     createdBy: string;
+    createdByName?: string | null;
     items?: PPEWithdrawalItemDTO[];
 }
 
@@ -211,6 +214,7 @@ export interface PPEWithdrawal {
     createdAt: string;
     updatedAt: string;
     createdBy: string;
+    createdByName?: string | null;
     items?: PPEWithdrawalItem[];
 }
 

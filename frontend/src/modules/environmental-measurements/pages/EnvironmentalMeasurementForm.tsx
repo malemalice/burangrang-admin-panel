@@ -79,7 +79,7 @@ const EnvironmentalMeasurementForm = ({ measurement, mode }: EnvironmentalMeasur
         setIsLoadingData(true);
 
         // Fetch rooms for dropdown
-        const roomsResponse = await roomService.getRooms({ isActive: true, limit: 100 });
+        const roomsResponse = await roomService.getRooms({ isActive: true, limit: 100, options: true });
         setRooms(roomsResponse.data);
 
         // Set form data for edit mode

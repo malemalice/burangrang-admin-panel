@@ -23,9 +23,11 @@ import { ApprovalsService } from '../../approvals/approvals.service';
 import { RemindersService } from '../../reminders/reminders.service';
 import {
   ReminderRepeatTypeEnum,
+  ReminderStatusEnum,
   ReminderTargetTypeEnum,
 } from '../../reminders/dto/reminder.dto';
 import { APPROVAL_ENTITIES } from '../../../shared/constants/approval-entities';
+import { PRISMA_ERROR_CODES } from '../../../shared/constants/prisma-errors';
 
 // Entity type constant for risk assessment items
 const RISK_ASSESSMENT_ITEM_ENTITY = 'RISK_ASSESSMENT_ITEM';
@@ -146,7 +148,7 @@ export class RiskAssessmentService {
       return this.mapToDtoWithMitigations(assessmentWithRelations);
     } catch (error: any) {
       // Handle Prisma unique constraint error for code
-      if (error.code === 'P2002' && error.meta?.target?.includes('code')) {
+      if (error.code === PRISMA_ERROR_CODES.UNIQUE_VIOLATION && error.meta?.target?.includes('code')) {
         throw new ConflictException('Code already exists');
       }
       throw error;
@@ -573,15 +575,14 @@ export class RiskAssessmentService {
         where: {
           entity: 't_risk_assessment',
           entityId: assessmentId,
-          status: 'PENDING', // Only cancel pending reminders
+          status: ReminderStatusEnum.PENDING,
         },
       });
 
-      // Cancel each reminder by updating status to CANCELLED
       for (const reminder of reminders) {
         await this.prisma.reminder.update({
           where: { id: reminder.id },
-          data: { status: 'CANCELLED' },
+          data: { status: ReminderStatusEnum.CANCELLED },
         });
       }
     } catch (error) {

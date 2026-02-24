@@ -24,6 +24,8 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Badge } from '@/core/components/ui/badge';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 import { Inspection } from '../types/inspection.types';
 import inspectionsService from '../services/inspectionsService';
@@ -31,6 +33,7 @@ import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/ge
 
 const InspectionsPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -51,6 +54,15 @@ const InspectionsPage = () => {
       type: 'text',
     },
     {
+      id: 'isActive',
+      label: 'Status (Active/Inactive)',
+      type: 'select',
+      options: [
+        { value: true, label: 'Active' },
+        { value: false, label: 'Inactive' },
+      ],
+    },
+    {
       id: 'areaId',
       label: 'Area',
       type: 'select',
@@ -58,13 +70,13 @@ const InspectionsPage = () => {
     },
     {
       id: 'status',
-      label: 'Status',
+      label: 'Inspection Status',
       type: 'select',
       options: GENERAL_STATUS_OPTIONS.map(option => ({
         label: option.label,
         value: option.value,
       })),
-    }
+    },
   ];
 
   const fetchInspections = useCallback(async () => {
@@ -149,12 +161,18 @@ const InspectionsPage = () => {
         const statusOption = GENERAL_STATUS_OPTIONS.find(opt => opt.value === filter.value);
         newActiveFilters[filter.id] = {
           value: filter.value,
-          label: statusOption?.label || String(filter.value)
+          label: statusOption?.label || String(filter.value),
+        };
+      } else if (filter.id === 'isActive') {
+        const boolVal = filter.value === true || filter.value === 'true';
+        newActiveFilters[filter.id] = {
+          value: boolVal,
+          label: boolVal ? 'Active' : 'Inactive',
         };
       } else {
         newActiveFilters[filter.id] = {
           value: filter.value,
-          label: String(filter.value)
+          label: String(filter.value),
         };
       }
     });
@@ -209,7 +227,7 @@ const InspectionsPage = () => {
       [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
       [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'outline' },
       [GeneralStatusEnum.OPEN]: { label: 'Open', variant: 'secondary' },
-      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Approval', variant: 'secondary' },
+      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
       [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
       [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
     };
@@ -285,7 +303,7 @@ const InspectionsPage = () => {
                 {openCount} Open
               </div>
               <div className={`text-xs whitespace-nowrap ${closedCount > 0 ? 'text-green-800 dark:text-green-400' : 'text-muted-foreground'}`}>
-                {closedCount} Closed
+                {closedCount} Close
               </div>
             </div>
           </div>
@@ -321,41 +339,49 @@ const InspectionsPage = () => {
       header: 'Actions',
       cell: (inspection: Inspection) => (
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/inspections/${inspection.id}`)}
-            className="text-primary hover:text-primary hover:bg-primary/10"
-            aria-label={`View details for ${inspection.code}`}
-          >
-            <Eye className="mr-2 h-4 w-4" />
-            View
-          </Button>
-          <DropdownMenu
-            open={openDropdownId === inspection.id}
-            onOpenChange={(open) => {
-              setOpenDropdownId(open ? inspection.id : null);
-            }}
-          >
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/inspections/${inspection.id}/edit`)}>
-                <Edit className="mr-2 h-4 w-4" /> Edit
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={(e) => handleDeleteClick(inspection, e)}
-                className="text-red-600 focus:text-red-600"
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {hasPermission('inspection:read') && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/inspections/${inspection.id}`)}
+              className="text-primary hover:text-primary hover:bg-primary/10"
+              aria-label={`View details for ${inspection.code}`}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              View
+            </Button>
+          )}
+          {(hasPermission('inspection:update') || hasPermission('inspection:delete')) && (
+            <DropdownMenu
+              open={openDropdownId === inspection.id}
+              onOpenChange={(open) => {
+                setOpenDropdownId(open ? inspection.id : null);
+              }}
+            >
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {hasPermission('inspection:update') && (
+                  <DropdownMenuItem onClick={() => navigate(`/inspections/${inspection.id}/edit`)}>
+                    <Edit className="mr-2 h-4 w-4" /> Edit
+                  </DropdownMenuItem>
+                )}
+                {hasPermission('inspection:update') && hasPermission('inspection:delete') && <DropdownMenuSeparator />}
+                {hasPermission('inspection:delete') && (
+                  <DropdownMenuItem
+                    onClick={(e) => handleDeleteClick(inspection, e)}
+                    className="text-red-600 focus:text-red-600"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       )
     }
@@ -367,9 +393,11 @@ const InspectionsPage = () => {
         title="Inspections"
         subtitle="Create and manage inspections with associated inspection items"
         actions={
-          <ThemeButton onClick={() => navigate('/inspections/new')}>
-            <Plus className="mr-2 h-4 w-4" /> New Inspection
-          </ThemeButton>
+          <PermissionGuard permission="inspection:create">
+            <ThemeButton onClick={() => navigate('/inspections/new')}>
+              <Plus className="mr-2 h-4 w-4" /> New Inspection
+            </ThemeButton>
+          </PermissionGuard>
         }
       >
         <Tabs value={activeTab} className="w-full" onValueChange={handleTabChange}>
@@ -395,6 +423,8 @@ const InspectionsPage = () => {
         }}
         filterFields={filterFields}
         activeFilters={activeFilters}
+        searchValue={searchTerm}
+        searchPlaceholder="Search by inspection code..."
         onSearch={handleSearch}
         onApplyFilters={handleApplyFilters}
       />

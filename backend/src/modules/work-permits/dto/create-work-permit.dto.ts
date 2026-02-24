@@ -43,10 +43,10 @@ export class WorkPermitEmployeeDto {
 }
 
 export class WorkPermitWorkerDto {
-  @ApiProperty({ description: 'Guest ID' })
+  @ApiProperty({ description: 'User ID (worker with role Guest)' })
   @IsString()
   @IsNotEmpty()
-  guestId: string;
+  userId: string;
 
   @ApiProperty({ description: 'ID number', required: false })
   @IsOptional()

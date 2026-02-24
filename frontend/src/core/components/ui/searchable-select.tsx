@@ -39,6 +39,7 @@ interface SearchableSelectProps {
   // Create new option props
   onCreateNew?: (searchQuery: string) => Promise<string | void> | string | void;
   createNewText?: string;
+  disabled?: boolean;
 }
 
 export function SearchableSelect({
@@ -56,6 +57,7 @@ export function SearchableSelect({
   debounceMs = 300,
   onCreateNew,
   createNewText = "Create new",
+  disabled = false,
   ...props
 }: SearchableSelectProps & React.HTMLAttributes<HTMLButtonElement>) {
   const [open, setOpen] = useState(false);
@@ -112,6 +114,7 @@ export function SearchableSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          disabled={disabled}
           className={cn(
             "w-full justify-between",
             !value || value === 'none' ? "text-muted-foreground" : "",
@@ -119,7 +122,7 @@ export function SearchableSelect({
           )}
           {...props}
         >
-          {displayValue}
+          <span className="truncate">{displayValue}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>

@@ -7,7 +7,6 @@ import {
   Plus,
   BookOpen,
   Clock,
-  Users,
   Star,
   Play,
   FileText,
@@ -59,6 +58,7 @@ const CourseDetailPage = () => {
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [quizzesLoading, setQuizzesLoading] = useState(false);
+  const [chapterQuizCounts, setChapterQuizCounts] = useState<Record<string, number>>({});
 
   // Load course data
   useEffect(() => {
@@ -73,6 +73,32 @@ const CourseDetailPage = () => {
       fetchChapters({ courseId: course.id, page: 1, limit: 100 });
     }
   }, [course]);
+
+  // Load quiz counts for each chapter
+  useEffect(() => {
+    const loadChapterQuizCounts = async () => {
+      if (chapters.length > 0) {
+        const counts: Record<string, number> = {};
+        await Promise.all(
+          chapters.map(async (chapter) => {
+            try {
+              const response = await quizService.getQuizzes({
+                page: 1,
+                limit: 1,
+                entity: 'CHAPTER',
+                entityId: chapter.id,
+              });
+              counts[chapter.id] = response.meta.total;
+            } catch (error) {
+              counts[chapter.id] = 0;
+            }
+          })
+        );
+        setChapterQuizCounts(counts);
+      }
+    };
+    loadChapterQuizCounts();
+  }, [chapters]);
 
   // Load quizzes when course is loaded
   useEffect(() => {
@@ -191,22 +217,26 @@ const CourseDetailPage = () => {
                 <BookOpen className="h-8 w-8" />
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <h1 className="text-2xl font-bold">{course.title}</h1>
-                <Badge variant="outline" className={`${getStatusColor(course.status)} border-0 capitalize`}>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start gap-2 mb-2">
+                <h1 className="text-2xl font-bold min-w-0 flex-1 line-clamp-2 break-words" title={course.title}>
+                  {course.title}
+                </h1>
+                <Badge variant="outline" className={`${getStatusColor(course.status)} border-0 capitalize shrink-0 mt-1`}>
                   {course.status}
                 </Badge>
               </div>
               <p className="text-gray-600 mb-2">{course.shortDescription || course.description}</p>
-              <div className="flex items-center gap-4 text-sm text-gray-500">
-                <span>by {course.instructor?.firstName} {course.instructor?.lastName}</span>
+              <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
+                <span>
+                  by {course.instructor?.firstName || course.instructor?.lastName
+                    ? `${course.instructor?.firstName || ''} ${course.instructor?.lastName || ''}`.trim()
+                    : 'Unknown Instructor'}
+                </span>
                 <span>•</span>
                 <span>{formatDuration(course.totalDuration)}</span>
                 <span>•</span>
                 <span>{course.totalChapters} chapters</span>
-                <span>•</span>
-                <span>{course.studentCount} students</span>
                 {Number(course.rating) > 0 && (
                   <>
                     <span>•</span>
@@ -326,13 +356,6 @@ const CourseDetailPage = () => {
                     </div>
                     <span className="font-medium">{formatDuration(course.totalDuration)}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm">Students</span>
-                    </div>
-                    <span className="font-medium">{course.studentCount}</span>
-                  </div>
                   {Number(course.rating) > 0 && (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -411,6 +434,12 @@ const CourseDetailPage = () => {
                               <Clock className="h-3 w-3" />
                               <span>{formatDuration(chapter.duration)}</span>
                             </div>
+                            {chapterQuizCounts[chapter.id] > 0 && (
+                              <div className="flex items-center gap-1">
+                                <FileQuestion className="h-3 w-3" />
+                                <span>{chapterQuizCounts[chapter.id]} quiz{chapterQuizCounts[chapter.id] > 1 ? 'zes' : ''}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

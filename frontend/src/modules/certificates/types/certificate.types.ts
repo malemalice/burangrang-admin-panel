@@ -146,7 +146,6 @@ export interface CreateCertificateDTO {
     certificateNumber: string;
     certificateName: string;
     categoryId: string;
-    certificateType: CertificateType;
     issuedDate: string;
     validityDate: string;
     issuerName: string;
@@ -165,7 +164,6 @@ export interface UpdateCertificateDTO {
     certificateNumber?: string;
     certificateName?: string;
     categoryId?: string;
-    certificateType?: CertificateType;
     issuedDate?: string;
     validityDate?: string;
     issuerName?: string;
@@ -319,6 +317,7 @@ export interface CertificateSearchParams {
     certificateType?: CertificateType;
     departmentId?: string;
     personnelId?: string;
+    personnelName?: string;
     expired?: boolean;
     expiringSoon?: boolean;
 }

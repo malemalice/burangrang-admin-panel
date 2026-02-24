@@ -17,7 +17,7 @@
 - **AchievementRate** (id, name, code, rangeMin, rangeMax, description, isActive)
 
 ### Learning Management System (LMS)
-- **Course** (id, title, slug, description, thumbnailUrl, totalChapters, totalDuration, difficulty, language, rating, reviewCount, studentCount, instructorId, status, isPublished, publishedAt, isActive)
+- **Course** (id, title, slug, description, thumbnailUrl, totalChapters, totalDuration, difficulty, language, rating, reviewCount, studentCount, instructorId, status, publishedAt, isActive)
 - **Chapter** (id, courseId, title, description, order, duration, contentType, contentUrl, youtubeVideoId, content, isFree, isPublished, publishedAt, isActive)
 - **Enrollment** (id, userId, courseId, orderId?, status, enrolledAt, completedAt?, progress, lastAccessedAt?)
 - **Progress** (id, enrollmentId, chapterId, status, timeSpent, progress, startedAt?, completedAt?, lastAccessedAt?)
@@ -37,7 +37,7 @@
 ### Certificate Management System
 - **CertificateCategory** (id, name, code, certificateType, description, isActive)
 - **CertificateTypeEnum**: PERSONNEL_LICENSE, PERSONNEL_CERTIFICATE, EQUIPMENT_CALIBRATION, EQUIPMENT_INSTALLATION, EQUIPMENT_OPERATIONAL_PERMIT
-- **Certificate** (id, certificateNumber, certificateName, categoryId, certificateType, issuedDate, validityDate, issuerName, documentUrl, personnelId?, personnelName?, equipmentId?, equipmentName?, departmentId, reminderDays, notes, isActive, createdBy)
+- **Certificate** (id, certificateNumber, certificateName, categoryId, issuedDate, validityDate, issuerName, documentUrl, personnelId?, personnelName?, equipmentId?, equipmentName?, departmentId, reminderDays, notes, isActive, createdBy)
 - **CertificateRenewal** (id, certificateId, requestDate, requestedBy, status, processedBy?, processedDate?, newValidityDate?, newDocumentUrl?, notes)
 - **CertificateRenewalStatusEnum**: PENDING, REQUESTED, IN_PROGRESS, COMPLETED, REJECTED, EXPIRED
 - **CertificateReminder** (id, certificateId, reminderDate, isSent, sentAt?, recipientId)
@@ -102,7 +102,7 @@
 - **WorkPermit** ↔ **SafetyEquipment** (many-to-many for safety equipment)
 
 ### Risk Assessment
-- **RiskMatrix** (id, likelihoodLevel, consequenceLevel, risk_rating)
+- **RiskMatrix** (id, likelihoodLevel, consequenceLevel, interpretation)
 - **RiskAssessment** (id, code, description, departmentId, assessmentDate, createdBy, status, assigneeId?, actionPlan?)
 - **RiskAssessmentItem** (id, riskAssessmentId, mThreatId, mHseCategoryId, likelihoodLevel, consequenceLevel, riskMatrixRating)
 
@@ -303,7 +303,6 @@ prisma.course.findUnique({
 prisma.course.findMany({
   where: {
     isActive: true,
-    isPublished: true,
     status: 'published'
   },
   include: { instructor: true, categories: true },

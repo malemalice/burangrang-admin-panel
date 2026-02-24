@@ -8,7 +8,6 @@ import {
   Eye,
   BookOpen,
   Clock,
-  Users,
   Star,
   MoreHorizontal,
   Play,
@@ -36,9 +35,12 @@ import { useCourseStats } from '../hooks/useCourses';
 import courseService from '../services/courseService';
 import { Course, CourseSearchParams, CourseFilters } from '../types/course.types';
 import { userService } from '@/modules/users';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 const CoursesPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const {
     courses,
     totalCourses,
@@ -98,12 +100,14 @@ const CoursesPage = () => {
       ]
     },
     {
-      id: 'isPublished',
-      label: 'Published',
+      id: 'status',
+      label: 'Status',
       type: 'select',
       options: [
-        { label: 'Yes', value: 'true' },
-        { label: 'No', value: 'false' }
+        { label: 'Draft', value: 'draft' },
+        { label: 'Review', value: 'review' },
+        { label: 'Published', value: 'published' },
+        { label: 'Archived', value: 'archived' }
       ]
     },
     {
@@ -122,7 +126,7 @@ const CoursesPage = () => {
     const loadInitialData = async () => {
       try {
         // Load instructors and stats for filters
-        const instructorsResponse = await userService.getUsers({ page: 1, limit: 100 });
+        const instructorsResponse = await userService.getUsers({ page: 1, limit: 100, options: true });
 
         setInstructors(
           instructorsResponse.data.map(user => ({
@@ -154,7 +158,7 @@ const CoursesPage = () => {
     // Apply tab filters
     switch (activeTab) {
       case 'published':
-        params.isPublished = true;
+        params.status = 'published';
         break;
       case 'draft':
         params.status = 'draft';
@@ -260,25 +264,13 @@ const CoursesPage = () => {
               <BookOpen className="h-4 w-4" />
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
-            <div className="font-medium text-gray-900 truncate">{course.title}</div>
+          <div className="flex-1 min-w-0 max-w-[250px]">
+            <div className="font-medium text-gray-900 truncate" title={course.title}>{course.title}</div>
             <div className="text-sm text-gray-500 truncate">
-              by {course.instructor?.firstName} {course.instructor?.lastName}
+              by {course.instructor?.firstName || course.instructor?.lastName
+                ? `${course.instructor?.firstName || ''} ${course.instructor?.lastName || ''}`.trim()
+                : 'Unknown Instructor'}
             </div>
-            {course.categories && course.categories.length > 0 && (
-              <div className="flex gap-1 mt-1">
-                {course.categories.slice(0, 2).map(category => (
-                  <Badge key={category.id} variant="outline" className="text-xs">
-                    {category.name}
-                  </Badge>
-                ))}
-                {course.categories.length > 2 && (
-                  <Badge variant="outline" className="text-xs">
-                    +{course.categories.length - 2} more
-                  </Badge>
-                )}
-              </div>
-            )}
           </div>
         </div>
       ),
@@ -317,12 +309,6 @@ const CoursesPage = () => {
             <Clock className="h-3 w-3 text-gray-400" />
             <span>{formatDuration(course.totalDuration)}</span>
           </div>
-          {Number(course.rating) > 0 && (
-            <div className="flex items-center gap-1">
-              <Star className="h-3 w-3 text-yellow-400 fill-current" />
-              <span>{Number(course.rating).toFixed(1)} ({course.reviewCount})</span>
-            </div>
-          )}
         </div>
       ),
       isSortable: false
@@ -351,19 +337,27 @@ const CoursesPage = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}/edit`)}>
-                <Edit className="mr-2 h-4 w-4" /> Edit course
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}?tab=chapters`)}>
-                <BookOpen className="mr-2 h-4 w-4" /> Manage chapters
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={(e) => handleDeleteClick(course, e)}
-                className="text-red-600"
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
-              </DropdownMenuItem>
+              {hasPermission('course:update') && (
+                <>
+                  <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}/edit`)}>
+                    <Edit className="mr-2 h-4 w-4" /> Edit course
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}?tab=chapters`)}>
+                    <BookOpen className="mr-2 h-4 w-4" /> Manage chapters
+                  </DropdownMenuItem>
+                </>
+              )}
+              {hasPermission('course:update') && hasPermission('course:delete') && (
+                <DropdownMenuSeparator />
+              )}
+              {hasPermission('course:delete') && (
+                <DropdownMenuItem
+                  onClick={(e) => handleDeleteClick(course, e)}
+                  className="text-red-600"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -378,15 +372,17 @@ const CoursesPage = () => {
         title="Courses"
         subtitle="Manage your course catalog and content"
         actions={
-          <Button onClick={() => navigate('/courses/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Course
-          </Button>
+          <PermissionGuard permission="course:create">
+            <Button onClick={() => navigate('/courses/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Add Course
+            </Button>
+          </PermissionGuard>
         }
       />
 
       {/* Statistics Cards */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white p-4 rounded-lg border">
             <div className="flex items-center">
               <BookOpen className="h-8 w-8 text-blue-600" />
@@ -411,17 +407,6 @@ const CoursesPage = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Draft</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.draft}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg border">
-            <div className="flex items-center">
-              <Users className="h-8 w-8 text-purple-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Students</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {courses.reduce((sum, course) => sum + course.studentCount, 0)}
-                </p>
               </div>
             </div>
           </div>

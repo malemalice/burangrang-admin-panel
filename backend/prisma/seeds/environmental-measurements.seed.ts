@@ -37,8 +37,12 @@ export const seedEnvironmentalMeasurements = async () => {
     const today = new Date();
     const measurements: Awaited<ReturnType<typeof prisma.environmentalMeasurement.create>>[] = [];
 
-    // Create measurements for each room over the past 7 days
-    for (const room of rooms) {
+    // Only measure a subset of rooms so Admin Overview dashboard shows "Rooms Not Measured" and coverage % < 100
+    const roomsToMeasure = rooms.slice(0, Math.max(1, rooms.length - 2));
+    const roomsSkipped = rooms.length - roomsToMeasure.length;
+
+    // Create measurements for each room (subset) over the past 7 days
+    for (const room of roomsToMeasure) {
       for (let daysAgo = 0; daysAgo < 7; daysAgo++) {
         const measurementDate = new Date(today);
         measurementDate.setDate(today.getDate() - daysAgo);
@@ -69,7 +73,10 @@ export const seedEnvironmentalMeasurements = async () => {
 
     console.log(`✅ Environmental measurements seeded successfully`);
     console.log(`   - Created ${measurements.length} measurements`);
-    console.log(`   - Rooms covered: ${rooms.length}`);
+    console.log(`   - Rooms covered: ${roomsToMeasure.length} of ${rooms.length}`);
+    if (roomsSkipped > 0) {
+      console.log(`   - Rooms not measured (Admin Overview): ${roomsSkipped}`);
+    }
     console.log(`   - Days of data: 7`);
 
     // Log some sample data

@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import {
   SendVerificationEmailDto,
   SendPasswordResetEmailDto,
   SendTeamInvitationEmailDto,
   SendPasswordChangeEmailDto,
+  SendUserCreatedEmailDto,
   SendTemplatedEmailDto,
 } from './dto/mail.dto';
 import { PrismaService } from '../../core/prisma/prisma.service';
@@ -16,6 +17,7 @@ import { Prisma } from '@prisma/client';
 import * as nodemailer from 'nodemailer';
 import { SettingsHelperService } from '../../shared/services/settings.service';
 import { ConfigService } from '@nestjs/config';
+import { MAIL_PROVIDERS } from './constants/mail-providers';
 
 @Injectable()
 export class MailService {
@@ -65,9 +67,9 @@ export class MailService {
       )) ?? 'no-reply@example.com';
 
     let defaults: { host: string; port: number; secure: boolean };
-    if (provider === 'gmail') {
+    if (provider === MAIL_PROVIDERS.GMAIL) {
       defaults = { host: 'smtp.gmail.com', port: 465, secure: true };
-    } else if (provider === 'mailgun') {
+    } else if (provider === MAIL_PROVIDERS.MAILGUN) {
       defaults = { host: 'smtp.mailgun.org', port: 587, secure: false };
     } else {
       defaults = { host: 'localhost', port: 1025, secure: false };
@@ -161,6 +163,15 @@ export class MailService {
     await this.sendByKey('password-change', payload.email, {
       name: payload.name,
       changedAt: payload.changedAt?.toISOString() ?? new Date().toISOString(),
+    });
+  }
+
+  async sendUserCreatedEmail(
+    payload: SendUserCreatedEmailDto,
+  ): Promise<void> {
+    await this.sendByKey('user-created', payload.email, {
+      name: payload.name,
+      loginUrl: payload.loginUrl,
     });
   }
 
@@ -298,6 +309,8 @@ export class MailService {
     sortOrder?: 'asc' | 'desc';
     isActive?: boolean;
     search?: string;
+    code?: string;
+    name?: string;
   }): Promise<{
     data: EmailTemplateDto[];
     meta: { total: number; page: number; limit: number };
@@ -311,17 +324,23 @@ export class MailService {
         params.isActive === undefined ? {} : { isActive: params.isActive },
         params.search
           ? {
-            OR: [
-              { code: { contains: params.search, mode: 'insensitive' } },
-              { name: { contains: params.search, mode: 'insensitive' } },
-              {
-                subjectTemplate: {
-                  contains: params.search,
-                  mode: 'insensitive',
+              OR: [
+                { code: { contains: params.search, mode: 'insensitive' } },
+                { name: { contains: params.search, mode: 'insensitive' } },
+                {
+                  subjectTemplate: {
+                    contains: params.search,
+                    mode: 'insensitive',
+                  },
                 },
-              },
-            ],
-          }
+              ],
+            }
+          : {},
+        params.code?.trim()
+          ? { code: { contains: params.code.trim(), mode: 'insensitive' } }
+          : {},
+        params.name?.trim()
+          ? { name: { contains: params.name.trim(), mode: 'insensitive' } }
           : {},
       ],
     };
@@ -375,7 +394,7 @@ export class MailService {
       where: { code: dto.code },
     });
     if (existing) {
-      throw new Error('Email template code already exists');
+      throw new ConflictException('Code already exists');
     }
     const created = await this.prisma.emailTemplate.create({
       data: {

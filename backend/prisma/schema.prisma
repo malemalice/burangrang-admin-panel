@@ -50,6 +50,7 @@ model User {
   notificationRecipients       NotificationRecipient[]    @relation("NotificationRecipient")
   uploadedFiles                FileUpload[]
   fileAccessLogs               FileAccessLog[]
+  accessLogs                   AccessLog[]                @relation("AccessLogUser")
   ppeStocksCreated             PPEStock[]                 @relation("PPEStockCreator")
   ppeStockAdjustments          PPEStockAdjustment[]       @relation("PPEStockAdjuster")
   ppeExpiryAlerts              PPEExpiryAlert[]           @relation("PPEExpiryAlertRecipient")
@@ -74,6 +75,7 @@ model User {
   workPermitsCreated           WorkPermit[]               @relation("WorkPermitCreator")
   workPermitEmployees          WorkPermitEmployee[]       @relation("WorkPermitEmployee")
   workPermitHseOfficers        WorkPermitToUser[]         @relation("WorkPermitHseOfficer")
+  workPermitWorkers           WorkPermitWorker[]         @relation("WorkPermitWorker")
   environmentalMeasurements    EnvironmentalMeasurement[] @relation("EnvironmentalMeasurementCreator")
   inspectionsCreated           Inspection[]               @relation("InspectionCreator")
   inspectionItemsAssigned      InspectionItem[]           @relation("InspectionItemAssignee")
@@ -103,6 +105,15 @@ model User {
   auditItemsAssigned              AuditItemToUser[]       @relation("AuditItemAssignee")
   auditsAsAuditor                 AuditToUser[]           @relation("AuditAuditor")
 
+  // Incident Relations
+  incidentsAsRequester            Incident[]              @relation("IncidentRequester")
+  incidentsAsReporter             Incident[]              @relation("IncidentReporter")
+  incidentsAsTechnician          Incident[]              @relation("IncidentTechnician")
+  incidentsAsAssignee             Incident[]              @relation("IncidentAssignee")
+  incidentsCreated                Incident[]               @relation("IncidentCreator")
+  permissions                     Permission[]             @relation("PermissionToUser")
+  hseTargetsCreated               HseTarget[]              @relation("HseTargetCreator")
+
   @@map("t_users")
 }
 
@@ -130,12 +141,19 @@ model PasswordResetToken {
   @@map("t_password_reset_tokens")
 }
 
+enum DataLevelEnum {
+  SELF
+  DEPARTMENT
+  SUPER
+}
+
 model Role {
   id                     String                  @id @default(uuid())
   name                   String                  @unique
   code                   String                  @unique
   description            String?
   isActive               Boolean                 @default(true)
+  dataLevel              DataLevelEnum           @default(SUPER)
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   users                  User[]
@@ -154,6 +172,7 @@ model Permission {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   roles       Role[]   @relation("PermissionToRole")
+  users       User[]   @relation("PermissionToUser")
 
   @@map("m_permissions")
 }
@@ -213,6 +232,9 @@ model Department {
   notificationRecipients NotificationRecipient[]
   inspectionItems      InspectionItem[]
   auditItemToDepartments AuditItemToDepartment[]
+  incidentsAssigned    Incident[]
+  incidentInjuredPersons IncidentInjuredPerson[] @relation("IncidentInjuredPersonDepartment")
+  incidentWitnesses    IncidentWitness[] @relation("IncidentWitnessDepartment")
 
   @@map("m_departments")
 }
@@ -245,6 +267,7 @@ model RiskCategory {
   risks               Risk[]
   riskAssessmentItems RiskAssessmentItem[]
   inspectionItems     InspectionItem[]
+  incidents           Incident[]
 
   @@map("m_risk_categories")
 }
@@ -338,7 +361,7 @@ model RiskMatrix {
   consequenceLevel Int
   consequenceName  String         @default("")
   consequenceDesc  String         @default("") @db.Text
-  risk_rating      RiskRatingEnum
+  interpretation   RiskRatingEnum
   isActive         Boolean        @default(true)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
@@ -383,8 +406,28 @@ model RiskAssessmentItem {
   postConsequenceLevel Int
   postRiskMatrixRating String
   postInterpretation   RiskRatingEnum
+  images              RiskAssessmentItemImage[]
 
   @@map("t_risk_assessment_item")
+}
+
+// Risk Assessment Item Image - Transactional Data
+// Supports before/after action plan tracking (same pattern as InspectionImage)
+model RiskAssessmentItemImage {
+  id                     String                            @id @default(uuid())
+  riskAssessmentItemId    String
+  imageUrl                String
+  caption                 String?                            @db.Text
+  type                    RiskAssessmentItemImageTypeEnum   @default(GENERAL) // BEFORE: before action plan, AFTER: after action plan, GENERAL: general image
+  order                   Int
+  createdAt               DateTime                          @default(now())
+
+  riskAssessmentItem      RiskAssessmentItem                @relation(fields: [riskAssessmentItemId], references: [id], onDelete: Cascade)
+
+  @@index([riskAssessmentItemId])
+  @@index([riskAssessmentItemId, type])
+  @@index([order])
+  @@map("t_risk_assessment_item_images")
 }
 
 model MasterApproval {
@@ -594,6 +637,30 @@ model FileAccessLog {
   @@map("t_file_access_logs")
 }
 
+// Access Log - Transactional Data
+// Logs all endpoint access activities from frontend
+model AccessLog {
+  id            String   @id @default(uuid())
+  userId        String?  // Nullable for public endpoints
+  method        String   // HTTP method: GET, POST, PUT, PATCH, DELETE
+  endpoint      String   // Full endpoint path
+  statusCode    Int?     // HTTP status code (captured after response)
+  payload       Json?    // Request body and query parameters
+  ipAddress     String?
+  userAgent     String?
+  executionTime Int?     // Request execution time in milliseconds
+  createdAt     DateTime @default(now())
+
+  // Relations
+  user User? @relation("AccessLogUser", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([endpoint])
+  @@index([method])
+  @@index([createdAt])
+  @@map("t_access_logs")
+}
+
 // Reminder System Enums
 enum ReminderStatusEnum {
   PENDING
@@ -680,9 +747,11 @@ model ReminderLog {
 
 enum PPEWithdrawalStatusEnum {
   PENDING
+  WAITING_APPROVAL
   APPROVED
   COLLECTED
   CANCELLED
+  REJECTED
 }
 
 enum PPEStockStatusEnum {
@@ -791,7 +860,7 @@ model PPEWithdrawal {
   jobPositionId       String?
   jobPosition         JobPosition?            @relation(fields: [jobPositionId], references: [id])
   jobPositionName     String?
-  status              PPEWithdrawalStatusEnum @default(PENDING)
+  status              PPEWithdrawalStatusEnum @default(WAITING_APPROVAL)
   withdrawalLetterUrl String?
   collectedDate       DateTime?
   collectedBy         String?
@@ -857,6 +926,7 @@ model SafetyEquipment {
   updatedAt             DateTime                      @updatedAt
   ppeStockItems         PPEStockItem[]
   workPermits           WorkPermitToSafetyEquipment[]
+  // Note: Polymorphic relation handled manually - see IncidentAsset.entity and entityId
 
   @@map("m_safety_equipment")
 }
@@ -919,7 +989,6 @@ model Course {
   studentCount     Int       @default(0)
   instructorId     String?
   status           String    @default("draft") // draft, review, published, archived
-  isPublished      Boolean   @default(false)
   publishedAt      DateTime?
   isActive         Boolean   @default(true)
   createdAt        DateTime  @default(now())
@@ -1214,7 +1283,6 @@ model Certificate {
   certificateNumber String
   certificateName   String
   categoryId        String
-  certificateType   CertificateTypeEnum
   issuedDate        DateTime
   validityDate      DateTime
   issuerName        String
@@ -1306,8 +1374,24 @@ model HeavyEquipment {
   createdAt   DateTime                   @default(now())
   updatedAt   DateTime                   @updatedAt
   workPermits WorkPermitHeavyEquipment[]
+  // Note: Polymorphic relation handled manually - see IncidentAsset.entity and entityId
 
   @@map("m_heavy_equipment")
+}
+
+// Asset - Master Data
+model Asset {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  brand       String?
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  // Note: Polymorphic relation handled manually - see IncidentAsset.entity and entityId
+
+  @@map("m_assets")
 }
 
 model Tool {
@@ -1394,6 +1478,7 @@ model Area {
   inspectionItems  InspectionItem[]
   inspections      InspectionToArea[]
   audits           AuditToArea[]
+  incidents        Incident[]
 
   @@map("m_areas")
 }
@@ -1526,6 +1611,7 @@ model Room {
   updatedAt                 DateTime                   @updatedAt
   area                      Area                       @relation(fields: [areaId], references: [id])
   environmentalMeasurements EnvironmentalMeasurement[]
+  incidents                 Incident[]
 
   @@map("m_rooms")
 }
@@ -1560,7 +1646,6 @@ model Guest {
   isActive              Boolean                       @default(true)
   createdAt             DateTime                      @default(now())
   updatedAt             DateTime                      @updatedAt
-  workPermitWorkers     WorkPermitWorker[]
   workPermitSupervisors WorkPermitSupervisorToGuest[]
 
   @@map("t_guests")
@@ -1700,7 +1785,7 @@ model WorkPermitMachine {
 model WorkPermitWorker {
   id                   String   @id @default(uuid())
   workPermitId         String
-  guestId              String
+  userId               String
   idNumber             String?
   certificateUrl       String?
   healthDeclarationUrl String
@@ -1709,7 +1794,7 @@ model WorkPermitWorker {
 
   // Relations
   workPermit WorkPermit @relation(fields: [workPermitId], references: [id], onDelete: Cascade)
-  guest      Guest      @relation(fields: [guestId], references: [id])
+  user       User      @relation("WorkPermitWorker", fields: [userId], references: [id])
 
   @@map("t_work_permit_workers")
 }
@@ -1843,6 +1928,37 @@ enum ReportStatusEnum {
   ARCHIVED
 }
 
+enum WeightReportStatusEnum {
+  SCHEDULED
+  DRAFT
+  OPEN
+  WAITING_APPROVAL
+  DONE
+  REJECTED
+}
+
+enum WaterQualityLabReportStatusEnum {
+  SCHEDULED
+  DRAFT
+  OPEN
+  WAITING_APPROVAL
+  DONE
+  REJECTED
+}
+
+enum WaterQualityLabReportCategoryEnum {
+  WASTEWATER
+  CLEAN_WATER
+  SWIMMING_POOL_WATER
+  DRINKING_WATER
+}
+
+enum WaterQualityParameterCategoryEnum {
+  CHEMISTRY
+  PHYSICS
+  MICROBIOLOGY
+}
+
 enum MonthEnum {
   JAN
   FEB
@@ -1861,6 +1977,13 @@ enum MonthEnum {
 enum ManHourGroupEnum {
   STUDENT
   NON_STUDENT
+}
+
+enum HseTargetTypeEnum {
+  INCIDENT
+  RISK
+  INSPECTION
+  AUDIT
 }
 
 enum GeneralStatusEnum {
@@ -1883,6 +2006,326 @@ enum InspectionImageTypeEnum {
   BEFORE  // Image taken before fix/action plan
   AFTER   // Image taken after fix/action plan
   GENERAL // General inspection image
+}
+
+enum RiskAssessmentItemImageTypeEnum {
+  BEFORE  // Image taken before action plan
+  AFTER   // Image taken after action plan
+  GENERAL // General risk assessment item image
+}
+
+// ============================================================
+// INCIDENT REPORT SYSTEM - Enums
+// ============================================================
+
+enum IncidentClassificationEnum {
+  MAJOR
+  MINOR
+  FATALITY
+}
+
+enum SourceEnum {
+  SYSTEM
+  ZOHO
+}
+
+enum IncidentTypeEnum {
+  NEAR_MISS
+  ACCIDENT
+  DANGEROUS_OR_HAZARDOUS_OCCURRENCE
+}
+
+enum IncidentActivitiesEnum {
+  WORK
+  STUDY
+}
+
+enum IncidentScopeEnum {
+  GENERAL
+  SECURITY
+}
+
+enum GenderEnum {
+  MALE
+  FEMALE
+}
+
+enum LevelOfInjuryEnum {
+  NOT_SPECIFIED
+  MINOR
+  MODERATE
+  SEVERE
+  FATAL
+}
+
+enum InjuredBodyPartEnum {
+  NOT_SPECIFIED
+  HEAD
+  NECK
+  ABDOMENT
+  ARM
+  FEET
+  SHOULDER
+  HAND
+  LEG
+  BACK
+  SKIN
+  CHEST
+  EYE
+  INTERNAL_ORGAN
+  OTHER
+}
+
+enum TypeOfInjuryEnum {
+  NOT_SPECIFIED
+  CUT
+  BRUISE
+  FRACTURE
+  BURN
+  SPRAIN
+  STRAIN
+  LACERATION
+  CONCUSSION
+  OTHER
+}
+
+enum MechanismOfInjuryEnum {
+  NOT_SPECIFIED
+  STRUCK_BY
+  FAILING_OBJECT
+  TRIP
+  SLIP
+  FALL
+  CHEMICAL
+  VEHICLES
+  MECHINARY
+  ELECTRICITY
+  HAND_TOOLS
+  FALL_FROM_HEIGHT
+  FLYING_OBJECT
+  OTHER
+}
+
+enum StopActivityEnum {
+  NOT_SPECIFIED
+  YES
+  NO
+}
+
+enum TreatmentEnum {
+  NOT_SPECIFIED
+  FIRST_AID
+  MEDICAL_TREATMENT
+  HOSPITALIZATION
+  NO_TREATMENT
+  OTHER
+}
+
+enum AbsenceEnum {
+  NOT_YET_KNOWN
+  RETURNED_AFTER_TREATMENT
+  MORE_THAN_THREE_DAYS
+  NOT_SPECIFIED
+}
+
+enum PriorityEnum {
+  NOT_SPECIFIED
+  NORMAL
+  HIGH
+  VENDOR
+  LONGER_TERM
+}
+
+enum HasInjuredPersonEnum {
+  YES
+  NO
+}
+
+enum HasWitnessEnum {
+  YES
+  NO
+}
+
+enum EquipmentEntityEnum {
+  ASSET
+  HEAVY_EQUIPMENT
+  SAFETY_EQUIPMENT
+}
+
+// ============================================================
+// INCIDENT REPORT SYSTEM - Transactional Data
+// ============================================================
+
+// Incident - Transactional Data
+model Incident {
+  id                    String                    @id @default(uuid())
+  code                  String                    @unique
+  subject               String
+  incidentDate          DateTime
+  roomId                String?
+  areaId                String
+  incidentType          IncidentTypeEnum
+  incidentClassification IncidentClassificationEnum
+  activities            IncidentActivitiesEnum       @default(WORK)
+  type                  IncidentScopeEnum            @default(GENERAL)
+  requesterId           String
+  reportedBy            String
+  technicianId          String?
+  priority              PriorityEnum              @default(NORMAL)
+  riskCategoryId        String
+  description           String?                   @db.Text
+  controlMeasure        String?                  @db.Text
+  dueDate               DateTime?
+  expectedOutcome       String?                  @db.Text
+  needToStopActivity    StopActivityEnum         @default(NOT_SPECIFIED)
+  stopActivityDescription String?                 @db.Text
+  treatment             TreatmentEnum            @default(NOT_SPECIFIED)
+  treatmentDescription  String?                  @db.Text
+  absence               AbsenceEnum              @default(NOT_SPECIFIED)
+  resolution            String?                  @db.Text
+  assignedDepartmentId  String
+  assigneeId            String?
+  status                GeneralStatusEnum
+  source                SourceEnum               @default(SYSTEM)
+  isActive              Boolean                  @default(true)
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  createdBy             String
+
+  // Relations
+  room                  Room?                    @relation(fields: [roomId], references: [id])
+  area                  Area                     @relation(fields: [areaId], references: [id])
+  riskCategory          RiskCategory             @relation(fields: [riskCategoryId], references: [id])
+  requester             User                     @relation("IncidentRequester", fields: [requesterId], references: [id])
+  reporter              User                     @relation("IncidentReporter", fields: [reportedBy], references: [id])
+  technician            User?                    @relation("IncidentTechnician", fields: [technicianId], references: [id])
+  assignedDepartment    Department               @relation(fields: [assignedDepartmentId], references: [id])
+  assignee              User?                    @relation("IncidentAssignee", fields: [assigneeId], references: [id])
+  creator               User                     @relation("IncidentCreator", fields: [createdBy], references: [id])
+  injuredPersons        IncidentInjuredPerson[]
+  witnesses             IncidentWitness[]
+  assets                IncidentAsset[]
+  images                IncidentImage[]
+  attachments           IncidentAttachment[]
+
+  @@index([code])
+  @@index([roomId])
+  @@index([areaId])
+  @@index([riskCategoryId])
+  @@index([requesterId])
+  @@index([reportedBy])
+  @@index([assignedDepartmentId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([source])
+  @@index([activities])
+  @@index([type])
+  @@map("t_incidents")
+}
+
+// Incident Injured Person - Transactional Data
+model IncidentInjuredPerson {
+  id                String                @id @default(uuid())
+  incidentId        String
+  injuredPersonName String?
+  gender            GenderEnum?
+  levelOfInjury     LevelOfInjuryEnum     @default(NOT_SPECIFIED)
+  injuredBodyPart   InjuredBodyPartEnum   @default(NOT_SPECIFIED)
+  typeOfInjury      TypeOfInjuryEnum      @default(NOT_SPECIFIED)
+  mechanismOfInjury MechanismOfInjuryEnum  @default(NOT_SPECIFIED)
+  departmentId      String?
+  order             Int
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  // Relations
+  incident          Incident              @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  department        Department?           @relation("IncidentInjuredPersonDepartment", fields: [departmentId], references: [id])
+
+  @@index([incidentId])
+  @@index([departmentId])
+  @@map("t_incident_injured_persons")
+}
+
+// Incident Witness - Transactional Data
+model IncidentWitness {
+  id          String        @id @default(uuid())
+  incidentId String
+  witnessName String?
+  gender      GenderEnum?
+  departmentId String?
+  order       Int
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  incident    Incident      @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  department  Department?    @relation("IncidentWitnessDepartment", fields: [departmentId], references: [id])
+
+  @@index([incidentId])
+  @@index([departmentId])
+  @@map("t_incident_witnesses")
+}
+
+// Incident Asset - Transactional Data (Polymorphic)
+// Supports ASSET, HEAVY_EQUIPMENT, and SAFETY_EQUIPMENT entity types
+// Can reference m_assets (entity='ASSET'), m_heavy_equipment (entity='HEAVY_EQUIPMENT'), or m_safety_equipment (entity='SAFETY_EQUIPMENT')
+// Free-text fallback: If entity is null, assetName and assetCode are used
+model IncidentAsset {
+  id          String                @id @default(uuid())
+  incidentId  String
+  // Polymorphic reference
+  entity      EquipmentEntityEnum?  // Entity type identifier (ASSET, HEAVY_EQUIPMENT, SAFETY_EQUIPMENT)
+  entityId    String?               // Entity ID - references m_assets.id, m_heavy_equipment.id, or m_safety_equipment.id
+  // Free-text fields (used when entity is null or as fallback)
+  assetName   String
+  assetCode   String?
+  quantity    Int?                     // Quantity of the asset
+  order       Int
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  // Relations
+  incident        Incident          @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  // Note: Polymorphic relations (asset, heavyEquipment, safetyEquipment) are handled manually in application code
+  // Prisma doesn't support multiple foreign keys on the same field, so we load these relations manually
+
+  @@index([incidentId])
+  @@index([entity, entityId])
+  @@map("t_incident_assets")
+}
+
+// Incident Image - Transactional Data
+model IncidentImage {
+  id          String   @id @default(uuid())
+  incidentId  String
+  imageUrl    String
+  caption     String?  @db.Text
+  order       Int
+  createdAt   DateTime @default(now())
+
+  // Relations
+  incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@index([order])
+  @@map("t_incident_images")
+}
+
+// Incident Attachment - Transactional Data
+model IncidentAttachment {
+  id            String   @id @default(uuid())
+  incidentId    String
+  attachmentUrl String
+  order         Int
+  createdAt     DateTime @default(now())
+
+  // Relations
+  incident      Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@index([order])
+  @@map("t_incident_attachments")
 }
 
 // ============================================================
@@ -2125,18 +2568,26 @@ model TreatmentPlant {
 
 // Water Quality Parameter - Master Data
 model WaterQualityParameter {
-  id              String   @id @default(uuid())
+  id              String                            @id @default(uuid())
   name            String
-  code            String   @unique
+  code            String                            @unique
+  category        WaterQualityParameterCategoryEnum @default(CHEMISTRY)
   unit            String
-  standardLimit   Decimal? @db.Decimal(10, 4)
-  regulatoryLimit Decimal? @db.Decimal(10, 4)
+  standardLimit   Decimal?                          @db.Decimal(10, 4)
+  regulatoryLimit Decimal?                          @db.Decimal(10, 4)
   testMethod      String?
-  description     String?  @db.Text
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  description     String?                           @db.Text
+  displayOrder    Int?
+  isActive        Boolean                           @default(true)
+  dateSampleTaken DateTime
+  createdAt       DateTime                         @default(now())
+  updatedAt       DateTime                         @updatedAt
 
+  // Relations
+  labReportResults WaterQualityLabReportResult[]
+
+  @@index([category])
+  @@index([displayOrder])
   @@map("m_water_quality_parameters")
 }
 
@@ -2149,8 +2600,9 @@ model MonthlyFlowReport {
   id                String           @id @default(uuid())
   reportCode        String           @unique
   treatmentPlantId  String
-  reportMonth       MonthEnum
-  reportYear        Int
+  reportDate        DateTime?
+  reportMonth       MonthEnum?
+  reportYear        Int?
   totalVolume       Decimal          @db.Decimal(12, 4)
   averageDailyFlow  Decimal          @db.Decimal(10, 4)
   peakFlow          Decimal?         @db.Decimal(10, 4)
@@ -2187,9 +2639,9 @@ model WaterQualityLabReport {
   id                String           @id @default(uuid())
   reportCode        String           @unique
   treatmentPlantId  String
+  category          WaterQualityLabReportCategoryEnum @default(WASTEWATER)
   reportDate        DateTime
   preparedBy        String
-  reportDocumentUrl String?
   summary           String?          @db.Text
   recommendations   String?          @db.Text
   analystSignature  String?
@@ -2197,7 +2649,7 @@ model WaterQualityLabReport {
   submittedAt       DateTime
   receivedBy        String?
   receivedAt        DateTime?
-  status            ReportStatusEnum @default(SUBMITTED)
+  status            WaterQualityLabReportStatusEnum @default(DRAFT)
   reviewedBy        String?
   reviewedAt        DateTime?
   reviewNotes       String?          @db.Text
@@ -2207,17 +2659,59 @@ model WaterQualityLabReport {
   updatedAt         DateTime         @updatedAt
 
   // Relations
-  treatmentPlant TreatmentPlant @relation(fields: [treatmentPlantId], references: [id])
-  preparer       User           @relation("WaterQualityLabReportPreparer", fields: [preparedBy], references: [id])
-  submitter      User           @relation("WaterQualityLabReportSubmitter", fields: [submittedBy], references: [id])
-  receiver       User?          @relation("WaterQualityLabReportReceiver", fields: [receivedBy], references: [id])
-  reviewer       User?          @relation("WaterQualityLabReportReviewer", fields: [reviewedBy], references: [id])
+  treatmentPlant   TreatmentPlant                      @relation(fields: [treatmentPlantId], references: [id])
+  preparer         User                                @relation("WaterQualityLabReportPreparer", fields: [preparedBy], references: [id])
+  submitter        User                                @relation("WaterQualityLabReportSubmitter", fields: [submittedBy], references: [id])
+  receiver         User?                               @relation("WaterQualityLabReportReceiver", fields: [receivedBy], references: [id])
+  reviewer         User?                               @relation("WaterQualityLabReportReviewer", fields: [reviewedBy], references: [id])
+  labReportResults WaterQualityLabReportResult[]
+  attachments      WaterQualityLabReportAttachment[]
 
   @@index([treatmentPlantId, reportDate])
   @@index([reportDate])
   @@index([status])
+  @@index([category])
   @@index([receivedAt])
   @@map("t_water_quality_lab_reports")
+}
+
+// Water Quality Lab Report Attachment - Transactional Data
+model WaterQualityLabReportAttachment {
+  id          String   @id @default(uuid())
+  labReportId String
+  fileUrl     String
+  fileName    String?
+  order       Int
+  createdAt   DateTime @default(now())
+
+  // Relations
+  labReport WaterQualityLabReport @relation(fields: [labReportId], references: [id], onDelete: Cascade)
+
+  @@index([labReportId])
+  @@index([order])
+  @@map("t_water_quality_lab_report_attachments")
+}
+
+// Water Quality Lab Report Result - Transactional Data (per-parameter result values)
+model WaterQualityLabReportResult {
+  id           String   @id @default(uuid())
+  labReportId  String
+  parameterId  String
+  resultValue  Decimal  @db.Decimal(12, 4)
+  unit         String?
+  isCompliant  Boolean?
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  labReport  WaterQualityLabReport  @relation(fields: [labReportId], references: [id], onDelete: Cascade)
+  parameter  WaterQualityParameter  @relation(fields: [parameterId], references: [id])
+
+  @@unique([labReportId, parameterId])
+  @@index([labReportId])
+  @@index([parameterId])
+  @@map("t_water_quality_lab_report_results")
 }
 
 // ============================================================
@@ -2294,14 +2788,14 @@ model WeightReport {
   sourceId          String
   storageLocationId String
   reportDate        DateTime
-  reportMonth       MonthEnum
-  reportYear        Int
+  reportMonth       MonthEnum?
+  reportYear        Int?
   reportDocumentUrl String?
   submittedBy       String
   submittedAt       DateTime
   receivedBy        String?
   receivedAt        DateTime?
-  status            ReportStatusEnum @default(SUBMITTED)
+  status            WeightReportStatusEnum @default(DRAFT)
   reviewedBy        String?
   reviewedAt        DateTime?
   reviewNotes       String?          @db.Text
@@ -2318,8 +2812,9 @@ model WeightReport {
   reviewer        User?              @relation("WeightReportReviewer", fields: [reviewedBy], references: [id])
   items           WeightReportItem[]
 
-  @@unique([sourceId, reportMonth, reportYear])
+  @@unique([sourceId, reportDate])
   @@index([reportMonth, reportYear])
+  @@index([reportDate])
   @@index([status])
   @@index([receivedAt])
   @@map("t_weight_reports")
@@ -2360,13 +2855,31 @@ model DispatchOrder {
   createdBy    String
 
   // Relations
-  orderer User @relation("DispatchOrderOrderer", fields: [orderedBy], references: [id])
-  creator User @relation("DispatchOrderCreator", fields: [createdBy], references: [id])
+  orderer     User                        @relation("DispatchOrderOrderer", fields: [orderedBy], references: [id])
+  creator     User                        @relation("DispatchOrderCreator", fields: [createdBy], references: [id])
+  attachments DispatchOrderAttachment[]
 
   @@index([dispatchDate])
   @@index([orderedBy])
   @@index([status])
   @@map("t_dispatch_orders")
+}
+
+// Dispatch Order Attachment - Transactional Data
+model DispatchOrderAttachment {
+  id              String       @id @default(uuid())
+  dispatchOrderId String
+  fileUrl         String
+  fileName        String?
+  order           Int
+  createdAt       DateTime     @default(now())
+
+  // Relations
+  dispatchOrder DispatchOrder @relation(fields: [dispatchOrderId], references: [id], onDelete: Cascade)
+
+  @@index([dispatchOrderId])
+  @@index([order])
+  @@map("t_dispatch_order_attachments")
 }
 
 // ============================================================
@@ -2396,4 +2909,31 @@ model ManHour {
   @@index([month, year])
   @@index([group])
   @@map("t_man_hours")
+}
+
+// ============================================================
+// KPI HSE TARGET
+// ============================================================
+
+// HSE Target - Transactional Data
+// Targets for actual vs target comparison across modules (incident, risk, inspection, audit)
+model HseTarget {
+  id        String           @id @default(uuid())
+  type      HseTargetTypeEnum
+  code      String
+  name      String?
+  month     MonthEnum?
+  year      Int
+  target    Decimal          @db.Decimal(10, 2)
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  createdBy String
+
+  // Relations
+  creator User @relation("HseTargetCreator", fields: [createdBy], references: [id])
+
+  @@unique([type, code, month, year])
+  @@index([type, year])
+  @@map("t_hse_targets")
 }

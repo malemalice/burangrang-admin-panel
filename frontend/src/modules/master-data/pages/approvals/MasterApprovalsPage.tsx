@@ -18,6 +18,8 @@ import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import masterApprovalService from '../../services/masterApprovalService';
 import { MasterApproval } from '@/core/lib/types';
+import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 // Sentinel values for dynamic approval fields
 const APPROVAL_FIELD_MARKERS = {
@@ -38,6 +40,7 @@ const getDisplayLabel = (value: string, fallback: string): string => {
 
 const MasterApprovalsPage = () => {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const [approvals, setApprovals] = useState<MasterApproval[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageIndex, setPageIndex] = useState(0);
@@ -242,26 +245,34 @@ const MasterApprovalsPage = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => navigate(`/master/approvals/${approval.id}`)}
-            >
-              <Eye className="mr-2 h-4 w-4" />
-              View
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => navigate(`/master/approvals/${approval.id}/edit`)}
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-red-600"
-              onClick={(e) => handleDeleteClick(approval, e)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
+            {hasPermission('master-approval:read') && (
+              <DropdownMenuItem
+                onClick={() => navigate(`/master/approvals/${approval.id}`)}
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                View
+              </DropdownMenuItem>
+            )}
+            {hasPermission('master-approval:update') && (
+              <DropdownMenuItem
+                onClick={() => navigate(`/master/approvals/${approval.id}/edit`)}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+            )}
+            {(hasPermission('master-approval:read') || hasPermission('master-approval:update')) && hasPermission('master-approval:delete') && (
+              <DropdownMenuSeparator />
+            )}
+            {hasPermission('master-approval:delete') && (
+              <DropdownMenuItem
+                className="text-red-600"
+                onClick={(e) => handleDeleteClick(approval, e)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -274,9 +285,11 @@ const MasterApprovalsPage = () => {
         title="Master Approvals"
         subtitle="Manage your organization's approval flows"
         actions={
-          <ThemeButton onClick={() => navigate('/master/approvals/new')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Approval
-          </ThemeButton>
+          <PermissionGuard permission="master-approval:create">
+            <ThemeButton onClick={() => navigate('/master/approvals/new')}>
+              <Plus className="mr-2 h-4 w-4" /> Add Approval
+            </ThemeButton>
+          </PermissionGuard>
         }
       >
         <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>

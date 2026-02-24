@@ -35,6 +35,7 @@ interface InspectionItemsTableProps {
   hideHeader?: boolean;
   hidePagination?: boolean;
   approvalRights?: Record<string, boolean>; // Map of item ID to approval rights
+  isSuperUser?: boolean; // When true, show Update Action Item and Edit even when item is WAITING_APPROVAL
 }
 
 export const InspectionItemsTable = ({
@@ -62,6 +63,7 @@ export const InspectionItemsTable = ({
   hideHeader = false,
   hidePagination = false,
   approvalRights = {},
+  isSuperUser = false,
 }: InspectionItemsTableProps) => {
   const filterFields: FilterField[] = [];
 
@@ -201,8 +203,8 @@ export const InspectionItemsTable = ({
                   </Tooltip>
                 )}
                 
-                {/* Update Action Item - hidden when status is WAITING_APPROVAL or CLOSED */}
-                {onEditItemAsUpdater && !isWaitingApproval && (
+                {/* Update Action Item - hidden when WAITING_APPROVAL unless super_user */}
+                {onEditItemAsUpdater && (!isWaitingApproval || isSuperUser) && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -239,8 +241,8 @@ export const InspectionItemsTable = ({
                   </Tooltip>
                 )}
                 
-                {/* Edit button - hidden when status is CLOSED */}
-                {!isClosed && (
+                {/* Edit button - hidden when status is CLOSED or WAITING_APPROVAL (unless super_user) */}
+                {!isClosed && (!isWaitingApproval || isSuperUser) && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -257,8 +259,8 @@ export const InspectionItemsTable = ({
                   </Tooltip>
                 )}
                 
-                {/* Delete button - hidden when status is CLOSED */}
-                {!isClosed && (
+                {/* Delete button - hidden when status is CLOSED or WAITING_APPROVAL */}
+                {!isClosed && !isWaitingApproval && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button

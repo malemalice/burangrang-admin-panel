@@ -20,22 +20,23 @@ Project BurangrangAdminPanel {
   - Waste Management System
   - Man Hour Management System
   - Reminder System
+  - Access Log (endpoint activity logging)
   '''
 }
 
 //// -- ENUMS --
+
+Enum DataLevelEnum {
+  SELF [note: 'Self data level']
+  DEPARTMENT [note: 'Department data level']
+  SUPER [note: 'Super/All data level']
+}
 
 Enum RiskRatingEnum {
   LOW [note: 'Low risk level']
   MEDIUM [note: 'Medium risk level']
   HIGH [note: 'High risk level']
   EXTREME [note: 'Extreme risk level']
-}
-
-Enum IssueStatus Enum {
-  OPEN [note: 'Open Issue']
-  WAITING_APPROVAL [note: 'Waiting Verification']
-  CLOSE [note: 'Issue Closed']
 }
 
 Enum GeneralStatusEnum {
@@ -45,6 +46,7 @@ Enum GeneralStatusEnum {
   WAITING_APPROVAL [note: 'Waiting for approval']
   DONE [note: 'Done status']
   REJECTED [note: 'Rejected status']
+  CLOSE [note: 'Closed status']
 }
 
 Enum PPEWithdrawalStatusEnum {
@@ -111,6 +113,12 @@ Enum WasteTypeEnum {
   HAZARDOUS [note: 'Hazardous waste']
   FOOD [note: 'Food waste']
   GREEN [note: 'Green waste']
+}
+
+Enum WaterQualityParameterCategoryEnum {
+  CHEMISTRY [note: 'e.g. pH, BOD, COD, Oil & Grease, Ammonia (NH3)']
+  PHYSICS [note: 'e.g. Total Suspended Solid (TSS)']
+  MICROBIOLOGY [note: 'e.g. Total Coliform']
 }
 
 Enum ReportStatusEnum {
@@ -185,6 +193,13 @@ Enum IncidentTypeEnum {
   NEAR_MISS [note: 'Near miss incident']
   ACCIDENT [note: 'Accident']
   DANGEROUS_OR_HAZARDOUS_OCCURRENCE [note: 'Dangerous or hazardous occurrence']
+}
+
+Enum HseTargetTypeEnum {
+  INCIDENT [note: 'Incident target']
+  RISK [note: 'Risk target']
+  INSPECTION [note: 'Inspection target']
+  AUDIT [note: 'Audit target']
 }
 
 Enum GenderEnum {
@@ -299,6 +314,28 @@ Enum InspectionImageTypeEnum {
   GENERAL [note: 'General inspection image']
 }
 
+Enum RiskAssessmentItemImageTypeEnum {
+  BEFORE [note: 'Image taken before action plan']
+  AFTER [note: 'Image taken after action plan']
+  GENERAL [note: 'General risk assessment item image']
+}
+
+Enum IncidentActivitiesEnum {
+  WORK [note: 'Work activity']
+  STUDY [note: 'Study activity']
+}
+
+Enum IncidentScopeEnum {
+  GENERAL [note: 'General scope']
+  SECURITY [note: 'Security scope']
+}
+
+Enum EquipmentEntityEnum {
+  ASSET [note: 'Asset entity']
+  HEAVY_EQUIPMENT [note: 'Heavy equipment entity']
+  SAFETY_EQUIPMENT [note: 'Safety equipment entity']
+}
+
 //// -- CORE USER MANAGEMENT --
 
 Table t_users {
@@ -329,14 +366,17 @@ Table t_users {
 Table m_roles {
   id varchar [pk, default: `uuid()`]
   name varchar [unique, not null]
+  code varchar [unique, not null]
   description varchar [null]
   isActive boolean [not null, default: true]
+  dataLevel DataLevelEnum [not null, default: 'SUPER']
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
   Note: 'User roles for RBAC'
   indexes {
     name [unique]
+    code [unique]
   }
 }
 
@@ -619,20 +659,21 @@ Table t_risk_mitigation {
 
 Table t_hse_targets {
   id varchar [pk, default: `uuid()`]
-  month MonthEnum [not null]
+  type HseTargetTypeEnum [not null, note: 'Target type: incident, risk, inspection, audit']
+  code varchar [not null, note: 'Sub-dimension identifier; meaning depends on type (e.g. FATALITY, NEAR_MISS for incident; HIGH, EXTREME for risk)']
+  name varchar [null, note: 'Display label for the target scope']
+  month MonthEnum [null, note: 'Nullable for yearly-only targets']
   year int [not null]
-  code varchar [unique, not null]
-  name varchar [not null]
   target decimal(10,2) [not null]
   isActive boolean [not null, default: true]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   createdBy varchar [not null, ref: > t_users.id]
-  
-  Note: 'HSE targets tracking monthly and yearly targets with code and name'
+
+  Note: 'HSE targets for actual vs target comparison across modules. Code is generic; each type defines its own sub-dimensions.'
   indexes {
-    code [unique]
-    (month, year)
+    (type, code, month, year) [unique]
+    (type, year)
   }
 }
 
@@ -646,7 +687,7 @@ Table m_risk_matrix {
   consequenceLevel int [not null, note: 'Int type to match Schema']
   consequenceName varchar [not null, default: '']
   consequenceDesc text [not null, default: '']
-  risk_rating RiskRatingEnum [not null]
+  interpretation RiskRatingEnum [not null]
   isActive boolean [not null, default: true]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
@@ -670,7 +711,6 @@ Table t_risk_assessment {
   actionPlan text [null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
-  dueDateAt timestamp [null]
   
   Note: 'Risk assessment records'
   indexes {
@@ -704,6 +744,23 @@ Table t_risk_assessment_item {
 }
 
 Ref: t_risk_mitigation.entityId > t_risk_assessment_item.id [delete: cascade, note: 'Polymorphic relation: when entity='RISK_ASSESSMENT_ITEM'']
+
+Table t_risk_assessment_item_images {
+  id varchar [pk, default: `uuid()`]
+  riskAssessmentItemId varchar [not null, ref: > t_risk_assessment_item.id, note: 'onDelete: Cascade']
+  imageUrl varchar [not null]
+  caption text [null]
+  type RiskAssessmentItemImageTypeEnum [not null, default: 'GENERAL', note: 'BEFORE: before action plan, AFTER: after action plan, GENERAL: general image']
+  order int [not null]
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Photos/images attached to risk assessment items - supports before/after action plan tracking'
+  indexes {
+    riskAssessmentItemId
+    (riskAssessmentItemId, type)
+    order
+  }
+}
 
 //// -- INSPECTION SYSTEM --
 
@@ -961,10 +1018,12 @@ Table t_incidents {
   code varchar [unique, not null]
   subject varchar [not null]
   incidentDate timestamp [not null]
-  incidentLocation varchar [not null]
+  roomId varchar [null, ref: > m_rooms.id, note: 'Optional room reference']
   areaId varchar [not null, ref: > m_areas.id]
   incidentType IncidentTypeEnum [not null]
   incidentClassification IncidentClassificationEnum [not null]
+  activities IncidentActivitiesEnum [not null, default: 'WORK']
+  type IncidentScopeEnum [not null, default: 'GENERAL', note: 'GENERAL or SECURITY scope']
   requesterId varchar [not null, ref: > t_users.id]
   reportedBy varchar [not null, ref: > t_users.id]
   technicianId varchar [null, ref: > t_users.id]
@@ -992,6 +1051,7 @@ Table t_incidents {
   Note: 'Incident report records with comprehensive incident details, action taken, and assignment tracking'
   indexes {
     code [unique]
+    roomId
     areaId
     riskCategoryId
     requesterId
@@ -1000,13 +1060,14 @@ Table t_incidents {
     assigneeId
     status
     source
+    activities
+    type
   }
 }
 
 Table t_incident_injured_persons {
   id varchar [pk, default: `uuid()`]
   incidentId varchar [not null, ref: > t_incidents.id, note: 'onDelete: Cascade']
-  hasInjuredPerson HasInjuredPersonEnum [not null]
   injuredPersonName varchar [null]
   gender GenderEnum [null]
   levelOfInjury LevelOfInjuryEnum [not null, default: 'NOT_SPECIFIED']
@@ -1018,7 +1079,7 @@ Table t_incident_injured_persons {
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
-  Note: 'Injured persons associated with incident - supports multiple injured persons per incident. If hasInjuredPerson is NO, other fields may be null.'
+  Note: 'Injured persons associated with incident - supports multiple injured persons per incident'
   indexes {
     incidentId
     departmentId
@@ -1028,7 +1089,6 @@ Table t_incident_injured_persons {
 Table t_incident_witnesses {
   id varchar [pk, default: `uuid()`]
   incidentId varchar [not null, ref: > t_incidents.id, note: 'onDelete: Cascade']
-  hasWitness HasWitnessEnum [not null]
   witnessName varchar [null]
   gender GenderEnum [null]
   departmentId varchar [null, ref: > m_departments.id]
@@ -1036,7 +1096,7 @@ Table t_incident_witnesses {
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
-  Note: 'Witnesses associated with incident - supports multiple witnesses per incident. If hasWitness is NO, other fields may be null.'
+  Note: 'Witnesses associated with incident - supports multiple witnesses per incident'
   indexes {
     incidentId
     departmentId
@@ -1046,14 +1106,19 @@ Table t_incident_witnesses {
 Table t_incident_assets {
   id varchar [pk, default: `uuid()`]
   incidentId varchar [not null, ref: > t_incidents.id, note: 'onDelete: Cascade']
-  assetName varchar [not null]
+  entity EquipmentEntityEnum [null, note: 'Entity type: ASSET, HEAVY_EQUIPMENT, or SAFETY_EQUIPMENT - references m_assets, m_heavy_equipment, or m_safety_equipment']
+  entityId varchar [null, note: 'Entity ID when entity is set - references m_assets.id, m_heavy_equipment.id, or m_safety_equipment.id']
+  assetName varchar [not null, note: 'Free-text when entity is null or as fallback']
   assetCode varchar [null]
+  quantity int [null]
   order int [not null]
   createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
   
-  Note: 'Assets associated with incident - supports multiple assets per incident. Can reference existing assets or be free-text.'
+  Note: 'Assets associated with incident - polymorphic. Can reference m_assets, m_heavy_equipment, or m_safety_equipment via entity/entityId, or use free-text assetName/assetCode'
   indexes {
     incidentId
+    (entity, entityId)
   }
 }
 
@@ -1277,6 +1342,27 @@ Table t_file_access_logs {
     fileId
     accessedBy
     accessedAt
+  }
+}
+
+Table t_access_logs {
+  id varchar [pk, default: `uuid()`]
+  userId varchar [null, ref: > t_users.id, note: 'Nullable for public endpoints']
+  method varchar [not null, note: 'HTTP method: GET, POST, PUT, PATCH, DELETE']
+  endpoint varchar [not null, note: 'Full endpoint path']
+  statusCode integer [null, note: 'HTTP status code captured after response']
+  payload jsonb [null, note: 'Request body and query parameters']
+  ipAddress varchar [null]
+  userAgent varchar [null]
+  executionTime integer [null, note: 'Request execution time in milliseconds']
+  createdAt timestamp [not null, default: `now()`]
+  
+  Note: 'Logs all endpoint access activities from frontend'
+  indexes {
+    userId
+    endpoint
+    method
+    createdAt
   }
 }
 
@@ -1527,9 +1613,8 @@ Table t_courses {
   rating decimal(3,2) [not null, default: 0]
   reviewCount int [not null, default: 0]
   studentCount int [not null, default: 0]
-  instructorId varchar [not null, ref: > t_users.id]
+  instructorId varchar [null, ref: > t_users.id]
   status varchar [not null, default: 'draft', note: 'draft, review, published, archived']
-  isPublished boolean [not null, default: false]
   publishedAt timestamp [null]
   isActive boolean [not null, default: true]
   createdAt timestamp [not null, default: `now()`]
@@ -1779,7 +1864,6 @@ Table t_certificates {
   certificateNumber varchar [not null]
   certificateName varchar [not null]
   categoryId varchar [not null, ref: > m_certificate_categories.id]
-  certificateType CertificateTypeEnum [not null]
   issuedDate timestamp [not null]
   validityDate timestamp [not null]
   issuerName varchar [not null]
@@ -1871,6 +1955,22 @@ Table m_heavy_equipment {
   updatedAt timestamp [not null, default: `now()`]
   
   Note: 'Equipment master data'
+  indexes {
+    code [unique]
+  }
+}
+
+Table m_assets {
+  id varchar [pk, default: `uuid()`]
+  name varchar [not null]
+  code varchar [unique, not null]
+  brand varchar [null]
+  description text [null]
+  isActive boolean [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Asset master data - polymorphic reference from IncidentAsset (entity=ASSET)'
   indexes {
     code [unique]
   }
@@ -2299,18 +2399,23 @@ Table m_water_quality_parameters {
   id varchar [pk, default: `uuid()`]
   name varchar [not null]
   code varchar [unique, not null]
+  category WaterQualityParameterCategoryEnum [not null]
   unit varchar [not null]
   standardLimit decimal(10,4) [null]
   regulatoryLimit decimal(10,4) [null]
   testMethod varchar [null]
   description text [null]
+  displayOrder int [null]
   isActive boolean [not null, default: true]
+  dateSampleTaken timestamp [not null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
-  Note: 'Water quality test parameters master data'
+  Note: 'Water quality test parameters master data, grouped by category (Chemistry/Physics/Microbiology)'
   indexes {
     code [unique]
+    category
+    displayOrder
   }
 }
 
@@ -2378,6 +2483,25 @@ Table t_water_quality_lab_reports {
     reportDate
     status
     receivedAt
+  }
+}
+
+Table t_water_quality_lab_report_results {
+  id varchar [pk, default: `uuid()`]
+  labReportId varchar [not null, ref: > t_water_quality_lab_reports.id, note: 'onDelete: Cascade']
+  parameterId varchar [not null, ref: > m_water_quality_parameters.id]
+  resultValue decimal(12,4) [not null]
+  unit varchar [null]
+  isCompliant boolean [null]
+  notes text [null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Per-parameter result values for each lab report (Chemistry/Physics/Microbiology)'
+  indexes {
+    (labReportId, parameterId) [unique]
+    labReportId
+    parameterId
   }
 }
 
@@ -2530,7 +2654,8 @@ Table t_man_hours {
   Note: 'Man hour records tracking quantity, hours per day, month, year, and calculated total'
   indexes {
     (name, group, month, year) [unique]
-    createdBy
+    (month, year)
+    group
   }
 }
 
@@ -2635,6 +2760,7 @@ TableGroup risk_assessment {
   m_risk_matrix
   t_risk_assessment
   t_risk_assessment_item
+  t_risk_assessment_item_images
 }
 
 TableGroup inspection_system {
@@ -2696,6 +2822,7 @@ TableGroup system_configuration {
   m_email_templates
   m_settings
   t_zoho_webhook_logs
+  t_access_logs
 }
 
 TableGroup ppe_management {
@@ -2734,6 +2861,7 @@ TableGroup certificate_management {
 TableGroup work_permit_system {
   m_work_classification
   m_heavy_equipment
+  m_assets
   m_tools
   m_materials
   m_machines
@@ -2765,6 +2893,7 @@ TableGroup waste_management {
   m_water_quality_parameters
   t_monthly_flow_reports
   t_water_quality_lab_reports
+  t_water_quality_lab_report_results
   m_waste_types
   m_waste_sources
   m_storage_locations

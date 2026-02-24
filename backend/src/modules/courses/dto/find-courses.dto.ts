@@ -52,16 +52,6 @@ export class FindCoursesOptions {
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiProperty({ description: 'Filter by published status', required: false })
-  @IsOptional()
-  @Transform(({ value }) => {
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    return value;
-  })
-  @IsBoolean()
-  isPublished?: boolean;
-
   @ApiProperty({
     description: 'Filter by course status',
     required: false,

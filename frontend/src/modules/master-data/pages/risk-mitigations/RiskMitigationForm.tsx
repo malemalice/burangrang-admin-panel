@@ -70,6 +70,7 @@ const RiskMitigationForm = ({ riskMitigation, mode }: RiskMitigationFormProps) =
         const response = await riskService.getAll({
           limit: 100,
           isActive: mode === 'edit' ? undefined : true,
+          options: true,
         });
         setRisks(response.data);
       } catch (error) {

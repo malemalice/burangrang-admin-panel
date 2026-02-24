@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { 
@@ -38,20 +38,43 @@ import { CreateInspectionItemDTO } from '../../types/inspection.types';
 import inspectionItemsService from '../services/inspectionItemsService';
 import InspectionItemForm from '../../components/InspectionItemForm';
 import { GeneralStatusEnum, INSPECTION_ITEM_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
-import { departmentService, riskService, riskCategoryService } from '@/modules/master-data';
+import { departmentService, riskService, riskCategoryService, masterApprovalService } from '@/modules/master-data';
 import { Department } from '@/modules/master-data/types/master-data.types';
-import { Risk, RiskCategory } from '@/core/lib/types';
+import { Risk, RiskCategory, MasterApprovalItem, PaginationParams } from '@/core/lib/types';
 import userService from '@/modules/users/services/userService';
 import { User } from '@/core/lib/types';
+import { useAuth } from '@/core/lib/auth';
+import api from '@/core/lib/api';
+import { ROLE_CODES } from '@/shared/constants/role-codes.constants';
+import roleService from '@/modules/roles/services/roleService';
+
+const FILTER_KEYS = ['status', 'assignedDepartmentId', 'assigneeId', 'riskId', 'riskCategoryId', 'inspectionCode'];
 
 const InspectionItemsPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user: currentUser } = useAuth();
+  const [isSuperUser, setIsSuperUser] = useState(false);
   const [inspectionItems, setInspectionItems] = useState<InspectionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [pageIndex, setPageIndex] = useState(0);
-  const [limit, setLimit] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
-  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
+
+  const pageIndex = useMemo(() => {
+    const raw = searchParams.get('page');
+    const page = raw ? Number(raw) : 1;
+    if (!Number.isFinite(page) || page <= 0) return 0;
+    return Math.floor(page) - 1;
+  }, [searchParams]);
+
+  const limit = useMemo(() => {
+    const raw = searchParams.get('limit');
+    const parsed = raw ? Number(raw) : 10;
+    if (!Number.isFinite(parsed) || parsed <= 0) return 10;
+    return Math.floor(parsed);
+  }, [searchParams]);
+
+  const searchTerm = useMemo(() => searchParams.get('search') ?? '', [searchParams]);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -61,17 +84,64 @@ const InspectionItemsPage = () => {
   const [editingItem, setEditingItem] = useState<InspectionItem | null>(null);
   const [editingFormMode, setEditingFormMode] = useState<'creator' | 'updater' | 'verifier' | null>(null);
   const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
+  const [inspectionItemApprovalLines, setInspectionItemApprovalLines] = useState<MasterApprovalItem[] | null>(null);
   const [approvalRights, setApprovalRights] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!currentUser?.id) return;
+      try {
+        const response = await api.get('/users/me');
+        const userData = response.data;
+        let roleCode: string | null = null;
+        if (userData.role && typeof userData.role === 'object' && 'code' in userData.role) {
+          roleCode = userData.role.code;
+        }
+        if (!roleCode && userData.roleId) {
+          const role = await roleService.getRoleById(userData.roleId);
+          roleCode = role.code;
+        }
+        setIsSuperUser(roleCode === ROLE_CODES.SUPER_ADMIN);
+      } catch (error) {
+        console.error('Failed to fetch user role:', error);
+      }
+    };
+    fetchUserRole();
+  }, [currentUser?.id]);
+
+  // Fetch Master Approval lines for INSPECTION_ITEM when workflow dialog opens (for dynamic workflow guideline)
+  useEffect(() => {
+    if (!isWorkflowInfoDialogOpen) return;
+    let cancelled = false;
+    const fetchInspectionItemApprovalLines = async () => {
+      setInspectionItemApprovalLines(null);
+      try {
+        const response = await masterApprovalService.getAll({
+          page: 1,
+          limit: 10,
+          search: 'INSPECTION_ITEM',
+          isActive: true,
+        } as PaginationParams);
+        if (cancelled) return;
+        const approval = response.data?.find((a: { entity: string }) => a.entity === 'INSPECTION_ITEM');
+        setInspectionItemApprovalLines(approval?.items ?? []);
+      } catch {
+        if (!cancelled) setInspectionItemApprovalLines([]);
+      }
+    };
+    fetchInspectionItemApprovalLines();
+    return () => { cancelled = true; };
+  }, [isWorkflowInfoDialogOpen]);
 
   // Fetch filter options
   useEffect(() => {
     const fetchFilterOptions = async () => {
       try {
         const [departmentsResponse, usersResponse, risksResponse, riskCategoriesResponse] = await Promise.all([
-          departmentService.getDepartments({ page: 1, limit: 100 }),
-          userService.getUsers({ page: 1, limit: 100 }),
-          riskService.getAll({ page: 1, limit: 100, isActive: true }),
-          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true }),
+          departmentService.getDepartments({ page: 1, limit: 100, options: true }),
+          userService.getUsers({ page: 1, limit: 100, options: true }),
+          riskService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
+          riskCategoryService.getAll({ page: 1, limit: 100, isActive: true, options: true }),
         ]);
 
         setDepartments(departmentsResponse.data);
@@ -141,6 +211,47 @@ const InspectionItemsPage = () => {
     },
   ], [departments, users, risks, riskCategories]);
 
+  const activeFilters = useMemo(() => {
+    const filters: Record<string, { value: any; label: string }> = {};
+
+    const status = searchParams.get('status');
+    if (status) {
+      const option = INSPECTION_ITEM_STATUS_OPTIONS.find(opt => opt.value === status);
+      filters.status = { value: status, label: option?.label ?? status };
+    }
+
+    const assignedDepartmentId = searchParams.get('assignedDepartmentId');
+    if (assignedDepartmentId) {
+      const dept = departments.find(d => d.id === assignedDepartmentId);
+      filters.assignedDepartmentId = { value: assignedDepartmentId, label: dept?.name ?? assignedDepartmentId };
+    }
+
+    const assigneeId = searchParams.get('assigneeId');
+    if (assigneeId) {
+      const user = users.find(u => u.id === assigneeId);
+      filters.assigneeId = { value: assigneeId, label: user ? (user.name || `${user.firstName} ${user.lastName}`) : assigneeId };
+    }
+
+    const riskId = searchParams.get('riskId');
+    if (riskId) {
+      const risk = risks.find(r => r.id === riskId);
+      filters.riskId = { value: riskId, label: risk?.name ?? riskId };
+    }
+
+    const riskCategoryId = searchParams.get('riskCategoryId');
+    if (riskCategoryId) {
+      const category = riskCategories.find(c => c.id === riskCategoryId);
+      filters.riskCategoryId = { value: riskCategoryId, label: category?.name ?? riskCategoryId };
+    }
+
+    const inspectionCode = searchParams.get('inspectionCode');
+    if (inspectionCode) {
+      filters.inspectionCode = { value: inspectionCode, label: inspectionCode };
+    }
+
+    return filters;
+  }, [searchParams, departments, users, risks, riskCategories]);
+
   const fetchItems = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -151,6 +262,10 @@ const InspectionItemsPage = () => {
         sortOrder: 'desc',
       };
 
+      // Add search term
+      if (searchTerm?.trim()) {
+        params.search = searchTerm.trim();
+      }
       // Add filters
       if (activeFilters.status?.value) {
         params.status = activeFilters.status.value as GeneralStatusEnum;
@@ -174,10 +289,6 @@ const InspectionItemsPage = () => {
       const response = await inspectionItemsService.getAll(params);
       setInspectionItems(response.data);
       setTotalItems(response.meta.total);
-      
-      if (response.meta.page) {
-        setPageIndex(response.meta.page - 1);
-      }
 
       // Check approval rights for items with WAITING_APPROVAL status
       const rightsMap: Record<string, boolean> = {};
@@ -202,42 +313,68 @@ const InspectionItemsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [pageIndex, limit, activeFilters]);
+  }, [pageIndex, limit, searchTerm, activeFilters]);
 
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
 
-  const handleApplyFilters = (filters: FilterValue[]) => {
-    const newActiveFilters: Record<string, { value: any; label: string }> = {};
-    
-    filters.forEach(filter => {
-      if (filter.id === 'status') {
-        const statusOption = ISSUE_STATUS_OPTIONS.find(opt => opt.value === filter.value);
-        newActiveFilters[filter.id] = {
-          value: filter.value,
-          label: statusOption?.label || String(filter.value)
-        };
-      } else {
-        const field = filterFields.find(f => f.id === filter.id);
-        if (field && field.type === 'select' && field.options) {
-          const option = field.options.find(opt => opt.value === filter.value);
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: option?.label || String(filter.value)
-          };
-        } else {
-          newActiveFilters[filter.id] = {
-            value: filter.value,
-            label: String(filter.value)
-          };
-        }
-      }
-    });
-    
-    setActiveFilters(newActiveFilters);
-    setPageIndex(0);
-  };
+  const updateSearchParams = useCallback(
+    (updater: (next: URLSearchParams) => void, options: { replace?: boolean } = { replace: true }) => {
+      const next = new URLSearchParams(searchParams);
+      updater(next);
+      setSearchParams(next, options);
+    },
+    [searchParams, setSearchParams]
+  );
+
+  const handlePageChange = useCallback(
+    (page: number) => {
+      updateSearchParams(next => next.set('page', String(page + 1)));
+    },
+    [updateSearchParams]
+  );
+
+  const handlePageSizeChange = useCallback(
+    (size: number) => {
+      updateSearchParams(next => {
+        next.set('limit', String(size));
+        next.set('page', '1');
+      });
+    },
+    [updateSearchParams]
+  );
+
+  const handleSearch = useCallback(
+    (term: string) => {
+      updateSearchParams(next => {
+        const trimmed = term.trim();
+        if (trimmed) next.set('search', trimmed);
+        else next.delete('search');
+        next.set('page', '1');
+      });
+    },
+    [updateSearchParams]
+  );
+
+  const handleApplyFilters = useCallback(
+    (filters: FilterValue[]) => {
+      updateSearchParams(next => {
+        FILTER_KEYS.forEach(k => next.delete(k));
+        filters.forEach(filter => {
+          if (filter.value !== undefined && filter.value !== null && filter.value !== '') {
+            if (filter.id === 'inspectionCode') {
+              next.set(filter.id, String(filter.value));
+            } else {
+              next.set(filter.id, String(filter.value));
+            }
+          }
+        });
+        next.set('page', '1');
+      });
+    },
+    [updateSearchParams]
+  );
 
   const handleUpdateItemSubmit = async (itemData: CreateInspectionItemDTO) => {
     if (!editingItem) return;
@@ -259,7 +396,7 @@ const InspectionItemsPage = () => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
       [GeneralStatusEnum.OPEN]: { label: 'Open Issue', variant: 'secondary' },
       [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
-      [GeneralStatusEnum.CLOSE]: { label: 'Closed', variant: 'default' },
+      [GeneralStatusEnum.CLOSE]: { label: 'Close', variant: 'default' },
     };
 
     const statusInfo = statusMap[status] || { label: status, variant: 'outline' };
@@ -358,7 +495,7 @@ const InspectionItemsPage = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => navigate(`/inspections/items/${item.id}`)}
+                    onClick={() => navigate(`/inspections/items/${item.id}`, { state: { returnTo: location.search } })}
                     className="text-primary hover:text-primary hover:bg-primary/10"
                     aria-label={`View inspection item ${item.id}`}
                   >
@@ -381,7 +518,7 @@ const InspectionItemsPage = () => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => navigate(`/inspections/items/${item.id}`)}
+                  onClick={() => navigate(`/inspections/items/${item.id}`, { state: { returnTo: location.search } })}
                   className="text-primary hover:text-primary hover:bg-primary/10"
                   aria-label={`View inspection item ${item.id}`}
                 >
@@ -416,8 +553,8 @@ const InspectionItemsPage = () => {
               </Tooltip>
             )}
             
-            {/* Update Action Item - hidden when status is WAITING_APPROVAL or CLOSED */}
-            {!isWaitingApproval && (
+            {/* Update Action Item - hidden when WAITING_APPROVAL unless super_user */}
+            {(!isWaitingApproval || isSuperUser) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -473,8 +610,8 @@ const InspectionItemsPage = () => {
               </Tooltip>
             )}
             
-            {/* Dropdown menu - hidden when status is CLOSED */}
-            {!isClosed && (
+            {/* Dropdown menu (Edit) - hidden when CLOSED or WAITING_APPROVAL unless super_user */}
+            {!isClosed && (!isWaitingApproval || isSuperUser) && (
               <DropdownMenu
                 open={openDropdownId === item.id}
                 onOpenChange={(open) => {
@@ -488,7 +625,7 @@ const InspectionItemsPage = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => navigate(`/inspections/items/${item.id}/edit`)}>
+                  <DropdownMenuItem onClick={() => navigate(`/inspections/items/${item.id}/edit`, { state: { returnTo: location.search } })}>
                     <Edit className="mr-2 h-4 w-4" /> Edit
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -533,13 +670,16 @@ const InspectionItemsPage = () => {
           pageIndex,
           limit,
           pageCount: Math.ceil(totalItems / limit),
-          onPageChange: setPageIndex,
-          onPageSizeChange: setLimit,
+          onPageChange: handlePageChange,
+          onPageSizeChange: handlePageSizeChange,
           total: totalItems
         }}
         filterFields={filterFields}
         activeFilters={activeFilters}
         onApplyFilters={handleApplyFilters}
+        searchValue={searchTerm}
+        onSearch={handleSearch}
+        searchPlaceholder="Search by inspection code, risk, description..."
       />
 
       {/* Edit Item Dialog */}
@@ -584,6 +724,7 @@ const InspectionItemsPage = () => {
                   imageUrl: img.imageUrl,
                   caption: img.caption,
                   order: img.order,
+                  type: img.type,
                 })),
                 mitigation: editingItem.mitigation ? {
                   eliminate: editingItem.mitigation.eliminate,
@@ -606,110 +747,178 @@ const InspectionItemsPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Workflow Information Dialog */}
+      {/* Workflow Information Dialog — inspection item workflow per docs/prd-inspections.md and TRD workflow guideline */}
       <Dialog open={isWorkflowInfoDialogOpen} onOpenChange={setIsWorkflowInfoDialogOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-4">
             <DialogTitle>Inspection Item Workflow</DialogTitle>
             <DialogDescription>
-              The inspection item goes through three main stages before reaching completion
+              Inspection items move from recording the finding, to follow-up by the assigned department or assignee, then to verification by an approver.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-2">
+          <div className="px-6 pb-6">
+            <div className="flex flex-col md:flex-row md:items-stretch gap-4 md:gap-2">
               {/* Step 1: Finding */}
-              <div className="flex flex-col items-center text-center flex-1">
-                <div className="relative flex items-center justify-center mb-4">
-                  <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
-                    <FileText className="h-8 w-8 text-blue-600" />
+              <div className="flex flex-1 flex-col min-w-0 rounded-lg border border-blue-200/80 bg-blue-50/40 dark:bg-blue-950/20 dark:border-blue-800/50 overflow-hidden">
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-blue-200/60 dark:border-blue-800/40">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50">
+                    <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-semibold flex items-center justify-center">
-                    1
+                  <div>
+                    <span className="text-xs font-medium text-blue-600 dark:text-blue-400">Step 1</span>
+                    <h3 className="font-semibold text-foreground leading-tight">Finding</h3>
                   </div>
                 </div>
-                <h3 className="font-semibold text-lg mb-1">Finding</h3>
-                <p className="text-sm text-muted-foreground mb-4 max-w-[200px]">
-                  Record inspection findings and initial details
+                <dl className="grid gap-2 px-4 py-3 text-sm">
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Status</dt>
+                    <dd className="mt-0.5 font-medium text-foreground">Open Issue / Rejected</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Responsible</dt>
+                    <dd className="mt-0.5 font-medium text-foreground">Inspection creator</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
+                    <dd className="mt-0.5 text-muted-foreground">User who created the parent inspection or adds the item to the inspection (any department)</dd>
+                  </div>
+                </dl>
+                <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-blue-200/40 dark:border-blue-800/30 pt-2">
+                  Records the finding and initial details (area, risk category, risk, assigned department, assignee, due date). Editable until submitted for verification.
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                  onClick={() => {
-                    setIsWorkflowInfoDialogOpen(false);
-                    toast.info('Please select an inspection item from the table to edit as creator');
-                  }}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Edit as Creator
-                </Button>
               </div>
 
-              {/* Arrow Connector 1 */}
-              <div className="hidden md:flex items-center justify-center px-4">
-                <ArrowRight className="h-6 w-6 text-muted-foreground" />
+              <div className="hidden md:flex shrink-0 items-center justify-center w-6 self-center">
+                <ArrowRight className="h-5 w-5 text-muted-foreground/60" aria-hidden />
               </div>
 
               {/* Step 2: Action Plan */}
-              <div className="flex flex-col items-center text-center flex-1">
-                <div className="relative flex items-center justify-center mb-4">
-                  <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center">
-                    <Wrench className="h-8 w-8 text-orange-600" />
+              <div className="flex flex-1 flex-col min-w-0 rounded-lg border border-orange-200/80 bg-orange-50/40 dark:bg-orange-950/20 dark:border-orange-800/50 overflow-hidden">
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-orange-200/60 dark:border-orange-800/40">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/50">
+                    <Wrench className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                   </div>
-                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-orange-600 text-white text-xs font-semibold flex items-center justify-center">
-                    2
-                  </div>
-                </div>
-                <h3 className="font-semibold text-lg mb-1">Action Plan</h3>
-                <p className="text-sm text-muted-foreground mb-4 max-w-[200px]">
-                  Update action item progress with images and notes
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-orange-600 border-orange-200 hover:bg-orange-50 hover:text-orange-700"
-                  onClick={() => {
-                    setIsWorkflowInfoDialogOpen(false);
-                    toast.info('Please select an inspection item from the table to update action item');
-                  }}
-                >
-                  <Wrench className="h-4 w-4 mr-2" />
-                  Update Action Item
-                </Button>
-              </div>
-
-              {/* Arrow Connector 2 */}
-              <div className="hidden md:flex items-center justify-center px-4">
-                <ArrowRight className="h-6 w-6 text-muted-foreground" />
-              </div>
-
-              {/* Step 3: Verify */}
-              <div className="flex flex-col items-center text-center flex-1">
-                <div className="relative flex items-center justify-center mb-4">
-                  <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
-                    <CheckCircle2 className="h-8 w-8 text-green-600" />
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-green-600 text-white text-xs font-semibold flex items-center justify-center">
-                    3
+                  <div>
+                    <span className="text-xs font-medium text-orange-600 dark:text-orange-400">Step 2</span>
+                    <h3 className="font-semibold text-foreground leading-tight">Action Plan</h3>
                   </div>
                 </div>
-                <h3 className="font-semibold text-lg mb-1">Verify</h3>
-                <p className="text-sm text-muted-foreground mb-4 max-w-[200px]">
-                  Verify and finalize inspection item
+                <dl className="grid gap-2 px-4 py-3 text-sm">
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Status</dt>
+                    <dd className="mt-0.5 font-medium text-foreground">Open Issue / Rejected</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Responsible</dt>
+                    <dd className="mt-0.5 font-medium text-foreground">Assigned dept / Assignee</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
+                    <dd className="mt-0.5 text-muted-foreground">Department or person set as Assigned Department or Assignee on the inspection item</dd>
+                  </div>
+                </dl>
+                <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-orange-200/40 dark:border-orange-800/30 pt-2">
+                  Updates progress with follow-up notes, images (BEFORE/AFTER/GENERAL), and action items. Can submit for verification when ready.
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
-                  onClick={() => {
-                    setIsWorkflowInfoDialogOpen(false);
-                    toast.info('Please select an inspection item from the table to verify');
-                  }}
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Verify
-                </Button>
               </div>
+
+              {inspectionItemApprovalLines === null ? (
+                <>
+                  <div className="hidden md:flex shrink-0 items-center justify-center w-6 self-center">
+                    <ArrowRight className="h-5 w-5 text-muted-foreground/60" aria-hidden />
+                  </div>
+                  <div className="flex flex-1 flex-col min-w-0 rounded-lg border border-green-200/80 bg-green-50/40 dark:bg-green-950/20 dark:border-green-800/50 overflow-hidden">
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-green-200/60 dark:border-green-800/40">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+                        <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-medium text-green-600 dark:text-green-400">Step 3</span>
+                        <h3 className="font-semibold text-foreground leading-tight">Verify</h3>
+                      </div>
+                    </div>
+                    <div className="px-4 py-4 text-sm text-muted-foreground">
+                      Loading approval steps...
+                    </div>
+                  </div>
+                </>
+              ) : inspectionItemApprovalLines.length > 0 ? (
+                inspectionItemApprovalLines.map((item, index) => (
+                  <div key={item.id} className="contents">
+                    <div className="hidden md:flex shrink-0 items-center justify-center w-6 self-center">
+                      <ArrowRight className="h-5 w-5 text-muted-foreground/60" aria-hidden />
+                    </div>
+                    <div className="flex flex-1 flex-col min-w-0 rounded-lg border border-green-200/80 bg-green-50/40 dark:bg-green-950/20 dark:border-green-800/50 overflow-hidden">
+                      <div className="flex items-center gap-3 px-4 py-3 border-b border-green-200/60 dark:border-green-800/40">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+                          <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-medium text-green-600 dark:text-green-400">Step {3 + index}</span>
+                          <h3 className="font-semibold text-foreground leading-tight">Verify</h3>
+                        </div>
+                      </div>
+                      <dl className="grid gap-2 px-4 py-3 text-sm">
+                        <div>
+                          <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Status</dt>
+                          <dd className="mt-0.5 font-medium text-foreground">Waiting Verification</dd>
+                        </div>
+                        <div>
+                          <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Responsible</dt>
+                          <dd className="mt-0.5 font-medium text-foreground">{item.jobPosition?.name ?? `Approver (line ${index + 1})`}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
+                          <dd className="mt-0.5 text-muted-foreground">
+                            {[item.jobPosition?.name, item.department?.name].filter(Boolean).join(', ') || 'Per Master Approval'}
+                          </dd>
+                        </div>
+                      </dl>
+                      <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-green-200/40 dark:border-green-800/30 pt-2">
+                        Approves or rejects. If rejected, item returns to Open for edits.
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div className="hidden md:flex shrink-0 items-center justify-center w-6 self-center">
+                    <ArrowRight className="h-5 w-5 text-muted-foreground/60" aria-hidden />
+                  </div>
+                  <div className="flex flex-1 flex-col min-w-0 rounded-lg border border-green-200/80 bg-green-50/40 dark:bg-green-950/20 dark:border-green-800/50 overflow-hidden">
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-green-200/60 dark:border-green-800/40">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+                        <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-medium text-green-600 dark:text-green-400">Step 3</span>
+                        <h3 className="font-semibold text-foreground leading-tight">Verify</h3>
+                      </div>
+                    </div>
+                    <dl className="grid gap-2 px-4 py-3 text-sm">
+                      <div>
+                        <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Status</dt>
+                        <dd className="mt-0.5 font-medium text-foreground">Waiting Verification</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Responsible</dt>
+                        <dd className="mt-0.5 font-medium text-foreground">Approver (per approval line)</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Role / Dept</dt>
+                        <dd className="mt-0.5 text-muted-foreground">User from the item&apos;s Assigned Department with approver job position (e.g. Dept Head), per Master Approval for inspection items</dd>
+                      </div>
+                    </dl>
+                    <p className="px-4 pb-3 text-xs text-muted-foreground border-t border-green-200/40 dark:border-green-800/30 pt-2">
+                      Approves or rejects. If rejected, item returns to Open for edits.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="mt-4 rounded-lg bg-muted/60 px-4 py-2.5 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Closed</span> — When all approvers have approved, status becomes <strong>Close</strong>. No further edits; view only.
             </div>
           </div>
         </DialogContent>
