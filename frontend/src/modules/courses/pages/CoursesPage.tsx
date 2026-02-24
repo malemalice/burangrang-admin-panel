@@ -101,12 +101,14 @@ const CoursesPage = () => {
       ]
     },
     {
-      id: 'isPublished',
-      label: 'Published',
+      id: 'status',
+      label: 'Status',
       type: 'select',
       options: [
-        { label: 'Yes', value: 'true' },
-        { label: 'No', value: 'false' }
+        { label: 'Draft', value: 'draft' },
+        { label: 'Review', value: 'review' },
+        { label: 'Published', value: 'published' },
+        { label: 'Archived', value: 'archived' }
       ]
     },
     {
@@ -157,7 +159,7 @@ const CoursesPage = () => {
     // Apply tab filters
     switch (activeTab) {
       case 'published':
-        params.isPublished = true;
+        params.status = 'published';
         break;
       case 'draft':
         params.status = 'draft';

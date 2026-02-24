@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsDateString, IsInt, IsUUID, Min } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsInt, IsUUID, Min, IsBoolean } from 'class-validator';
 
 export class UpdateCertificateDto {
   @ApiProperty({ description: 'Certificate number', required: false })
@@ -74,6 +74,7 @@ export class UpdateCertificateDto {
   notes?: string;
 
   @ApiProperty({ description: 'Whether the certificate is active', required: false })
+  @IsBoolean()
   @IsOptional()
   isActive?: boolean;
 }

@@ -174,7 +174,6 @@ const CourseForm = ({ mode }: CourseFormProps) => {
         instructorId: data.instructorId || undefined,
         status: data.status,
         categoryIds: data.categoryIds && data.categoryIds.length > 0 ? data.categoryIds : undefined,
-        isPublished: data.status === 'published',
       };
 
       if (mode === 'create') {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,14 +15,27 @@ import {
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
-import { Switch } from '@/core/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Paperclip, Trash2, FileText, Image } from 'lucide-react';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 
 import { dispatchOrderService } from '../../services/wasteManagementService';
 import { CreateDispatchOrderData, DispatchOrder, UpdateDispatchOrderData, GeneralStatusEnum } from '../../types/waste-management.types';
+import uploadService from '@/modules/uploads/services/uploadService';
+
+const ALLOWED_ATTACHMENT_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+];
+const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_ATTACHMENTS = 10;
+
+type AttachmentListItem =
+  | { type: 'existing'; id: string; fileUrl: string; fileName?: string; order: number }
+  | { type: 'new'; key: string; file: File; fileName: string; order: number };
 
 const formSchema = z.object({
   dispatchCode: z.string().min(1, 'Dispatch code is required'),
@@ -44,6 +57,9 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
   const { id } = useParams<{ id: string }>();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [attachmentList, setAttachmentList] = useState<AttachmentListItem[]>([]);
+  const [fileCategory, setFileCategory] = useState<{ id: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -56,6 +72,14 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
       status: GeneralStatusEnum.SCHEDULED,
     },
   });
+
+  useEffect(() => {
+    const loadCategory = async () => {
+      const cat = await uploadService.getCategoryByName('dispatch-order-attachments');
+      if (cat) setFileCategory({ id: cat.id });
+    };
+    loadCategory();
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,6 +96,16 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
             status: data.status,
             isActive: data.isActive,
           });
+          const attachments = (data.attachments ?? []).slice().sort((a, b) => a.order - b.order);
+          setAttachmentList(
+            attachments.map((a) => ({
+              type: 'existing' as const,
+              id: a.id ?? '',
+              fileUrl: a.fileUrl,
+              fileName: a.fileName,
+              order: a.order,
+            })),
+          );
         } catch (error) {
           toast.error('Failed to fetch data');
           navigate('/waste-management/dispatch-orders');
@@ -83,9 +117,71 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
     fetchData();
   }, [id, mode, navigate, form]);
 
+  const handleAttachmentFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+    const next: AttachmentListItem[] = [];
+    let order = attachmentList.length;
+    Array.from(files).forEach((file) => {
+      if (!ALLOWED_ATTACHMENT_TYPES.includes(file.type)) {
+        toast.error(`Invalid type for ${file.name}. Use PDF or images only.`);
+        return;
+      }
+      if (file.size > MAX_ATTACHMENT_SIZE) {
+        toast.error(`${file.name} exceeds 10MB`);
+        return;
+      }
+      if (attachmentList.length + next.length >= MAX_ATTACHMENTS) {
+        toast.error(`Maximum ${MAX_ATTACHMENTS} attachments allowed`);
+        return;
+      }
+      next.push({
+        type: 'new',
+        key: `new-${Date.now()}-${Math.random()}`,
+        file,
+        fileName: file.name,
+        order: order++,
+      });
+    });
+    if (next.length) setAttachmentList((prev) => [...prev, ...next]);
+    e.target.value = '';
+  }, [attachmentList.length]);
+
+  const removeAttachment = useCallback((index: number) => {
+    setAttachmentList((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.map((item, i) => ({ ...item, order: i }));
+    });
+  }, []);
+
+  const buildAttachmentsPayload = useCallback(async (): Promise<{ fileUrl: string; fileName?: string; order: number }[]> => {
+    if (!attachmentList.length) return [];
+    if (attachmentList.some((a) => a.type === 'new') && !fileCategory) {
+      toast.error('Upload category not available. Please refresh and try again.');
+      throw new Error('File category not loaded');
+    }
+    const result: { fileUrl: string; fileName?: string; order: number }[] = [];
+    for (let i = 0; i < attachmentList.length; i++) {
+      const item = attachmentList[i];
+      if (item.type === 'existing') {
+        result.push({
+          fileUrl: item.fileUrl,
+          fileName: item.fileName,
+          order: i,
+        });
+      } else {
+        const res = await uploadService.uploadFile(item.file, fileCategory!.id, true);
+        const fileUrl = uploadService.getPublicFileUrl(res.id);
+        result.push({ fileUrl, fileName: item.fileName, order: i });
+      }
+    }
+    return result;
+  }, [attachmentList, fileCategory]);
+
   const onSubmit = async (data: FormValues) => {
     setSaving(true);
     try {
+      const attachments = await buildAttachmentsPayload();
       if (mode === 'create') {
         const submitData: CreateDispatchOrderData = {
           dispatchCode: data.dispatchCode,
@@ -93,6 +189,7 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
           quantity: data.quantity,
           memo: data.memo,
           isActive: data.isActive,
+          ...(attachments.length ? { attachments } : {}),
         };
         await dispatchOrderService.create(submitData);
         toast.success('Dispatch order created successfully');
@@ -104,13 +201,16 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
           memo: data.memo,
           isActive: data.isActive,
           status: data.status,
+          attachments,
         };
         await dispatchOrderService.update(id, submitData);
         toast.success('Dispatch order updated successfully');
       }
       navigate('/waste-management/dispatch-orders');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Operation failed');
+      if (error?.message !== 'File category not loaded') {
+        toast.error(error.response?.data?.message || 'Operation failed');
+      }
     } finally {
       setSaving(false);
     }
@@ -180,33 +280,6 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
                   </FormItem>
                 )}
               />
-              
-              {mode === 'edit' && (
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {Object.values(GeneralStatusEnum).map((status) => (
-                            <SelectItem key={status} value={status}>
-                              {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
             </div>
 
             <FormField
@@ -223,19 +296,56 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="isActive"
-              render={({ field }) => (
-                <FormItem className="flex items-center space-x-2">
-                  <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <FormLabel className="!mt-0">Active</FormLabel>
-                  <FormMessage />
-                </FormItem>
+            <div className="space-y-2">
+              <FormLabel>Attachments</FormLabel>
+              <p className="text-sm text-muted-foreground">PDF and images only, max 10MB each, up to {MAX_ATTACHMENTS} files</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,image/jpeg,image/png,image/gif,image/webp"
+                multiple
+                className="hidden"
+                onChange={handleAttachmentFileChange}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={attachmentList.length >= MAX_ATTACHMENTS}
+              >
+                <Paperclip className="mr-2 h-4 w-4" />
+                Add attachment(s)
+              </Button>
+              {attachmentList.length > 0 && (
+                <ul className="mt-2 space-y-2 rounded-md border p-3">
+                  {attachmentList.map((item, index) => (
+                    <li
+                      key={item.type === 'existing' ? item.id : item.key}
+                      className="flex items-center justify-between gap-2 text-sm"
+                    >
+                      <span className="flex items-center gap-2 truncate">
+                        {item.type === 'new' && item.file.type === 'application/pdf' ? (
+                          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <Image className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        )}
+                        {item.type === 'existing' ? (item.fileName ?? item.fileUrl.split('/').pop() ?? 'File') : item.fileName}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => removeAttachment(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
               )}
-            />
+            </div>
 
             <div className="flex justify-end gap-4">
               <Button type="button" variant="outline" onClick={() => navigate('/waste-management/dispatch-orders')}>

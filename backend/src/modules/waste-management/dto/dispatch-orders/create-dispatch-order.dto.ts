@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsString,
   IsNotEmpty,
@@ -6,7 +7,10 @@ import {
   IsNumber,
   IsDateString,
   IsBoolean,
+  IsArray,
+  ValidateNested,
 } from 'class-validator';
+import { CreateDispatchOrderAttachmentDto } from './dispatch-order-attachment.dto';
 
 export class CreateDispatchOrderDto {
   @ApiProperty() @IsString() @IsNotEmpty() dispatchCode: string;
@@ -17,4 +21,11 @@ export class CreateDispatchOrderDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiProperty({ type: [CreateDispatchOrderAttachmentDto], required: false })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateDispatchOrderAttachmentDto)
+  attachments?: CreateDispatchOrderAttachmentDto[];
 }

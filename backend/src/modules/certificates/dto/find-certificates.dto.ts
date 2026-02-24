@@ -55,6 +55,11 @@ export class FindCertificatesOptions {
   @IsOptional()
   personnelId?: string;
 
+  @ApiProperty({ required: false, description: 'Filter by personnel name (manual entry)' })
+  @IsString()
+  @IsOptional()
+  personnelName?: string;
+
   @ApiProperty({ required: false })
   @IsBoolean()
   @IsOptional()

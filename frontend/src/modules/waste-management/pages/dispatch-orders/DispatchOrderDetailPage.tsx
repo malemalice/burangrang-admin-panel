@@ -2,18 +2,18 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { FileEdit, ArrowLeft, FileDown } from 'lucide-react';
+import { FileEdit, ArrowLeft, FileDown, FileText, Image } from 'lucide-react';
+import api from '@/core/lib/api';
 import { usePDF } from 'react-to-pdf';
 
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import { Badge } from '@/core/components/ui/badge';
 import { Separator } from '@/core/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/core/components/ui/table';
 import { Loader2 } from 'lucide-react';
 
 import { dispatchOrderService } from '../../services/wasteManagementService';
-import { DispatchOrder, GeneralStatusEnum } from '../../types/waste-management.types';
+import { DispatchOrder } from '../../types/waste-management.types';
 import { DispatchOrderPDFTemplate } from '../../components/DispatchOrderPDFTemplate';
 
 export default function DispatchOrderDetailPage() {
@@ -22,7 +22,11 @@ export default function DispatchOrderDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [dispatchOrder, setDispatchOrder] = useState<DispatchOrder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { toPDF, targetRef } = usePDF({ filename: 'dispatch-order.pdf' });
+  const { toPDF, targetRef } = usePDF({
+    filename: dispatchOrder
+      ? `${dispatchOrder.dispatchCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
+      : 'dispatch-order.pdf',
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -62,25 +66,6 @@ export default function DispatchOrderDetailPage() {
       }, 500);
     }
   }, [dispatchOrder, searchParams, setSearchParams]);
-
-  const getStatusBadge = (status: GeneralStatusEnum) => {
-    const statusMap: Record<GeneralStatusEnum, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
-      [GeneralStatusEnum.SCHEDULED]: { label: 'Scheduled', variant: 'outline' },
-      [GeneralStatusEnum.DRAFT]: { label: 'Draft', variant: 'secondary' },
-      [GeneralStatusEnum.OPEN]: { label: 'Open', variant: 'default' },
-      [GeneralStatusEnum.WAITING_APPROVAL]: { label: 'Waiting Verification', variant: 'secondary' },
-      [GeneralStatusEnum.DONE]: { label: 'Done', variant: 'default' },
-      [GeneralStatusEnum.REJECTED]: { label: 'Rejected', variant: 'destructive' },
-    };
-
-    const statusInfo = statusMap[status] || { label: status, variant: 'outline' };
-
-    return (
-      <Badge variant={statusInfo.variant}>
-        {statusInfo.label}
-      </Badge>
-    );
-  };
 
   if (isLoading) {
     return (
@@ -142,9 +127,6 @@ export default function DispatchOrderDetailPage() {
                 Created on {format(new Date(dispatchOrder.createdAt), 'dd MMM yyyy')}
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              {getStatusBadge(dispatchOrder.status)}
-            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -161,20 +143,42 @@ export default function DispatchOrderDetailPage() {
               <p className="text-sm font-medium text-muted-foreground">Quantity</p>
               <p className="font-semibold">{dispatchOrder.quantity.toLocaleString('id-ID')}</p>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Status</p>
-              {getStatusBadge(dispatchOrder.status)}
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Active Status</p>
-              <Badge variant={dispatchOrder.isActive ? 'default' : 'secondary'}>
-                {dispatchOrder.isActive ? 'Active' : 'Inactive'}
-              </Badge>
-            </div>
             {dispatchOrder.memo && (
               <div className="space-y-2 md:col-span-2">
                 <p className="text-sm font-medium text-muted-foreground">Memo</p>
                 <p className="whitespace-pre-wrap">{dispatchOrder.memo}</p>
+              </div>
+            )}
+            {dispatchOrder.attachments && dispatchOrder.attachments.length > 0 && (
+              <div className="space-y-2 md:col-span-2">
+                <p className="text-sm font-medium text-muted-foreground">Attachments</p>
+                <ul className="space-y-2">
+                  {dispatchOrder.attachments
+                    .slice()
+                    .sort((a, b) => a.order - b.order)
+                    .map((att) => {
+                      const label = att.fileName ?? att.fileUrl.split('/').pop() ?? 'File';
+                      const isPdf = label.toLowerCase().endsWith('.pdf') || att.fileUrl.toLowerCase().includes('pdf');
+                      const href = att.fileUrl.startsWith('http') ? att.fileUrl : `${api.defaults.baseURL ?? ''}${att.fileUrl.startsWith('/') ? '' : '/'}${att.fileUrl}`;
+                      return (
+                        <li key={att.id ?? att.fileUrl}>
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-sm text-primary hover:underline"
+                          >
+                            {isPdf ? (
+                              <FileText className="h-4 w-4 shrink-0" />
+                            ) : (
+                              <Image className="h-4 w-4 shrink-0" />
+                            )}
+                            {label}
+                          </a>
+                        </li>
+                      );
+                    })}
+                </ul>
               </div>
             )}
           </div>

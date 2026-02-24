@@ -26,7 +26,6 @@ const mapCourseDtoToCourse = (courseDto: CourseDTO): Course => ({
   studentCount: courseDto.studentCount,
   instructorId: courseDto.instructorId,
   status: courseDto.status as 'draft' | 'review' | 'published' | 'archived',
-  isPublished: courseDto.isPublished,
   publishedAt: courseDto.publishedAt,
   isActive: courseDto.isActive,
   createdAt: courseDto.createdAt,
@@ -46,7 +45,6 @@ const mapCourseToUpdateDto = (course: Partial<Course>): UpdateCourseDTO => ({
   language: course.language,
   instructorId: course.instructorId,
   status: course.status,
-  isPublished: course.isPublished,
   publishedAt: course.publishedAt,
   isActive: course.isActive,
 });
@@ -66,9 +64,6 @@ const courseService = {
     
     if (params.isActive !== undefined) {
       queryParams.append('isActive', params.isActive.toString());
-    }
-    if (params.isPublished !== undefined) {
-      queryParams.append('isPublished', params.isPublished.toString());
     }
     if (params.status) queryParams.append('status', params.status);
     if (params.difficulty) queryParams.append('difficulty', params.difficulty);

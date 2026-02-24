@@ -110,12 +110,6 @@ export class CoursesController {
     description: 'Filter by active status',
   })
   @ApiQuery({
-    name: 'isPublished',
-    required: false,
-    type: Boolean,
-    description: 'Filter by published status',
-  })
-  @ApiQuery({
     name: 'status',
     required: false,
     enum: ['draft', 'review', 'published', 'archived'],

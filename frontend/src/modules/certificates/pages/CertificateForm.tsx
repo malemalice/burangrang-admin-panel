@@ -122,6 +122,7 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
     const [departments, setDepartments] = useState<Department[]>([]);
     const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
     const [heavyEquipment, setHeavyEquipment] = useState<Array<{ id: string; name: string; code: string }>>([]);
+    const [safetyEquipment, setSafetyEquipment] = useState<Array<{ id: string; name: string; code: string }>>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [dataReady, setDataReady] = useState(false);
     const [uploadingFile, setUploadingFile] = useState(false);
@@ -172,14 +173,25 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
 
     const equipmentSelectValue = equipmentId || (equipmentName ? `free:${equipmentName}` : '');
 
+    const categoryIdForEquipment = form.watch('categoryId');
+    const isEquipmentTypeCertificate = useMemo(() => {
+        const cat = categories.find((c) => c.id === categoryIdForEquipment);
+        return (
+            cat?.certificateType === 'EQUIPMENT_CALIBRATION' ||
+            cat?.certificateType === 'EQUIPMENT_INSTALLATION' ||
+            cat?.certificateType === 'EQUIPMENT_OPERATIONAL_PERMIT'
+        );
+    }, [categories, categoryIdForEquipment]);
+
     const equipmentOptions: SearchableSelectOption[] = useMemo(() => {
-        const base: SearchableSelectOption[] = heavyEquipment.map((e) => ({ value: e.id, label: e.name }));
+        const sourceList = isEquipmentTypeCertificate ? safetyEquipment : heavyEquipment;
+        const base: SearchableSelectOption[] = sourceList.map((e) => ({ value: e.id, label: e.name }));
         if (equipmentName && !equipmentId) {
             if (!base.some((o) => o.value === `free:${equipmentName}`)) {
                 base.push({ value: `free:${equipmentName}`, label: equipmentName });
             }
         }
-        if (equipmentId && equipmentName && !heavyEquipment.some((e) => e.id === equipmentId)) {
+        if (equipmentId && equipmentName && !sourceList.some((e) => e.id === equipmentId)) {
             if (!base.some((o) => o.value === equipmentId)) {
                 base.push({ value: equipmentId, label: equipmentName });
             }
@@ -191,7 +203,7 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
             if (currentOption) filtered.push(currentOption);
         }
         return filtered;
-    }, [heavyEquipment, equipmentId, equipmentName, equipmentSearchQuery, equipmentSelectValue]);
+    }, [isEquipmentTypeCertificate, safetyEquipment, heavyEquipment, equipmentId, equipmentName, equipmentSearchQuery, equipmentSelectValue]);
 
     useEffect(() => {
         const fetchOptions = async () => {
@@ -217,11 +229,12 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                     toast.error('Failed to load file categories');
                 }
 
-                // Fetch categories, departments, users, and work-permits master data (for equipment list) in parallel
-                const [deptsRes, usersRes, masterDataRes] = await Promise.all([
+                // Fetch categories, departments, users, work-permits master data (heavy equipment), and PPE safety equipments in parallel
+                const [deptsRes, usersRes, masterDataRes, safetyEquipmentsRes] = await Promise.all([
                     departmentService.getDepartments({ page: 1, limit: 100, options: true }),
                     userService.getUsers({ page: 1, limit: 100, options: true }),
                     api.get<{ heavyEquipment?: Array<{ id: string; name: string; code: string }> }>('/work-permits/master-data?options=true').catch(() => ({ data: { heavyEquipment: [] } })),
+                    api.get<{ data?: Array<{ id: string; name: string; code: string }> }>('/ppe/safety-equipments?page=1&limit=500&isActive=true').catch(() => ({ data: { data: [] } })),
                 ]);
 
                 // Ensure categories are loaded (hook will auto-fetch, but we can also call it explicitly)
@@ -237,6 +250,7 @@ const CertificateForm = ({ certificate, mode }: CertificateFormProps) => {
                     })),
                 );
                 setHeavyEquipment(masterDataRes.data?.heavyEquipment ?? []);
+                setSafetyEquipment(safetyEquipmentsRes.data?.data?.map((e: { id: string; name: string; code: string }) => ({ id: e.id, name: e.name, code: e.code })) ?? []);
                 setDataReady(true);
             } catch (error) {
                 console.error('Failed to fetch options:', error);

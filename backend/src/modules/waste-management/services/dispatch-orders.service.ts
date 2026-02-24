@@ -6,6 +6,7 @@ import {
   CreateDispatchOrderDto,
   UpdateDispatchOrderDto,
   DispatchOrderDto,
+  DispatchOrderAttachmentDto,
 } from '../dto/dispatch-orders';
 
 interface FindAllOptions {
@@ -18,15 +19,21 @@ interface FindAllOptions {
   status?: string;
 }
 
+const attachmentInclude = { orderBy: { order: 'asc' as const } };
+
 @Injectable()
 export class DispatchOrdersService {
   private dispatchOrderMapper: (entity: any) => DispatchOrderDto;
+  private attachmentMapper: (entity: any) => DispatchOrderAttachmentDto;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
   ) {
+    this.attachmentMapper = this.dtoMapper.createSimpleMapper(
+      DispatchOrderAttachmentDto,
+    );
     this.dispatchOrderMapper = this.dtoMapper.createMapper(DispatchOrderDto, {
       transform: {
         quantity: (val) => (val ? Number(val) : 0),
@@ -52,6 +59,10 @@ export class DispatchOrdersService {
                 }
               : undefined,
         },
+        attachments: {
+          mapper: (attachments: any[]) =>
+            attachments?.map((a) => this.attachmentMapper(a)) ?? [],
+        },
       },
     });
   }
@@ -69,14 +80,30 @@ export class DispatchOrdersService {
       );
     }
 
+    const { attachments, ...rest } = createDto;
+    const data: any = {
+      ...rest,
+      orderedBy: userId,
+      createdBy: userId,
+      dispatchDate: new Date(createDto.dispatchDate),
+    };
+    if (attachments?.length) {
+      data.attachments = {
+        create: attachments.map((a) => ({
+          fileUrl: a.fileUrl,
+          fileName: a.fileName,
+          order: a.order,
+        })),
+      };
+    }
+
     const item = await this.prisma.dispatchOrder.create({
-      data: {
-        ...createDto,
-        orderedBy: userId,
-        createdBy: userId,
-        dispatchDate: new Date(createDto.dispatchDate),
+      data,
+      include: {
+        orderer: true,
+        creator: true,
+        attachments: attachmentInclude,
       },
-      include: { orderer: true, creator: true },
     });
     return this.dispatchOrderMapper(item);
   }
@@ -111,7 +138,11 @@ export class DispatchOrdersService {
         orderBy: { [sortBy]: sortOrder },
         skip: (page - 1) * limit,
         take: limit,
-        include: { orderer: true, creator: true },
+        include: {
+          orderer: true,
+          creator: true,
+          attachments: attachmentInclude,
+        },
       }),
       this.prisma.dispatchOrder.count({ where }),
     ]);
@@ -125,7 +156,11 @@ export class DispatchOrdersService {
   async findOne(id: string): Promise<DispatchOrderDto> {
     const item = await this.prisma.dispatchOrder.findUnique({
       where: { id },
-      include: { orderer: true, creator: true },
+      include: {
+        orderer: true,
+        creator: true,
+        attachments: attachmentInclude,
+      },
     });
     this.errorHandler.throwIfNotFoundById('Dispatch Order', id, item);
     return this.dispatchOrderMapper(item);
@@ -140,16 +175,41 @@ export class DispatchOrdersService {
     });
     this.errorHandler.throwIfNotFoundById('Dispatch Order', id, existing);
 
-    const data: any = { ...updateDto };
+    const { attachments, ...rest } = updateDto;
+    const data: any = { ...rest };
     if (updateDto.dispatchDate)
       data.dispatchDate = new Date(updateDto.dispatchDate);
 
-    const updated = await this.prisma.dispatchOrder.update({
+    await this.prisma.dispatchOrder.update({
       where: { id },
       data,
-      include: { orderer: true, creator: true },
     });
-    return this.dispatchOrderMapper(updated);
+
+    if (attachments !== undefined) {
+      await this.prisma.dispatchOrderAttachment.deleteMany({
+        where: { dispatchOrderId: id },
+      });
+      if (attachments.length > 0) {
+        await this.prisma.dispatchOrderAttachment.createMany({
+          data: attachments.map((a) => ({
+            dispatchOrderId: id,
+            fileUrl: a.fileUrl,
+            fileName: a.fileName,
+            order: a.order,
+          })),
+        });
+      }
+    }
+
+    const updated = await this.prisma.dispatchOrder.findUnique({
+      where: { id },
+      include: {
+        orderer: true,
+        creator: true,
+        attachments: attachmentInclude,
+      },
+    });
+    return this.dispatchOrderMapper(updated!);
   }
 
   async remove(id: string): Promise<void> {

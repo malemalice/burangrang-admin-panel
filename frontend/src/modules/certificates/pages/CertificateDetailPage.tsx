@@ -325,24 +325,38 @@ const CertificateDetailPage = () => {
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     {getStatusBadge(renewal.status)}
-                                                    {(renewal.status === 'PENDING' ||
-                                                        renewal.status === 'REQUESTED' ||
-                                                        renewal.status === 'IN_PROGRESS') && (
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => {
-                                                                    setSelectedRenewal(renewal);
-                                                                    setProcessRenewalData((prev) => ({
-                                                                        ...prev,
-                                                                        status: renewal.status === 'IN_PROGRESS' ? 'COMPLETED' : 'IN_PROGRESS',
-                                                                    }));
-                                                                    setIsProcessRenewalOpen(true);
-                                                                }}
-                                                            >
-                                                                Process
-                                                            </Button>
-                                                        )}
+                                                    {(renewal.status === 'PENDING' || renewal.status === 'REQUESTED') && (
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={() => {
+                                                                setSelectedRenewal(renewal);
+                                                                setProcessRenewalData({
+                                                                    status: 'COMPLETED',
+                                                                    newValidityDate: '',
+                                                                    notes: '',
+                                                                });
+                                                                setIsProcessRenewalOpen(true);
+                                                            }}
+                                                        >
+                                                            Approve
+                                                        </Button>
+                                                    )}
+                                                    {renewal.status === 'IN_PROGRESS' && (
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={() => {
+                                                                setSelectedRenewal(renewal);
+                                                                setProcessRenewalData({
+                                                                    status: 'COMPLETED',
+                                                                    newValidityDate: '',
+                                                                    notes: '',
+                                                                });
+                                                                setIsProcessRenewalOpen(true);
+                                                            }}
+                                                        >
+                                                            Complete
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </div>
                                             {renewal.processedDate && (
@@ -453,9 +467,13 @@ const CertificateDetailPage = () => {
             <Dialog open={isProcessRenewalOpen} onOpenChange={setIsProcessRenewalOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Process Renewal Request</DialogTitle>
+                        <DialogTitle>
+                            {selectedRenewal?.status === 'IN_PROGRESS' ? 'Complete renewal' : 'Approve renewal'}
+                        </DialogTitle>
                         <DialogDescription>
-                            Update the status and provide new validity date if approved.
+                            {selectedRenewal?.status === 'IN_PROGRESS'
+                                ? 'Set status to Completed and enter the new validity date to update the certificate.'
+                                : 'Approve this renewal by setting status to Completed and entering the new validity date. The certificate validity will be updated.'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
@@ -472,7 +490,7 @@ const CertificateDetailPage = () => {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                                    <SelectItem value="COMPLETED">Completed (Approved)</SelectItem>
+                                    <SelectItem value="COMPLETED">Completed (approve renewal)</SelectItem>
                                     <SelectItem value="REJECTED">Rejected</SelectItem>
                                 </SelectContent>
                             </Select>
@@ -518,7 +536,11 @@ const CertificateDetailPage = () => {
                                 (processRenewalData.status === 'COMPLETED' && !processRenewalData.newValidityDate)
                             }
                         >
-                            {isProcessingRenewal ? 'Processing...' : 'Update Status'}
+                            {isProcessingRenewal
+                                ? 'Processing...'
+                                : processRenewalData.status === 'COMPLETED'
+                                  ? 'Approve'
+                                  : 'Update Status'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

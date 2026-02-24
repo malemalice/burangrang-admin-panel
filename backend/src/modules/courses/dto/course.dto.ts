@@ -87,11 +87,6 @@ export class CourseDto {
   @IsString()
   status: string;
 
-  @ApiProperty({ description: 'Whether course is published' })
-  @Expose()
-  @IsBoolean()
-  isPublished: boolean;
-
   @ApiProperty({ description: 'Course published date', required: false })
   @Expose()
   @IsOptional()

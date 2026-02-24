@@ -360,6 +360,14 @@ export type UpdateWeightReportData = Partial<CreateWeightReportData> & {
 };
 
 // Dispatch Order
+export interface DispatchOrderAttachment {
+  id?: string;
+  fileUrl: string;
+  fileName?: string;
+  order: number;
+  createdAt?: string;
+}
+
 export interface DispatchOrder {
   id: string;
   dispatchCode: string;
@@ -374,6 +382,7 @@ export interface DispatchOrder {
   createdBy: string;
   orderer?: { id: string; firstName: string; lastName: string; };
   creator?: { id: string; firstName: string; lastName: string; };
+  attachments?: DispatchOrderAttachment[];
 }
 
 export interface CreateDispatchOrderData {
@@ -382,6 +391,7 @@ export interface CreateDispatchOrderData {
   quantity: number;
   memo?: string;
   isActive?: boolean;
+  attachments?: { fileUrl: string; fileName?: string; order: number }[];
 }
 
 export type UpdateDispatchOrderData = Partial<CreateDispatchOrderData> & {
