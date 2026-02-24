@@ -1,24 +1,21 @@
 import { PartialType } from '@nestjs/swagger';
-import { CreateWaterQualityLabReportDto } from './create-water-quality-lab-report.dto';
+import {
+  CreateWaterQualityLabReportDto,
+  CreateWaterQualityLabReportResultDto,
+} from './create-water-quality-lab-report.dto';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsDateString, IsEnum } from 'class-validator';
-
-export enum ReportStatusEnum {
-  SCHEDULED = 'SCHEDULED',
-  DRAFT = 'DRAFT',
-  OPEN = 'OPEN',
-  WAITING_APPROVAL = 'WAITING_APPROVAL',
-  DONE = 'DONE',
-  REJECTED = 'REJECTED',
-}
+import {
+  IsString,
+  IsOptional,
+  IsDateString,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class UpdateWaterQualityLabReportDto extends PartialType(
   CreateWaterQualityLabReportDto,
 ) {
-  @ApiProperty({ required: false, enum: ReportStatusEnum })
-  @IsEnum(ReportStatusEnum)
-  @IsOptional()
-  status?: ReportStatusEnum;
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()
@@ -39,4 +36,13 @@ export class UpdateWaterQualityLabReportDto extends PartialType(
   @IsString()
   @IsOptional()
   reviewNotes?: string;
+  @ApiProperty({
+    type: [CreateWaterQualityLabReportResultDto],
+    required: false,
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateWaterQualityLabReportResultDto)
+  @IsOptional()
+  results?: CreateWaterQualityLabReportResultDto[];
 }

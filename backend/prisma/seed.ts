@@ -128,6 +128,7 @@ async function main() {
       await prisma.weightReportItem.deleteMany();
       await prisma.dispatchOrder.deleteMany();
       await prisma.weightReport.deleteMany();
+      await prisma.waterQualityLabReportResult.deleteMany();
       await prisma.waterQualityLabReport.deleteMany();
       await prisma.monthlyFlowReport.deleteMany();
       await prisma.storageLocation.deleteMany();
@@ -251,6 +252,7 @@ async function main() {
           await prisma.weightReportItem.deleteMany();
           await prisma.dispatchOrder.deleteMany();
           await prisma.weightReport.deleteMany();
+          await prisma.waterQualityLabReportResult.deleteMany();
           await prisma.waterQualityLabReport.deleteMany();
           await prisma.monthlyFlowReport.deleteMany();
           await prisma.storageLocation.deleteMany();

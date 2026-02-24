@@ -7,7 +7,6 @@ import {
   Plus,
   BookOpen,
   Clock,
-  Users,
   Star,
   Play,
   FileText,
@@ -218,9 +217,9 @@ const CourseDetailPage = () => {
                 <BookOpen className="h-8 w-8" />
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex items-start gap-2 mb-2">
-                <h1 className="text-2xl font-bold break-words min-w-0 flex-1" title={course.title}>
+                <h1 className="text-2xl font-bold min-w-0 flex-1 line-clamp-2 break-words" title={course.title}>
                   {course.title}
                 </h1>
                 <Badge variant="outline" className={`${getStatusColor(course.status)} border-0 capitalize shrink-0 mt-1`}>
@@ -228,7 +227,7 @@ const CourseDetailPage = () => {
                 </Badge>
               </div>
               <p className="text-gray-600 mb-2">{course.shortDescription || course.description}</p>
-              <div className="flex items-center gap-4 text-sm text-gray-500">
+              <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
                 <span>
                   by {course.instructor?.firstName || course.instructor?.lastName
                     ? `${course.instructor?.firstName || ''} ${course.instructor?.lastName || ''}`.trim()
@@ -238,8 +237,6 @@ const CourseDetailPage = () => {
                 <span>{formatDuration(course.totalDuration)}</span>
                 <span>•</span>
                 <span>{course.totalChapters} chapters</span>
-                <span>•</span>
-                <span>{course.studentCount} students</span>
                 {Number(course.rating) > 0 && (
                   <>
                     <span>•</span>
@@ -358,13 +355,6 @@ const CourseDetailPage = () => {
                       <span className="text-sm">Duration</span>
                     </div>
                     <span className="font-medium">{formatDuration(course.totalDuration)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm">Students</span>
-                    </div>
-                    <span className="font-medium">{course.studentCount}</span>
                   </div>
                   {Number(course.rating) > 0 && (
                     <div className="flex items-center justify-between">

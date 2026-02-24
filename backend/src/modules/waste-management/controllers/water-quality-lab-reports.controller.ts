@@ -66,8 +66,13 @@ export class WaterQualityLabReportsController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'treatmentPlantId', required: false, type: String })
-  @ApiQuery({ name: 'status', required: false, type: String })
-  @ApiQuery({ name: 'isActive', required: false, type: Boolean })
+  @ApiQuery({ name: 'reportDateFrom', required: false, type: String })
+  @ApiQuery({ name: 'reportDateTo', required: false, type: String })
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    enum: ['WASTEWATER', 'CLEAN_WATER', 'SWIMMING_POOL_WATER', 'DRINKING_WATER'],
+  })
   @ApiQuery({
     name: 'options',
     required: false,
@@ -86,17 +91,18 @@ export class WaterQualityLabReportsController {
     @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('treatmentPlantId') treatmentPlantId?: string,
-    @Query('status') status?: string,
-    @Query('isActive') isActive?: string,
+    @Query('reportDateFrom') reportDateFrom?: string,
+    @Query('reportDateTo') reportDateTo?: string,
+    @Query('category') category?: string,
   ) {
     return this.service.findAll({
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
       search,
       treatmentPlantId,
-      status,
-      isActive:
-        isActive === 'true' ? true : isActive === 'false' ? false : undefined,
+      reportDateFrom,
+      reportDateTo,
+      category: category as any,
     });
   }
 

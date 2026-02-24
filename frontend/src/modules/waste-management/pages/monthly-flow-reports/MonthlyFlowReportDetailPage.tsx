@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { format } from 'date-fns';
 import { ArrowLeft, Loader2, Pencil, Calendar, FileText, Info, Droplets, ExternalLink, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePDF } from 'react-to-pdf';
@@ -21,9 +22,10 @@ export default function MonthlyFlowReportDetailPage() {
     const [data, setData] = useState<MonthlyFlowReport | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const { toPDF, targetRef } = usePDF({
-        filename: data ? `monthly-flow-report-${data.reportCode}.pdf` : 'monthly-flow-report.pdf'
-    });
+    const pdfFilename = data
+      ? `${data.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
+      : 'monthly-flow-report.pdf';
+    const { toPDF, targetRef } = usePDF({ filename: pdfFilename });
 
     useEffect(() => {
         const fetchData = async () => {
@@ -63,9 +65,22 @@ export default function MonthlyFlowReportDetailPage() {
 
     if (!data) return null;
 
+    const handleExportPDF = async () => {
+        try {
+            await toPDF();
+            toast.success('PDF exported successfully');
+        } catch (err) {
+            toast.error('Failed to export PDF');
+        }
+    };
+
     return (
         <div className="space-y-6">
-            <div className="absolute left-[-9999px] top-0">
+            <div
+                className="absolute left-[-9999px] top-0"
+                style={{ width: '210mm' }}
+                aria-hidden="true"
+            >
                 <div ref={targetRef}>
                     <MonthlyFlowReportPDFTemplate report={data} />
                 </div>
@@ -76,10 +91,10 @@ export default function MonthlyFlowReportDetailPage() {
                 subtitle={`Report ${data.reportCode}`}
                 actions={
                     <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => navigate('/waste-management/monthly-flow-reports')}>
+                        <Button variant="outline" onClick={() => navigate(-1)}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                         </Button>
-                        <Button variant="outline" onClick={() => toPDF()}>
+                        <Button variant="outline" onClick={handleExportPDF}>
                             <FileText className="mr-2 h-4 w-4" /> Export PDF
                         </Button>
                         <Button onClick={() => navigate(`/waste-management/monthly-flow-reports/${id}/edit`)}>

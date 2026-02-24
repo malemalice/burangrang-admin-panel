@@ -10,7 +10,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/core/components/ui/table';
 import { Loader2 } from 'lucide-react';
 import { weightReportService } from '../../services/wasteManagementService';
-import { WeightReport, ReportStatusEnum } from '../../types/waste-management.types';
+import { WeightReport, WeightReportStatusEnum } from '../../types/waste-management.types';
 import { WeightReportPDFTemplate } from '../../components/WeightReportPDFTemplate';
 
 export default function WeightReportDetailPage() {
@@ -108,7 +108,7 @@ export default function WeightReportDetailPage() {
                         </div>
                         <div>
                             <p className="text-sm text-muted-foreground">Report Status</p>
-                            <Badge variant={data.status === ReportStatusEnum.SUBMITTED ? 'default' : 'secondary'}>
+                            <Badge variant={data.status === WeightReportStatusEnum.DONE ? 'default' : 'secondary'}>
                                 {data.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
                             </Badge>
                         </div>

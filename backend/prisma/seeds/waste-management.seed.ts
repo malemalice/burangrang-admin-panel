@@ -2,7 +2,17 @@
  * Waste Management seed data
  * Seeds master data for waste management module
  */
-import { PrismaClient, WasteTypeEnum, MonthEnum, ReportStatusEnum, GeneralStatusEnum } from '@prisma/client';
+import {
+  PrismaClient,
+  WasteTypeEnum,
+  MonthEnum,
+  ReportStatusEnum,
+  WeightReportStatusEnum,
+  WaterQualityLabReportStatusEnum,
+  WaterQualityLabReportCategoryEnum,
+  WaterQualityParameterCategoryEnum,
+  GeneralStatusEnum,
+} from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -37,6 +47,7 @@ export const seedWasteManagement = async () => {
     await prisma.weightReportItem.deleteMany({});
     await prisma.dispatchOrder.deleteMany({});
     await prisma.weightReport.deleteMany({});
+    await prisma.waterQualityLabReportResult.deleteMany({});
     await prisma.waterQualityLabReport.deleteMany({});
     await prisma.monthlyFlowReport.deleteMany({});
     await prisma.storageLocation.deleteMany({});
@@ -99,11 +110,13 @@ export const seedWasteManagement = async () => {
         data: {
           name: 'pH',
           code: 'WQ-PH',
+          category: WaterQualityParameterCategoryEnum.CHEMISTRY,
           unit: '-',
           standardLimit: 9.0,
           regulatoryLimit: 9.0,
           description: 'Tingkat keasaman air (6-9)',
           testMethod: 'pH Meter',
+          displayOrder: 1,
           isActive: true,
           dateSampleTaken: new Date(),
         },
@@ -112,11 +125,13 @@ export const seedWasteManagement = async () => {
         data: {
           name: 'BOD',
           code: 'WQ-BOD',
+          category: WaterQualityParameterCategoryEnum.CHEMISTRY,
           unit: 'mg/L',
           standardLimit: 30,
           regulatoryLimit: 30,
           description: 'Biological Oxygen Demand (max 30 mg/L)',
           testMethod: 'Titrimetri',
+          displayOrder: 2,
           isActive: true,
           dateSampleTaken: new Date(),
         },
@@ -125,11 +140,13 @@ export const seedWasteManagement = async () => {
         data: {
           name: 'COD',
           code: 'WQ-COD',
+          category: WaterQualityParameterCategoryEnum.CHEMISTRY,
           unit: 'mg/L',
           standardLimit: 100,
           regulatoryLimit: 100,
           description: 'Chemical Oxygen Demand (max 100 mg/L)',
           testMethod: 'Spektrofotometri',
+          displayOrder: 3,
           isActive: true,
           dateSampleTaken: new Date(),
         },
@@ -138,11 +155,13 @@ export const seedWasteManagement = async () => {
         data: {
           name: 'TSS',
           code: 'WQ-TSS',
+          category: WaterQualityParameterCategoryEnum.PHYSICS,
           unit: 'mg/L',
           standardLimit: 50,
           regulatoryLimit: 50,
           description: 'Total Suspended Solid (max 50 mg/L)',
           testMethod: 'Gravimetri',
+          displayOrder: 4,
           isActive: true,
           dateSampleTaken: new Date(),
         },
@@ -151,11 +170,13 @@ export const seedWasteManagement = async () => {
         data: {
           name: 'Ammonia',
           code: 'WQ-NH3',
+          category: WaterQualityParameterCategoryEnum.CHEMISTRY,
           unit: 'mg/L',
           standardLimit: 5,
           regulatoryLimit: 5,
           description: 'Kadar Ammonia (max 5 mg/L)',
           testMethod: 'Spektrofotometri',
+          displayOrder: 5,
           isActive: true,
           dateSampleTaken: new Date(),
         },
@@ -351,25 +372,67 @@ export const seedWasteManagement = async () => {
       ]);
       console.log(`     ✅ Created ${monthlyFlowReports.length} monthly flow reports`);
 
-      // Seed sample Water Quality Lab Reports
+      // Seed Water Quality Lab Reports (min 20 rows, varied categories)
+      const labReportCategories = [
+        WaterQualityLabReportCategoryEnum.WASTEWATER,
+        WaterQualityLabReportCategoryEnum.CLEAN_WATER,
+        WaterQualityLabReportCategoryEnum.SWIMMING_POOL_WATER,
+        WaterQualityLabReportCategoryEnum.DRINKING_WATER,
+      ] as const;
+      const labReportStatuses: WaterQualityLabReportStatusEnum[] = [
+        WaterQualityLabReportStatusEnum.DRAFT,
+        WaterQualityLabReportStatusEnum.OPEN,
+        WaterQualityLabReportStatusEnum.WAITING_APPROVAL,
+        WaterQualityLabReportStatusEnum.DONE,
+        WaterQualityLabReportStatusEnum.SCHEDULED,
+        WaterQualityLabReportStatusEnum.REJECTED,
+      ];
+      const summariesByCategory: Record<string, string> = {
+        [WaterQualityLabReportCategoryEnum.WASTEWATER]: 'Hasil pengujian air limbah dalam batas baku mutu',
+        [WaterQualityLabReportCategoryEnum.CLEAN_WATER]: 'Kualitas air bersih memenuhi standar operasional',
+        [WaterQualityLabReportCategoryEnum.SWIMMING_POOL_WATER]: 'Parameter kolam renang dalam range aman',
+        [WaterQualityLabReportCategoryEnum.DRINKING_WATER]: 'Air minum memenuhi persyaratan kesehatan',
+      };
+      const MIN_LAB_REPORTS = 20;
       console.log('  🧪 Seeding water quality lab reports...');
-      const waterQualityLabReports = await Promise.all([
-        prisma.waterQualityLabReport.create({
+      const waterQualityLabReports: Awaited<ReturnType<typeof prisma.waterQualityLabReport.create>>[] = [];
+      const baseSampleValues = [7.2, 25, 80, 35, 3]; // pH, BOD, COD, TSS, Ammonia
+
+      for (let i = 0; i < MIN_LAB_REPORTS; i++) {
+        const category = labReportCategories[i % labReportCategories.length];
+        const plant = treatmentPlants[i % treatmentPlants.length];
+        const reportDate = new Date(currentYear, 11 - (i % 12), 15 - (i % 10)); // spread over past months
+        const report = await prisma.waterQualityLabReport.create({
           data: {
-            reportCode: `WQLR-${currentYear}-001`,
-            treatmentPlantId: treatmentPlants[0].id,
-            reportDate: new Date(),
-            preparedBy: users[0].id,
-            summary: 'Hasil pengujian kualitas air bulan ini menunjukkan parameter dalam batas normal',
-            recommendations: 'Lanjutkan monitoring rutin',
-            status: ReportStatusEnum.SUBMITTED,
-            submittedBy: users[0].id,
-            submittedAt: new Date(),
+            reportCode: `WQLR-${currentYear}-${String(i + 1).padStart(3, '0')}`,
+            treatmentPlantId: plant.id,
+            category,
+            reportDate,
+            preparedBy: users[i % users.length].id,
+            summary: summariesByCategory[category] ?? 'Hasil pengujian kualitas air dalam batas normal',
+            recommendations: i % 3 === 0 ? 'Lanjutkan monitoring rutin' : i % 3 === 1 ? 'Perbaiki dosis koagulan' : 'Cek ulang sampling',
+            status: labReportStatuses[i % labReportStatuses.length],
+            submittedBy: users[i % users.length].id,
+            submittedAt: reportDate,
             isActive: true,
           },
-        }),
-      ]);
-      console.log(`     ✅ Created ${waterQualityLabReports.length} water quality lab reports`);
+        });
+        waterQualityLabReports.push(report);
+
+        // One result row per parameter for this report (slight variance per report)
+        const variance = (i % 5) * 0.2;
+        const sampleValues = baseSampleValues.map((v, j) => (j === 0 ? v + (i % 3) * 0.1 : Math.max(0, v + (i % 4) - 2 + variance)));
+        await prisma.waterQualityLabReportResult.createMany({
+          data: waterQualityParams.slice(0, sampleValues.length).map((param, j) => ({
+            labReportId: report.id,
+            parameterId: param.id,
+            resultValue: sampleValues[j] ?? 0,
+            unit: param.unit,
+          })),
+        });
+      }
+      console.log(`     ✅ Created ${waterQualityLabReports.length} water quality lab reports (varied categories)`);
+      console.log(`     ✅ Created ${waterQualityLabReports.length * Math.min(waterQualityParams.length, baseSampleValues.length)} lab report results`);
 
       // Seed sample Weight Reports
       console.log('  ⚖️ Seeding weight reports...');
@@ -382,7 +445,7 @@ export const seedWasteManagement = async () => {
             reportDate: new Date(),
             reportMonth: MonthEnum.JAN,
             reportYear: currentYear,
-            status: ReportStatusEnum.SUBMITTED,
+            status: WeightReportStatusEnum.DRAFT,
             submittedBy: users[0].id,
             submittedAt: new Date(),
             isActive: true,
@@ -435,7 +498,7 @@ export const seedWasteManagement = async () => {
           reportDate: new Date(),
           reportMonth: MonthEnum.FEB,
           reportYear: currentYear,
-          status: ReportStatusEnum.SUBMITTED,
+          status: WeightReportStatusEnum.OPEN,
           submittedBy: users[0].id,
           submittedAt: new Date(),
           isActive: true,

@@ -71,6 +71,8 @@ export class MonthlyFlowReportsController {
   @ApiQuery({ name: 'status', required: false, type: String })
   @ApiQuery({ name: 'reportMonth', required: false, type: String })
   @ApiQuery({ name: 'reportYear', required: false, type: Number })
+  @ApiQuery({ name: 'reportDateFrom', required: false, type: String, description: 'ISO date string (inclusive)' })
+  @ApiQuery({ name: 'reportDateTo', required: false, type: String, description: 'ISO date string (inclusive)' })
   @ApiQuery({
     name: 'options',
     required: false,
@@ -93,6 +95,8 @@ export class MonthlyFlowReportsController {
     @Query('status') status?: string,
     @Query('reportMonth') reportMonth?: string,
     @Query('reportYear') reportYear?: string,
+    @Query('reportDateFrom') reportDateFrom?: string,
+    @Query('reportDateTo') reportDateTo?: string,
   ) {
     return this.service.findAll({
       page: page ? parseInt(page, 10) : undefined,
@@ -103,6 +107,8 @@ export class MonthlyFlowReportsController {
       status,
       reportMonth,
       reportYear: reportYear ? parseInt(reportYear, 10) : undefined,
+      reportDateFrom,
+      reportDateTo,
     });
   }
 

@@ -6,7 +6,14 @@ import {
   IsBoolean,
   IsNumber,
   IsDateString,
+  IsEnum,
 } from 'class-validator';
+
+export enum WaterQualityParameterCategoryEnum {
+  CHEMISTRY = 'CHEMISTRY',
+  PHYSICS = 'PHYSICS',
+  MICROBIOLOGY = 'MICROBIOLOGY',
+}
 
 export class CreateWaterQualityParameterDto {
   @ApiProperty()
@@ -19,10 +26,20 @@ export class CreateWaterQualityParameterDto {
   @IsNotEmpty()
   code: string;
 
+  @ApiProperty({ enum: WaterQualityParameterCategoryEnum })
+  @IsEnum(WaterQualityParameterCategoryEnum)
+  @IsNotEmpty()
+  category: WaterQualityParameterCategoryEnum;
+
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
   unit: string;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  displayOrder?: number;
 
   @ApiProperty({ required: false })
   @IsNumber()

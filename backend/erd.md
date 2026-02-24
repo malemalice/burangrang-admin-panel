@@ -115,6 +115,12 @@ Enum WasteTypeEnum {
   GREEN [note: 'Green waste']
 }
 
+Enum WaterQualityParameterCategoryEnum {
+  CHEMISTRY [note: 'e.g. pH, BOD, COD, Oil & Grease, Ammonia (NH3)']
+  PHYSICS [note: 'e.g. Total Suspended Solid (TSS)']
+  MICROBIOLOGY [note: 'e.g. Total Coliform']
+}
+
 Enum ReportStatusEnum {
   SUBMITTED [note: 'Report submitted']
   RECEIVED [note: 'Report received']
@@ -2393,19 +2399,23 @@ Table m_water_quality_parameters {
   id varchar [pk, default: `uuid()`]
   name varchar [not null]
   code varchar [unique, not null]
+  category WaterQualityParameterCategoryEnum [not null]
   unit varchar [not null]
   standardLimit decimal(10,4) [null]
   regulatoryLimit decimal(10,4) [null]
   testMethod varchar [null]
   description text [null]
+  displayOrder int [null]
   isActive boolean [not null, default: true]
   dateSampleTaken timestamp [not null]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, default: `now()`]
   
-  Note: 'Water quality test parameters master data'
+  Note: 'Water quality test parameters master data, grouped by category (Chemistry/Physics/Microbiology)'
   indexes {
     code [unique]
+    category
+    displayOrder
   }
 }
 
@@ -2473,6 +2483,25 @@ Table t_water_quality_lab_reports {
     reportDate
     status
     receivedAt
+  }
+}
+
+Table t_water_quality_lab_report_results {
+  id varchar [pk, default: `uuid()`]
+  labReportId varchar [not null, ref: > t_water_quality_lab_reports.id, note: 'onDelete: Cascade']
+  parameterId varchar [not null, ref: > m_water_quality_parameters.id]
+  resultValue decimal(12,4) [not null]
+  unit varchar [null]
+  isCompliant boolean [null]
+  notes text [null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, default: `now()`]
+  
+  Note: 'Per-parameter result values for each lab report (Chemistry/Physics/Microbiology)'
+  indexes {
+    (labReportId, parameterId) [unique]
+    labReportId
+    parameterId
   }
 }
 
@@ -2864,6 +2893,7 @@ TableGroup waste_management {
   m_water_quality_parameters
   t_monthly_flow_reports
   t_water_quality_lab_reports
+  t_water_quality_lab_report_results
   m_waste_types
   m_waste_sources
   m_storage_locations
