@@ -103,6 +103,11 @@ const CertificatesPage = () => {
             })),
         },
         {
+            id: 'personnelName',
+            label: 'Personnel name',
+            type: 'text',
+        },
+        {
             id: 'expired',
             label: 'Expired',
             type: 'select',
@@ -179,6 +184,8 @@ const CertificatesPage = () => {
                 params.departmentId = item.value;
             } else if (key === 'personnelId') {
                 params.personnelId = item.value;
+            } else if (key === 'personnelName' && item.value) {
+                params.personnelName = item.value;
             }
         });
 
@@ -282,6 +289,11 @@ const CertificatesPage = () => {
                 newActiveFilters[filter.id] = {
                     value: filter.value,
                     label: user?.name || '',
+                };
+            } else if (filter.id === 'personnelName') {
+                newActiveFilters[filter.id] = {
+                    value: filter.value,
+                    label: filter.value ? `Personnel name: ${String(filter.value)}` : 'Personnel name',
                 };
             } else if (filter.id === 'certificateType') {
                 const typeLabels: Record<string, string> = {

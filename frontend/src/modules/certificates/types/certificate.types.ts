@@ -317,6 +317,7 @@ export interface CertificateSearchParams {
     certificateType?: CertificateType;
     departmentId?: string;
     personnelId?: string;
+    personnelName?: string;
     expired?: boolean;
     expiringSoon?: boolean;
 }

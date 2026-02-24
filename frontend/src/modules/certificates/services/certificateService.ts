@@ -158,6 +158,10 @@ const certificateService = {
                 queryParams.append('personnelId', params.personnelId);
             }
 
+            if (params.personnelName) {
+                queryParams.append('personnelName', params.personnelName);
+            }
+
             if (params.expired !== undefined) {
                 queryParams.append('expired', params.expired.toString());
             }

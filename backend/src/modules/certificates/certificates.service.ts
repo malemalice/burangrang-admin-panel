@@ -475,6 +475,7 @@ export class CertificatesService {
             certificateType,
             departmentId,
             personnelId,
+            personnelName,
             expired,
             expiringSoon,
         } = options || {};
@@ -516,6 +517,13 @@ export class CertificatesService {
 
         if (personnelId) {
             where.personnelId = personnelId;
+        }
+
+        if (personnelName) {
+            const nameTerm = personnelName.trim();
+            if (nameTerm.length > 0) {
+                where.personnelName = { contains: nameTerm, mode: 'insensitive' };
+            }
         }
 
         // Filter expired and expiring soon certificates
@@ -620,26 +628,17 @@ export class CertificatesService {
         this.errorHandler.throwIfNotFoundById('Certificate', id, existingCertificate);
 
         return this.errorHandler.safeExecute(async () => {
-            const updateData: any = { ...updateCertificateDto };
             let shouldUpdateReminders = false;
-
-            if (updateCertificateDto.issuedDate) {
-                updateData.issuedDate = new Date(updateCertificateDto.issuedDate);
-            }
 
             if (updateCertificateDto.validityDate) {
                 const newValidityDate = new Date(updateCertificateDto.validityDate);
-                // Check if validity date changed
                 if (newValidityDate.getTime() !== existingCertificate.validityDate.getTime()) {
-                    updateData.validityDate = newValidityDate;
                     shouldUpdateReminders = true;
                 }
             }
 
-            if (updateCertificateDto.reminderDays) {
-                if (updateCertificateDto.reminderDays !== existingCertificate.reminderDays) {
-                    shouldUpdateReminders = true;
-                }
+            if (updateCertificateDto.reminderDays !== undefined && updateCertificateDto.reminderDays !== existingCertificate.reminderDays) {
+                shouldUpdateReminders = true;
             }
 
             // Validate category if provided
@@ -671,7 +670,7 @@ export class CertificatesService {
                 );
             }
 
-            // Validate personnel if provided
+            // Validate personnel if provided (non-empty)
             if (updateCertificateDto.personnelId) {
                 const personnel = await this.prisma.user.findUnique({
                     where: { id: updateCertificateDto.personnelId },
@@ -683,6 +682,27 @@ export class CertificatesService {
                     personnel,
                 );
             }
+
+            // Build sanitized update data: only Prisma Certificate scalar fields; empty string -> null for optional fields
+            const raw = updateCertificateDto;
+            const optionalNullables = (v: string | undefined) => (v === '' || v === undefined ? null : v);
+            const updateData: Prisma.CertificateUpdateInput = {};
+
+            if (raw.certificateNumber !== undefined) updateData.certificateNumber = raw.certificateNumber;
+            if (raw.certificateName !== undefined) updateData.certificateName = raw.certificateName;
+            if (raw.categoryId !== undefined) updateData.categoryId = raw.categoryId;
+            if (raw.issuedDate !== undefined) updateData.issuedDate = new Date(raw.issuedDate);
+            if (raw.validityDate !== undefined) updateData.validityDate = new Date(raw.validityDate);
+            if (raw.issuerName !== undefined) updateData.issuerName = raw.issuerName;
+            if (raw.documentUrl !== undefined) updateData.documentUrl = optionalNullables(raw.documentUrl);
+            if (raw.personnelId !== undefined) updateData.personnelId = optionalNullables(raw.personnelId);
+            if (raw.personnelName !== undefined) updateData.personnelName = optionalNullables(raw.personnelName);
+            if (raw.equipmentId !== undefined) updateData.equipmentId = optionalNullables(raw.equipmentId);
+            if (raw.equipmentName !== undefined) updateData.equipmentName = optionalNullables(raw.equipmentName);
+            if (raw.departmentId !== undefined) updateData.departmentId = raw.departmentId;
+            if (raw.reminderDays !== undefined) updateData.reminderDays = raw.reminderDays;
+            if (raw.notes !== undefined) updateData.notes = optionalNullables(raw.notes);
+            if (raw.isActive !== undefined) updateData.isActive = raw.isActive;
 
             const updatedCertificate = await this.prisma.certificate.update({
                 where: { id },
