@@ -22,6 +22,8 @@ import { Textarea } from '@/core/components/ui/textarea';
 import { Label } from '@/core/components/ui/label';
 import { Input } from '@/core/components/ui/input';
 import { WorkPermitPDFTemplate } from '../components/WorkPermitPDFTemplate';
+import { approvalService, APPROVAL_ENTITIES, type ApprovalStatusHistory } from '@/modules/master-data';
+import { ApprovalTimelineCard } from '@/modules/risk-assessment/components/ApprovalTimelineCard';
 
 const WorkPermitDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +44,8 @@ const WorkPermitDetailPage = () => {
   const [extendDialogOpen, setExtendDialogOpen] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [timeline, setTimeline] = useState<ApprovalTimelineItem[]>([]);
+  const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
   const { toPDF, targetRef } = usePDF({
@@ -59,7 +63,7 @@ const WorkPermitDetailPage = () => {
   useEffect(() => {
     if (id) {
       fetchWorkPermit(id);
-      // Fetch timeline
+      // Fetch timeline (for PDF export)
       import('../services/workPermitService').then((module) => {
         module.default
           .getTimeline(id)
@@ -69,6 +73,40 @@ const WorkPermitDetailPage = () => {
           });
       });
     }
+  }, [id]);
+
+  // Fetch approval status/history for ApprovalTimelineCard
+  useEffect(() => {
+    const fetchApprovalStatus = async () => {
+      if (!id) return;
+
+      setIsLoadingHistory(true);
+      try {
+        const approvalStatus = await approvalService.checkApprovalStatus(id, APPROVAL_ENTITIES.WORK_PERMIT);
+        if (approvalStatus && !(approvalStatus as { error?: boolean }).error) {
+          setApprovalHistory(approvalStatus);
+        } else {
+          setApprovalHistory({
+            history: [],
+            nextApprover: null,
+            allApprovalLines: [],
+            currentStatus: 'UNKNOWN',
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch approval status:', error);
+        setApprovalHistory({
+          history: [],
+          nextApprover: null,
+          allApprovalLines: [],
+          currentStatus: 'UNKNOWN',
+        });
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    fetchApprovalStatus();
   }, [id]);
 
   // Fetch approval rights when work permit is loaded
@@ -299,37 +337,52 @@ const WorkPermitDetailPage = () => {
       />
 
       <div className="grid gap-6">
-        {/* Basic Information */}
+        {/* Basic Information and Approval Timeline */}
         <Card>
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-gray-500">Status</Label>
-              <div className="mt-1">
-                <Badge>{workPermit.status.replace(/_/g, ' ')}</Badge>
+          <CardContent>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-500">Status</Label>
+                  <div className="mt-1">
+                    <Badge>{workPermit.status.replace(/_/g, ' ')}</Badge>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Project Name</Label>
+                  <p className="mt-1">{workPermit.projectName}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Area</Label>
+                  <p className="mt-1">{workPermit.area?.name || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Company</Label>
+                  <p className="mt-1">{workPermit.company?.name || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Start Date</Label>
+                  <p className="mt-1">{format(new Date(workPermit.proposedStartDate), 'MMM dd, yyyy')}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">End Date</Label>
+                  <p className="mt-1">{format(new Date(workPermit.proposedEndDate), 'MMM dd, yyyy')}</p>
+                </div>
               </div>
-            </div>
-            <div>
-              <Label className="text-gray-500">Project Name</Label>
-              <p className="mt-1">{workPermit.projectName}</p>
-            </div>
-            <div>
-              <Label className="text-gray-500">Area</Label>
-              <p className="mt-1">{workPermit.area?.name || '-'}</p>
-            </div>
-            <div>
-              <Label className="text-gray-500">Company</Label>
-              <p className="mt-1">{workPermit.company?.name || '-'}</p>
-            </div>
-            <div>
-              <Label className="text-gray-500">Start Date</Label>
-              <p className="mt-1">{format(new Date(workPermit.proposedStartDate), 'MMM dd, yyyy')}</p>
-            </div>
-            <div>
-              <Label className="text-gray-500">End Date</Label>
-              <p className="mt-1">{format(new Date(workPermit.proposedEndDate), 'MMM dd, yyyy')}</p>
+              <div className="lg:border-l lg:pl-6 flex flex-col">
+                <ApprovalTimelineCard
+                  approvalHistory={approvalHistory}
+                  isLoading={isLoadingHistory}
+                  assessmentStatus={
+                    ['APPROVED', 'REJECTED', 'CLOSED'].includes(workPermit.status) ? 'DONE' : workPermit.status
+                  }
+                  entityDepartmentName={workPermit.area?.name}
+                  entityJobPositionName="Department Head"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -380,37 +433,6 @@ const WorkPermitDetailPage = () => {
                           : 'Unknown'}
                       </p>
                       {worker.idNumber && <p className="text-sm text-muted-foreground">ID: {worker.idNumber}</p>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Approval Timeline */}
-        {timeline.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Approval Timeline</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {timeline.map((item) => (
-                  <div key={item.id} className="flex items-start gap-4 border-l-2 pl-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <Badge>{item.status}</Badge>
-                        <span className="text-sm text-muted-foreground">
-                          {format(new Date(item.createdAt), 'MMM dd, yyyy HH:mm')}
-                        </span>
-                      </div>
-                      {item.createdBy && (
-                        <p className="text-sm mt-1">
-                          By: {item.createdBy.firstName} {item.createdBy.lastName}
-                        </p>
-                      )}
-                      {item.notes && <p className="text-sm mt-1 text-muted-foreground">{item.notes}</p>}
                     </div>
                   </div>
                 ))}

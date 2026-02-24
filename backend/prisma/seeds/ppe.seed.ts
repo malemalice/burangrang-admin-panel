@@ -143,7 +143,7 @@ const createWithdrawalForStock = async (
         }
     }
 
-    // Create withdrawal header
+    // Create withdrawal header (WAITING_APPROVAL to align with app create flow)
     const withdrawal = await tx.pPEWithdrawal.create({
         data: {
             withdrawalCode,
@@ -152,7 +152,7 @@ const createWithdrawalForStock = async (
             requestedFor: requestedFor || null,
             departmentId,
             jobPositionId: jobPositionId || null,
-            status: 'PENDING',
+            status: 'WAITING_APPROVAL',
             notes: notes || null,
             createdBy,
             isActive: true,
@@ -230,7 +230,7 @@ const approveWithdrawal = async (
         throw new Error(`Withdrawal ${withdrawalId} not found`);
     }
 
-    if (withdrawal.status !== 'PENDING') {
+    if (withdrawal.status !== 'WAITING_APPROVAL') {
         throw new Error(`Withdrawal ${withdrawalId} cannot be approved. Current status: ${withdrawal.status}`);
     }
 
@@ -912,8 +912,8 @@ export const seedPPE = async () => {
             orderBy: { order: 'asc' },
         });
 
-        // Withdrawal 1: PENDING
-        console.log('📋 Creating Withdrawal 1: PENDING...');
+        // Withdrawal 1: WAITING_APPROVAL (no PENDING in seed; aligns with app create flow)
+        console.log('📋 Creating Withdrawal 1: WAITING_APPROVAL...');
         const withdrawal1 = await prisma.$transaction(async (tx) => {
             const withdrawalCode = getNextWithdrawalCode();
             const { withdrawal } = await createWithdrawalForStock(
@@ -927,7 +927,7 @@ export const seedPPE = async () => {
                 department.id,
                 jobPosition?.id || null,
                 adminUser.id,
-                'Withdrawal 1: PENDING status',
+                'Withdrawal 1: WAITING_APPROVAL status',
             );
             return withdrawal;
         });
@@ -1311,7 +1311,7 @@ export const seedPPE = async () => {
         console.log(`   - Stock Entry 4 (EXPIRED): ${stock4Code}`);
         console.log(`   - Stock Entry 5 (DISPOSED): ${stock5Code}`);
         console.log(`   - Stock Entry 6 (Mixed Status): ${stock6Code}`);
-        console.log(`   - Withdrawal 1 (PENDING): ${withdrawal1.withdrawalCode}`);
+        console.log(`   - Withdrawal 1 (WAITING_APPROVAL): ${withdrawal1.withdrawalCode}`);
         console.log(`   - Withdrawal 2 (APPROVED): ${withdrawal2.withdrawalCode}`);
         console.log(`   - Withdrawal 3 (COLLECTED): ${withdrawal3.withdrawalCode}`);
         console.log(`   - Withdrawal 4 (CANCELLED): ${withdrawal4.withdrawalCode}`);
