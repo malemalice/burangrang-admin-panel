@@ -20,6 +20,7 @@ import {
   GeneralStatusEnum,
 } from '@prisma/client';
 import { ApprovalsService } from '../../approvals/approvals.service';
+import { RiskAssessmentZohoSyncService } from '../../zoho-webhooks/services/risk-assessment-zoho-sync.service';
 import { RemindersService } from '../../reminders/reminders.service';
 import {
   ReminderRepeatTypeEnum,
@@ -49,7 +50,8 @@ export class RiskAssessmentService {
     private readonly prisma: PrismaService,
     private readonly approvalsService: ApprovalsService,
     private readonly remindersService: RemindersService,
-  ) {}
+    private readonly riskAssessmentZohoSyncService: RiskAssessmentZohoSyncService,
+  ) { }
 
   async create(
     createRiskAssessmentDto: CreateRiskAssessmentDto,
@@ -68,10 +70,10 @@ export class RiskAssessmentService {
           createdBy: userId, // Use authenticated user ID from request
           ...(itemsWithoutMitigation &&
             itemsWithoutMitigation.length > 0 && {
-              items: {
-                create: itemsWithoutMitigation as any, // Prisma will automatically map mRiskId to mriskid column via @map
-              },
-            }),
+            items: {
+              create: itemsWithoutMitigation as any, // Prisma will automatically map mRiskId to mriskid column via @map
+            },
+          }),
         } as any,
         include: {
           items: {
@@ -93,7 +95,7 @@ export class RiskAssessmentService {
           mRiskCategory: any;
         })[];
       };
-      
+
       if (assessmentWithItems.items?.length > 0 && itemMitigations) {
         for (let i = 0; i < assessmentWithItems.items.length; i++) {
           const mitigation = itemMitigations[i];
@@ -292,7 +294,7 @@ export class RiskAssessmentService {
     const assessmentDateChanged =
       data.assessmentDate &&
       data.assessmentDate.getTime() !==
-        existingAssessment.assessmentDate.getTime();
+      existingAssessment.assessmentDate.getTime();
 
     // Delete existing mitigation records if items are being replaced
     if (items) {
@@ -341,7 +343,7 @@ export class RiskAssessmentService {
         mRiskCategory: any;
       })[];
     };
-    
+
     if (assessmentWithItems.items?.length > 0 && itemMitigations) {
       for (let i = 0; i < assessmentWithItems.items.length; i++) {
         const mitigation = itemMitigations[i];
@@ -409,6 +411,14 @@ export class RiskAssessmentService {
           error,
         );
       }
+    }
+
+    if (newStatus && oldStatus !== newStatus) {
+      await this.riskAssessmentZohoSyncService.enqueueStatusSyncIfNeeded({
+        riskAssessmentId: assessment.id,
+        oldStatus,
+        newStatus,
+      });
     }
 
     return this.mapToDtoWithMitigations(assessment as any);
@@ -1003,8 +1013,8 @@ export class RiskAssessmentService {
       consequenceLevel: item.consequenceLevel,
       riskMatrixRating: item.riskMatrixRating,
       interpretation: item.interpretation,
-        postLikelihoodLevel: item.postLikelihoodLevel as any as string,
-        postConsequenceLevel: item.postConsequenceLevel,
+      postLikelihoodLevel: item.postLikelihoodLevel as any as string,
+      postConsequenceLevel: item.postConsequenceLevel,
       postRiskMatrixRating: item.postRiskMatrixRating,
       postInterpretation: item.postInterpretation,
       mitigation: mitigationRecord
