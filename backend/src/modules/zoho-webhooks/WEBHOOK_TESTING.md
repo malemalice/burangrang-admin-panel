@@ -1,290 +1,365 @@
-# Zoho Webhook Testing Guide
+# Zoho HSE Integration Testing Guide
 
-## Prerequisites
-
-1. **Set up settings** (disable security for initial testing):
-   ```bash
-   # Disable security for testing
-   curl -X POST http://localhost:3000/settings \
-     -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "key": "zoho.webhook.security",
-       "value": "false",
-       "isActive": true
-     }'
-   ```
-
-   Or set the secret for signature verification:
-   ```bash
-   curl -X POST http://localhost:3000/settings \
-     -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "key": "zoho.secret",
-       "value": "your-webhook-secret-here",
-       "isActive": true
-     }'
-   ```
-
-## Test Cases
-
-### 1. Test with Security Disabled
+## 1) Setup
 
 ```bash
-curl -X POST http://localhost:3000/webhooks/zoho \
+cd backend
+npm install
+npx prisma migrate deploy
+npm run start:dev
+```
+
+Required env variables (see `.env.example`):
+- `ZOHO_SYNC_ENABLED=true`
+- `ZOHO_WEBHOOK_ENABLED=true`
+- `ZOHO_WEBHOOK_AUTH_MODE=secret|jwt|signature`
+- `ZOHO_WEBHOOK_SECRET` (for `secret`/`signature` mode)
+- `ZOHO_WEBHOOK_JWT` (for `jwt` mode)
+- `SDP_BASE_URL` (example: `https://servicedesk.hapfor.com`)
+- `SDP_AUTHTOKEN`
+- `SDP_API_VERSION` (`v3`)
+- `ZOHO_DEFAULT_DEPARTMENT_ID`
+- `ZOHO_INTEGRATION_USER_ID`
+
+## 2) Inbound webhook simulation
+
+### Primary route (recommended)
+
+```bash
+curl -X POST http://localhost:3000/integrations/zoho/webhook \
   -H "Content-Type: application/json" \
-  -H "X-Zoho-Request-Id: test-request-123" \
-  -H "X-Zoho-Event: contact.created" \
+  -H "X-Zoho-Request-Id: zoho-test-001" \
+  -H "X-Zoho-Event: Ticket_Add" \
+  -H "X-Correlation-Id: corr-zoho-001" \
+  -H "X-Zoho-Webhook-Secret: <your-secret>" \
   -d '{
     "data": {
-      "id": "12345",
-      "email": "test@example.com",
-      "first_name": "John",
-      "last_name": "Doe",
-      "phone": "+1234567890"
+      "id": "55000000012345",
+      "ticketNumber": "101",
+      "subject": "Unsafe ladder",
+      "description": "Base unstable",
+      "priority": "High",
+      "departmentId": "55000000000999"
     },
     "meta": {
-      "timestamp": "2025-01-20T10:00:00Z"
+      "timestamp": "2026-02-24T14:00:00Z"
     }
   }'
 ```
 
-### 2. Test with Security Enabled (with Signature)
-
-#### Step 1: Generate HMAC-SHA256 Signature
-
-**Using OpenSSL (macOS/Linux):**
-```bash
-# Set your secret
-SECRET="your-webhook-secret-here"
-
-# Create payload file
-cat > /tmp/webhook-payload.json << 'EOF'
-{
-  "data": {
-    "id": "12345",
-    "email": "test@example.com",
-    "first_name": "John",
-    "last_name": "Doe"
-  },
-  "meta": {
-    "timestamp": "2025-01-20T10:00:00Z"
-  }
-}
-EOF
-
-# Generate signature
-SIGNATURE=$(cat /tmp/webhook-payload.json | openssl dgst -sha256 -hmac "$SECRET" | cut -d' ' -f2)
-echo "Signature: $SIGNATURE"
-```
-
-**Using Node.js:**
-```bash
-node -e "const crypto = require('crypto'); const secret = 'your-webhook-secret-here'; const payload = '{\"data\":{\"id\":\"12345\",\"email\":\"test@example.com\"}}'; console.log(crypto.createHmac('sha256', secret).update(payload).digest('hex'));"
-```
-
-**Using Python:**
-```python
-import hmac
-import hashlib
-
-secret = "your-webhook-secret-here"
-payload = '{"data":{"id":"12345","email":"test@example.com"}}'
-signature = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
-print(signature)
-```
-
-#### Step 2: Send Request with Signature
+### Legacy compatibility route (temporary)
 
 ```bash
-# Replace SIGNATURE with the generated value from step 1
 curl -X POST http://localhost:3000/webhooks/zoho \
   -H "Content-Type: application/json" \
-  -H "X-Zoho-Signature: SIGNATURE" \
-  -H "X-Zoho-Request-Id: test-request-456" \
-  -H "X-Zoho-Event: contact.created" \
+  -H "X-Zoho-Request-Id: zoho-test-legacy-001" \
+  -H "X-Zoho-Event: Ticket_Add" \
+  -H "X-Zoho-Webhook-Secret: <your-secret>" \
   -d '{
     "data": {
-      "id": "12345",
-      "email": "test@example.com",
-      "first_name": "John",
-      "last_name": "Doe"
-    },
-    "meta": {
-      "timestamp": "2025-01-20T10:00:00Z"
+      "id": "55000000012346",
+      "ticketNumber": "102",
+      "subject": "Spill near storage",
+      "description": "Chemical container leak",
+      "priority": "Urgent",
+      "departmentId": "55000000000999"
     }
   }'
 ```
 
-### 3. Complete Test Script (with Signature Generation)
+Expected:
+- HTTP 200 fast ACK
+- Webhook log transitions `RECEIVED -> PROCESSED` asynchronously
+- One risk assessment created for each unique ticket
+- Mapping row created in `t_zoho_ticket_risk_assessment_map`
 
-Save this as `test-webhook.sh`:
+## 3) Duplicate suppression checks
 
-```bash
-#!/bin/bash
-
-# Configuration
-WEBHOOK_URL="http://localhost:3000/webhooks/zoho"
-SECRET="your-webhook-secret-here"
-EVENT_TYPE="contact.created"
-REQUEST_ID="test-request-$(date +%s)"
-
-# Sample payload
-PAYLOAD='{
-  "data": {
-    "id": "12345",
-    "email": "test@example.com",
-    "first_name": "John",
-    "last_name": "Doe",
-    "phone": "+1234567890",
-    "company": "Test Company"
-  },
-  "meta": {
-    "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
-    "source": "zoho"
-  }
-}'
-
-# Generate signature
-SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$SECRET" | cut -d' ' -f2)
-
-echo "Request ID: $REQUEST_ID"
-echo "Signature: $SIGNATURE"
-echo "Sending webhook..."
-
-# Send request
-curl -X POST "$WEBHOOK_URL" \
-  -H "Content-Type: application/json" \
-  -H "X-Zoho-Signature: $SIGNATURE" \
-  -H "X-Zoho-Request-Id: $REQUEST_ID" \
-  -H "X-Zoho-Event: $EVENT_TYPE" \
-  -d "$PAYLOAD" \
-  -w "\n\nHTTP Status: %{http_code}\n" \
-  -v
-
-echo ""
-```
-
-Make it executable and run:
-```bash
-chmod +x test-webhook.sh
-./test-webhook.sh
-```
-
-### 4. Test Different Event Types
+### Duplicate request id check
 
 ```bash
-# Contact Created
-curl -X POST http://localhost:3000/webhooks/zoho \
-  -H "Content-Type: application/json" \
-  -H "X-Zoho-Event: contact.created" \
-  -H "X-Zoho-Request-Id: contact-created-001" \
-  -d '{"data": {"id": "1", "email": "contact@example.com"}}'
+REQUEST_ID=zoho-dup-req-001
 
-# Lead Updated
-curl -X POST http://localhost:3000/webhooks/zoho \
+curl -X POST http://localhost:3000/integrations/zoho/webhook \
   -H "Content-Type: application/json" \
-  -H "X-Zoho-Event: lead.updated" \
-  -H "X-Zoho-Request-Id: lead-updated-001" \
-  -d '{"data": {"id": "2", "name": "New Lead", "status": "qualified"}}'
+  -H "X-Zoho-Request-Id: ${REQUEST_ID}" \
+  -H "X-Zoho-Event: Ticket_Add" \
+  -H "X-Zoho-Webhook-Secret: <your-secret>" \
+  -d '{"data":{"id":"55000000099990","subject":"Duplicate request id","priority":"High"}}'
 
-# Deal Created
-curl -X POST http://localhost:3000/webhooks/zoho \
+curl -X POST http://localhost:3000/integrations/zoho/webhook \
   -H "Content-Type: application/json" \
-  -H "X-Zoho-Event: deal.created" \
-  -H "X-Zoho-Request-Id: deal-created-001" \
-  -d '{"data": {"id": "3", "name": "Big Deal", "amount": 50000}}'
+  -H "X-Zoho-Request-Id: ${REQUEST_ID}" \
+  -H "X-Zoho-Event: Ticket_Add" \
+  -H "X-Zoho-Webhook-Secret: <your-secret>" \
+  -d '{"data":{"id":"55000000099990","subject":"Duplicate request id","priority":"High"}}'
 ```
 
-### 5. Test Idempotency (Duplicate Request)
+### Duplicate payload check (without request id)
 
 ```bash
-# Send same request twice with same Request ID
-REQUEST_ID="duplicate-test-123"
-
-# First request - should succeed
-curl -X POST http://localhost:3000/webhooks/zoho \
+curl -X POST http://localhost:3000/integrations/zoho/webhook \
   -H "Content-Type: application/json" \
-  -H "X-Zoho-Request-Id: $REQUEST_ID" \
-  -H "X-Zoho-Event: contact.created" \
-  -d '{"data": {"id": "999"}}'
+  -H "X-Zoho-Event: Ticket_Add" \
+  -H "X-Zoho-Webhook-Secret: <your-secret>" \
+  -d '{
+    "data": {
+      "id": "55000000099991",
+      "subject": "Duplicate event key",
+      "description": "same payload",
+      "priority": "Medium"
+    },
+    "meta": { "timestamp": "2026-02-24T14:10:00Z" }
+  }'
 
-# Second request with same ID - should return "Duplicate request ignored"
-curl -X POST http://localhost:3000/webhooks/zoho \
+curl -X POST http://localhost:3000/integrations/zoho/webhook \
   -H "Content-Type: application/json" \
-  -H "X-Zoho-Request-Id: $REQUEST_ID" \
-  -H "X-Zoho-Event: contact.created" \
-  -d '{"data": {"id": "999"}}'
+  -H "X-Zoho-Event: Ticket_Add" \
+  -H "X-Zoho-Webhook-Secret: <your-secret>" \
+  -d '{
+    "data": {
+      "id": "55000000099991",
+      "subject": "Duplicate event key",
+      "description": "same payload",
+      "priority": "Medium"
+    },
+    "meta": { "timestamp": "2026-02-24T14:10:00Z" }
+  }'
 ```
 
-## Expected Responses
+Expected:
+- No duplicated risk assessment creation
+- Webhook logs show duplicate handling state
 
-### Success Response (200 OK)
-```json
-{
-  "status": "ok",
-  "message": "Webhook processed successfully"
-}
+## 4) Outbound status sync verification
+
+1. Find linked risk assessment id from mapping table.
+2. Update status via API:
+
+```bash
+curl -X PATCH http://localhost:3000/risk-assessment/<risk-assessment-id> \
+  -H "Authorization: Bearer <jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"DONE"}'
 ```
 
-### Duplicate Request (200 OK)
-```json
-{
-  "status": "ok",
-  "message": "Duplicate request ignored"
-}
+Expected:
+- New row in `t_zoho_outbound_jobs` with status `PENDING`
+- Worker processes row to `SUCCESS`
+- ServiceDesk Plus request receives PUT status update (mapped by `ZOHO_STATUS_MAP`)
+
+### Direct outbound API cURL smoke test
+
+Create request:
+
+```bash
+curl -X POST https://servicedesk.hapfor.com/api/v3/requests \
+  -H 'authtoken: <SDP_AUTHTOKEN>' \
+  -H 'Accept: application/vnd.manageengine.sdp.v3+json' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'input_data={"request":{"subject":"HSE Dummy Request","description":"Created from HSE integration","status":{"name":"Open"}}}'
 ```
 
-### Error Response (400 Bad Request)
-```json
-{
-  "statusCode": 400,
-  "message": "Failed to process webhook: [error details]",
-  "error": "Bad Request"
-}
+Update request status:
+
+```bash
+curl -X PUT https://servicedesk.hapfor.com/api/v3/requests/<REQUEST_ID> \
+  -H 'authtoken: <SDP_AUTHTOKEN>' \
+  -H 'Accept: application/vnd.manageengine.sdp.v3+json' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'input_data={"request":{"status":{"name":"Closed"}}}'
 ```
 
-### Security Error (401/403)
-```json
-{
-  "statusCode": 401,
-  "message": "Missing Zoho signature header",
-  "error": "Unauthorized"
-}
+## 5) Retry and dead-letter behavior
+
+To test retry:
+- Force ServiceDesk Plus API response `429` or `5xx`
+- Confirm job status becomes `FAILED_RETRY`
+- Confirm `next_retry_at` is set in the future
+
+To test dead-letter:
+- Keep failing until `attempt_count` reaches `max_attempts`
+- Confirm job status becomes `FAILED_DEAD_LETTER`
+
+## 6) Dummy outbound request utility (SDP)
+
+```bash
+cd backend
+npm run zoho:dummy-ticket -- --subject "Dummy HSE integration request"
 ```
 
-## Testing Checklist
+Optional arguments:
+- `--description "..."`
+- `--priority High`
+- `--status Open`
+- `--requesterName "Requester Name"`
+- `--requesterEmail requester@example.com`
+- `--correlationId <id>`
 
-- [ ] Test with security disabled (`zoho.webhook.security = false`)
-- [ ] Test with security enabled and valid signature
-- [ ] Test with security enabled and invalid signature (should fail)
-- [ ] Test with missing signature header (should fail if security enabled)
-- [ ] Test duplicate request handling (same Request ID)
-- [ ] Test different event types
-- [ ] Check webhook logs in database (`t_zoho_webhook_logs` table)
+## 7) Useful SQL checks
 
-## Debugging
+```sql
+SELECT id, requestId, eventType, eventKey, ticketId, status, processedAt
+FROM t_zoho_webhook_logs
+ORDER BY createdAt DESC
+LIMIT 20;
+```
 
-1. **Check application logs** for webhook processing details
-2. **Query webhook logs**:
-   ```sql
-   SELECT * FROM t_zoho_webhook_logs 
-   ORDER BY processedAt DESC 
-   LIMIT 10;
-   ```
-3. **Verify settings**:
-   ```bash
-   curl http://localhost:3000/settings/value/zoho.secret \
-     -H "Authorization: Bearer YOUR_JWT_TOKEN"
-   
-   curl http://localhost:3000/settings/value/zoho.webhook.security \
-     -H "Authorization: Bearer YOUR_JWT_TOKEN"
-   ```
+```sql
+SELECT id, zoho_ticket_id, hse_task_id, last_zoho_status, last_hse_status, created_at
+FROM t_zoho_ticket_risk_assessment_map
+ORDER BY created_at DESC
+LIMIT 20;
+```
 
-## Notes
+```sql
+SELECT id, ticket_id, target_status, status, attempt_count, max_attempts, next_retry_at, processed_at
+FROM t_zoho_outbound_jobs
+ORDER BY created_at DESC
+LIMIT 20;
+```
 
-- The payload must match exactly for signature verification (no extra spaces, same JSON formatting)
-- Request IDs should be unique to avoid duplicate detection
-- For production, always enable security (`zoho.webhook.security = true`)
-- The webhook secret should match the one configured in Zoho Developer Console
+## 8) Manual test cases (E2E)
+
+### Test Case A: Inbound `Ticket_Add` creates risk assessment
+
+Preconditions:
+- Backend is running locally
+- `ZOHO_WEBHOOK_ENABLED=true`
+- Valid webhook auth header is prepared based on `ZOHO_WEBHOOK_AUTH_MODE`
+
+Steps:
+1. Send webhook payload to primary route.
+
+```bash
+curl -X POST http://localhost:3000/integrations/zoho/webhook \
+  -H "Content-Type: application/json" \
+  -H "X-Zoho-Request-Id: manual-a-001" \
+  -H "X-Zoho-Event: Ticket_Add" \
+  -H "X-Zoho-Webhook-Secret: <your-secret>" \
+  -d '{
+    "data": {
+      "id": "55000000100001",
+      "ticketNumber": "201",
+      "subject": "Manual test inbound A",
+      "description": "Inbound webhook should create risk assessment",
+      "priority": "High",
+      "departmentId": "55000000000999"
+    },
+    "meta": {
+      "timestamp": "2026-02-24T16:00:00Z"
+    }
+  }'
+```
+
+2. Wait a few seconds for async processing.
+3. Run SQL checks in section 7.
+
+Pass criteria:
+- Endpoint returns HTTP `200`
+- A new row exists in `t_zoho_webhook_logs` with `requestId='manual-a-001'`
+- Log status transitions to `PROCESSED`
+- A new mapping row exists in `t_zoho_ticket_risk_assessment_map` for `zoho_ticket_id='55000000100001'`
+- A linked risk assessment record exists (via `hse_task_id`)
+
+### Test Case B: Duplicate suppression by request id
+
+Steps:
+1. Send the same request twice with identical `X-Zoho-Request-Id`.
+
+```bash
+REQUEST_ID=manual-b-dup-001
+
+curl -X POST http://localhost:3000/integrations/zoho/webhook \
+  -H "Content-Type: application/json" \
+  -H "X-Zoho-Request-Id: ${REQUEST_ID}" \
+  -H "X-Zoho-Event: Ticket_Add" \
+  -H "X-Zoho-Webhook-Secret: <your-secret>" \
+  -d '{"data":{"id":"55000000100002","subject":"Duplicate test","priority":"Medium"}}'
+
+curl -X POST http://localhost:3000/integrations/zoho/webhook \
+  -H "Content-Type: application/json" \
+  -H "X-Zoho-Request-Id: ${REQUEST_ID}" \
+  -H "X-Zoho-Event: Ticket_Add" \
+  -H "X-Zoho-Webhook-Secret: <your-secret>" \
+  -d '{"data":{"id":"55000000100002","subject":"Duplicate test","priority":"Medium"}}'
+```
+
+Pass criteria:
+- Only one risk assessment/mapping pair is created
+- Duplicate webhook is marked as duplicate handling in logs
+
+### Test Case C: Outbound status sync to ServiceDesk Plus
+
+Preconditions:
+- `ZOHO_SYNC_ENABLED=true`
+- `SDP_BASE_URL`, `SDP_AUTHTOKEN`, and `SDP_API_VERSION` are set
+- There is an existing mapping row from Test Case A
+
+Steps:
+1. Update risk assessment status using mapped `hse_task_id`.
+
+```bash
+curl -X PATCH http://localhost:3000/risk-assessment/<risk-assessment-id> \
+  -H "Authorization: Bearer <jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"DONE"}'
+```
+
+2. Check outbound queue table (section 7 SQL).
+3. Verify status in ServiceDesk Plus request UI or API.
+
+Pass criteria:
+- New row in `t_zoho_outbound_jobs` is created with `status='PENDING'`
+- Worker updates job to `SUCCESS`
+- Corresponding ServiceDesk Plus request status is updated according to `ZOHO_STATUS_MAP`
+
+### Test Case D: Retry and dead-letter handling
+
+Steps:
+1. Temporarily force outbound API failure (invalid token or simulated `5xx`).
+2. Trigger outbound flow again by changing risk assessment status.
+3. Observe retries in `t_zoho_outbound_jobs`.
+
+Pass criteria:
+- Failure attempt sets `status='FAILED_RETRY'` and schedules `next_retry_at`
+- After max attempts, final status becomes `FAILED_DEAD_LETTER`
+
+### Test Case E: Dummy outbound create request script
+
+Steps:
+
+```bash
+cd backend
+npm run zoho:dummy-ticket -- --subject "Manual test dummy create" --description "Created by manual test"
+```
+
+Pass criteria:
+- Script returns created request id from ServiceDesk Plus
+- Request can be found in ServiceDesk Plus UI/API
+
+## 9) Final acceptance checklist
+
+- [ ] Inbound `Ticket_Add` creates risk assessment and mapping
+- [ ] Duplicate webhook does not create duplicate risk assessment
+- [ ] HSE status change creates outbound job and updates ServiceDesk Plus request
+- [ ] Retry and dead-letter behavior works on persistent outbound failures
+- [ ] Dummy request utility can create a request in ServiceDesk Plus
+
+## 10) Rollback steps
+
+1. Disable flags:
+
+```bash
+ZOHO_SYNC_ENABLED=false
+ZOHO_WEBHOOK_ENABLED=false
+```
+
+2. Deploy previous app version if needed.
+3. Roll back last migration:
+
+```bash
+cd backend
+npx prisma migrate resolve --rolled-back 20260224190000_zoho_hse_integration_v2
+```
+

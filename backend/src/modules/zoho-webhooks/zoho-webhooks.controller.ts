@@ -1,121 +1,116 @@
 import {
-  Controller,
-  Post,
   Body,
+  Controller,
   Headers,
   HttpCode,
   HttpStatus,
-  UseGuards,
-  BadRequestException,
   Logger,
+  Post,
+  UseGuards,
 } from '@nestjs/common';
 import {
-  ApiTags,
+  ApiBody,
+  ApiHeader,
   ApiOperation,
   ApiResponse,
-  ApiHeader,
-  ApiBody,
+  ApiTags,
 } from '@nestjs/swagger';
 import { Public } from '../../shared/decorators/public.decorator';
+import { ZohoWebhookDto, ZohoWebhookResponseDto } from './dto/zoho-webhook.dto';
 import { ZohoWebhookGuard } from './guards/zoho-webhook.guard';
 import { ZohoWebhookService } from './services/zoho-webhook.service';
-import { ZohoWebhookValidatorService } from './services/zoho-webhook-validator.service';
-import { ZohoWebhookDto, ZohoWebhookResponseDto } from './dto/zoho-webhook.dto';
 
 @ApiTags('zoho-webhooks')
-@Controller('webhooks/zoho')
-@Public() // Bypass JWT authentication
+@Controller()
+@Public()
 export class ZohoWebhooksController {
   private readonly logger = new Logger(ZohoWebhooksController.name);
 
-  constructor(
-    private readonly webhookService: ZohoWebhookService,
-    private readonly validatorService: ZohoWebhookValidatorService,
-  ) {}
+  constructor(private readonly webhookService: ZohoWebhookService) { }
 
-  @Post()
+  @Post('integrations/zoho/webhook')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(ZohoWebhookGuard) // Apply signature verification (if enabled)
-  @ApiOperation({ summary: 'Receive Zoho webhook events' })
+  @UseGuards(ZohoWebhookGuard)
+  @ApiOperation({ summary: 'Receive Zoho webhook events (primary route)' })
+  @ApiHeader({
+    name: 'X-Zoho-Webhook-Secret',
+    required: false,
+    description: 'Secret header when ZOHO_WEBHOOK_AUTH_MODE=secret',
+  })
   @ApiHeader({
     name: 'X-Zoho-Signature',
-    description: 'HMAC-SHA256 signature of the request body',
     required: false,
+    description: 'HMAC SHA256 signature when ZOHO_WEBHOOK_AUTH_MODE=signature',
+  })
+  @ApiHeader({
+    name: 'Authorization',
+    required: false,
+    description: 'Bearer JWT when ZOHO_WEBHOOK_AUTH_MODE=jwt',
   })
   @ApiHeader({
     name: 'X-Zoho-Request-Id',
-    description: 'Unique request ID for idempotency',
     required: false,
+    description: 'Optional request id for idempotency',
   })
   @ApiHeader({
     name: 'X-Zoho-Event',
-    description: 'Event type (e.g., contact.created, lead.updated)',
+    required: true,
+    description: 'Zoho event type (Ticket_Add)',
+  })
+  @ApiHeader({
+    name: 'X-Correlation-Id',
     required: false,
+    description: 'Optional correlation id',
   })
   @ApiBody({ type: ZohoWebhookDto })
   @ApiResponse({
     status: 200,
-    description: 'Webhook processed successfully',
+    description: 'Webhook accepted for asynchronous processing',
     type: ZohoWebhookResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Invalid request or processing error' })
-  @ApiResponse({ status: 401, description: 'Unauthorized - Missing or invalid signature' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Invalid signature' })
-  async handleWebhook(
+  async handlePrimaryWebhook(
     @Body() payload: ZohoWebhookDto,
-    @Headers('x-zoho-request-id') requestId: string,
-    @Headers('x-zoho-event') eventType: string,
+    @Headers('x-zoho-request-id') requestId: string | undefined,
+    @Headers('x-zoho-event') eventType: string | undefined,
+    @Headers('x-correlation-id') correlationId: string | undefined,
   ): Promise<ZohoWebhookResponseDto> {
-    this.logger.log(`Received Zoho webhook: ${eventType || 'unknown'}, RequestId: ${requestId || 'none'}`);
+    return this.webhookService.receiveWebhook(
+      payload,
+      eventType,
+      requestId,
+      correlationId,
+      false,
+    );
+  }
 
-    // Check for duplicate requests (idempotency)
-    if (requestId) {
-      const isDuplicate = await this.validatorService.isDuplicate(requestId);
-      if (isDuplicate) {
-        await this.validatorService.logWebhook(
-          requestId,
-          eventType || 'unknown',
-          'duplicate',
-          payload,
-        );
-        this.logger.warn(`Duplicate webhook request ignored: ${requestId}`);
-        return {
-          status: 'ok',
-          message: 'Duplicate request ignored',
-        };
-      }
-    }
+  @Post('webhooks/zoho')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(ZohoWebhookGuard)
+  @ApiOperation({
+    summary: 'Receive Zoho webhook events (legacy compatibility route)',
+  })
+  @ApiBody({ type: ZohoWebhookDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Webhook accepted for asynchronous processing',
+    type: ZohoWebhookResponseDto,
+  })
+  async handleLegacyWebhook(
+    @Body() payload: ZohoWebhookDto,
+    @Headers('x-zoho-request-id') requestId: string | undefined,
+    @Headers('x-zoho-event') eventType: string | undefined,
+    @Headers('x-correlation-id') correlationId: string | undefined,
+  ): Promise<ZohoWebhookResponseDto> {
+    this.logger.warn(
+      '[DEPRECATION] Legacy route /webhooks/zoho is used. Please migrate to /integrations/zoho/webhook',
+    );
 
-    try {
-      // Process webhook based on event type
-      await this.webhookService.processWebhook(payload, eventType || 'unknown');
-
-      // Log successful processing
-      await this.validatorService.logWebhook(
-        requestId || `no-id-${Date.now()}`,
-        eventType || 'unknown',
-        'processed',
-        payload,
-      );
-
-      this.logger.log(`Webhook processed successfully: ${eventType || 'unknown'}`);
-      return {
-        status: 'ok',
-        message: 'Webhook processed successfully',
-      };
-    } catch (error) {
-      // Log failed processing
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      await this.validatorService.logWebhook(
-        requestId || `no-id-${Date.now()}`,
-        eventType || 'unknown',
-        'failed',
-        payload,
-        errorMessage,
-      );
-
-      this.logger.error(`Failed to process webhook: ${errorMessage}`, error.stack);
-      throw new BadRequestException(`Failed to process webhook: ${errorMessage}`);
-    }
+    return this.webhookService.receiveWebhook(
+      payload,
+      eventType,
+      requestId,
+      correlationId,
+      true,
+    );
   }
 }

@@ -1,5 +1,20 @@
+import { Prisma } from '@prisma/client';
 import { Injectable, Logger } from '@nestjs/common';
+import { createHash, randomUUID } from 'crypto';
 import { PrismaService } from '../../../core/prisma/prisma.service';
+import { ZohoWebhookDto } from '../dto/zoho-webhook.dto';
+
+interface CreateWebhookLogParams {
+  requestId: string;
+  eventType: string;
+  eventKey: string;
+  ticketId?: string;
+  correlationId?: string;
+  status: 'RECEIVED' | 'PROCESSED' | 'IGNORED_DUPLICATE' | 'FAILED';
+  payload: ZohoWebhookDto;
+  errorMessage?: string;
+  errorSummary?: string;
+}
 
 @Injectable()
 export class ZohoWebhookValidatorService {
@@ -7,70 +22,109 @@ export class ZohoWebhookValidatorService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async isDuplicate(requestId: string): Promise<boolean> {
-    if (!requestId) {
-      return false;
-    }
-
-    try {
-      const existing = await this.prisma.tZohoWebhookLogs.findUnique({
-        where: { requestId },
-      });
-
-      if (existing) {
-        this.logger.warn(`Duplicate webhook request detected: ${requestId}`);
-      }
-
-      return !!existing;
-    } catch (error) {
-      this.logger.error(`Error checking duplicate request: ${error.message}`, error.stack);
-      // If there's an error, allow the request to proceed (fail open)
-      return false;
-    }
+  resolveRequestId(requestId: string | undefined): string {
+    return requestId?.trim() || `generated-${randomUUID()}`;
   }
 
-  async logWebhook(
-    requestId: string,
+  resolveCorrelationId(correlationId: string | undefined): string {
+    return correlationId?.trim() || `corr-${randomUUID()}`;
+  }
+
+  buildEventKey(
     eventType: string,
-    status: 'processed' | 'failed' | 'duplicate',
-    payload: any,
-    errorMessage?: string,
-  ): Promise<void> {
-    try {
-      await this.prisma.tZohoWebhookLogs.create({
-        data: {
-          requestId: requestId || `no-id-${Date.now()}`,
-          eventType: eventType || 'unknown',
-          status,
-          payload: payload as any,
-          errorMessage: errorMessage || null,
-          processedAt: new Date(),
-        },
-      });
-    } catch (error) {
-      // Log error but don't throw - webhook processing should continue
-      this.logger.error(`Error logging webhook: ${error.message}`, error.stack);
-    }
+    ticketId: string,
+    requestIdOrTimestamp: string,
+    payload: ZohoWebhookDto,
+  ): string {
+    const payloadFingerprint = createHash('sha256')
+      .update(JSON.stringify(payload ?? {}))
+      .digest('hex');
+
+    return createHash('sha256')
+      .update(
+        `${eventType}|${ticketId}|${requestIdOrTimestamp}|${payloadFingerprint}`,
+      )
+      .digest('hex');
   }
 
-  async getWebhookLogs(
-    requestId: string,
-  ): Promise<{ requestId: string; status: string; eventType: string; processedAt: Date } | null> {
-    try {
-      const log = await this.prisma.tZohoWebhookLogs.findUnique({
-        where: { requestId },
-        select: {
-          requestId: true,
-          status: true,
-          eventType: true,
-          processedAt: true,
-        },
-      });
+  async isDuplicateByRequestId(requestId: string): Promise<boolean> {
+    const existing = await this.prisma.tZohoWebhookLogs.findUnique({
+      where: { requestId },
+      select: { id: true },
+    });
 
-      return log;
-    } catch (error) {
-      this.logger.error(`Error fetching webhook log: ${error.message}`, error.stack);
-      return null;
+    return Boolean(existing);
+  }
+
+  async isDuplicateByEventKey(eventKey: string): Promise<boolean> {
+    const existing = await this.prisma.tZohoWebhookLogs.findUnique({
+      where: { eventKey },
+      select: { id: true },
+    });
+
+    return Boolean(existing);
+  }
+
+  async hasEntityMapping(ticketId: string): Promise<boolean> {
+    const mapping = await this.prisma.zohoTicketRiskAssessmentMap.findUnique({
+      where: { zohoTicketId: ticketId },
+      select: { id: true },
+    });
+
+    return Boolean(mapping);
+  }
+
+  async createWebhookLog(params: CreateWebhookLogParams): Promise<void> {
+    await this.prisma.tZohoWebhookLogs.create({
+      data: {
+        requestId: params.requestId,
+        eventType: params.eventType,
+        eventKey: params.eventKey,
+        ticketId: params.ticketId,
+        correlationId: params.correlationId,
+        status: params.status,
+        payload: params.payload as unknown as Prisma.InputJsonValue,
+        payloadSanitized: this.sanitizePayload(params.payload),
+        errorMessage: params.errorMessage,
+        errorSummary: params.errorSummary,
+        processedAt: new Date(),
+      },
+    });
+  }
+
+  async updateWebhookLog(
+    eventKey: string,
+    status: 'PROCESSED' | 'IGNORED_DUPLICATE' | 'FAILED',
+    params?: {
+      errorMessage?: string;
+      errorSummary?: string;
+    },
+  ): Promise<void> {
+    await this.prisma.tZohoWebhookLogs.update({
+      where: { eventKey },
+      data: {
+        status,
+        errorMessage: params?.errorMessage,
+        errorSummary: params?.errorSummary,
+        processedAt: new Date(),
+      },
+    });
+  }
+
+  private sanitizePayload(payload: ZohoWebhookDto): Prisma.InputJsonValue {
+    const cloned = JSON.parse(JSON.stringify(payload ?? {})) as Record<
+      string,
+      unknown
+    >;
+
+    if (typeof cloned.authorization === 'string') {
+      cloned.authorization = '[REDACTED]';
     }
+
+    return cloned as Prisma.InputJsonValue;
+  }
+
+  logStructured(fields: Record<string, unknown>): void {
+    this.logger.log(JSON.stringify(fields));
   }
 }

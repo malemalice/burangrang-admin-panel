@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsObject, IsString, IsOptional } from 'class-validator';
+import { IsObject, IsOptional, IsString } from 'class-validator';
 
 export class ZohoWebhookDto {
   @ApiProperty({
@@ -8,7 +8,7 @@ export class ZohoWebhookDto {
     additionalProperties: true,
   })
   @IsObject()
-  data: Record<string, any>;
+  data: Record<string, unknown>;
 
   @ApiProperty({
     required: false,
@@ -18,7 +18,7 @@ export class ZohoWebhookDto {
   })
   @IsOptional()
   @IsObject()
-  meta?: Record<string, any>;
+  meta?: Record<string, unknown>;
 }
 
 export class ZohoWebhookResponseDto {
@@ -29,4 +29,8 @@ export class ZohoWebhookResponseDto {
   @ApiProperty({ description: 'Response message' })
   @IsString()
   message: string;
+
+  @ApiProperty({ description: 'Correlation identifier for tracing' })
+  @IsString()
+  correlationId: string;
 }
