@@ -6,24 +6,27 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import * as crypto from 'crypto';
+import { ZohoConfigService } from '../services/zoho-config.service';
 
 @Injectable()
 export class ZohoWebhookGuard implements CanActivate {
   private readonly logger = new Logger(ZohoWebhookGuard.name);
 
-  constructor(private readonly configService: ConfigService) { }
+  constructor(private readonly zohoConfigService: ZohoConfigService) { }
 
-  canActivate(context: ExecutionContext): boolean {
-    const enabled = this.getBoolean('ZOHO_WEBHOOK_ENABLED', true);
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const enabled = await this.zohoConfigService.getBoolean(
+      'zoho.webhook.enabled',
+      true,
+    );
     if (!enabled) {
       throw new ForbiddenException('Zoho webhook is disabled by configuration');
     }
 
     const request = context.switchToHttp().getRequest<Request>();
-    const mode = (this.configService.get<string>('ZOHO_WEBHOOK_AUTH_MODE') ?? 'secret').toLowerCase();
+    const mode = await this.zohoConfigService.getWebhookAuthMode();
 
     if (mode === 'jwt') {
       return this.validateJwtMode(request);
@@ -36,8 +39,11 @@ export class ZohoWebhookGuard implements CanActivate {
     return this.validateSecretMode(request);
   }
 
-  private validateSecretMode(request: Request): boolean {
-    const expectedSecret = this.configService.get<string>('ZOHO_WEBHOOK_SECRET');
+  private async validateSecretMode(request: Request): Promise<boolean> {
+    const expectedSecret = await this.zohoConfigService.getString(
+      'zoho.webhook.secret',
+      '',
+    );
     const receivedSecret =
       (request.headers['x-zoho-webhook-secret'] as string | undefined) ??
       (request.headers['x-zoho-secret'] as string | undefined);
@@ -57,8 +63,11 @@ export class ZohoWebhookGuard implements CanActivate {
     return true;
   }
 
-  private validateJwtMode(request: Request): boolean {
-    const expectedToken = this.configService.get<string>('ZOHO_WEBHOOK_JWT');
+  private async validateJwtMode(request: Request): Promise<boolean> {
+    const expectedToken = await this.zohoConfigService.getString(
+      'zoho.webhook.jwt',
+      '',
+    );
     const authorization = request.headers.authorization;
 
     if (!expectedToken) {
@@ -78,8 +87,11 @@ export class ZohoWebhookGuard implements CanActivate {
     return true;
   }
 
-  private validateSignatureMode(request: Request): boolean {
-    const expectedSecret = this.configService.get<string>('ZOHO_WEBHOOK_SECRET');
+  private async validateSignatureMode(request: Request): Promise<boolean> {
+    const expectedSecret = await this.zohoConfigService.getString(
+      'zoho.webhook.secret',
+      '',
+    );
     const signature = request.headers['x-zoho-signature'] as string | undefined;
     const rawBody = ((request as Request & { rawBody?: string }).rawBody ??
       JSON.stringify(request.body ?? {})) as string;
@@ -106,15 +118,6 @@ export class ZohoWebhookGuard implements CanActivate {
     }
 
     return true;
-  }
-
-  private getBoolean(key: string, defaultValue: boolean): boolean {
-    const value = this.configService.get<string>(key);
-    if (value === undefined || value === null) {
-      return defaultValue;
-    }
-
-    return value.toLowerCase() === 'true' || value === '1';
   }
 
   private safeCompare(a: string, b: string): boolean {

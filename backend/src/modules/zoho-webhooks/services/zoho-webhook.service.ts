@@ -1,6 +1,5 @@
 import { GeneralStatusEnum, Prisma } from '@prisma/client';
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { ZOHO_EVENT_TYPES } from '../constants/zoho-event-types';
@@ -9,6 +8,8 @@ import {
   ZohoWebhookDto,
   ZohoWebhookResponseDto,
 } from '../dto/zoho-webhook.dto';
+import { SETTINGS_KEYS } from '../../settings/constants/settings-keys';
+import { ZohoConfigService } from './zoho-config.service';
 import { ZohoWebhookValidatorService } from './zoho-webhook-validator.service';
 
 @Injectable()
@@ -17,9 +18,9 @@ export class ZohoWebhookService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService,
+    private readonly zohoConfigService: ZohoConfigService,
     private readonly validatorService: ZohoWebhookValidatorService,
-  ) {}
+  ) { }
 
   async receiveWebhook(
     payload: ZohoWebhookDto,
@@ -217,7 +218,7 @@ export class ZohoWebhookService {
         ticketData.departmentId,
       );
       const integrationUserId = await this.resolveIntegrationUserId();
-      const initialStatus = this.resolveInboundDefaultStatus();
+      const initialStatus = await this.resolveInboundDefaultStatus();
       const generatedCode = this.generateRiskAssessmentCode(
         ticketData.ticketNumber,
       );
@@ -321,9 +322,10 @@ export class ZohoWebhookService {
       }
     }
 
-    const fallbackDepartmentId = this.configService
-      .get<string>('ZOHO_DEFAULT_DEPARTMENT_ID')
-      ?.trim();
+    const fallbackDepartmentId = await this.zohoConfigService.getString(
+      SETTINGS_KEYS.ZOHO_DEFAULT_DEPARTMENT_ID,
+      '',
+    );
 
     if (fallbackDepartmentId) {
       const fallbackDepartment = await this.prisma.department.findFirst({
@@ -345,9 +347,10 @@ export class ZohoWebhookService {
   }
 
   private async resolveIntegrationUserId(): Promise<string> {
-    const configuredUserId = this.configService
-      .get<string>('ZOHO_INTEGRATION_USER_ID')
-      ?.trim();
+    const configuredUserId = await this.zohoConfigService.getString(
+      SETTINGS_KEYS.ZOHO_INTEGRATION_USER_ID,
+      '',
+    );
 
     if (configuredUserId) {
       const configuredUser = await this.prisma.user.findFirst({
@@ -378,10 +381,11 @@ export class ZohoWebhookService {
     return fallbackUser.id;
   }
 
-  private resolveInboundDefaultStatus(): GeneralStatusEnum {
-    const configuredStatus = this.configService
-      .get<string>('ZOHO_INBOUND_DEFAULT_STATUS')
-      ?.trim();
+  private async resolveInboundDefaultStatus(): Promise<GeneralStatusEnum> {
+    const configuredStatus = await this.zohoConfigService.getString(
+      SETTINGS_KEYS.ZOHO_INBOUND_DEFAULT_STATUS,
+      '',
+    );
 
     if (
       configuredStatus &&

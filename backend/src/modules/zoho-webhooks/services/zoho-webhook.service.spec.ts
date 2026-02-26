@@ -1,13 +1,14 @@
 import { GeneralStatusEnum } from '@prisma/client';
-import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../core/prisma/prisma.service';
+import { SETTINGS_KEYS } from '../../settings/constants/settings-keys';
 import { ZohoWebhookDto } from '../dto/zoho-webhook.dto';
+import { ZohoConfigService } from './zoho-config.service';
 import { ZohoWebhookValidatorService } from './zoho-webhook-validator.service';
 import { ZohoWebhookService } from './zoho-webhook.service';
 
 describe('ZohoWebhookService', () => {
   let prismaService: PrismaService;
-  let configService: ConfigService;
+  let zohoConfigService: ZohoConfigService;
   let validatorService: ZohoWebhookValidatorService;
   let service: ZohoWebhookService;
 
@@ -40,17 +41,17 @@ describe('ZohoWebhookService', () => {
       },
     } as unknown as PrismaService;
 
-    configService = {
-      get: jest.fn((key: string) => {
+    zohoConfigService = {
+      getString: jest.fn((key: string, defaultValue: string) => {
         const values: Record<string, string> = {
-          ZOHO_INBOUND_DEFAULT_STATUS: 'OPEN',
-          ZOHO_DEFAULT_DEPARTMENT_ID: 'dept-1',
-          ZOHO_INTEGRATION_USER_ID: 'user-1',
+          [SETTINGS_KEYS.ZOHO_INBOUND_DEFAULT_STATUS]: 'OPEN',
+          [SETTINGS_KEYS.ZOHO_DEFAULT_DEPARTMENT_ID]: 'dept-1',
+          [SETTINGS_KEYS.ZOHO_INTEGRATION_USER_ID]: 'user-1',
         };
 
-        return values[key];
+        return Promise.resolve(values[key] ?? defaultValue);
       }),
-    } as unknown as ConfigService;
+    } as unknown as ZohoConfigService;
 
     validatorService = {
       resolveRequestId: jest.fn().mockReturnValue('req-1'),
@@ -70,7 +71,7 @@ describe('ZohoWebhookService', () => {
 
     service = new ZohoWebhookService(
       prismaService,
-      configService,
+      zohoConfigService,
       validatorService,
     );
   });

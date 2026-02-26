@@ -1,6 +1,10 @@
 import { randomUUID } from 'crypto';
-import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../../core/prisma/prisma.service';
+import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
+import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
+import { SettingsService } from '../../settings/settings.service';
 import { ZohoDeskApiClient } from '../services/zoho-desk-api.client';
+import { ZohoConfigService } from '../services/zoho-config.service';
 
 function parseArgs(argv: string[]): Record<string, string> {
   const parsed: Record<string, string> = {};
@@ -70,8 +74,19 @@ async function main(): Promise<void> {
   const payload = buildSamplePayload(args);
   const correlationId = args.correlationId || `corr-dummy-${randomUUID()}`;
 
-  const configService = new ConfigService();
-  const apiClient = new ZohoDeskApiClient(configService);
+  const prisma = new PrismaService();
+  await prisma.onModuleInit();
+
+  const settingsService = new SettingsService(
+    prisma,
+    new DtoMapperService(),
+    new ErrorHandlingService(),
+  );
+
+  const zohoConfigService = new ZohoConfigService(settingsService);
+  await zohoConfigService.onModuleInit();
+
+  const apiClient = new ZohoDeskApiClient(zohoConfigService);
 
   const response = await apiClient.createRequest(payload, correlationId);
 
@@ -95,6 +110,8 @@ async function main(): Promise<void> {
       2,
     ),
   );
+
+  await prisma.onModuleDestroy();
 }
 
 main().catch((error: unknown) => {
