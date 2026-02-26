@@ -114,9 +114,9 @@ jobs:
 
             echo ""
             echo "🌱 Running database seed..."
-            echo "Running: npx ts-node --transpile-only prisma/seed.ts"
-            # Run seed explicitly with transpile-only to avoid strict type-check mismatch in runtime container
-            docker exec -w /app burangrang-backend npx ts-node --transpile-only prisma/seed.ts
+            echo "Running: npx ts-node --transpile-only prisma/seed.ts (with TS_NODE_COMPILER_OPTIONS)"
+            # Force commonjs/node so ts-node in container does not require NodeNext (TS5109)
+            docker exec -w /app -e TS_NODE_COMPILER_OPTIONS='{"module":"commonjs","moduleResolution":"node"}' burangrang-backend npx ts-node --transpile-only prisma/seed.ts
             
             echo ""
             echo "✅ Database reset completed successfully!"
