@@ -94,16 +94,16 @@ jobs:
             fi
             
             echo "📋 Current database status:"
-            docker exec burangrang-backend npx prisma migrate status || echo "⚠️  Could not check migration status"
+            docker exec -w /app burangrang-backend npx prisma migrate status || echo "⚠️  Could not check migration status"
             
             echo ""
             echo "🔄 Resetting database..."
-            echo "Running: npx prisma migrate reset --non-interactive"
+            echo "Running: npx prisma migrate reset --force"
             
-            # Run the reset command
-            # --non-interactive: Skip interactive prompts (required for CI/CD)
+            # Run the reset command (from backend app root /app)
+            # --force: Skip the confirmation prompt (required for CI/CD)
             # Note: This will also run seed scripts if configured in package.json
-            docker exec burangrang-backend npx prisma migrate reset --non-interactive
+            docker exec -w /app burangrang-backend npx prisma migrate reset --force
             
             echo ""
             echo "✅ Database reset completed successfully!"
@@ -118,11 +118,11 @@ jobs:
           echo "Verifying database reset..."
           ssh $VPS_USER@$VPS_HOST << ENDSSH
             echo "📋 Migration status after reset:"
-            docker exec burangrang-backend npx prisma migrate status
+            docker exec -w /app burangrang-backend npx prisma migrate status
             
             echo ""
             echo "🔍 Verifying Prisma Client:"
-            docker exec burangrang-backend npx prisma generate --schema=./prisma/schema.prisma || echo "⚠️  Prisma client generation skipped"
+            docker exec -w /app burangrang-backend npx prisma generate --schema=./prisma/schema.prisma || echo "⚠️  Prisma client generation skipped"
             
             echo ""
             echo "✅ Database reset verification completed!"
