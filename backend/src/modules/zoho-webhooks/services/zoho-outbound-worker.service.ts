@@ -4,11 +4,12 @@ import {
   type ZohoOutboundJob,
 } from '@prisma/client';
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../core/prisma/prisma.service';
+import { SETTINGS_KEYS } from '../../settings/constants/settings-keys';
 import { ZohoDeskApiClient } from './zoho-desk-api.client';
+import { ZohoConfigService } from './zoho-config.service';
 
 @Injectable()
 export class ZohoOutboundWorkerService {
@@ -17,9 +18,9 @@ export class ZohoOutboundWorkerService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService,
+    private readonly zohoConfigService: ZohoConfigService,
     private readonly zohoDeskApiClient: ZohoDeskApiClient,
-  ) {}
+  ) { }
 
   @Cron(CronExpression.EVERY_10_SECONDS)
   async processDueJobs(): Promise<void> {
@@ -27,15 +28,20 @@ export class ZohoOutboundWorkerService {
       return;
     }
 
-    if (!this.getBoolean('ZOHO_SYNC_ENABLED', true)) {
+    const syncEnabled = await this.zohoConfigService.getBoolean(
+      SETTINGS_KEYS.ZOHO_SYNC_ENABLED,
+      true,
+    );
+    if (!syncEnabled) {
       return;
     }
 
     this.isRunning = true;
 
     try {
-      const batchSize = Number(
-        this.configService.get<string>('ZOHO_WORKER_BATCH_SIZE') || 5,
+      const batchSize = await this.zohoConfigService.getNumber(
+        SETTINGS_KEYS.ZOHO_WORKER_BATCH_SIZE,
+        5,
       );
 
       for (let i = 0; i < batchSize; i += 1) {
@@ -147,7 +153,7 @@ export class ZohoOutboundWorkerService {
       const maxAttempts = job.maxAttempts;
 
       if (retryable && attempt < maxAttempts) {
-        const nextRetryAt = this.computeNextRetryAt(attempt);
+        const nextRetryAt = await this.computeNextRetryAt(attempt);
 
         await this.prisma.zohoOutboundJob.update({
           where: { id: job.id },
@@ -226,12 +232,14 @@ export class ZohoOutboundWorkerService {
     return next;
   }
 
-  private computeNextRetryAt(attempt: number): Date {
-    const base = Number(
-      this.configService.get<string>('ZOHO_RETRY_BASE_MS') || 2000,
+  private async computeNextRetryAt(attempt: number): Promise<Date> {
+    const base = await this.zohoConfigService.getNumber(
+      SETTINGS_KEYS.ZOHO_RETRY_BASE_MS,
+      2000,
     );
-    const cap = Number(
-      this.configService.get<string>('ZOHO_RETRY_MAX_MS') || 60000,
+    const cap = await this.zohoConfigService.getNumber(
+      SETTINGS_KEYS.ZOHO_RETRY_MAX_MS,
+      60000,
     );
     const exponential = Math.min(cap, base * 2 ** Math.max(0, attempt - 1));
     const jitter = Math.floor(
@@ -299,12 +307,4 @@ export class ZohoOutboundWorkerService {
     return 'Unknown error';
   }
 
-  private getBoolean(key: string, defaultValue: boolean): boolean {
-    const value = this.configService.get<string>(key);
-    if (value === undefined || value === null) {
-      return defaultValue;
-    }
-
-    return value.toLowerCase() === 'true' || value === '1';
-  }
 }

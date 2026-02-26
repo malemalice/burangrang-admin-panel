@@ -1,12 +1,12 @@
 import { ZohoOutboundJobStatusEnum } from '@prisma/client';
-import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { ZohoDeskApiClient } from './zoho-desk-api.client';
+import { ZohoConfigService } from './zoho-config.service';
 import { ZohoOutboundWorkerService } from './zoho-outbound-worker.service';
 
 describe('ZohoOutboundWorkerService', () => {
   let prismaService: PrismaService;
-  let configService: ConfigService;
+  let zohoConfigService: ZohoConfigService;
   let zohoDeskApiClient: ZohoDeskApiClient;
   let service: ZohoOutboundWorkerService;
 
@@ -34,18 +34,18 @@ describe('ZohoOutboundWorkerService', () => {
       },
     } as unknown as PrismaService;
 
-    configService = {
-      get: jest.fn((key: string) => {
-        const map: Record<string, string> = {
-          ZOHO_SYNC_ENABLED: 'true',
-          ZOHO_WORKER_BATCH_SIZE: '1',
-          ZOHO_RETRY_BASE_MS: '1000',
-          ZOHO_RETRY_MAX_MS: '5000',
+    zohoConfigService = {
+      getBoolean: jest.fn().mockResolvedValue(true),
+      getNumber: jest.fn((key: string) => {
+        const map: Record<string, number> = {
+          'zoho.worker.batch_size': 1,
+          'zoho.retry.base_ms': 1000,
+          'zoho.retry.max_ms': 5000,
         };
 
-        return map[key];
+        return Promise.resolve(map[key] ?? 1);
       }),
-    } as unknown as ConfigService;
+    } as unknown as ZohoConfigService;
 
     zohoDeskApiClient = {
       updateRequest: updateRequestMock,
@@ -53,7 +53,7 @@ describe('ZohoOutboundWorkerService', () => {
 
     service = new ZohoOutboundWorkerService(
       prismaService,
-      configService,
+      zohoConfigService,
       zohoDeskApiClient,
     );
   });

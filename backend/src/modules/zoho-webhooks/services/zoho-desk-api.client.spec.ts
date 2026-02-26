@@ -1,27 +1,34 @@
-import { ConfigService } from '@nestjs/config';
+import { SETTINGS_KEYS } from '../../settings/constants/settings-keys';
+import { ZohoConfigService } from './zoho-config.service';
 import { ZohoDeskApiClient } from './zoho-desk-api.client';
 
 describe('ZohoDeskApiClient', () => {
-  let configService: ConfigService;
+  let zohoConfigService: ZohoConfigService;
   let client: ZohoDeskApiClient;
 
   beforeEach(() => {
-    configService = {
-      get: jest.fn((key: string) => {
+    zohoConfigService = {
+      getString: jest.fn((key: string, defaultValue: string) => {
         const values: Record<string, string> = {
-          SDP_BASE_URL: 'https://servicedesk.hapfor.com',
-          SDP_API_VERSION: 'v3',
-          SDP_AUTHTOKEN: 'sdp-token',
-          ZOHO_MAX_RETRIES: '1',
-          ZOHO_RETRY_BASE_MS: '10',
-          ZOHO_RETRY_MAX_MS: '20',
+          [SETTINGS_KEYS.SDP_BASE_URL]: 'https://servicedesk.hapfor.com',
+          [SETTINGS_KEYS.SDP_API_VERSION]: 'v3',
+          [SETTINGS_KEYS.SDP_AUTHTOKEN]: 'sdp-token',
         };
 
-        return values[key];
+        return Promise.resolve(values[key] ?? defaultValue);
       }),
-    } as unknown as ConfigService;
+      getNumber: jest.fn((key: string, defaultValue: number) => {
+        const values: Record<string, number> = {
+          [SETTINGS_KEYS.ZOHO_MAX_RETRIES]: 1,
+          [SETTINGS_KEYS.ZOHO_RETRY_BASE_MS]: 10,
+          [SETTINGS_KEYS.ZOHO_RETRY_MAX_MS]: 20,
+        };
 
-    client = new ZohoDeskApiClient(configService);
+        return Promise.resolve(values[key] ?? defaultValue);
+      }),
+    } as unknown as ZohoConfigService;
+
+    client = new ZohoDeskApiClient(zohoConfigService);
     jest.clearAllMocks();
   });
 

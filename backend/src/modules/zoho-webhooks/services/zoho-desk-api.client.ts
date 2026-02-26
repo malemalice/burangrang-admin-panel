@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { SETTINGS_KEYS } from '../../settings/constants/settings-keys';
+import { ZohoConfigService } from './zoho-config.service';
 
 interface NormalizedApiError extends Error {
   statusCode?: number;
@@ -11,7 +12,7 @@ interface NormalizedApiError extends Error {
 export class ZohoDeskApiClient {
   private readonly logger = new Logger(ZohoDeskApiClient.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly zohoConfigService: ZohoConfigService) { }
 
   async updateRequest(
     requestId: string,
@@ -52,8 +53,9 @@ export class ZohoDeskApiClient {
     logMessage: string;
   }): Promise<Record<string, unknown>> {
     const { endpoint, method, payload, correlationId, logMessage } = params;
-    const maxAttempts = Number(
-      this.configService.get<string>('ZOHO_MAX_RETRIES') || 3,
+    const maxAttempts = await this.zohoConfigService.getNumber(
+      SETTINGS_KEYS.ZOHO_MAX_RETRIES,
+      3,
     );
 
     let lastError: unknown;
@@ -98,7 +100,7 @@ export class ZohoDeskApiClient {
           throw error;
         }
 
-        const backoffMs = this.computeBackoff(attempt);
+        const backoffMs = await this.computeBackoff(attempt);
         await this.sleep(backoffMs);
       }
     }
@@ -114,7 +116,7 @@ export class ZohoDeskApiClient {
     payload: Record<string, unknown>,
     correlationId: string,
   ): Promise<Record<string, unknown>> {
-    const { baseUrl, version, authToken } = this.resolveSdpConfig();
+    const { baseUrl, version, authToken } = await this.resolveSdpConfig();
     const url = `${baseUrl}/api/${version}${endpoint}`;
 
     const body = new URLSearchParams({
@@ -166,17 +168,23 @@ export class ZohoDeskApiClient {
     return parsed;
   }
 
-  private resolveSdpConfig(): {
+  private async resolveSdpConfig(): Promise<{
     baseUrl: string;
     version: string;
     authToken: string;
-  } {
-    const baseUrl =
-      this.configService.get<string>('SDP_BASE_URL')?.trim() ||
-      'https://servicedesk.hapfor.com';
-    const version =
-      this.configService.get<string>('SDP_API_VERSION')?.trim() || 'v3';
-    const authToken = this.configService.get<string>('SDP_AUTHTOKEN')?.trim();
+  }> {
+    const baseUrl = await this.zohoConfigService.getString(
+      SETTINGS_KEYS.SDP_BASE_URL,
+      'https://servicedesk.hapfor.com',
+    );
+    const version = await this.zohoConfigService.getString(
+      SETTINGS_KEYS.SDP_API_VERSION,
+      'v3',
+    );
+    const authToken = await this.zohoConfigService.getString(
+      SETTINGS_KEYS.SDP_AUTHTOKEN,
+      '',
+    );
 
     if (!authToken) {
       throw new Error('SDP_AUTHTOKEN is not configured');
@@ -189,12 +197,14 @@ export class ZohoDeskApiClient {
     };
   }
 
-  private computeBackoff(attempt: number): number {
-    const base = Number(
-      this.configService.get<string>('ZOHO_RETRY_BASE_MS') || 2000,
+  private async computeBackoff(attempt: number): Promise<number> {
+    const base = await this.zohoConfigService.getNumber(
+      SETTINGS_KEYS.ZOHO_RETRY_BASE_MS,
+      2000,
     );
-    const cap = Number(
-      this.configService.get<string>('ZOHO_RETRY_MAX_MS') || 60000,
+    const cap = await this.zohoConfigService.getNumber(
+      SETTINGS_KEYS.ZOHO_RETRY_MAX_MS,
+      60000,
     );
     const exponential = Math.min(cap, base * 2 ** Math.max(0, attempt - 1));
     const jitter = Math.floor(
