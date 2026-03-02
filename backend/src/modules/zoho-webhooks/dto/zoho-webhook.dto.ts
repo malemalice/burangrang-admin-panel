@@ -3,22 +3,35 @@ import { IsObject, IsOptional, IsString } from 'class-validator';
 
 export class ZohoWebhookDto {
   @ApiProperty({
-    description: 'Zoho event data',
+    required: false,
+    description: 'Zoho event data (direct payload format)',
     type: Object,
     additionalProperties: true,
   })
+  @IsOptional()
   @IsObject()
-  data: Record<string, unknown>;
+  data?: Record<string, unknown>;
 
   @ApiProperty({
     required: false,
-    description: 'Additional metadata',
+    description: 'Additional metadata (direct payload format)',
     type: Object,
     additionalProperties: true,
   })
   @IsOptional()
   @IsObject()
   meta?: Record<string, unknown>;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Zoho SDP wrapped payload format. Contains { data, meta } under body',
+    type: Object,
+    additionalProperties: true,
+  })
+  @IsOptional()
+  @IsObject()
+  body?: Record<string, unknown>;
 }
 
 export class ZohoWebhookResponseDto {

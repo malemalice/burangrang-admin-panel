@@ -20,7 +20,7 @@ export class ZohoWebhookService {
     private readonly prisma: PrismaService,
     private readonly zohoConfigService: ZohoConfigService,
     private readonly validatorService: ZohoWebhookValidatorService,
-  ) { }
+  ) {}
 
   async receiveWebhook(
     payload: ZohoWebhookDto,
@@ -33,8 +33,9 @@ export class ZohoWebhookService {
     const requestId = this.validatorService.resolveRequestId(requestIdHeader);
     const correlationId =
       this.validatorService.resolveCorrelationId(correlationIdHeader);
-    const ticketData = this.extractTicketData(payload);
-    const requestTimestamp = this.extractRequestTimestamp(payload);
+    const normalizedPayload = this.normalizeInboundPayload(payload);
+    const ticketData = this.extractTicketData(normalizedPayload);
+    const requestTimestamp = this.extractRequestTimestamp(normalizedPayload);
     const eventKeySeed = requestIdHeader?.trim() || requestTimestamp;
 
     if (!ticketData.id) {
@@ -42,7 +43,7 @@ export class ZohoWebhookService {
         eventType,
         'NO_TICKET_ID',
         eventKeySeed,
-        payload,
+        normalizedPayload,
       );
 
       await this.tryCreateWebhookLogOrIgnoreUnique({
@@ -52,7 +53,7 @@ export class ZohoWebhookService {
         ticketId: undefined,
         correlationId,
         status: 'FAILED',
-        payload,
+        payload: normalizedPayload,
         errorSummary: 'Missing ticket id on inbound payload',
       });
 
@@ -75,7 +76,7 @@ export class ZohoWebhookService {
       eventType,
       ticketData.id,
       eventKeySeed,
-      payload,
+      normalizedPayload,
     );
 
     if (await this.validatorService.isDuplicateByRequestId(requestId)) {
@@ -119,7 +120,7 @@ export class ZohoWebhookService {
       ticketId: ticketData.id,
       correlationId,
       status: 'RECEIVED',
-      payload,
+      payload: normalizedPayload,
     });
 
     if (!inserted) {
@@ -141,7 +142,7 @@ export class ZohoWebhookService {
 
     setImmediate(() => {
       void this.processInboundAsync({
-        payload,
+        payload: normalizedPayload,
         eventType,
         requestId,
         eventKey,
@@ -290,16 +291,20 @@ export class ZohoWebhookService {
       ticketNumber: this.readStringField(data.ticketNumber),
       subject: this.readStringField(data.subject),
       description: this.readStringField(data.description),
-      priority: this.readStringField(data.priority),
-      departmentId: this.readStringField(data.departmentId),
+      priority: this.extractPriorityValue(data.priority),
+      departmentId: this.normalizeNullableString(
+        this.readStringField(data.departmentId),
+      ),
     };
   }
 
   private extractRequestTimestamp(payload: ZohoWebhookDto): string {
     const meta = payload.meta ?? {};
     const timestamp = meta.timestamp;
-    if (typeof timestamp === 'string' && timestamp.trim().length > 0) {
-      return timestamp.trim();
+    const parsedTimestamp = this.extractTimestampValue(timestamp);
+
+    if (parsedTimestamp) {
+      return parsedTimestamp;
     }
 
     return 'NO_TIMESTAMP';
@@ -428,7 +433,7 @@ export class ZohoWebhookService {
   private mapPriorityToSeverity(
     priority: string | undefined,
   ): 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' {
-    const normalized = (priority || '').toLowerCase().trim();
+    const normalized = this.extractPriorityLabel(priority).toLowerCase().trim();
 
     if (normalized === 'urgent' || normalized === 'critical') {
       return 'EXTREME';
@@ -479,6 +484,121 @@ export class ZohoWebhookService {
     }
 
     return false;
+  }
+
+  private normalizeInboundPayload(payload: ZohoWebhookDto): ZohoWebhookDto {
+    const wrappedBody = payload.body;
+
+    if (
+      wrappedBody &&
+      typeof wrappedBody === 'object' &&
+      !Array.isArray(wrappedBody)
+    ) {
+      const bodyRecord = wrappedBody;
+      return {
+        data: this.readObjectField(bodyRecord.data) ?? payload.data,
+        meta: this.readObjectField(bodyRecord.meta) ?? payload.meta,
+      };
+    }
+
+    return payload;
+  }
+
+  private extractPriorityValue(value: unknown): string | undefined {
+    const priority = this.readStringField(value);
+
+    if (!priority) {
+      return undefined;
+    }
+
+    const parsedPriority = this.tryParseJsonObject(priority);
+    if (!parsedPriority) {
+      return priority;
+    }
+
+    const name = this.readStringField(parsedPriority.name);
+    return name ?? priority;
+  }
+
+  private extractPriorityLabel(priority: string | undefined): string {
+    if (!priority) {
+      return '';
+    }
+
+    const parsedPriority = this.tryParseJsonObject(priority);
+    if (!parsedPriority) {
+      return priority;
+    }
+
+    const name = this.readStringField(parsedPriority.name);
+    return name ?? priority;
+  }
+
+  private extractTimestampValue(value: unknown): string | undefined {
+    const timestamp = this.readStringField(value);
+    if (!timestamp) {
+      return undefined;
+    }
+
+    const parsedTimestamp = this.tryParseJsonObject(timestamp);
+    if (!parsedTimestamp) {
+      return timestamp;
+    }
+
+    const timestampValue = this.readStringField(parsedTimestamp.value);
+    if (timestampValue) {
+      return timestampValue;
+    }
+
+    const displayValue = this.readStringField(parsedTimestamp.display_value);
+    return displayValue ?? timestamp;
+  }
+
+  private normalizeNullableString(
+    value: string | undefined,
+  ): string | undefined {
+    if (!value) {
+      return undefined;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'null' || normalized === 'undefined') {
+      return undefined;
+    }
+
+    return value;
+  }
+
+  private readObjectField(value: unknown): Record<string, unknown> | undefined {
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      return value as Record<string, unknown>;
+    }
+
+    return undefined;
+  }
+
+  private tryParseJsonObject(
+    value: string,
+  ): Record<string, unknown> | undefined {
+    const trimmed = value.trim();
+    if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) {
+      return undefined;
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(trimmed);
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        !Array.isArray(parsed)
+      ) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return undefined;
+    }
+
+    return undefined;
   }
 
   private readStringField(value: unknown): string | undefined {
