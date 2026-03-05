@@ -20,8 +20,8 @@ export const createRiskCategoryFromQuery = async (
       throw new Error('Risk category name cannot be empty');
     }
 
-    // Generate code from name (uppercase, replace spaces with underscores)
-    const code = trimmedQuery.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '');
+    // Generate code from name (uppercase, replace spaces with hyphens)
+    const code = trimmedQuery.toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9-]/g, '');
 
     const newCategory = await riskCategoryService.create({
       name: trimmedQuery,

@@ -64,6 +64,7 @@ export const seedIncidents = async () => {
     const riskCategories = await prisma.riskCategory.findMany({
       where: { isActive: true },
     });
+    const securityRiskCategories = riskCategories.filter((c) => c.code.startsWith('SEC-'));
     const departments = await prisma.department.findMany({
       where: { isActive: true },
     });
@@ -1139,7 +1140,8 @@ export const seedIncidents = async () => {
       console.log(`✅ Created incident: ${incident.code} - ${t.subject}`);
     }
 
-    // Create security incidents (type: SECURITY)
+    // Create security incidents (type: SECURITY) — use only SEC- prefixed risk categories
+    const categoriesForSecurity = securityRiskCategories.length > 0 ? securityRiskCategories : riskCategories;
     for (const t of securityIncidentTemplates) {
       const incidentDate = generateDateInMonth(t.year, t.month);
       const dueDate = new Date(incidentDate);
@@ -1156,7 +1158,7 @@ export const seedIncidents = async () => {
           usedRoomIds.add(room.id);
         }
       }
-      const riskCategory = randomItem(riskCategories);
+      const riskCategory = randomItem(categoriesForSecurity);
       const requester = randomItem(users);
       const reporter = randomItem(users);
       const technician = Math.random() > 0.5 ? randomItem(techniciansList) : null;
