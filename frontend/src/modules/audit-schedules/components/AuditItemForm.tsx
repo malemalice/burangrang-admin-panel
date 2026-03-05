@@ -845,7 +845,7 @@ export const AuditItemForm = ({
               <FormLabel>Approval Notes</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Enter your approval notes..."
+                  placeholder="Enter your approval notes (optional for approve, required for reject)..."
                   value={approvalNotes}
                   onChange={(e) => setApprovalNotes(e.target.value)}
                   className="min-h-[100px]"
@@ -903,7 +903,7 @@ export const AuditItemForm = ({
                     setIsApproving(false);
                   }
                 }}
-                disabled={isApproving || !approvalNotes.trim()}
+                disabled={isApproving}
                 className="bg-green-600 hover:bg-green-700"
               >
                 <CheckCircle2 className="mr-2 h-4 w-4" />

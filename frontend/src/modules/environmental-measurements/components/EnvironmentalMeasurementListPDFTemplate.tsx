@@ -43,7 +43,7 @@ export function EnvironmentalMeasurementListPDFTemplate({
               <TableCell className="text-right">{m.noise ?? '-'}</TableCell>
               <TableCell className="text-right">{m.humidity ?? '-'}</TableCell>
               <TableCell className="text-right">{m.temperature ?? '-'}</TableCell>
-              <TableCell className="max-w-[200px] truncate">{m.remarks ?? '-'}</TableCell>
+              <TableCell className="break-words whitespace-pre-wrap">{m.remarks ?? '-'}</TableCell>
             </TableRow>
           ))}
         </TableBody>

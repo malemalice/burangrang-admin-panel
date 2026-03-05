@@ -4,6 +4,7 @@
  */
 
 // Pages
+export { default as RiskMatrixViewPage } from './pages/RiskMatrixViewPage';
 export { default as RiskMatrixManagementPage } from './pages/RiskMatrixManagementPage';
 export { default as RiskMatricesPage } from './pages/RiskMatricesPage';
 export { default as CreateRiskMatrixPage } from './pages/CreateRiskMatrixPage';

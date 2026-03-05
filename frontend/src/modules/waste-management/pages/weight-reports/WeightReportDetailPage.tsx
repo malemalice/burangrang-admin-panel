@@ -164,7 +164,7 @@ export default function WeightReportDetailPage() {
             </div>
 
             {/* Hidden PDF Template */}
-            <div className="absolute left-[-9999px] top-0">
+            <div className="absolute left-[-9999px] top-0" style={{ width: '210mm' }}>
                 <div ref={targetRef}>
                     {data && <WeightReportPDFTemplate report={data} />}
                 </div>

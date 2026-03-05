@@ -2516,10 +2516,12 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                 </CardHeader>
                 <CardContent>
                   <FormItem>
-                    <FormLabel>Approval Notes <span className="text-red-500">*</span></FormLabel>
+                    <FormLabel>
+                      Approval Notes <span className="text-red-500">* (required for rejection)</span>
+                    </FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Enter your approval notes..."
+                        placeholder="Enter your approval notes (optional for approve, required for reject)..."
                         value={approvalNotes}
                         onChange={(e) => setApprovalNotes(e.target.value)}
                         className="min-h-[100px]"
@@ -2577,7 +2579,6 @@ const IncidentForm = ({ incident, mode, entryMode }: IncidentFormProps) => {
                     }}
                     disabled={
                       isApproving ||
-                      !approvalNotes.trim() ||
                       !approverActivities
                     }
                     className="bg-green-600 hover:bg-green-700"

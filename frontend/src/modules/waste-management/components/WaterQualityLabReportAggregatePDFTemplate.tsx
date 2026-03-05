@@ -151,6 +151,8 @@ export function WaterQualityLabReportAggregatePDFTemplate({
                 style={{
                   border: '1px solid #d1d5db',
                   padding: '6px 8px',
+                  overflowWrap: 'break-word',
+                  wordBreak: 'break-word',
                 }}
               >
                 {row.samplePeriod}
@@ -159,6 +161,8 @@ export function WaterQualityLabReportAggregatePDFTemplate({
                 style={{
                   border: '1px solid #d1d5db',
                   padding: '6px 8px',
+                  overflowWrap: 'break-word',
+                  wordBreak: 'break-word',
                 }}
               >
                 {row.treatmentPlantName}
@@ -167,6 +171,8 @@ export function WaterQualityLabReportAggregatePDFTemplate({
                 style={{
                   border: '1px solid #d1d5db',
                   padding: '6px 8px',
+                  overflowWrap: 'break-word',
+                  wordBreak: 'break-word',
                 }}
               >
                 {row.categoryLabel}
@@ -178,6 +184,8 @@ export function WaterQualityLabReportAggregatePDFTemplate({
                     border: '1px solid #d1d5db',
                     padding: '6px 8px',
                     textAlign: 'center',
+                    overflowWrap: 'break-word',
+                    wordBreak: 'break-word',
                   }}
                 >
                   {getParamCellValue(row, col.id)}
