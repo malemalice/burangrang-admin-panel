@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Info, Loader2 } from 'lucide-react';
 
 import { Button } from '@/core/components/ui/button';
 import {
@@ -28,6 +28,7 @@ import riskMitigationService, { type RiskMitigation } from '../services/riskMiti
 import { riskCategoryService, riskService } from '@/modules/master-data';
 import { createRiskCategoryFromQuery } from '@/modules/master-data/pages/risk-categories';
 import { createRiskFromQuery } from '@/modules/master-data/pages/risks';
+import { RiskMatrixReferenceDialog } from './RiskMatrixReferenceDialog';
 
 // Normalize likelihood: only accept single letter A-E (risk matrix format). Reject names/abbreviations like "Medium"->"ME" or "Low"->"LO".
 // Risk matrix pattern: likelihoodLevel + consequenceLevel (e.g. A1, A4, B4)
@@ -86,7 +87,7 @@ export type RiskAssessmentItemFormMode = 'creator' | 'updater';
 interface RiskAssessmentItemFormProps {
   assessmentId?: string;
   initialItem?: Partial<CreateRiskAssessmentItemDTO>;
-  mode?: RiskAssessmentItemFormMode; // creator: edit basic, pre-control, mitigation; read post-control, legal. updater: inverse.
+  mode?: RiskAssessmentItemFormMode; // creator: edit basic, pre-control, mitigation, post-control; read legal. updater: edit post-control and legal; read basic, pre-control, mitigation.
   onSubmit?: (item: CreateRiskAssessmentItemDTO) => void;
   onCancel?: () => void;
   showCard?: boolean; // Optional: whether to show Card wrapper (default: true)
@@ -109,7 +110,8 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
   const isUpdaterMode = mode === 'updater';
   const canEditBasicAndPreControl = isCreatorMode;
   const canEditMitigation = isCreatorMode;
-  const canEditPostControlAndLegal = isUpdaterMode;
+  const canEditPostControl = true; // both creator and updater can edit post-control
+  const canEditLegalAspect = isUpdaterMode;
   const [risks, setRisks] = useState<Risk[]>([]);
   const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
   const [riskMatrixData, setRiskMatrixData] = useState<RiskMatrixEntry[]>([]);
@@ -119,6 +121,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
   const [isLoadingRisks, setIsLoadingRisks] = useState(false);
   const [isLoadingRiskCategories, setIsLoadingRiskCategories] = useState(false);
   const [isLoadingRiskMitigations, setIsLoadingRiskMitigations] = useState(false);
+  const [riskMatrixOpen, setRiskMatrixOpen] = useState(false);
   const isInitialMount = useRef(true);
   const previousRiskId = useRef<string | undefined>(undefined);
 
@@ -753,7 +756,17 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
 
         {/* Pre-Control Assessment - editable in creator mode, read-only in updater mode */}
         <div>
-          <h3 className="text-lg font-medium mb-4">Pre-Control Assessment</h3>
+          <div className="flex items-center gap-2 mb-4">
+            <h3 className="text-lg font-medium">Pre-Control Assessment</h3>
+            <button
+              type="button"
+              onClick={() => setRiskMatrixOpen(true)}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="View risk matrix reference"
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <FormField
               control={form.control}
@@ -968,8 +981,8 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
                         className="min-h-[120px] resize-y"
                         {...field}
                         value={field.value || ''}
-                        disabled={!canEditPostControlAndLegal}
-                        readOnly={!canEditPostControlAndLegal}
+                        disabled={!canEditLegalAspect}
+                        readOnly={!canEditLegalAspect}
                       />
                     </FormControl>
                     <FormMessage />
@@ -986,9 +999,19 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
 
         <Separator />
 
-        {/* Post-Control Assessment - editable in updater mode, read-only in creator mode */}
+        {/* Post-Control Assessment - editable by both creator and updater */}
         <div>
-          <h3 className="text-lg font-medium mb-4">Post-Control Assessment</h3>
+          <div className="flex items-center gap-2 mb-4">
+            <h3 className="text-lg font-medium">Post-Control Assessment</h3>
+            <button
+              type="button"
+              onClick={() => setRiskMatrixOpen(true)}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="View risk matrix reference"
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <FormField
               control={form.control}
@@ -1009,7 +1032,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
                       placeholder="Select level"
                       searchPlaceholder="Search likelihood level..."
                       emptyText="No likelihood levels found"
-                      disabled={!canEditPostControlAndLegal}
+                      disabled={!canEditPostControl}
                     />
                   </FormControl>
                   <FormMessage />
@@ -1035,7 +1058,7 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
                       placeholder="Select level"
                       searchPlaceholder="Search consequence level..."
                       emptyText="No consequence levels found"
-                      disabled={!canEditPostControlAndLegal}
+                      disabled={!canEditPostControl}
                     />
                   </FormControl>
                   <FormMessage />
@@ -1101,18 +1124,26 @@ const RiskAssessmentItemForm = ({ assessmentId, initialItem, mode = 'creator', o
 
   if (showCard) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Risk Assessment Item</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {formContent}
-        </CardContent>
-      </Card>
+      <>
+        <Card>
+          <CardHeader>
+            <CardTitle>Risk Assessment Item</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {formContent}
+          </CardContent>
+        </Card>
+        <RiskMatrixReferenceDialog open={riskMatrixOpen} onOpenChange={setRiskMatrixOpen} />
+      </>
     );
   }
 
-  return formContent;
+  return (
+    <>
+      {formContent}
+      <RiskMatrixReferenceDialog open={riskMatrixOpen} onOpenChange={setRiskMatrixOpen} />
+    </>
+  );
 };
 
 export default RiskAssessmentItemForm;
