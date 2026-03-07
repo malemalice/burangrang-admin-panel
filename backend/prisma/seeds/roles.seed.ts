@@ -20,12 +20,19 @@ function getManagerUserPermissionNames(): Set<string> {
     'course',
     'chapter',
     'enrollment',
-    'quiz',
     'work-permit',
     'risk',
     'risk-mitigation',
     'risk-category',
     'risk-matrix',
+  ];
+  const quizPermissions = [
+    'quiz:create',
+    'quiz:read',
+    'quiz:update',
+    'quiz:delete',
+    'quiz:list',
+    'quiz:attempt',
   ];
   const readListOnlyModules = [
     'dashboard',
@@ -42,6 +49,9 @@ function getManagerUserPermissionNames(): Set<string> {
   const set = new Set<string>();
   for (const mod of fullModules) {
     for (const a of actions) set.add(`${mod}:${a}`);
+  }
+  for (const permission of quizPermissions) {
+    set.add(permission);
   }
   for (const mod of readListOnlyModules) {
     for (const a of readListActions) set.add(`${mod}:${a}`);
