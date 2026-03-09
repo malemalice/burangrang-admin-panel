@@ -81,7 +81,7 @@ const PPEStockInPage = () => {
         const params: PPEStockSearchParams = {
             page: pageIndex + 1,
             limit,
-            sortBy: sorting?.id === 'stockStatus' ? 'isActive' : (sorting?.id || 'receivedDate'),
+            sortBy: sorting?.id === 'stockStatus' ? 'isActive' : (sorting?.id || 'updatedAt'),
             sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'desc',
             search: searchValue || undefined,
             isActive: activeFilters.isActive?.value === 'true' ? true : activeFilters.isActive?.value === 'false' ? false : undefined,
