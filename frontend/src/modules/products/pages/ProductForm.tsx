@@ -15,6 +15,7 @@ import {
 } from '@/core/components/ui/form';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
+import { RichTextEditor } from '@/core/components/ui/rich-text-editor';
 import { Switch } from '@/core/components/ui/switch';
 import {
   Select,
@@ -866,10 +867,11 @@ const ProductForm = ({ product, mode }: ProductFormProps) => {
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea 
+                    <RichTextEditor
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
                       placeholder="Detailed description of the product"
-                      className="min-h-[120px]"
-                      {...field}
+                      minHeight="120px"
                     />
                   </FormControl>
                   <FormMessage />

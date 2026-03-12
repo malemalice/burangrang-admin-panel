@@ -1,0 +1,132 @@
+# HSE Dashboard Project Rules
+
+## Context-Aware Rules
+
+### Backend Development
+When working on files in `backend/` directory:
+- **Primary Reference**: Follow all patterns and guidelines in `backend/TRD.md`
+- **Architecture**: NestJS with TypeScript; Controllers → Services → Database (Prisma ORM, PostgreSQL)
+- **Module Structure**: Feature modules with `[module].module.ts`, controllers/, services/, dto/; import **PrismaModule** and **SharedModule** (never inject PrismaService directly in module providers)
+- **Guards**: Use `JwtAuthGuard` and `RolesGuard`; apply `@Roles()` to all endpoints; use `@Public()` for public routes
+- **Error Handling**: Use ErrorHandlingService only (e.g. `throwIfNotFoundById`); never throw NotFoundException directly
+- **DTO Mapping**: Use DtoMapperService (createSimpleMapper, createRelationMapper) for all entity-to-DTO transformations
+- **API Design**: RESTful (GET/POST/PATCH/DELETE), pagination (`page`, `limit`, `sortBy`, `sortOrder`, `search`), Swagger (`@ApiTags`, `@ApiBearerAuth`, `@ApiOperation`, `@ApiResponse`, `@ApiQuery`/`@ApiParam`/`@ApiBody`)
+- **DTOs**: `@ApiProperty()`, `@Expose()`, class-validator; constructor(partial); exclude sensitive fields
+- **Domain**: Order status workflow (PENDING → FULFILLED, etc.), product types (EBOOK, COURSE, VIDEO, BUNDLE), Upload module (storage abstraction, categories, public/private access), Mail module (templated emails, DB templates)
+
+### Frontend Development
+When working on files in `frontend/` directory:
+- **Primary Reference**: Follow all patterns and guidelines in `frontend/TRD.md`
+- **Architecture**: Modular, feature-based; `core/` (layout, ui, lib, routes), `modules/[module]/` (components, pages, services, types, hooks, routes), `shared/`
+- **Module Structure**: Barrel exports in `index.ts`; path aliases `@/core/*`, `@/modules/*`, `@/shared/*`
+- **State**: Local module state; React Context for cross-module; memoized hooks with `useCallback` to avoid infinite loops
+- **API**: Service layer only; DTO→model mapping in services; use `api` from `@/core/lib/api`
+- **Tables**: Use shared DataTable; consistent columns and action dropdowns; **controlled dropdown state** with single `openDropdownId`; close dropdown and reset state on delete/cancel
+- **Forms**: React Hook Form + Zod (`zodResolver`); Card + FormField + FormMessage; SearchableSelect/ModalCombobox for selects
+- **Hooks**: `use[Entities]` / `use[Entity]`; **all exported functions must be memoized with useCallback**; include memoized functions in useEffect dependencies to prevent infinite loading
+- **Feedback**: Sonner toast (success/error); loading spinners per design system
+- **Components**: Use shadcn/ui from `@/core/components/ui`
+
+### UI/UX and Design System
+When working on UI/UX, styling, or design-related files in `frontend/`:
+- **Design System Reference**: Follow design system guidelines in `frontend/TRD.md` (Design System section)
+- **Color System**: Use semantic color tokens from BurangrangDesign System (e.g. `bg-primary`, `text-muted-foreground`, `border-border`); never hard-coded colors
+- **Typography**: Follow typography patterns (page titles, card titles, body, labels) and Tailwind scale
+- **Spacing**: Use Tailwind spacing scale (e.g. space-1 through space-8, p-4 md:p-6, gap-4, space-y-6)
+- **Components**: Use shadcn/ui consistently; Button variants (default, destructive, outline, secondary, ghost, link)
+- **Icons**: Lucide React; use Icon component or import only needed icons
+- **Theme**: Light/dark via useTheme(); CSS variables; support both modes
+- **Layout**: PageHeader → content; max-w-4xl for forms; Card with CardHeader/CardContent, space-y-6
+- **Status Colors**: Semantic (e.g. green-100/green-800 active, yellow pending, red error, blue info)
+- **Inside Dialogs**: Use ModalCombobox instead of SearchableSelect (portal-free); close dropdown before opening dialog to avoid focus traps
+
+### Entity and ERD Related Work
+When working on:
+- Database schema changes (`backend/prisma/schema.prisma`)
+- Entity relationships
+- Database migrations
+- ERD documentation
+- Data modeling
+
+**References to consult:**
+1. **Primary Schema**: `backend/prisma/schema.prisma` - Current database schema
+2. **ERD Documentation**: `backend/erd.md` - Complete entity relationship documentation
+3. **ERD Quick Reference**: `backend/erd-quick-reference.md` - Quick lookup for relationships
+4. **ERD Pre-Documentation**: `backend/erd-pre.md` - Historical/previous ERD documentation
+
+**Naming Conventions:**
+- Master Data Tables: `m_` prefix (e.g., `m_roles`, `m_offices`, `m_departments`)
+- Transactional Data Tables: `t_` prefix (e.g., `t_users`, `t_approvals`, `t_risk_assessment`)
+- Junction Tables: `_` prefix (e.g., `_PermissionToRole`, `_MenuToRole`)
+
+**Key Principles:**
+- Always check existing relationships before adding new ones
+- Maintain referential integrity
+- Follow established naming conventions
+- Update ERD documentation when schema changes
+
+## General Rules
+
+### Code Quality
+- Use TypeScript with strict mode
+- Follow established patterns from TRD documents
+- Write comprehensive error handling
+- Include proper validation
+- Document complex logic
+
+### Security
+- Never hardcode secrets or credentials
+- Use environment variables for configuration
+- Implement proper authentication and authorization
+- Validate all user inputs
+
+### Database
+- Never run migrations or seed scripts without explicit user permission
+- Always check schema.prisma before making database changes
+- Follow Prisma best practices
+
+### Testing
+- Write tests for new features
+- Maintain test coverage standards
+- Use appropriate testing patterns from TRD
+
+### Documentation
+- Update TRD.md when making significant changes
+- Keep code comments concise and meaningful
+- Document API endpoints with Swagger
+
+## File-Specific Guidelines
+
+### Backend Files
+- **Controllers**: Use `@ApiTags`, `@ApiBearerAuth`, `@UseGuards(JwtAuthGuard, RolesGuard)`; `@Roles()` on every endpoint; `@ApiOperation`, `@ApiResponse`, `@ApiQuery`/`@ApiParam`/`@ApiBody`
+- **Services**: Inject `PrismaService`, `ErrorHandlingService`, `DtoMapperService`; initialize mappers in constructor; use ErrorHandlingService for not-found and safe execution
+- **DTOs**: Use `@ApiProperty()`, `@Expose()`, validation decorators; constructor(partial); exclude sensitive fields
+- **Modules**: Import `PrismaModule` and `SharedModule` (do not put PrismaService in providers)
+
+### Frontend Files
+- **Pages**: Use PageHeader at page level, max-w-4xl wrapper for forms; memoized load function and single useEffect for data loading
+- **Forms**: Card with CardHeader and CardContent, space-y-6; React Hook Form + Zod; FormField/FormItem/FormLabel/FormControl/FormMessage
+- **Tables**: Use DataTable component; consistent column structure; controlled DropdownMenu with `openDropdownId`; reset dropdown state on delete/cancel; use `event?.stopPropagation()` when opening dialogs from dropdown items
+- **Services**: Service layer with DTO↔model mapping; consistent error handling and pagination params
+- **Hooks**: Provide use[Entities] and use[Entity]; wrap all exported functions with useCallback; include memoized functions in useEffect dependencies
+
+### UI Components
+- **Inside Dialogs**: Use ModalCombobox instead of SearchableSelect (portal-free)
+- **Dropdown + Dialog**: Close dropdown before opening dialog to prevent focus traps; single state `openDropdownId` for action dropdowns
+- **Status Badges**: Use semantic colors (e.g. green-100 bg, green-800 text for active)
+- **Buttons**: Follow button hierarchy (Primary → Secondary → Ghost → Destructive)
+
+## Context Detection
+
+The AI should automatically detect:
+- **Backend context**: Files in `backend/src/`, `backend/prisma/`
+- **Frontend context**: Files in `frontend/src/`
+- **UI/UX context**: Files in `frontend/src/` with UI components, styling, or design-related code
+- **Entity/ERD context**: Files related to `schema.prisma`, migrations, or ERD documentation
+
+## Priority Order
+
+1. **Path-based rules** (backend/ vs frontend/)
+2. **File-type rules** (UI components, forms, services)
+3. **General project rules**
+4. **TRD document references** (consult when needed)
