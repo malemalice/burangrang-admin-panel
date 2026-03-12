@@ -26,9 +26,9 @@ import { FindSafetyEquipmentDto } from './dto/find-safety-equipment.dto';
 import { FindMovementsDto } from './dto/find-movements.dto';
 import { StockMovementDto } from './dto/stock-movement.dto';
 import {
-  PPEStockStatusEnum,
-  PPEWithdrawalStatusEnum,
-  Prisma,
+    PPEStockStatusEnum,
+    PPEWithdrawalStatusEnum,
+    Prisma,
 } from '@prisma/client';
 import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
 import { MasterApprovalsService } from '../approvals/master-approvals.service';
@@ -276,7 +276,7 @@ export class PPEService {
         const {
             page = 1,
             limit = 10,
-            sortBy = 'receivedDate',
+            sortBy = 'updatedAt',
             sortOrder = 'desc',
             isActive,
             search,
@@ -1104,7 +1104,7 @@ export class PPEService {
         const {
             page = 1,
             limit = 10,
-            sortBy = 'createdAt',
+            sortBy = 'updatedAt',
             sortOrder = 'desc',
             isActive,
             search,
@@ -1890,8 +1890,8 @@ export class PPEService {
         const {
             page = 1,
             limit = 10,
-            sortBy = 'name',
-            sortOrder = 'asc',
+            sortBy = 'updatedAt',
+            sortOrder = 'desc',
             isActive,
             search,
             name,
@@ -1930,9 +1930,9 @@ export class PPEService {
         // Build order by clause
         const orderBy: Prisma.SafetyEquipmentTypeOrderByWithRelationInput = {};
         if (sortBy) {
-            orderBy[sortBy] = sortOrder || 'asc';
+            orderBy[sortBy] = sortOrder || 'desc';
         } else {
-            orderBy.name = 'asc';
+            orderBy.updatedAt = 'desc';
         }
 
         // Get total count
@@ -2070,8 +2070,8 @@ export class PPEService {
         const {
             page = 1,
             limit = 10,
-            sortBy = 'name',
-            sortOrder = 'asc',
+            sortBy = 'updatedAt',
+            sortOrder = 'desc',
             isActive,
             search,
             category,
@@ -2123,9 +2123,9 @@ export class PPEService {
         // Build order by clause
         const orderBy: Prisma.SafetyEquipmentOrderByWithRelationInput = {};
         if (sortBy) {
-            orderBy[sortBy] = sortOrder || 'asc';
+            orderBy[sortBy] = sortOrder || 'desc';
         } else {
-            orderBy.name = 'asc';
+            orderBy.updatedAt = 'desc';
         }
 
         // Get total count
@@ -2438,7 +2438,7 @@ export class PPEService {
             currentBalance += m.quantity;
             if (m.quantity > 0) totalIn += m.quantity;
             else totalOut += Math.abs(m.quantity);
-            
+
             return {
                 ...m,
                 runningBalance: currentBalance,

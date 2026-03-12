@@ -688,6 +688,28 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
     }
   };
 
+  const sanitizeHazards = (hazards: FormValues['hazards']) => {
+    if (!hazards?.length) {
+      return [];
+    }
+
+    return hazards
+      .map((hazard, index) => ({
+        ...hazard,
+        hazardId: hazard.hazardId?.trim() || undefined,
+        hazardName: hazard.hazardName.trim(),
+        description: hazard.description?.trim() || undefined,
+        controlMeasure: hazard.controlMeasure?.trim() || undefined,
+        order: index,
+      }))
+      .filter((hazard) => {
+        const hasHazardName = hazard.hazardName.length > 0;
+        const hasOtherValues = Boolean(hazard.description || hazard.controlMeasure || hazard.hazardId);
+
+        return hasHazardName || hasOtherValues;
+      });
+  };
+
   const handleSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
     try {
@@ -701,7 +723,12 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
         return;
       }
 
-      await onSubmit(data as CreateWorkPermitDTO);
+      const sanitizedData: FormValues = {
+        ...data,
+        hazards: sanitizeHazards(data.hazards),
+      };
+
+      await onSubmit(sanitizedData as CreateWorkPermitDTO);
     } catch (error) {
       console.error('Error submitting form:', error);
     } finally {
@@ -985,8 +1012,8 @@ const WorkPermitForm = ({ workPermit, mode, onSubmit }: WorkPermitFormProps) => 
                         searchQ.trim() === ''
                           ? workerOptions
                           : workerOptions.filter((o) =>
-                              o.label.toLowerCase().includes(searchQ.toLowerCase()),
-                            );
+                            o.label.toLowerCase().includes(searchQ.toLowerCase()),
+                          );
                       return (
                         <FormItem>
                           <div className="flex items-center justify-between gap-2">
