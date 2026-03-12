@@ -11,9 +11,14 @@ interface MonthlyFlowReportPDFTemplateProps {
 export function MonthlyFlowReportPDFTemplate({ report }: MonthlyFlowReportPDFTemplateProps) {
   const getStatusBadge = (status: ReportStatusEnum) => {
     return (
-      <Badge variant={status === ReportStatusEnum.SUBMITTED ? 'default' : 'secondary'}>
-        {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-      </Badge>
+      <div className="flex min-h-12 items-center px-4">
+        <Badge
+          variant={status === ReportStatusEnum.SUBMITTED ? 'default' : 'secondary'}
+          className="inline-flex items-center leading-none align-middle"
+        >
+          {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+        </Badge>
+      </div>
     );
   };
 
@@ -48,7 +53,7 @@ export function MonthlyFlowReportPDFTemplate({ report }: MonthlyFlowReportPDFTem
             </TableRow>
             <TableRow>
               <TableHead className="w-1/3 bg-muted/50 font-semibold">Status</TableHead>
-              <TableCell className="align-middle">{getStatusBadge(report.status)}</TableCell>
+              <TableCell className="align-middle py-2">{getStatusBadge(report.status)}</TableCell>
             </TableRow>
           </TableBody>
         </Table>

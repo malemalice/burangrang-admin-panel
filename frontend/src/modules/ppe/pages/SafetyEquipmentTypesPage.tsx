@@ -70,8 +70,8 @@ export default function SafetyEquipmentTypesPage() {
             page: pageIndex + 1,
             limit,
             search: searchTerm,
-            sortBy: sorting ? (sorting.id === 'status' ? 'isActive' : sorting.id) : 'name',
-            sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'asc',
+            sortBy: sorting ? (sorting.id === 'status' ? 'isActive' : sorting.id) : 'updatedAt',
+            sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'desc',
             filters: {
                 // Exclude status filter, only include other filters
                 ...Object.entries(activeFilters)

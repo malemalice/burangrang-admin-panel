@@ -127,6 +127,8 @@ export const permissions = [
   { name: 'quiz:delete', description: 'Delete quizzes' },
   { name: 'quiz:list', description: 'List all quizzes' },
   { name: 'quiz:publish', description: 'Publish/unpublish quizzes' },
+  { name: 'quiz:assign', description: 'Assign quizzes to users' },
+  { name: 'quiz:attempt', description: 'Start, resume, and submit quiz attempts' },
   { name: 'quiz:grade', description: 'Grade essay questions in quizzes' },
   { name: 'quiz:adjust-score', description: 'Manually adjust quiz attempt scores' },
   { name: 'quiz:view-attempts', description: 'View all quiz attempts for grading' },
