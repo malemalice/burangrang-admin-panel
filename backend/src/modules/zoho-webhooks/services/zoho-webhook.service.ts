@@ -2,15 +2,34 @@ import { GeneralStatusEnum, Prisma } from '@prisma/client';
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../core/prisma/prisma.service';
+import { SETTINGS_KEYS } from '../../settings/constants/settings-keys';
+import { DEFAULT_ZOHO_INBOUND_STATUS_MAP } from '../constants/zoho-inbound-status-map';
 import { ZOHO_EVENT_TYPES } from '../constants/zoho-event-types';
 import { ZohoTicketAddDataDto } from '../dto/zoho-ticket-add.dto';
 import {
   ZohoWebhookDto,
   ZohoWebhookResponseDto,
 } from '../dto/zoho-webhook.dto';
-import { SETTINGS_KEYS } from '../../settings/constants/settings-keys';
 import { ZohoConfigService } from './zoho-config.service';
 import { ZohoWebhookValidatorService } from './zoho-webhook-validator.service';
+
+interface InboundProcessingParams {
+  payload: ZohoWebhookDto;
+  eventType: string;
+  requestId: string;
+  eventKey: string;
+  correlationId: string;
+  ticketData: ZohoTicketAddDataDto;
+  isLegacyRoute: boolean;
+}
+
+interface InboundUpdateContext {
+  mappingId: string;
+  hseTaskId: string;
+  departmentId: string;
+  mappedStatus: GeneralStatusEnum | null;
+  zohoStatus: string | null;
+}
 
 @Injectable()
 export class ZohoWebhookService {
@@ -20,7 +39,7 @@ export class ZohoWebhookService {
     private readonly prisma: PrismaService,
     private readonly zohoConfigService: ZohoConfigService,
     private readonly validatorService: ZohoWebhookValidatorService,
-  ) {}
+  ) { }
 
   async receiveWebhook(
     payload: ZohoWebhookDto,
@@ -159,15 +178,58 @@ export class ZohoWebhookService {
     };
   }
 
-  private async processInboundAsync(params: {
-    payload: ZohoWebhookDto;
-    eventType: string;
-    requestId: string;
-    eventKey: string;
-    correlationId: string;
-    ticketData: ZohoTicketAddDataDto;
-    isLegacyRoute: boolean;
-  }): Promise<void> {
+  private async processInboundAsync(
+    params: InboundProcessingParams,
+  ): Promise<void> {
+    const { eventType } = params;
+
+    try {
+      if (eventType === ZOHO_EVENT_TYPES.TICKET_ADD) {
+        await this.handleTicketAddInbound(params);
+        return;
+      }
+
+      if (eventType === ZOHO_EVENT_TYPES.TICKET_UPDATE) {
+        await this.handleTicketUpdateInbound(params);
+        return;
+      }
+
+      await this.validatorService.updateWebhookLog(params.eventKey, 'PROCESSED', {
+        errorSummary: `Ignored unsupported event type: ${eventType}`,
+      });
+
+      this.validatorService.logStructured({
+        correlationId: params.correlationId,
+        requestId: params.requestId,
+        eventType,
+        eventKey: params.eventKey,
+        zohoTicketId: params.ticketData.id,
+        result: 'ignored_event_type',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      await this.validatorService.updateWebhookLog(params.eventKey, 'FAILED', {
+        errorMessage: message,
+        errorSummary: message.slice(0, 512),
+      });
+
+      this.logger.error(
+        JSON.stringify({
+          correlationId: params.correlationId,
+          requestId: params.requestId,
+          eventType: params.eventType,
+          eventKey: params.eventKey,
+          zohoTicketId: params.ticketData.id,
+          result: 'failed',
+          error: message,
+        }),
+      );
+    }
+  }
+
+  private async handleTicketAddInbound(
+    params: InboundProcessingParams,
+  ): Promise<void> {
     const {
       payload,
       eventType,
@@ -178,79 +240,10 @@ export class ZohoWebhookService {
       isLegacyRoute,
     } = params;
 
-    try {
-      if (eventType !== ZOHO_EVENT_TYPES.TICKET_ADD) {
-        await this.validatorService.updateWebhookLog(eventKey, 'PROCESSED', {
-          errorSummary: `Ignored unsupported event type: ${eventType}`,
-        });
-
-        this.validatorService.logStructured({
-          correlationId,
-          requestId,
-          eventType,
-          eventKey,
-          zohoTicketId: ticketData.id,
-          result: 'ignored_event_type',
-        });
-        return;
-      }
-
-      if (await this.validatorService.hasEntityMapping(ticketData.id)) {
-        await this.validatorService.updateWebhookLog(
-          eventKey,
-          'IGNORED_DUPLICATE',
-          {
-            errorSummary: `Duplicate entity mapping for Zoho ticket ${ticketData.id}`,
-          },
-        );
-
-        this.validatorService.logStructured({
-          correlationId,
-          requestId,
-          eventType,
-          eventKey,
-          zohoTicketId: ticketData.id,
-          result: 'ignored_duplicate_entity',
-        });
-        return;
-      }
-
-      const departmentId = await this.resolveDepartmentId(
-        ticketData.departmentId,
-      );
-      const integrationUserId = await this.resolveIntegrationUserId();
-      const initialStatus = await this.resolveInboundDefaultStatus();
-      const generatedCode = this.generateRiskAssessmentCode(
-        ticketData.ticketNumber,
-      );
-      const mappedDescription = this.composeDescription(ticketData);
-      const actionPlan = this.composeActionPlan(ticketData);
-
-      const createdRiskAssessment = await this.prisma.riskAssessment.create({
-        data: {
-          code: generatedCode,
-          description: mappedDescription,
-          departmentId,
-          assessmentDate: new Date(),
-          createdBy: integrationUserId,
-          status: initialStatus,
-          isActive: true,
-          actionPlan,
-        },
+    if (await this.validatorService.hasEntityMapping(ticketData.id)) {
+      await this.validatorService.updateWebhookLog(eventKey, 'IGNORED_DUPLICATE', {
+        errorSummary: `Duplicate entity mapping for Zoho ticket ${ticketData.id}`,
       });
-
-      await this.prisma.zohoTicketRiskAssessmentMap.create({
-        data: {
-          zohoTicketId: ticketData.id,
-          zohoTicketNumber: ticketData.ticketNumber,
-          hseTaskId: createdRiskAssessment.id,
-          lastZohoStatus: null,
-          lastHseStatus: createdRiskAssessment.status,
-          rawPayload: payload as unknown as Prisma.InputJsonValue,
-        },
-      });
-
-      await this.validatorService.updateWebhookLog(eventKey, 'PROCESSED');
 
       this.validatorService.logStructured({
         correlationId,
@@ -258,29 +251,141 @@ export class ZohoWebhookService {
         eventType,
         eventKey,
         zohoTicketId: ticketData.id,
-        hseTaskId: createdRiskAssessment.id,
-        legacyRoute: isLegacyRoute,
-        result: 'processed',
+        result: 'ignored_duplicate_entity',
       });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      await this.validatorService.updateWebhookLog(eventKey, 'FAILED', {
-        errorMessage: message,
-        errorSummary: message.slice(0, 512),
-      });
+      return;
+    }
 
-      this.logger.error(
-        JSON.stringify({
-          correlationId,
-          requestId,
-          eventType,
-          eventKey,
-          zohoTicketId: ticketData.id,
-          result: 'failed',
-          error: message,
-        }),
+    const departmentId = await this.resolveDepartmentId(ticketData.departmentId);
+    const integrationUserId = await this.resolveIntegrationUserId();
+    const initialStatus = await this.resolveInboundDefaultStatus();
+    const generatedCode = this.generateRiskAssessmentCode(ticketData.ticketNumber);
+    const mappedDescription = this.composeDescription(ticketData);
+    const actionPlan = this.composeActionPlan(ticketData);
+
+    const createdRiskAssessment = await this.prisma.riskAssessment.create({
+      data: {
+        code: generatedCode,
+        description: mappedDescription,
+        departmentId,
+        assessmentDate: new Date(),
+        createdBy: integrationUserId,
+        status: initialStatus,
+        isActive: true,
+        actionPlan,
+      },
+    });
+
+    await this.prisma.zohoTicketRiskAssessmentMap.create({
+      data: {
+        zohoTicketId: ticketData.id,
+        zohoTicketNumber: ticketData.ticketNumber,
+        hseTaskId: createdRiskAssessment.id,
+        lastZohoStatus: null,
+        lastHseStatus: createdRiskAssessment.status,
+        rawPayload: payload as unknown as Prisma.InputJsonValue,
+      },
+    });
+
+    await this.validatorService.updateWebhookLog(eventKey, 'PROCESSED');
+
+    this.validatorService.logStructured({
+      correlationId,
+      requestId,
+      eventType,
+      eventKey,
+      zohoTicketId: ticketData.id,
+      hseTaskId: createdRiskAssessment.id,
+      legacyRoute: isLegacyRoute,
+      result: 'processed',
+    });
+  }
+
+  private async handleTicketUpdateInbound(
+    params: InboundProcessingParams,
+  ): Promise<void> {
+    const updateContext = await this.resolveInboundUpdateContext(
+      params.payload,
+      params.ticketData,
+    );
+
+    const updatedRiskAssessment = await this.updateMappedRiskAssessmentFromZoho(
+      params.ticketData,
+      updateContext,
+    );
+
+    await this.prisma.zohoTicketRiskAssessmentMap.update({
+      where: { id: updateContext.mappingId },
+      data: {
+        lastZohoStatus: updateContext.zohoStatus,
+        lastHseStatus: updateContext.mappedStatus ?? updatedRiskAssessment.status,
+        rawPayload: params.payload as unknown as Prisma.InputJsonValue,
+      },
+    });
+
+    await this.validatorService.updateWebhookLog(params.eventKey, 'PROCESSED');
+
+    this.validatorService.logStructured({
+      correlationId: params.correlationId,
+      requestId: params.requestId,
+      eventType: params.eventType,
+      eventKey: params.eventKey,
+      zohoTicketId: params.ticketData.id,
+      hseTaskId: updateContext.hseTaskId,
+      legacyRoute: params.isLegacyRoute,
+      result: 'processed',
+    });
+  }
+
+  private async resolveInboundUpdateContext(
+    payload: ZohoWebhookDto,
+    ticketData: ZohoTicketAddDataDto,
+  ): Promise<InboundUpdateContext> {
+    const mapping = await this.prisma.zohoTicketRiskAssessmentMap.findUnique({
+      where: { zohoTicketId: ticketData.id },
+      select: {
+        id: true,
+        hseTaskId: true,
+        lastZohoStatus: true,
+        lastHseStatus: true,
+      },
+    });
+
+    if (!mapping?.hseTaskId) {
+      throw new Error(
+        `No risk assessment mapping found for Zoho ticket ${ticketData.id}`,
       );
     }
+
+    const departmentId = await this.resolveDepartmentId(ticketData.departmentId);
+    const zohoStatus = this.extractZohoStatusValue(payload);
+    const mappedStatus = await this.resolveInboundStatusFromZoho(zohoStatus);
+
+    return {
+      mappingId: mapping.id,
+      hseTaskId: mapping.hseTaskId,
+      departmentId,
+      mappedStatus,
+      zohoStatus,
+    };
+  }
+
+  private async updateMappedRiskAssessmentFromZoho(
+    ticketData: ZohoTicketAddDataDto,
+    updateContext: InboundUpdateContext,
+  ) {
+    const mappedDescription = this.composeDescription(ticketData);
+    const actionPlan = this.composeActionPlan(ticketData);
+
+    return this.prisma.riskAssessment.update({
+      where: { id: updateContext.hseTaskId },
+      data: {
+        description: mappedDescription,
+        departmentId: updateContext.departmentId,
+        status: updateContext.mappedStatus ?? undefined,
+        actionPlan,
+      },
+    });
   }
 
   private extractTicketData(payload: ZohoWebhookDto): ZohoTicketAddDataDto {
@@ -402,6 +507,50 @@ export class ZohoWebhookService {
     }
 
     return GeneralStatusEnum.OPEN;
+  }
+
+  private async resolveInboundStatusFromZoho(
+    zohoStatus: string | null,
+  ): Promise<GeneralStatusEnum | null> {
+    if (!zohoStatus) {
+      return null;
+    }
+
+    const configuredMap = await this.zohoConfigService.getJsonRecord(
+      SETTINGS_KEYS.ZOHO_INBOUND_STATUS_MAP,
+      this.serializeInboundStatusMap(DEFAULT_ZOHO_INBOUND_STATUS_MAP),
+    );
+
+    const resolvedValue = configuredMap[zohoStatus]?.trim();
+    if (
+      resolvedValue &&
+      Object.values(GeneralStatusEnum).includes(
+        resolvedValue as GeneralStatusEnum,
+      )
+    ) {
+      return resolvedValue as GeneralStatusEnum;
+    }
+
+    const fallback = DEFAULT_ZOHO_INBOUND_STATUS_MAP[zohoStatus];
+    return fallback ?? null;
+  }
+
+  private serializeInboundStatusMap(
+    statusMap: Record<string, GeneralStatusEnum>,
+  ): Record<string, string> {
+    return Object.fromEntries(
+      Object.entries(statusMap).map(([key, value]) => [key, value]),
+    );
+  }
+
+  private extractZohoStatusValue(payload: ZohoWebhookDto): string | null {
+    const payloadStatus = this.readStringField(payload.data?.status);
+
+    if (payloadStatus) {
+      return payloadStatus;
+    }
+
+    return null;
   }
 
   private generateRiskAssessmentCode(ticketNumber: string | undefined): string {

@@ -16,6 +16,7 @@ export const SETTINGS_KEYS = {
   ZOHO_DEFAULT_DEPARTMENT_ID: 'zoho.inbound.default_department_id',
   ZOHO_INTEGRATION_USER_ID: 'zoho.inbound.integration_user_id',
   ZOHO_INBOUND_DEFAULT_STATUS: 'zoho.inbound.default_status',
+  ZOHO_INBOUND_STATUS_MAP: 'zoho.inbound.status_map',
   ZOHO_STATUS_MAP: 'zoho.outbound.status_map',
   ZOHO_MAX_RETRIES: 'zoho.retry.max_retries',
   ZOHO_RETRY_BASE_MS: 'zoho.retry.base_ms',

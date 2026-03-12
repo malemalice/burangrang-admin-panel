@@ -17,6 +17,11 @@ const ZOHO_DEFAULT_SETTINGS: Array<{ key: string; value: string }> = [
     { key: SETTINGS_KEYS.ZOHO_INTEGRATION_USER_ID, value: '' },
     { key: SETTINGS_KEYS.ZOHO_INBOUND_DEFAULT_STATUS, value: 'OPEN' },
     {
+        key: SETTINGS_KEYS.ZOHO_INBOUND_STATUS_MAP,
+        value:
+            '{"Open":"OPEN","Assigned":"OPEN","In Progress":"WAITING_APPROVAL","Onhold":"WAITING_APPROVAL","Resolved":"DONE","Closed":"CLOSE","Cancelled":"REJECTED"}',
+    },
+    {
         key: SETTINGS_KEYS.ZOHO_STATUS_MAP,
         value:
             '{"DRAFT":"Open","OPEN":"On Hold","WAITING_APPROVAL":"On Hold","DONE":"Closed","CLOSE":"Closed","REJECTED":"Open"}',
@@ -113,7 +118,10 @@ export class ZohoConfigService implements OnModuleInit {
     }
 
     async getWebhookAuthMode(): Promise<ZohoWebhookAuthMode> {
-        const value = await this.getString(SETTINGS_KEYS.ZOHO_WEBHOOK_AUTH_MODE, 'secret');
+        const value = await this.getString(
+            SETTINGS_KEYS.ZOHO_WEBHOOK_AUTH_MODE,
+            'secret',
+        );
         const normalized = value.toLowerCase();
 
         if (
