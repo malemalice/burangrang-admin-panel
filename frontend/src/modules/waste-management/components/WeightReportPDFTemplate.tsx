@@ -37,11 +37,11 @@ export function WeightReportPDFTemplate({ report }: WeightReportPDFTemplateProps
                         </TableRow>
                         <TableRow>
                             <TableHead className="w-1/3 bg-muted/50 font-semibold">Sumber Limbah</TableHead>
-                            <TableCell>{report.source?.name || '-'}</TableCell>
+                            <TableCell className="break-words">{report.source?.name || '-'}</TableCell>
                         </TableRow>
                         <TableRow>
                             <TableHead className="w-1/3 bg-muted/50 font-semibold">Lokasi Penyimpanan</TableHead>
-                            <TableCell>{report.storageLocation?.name || '-'}</TableCell>
+                            <TableCell className="break-words">{report.storageLocation?.name || '-'}</TableCell>
                         </TableRow>
                         <TableRow>
                             <TableHead className="w-1/3 bg-muted/50 font-semibold">Tanggal Laporan</TableHead>
@@ -73,10 +73,10 @@ export function WeightReportPDFTemplate({ report }: WeightReportPDFTemplateProps
                         {report.items && report.items.length > 0 ? (
                             report.items.map((item, index) => (
                                 <TableRow key={index}>
-                                    <TableCell>{item.wasteType?.name || '-'}</TableCell>
+                                    <TableCell className="break-words">{item.wasteType?.name || '-'}</TableCell>
                                     <TableCell className="text-right">{item.weight.toLocaleString('id-ID')}</TableCell>
                                     <TableCell>{item.unit}</TableCell>
-                                    <TableCell>{item.notes || '-'}</TableCell>
+                                    <TableCell className="break-words whitespace-pre-wrap">{item.notes || '-'}</TableCell>
                                 </TableRow>
                             ))
                         ) : (

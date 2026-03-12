@@ -6,11 +6,10 @@ import { ArrowLeft, Pencil, Printer } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
-import { Badge } from '@/core/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/core/components/ui/table';
 import { Loader2 } from 'lucide-react';
 import { weightReportService } from '../../services/wasteManagementService';
-import { WeightReport, WeightReportStatusEnum } from '../../types/waste-management.types';
+import { WeightReport } from '../../types/waste-management.types';
 import { WeightReportPDFTemplate } from '../../components/WeightReportPDFTemplate';
 
 export default function WeightReportDetailPage() {
@@ -106,18 +105,6 @@ export default function WeightReportDetailPage() {
                             <p className="text-sm text-muted-foreground">Submitted At</p>
                             <p className="font-medium">{new Date(data.submittedAt).toLocaleDateString()}</p>
                         </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Report Status</p>
-                            <Badge variant={data.status === WeightReportStatusEnum.DONE ? 'default' : 'secondary'}>
-                                {data.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-                            </Badge>
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Status</p>
-                            <Badge variant={data.isActive ? 'default' : 'secondary'}>
-                                {data.isActive ? 'Active' : 'Inactive'}
-                            </Badge>
-                        </div>
                         {data.reportDocumentUrl && (
                             <div className="md:col-span-2">
                                 <p className="text-sm text-muted-foreground">Document URL</p>
@@ -164,7 +151,7 @@ export default function WeightReportDetailPage() {
             </div>
 
             {/* Hidden PDF Template */}
-            <div className="absolute left-[-9999px] top-0">
+            <div className="absolute left-[-9999px] top-0" style={{ width: '210mm' }}>
                 <div ref={targetRef}>
                     {data && <WeightReportPDFTemplate report={data} />}
                 </div>

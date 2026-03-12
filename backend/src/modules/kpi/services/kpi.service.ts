@@ -61,15 +61,19 @@ export class KpiService {
     let startYear: number;
     let endYear: number;
 
-    if (periodFrom && periodTo) {
+    const currentFY = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+
+    if (periodFrom) {
       const [yFrom, mFrom] = periodFrom.split('-').map(Number);
-      const [yTo, mTo] = periodTo.split('-').map(Number);
-      // Convert to fiscal start/end years
       startYear = mFrom >= 8 ? yFrom : yFrom - 1;
+    } else {
+      startYear = YEAR_RANGE_START;
+    }
+
+    if (periodTo) {
+      const [yTo, mTo] = periodTo.split('-').map(Number);
       endYear = mTo >= 8 ? yTo + 1 : yTo;
     } else {
-      const currentFY = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
-      startYear = YEAR_RANGE_START;
       endYear = currentFY;
     }
 

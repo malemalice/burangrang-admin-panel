@@ -54,6 +54,19 @@ export class KpiHseTargetService {
   }
 
   async create(createDto: CreateHseTargetDto, userId: string): Promise<HseTargetDto> {
+    const existing = await this.prisma.hseTarget.findFirst({
+      where: {
+        type: createDto.type,
+        code: createDto.code,
+        month: createDto.month ?? null,
+        year: createDto.year,
+      },
+    });
+
+    if (existing) {
+      this.errorHandler.throwConflictCustom('HSE Target already Exist');
+    }
+
     const hseTarget = await this.prisma.hseTarget.create({
       data: {
         type: createDto.type,
@@ -124,6 +137,7 @@ export class KpiHseTargetService {
         orderBy: [
           { [sortBy]: sortOrder },
           { month: 'asc' },
+          { createdAt: 'desc' },
         ],
         skip: (page - 1) * limit,
         take: limit,

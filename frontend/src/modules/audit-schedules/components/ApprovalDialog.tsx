@@ -105,10 +105,12 @@ export const ApprovalDialog = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes">
+              Notes{approvalStatus === ApprovalStatus.REJECTED && <span className="text-red-500"> *</span>}
+            </Label>
             <Textarea
               id="notes"
-              placeholder="Enter your approval notes..."
+              placeholder={approvalStatus === ApprovalStatus.REJECTED ? "Enter reason for rejection..." : "Enter your approval notes (optional)..."}
               value={approvalNotes}
               onChange={(e) => setApprovalNotes(e.target.value)}
               className="min-h-[100px]"
@@ -125,7 +127,7 @@ export const ApprovalDialog = ({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isSubmitting || !approvalNotes.trim()}
+            disabled={isSubmitting || (approvalStatus === ApprovalStatus.REJECTED && !approvalNotes.trim())}
           >
             {isSubmitting ? 'Submitting...' : 'Submit Approval'}
           </Button>

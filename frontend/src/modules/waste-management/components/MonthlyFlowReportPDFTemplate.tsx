@@ -38,7 +38,7 @@ export function MonthlyFlowReportPDFTemplate({ report }: MonthlyFlowReportPDFTem
             </TableRow>
             <TableRow>
               <TableHead className="w-1/3 bg-muted/50 font-semibold">Treatment Plant</TableHead>
-              <TableCell>{report.treatmentPlant?.name || '-'}</TableCell>
+              <TableCell className="break-words">{report.treatmentPlant?.name || '-'}</TableCell>
             </TableRow>
             <TableRow>
               <TableHead className="w-1/3 bg-muted/50 font-semibold">Report Date</TableHead>

@@ -305,7 +305,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                           const current = getFilterValue(field.id) as any || {};
                           updateFilterValue(field.id, {
                             ...current,
-                            from: typeof value === 'string' && value ? new Date(value).toISOString() : undefined
+                            from: typeof value === 'string' && value ? new Date(value) : undefined
                           });
                         }}
                         className="w-full"
@@ -338,7 +338,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
                           const current = getFilterValue(field.id) as any || {};
                           updateFilterValue(field.id, {
                             ...current,
-                            to: typeof value === 'string' && value ? new Date(value).toISOString() : undefined
+                            to: typeof value === 'string' && value ? new Date(value) : undefined
                           });
                         }}
                         className="w-full"

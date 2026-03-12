@@ -34,6 +34,7 @@ import {
   type WaterQualityLabReportAggregateData,
 } from '../../utils/water-quality-lab-report-export';
 import { WaterQualityLabReportAggregatePDFTemplate } from '../../components/WaterQualityLabReportAggregatePDFTemplate';
+import { WaterQualityLabReportPDFTemplate } from '../../components/WaterQualityLabReportPDFTemplate';
 
 export default function WaterQualityLabReportsPage() {
   const navigate = useNavigate();
@@ -46,12 +47,16 @@ export default function WaterQualityLabReportsPage() {
   const [aggregateForPDF, setAggregateForPDF] =
     useState<WaterQualityLabReportAggregateData | null>(null);
   const [isExportingAllPDF, setIsExportingAllPDF] = useState(false);
+  const [reportForSinglePdf, setReportForSinglePdf] = useState<WaterQualityLabReport | null>(null);
+  const [exportingSinglePdfId, setExportingSinglePdfId] = useState<string | null>(null);
   const pdfFilename = useMemo(
     () =>
-      aggregateForPDF
-        ? `water-quality-lab-reports-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
-        : 'water-quality-lab-reports.pdf',
-    [aggregateForPDF],
+      reportForSinglePdf
+        ? `${reportForSinglePdf.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
+        : aggregateForPDF
+          ? `water-quality-lab-reports-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
+          : 'water-quality-lab-reports.pdf',
+    [aggregateForPDF, reportForSinglePdf],
   );
   const { toPDF, targetRef } = usePDF({ filename: pdfFilename });
 
@@ -223,6 +228,35 @@ export default function WaterQualityLabReportsPage() {
     return () => clearTimeout(timer);
   }, [aggregateForPDF, isExportingAllPDF, toPDF]);
 
+  const handleExportSinglePDF = useCallback(async (id: string) => {
+    try {
+      setExportingSinglePdfId(id);
+      const response = await waterQualityLabReportService.getById(id);
+      setReportForSinglePdf(response.data as WaterQualityLabReport);
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to load report for export');
+      setExportingSinglePdfId(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!reportForSinglePdf || !exportingSinglePdfId || reportForSinglePdf.id !== exportingSinglePdfId)
+      return;
+    const timer = setTimeout(async () => {
+      try {
+        await toPDF();
+        toast.success('PDF exported successfully');
+      } catch (err) {
+        toast.error('Failed to export PDF');
+      } finally {
+        setReportForSinglePdf(null);
+        setExportingSinglePdfId(null);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [reportForSinglePdf, exportingSinglePdfId, toPDF]);
+
   const handleSearch = (term: string) => {
     updateSearchParams((next) => {
       if (term === '') next.delete('search');
@@ -310,6 +344,12 @@ export default function WaterQualityLabReportsPage() {
             <DropdownMenuItem onClick={() => navigate(`/waste-management/water-quality-lab-reports/${item.id}`)}>
               <Eye className="mr-2 h-4 w-4" /> View Details
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleExportSinglePDF(item.id)}
+              disabled={exportingSinglePdfId === item.id}
+            >
+              <FileDown className="mr-2 h-4 w-4" /> Export PDF
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/waste-management/water-quality-lab-reports/${item.id}/edit`)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
@@ -324,7 +364,7 @@ export default function WaterQualityLabReportsPage() {
 
   return (
     <>
-      {aggregateForPDF && (
+      {(aggregateForPDF || reportForSinglePdf) && (
         <div
           ref={targetRef}
           style={{
@@ -335,7 +375,12 @@ export default function WaterQualityLabReportsPage() {
           }}
           aria-hidden="true"
         >
-          <WaterQualityLabReportAggregatePDFTemplate data={aggregateForPDF} />
+          {aggregateForPDF && (
+            <WaterQualityLabReportAggregatePDFTemplate data={aggregateForPDF} />
+          )}
+          {reportForSinglePdf && (
+            <WaterQualityLabReportPDFTemplate report={reportForSinglePdf} />
+          )}
         </div>
       )}
       <PageHeader

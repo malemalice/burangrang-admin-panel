@@ -1,5 +1,5 @@
 import { RouteConfig } from '@/core/routes/types';
-import { RiskMatrixManagementPage, RiskMatricesPage, CreateRiskMatrixPage, EditRiskMatrixPage } from '../pages';
+import { RiskMatrixViewPage, RiskMatrixManagementPage, RiskMatricesPage, CreateRiskMatrixPage, EditRiskMatrixPage } from '../pages';
 
 /**
  * Risk Matrix module routes
@@ -7,6 +7,10 @@ import { RiskMatrixManagementPage, RiskMatricesPage, CreateRiskMatrixPage, EditR
 const riskMatrixRoutes: RouteConfig[] = [
   {
     path: '/risk-matrix',
+    component: RiskMatrixViewPage,
+  },
+  {
+    path: '/risk-matrix/edit',
     component: RiskMatrixManagementPage,
   },
   {

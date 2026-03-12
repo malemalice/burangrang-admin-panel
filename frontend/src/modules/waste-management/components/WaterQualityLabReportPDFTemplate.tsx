@@ -62,7 +62,7 @@ export function WaterQualityLabReportPDFTemplate({ report }: WaterQualityLabRepo
           <tbody>
             <tr>
               <td className="py-1 font-semibold text-gray-700 w-1/3">Treatment Plant</td>
-              <td className="py-1 text-gray-900">{report.treatmentPlant?.name || '-'}</td>
+              <td className="py-1 text-gray-900 break-words">{report.treatmentPlant?.name || '-'}</td>
             </tr>
             <tr>
               <td className="py-1 font-semibold text-gray-700">Category</td>
@@ -151,17 +151,17 @@ export function WaterQualityLabReportPDFTemplate({ report }: WaterQualityLabRepo
                   <tbody>
                     {rows.map((r) => (
                       <tr key={r.id}>
-                        <td className="p-2 border border-gray-300 font-medium">
+                        <td className="p-2 border border-gray-300 font-medium break-words">
                           {r.parameter?.name ?? r.parameterId}
                         </td>
-                        <td className="p-2 border border-gray-300">{r.resultValue}</td>
-                        <td className="p-2 border border-gray-300">
+                        <td className="p-2 border border-gray-300 break-words">{r.resultValue}</td>
+                        <td className="p-2 border border-gray-300 break-words">
                           {r.unit ?? r.parameter?.unit ?? '-'}
                         </td>
                         <td className="p-2 border border-gray-300">
                           {r.isCompliant === true ? 'Yes' : r.isCompliant === false ? 'No' : '-'}
                         </td>
-                        <td className="p-2 border border-gray-300 text-gray-600">
+                        <td className="p-2 border border-gray-300 text-gray-600 break-words whitespace-pre-wrap">
                           {r.notes ?? '-'}
                         </td>
                       </tr>

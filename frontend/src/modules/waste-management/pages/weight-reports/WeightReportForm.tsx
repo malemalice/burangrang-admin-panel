@@ -19,12 +19,13 @@ import { Switch } from '@/core/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/core/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/core/components/ui/table';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, X, ExternalLink } from 'lucide-react';
 import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
+import uploadService from '@/modules/uploads/services/uploadService';
 
 import { weightReportService, wasteSourceService, storageLocationService, wasteTypeService } from '../../services/wasteManagementService';
-import { CreateWeightReportData, WeightReport, UpdateWeightReportData, WasteSource, StorageLocation, WasteType, MonthEnum, PaginatedResponse, WeightReportStatusEnum } from '../../types/waste-management.types';
+import { CreateWeightReportData, WeightReport, UpdateWeightReportData, WasteSource, StorageLocation, WasteType, PaginatedResponse } from '../../types/waste-management.types';
 
 const itemSchema = z.object({
   wasteTypeId: z.string().min(1, 'Waste type is required'),
@@ -41,11 +42,21 @@ const formSchema = z.object({
   submittedAt: z.string().min(1, 'Submission date is required'),
   reportDocumentUrl: z.string().optional(),
   isActive: z.boolean().default(true),
-  status: z.nativeEnum(WeightReportStatusEnum).optional(),
   items: z.array(itemSchema).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+const ALLOWED_DOCUMENT_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+];
+const MAX_DOCUMENT_SIZE = 50 * 1024 * 1024; // 50MB
 
 interface WeightReportFormProps {
   mode: 'create' | 'edit';
@@ -59,6 +70,9 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
   const [sources, setSources] = useState<WasteSource[]>([]);
   const [locations, setLocations] = useState<StorageLocation[]>([]);
   const [wasteTypes, setWasteTypes] = useState<WasteType[]>([]);
+  const [fileCategoryId, setFileCategoryId] = useState<string | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -70,7 +84,6 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
       submittedAt: new Date().toISOString().split('T')[0],
       reportDocumentUrl: '',
       isActive: true,
-      status: undefined,
       items: [],
     },
   });
@@ -100,6 +113,58 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
   }, [fetchDependencies]);
 
   useEffect(() => {
+    const loadFileCategory = async () => {
+      try {
+        const category = await uploadService.getCategoryByName('documents');
+        if (category) setFileCategoryId(category.id);
+      } catch (error) {
+        console.error('Failed to load file category', error);
+      }
+    };
+    loadFileCategory();
+  }, []);
+
+  const handleFileUpload = async (file: File) => {
+    if (!file) return;
+    if (!ALLOWED_DOCUMENT_TYPES.includes(file.type)) {
+      toast.error('Invalid file type. Please upload PDF, DOC, DOCX, or image files.');
+      return;
+    }
+    if (file.size > MAX_DOCUMENT_SIZE) {
+      toast.error('File size exceeds 50MB limit.');
+      return;
+    }
+    if (!fileCategoryId) {
+      toast.error('File category not found. Please refresh the page.');
+      return;
+    }
+    setUploadingFile(true);
+    try {
+      const response = await uploadService.uploadFile(file, fileCategoryId, true);
+      const fileUrl = uploadService.getPublicFileUrl(response.id);
+      form.setValue('reportDocumentUrl', fileUrl);
+      setUploadedFileName(file.name);
+      toast.success('File uploaded successfully');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Failed to upload file';
+      toast.error(errorMessage);
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const handleFileRemove = () => {
+    form.setValue('reportDocumentUrl', '');
+    setUploadedFileName(null);
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileUpload(file);
+    e.target.value = '';
+  };
+
+  useEffect(() => {
     const fetchData = async () => {
       if (mode === 'edit' && id) {
         setLoading(true);
@@ -114,7 +179,6 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
             submittedAt: data.submittedAt.split('T')[0],
             reportDocumentUrl: data.reportDocumentUrl || '',
             isActive: data.isActive,
-            status: data.status,
             items: data.items?.map((item) => ({
               wasteTypeId: item.wasteTypeId,
               weight: item.weight,
@@ -302,10 +366,39 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
                 name="reportDocumentUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Document URL</FormLabel>
+                    <FormLabel>Document</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter document URL" {...field} />
+                      <div className="space-y-2">
+                        {field.value || uploadedFileName ? (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm text-muted-foreground truncate max-w-[200px]">
+                              {uploadedFileName || 'Document attached'}
+                            </span>
+                            {field.value && (
+                              <a href={field.value} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+                                <ExternalLink className="h-4 w-4" /> View
+                              </a>
+                            )}
+                            <Button type="button" variant="ghost" size="sm"
+                              onClick={handleFileRemove} disabled={uploadingFile}>
+                              <X className="h-4 w-4" /> Remove
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Input type="file"
+                              accept=".pdf,.doc,.docx,image/jpeg,image/png,image/gif,image/webp"
+                              onChange={handleFileInputChange} disabled={uploadingFile}
+                              className="cursor-pointer" />
+                            {uploadingFile && (
+                              <span className="text-sm text-muted-foreground">Uploading...</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </FormControl>
+                    <p className="text-sm text-muted-foreground">PDF, DOC, DOCX, or images (max 50MB)</p>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -324,33 +417,6 @@ export default function WeightReportForm({ mode }: WeightReportFormProps) {
                   </FormItem>
                 )}
               />
-
-              {mode === 'edit' && (
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Report Status</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {Object.values(WeightReportStatusEnum).map((status) => (
-                            <SelectItem key={status} value={status}>
-                              {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
             </CardContent>
           </Card>
 

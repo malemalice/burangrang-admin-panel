@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateRiskCategoryDto } from './dto/create-risk-category.dto';
 import { UpdateRiskCategoryDto } from './dto/update-risk-category.dto';
@@ -20,6 +20,12 @@ export class RiskCategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createRiskCategoryDto: CreateRiskCategoryDto): Promise<RiskCategoryDto> {
+    const existing = await (this.prisma as any).riskCategory.findUnique({
+      where: { code: createRiskCategoryDto.code },
+    });
+    if (existing) {
+      throw new ConflictException('Code already exists');
+    }
     const category = await (this.prisma as any).riskCategory.create({
       data: createRiskCategoryDto,
     });
@@ -102,6 +108,15 @@ export class RiskCategoriesService {
 
     if (!existingCategory) {
       throw new NotFoundException(`Risk category with ID ${id} not found`);
+    }
+
+    if (updateRiskCategoryDto.code !== undefined && updateRiskCategoryDto.code !== existingCategory.code) {
+      const duplicate = await (this.prisma as any).riskCategory.findUnique({
+        where: { code: updateRiskCategoryDto.code },
+      });
+      if (duplicate) {
+        throw new ConflictException('Code already exists');
+      }
     }
 
     const updatedCategory = await (this.prisma as any).riskCategory.update({

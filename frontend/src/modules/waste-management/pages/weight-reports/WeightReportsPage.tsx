@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { usePDF } from 'react-to-pdf';
+import { format } from 'date-fns';
 import { Plus, MoreHorizontal, Pencil, Trash2, Eye, Printer } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { Badge } from '@/core/components/ui/badge';
 import {
   DropdownMenu,
@@ -16,21 +17,77 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { weightReportService, wasteSourceService, storageLocationService } from '../../services/wasteManagementService';
-import { WeightReport, PaginatedResponse, WeightReportStatusEnum } from '../../types/waste-management.types';
+import { WeightReport, PaginatedResponse } from '../../types/waste-management.types';
+import { WeightReportPDFTemplate } from '../../components/WeightReportPDFTemplate';
 
 export default function WeightReportsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<WeightReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const [search, setSearch] = useState('');
-  const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [exportQueue, setExportQueue] = useState<WeightReport[]>([]);
+  const [exportIndex, setExportIndex] = useState(0);
+  const [isExportingAllPDF, setIsExportingAllPDF] = useState(false);
 
   const [sources, setSources] = useState<{ id: string; name: string }[]>([]);
   const [locations, setLocations] = useState<{ id: string; name: string }[]>([]);
+
+  const page = useMemo(() => {
+    const raw = searchParams.get('page');
+    const p = raw ? Number(raw) : 1;
+    return !Number.isFinite(p) || p <= 0 ? 1 : Math.floor(p);
+  }, [searchParams]);
+
+  const limit = useMemo(() => {
+    const raw = searchParams.get('limit');
+    const parsed = raw ? Number(raw) : 10;
+    return !Number.isFinite(parsed) || parsed <= 0 ? 10 : Math.floor(parsed);
+  }, [searchParams]);
+
+  const search = useMemo(() => searchParams.get('search') ?? '', [searchParams]);
+
+  const activeFilters = useMemo(() => {
+    const filters: Record<string, { value: any; label: string }> = {};
+    const sourceId = searchParams.get('sourceId');
+    if (sourceId) {
+      const src = sources.find((s) => s.id === sourceId);
+      filters.sourceId = { value: sourceId, label: src?.name ?? sourceId };
+    }
+    const storageLocationId = searchParams.get('storageLocationId');
+    if (storageLocationId) {
+      const loc = locations.find((l) => l.id === storageLocationId);
+      filters.storageLocationId = { value: storageLocationId, label: loc?.name ?? storageLocationId };
+    }
+    const isActive = searchParams.get('isActive');
+    if (isActive === 'true' || isActive === 'false') {
+      filters.isActive = { value: isActive, label: isActive === 'true' ? 'Active' : 'Inactive' };
+    }
+    return filters;
+  }, [searchParams, sources, locations]);
+
+  const currentReportForPDF = useMemo(
+    () =>
+      isExportingAllPDF && exportQueue.length > 0 && exportIndex < exportQueue.length
+        ? exportQueue[exportIndex]
+        : null,
+    [isExportingAllPDF, exportQueue, exportIndex],
+  );
+  const pdfFilename =
+    currentReportForPDF
+      ? `${currentReportForPDF.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}-${exportIndex + 1}.pdf`
+      : 'weight-report.pdf';
+  const { toPDF, targetRef } = usePDF({ filename: pdfFilename });
+
+  const updateSearchParams = useCallback(
+    (updater: (next: URLSearchParams) => void, options: { replace?: boolean } = { replace: true }) => {
+      const next = new URLSearchParams(searchParams);
+      updater(next);
+      setSearchParams(next, options);
+    },
+    [searchParams, setSearchParams],
+  );
 
   useEffect(() => {
     const fetchDependencies = async () => {
@@ -49,15 +106,6 @@ export default function WeightReportsPage() {
   }, []);
 
   const filterFields: FilterField[] = [
-    {
-      id: 'status',
-      label: 'Report Status',
-      type: 'select',
-      options: Object.values(WeightReportStatusEnum).map((status) => ({
-        label: status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
-        value: status,
-      })),
-    },
     {
       id: 'sourceId',
       label: 'Waste Source',
@@ -81,18 +129,22 @@ export default function WeightReportsPage() {
     },
   ];
 
+  const buildListParams = useCallback(
+    (pageNum: number, limitNum: number) => ({
+      page: pageNum,
+      limit: limitNum,
+      search: search || undefined,
+      sourceId: activeFilters.sourceId?.value,
+      storageLocationId: activeFilters.storageLocationId?.value,
+      isActive: activeFilters.isActive?.value === 'true' ? true : activeFilters.isActive?.value === 'false' ? false : undefined,
+    }),
+    [search, activeFilters],
+  );
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const params = {
-        page,
-        limit,
-        search: search || undefined,
-        status: activeFilters.status?.value as WeightReportStatusEnum | undefined,
-        sourceId: activeFilters.sourceId?.value,
-        storageLocationId: activeFilters.storageLocationId?.value,
-        isActive: activeFilters.isActive?.value === 'true' ? true : activeFilters.isActive?.value === 'false' ? false : undefined,
-      };
+      const params = buildListParams(page, limit);
       const response = await weightReportService.getAll(params);
       const result = response.data as PaginatedResponse<WeightReport>;
       setData(result.data);
@@ -103,7 +155,7 @@ export default function WeightReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search, activeFilters]);
+  }, [page, limit, buildListParams]);
 
   useEffect(() => {
     fetchData();
@@ -123,27 +175,59 @@ export default function WeightReportsPage() {
   };
 
   const handleApplyFilters = (filters: FilterValue[]) => {
-    const newActiveFilters: Record<string, { value: any; label: string }> = {};
-    filters.forEach((filter) => {
-      let label = filter.value as string;
-      if (filter.id === 'isActive') {
-        label = filter.value === 'true' ? 'Active' : 'Inactive';
-      } else if (filter.id === 'sourceId') {
-        label = sources.find((s) => s.id === filter.value)?.name || String(filter.value);
-      } else if (filter.id === 'storageLocationId') {
-        label = locations.find((l) => l.id === filter.value)?.name || String(filter.value);
-      } else if (filter.id === 'status' && typeof filter.value === 'string') {
-        label = filter.value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase());
-      }
-
-      newActiveFilters[filter.id] = {
-        value: filter.value,
-        label,
-      };
+    updateSearchParams((next) => {
+      ['sourceId', 'storageLocationId', 'isActive'].forEach((k) => next.delete(k));
+      filters.forEach((filter) => {
+        next.set(filter.id, String(filter.value));
+      });
+      next.set('page', '1');
     });
-    setActiveFilters(newActiveFilters);
-    setPage(1);
   };
+
+  const handleExportAllPDF = useCallback(async () => {
+    try {
+      const params = buildListParams(1, 1000);
+      const response = await weightReportService.getAll(params);
+      const result = response.data as PaginatedResponse<WeightReport>;
+      const list = result.data ?? [];
+      if (list.length === 0) {
+        toast.error('No reports to export');
+        return;
+      }
+      setIsExportingAllPDF(true);
+      setExportQueue(list);
+      setExportIndex(0);
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to load reports for export');
+    }
+  }, [buildListParams]);
+
+  useEffect(() => {
+    if (!isExportingAllPDF || exportQueue.length === 0 || exportIndex >= exportQueue.length) {
+      return;
+    }
+    const count = exportQueue.length;
+    const timer = setTimeout(async () => {
+      try {
+        await toPDF();
+        if (exportIndex + 1 < count) {
+          setExportIndex((i) => i + 1);
+        } else {
+          setIsExportingAllPDF(false);
+          setExportQueue([]);
+          setExportIndex(0);
+          toast.success(`Exported ${count} PDF(s) successfully`);
+        }
+      } catch (err) {
+        toast.error('Failed to export PDF');
+        setIsExportingAllPDF(false);
+        setExportQueue([]);
+        setExportIndex(0);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [isExportingAllPDF, exportQueue.length, exportIndex, toPDF]);
 
   const columns = [
     {
@@ -171,16 +255,6 @@ export default function WeightReportsPage() {
       isSortable: true,
     },
     {
-      id: 'reportStatus',
-      header: 'Report Status',
-      cell: (item: WeightReport) => (
-        <Badge variant={item.status === WeightReportStatusEnum.DONE ? 'default' : 'secondary'}>
-          {item.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-        </Badge>
-      ),
-      isSortable: true,
-    },
-    {
       id: 'status',
       header: 'Status',
       cell: (item: WeightReport) => (
@@ -205,7 +279,7 @@ export default function WeightReportsPage() {
               <Eye className="mr-2 h-4 w-4" /> View Detail
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/waste-management/weight-reports/${item.id}?print=true`)}>
-              <Printer className="mr-2 h-4 w-4" /> Print PDF
+              <Printer className="mr-2 h-4 w-4" /> Export PDF
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/waste-management/weight-reports/${item.id}/edit`)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
@@ -225,35 +299,20 @@ export default function WeightReportsPage() {
         title="Solid Waste Recording"
         subtitle="Weight reports for solid waste management"
         actions={
-          <Button onClick={() => navigate('/waste-management/weight-reports/create')}>
-            <Plus className="mr-2 h-4 w-4" /> Add Report
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleExportAllPDF}
+              disabled={isExportingAllPDF || loading}
+            >
+              {isExportingAllPDF ? `Exporting... (${exportIndex + 1}/${exportQueue.length})` : 'Export All PDF'}
+            </Button>
+            <Button onClick={() => navigate('/waste-management/weight-reports/create')}>
+              <Plus className="mr-2 h-4 w-4" /> Add Report
+            </Button>
+          </div>
         }
-      >
-        <Tabs defaultValue="all" className="w-auto" onValueChange={(value) => {
-          setPage(1);
-          if (value === 'all') {
-            const newFilters = { ...activeFilters };
-            delete newFilters.status;
-            setActiveFilters(newFilters);
-          } else {
-            const label = value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase());
-            setActiveFilters({
-              ...activeFilters,
-              status: { value, label },
-            });
-          }
-        }}>
-          <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            {Object.values(WeightReportStatusEnum).map((status) => (
-              <TabsTrigger key={status} value={status}>
-                {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </PageHeader>
+      />
 
       <DataTable
         columns={columns}
@@ -263,16 +322,21 @@ export default function WeightReportsPage() {
           pageIndex: page - 1,
           limit,
           pageCount: Math.ceil(total / limit),
-          onPageChange: (newPage) => setPage(newPage + 1),
-          onPageSizeChange: setLimit,
+          onPageChange: (newPage) => updateSearchParams((next) => next.set('page', String(newPage + 1))),
+          onPageSizeChange: (newLimit) => updateSearchParams((next) => {
+            next.set('limit', String(newLimit));
+            next.set('page', '1');
+          }),
           total,
         }}
         filterFields={filterFields}
         activeFilters={activeFilters}
-        onSearch={(term) => {
-          setSearch(term);
-          setPage(1);
-        }}
+        searchValue={search}
+        searchPlaceholder="Search by report code..."
+        onSearch={(term) => updateSearchParams((next) => {
+          next.set('search', term || '');
+          next.set('page', '1');
+        })}
         onApplyFilters={handleApplyFilters}
       />
 
@@ -284,6 +348,13 @@ export default function WeightReportsPage() {
         onConfirm={handleDelete}
         variant="destructive"
       />
+
+      {/* Hidden PDF template for Export All */}
+      <div className="absolute left-[-9999px] top-0" style={{ width: '210mm' }}>
+        <div ref={targetRef}>
+          {currentReportForPDF && <WeightReportPDFTemplate report={currentReportForPDF} />}
+        </div>
+      </div>
     </>
   );
 }

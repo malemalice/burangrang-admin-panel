@@ -1112,9 +1112,15 @@ export class DashboardService {
     periodFrom?: string,
     periodTo?: string,
   ): Promise<SecurityTypeNonConformanceData[]> {
-    const where: { isActive: boolean; type: IncidentScopeEnum; incidentDate?: { gte?: Date; lte?: Date } } = {
+    const where: {
+      isActive: boolean;
+      type: IncidentScopeEnum;
+      riskCategory: { code: { startsWith: string } };
+      incidentDate?: { gte?: Date; lte?: Date };
+    } = {
       isActive: true,
       type: IncidentScopeEnum.SECURITY,
+      riskCategory: { code: { startsWith: 'SEC-' } },
     };
     if (periodFrom || periodTo) {
       where.incidentDate = {};
@@ -1130,7 +1136,7 @@ export class DashboardService {
 
     const incidents = await this.prisma.incident.findMany({
       where,
-      select: { riskCategory: { select: { name: true } } },
+      select: { riskCategory: { select: { name: true, code: true } } },
     });
 
     const countByName = new Map<string, number>();
