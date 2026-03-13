@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Save, Plus, Trash2, RefreshCw, ArrowLeft } from 'lucide-react';
@@ -54,6 +54,16 @@ const RiskMatrixManagementPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [rowToDelete, setRowToDelete] = useState<MatrixRow | null>(null);
+  const newRowInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus the new row's first input when a new row is added
+  useEffect(() => {
+    if (matrixRows.length > 0 && matrixRows[matrixRows.length - 1].isNew) {
+      requestAnimationFrame(() => {
+        newRowInputRef.current?.focus();
+      });
+    }
+  }, [matrixRows]);
 
   // Fetch initial data
   useEffect(() => {
@@ -437,6 +447,7 @@ const RiskMatrixManagementPage = () => {
                       >
                         <td className="p-4">
                           <Input
+                            ref={index === matrixRows.length - 1 && row.isNew ? newRowInputRef : undefined}
                             type="text"
                             placeholder="A-Z, AA-ZZ"
                             value={row.likelihoodLevel || ''}
