@@ -83,7 +83,22 @@ export class ZohoOutboundWorkerService {
         FOR UPDATE SKIP LOCKED
         LIMIT 1
       )
-      RETURNING *
+      RETURNING
+        j.id,
+        j.mapping_id AS "mappingId",
+        j.ticket_id AS "ticketId",
+        j.target_status AS "targetStatus",
+        j.request_payload AS "requestPayload",
+        j.response_payload AS "responsePayload",
+        j.status,
+        j.attempt_count AS "attemptCount",
+        j.max_attempts AS "maxAttempts",
+        j.next_retry_at AS "nextRetryAt",
+        j.last_error AS "lastError",
+        j.correlation_id AS "correlationId",
+        j.processed_at AS "processedAt",
+        j.created_at AS "createdAt",
+        j.updated_at AS "updatedAt"
     `;
 
     return result[0] ?? null;

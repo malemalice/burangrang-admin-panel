@@ -50,7 +50,9 @@ export class RiskAssessmentZohoSyncService {
       ticketId: mapping.zohoTicketId,
       targetStatus,
       payload: {
-        status: targetStatus,
+        status: {
+          name: targetStatus,
+        },
       },
       correlationId: params.correlationId,
     });
