@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SETTINGS_KEYS } from '../../settings/constants/settings-keys';
+import { SdpRequestPayload } from '../types/sdp-request-payload.types';
 import { ZohoConfigService } from './zoho-config.service';
 
 interface NormalizedApiError extends Error {
@@ -16,7 +17,7 @@ export class ZohoDeskApiClient {
 
   async updateRequest(
     requestId: string,
-    payload: Record<string, unknown>,
+    payload: SdpRequestPayload,
     correlationId: string,
   ): Promise<Record<string, unknown>> {
     const response = await this.executeWithRetry({
@@ -31,7 +32,7 @@ export class ZohoDeskApiClient {
   }
 
   async createRequest(
-    payload: Record<string, unknown>,
+    payload: SdpRequestPayload,
     correlationId: string,
   ): Promise<Record<string, unknown>> {
     const response = await this.executeWithRetry({
@@ -48,7 +49,7 @@ export class ZohoDeskApiClient {
   private async executeWithRetry(params: {
     endpoint: string;
     method: 'POST' | 'PUT';
-    payload: Record<string, unknown>;
+    payload: SdpRequestPayload;
     correlationId: string;
     logMessage: string;
   }): Promise<Record<string, unknown>> {
@@ -113,7 +114,7 @@ export class ZohoDeskApiClient {
   private async performRequest(
     endpoint: string,
     method: 'POST' | 'PUT',
-    payload: Record<string, unknown>,
+    payload: SdpRequestPayload,
     correlationId: string,
   ): Promise<Record<string, unknown>> {
     const { baseUrl, version, authToken } = await this.resolveSdpConfig();
@@ -140,6 +141,14 @@ export class ZohoDeskApiClient {
       const networkError = this.buildError({
         message: `SDP request failed before response: ${this.stringifyError(error)}`,
         correlationId,
+        responseBody: {
+          phase: 'network_before_response',
+          url,
+          host: new URL(url).host,
+          method,
+          payloadKeys: Object.keys(payload),
+          diagnostic: this.extractErrorDiagnostic(error),
+        },
       });
       throw networkError;
     }
@@ -268,6 +277,54 @@ export class ZohoDeskApiClient {
     }
 
     return 'Unknown error';
+  }
+
+  private extractErrorDiagnostic(error: unknown): Record<string, unknown> {
+    if (error instanceof Error) {
+      const cause = this.readErrorCause(error);
+
+      return {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        cause,
+      };
+    }
+
+    if (typeof error === 'object' && error !== null) {
+      return error as Record<string, unknown>;
+    }
+
+    return {
+      value: error,
+    };
+  }
+
+  private readErrorCause(error: Error): Record<string, unknown> | undefined {
+    const errorWithCause = error as Error & { cause?: unknown };
+
+    if (!errorWithCause.cause) {
+      return undefined;
+    }
+
+    if (errorWithCause.cause instanceof Error) {
+      return {
+        name: errorWithCause.cause.name,
+        message: errorWithCause.cause.message,
+        stack: errorWithCause.cause.stack,
+      };
+    }
+
+    if (
+      typeof errorWithCause.cause === 'object' &&
+      errorWithCause.cause !== null
+    ) {
+      return errorWithCause.cause as Record<string, unknown>;
+    }
+
+    return {
+      value: errorWithCause.cause,
+    };
   }
 
   private sleep(ms: number): Promise<void> {

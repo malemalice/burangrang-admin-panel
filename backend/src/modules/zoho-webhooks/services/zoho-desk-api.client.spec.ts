@@ -47,7 +47,15 @@ describe('ZohoDeskApiClient', () => {
 
     await client.updateRequest(
       'req-1',
-      { status: { name: 'Closed' } },
+      {
+        subject: 'VPN access issue',
+        status: { id: '2', name: 'Open' },
+        priority: { id: '3', name: 'High' },
+        requester: { email_id: 'user@company.com' },
+        udf_fields: {
+          udf_sline_25: 'Lantai 5',
+        },
+      },
       'corr-1',
     );
 
@@ -66,8 +74,20 @@ describe('ZohoDeskApiClient', () => {
     expect(inputData).toBeTruthy();
     expect(JSON.parse(inputData as string)).toEqual({
       request: {
+        subject: 'VPN access issue',
         status: {
-          name: 'Closed',
+          id: '2',
+          name: 'Open',
+        },
+        priority: {
+          id: '3',
+          name: 'High',
+        },
+        requester: {
+          email_id: 'user@company.com',
+        },
+        udf_fields: {
+          udf_sline_25: 'Lantai 5',
         },
       },
     });
