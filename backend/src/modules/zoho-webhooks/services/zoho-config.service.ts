@@ -13,6 +13,7 @@ const ZOHO_DEFAULT_SETTINGS: Array<{ key: string; value: string }> = [
     { key: SETTINGS_KEYS.SDP_BASE_URL, value: 'https://servicedesk.hapfor.com' },
     { key: SETTINGS_KEYS.SDP_AUTHTOKEN, value: '' },
     { key: SETTINGS_KEYS.SDP_API_VERSION, value: 'v3' },
+    { key: SETTINGS_KEYS.SDP_ALLOW_SELF_SIGNED, value: 'false' },
     { key: SETTINGS_KEYS.ZOHO_DEFAULT_DEPARTMENT_ID, value: '' },
     { key: SETTINGS_KEYS.ZOHO_INTEGRATION_USER_ID, value: '' },
     { key: SETTINGS_KEYS.ZOHO_INBOUND_DEFAULT_STATUS, value: 'OPEN' },

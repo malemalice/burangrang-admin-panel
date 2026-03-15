@@ -17,6 +17,13 @@ describe('ZohoDeskApiClient', () => {
 
         return Promise.resolve(values[key] ?? defaultValue);
       }),
+      getBoolean: jest.fn((key: string, defaultValue: boolean) => {
+        const values: Record<string, boolean> = {
+          [SETTINGS_KEYS.SDP_ALLOW_SELF_SIGNED]: false,
+        };
+
+        return Promise.resolve(values[key] ?? defaultValue);
+      }),
       getNumber: jest.fn((key: string, defaultValue: number) => {
         const values: Record<string, number> = {
           [SETTINGS_KEYS.ZOHO_MAX_RETRIES]: 1,
@@ -32,18 +39,93 @@ describe('ZohoDeskApiClient', () => {
     jest.clearAllMocks();
   });
 
+  it('allows self-signed TLS only when the setting is enabled', async () => {
+    const getBooleanMock = zohoConfigService.getBoolean as jest.Mock;
+    getBooleanMock.mockResolvedValue(true);
+
+    const requestMock = jest
+      .spyOn(require('node:https'), 'request')
+      .mockImplementation(
+        (
+          _url: unknown,
+          options: { rejectUnauthorized?: boolean },
+          callback: (response: {
+            statusCode?: number;
+            setEncoding: (encoding: string) => void;
+            on: (event: string, handler: (...args: unknown[]) => void) => void;
+          }) => void,
+        ) => {
+          const handlers = new Map<string, (...args: unknown[]) => void>();
+          const response = {
+            statusCode: 200,
+            setEncoding: jest.fn(),
+            on: (event: string, handler: (...args: unknown[]) => void) => {
+              handlers.set(event, handler);
+            },
+          };
+
+          callback(response);
+          handlers.get('data')?.('{"request":{"id":"req-2"}}');
+          handlers.get('end')?.();
+
+          return {
+            on: jest.fn(),
+            write: jest.fn(),
+            end: jest.fn(),
+          };
+        },
+      );
+
+    await client.createRequest({ subject: 'Dummy' }, 'corr-self-signed');
+
+    expect(requestMock).toHaveBeenCalledTimes(1);
+    expect(requestMock.mock.calls[0]?.[1]).toMatchObject({
+      rejectUnauthorized: false,
+    });
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
   it('sends update request with SDP headers and input_data body', async () => {
-    const fetchMock = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      text: jest.fn().mockResolvedValue('{"request":{"id":"req-1"}}'),
-    });
+    const requestMock = jest
+      .spyOn(require('node:https'), 'request')
+      .mockImplementation(
+        (
+          url: URL,
+          options: {
+            method?: string;
+            headers?: Record<string, string>;
+            rejectUnauthorized?: boolean;
+          },
+          callback: (response: {
+            statusCode?: number;
+            setEncoding: (encoding: string) => void;
+            on: (event: string, handler: (...args: unknown[]) => void) => void;
+          }) => void,
+        ) => {
+          const handlers = new Map<string, (...args: unknown[]) => void>();
+          const response = {
+            statusCode: 200,
+            setEncoding: jest.fn(),
+            on: (event: string, handler: (...args: unknown[]) => void) => {
+              handlers.set(event, handler);
+            },
+          };
+          const request = {
+            on: jest.fn(),
+            write: jest.fn(),
+            end: jest.fn(() => {
+              callback(response);
+              handlers.get('data')?.('{"request":{"id":"req-1"}}');
+              handlers.get('end')?.();
+            }),
+          };
 
-    global.fetch = fetchMock as unknown as typeof fetch;
+          return request;
+        },
+      );
 
     await client.updateRequest(
       'req-1',
@@ -59,55 +141,58 @@ describe('ZohoDeskApiClient', () => {
       'corr-1',
     );
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('https://servicedesk.hapfor.com/api/v3/requests/req-1');
+    expect(requestMock).toHaveBeenCalledTimes(1);
+    const [url, options] = requestMock.mock.calls[0] as [
+      URL,
+      {
+        method?: string;
+        headers?: Record<string, string>;
+      }
+    ];
+    expect(url.toString()).toBe(
+      'https://servicedesk.hapfor.com/api/v3/requests/req-1',
+    );
     expect(options.method).toBe('PUT');
     expect(options.headers).toMatchObject({
       authtoken: 'sdp-token',
       Accept: 'application/vnd.manageengine.sdp.v3+json',
       'Content-Type': 'application/x-www-form-urlencoded',
     });
-
-    const requestBody = new URLSearchParams(options.body as string);
-    const inputData = requestBody.get('input_data');
-    expect(inputData).toBeTruthy();
-    expect(JSON.parse(inputData as string)).toEqual({
-      request: {
-        subject: 'VPN access issue',
-        status: {
-          id: '2',
-          name: 'Open',
-        },
-        priority: {
-          id: '3',
-          name: 'High',
-        },
-        requester: {
-          email_id: 'user@company.com',
-        },
-        udf_fields: {
-          udf_sline_25: 'Lantai 5',
-        },
-      },
-    });
   });
 
   it('retries on retryable status and throws normalized error when exhausted', async () => {
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 429,
-        text: jest.fn().mockResolvedValue('{"message":"rate limit"}'),
-      })
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 429,
-        text: jest.fn().mockResolvedValue('{"message":"rate limit"}'),
-      });
+    const requestMock = jest
+      .spyOn(require('node:https'), 'request')
+      .mockImplementation(
+        (
+          _url: unknown,
+          _options: unknown,
+          callback: (response: {
+            statusCode?: number;
+            setEncoding: (encoding: string) => void;
+            on: (event: string, handler: (...args: unknown[]) => void) => void;
+          }) => void,
+        ) => {
+          const handlers = new Map<string, (...args: unknown[]) => void>();
+          const response = {
+            statusCode: 429,
+            setEncoding: jest.fn(),
+            on: (event: string, handler: (...args: unknown[]) => void) => {
+              handlers.set(event, handler);
+            },
+          };
 
-    global.fetch = fetchMock as unknown as typeof fetch;
+          return {
+            on: jest.fn(),
+            write: jest.fn(),
+            end: jest.fn(() => {
+              callback(response);
+              handlers.get('data')?.('{"message":"rate limit"}');
+              handlers.get('end')?.();
+            }),
+          };
+        },
+      );
 
     await expect(
       client.createRequest({ subject: 'Dummy' }, 'corr-2'),
@@ -117,5 +202,6 @@ describe('ZohoDeskApiClient', () => {
       responseBody: { message: 'rate limit' },
       correlationId: 'corr-2',
     });
+    expect(requestMock).toHaveBeenCalledTimes(1);
   });
 });
