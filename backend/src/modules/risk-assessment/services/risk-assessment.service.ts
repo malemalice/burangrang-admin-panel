@@ -21,6 +21,7 @@ import {
 } from '@prisma/client';
 import { ApprovalsService } from '../../approvals/approvals.service';
 import { RiskAssessmentZohoSyncService } from '../../zoho-webhooks/services/risk-assessment-zoho-sync.service';
+import { SdpRequestPayload } from '../../zoho-webhooks/types/sdp-request-payload.types';
 import { RemindersService } from '../../reminders/reminders.service';
 import {
   ReminderRepeatTypeEnum,
@@ -58,8 +59,13 @@ export class RiskAssessmentService {
     userId: string,
   ): Promise<RiskAssessmentDto> {
     const { items, createdBy, ...data } = createRiskAssessmentDto;
+    let createdAssessmentId: string | null = null;
 
     try {
+      console.log(
+        `[RiskAssessment] create start code=${createRiskAssessmentDto.code} status=${createRiskAssessmentDto.status} departmentId=${createRiskAssessmentDto.departmentId}`,
+      );
+
       // Extract mitigations from items before creating (they need to be saved separately)
       const itemsWithoutMitigation = items?.map(({ mitigation, ...itemData }) => itemData);
       const itemMitigations = items?.map((item) => item.mitigation);
@@ -87,6 +93,10 @@ export class RiskAssessmentService {
           assignee: true,
         },
       });
+      createdAssessmentId = assessment.id;
+      console.log(
+        `[RiskAssessment] create persisted assessmentId=${assessment.id} code=${assessment.code}`,
+      );
 
       // Create mitigation records for items
       const assessmentWithItems = assessment as any as RiskAssessment & {
@@ -147,8 +157,32 @@ export class RiskAssessmentService {
         }
       }
 
+      console.log(
+        `[RiskAssessment] create before zoho sync assessmentId=${assessmentWithRelations.id} code=${assessmentWithRelations.code}`,
+      );
+      await this.syncCreatedRiskAssessmentToZoho(assessmentWithRelations);
+      console.log(
+        `[RiskAssessment] create zoho sync success assessmentId=${assessmentWithRelations.id}`,
+      );
+
       return this.mapToDtoWithMitigations(assessmentWithRelations);
     } catch (error: any) {
+      console.error('[RiskAssessment] create failed', {
+        assessmentId: createdAssessmentId,
+        code: createRiskAssessmentDto.code,
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+        responseBody: error?.responseBody,
+        statusCode: error?.statusCode,
+      });
+      if (createdAssessmentId) {
+        console.log(
+          `[RiskAssessment] create triggering cleanup assessmentId=${createdAssessmentId}`,
+        );
+        await this.cleanupFailedRiskAssessmentCreation(createdAssessmentId);
+      }
+
       // Handle Prisma unique constraint error for code
       if (error.code === PRISMA_ERROR_CODES.UNIQUE_VIOLATION && error.meta?.target?.includes('code')) {
         throw new ConflictException('Code already exists');
@@ -1132,6 +1166,129 @@ export class RiskAssessmentService {
       isActive: record.isActive,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
+    };
+  }
+
+  private async syncCreatedRiskAssessmentToZoho(
+    assessment: RiskAssessment & {
+      department: { id: string; name: string };
+      creator: {
+        id: string;
+        email?: string | null;
+        firstName: string;
+        lastName: string;
+      };
+      assignee: {
+        id: string;
+        firstName: string;
+        lastName: string;
+      } | null;
+    },
+  ): Promise<void> {
+    const payload = await this.buildZohoCreatePayload(assessment);
+
+    console.log('[RiskAssessment] zoho create payload prepared', {
+      assessmentId: assessment.id,
+      payloadKeys: Object.keys(payload),
+      payload,
+    });
+
+    if (Object.keys(payload).length === 0) {
+      console.log(
+        `[RiskAssessment] zoho create skipped because payload empty assessmentId=${assessment.id}`,
+      );
+      return;
+    }
+
+    await this.riskAssessmentZohoSyncService.createTicketForRiskAssessment({
+      riskAssessmentId: assessment.id,
+      payload,
+      lastHseStatus: assessment.status,
+    });
+  }
+
+  private async cleanupFailedRiskAssessmentCreation(
+    riskAssessmentId: string,
+  ): Promise<void> {
+    try {
+      console.log(
+        `[RiskAssessment] cleanup start assessmentId=${riskAssessmentId}`,
+      );
+      await this.deleteRemindersForRiskAssessment(riskAssessmentId);
+      const itemIds = (
+        await this.prisma.riskAssessmentItem.findMany({
+          where: { riskAssessmentId },
+          select: { id: true },
+        })
+      ).map((item) => item.id);
+      console.log('[RiskAssessment] cleanup collected item ids', {
+        assessmentId: riskAssessmentId,
+        itemIds,
+      });
+      await this.prisma.riskMitigationRecord.deleteMany({
+        where: {
+          entity: RISK_ASSESSMENT_ITEM_ENTITY,
+          entityId: {
+            in: itemIds,
+          },
+        },
+      });
+      console.log(
+        `[RiskAssessment] cleanup deleting assessment items assessmentId=${riskAssessmentId}`,
+      );
+      await this.prisma.riskAssessmentItem.deleteMany({
+        where: { riskAssessmentId },
+      });
+      console.log(
+        `[RiskAssessment] cleanup deleting assessment row assessmentId=${riskAssessmentId}`,
+      );
+      await this.prisma.riskAssessment.delete({
+        where: { id: riskAssessmentId },
+      });
+      console.log(
+        `[RiskAssessment] cleanup success assessmentId=${riskAssessmentId}`,
+      );
+    } catch (cleanupError) {
+      console.error(
+        `[RiskAssessment] Failed to cleanup assessment ${riskAssessmentId} after Zoho create failure:`,
+        cleanupError,
+      );
+    }
+  }
+
+  private async buildZohoCreatePayload(
+    assessment: RiskAssessment & {
+      department: { id: string; name: string };
+      creator: {
+        id: string;
+        email?: string | null;
+        firstName: string;
+        lastName: string;
+      };
+      assignee: {
+        id: string;
+        firstName: string;
+        lastName: string;
+      } | null;
+    },
+  ): Promise<SdpRequestPayload> {
+    const targetStatus =
+      await this.riskAssessmentZohoSyncService.resolveZohoStatusForHseStatus(
+        assessment.status,
+      );
+
+    const subject = assessment.code;
+    const description =
+      assessment.description?.trim() ||
+      `Risk assessment ${assessment.code} created from HSE Dashboard`;
+
+    return {
+      subject,
+      description,
+      requester: {
+        id: '5',
+      },
+      status: targetStatus ? { name: targetStatus } : { name: 'Open' },
     };
   }
 }

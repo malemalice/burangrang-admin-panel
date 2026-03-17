@@ -7,7 +7,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../core/prisma/prisma.service';
+import { AccessLogsService } from '../../access-logs/services/access-logs.service';
 import { SETTINGS_KEYS } from '../../settings/constants/settings-keys';
+import {
+  SDP_WRITABLE_FIELDS,
+  type SdpRequestPayload,
+} from '../types/sdp-request-payload.types';
 import { ZohoDeskApiClient } from './zoho-desk-api.client';
 import { ZohoConfigService } from './zoho-config.service';
 
@@ -20,6 +25,7 @@ export class ZohoOutboundWorkerService {
     private readonly prisma: PrismaService,
     private readonly zohoConfigService: ZohoConfigService,
     private readonly zohoDeskApiClient: ZohoDeskApiClient,
+    private readonly accessLogsService: AccessLogsService,
   ) { }
 
   @Cron(CronExpression.EVERY_10_SECONDS)
@@ -77,7 +83,22 @@ export class ZohoOutboundWorkerService {
         FOR UPDATE SKIP LOCKED
         LIMIT 1
       )
-      RETURNING *
+      RETURNING
+        j.id,
+        j.mapping_id AS "mappingId",
+        j.ticket_id AS "ticketId",
+        j.target_status AS "targetStatus",
+        j.request_payload AS "requestPayload",
+        j.response_payload AS "responsePayload",
+        j.status,
+        j.attempt_count AS "attemptCount",
+        j.max_attempts AS "maxAttempts",
+        j.next_retry_at AS "nextRetryAt",
+        j.last_error AS "lastError",
+        j.correlation_id AS "correlationId",
+        j.processed_at AS "processedAt",
+        j.created_at AS "createdAt",
+        j.updated_at AS "updatedAt"
     `;
 
     return result[0] ?? null;
@@ -86,15 +107,18 @@ export class ZohoOutboundWorkerService {
   private async processSingleJob(job: ZohoOutboundJob): Promise<void> {
     const correlationId = job.correlationId || `corr-${randomUUID()}`;
     const attempt = job.attemptCount + 1;
+    const startedAt = Date.now();
+    const endpoint = `/api/v3/requests/${job.ticketId}`;
 
-    const requestPayload = (job.requestPayload ?? {}) as Record<
-      string,
-      unknown
-    >;
-
+    const requestPayload = (job.requestPayload ?? {}) as SdpRequestPayload;
     const changedFieldsPayload = this.pickAllowedPatchFields(requestPayload);
 
     if (Object.keys(changedFieldsPayload).length === 0) {
+      const skippedResponse = {
+        skipped: true,
+        reason: 'no_changed_fields',
+      } as Prisma.InputJsonValue;
+
       await this.prisma.zohoOutboundJob.update({
         where: { id: job.id },
         data: {
@@ -102,11 +126,21 @@ export class ZohoOutboundWorkerService {
           attemptCount: attempt,
           processedAt: new Date(),
           correlationId,
-          responsePayload: {
-            skipped: true,
-            reason: 'no_changed_fields',
-          } as Prisma.InputJsonValue,
+          responsePayload: skippedResponse,
         },
+      });
+
+      await this.logOutboundAccess({
+        method: 'PUT',
+        endpoint,
+        statusCode: 204,
+        correlationId,
+        job,
+        attempt,
+        result: 'skipped',
+        changedFieldsPayload,
+        responsePayload: skippedResponse,
+        startedAt,
       });
       return;
     }
@@ -138,6 +172,19 @@ export class ZohoOutboundWorkerService {
         }),
       ]);
 
+      await this.logOutboundAccess({
+        method: 'PUT',
+        endpoint,
+        statusCode: 200,
+        correlationId,
+        job,
+        attempt,
+        result: 'success',
+        changedFieldsPayload,
+        responsePayload: response,
+        startedAt,
+      });
+
       this.logger.log(
         JSON.stringify({
           correlationId,
@@ -151,6 +198,8 @@ export class ZohoOutboundWorkerService {
       const statusCode = this.readStatusCode(error);
       const retryable = this.isRetryable(statusCode, error);
       const maxAttempts = job.maxAttempts;
+      const responseBody = this.extractResponseBody(error);
+      const errorMessage = this.stringifyError(error);
 
       if (retryable && attempt < maxAttempts) {
         const nextRetryAt = await this.computeNextRetryAt(attempt);
@@ -162,9 +211,24 @@ export class ZohoOutboundWorkerService {
             attemptCount: attempt,
             nextRetryAt,
             correlationId,
-            lastError: this.stringifyError(error),
-            responsePayload: this.extractResponseBody(error),
+            lastError: errorMessage,
+            responsePayload: responseBody,
           },
+        });
+
+        await this.logOutboundAccess({
+          method: 'PUT',
+          endpoint,
+          statusCode: statusCode ?? 500,
+          correlationId,
+          job,
+          attempt,
+          result: 'retry_scheduled',
+          changedFieldsPayload,
+          responsePayload: responseBody,
+          errorMessage,
+          startedAt,
+          nextRetryAt,
         });
 
         this.logger.warn(
@@ -188,9 +252,23 @@ export class ZohoOutboundWorkerService {
           attemptCount: attempt,
           processedAt: new Date(),
           correlationId,
-          lastError: this.stringifyError(error),
-          responsePayload: this.extractResponseBody(error),
+          lastError: errorMessage,
+          responsePayload: responseBody,
         },
+      });
+
+      await this.logOutboundAccess({
+        method: 'PUT',
+        endpoint,
+        statusCode: statusCode ?? 500,
+        correlationId,
+        job,
+        attempt,
+        result: 'dead_letter',
+        changedFieldsPayload,
+        responsePayload: responseBody,
+        errorMessage,
+        startedAt,
       });
 
       this.logger.error(
@@ -207,29 +285,80 @@ export class ZohoOutboundWorkerService {
   }
 
   private pickAllowedPatchFields(
-    payload: Record<string, unknown>,
-  ): Record<string, unknown> {
-    const next: Record<string, unknown> = {};
+    payload: SdpRequestPayload,
+  ): SdpRequestPayload {
+    const next: SdpRequestPayload = {};
 
-    if (
-      typeof payload.status === 'string' &&
-      payload.status.trim().length > 0
-    ) {
-      next.status = payload.status;
-    }
+    for (const field of SDP_WRITABLE_FIELDS) {
+      const value = payload[field];
 
-    if (
-      typeof payload.subject === 'string' &&
-      payload.subject.trim().length > 0
-    ) {
-      next.subject = payload.subject;
-    }
+      if (value === undefined || value === null) {
+        continue;
+      }
 
-    if (typeof payload.description === 'string') {
-      next.description = payload.description;
+      if (typeof value === 'string' && value.trim().length === 0) {
+        continue;
+      }
+
+      if (Array.isArray(value) && value.length === 0) {
+        continue;
+      }
+
+      Object.assign(next, {
+        [field]: value,
+      });
     }
 
     return next;
+  }
+
+  private async logOutboundAccess(params: {
+    method: string;
+    endpoint: string;
+    statusCode: number;
+    correlationId: string;
+    job: ZohoOutboundJob;
+    attempt: number;
+    result: 'success' | 'retry_scheduled' | 'dead_letter' | 'skipped';
+    changedFieldsPayload: SdpRequestPayload;
+    responsePayload?: Record<string, unknown> | Prisma.InputJsonValue;
+    errorMessage?: string;
+    startedAt: number;
+    nextRetryAt?: Date;
+  }): Promise<void> {
+    await this.accessLogsService.createAccessLog({
+      method: params.method,
+      endpoint: params.endpoint,
+      statusCode: params.statusCode,
+      payload: {
+        source: 'zoho_outbound_worker',
+        correlationId: params.correlationId,
+        jobId: params.job.id,
+        mappingId: params.job.mappingId,
+        ticketId: params.job.ticketId,
+        attempt: params.attempt,
+        maxAttempts: params.job.maxAttempts,
+        targetStatus: params.job.targetStatus,
+        result: params.result,
+        changedFieldKeys: Object.keys(params.changedFieldsPayload),
+        requestPayload: params.changedFieldsPayload as unknown as Record<string, unknown>,
+        responsePayload: this.toAccessLogRecord(params.responsePayload),
+        errorMessage: params.errorMessage,
+        nextRetryAt: params.nextRetryAt?.toISOString(),
+      },
+      userAgent: 'ZohoOutboundWorker',
+      executionTime: Date.now() - params.startedAt,
+    });
+  }
+
+  private toAccessLogRecord(
+    payload?: Record<string, unknown> | Prisma.InputJsonValue,
+  ): Record<string, unknown> | undefined {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return undefined;
+    }
+
+    return payload as Record<string, unknown>;
   }
 
   private async computeNextRetryAt(attempt: number): Promise<Date> {
@@ -306,5 +435,4 @@ export class ZohoOutboundWorkerService {
 
     return 'Unknown error';
   }
-
 }

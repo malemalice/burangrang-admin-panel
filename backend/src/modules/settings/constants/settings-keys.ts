@@ -13,6 +13,7 @@ export const SETTINGS_KEYS = {
   SDP_BASE_URL: 'zoho.sdp.base_url',
   SDP_AUTHTOKEN: 'zoho.sdp.authtoken',
   SDP_API_VERSION: 'zoho.sdp.api_version',
+  SDP_ALLOW_SELF_SIGNED: 'zoho.sdp.allow_self_signed',
   ZOHO_DEFAULT_DEPARTMENT_ID: 'zoho.inbound.default_department_id',
   ZOHO_INTEGRATION_USER_ID: 'zoho.inbound.integration_user_id',
   ZOHO_INBOUND_DEFAULT_STATUS: 'zoho.inbound.default_status',

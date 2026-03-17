@@ -1,5 +1,7 @@
+import { request as httpsRequest } from 'node:https';
 import { Injectable, Logger } from '@nestjs/common';
 import { SETTINGS_KEYS } from '../../settings/constants/settings-keys';
+import { SdpRequestPayload } from '../types/sdp-request-payload.types';
 import { ZohoConfigService } from './zoho-config.service';
 
 interface NormalizedApiError extends Error {
@@ -16,7 +18,7 @@ export class ZohoDeskApiClient {
 
   async updateRequest(
     requestId: string,
-    payload: Record<string, unknown>,
+    payload: SdpRequestPayload,
     correlationId: string,
   ): Promise<Record<string, unknown>> {
     const response = await this.executeWithRetry({
@@ -31,7 +33,7 @@ export class ZohoDeskApiClient {
   }
 
   async createRequest(
-    payload: Record<string, unknown>,
+    payload: SdpRequestPayload,
     correlationId: string,
   ): Promise<Record<string, unknown>> {
     const response = await this.executeWithRetry({
@@ -48,7 +50,7 @@ export class ZohoDeskApiClient {
   private async executeWithRetry(params: {
     endpoint: string;
     method: 'POST' | 'PUT';
-    payload: Record<string, unknown>;
+    payload: SdpRequestPayload;
     correlationId: string;
     logMessage: string;
   }): Promise<Record<string, unknown>> {
@@ -113,10 +115,11 @@ export class ZohoDeskApiClient {
   private async performRequest(
     endpoint: string,
     method: 'POST' | 'PUT',
-    payload: Record<string, unknown>,
+    payload: SdpRequestPayload,
     correlationId: string,
   ): Promise<Record<string, unknown>> {
-    const { baseUrl, version, authToken } = await this.resolveSdpConfig();
+    const { baseUrl, version, authToken, allowSelfSigned } =
+      await this.resolveSdpConfig();
     const url = `${baseUrl}/api/${version}${endpoint}`;
 
     const body = new URLSearchParams({
@@ -125,26 +128,35 @@ export class ZohoDeskApiClient {
       }),
     });
 
-    let response: Response;
+    let responseText = '';
+    let statusCode = 0;
     try {
-      response = await fetch(url, {
+      const response = await this.sendHttpsRequest({
+        url,
         method,
-        headers: {
-          authtoken: authToken,
-          Accept: 'application/vnd.manageengine.sdp.v3+json',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+        authToken,
         body: body.toString(),
+        allowSelfSigned,
       });
+      responseText = response.body;
+      statusCode = response.statusCode;
     } catch (error) {
       const networkError = this.buildError({
         message: `SDP request failed before response: ${this.stringifyError(error)}`,
         correlationId,
+        responseBody: {
+          phase: 'network_before_response',
+          url,
+          host: new URL(url).host,
+          method,
+          allowSelfSigned,
+          payloadKeys: Object.keys(payload),
+          diagnostic: this.extractErrorDiagnostic(error),
+        },
       });
       throw networkError;
     }
 
-    const responseText = await response.text();
     let parsed: Record<string, unknown> = {};
 
     try {
@@ -155,10 +167,10 @@ export class ZohoDeskApiClient {
       parsed = { raw: responseText };
     }
 
-    if (!response.ok) {
+    if (statusCode < 200 || statusCode >= 300) {
       const error = this.buildError({
-        message: `SDP request failed: HTTP ${response.status}`,
-        statusCode: response.status,
+        message: `SDP request failed: HTTP ${statusCode}`,
+        statusCode,
         responseBody: parsed,
         correlationId,
       });
@@ -172,6 +184,7 @@ export class ZohoDeskApiClient {
     baseUrl: string;
     version: string;
     authToken: string;
+    allowSelfSigned: boolean;
   }> {
     const baseUrl = await this.zohoConfigService.getString(
       SETTINGS_KEYS.SDP_BASE_URL,
@@ -185,6 +198,10 @@ export class ZohoDeskApiClient {
       SETTINGS_KEYS.SDP_AUTHTOKEN,
       '',
     );
+    const allowSelfSigned = await this.zohoConfigService.getBoolean(
+      SETTINGS_KEYS.SDP_ALLOW_SELF_SIGNED,
+      false,
+    );
 
     if (!authToken) {
       throw new Error('SDP_AUTHTOKEN is not configured');
@@ -194,7 +211,53 @@ export class ZohoDeskApiClient {
       baseUrl: baseUrl.replace(/\/$/, ''),
       version,
       authToken,
+      allowSelfSigned,
     };
+  }
+
+  private sendHttpsRequest(params: {
+    url: string;
+    method: 'POST' | 'PUT';
+    authToken: string;
+    body: string;
+    allowSelfSigned: boolean;
+  }): Promise<{ statusCode: number; body: string }> {
+    const { url, method, authToken, body, allowSelfSigned } = params;
+    const targetUrl = new URL(url);
+
+    return new Promise((resolve, reject) => {
+      const request = httpsRequest(
+        targetUrl,
+        {
+          method,
+          headers: {
+            authtoken: authToken,
+            Accept: 'application/vnd.manageengine.sdp.v3+json',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Length': Buffer.byteLength(body).toString(),
+          },
+          rejectUnauthorized: !allowSelfSigned,
+        },
+        (response) => {
+          let responseBody = '';
+
+          response.setEncoding('utf8');
+          response.on('data', (chunk: string) => {
+            responseBody += chunk;
+          });
+          response.on('end', () => {
+            resolve({
+              statusCode: response.statusCode ?? 0,
+              body: responseBody,
+            });
+          });
+        },
+      );
+
+      request.on('error', reject);
+      request.write(body);
+      request.end();
+    });
   }
 
   private async computeBackoff(attempt: number): Promise<number> {
@@ -268,6 +331,54 @@ export class ZohoDeskApiClient {
     }
 
     return 'Unknown error';
+  }
+
+  private extractErrorDiagnostic(error: unknown): Record<string, unknown> {
+    if (error instanceof Error) {
+      const cause = this.readErrorCause(error);
+
+      return {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        cause,
+      };
+    }
+
+    if (typeof error === 'object' && error !== null) {
+      return error as Record<string, unknown>;
+    }
+
+    return {
+      value: error,
+    };
+  }
+
+  private readErrorCause(error: Error): Record<string, unknown> | undefined {
+    const errorWithCause = error as Error & { cause?: unknown };
+
+    if (!errorWithCause.cause) {
+      return undefined;
+    }
+
+    if (errorWithCause.cause instanceof Error) {
+      return {
+        name: errorWithCause.cause.name,
+        message: errorWithCause.cause.message,
+        stack: errorWithCause.cause.stack,
+      };
+    }
+
+    if (
+      typeof errorWithCause.cause === 'object' &&
+      errorWithCause.cause !== null
+    ) {
+      return errorWithCause.cause as Record<string, unknown>;
+    }
+
+    return {
+      value: errorWithCause.cause,
+    };
   }
 
   private sleep(ms: number): Promise<void> {
