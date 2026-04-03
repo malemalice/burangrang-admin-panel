@@ -7,3 +7,4 @@ export * from './risk-mitigations';
 export * from './approvals';
 export * from './rooms';
 export * from './areas';
+export * from './companies';

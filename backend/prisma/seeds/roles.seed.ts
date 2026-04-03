@@ -69,6 +69,8 @@ function getManagerUserPermissionNames(): Set<string> {
   set.add('notification:mark-all-read');
   set.add('notification:unread-count');
   set.add('notification:types');
+  set.add('company:read');
+  set.add('company:list');
   return set;
 }
 

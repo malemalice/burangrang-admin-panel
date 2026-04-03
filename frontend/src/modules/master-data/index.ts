@@ -49,6 +49,12 @@ export { default as CreateRiskMitigationPage } from './pages/risk-mitigations/Cr
 export { default as EditRiskMitigationPage } from './pages/risk-mitigations/EditRiskMitigationPage';
 export { default as RiskMitigationForm } from './pages/risk-mitigations/RiskMitigationForm';
 
+// Pages - Companies
+export { default as CompaniesPage } from './pages/companies/CompaniesPage';
+export { default as CreateCompanyPage } from './pages/companies/CreateCompanyPage';
+export { default as EditCompanyPage } from './pages/companies/EditCompanyPage';
+export { default as CompanyForm } from './pages/companies/CompanyForm';
+
 
 // Routes
 export { default as masterDataRoutes } from './routes/masterDataRoutes';
@@ -64,6 +70,7 @@ export { default as riskMitigationService } from './services/riskMitigationServi
 export { default as approvalService } from './services/approvalService';
 export { default as DashboardService } from './services/dashboard.service';
 export { default as roomService } from './services/roomService';
+export { default as companyService } from './services/companyService';
 
 // Types
 export type {
@@ -92,12 +99,16 @@ export type {
   UpdateJobPositionDTO,
   CreateMasterApprovalDTO,
   UpdateMasterApprovalDTO,
+  CompanyDTO,
+  CreateCompanyDTO,
+  UpdateCompanyDTO,
   
   // Form data types
   OfficeFormData,
   DepartmentFormData,
   JobPositionFormData,
   MasterApprovalFormData,
+  CompanyFormData,
   
   // Filter and search types
   OfficeFilters,
@@ -108,6 +119,7 @@ export type {
   DepartmentSearchParams,
   JobPositionSearchParams,
   MasterApprovalSearchParams,
+  CompanyFilters,
   
   // Statistics
   MasterDataStats,
