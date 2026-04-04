@@ -82,6 +82,8 @@ export const weightReportService = {
   create: (data: CreateWeightReportData) => api.post<WeightReport>('/weight-reports', data),
   update: (id: string, data: UpdateWeightReportData) => api.patch<WeightReport>(`/weight-reports/${id}`, data),
   delete: (id: string) => api.delete(`/weight-reports/${id}`),
+  submit: (id: string) => api.patch<WeightReport>(`/weight-reports/${id}/submit`),
+  requestApproval: (id: string) => api.patch<WeightReport>(`/weight-reports/${id}/request-approval`),
 };
 
 // Dispatch Orders Service

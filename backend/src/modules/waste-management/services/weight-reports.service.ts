@@ -9,6 +9,7 @@ import {
   WeightReportItemDto,
   MonthEnum,
 } from '../dto/weight-reports';
+import { WeightReportStatusEnum } from '@prisma/client';
 
 const MONTH_MAP = [
   MonthEnum.JAN,
@@ -340,5 +341,51 @@ export class WeightReportsService {
     await this.errorHandler.safeExecute(async () => {
       await this.prisma.weightReport.delete({ where: { id } });
     }, 'deleting weight report');
+  }
+
+  async submitReport(id: string): Promise<WeightReportDto> {
+    const item = await this.prisma.weightReport.findUnique({ where: { id } });
+    this.errorHandler.throwIfNotFoundById('Weight Report', id, item);
+
+    if (item!.status !== WeightReportStatusEnum.DRAFT) {
+      this.errorHandler.throwBadRequest(
+        'Weight report must be in DRAFT status to submit',
+      );
+    }
+
+    const updated = await this.prisma.weightReport.update({
+      where: { id },
+      data: { status: WeightReportStatusEnum.OPEN },
+      include: {
+        source: true,
+        storageLocation: true,
+        submitter: true,
+        items: { include: { wasteType: true } },
+      },
+    });
+    return this.reportMapper(updated);
+  }
+
+  async requestApproval(id: string): Promise<WeightReportDto> {
+    const item = await this.prisma.weightReport.findUnique({ where: { id } });
+    this.errorHandler.throwIfNotFoundById('Weight Report', id, item);
+
+    if (item!.status !== WeightReportStatusEnum.OPEN) {
+      this.errorHandler.throwBadRequest(
+        'Weight report must be in OPEN status to request approval',
+      );
+    }
+
+    const updated = await this.prisma.weightReport.update({
+      where: { id },
+      data: { status: WeightReportStatusEnum.WAITING_APPROVAL },
+      include: {
+        source: true,
+        storageLocation: true,
+        submitter: true,
+        items: { include: { wasteType: true } },
+      },
+    });
+    return this.reportMapper(updated);
   }
 }

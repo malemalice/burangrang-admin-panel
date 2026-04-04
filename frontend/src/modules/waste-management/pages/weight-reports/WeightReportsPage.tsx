@@ -17,8 +17,25 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { weightReportService, wasteSourceService, storageLocationService } from '../../services/wasteManagementService';
-import { WeightReport, PaginatedResponse } from '../../types/waste-management.types';
+import { WeightReport, WeightReportStatusEnum, PaginatedResponse } from '../../types/waste-management.types';
 import { WeightReportPDFTemplate } from '../../components/WeightReportPDFTemplate';
+
+function getStatusBadge(status?: string) {
+  switch (status) {
+    case WeightReportStatusEnum.DRAFT:
+      return <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-300">Draft</Badge>;
+    case WeightReportStatusEnum.OPEN:
+      return <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300">Open</Badge>;
+    case WeightReportStatusEnum.WAITING_APPROVAL:
+      return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">Waiting Approval</Badge>;
+    case WeightReportStatusEnum.DONE:
+      return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">Done</Badge>;
+    case WeightReportStatusEnum.REJECTED:
+      return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">Rejected</Badge>;
+    default:
+      return status ? <Badge variant="outline">{status}</Badge> : null;
+  }
+}
 
 export default function WeightReportsPage() {
   const navigate = useNavigate();
@@ -60,9 +77,16 @@ export default function WeightReportsPage() {
       const loc = locations.find((l) => l.id === storageLocationId);
       filters.storageLocationId = { value: storageLocationId, label: loc?.name ?? storageLocationId };
     }
-    const isActive = searchParams.get('isActive');
-    if (isActive === 'true' || isActive === 'false') {
-      filters.isActive = { value: isActive, label: isActive === 'true' ? 'Active' : 'Inactive' };
+    const status = searchParams.get('status');
+    if (status) {
+      const statusLabels: Record<string, string> = {
+        [WeightReportStatusEnum.DRAFT]: 'Draft',
+        [WeightReportStatusEnum.OPEN]: 'Open',
+        [WeightReportStatusEnum.WAITING_APPROVAL]: 'Waiting Approval',
+        [WeightReportStatusEnum.DONE]: 'Done',
+        [WeightReportStatusEnum.REJECTED]: 'Rejected',
+      };
+      filters.status = { value: status, label: statusLabels[status] ?? status };
     }
     return filters;
   }, [searchParams, sources, locations]);
@@ -119,12 +143,15 @@ export default function WeightReportsPage() {
       options: locations.map((l) => ({ label: l.name, value: l.id })),
     },
     {
-      id: 'isActive',
+      id: 'status',
       label: 'Status',
       type: 'select',
       options: [
-        { label: 'Active', value: 'true' },
-        { label: 'Inactive', value: 'false' },
+        { label: 'Draft', value: WeightReportStatusEnum.DRAFT },
+        { label: 'Open', value: WeightReportStatusEnum.OPEN },
+        { label: 'Waiting Approval', value: WeightReportStatusEnum.WAITING_APPROVAL },
+        { label: 'Done', value: WeightReportStatusEnum.DONE },
+        { label: 'Rejected', value: WeightReportStatusEnum.REJECTED },
       ],
     },
   ];
@@ -136,7 +163,7 @@ export default function WeightReportsPage() {
       search: search || undefined,
       sourceId: activeFilters.sourceId?.value,
       storageLocationId: activeFilters.storageLocationId?.value,
-      isActive: activeFilters.isActive?.value === 'true' ? true : activeFilters.isActive?.value === 'false' ? false : undefined,
+      status: activeFilters.status?.value,
     }),
     [search, activeFilters],
   );
@@ -176,7 +203,7 @@ export default function WeightReportsPage() {
 
   const handleApplyFilters = (filters: FilterValue[]) => {
     updateSearchParams((next) => {
-      ['sourceId', 'storageLocationId', 'isActive'].forEach((k) => next.delete(k));
+      ['sourceId', 'storageLocationId', 'status'].forEach((k) => next.delete(k));
       filters.forEach((filter) => {
         next.set(filter.id, String(filter.value));
       });
@@ -257,11 +284,7 @@ export default function WeightReportsPage() {
     {
       id: 'status',
       header: 'Status',
-      cell: (item: WeightReport) => (
-        <Badge variant={item.isActive ? 'default' : 'secondary'}>
-          {item.isActive ? 'Active' : 'Inactive'}
-        </Badge>
-      ),
+      cell: (item: WeightReport) => getStatusBadge(item.status),
       isSortable: true,
     },
     {

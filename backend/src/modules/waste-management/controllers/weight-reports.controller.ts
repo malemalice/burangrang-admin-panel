@@ -156,4 +156,34 @@ export class WeightReportsController {
   remove(@Param('id') id: string): Promise<void> {
     return this.service.remove(id);
   }
+
+  @Patch(':id/submit')
+  @Permissions('waste-management:update')
+  @ApiOperation({ summary: 'Submit weight report (DRAFT → OPEN)' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'The report has been successfully submitted.',
+    type: WeightReportDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request - not in DRAFT status' })
+  @ApiResponse({ status: 404, description: 'Report not found' })
+  submitReport(@Param('id') id: string): Promise<WeightReportDto> {
+    return this.service.submitReport(id);
+  }
+
+  @Patch(':id/request-approval')
+  @Permissions('waste-management:update')
+  @ApiOperation({ summary: 'Request approval for weight report (OPEN → WAITING_APPROVAL)' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'The report has been successfully submitted for approval.',
+    type: WeightReportDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request - not in OPEN status' })
+  @ApiResponse({ status: 404, description: 'Report not found' })
+  requestApproval(@Param('id') id: string): Promise<WeightReportDto> {
+    return this.service.requestApproval(id);
+  }
 }
