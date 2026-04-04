@@ -192,9 +192,21 @@ const CoursePlayerPage = () => {
             ).length;
             const totalQuizzes = learningContext.quizzes?.length || 0;
             const passedQuizIds = new Set(
-              (learningContext.quizAttempts || [])
-                .filter(a => a.status === 'COMPLETED' && a.isPassed)
-                .map(a => a.quizId)
+              (learningContext.quizzes || [])
+                .filter((quiz) => {
+                  const latestAttempt = (learningContext.quizAttempts || [])
+                    .filter((attempt) => attempt.quizId === quiz.id)
+                    .reduce((latest, current) => {
+                      if (!latest || current.attemptNumber > latest.attemptNumber) {
+                        return current;
+                      }
+
+                      return latest;
+                    }, null as (typeof learningContext.quizAttempts)[number] | null);
+
+                  return latestAttempt?.status === 'COMPLETED' && latestAttempt.isPassed;
+                })
+                .map((quiz) => quiz.id)
             );
             const totalItems = chapters.length + totalQuizzes;
             const completedItems = completedChapters + passedQuizIds.size;

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsNotEmpty, IsInt, IsEnum, IsBoolean, Min, IsUrl } from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty, IsInt, IsEnum, IsBoolean, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateChapterDto {
@@ -40,7 +40,7 @@ export class CreateChapterDto {
   contentType: string = 'video';
 
   @ApiProperty({ 
-    description: 'Content URL for video/pdf files', 
+    description: 'Content URL for non-YouTube chapter content or legacy YouTube fallback input', 
     required: false,
     example: 'https://example.com/videos/chapter1.mp4'
   })
@@ -49,7 +49,7 @@ export class CreateChapterDto {
   contentUrl?: string;
 
   @ApiProperty({ 
-    description: 'YouTube video ID for YouTube content', 
+    description: 'YouTube URL or raw video ID for YouTube content; stored canonically as video ID', 
     required: false,
     example: 'dQw4w9WgXcQ'
   })

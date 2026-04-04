@@ -1,36 +1,77 @@
+const YOUTUBE_VIDEO_ID_REGEX = /^[a-zA-Z0-9_-]{11}$/;
+
+export const isYoutubeVideoId = (value: string | null | undefined): boolean => {
+  if (!value) return false;
+  return YOUTUBE_VIDEO_ID_REGEX.test(value.trim());
+};
+
 /**
- * Extract YouTube video ID from various URL formats or return the ID if already valid
- * Supports:
- * - youtube.com/watch?v=VIDEO_ID
- * - youtu.be/VIDEO_ID
- * - youtube.com/embed/VIDEO_ID
- * - youtube.com/v/VIDEO_ID
- * - youtube.com/shorts/VIDEO_ID
- * - Direct video ID (11 characters)
+ * Extract YouTube video ID from supported URL formats or return the ID when already valid.
  */
 export const extractYoutubeVideoId = (urlOrId: string | null | undefined): string | null => {
   if (!urlOrId) return null;
 
   const trimmed = urlOrId.trim();
 
-  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
+  if (isYoutubeVideoId(trimmed)) {
     return trimmed;
   }
 
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtube\.com\/watch\?.*&v=)([a-zA-Z0-9_-]{11})/,
-    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
-    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
-    /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/,
-    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+  const parseUrl = (value: string): URL | null => {
+    try {
+      return new URL(value);
+    } catch {
+      try {
+        return new URL(`https://${value}`);
+      } catch {
+        return null;
+      }
+    }
+  };
+
+  const parsedUrl = parseUrl(trimmed);
+
+  if (parsedUrl) {
+    const hostname = parsedUrl.hostname.toLowerCase().replace(/^www\./, '').replace(/^m\./, '');
+    const pathSegments = parsedUrl.pathname.split('/').filter(Boolean);
+
+    if (hostname === 'youtu.be') {
+      const candidate = pathSegments[0];
+      return isYoutubeVideoId(candidate) ? candidate : null;
+    }
+
+    if (hostname === 'youtube.com' || hostname === 'youtube-nocookie.com') {
+      if (pathSegments[0] === 'watch') {
+        const candidate = parsedUrl.searchParams.get('v');
+        return isYoutubeVideoId(candidate) ? candidate : null;
+      }
+
+      if (['embed', 'v', 'shorts'].includes(pathSegments[0])) {
+        const candidate = pathSegments[1];
+        return isYoutubeVideoId(candidate) ? candidate : null;
+      }
+    }
+  }
+
+  const fallbackPatterns = [
+    /(?:youtube\.com\/watch\?.*v=)([a-zA-Z0-9_-]{11})/,
+    /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+    /(?:youtube(?:-nocookie)?\.com\/(?:embed|v|shorts)\/)([a-zA-Z0-9_-]{11})/,
   ];
 
-  for (const pattern of patterns) {
+  for (const pattern of fallbackPatterns) {
     const match = trimmed.match(pattern);
-    if (match) return match[1];
+    if (match?.[1]) {
+      return match[1];
+    }
   }
 
   return null;
+};
+
+export const getYoutubeEmbedUrl = (urlOrId: string | null | undefined): string | null => {
+  const videoId = extractYoutubeVideoId(urlOrId);
+  return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
 };
 
 /**

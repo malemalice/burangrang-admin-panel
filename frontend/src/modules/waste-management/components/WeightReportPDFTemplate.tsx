@@ -49,7 +49,7 @@ export function WeightReportPDFTemplate({ report }: WeightReportPDFTemplateProps
                         </TableRow>
                         <TableRow>
                             <TableHead className="w-1/3 bg-muted/50 font-semibold">Status</TableHead>
-                            <TableCell className="align-middle">{getStatusBadge(report.status)}</TableCell>
+                            <TableCell className="align-middle">{report.status}</TableCell>
                         </TableRow>
                     </TableBody>
                 </Table>
