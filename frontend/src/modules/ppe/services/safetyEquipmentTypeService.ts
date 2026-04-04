@@ -45,6 +45,10 @@ const safetyEquipmentTypeService = {
                 queryParams.append('search', params.search);
             }
 
+            if (params.options) {
+                queryParams.append('options', 'true');
+            }
+
             // Add any additional filters
             if (params.filters) {
                 Object.entries(params.filters).forEach(([key, value]) => {

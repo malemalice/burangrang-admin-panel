@@ -216,7 +216,19 @@ export class PPEService {
      * Create new stock entry with items
      */
     async createStock(createStockDto: CreatePPEStockDto, createdBy: string): Promise<PPEStockDto> {
-        const stockCode = await this.generateStockCode();
+        const trimmedCode = createStockDto.stockCode?.trim();
+        let stockCode: string;
+        if (trimmedCode) {
+            const existing = await this.prisma['pPEStock'].findFirst({
+                where: { stockCode: trimmedCode, deletedAt: null },
+            });
+            if (existing) {
+                this.errorHandler.throwConflict('PO/PR code', trimmedCode);
+            }
+            stockCode = trimmedCode;
+        } else {
+            stockCode = await this.generateStockCode();
+        }
 
         return await this.prisma.$transaction(async (tx) => {
             // Create stock header
@@ -381,14 +393,38 @@ export class PPEService {
         this.errorHandler.throwIfNotFoundById('PPEStock', id, existingStock);
 
         return await this.prisma.$transaction(async (tx) => {
+            const headerData: {
+                receivedDate?: Date;
+                notes?: string | null;
+                isActive?: boolean;
+                stockCode?: string;
+            } = {
+                receivedDate: updateStockDto.receivedDate ? new Date(updateStockDto.receivedDate) : undefined,
+                notes: updateStockDto.notes,
+                isActive: updateStockDto.isActive,
+            };
+
+            if (updateStockDto.stockCode !== undefined) {
+                const trimmedCode = updateStockDto.stockCode.trim();
+                if (trimmedCode !== existingStock.stockCode) {
+                    const duplicate = await tx['pPEStock'].findFirst({
+                        where: {
+                            stockCode: trimmedCode,
+                            deletedAt: null,
+                            id: { not: id },
+                        },
+                    });
+                    if (duplicate) {
+                        this.errorHandler.throwConflict('PO/PR code', trimmedCode);
+                    }
+                }
+                headerData.stockCode = trimmedCode;
+            }
+
             // Update stock header
             const stock = await tx["pPEStock"].update({
                 where: { id },
-                data: {
-                    receivedDate: updateStockDto.receivedDate ? new Date(updateStockDto.receivedDate) : undefined,
-                    notes: updateStockDto.notes,
-                    isActive: updateStockDto.isActive,
-                },
+                data: headerData,
             });
 
             // Handle items update if provided
