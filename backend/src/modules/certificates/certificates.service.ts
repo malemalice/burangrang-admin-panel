@@ -140,6 +140,7 @@ export class CertificatesService {
         isActive?: boolean;
         search?: string;
         certificateType?: CertificateTypeEnum;
+        responsibleDepartmentId?: string;
     }): Promise<{
         data: CertificateCategoryDto[];
         meta: { total: number; page: number; limit: number };
@@ -152,11 +153,18 @@ export class CertificatesService {
             isActive,
             search,
             certificateType,
+            responsibleDepartmentId,
         } = options || {};
 
         const where: Prisma.CertificateCategoryWhereInput = {
             deletedAt: null, // Only get non-deleted records
         };
+
+        if (responsibleDepartmentId?.trim()) {
+            where.responsibleDepartments = {
+                some: { id: responsibleDepartmentId.trim() },
+            };
+        }
 
         if (search) {
             const searchTerm = search.trim();

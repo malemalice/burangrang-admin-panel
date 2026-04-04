@@ -11,6 +11,7 @@ export { default as CertificateCategoriesPage } from './pages/CertificateCategor
 export { default as CertificateCategoryForm } from './pages/CertificateCategoryForm';
 export { default as CreateCertificateCategoryPage } from './pages/CreateCertificateCategoryPage';
 export { default as EditCertificateCategoryPage } from './pages/EditCertificateCategoryPage';
+export { default as CertificateCategoryDetailPage } from './pages/CertificateCategoryDetailPage';
 
 // Services
 export { default as certificateService } from './services/certificateService';

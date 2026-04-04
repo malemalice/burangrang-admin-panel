@@ -46,7 +46,7 @@ export interface CertificateCategory {
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
-    responsibleDepartments: { id: string; name: string }[];
+    responsibleDepartments: { id: string; name: string; emails?: string[] | null }[];
 }
 
 // Create Certificate Category DTO
