@@ -59,6 +59,7 @@ export default function EnvironmentalMeasurementsPage() {
   const [listPdfRegulatoryLimits, setListPdfRegulatoryLimits] =
     useState<EnvironmentalMeasurementRegulatoryLimits | null>(null);
   const [isExportingAllPDF, setIsExportingAllPDF] = useState(false);
+  const [exportingRowId, setExportingRowId] = useState<string | null>(null);
 
   const { toPDF, targetRef } = usePDF({
     filename: `environmental-measurements-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
@@ -280,6 +281,28 @@ export default function EnvironmentalMeasurementsPage() {
     }
   }, [searchTerm, activeFilters, getDateRangeParams, regulatoryLimits, toPDF]);
 
+  const handleExportRowPDF = useCallback(
+    async (measurement: EnvironmentalMeasurement) => {
+      setExportingRowId(measurement.id);
+      setOpenDropdownId(null);
+      try {
+        const limits =
+          regulatoryLimits ?? (await environmentalMeasurementService.getRegulatoryLimits());
+        setListPdfRegulatoryLimits(limits);
+        setAllMeasurementsForPDF([measurement]);
+        await new Promise((r) => setTimeout(r, 200));
+        await toPDF();
+        toast.success('PDF exported successfully');
+      } catch (error) {
+        console.error('Failed to export PDF:', error);
+        toast.error('Failed to export PDF');
+      } finally {
+        setExportingRowId(null);
+      }
+    },
+    [regulatoryLimits, toPDF],
+  );
+
   const columns = [
     {
       id: 'date',
@@ -383,8 +406,16 @@ export default function EnvironmentalMeasurementsPage() {
             <DropdownMenuItem onClick={() => navigate(`/environmental-measurements/${measurement.id}`)}>
               <Eye className="mr-2 h-4 w-4" /> View
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/environmental-measurements/${measurement.id}?print=true`)}>
-              <FileDown className="mr-2 h-4 w-4" /> Export PDF
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void handleExportRowPDF(measurement);
+              }}
+              disabled={exportingRowId === measurement.id}
+            >
+              <FileDown className="mr-2 h-4 w-4" />{' '}
+              {exportingRowId === measurement.id ? 'Preparing PDF…' : 'Export PDF'}
             </DropdownMenuItem>
             {hasPermission('environmental-measurement:update') && (
               <DropdownMenuItem onClick={() => navigate(`/environmental-measurements/${measurement.id}/edit`)}>
