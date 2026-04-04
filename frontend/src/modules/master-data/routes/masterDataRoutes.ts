@@ -33,6 +33,9 @@ import {
   AreasPage,
   CreateAreaPage,
   EditAreaPage,
+  CompaniesPage,
+  CreateCompanyPage,
+  EditCompanyPage,
 } from '../pages';
 
 /**
@@ -158,6 +161,18 @@ const masterDataRoutes: RouteConfig[] = [
   {
     path: '/master/areas/:id/edit',
     component: EditAreaPage,
+  },
+  {
+    path: '/master/companies',
+    component: CompaniesPage,
+  },
+  {
+    path: '/master/companies/create',
+    component: CreateCompanyPage,
+  },
+  {
+    path: '/master/companies/:id/edit',
+    component: EditCompanyPage,
   },
   {
     path: '/master/rooms',

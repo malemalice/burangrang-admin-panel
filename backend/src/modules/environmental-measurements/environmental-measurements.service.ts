@@ -1,3 +1,4 @@
+import { endOfDay } from 'date-fns';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
@@ -123,7 +124,7 @@ export class EnvironmentalMeasurementsService {
         where.date.gte = new Date(startDate);
       }
       if (endDate) {
-        where.date.lte = new Date(endDate);
+        where.date.lte = endOfDay(new Date(endDate));
       }
     }
 

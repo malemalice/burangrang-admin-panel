@@ -122,9 +122,19 @@ export const ApprovalTimelineCard = ({
     new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   ) || [];
 
-  // Find completed approvals for each line
-  const getApprovalForLine = (lineNumber: number) => {
-    return allApprovals.find((item) => item.line === lineNumber);
+  const nonApprovedHistory = allApprovals.filter(
+    (item) => item.status !== 'APPROVED',
+  );
+
+  const getLatestApprovalForLine = (
+    lineNumber: number,
+    status?: string,
+  ) => {
+    const matchingApprovals = allApprovals.filter(
+      (item) => item.line === lineNumber && (!status || item.status === status),
+    );
+
+    return matchingApprovals[matchingApprovals.length - 1];
   };
 
   const isDynamicDepartment = (dept?: { id: string; name: string }) => {
@@ -178,8 +188,8 @@ export const ApprovalTimelineCard = ({
           <div className="relative">
             <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
             <div className="space-y-4 pb-4">
-              {/* Show all approvals in chronological order */}
-              {allApprovals.map((approval) => {
+              {/* Show non-approved historical actions in chronological order */}
+              {nonApprovedHistory.map((approval) => {
                 const statusConfig = getStatusConfig(approval.status);
                 const StatusIcon = statusConfig.icon;
 
@@ -229,16 +239,66 @@ export const ApprovalTimelineCard = ({
                 );
               })}
 
-              {/* Show current workflow approval lines only if not DONE (only pending/current, not completed) */}
-              {!isDone && approvalHistory.allApprovalLines.map((line) => {
-                const approval = getApprovalForLine(line.line);
+              {/* Show all configured workflow lines so the full approval chain stays visible */}
+              {approvalHistory.allApprovalLines.map((line) => {
+                const approval = getLatestApprovalForLine(line.line, 'APPROVED');
                 const isCompleted = line.status === 'completed';
                 const isCurrent = line.status === 'current';
                 const isPending = line.status === 'pending';
 
-                // Skip completed lines - they're already shown in approvals above
                 if (isCompleted) {
-                  return null;
+                  return (
+                    <div key={`line-${line.line}`} className="relative pl-8">
+                      <div className="absolute left-0 w-8 flex items-center justify-center">
+                        <div className="w-3 h-3 rounded-full border-2 border-background bg-green-500" />
+                      </div>
+                      <div className="bg-green-50 border-green-200 border rounded-lg p-4 shadow-sm">
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div className="flex items-center gap-2 flex-1">
+                            <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                            <Badge
+                              variant="outline"
+                              className="text-xs font-medium border bg-green-100 text-green-800 border-green-200"
+                            >
+                              APPROVED
+                            </Badge>
+                          </div>
+                          {approval && (
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                              {format(new Date(approval.createdAt), 'dd MMM yyyy HH:mm')}
+                            </span>
+                          )}
+                        </div>
+
+                        {approval?.notes && (
+                          <div className="mb-3">
+                            <p className="text-xs text-muted-foreground leading-relaxed">{approval.notes}</p>
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
+                          {approval?.creator && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-muted-foreground">By:</span>
+                              <span className="font-medium text-foreground">{approval.creator.name}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-muted-foreground">Dept:</span>
+                            <span className="font-medium text-foreground">
+                              {approval?.department.name ?? resolveDepartmentName(line.department)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-muted-foreground">Pos:</span>
+                            <span className="font-medium text-foreground">
+                              {approval?.jobPosition.name ?? resolveJobPositionName(line.jobPosition)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
                 }
 
                 if (isCurrent) {

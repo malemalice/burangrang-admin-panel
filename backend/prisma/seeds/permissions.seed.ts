@@ -106,6 +106,13 @@ export const permissions = [
   { name: 'area:delete', description: 'Delete areas' },
   { name: 'area:list', description: 'List all areas' },
 
+  // Company Management
+  { name: 'company:create', description: 'Create new companies' },
+  { name: 'company:read', description: 'View company information' },
+  { name: 'company:update', description: 'Update company information' },
+  { name: 'company:delete', description: 'Delete companies' },
+  { name: 'company:list', description: 'List all companies' },
+
   // Asset Management
   { name: 'asset:create', description: 'Create new assets' },
   { name: 'asset:read', description: 'View asset information' },
