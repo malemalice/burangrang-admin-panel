@@ -1,13 +1,32 @@
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/core/components/ui/table';
 import { EnvironmentalMeasurement } from '../types/environmental-measurement.types';
+import type { EnvironmentalMeasurementRegulatoryLimits } from '../services/environmentalMeasurementService';
 
 interface EnvironmentalMeasurementListPDFTemplateProps {
   measurements: EnvironmentalMeasurement[];
+  regulatoryLimits?: EnvironmentalMeasurementRegulatoryLimits | null;
+}
+
+function MetricPdfCell({
+  value,
+  limit,
+}: {
+  value: number | undefined | null;
+  limit: number | null | undefined;
+}) {
+  const limitText = limit != null && Number.isFinite(limit) ? String(limit) : '—';
+  return (
+    <div className="text-right">
+      <div className="font-medium">{value ?? '—'}</div>
+      <div className="text-[10px] text-muted-foreground mt-0.5">Regulatory limit: {limitText}</div>
+    </div>
+  );
 }
 
 export function EnvironmentalMeasurementListPDFTemplate({
   measurements,
+  regulatoryLimits,
 }: EnvironmentalMeasurementListPDFTemplateProps) {
   return (
     <div className="bg-white p-8 space-y-6">
@@ -37,12 +56,27 @@ export function EnvironmentalMeasurementListPDFTemplate({
             <TableRow key={m.id}>
               <TableCell>{format(new Date(m.date), 'dd MMM yyyy')}</TableCell>
               <TableCell>
-                {m.room ? `${m.room.name} (${m.room.code})` : '-'}
+                {m.room ? (
+                  <div>
+                    <div className="font-medium">{m.room.name}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">Code: {m.room.code}</div>
+                  </div>
+                ) : (
+                  '—'
+                )}
               </TableCell>
-              <TableCell className="text-right">{m.lighting ?? '-'}</TableCell>
-              <TableCell className="text-right">{m.noise ?? '-'}</TableCell>
-              <TableCell className="text-right">{m.humidity ?? '-'}</TableCell>
-              <TableCell className="text-right">{m.temperature ?? '-'}</TableCell>
+              <TableCell className="align-top">
+                <MetricPdfCell value={m.lighting} limit={regulatoryLimits?.lighting} />
+              </TableCell>
+              <TableCell className="align-top">
+                <MetricPdfCell value={m.noise} limit={regulatoryLimits?.noise} />
+              </TableCell>
+              <TableCell className="align-top">
+                <MetricPdfCell value={m.humidity} limit={regulatoryLimits?.humidity} />
+              </TableCell>
+              <TableCell className="align-top">
+                <MetricPdfCell value={m.temperature} limit={regulatoryLimits?.temperature} />
+              </TableCell>
               <TableCell className="break-words whitespace-pre-wrap">{m.remarks ?? '-'}</TableCell>
             </TableRow>
           ))}

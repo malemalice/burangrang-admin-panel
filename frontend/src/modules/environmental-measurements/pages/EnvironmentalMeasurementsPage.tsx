@@ -21,6 +21,8 @@ import { EnvironmentalMeasurementListPDFTemplate } from '../components/Environme
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
+import { EnvironmentalMeasurementRegulatoryLimits } from '../services/environmentalMeasurementService';
+import { MetricValueWithRegulatoryLimit } from '../components/MetricValueWithRegulatoryLimit';
 
 export default function EnvironmentalMeasurementsPage() {
   const navigate = useNavigate();
@@ -28,11 +30,15 @@ export default function EnvironmentalMeasurementsPage() {
   const { hasPermission } = usePermissions();
   const [measurements, setMeasurements] = useState<EnvironmentalMeasurement[]>([]);
   const [totalMeasurements, setTotalMeasurements] = useState(0);
+  const [regulatoryLimits, setRegulatoryLimits] = useState<EnvironmentalMeasurementRegulatoryLimits | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [measurementToDelete, setMeasurementToDelete] = useState<EnvironmentalMeasurement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [allMeasurementsForPDF, setAllMeasurementsForPDF] = useState<EnvironmentalMeasurement[]>([]);
+  /** Limits snapshot for list PDF export (set when exporting so PDF matches fetched data). */
+  const [listPdfRegulatoryLimits, setListPdfRegulatoryLimits] =
+    useState<EnvironmentalMeasurementRegulatoryLimits | null>(null);
   const [isExportingAllPDF, setIsExportingAllPDF] = useState(false);
 
   const { toPDF, targetRef } = usePDF({
@@ -129,10 +135,24 @@ export default function EnvironmentalMeasurementsPage() {
     }
   }, [pageIndex, limit, searchTerm, activeFilters, getDateRangeParams]);
 
+  const fetchRegulatoryLimits = useCallback(async () => {
+    try {
+      const limits = await environmentalMeasurementService.getRegulatoryLimits();
+      setRegulatoryLimits(limits);
+    } catch (error) {
+      console.error('Failed to fetch regulatory limits:', error);
+      setRegulatoryLimits(null);
+    }
+  }, []);
+
   // Fetch measurements when pagination, search, filters change
   useEffect(() => {
     fetchMeasurements();
   }, [fetchMeasurements]);
+
+  useEffect(() => {
+    fetchRegulatoryLimits();
+  }, [fetchRegulatoryLimits]);
 
   const handleDeleteClick = (measurement: EnvironmentalMeasurement, event?: React.MouseEvent) => {
     event?.stopPropagation();
@@ -210,6 +230,9 @@ export default function EnvironmentalMeasurementsPage() {
         startDate,
         endDate,
       });
+      const limits =
+        regulatoryLimits ?? (await environmentalMeasurementService.getRegulatoryLimits());
+      setListPdfRegulatoryLimits(limits);
       setAllMeasurementsForPDF(response.data);
       await new Promise((r) => setTimeout(r, 200));
       await toPDF();
@@ -220,7 +243,7 @@ export default function EnvironmentalMeasurementsPage() {
     } finally {
       setIsExportingAllPDF(false);
     }
-  }, [searchTerm, activeFilters, getDateRangeParams, toPDF]);
+  }, [searchTerm, activeFilters, getDateRangeParams, regulatoryLimits, toPDF]);
 
   const columns = [
     {
@@ -252,28 +275,44 @@ export default function EnvironmentalMeasurementsPage() {
       id: 'lighting',
       header: 'Lighting (lux)',
       cell: (measurement: EnvironmentalMeasurement) => (
-        <div className="text-right">{measurement.lighting ?? '-'}</div>
+        <MetricValueWithRegulatoryLimit
+          value={measurement.lighting}
+          limit={regulatoryLimits?.lighting}
+          align="right"
+        />
       ),
     },
     {
       id: 'noise',
       header: 'Noise (dB)',
       cell: (measurement: EnvironmentalMeasurement) => (
-        <div className="text-right">{measurement.noise ?? '-'}</div>
+        <MetricValueWithRegulatoryLimit
+          value={measurement.noise}
+          limit={regulatoryLimits?.noise}
+          align="right"
+        />
       ),
     },
     {
       id: 'humidity',
       header: 'Humidity (%)',
       cell: (measurement: EnvironmentalMeasurement) => (
-        <div className="text-right">{measurement.humidity ?? '-'}</div>
+        <MetricValueWithRegulatoryLimit
+          value={measurement.humidity}
+          limit={regulatoryLimits?.humidity}
+          align="right"
+        />
       ),
     },
     {
       id: 'temperature',
       header: 'Temp (°C)',
       cell: (measurement: EnvironmentalMeasurement) => (
-        <div className="text-right">{measurement.temperature ?? '-'}</div>
+        <MetricValueWithRegulatoryLimit
+          value={measurement.temperature}
+          limit={regulatoryLimits?.temperature}
+          align="right"
+        />
       ),
     },
     {
@@ -379,7 +418,10 @@ export default function EnvironmentalMeasurementsPage() {
         style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
         aria-hidden="true"
       >
-        <EnvironmentalMeasurementListPDFTemplate measurements={allMeasurementsForPDF} />
+        <EnvironmentalMeasurementListPDFTemplate
+          measurements={allMeasurementsForPDF}
+          regulatoryLimits={listPdfRegulatoryLimits ?? regulatoryLimits}
+        />
       </div>
 
       <ConfirmDialog

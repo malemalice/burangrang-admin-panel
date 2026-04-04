@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
+import { SettingsHelperService } from '../../shared/services/settings.service';
+import { SETTINGS_KEYS } from '../settings/constants/settings-keys';
 import { CreateEnvironmentalMeasurementDto } from './dto/create-environmental-measurement.dto';
 import { UpdateEnvironmentalMeasurementDto } from './dto/update-environmental-measurement.dto';
 import { EnvironmentalMeasurementDto } from './dto/environmental-measurement.dto';
@@ -26,6 +28,7 @@ export class EnvironmentalMeasurementsService {
     private readonly prisma: PrismaService,
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
+    private readonly settingsHelper: SettingsHelperService,
   ) {
     // Initialize mapper with custom transformations for Decimal fields and relations
     this.measurementMapper = (entity: any) => {
@@ -59,6 +62,33 @@ export class EnvironmentalMeasurementsService {
             }
           : undefined,
       });
+    };
+  }
+
+  private parseNullableNumber(raw: string | null): number | null {
+    if (raw === null) return null;
+    const num = Number.parseFloat(raw);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  async getRegulatoryLimits(): Promise<{
+    lighting: number | null;
+    noise: number | null;
+    humidity: number | null;
+    temperature: number | null;
+  }> {
+    const [lightingRaw, noiseRaw, humidityRaw, temperatureRaw] = await Promise.all([
+      this.settingsHelper.get(SETTINGS_KEYS.ENV_MEAS_LIMIT_LIGHTING),
+      this.settingsHelper.get(SETTINGS_KEYS.ENV_MEAS_LIMIT_NOISE),
+      this.settingsHelper.get(SETTINGS_KEYS.ENV_MEAS_LIMIT_HUMIDITY),
+      this.settingsHelper.get(SETTINGS_KEYS.ENV_MEAS_LIMIT_TEMPERATURE),
+    ]);
+
+    return {
+      lighting: this.parseNullableNumber(lightingRaw),
+      noise: this.parseNullableNumber(noiseRaw),
+      humidity: this.parseNullableNumber(humidityRaw),
+      temperature: this.parseNullableNumber(temperatureRaw),
     };
   }
 

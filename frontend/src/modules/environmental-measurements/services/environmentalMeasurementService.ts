@@ -26,6 +26,27 @@ interface FetchMeasurementsParams {
   endDate?: string;
 }
 
+export interface EnvironmentalMeasurementRegulatoryLimits {
+  lighting: number | null;
+  noise: number | null;
+  humidity: number | null;
+  temperature: number | null;
+}
+
+const LIMIT_KEYS = {
+  lighting: 'environmental_measurements.regulatory_limit.lighting',
+  noise: 'environmental_measurements.regulatory_limit.noise',
+  humidity: 'environmental_measurements.regulatory_limit.humidity',
+  temperature: 'environmental_measurements.regulatory_limit.temperature',
+} as const;
+
+function parseNullableNumber(raw: unknown): number | null {
+  if (raw === null || raw === undefined) return null;
+  const str = String(raw);
+  const num = Number.parseFloat(str);
+  return Number.isFinite(num) ? num : null;
+}
+
 const environmentalMeasurementService = {
   /**
    * Fetch paginated list of environmental measurements
@@ -45,6 +66,22 @@ const environmentalMeasurementService = {
 
     const response = await api.get<EnvironmentalMeasurementsResponse>(`/environmental-measurements?${queryParams.toString()}`);
     return response.data;
+  },
+
+  async getRegulatoryLimits(): Promise<EnvironmentalMeasurementRegulatoryLimits> {
+    try {
+      const response = await api.get<EnvironmentalMeasurementRegulatoryLimits>('/environmental-measurements/regulatory-limits');
+      return response.data;
+    } catch {
+      const [lighting, noise, humidity, temperature] = await Promise.all([
+        api.get<{ value: string }>(`/settings/value/${LIMIT_KEYS.lighting}`).then((r) => parseNullableNumber(r.data?.value)).catch(() => null),
+        api.get<{ value: string }>(`/settings/value/${LIMIT_KEYS.noise}`).then((r) => parseNullableNumber(r.data?.value)).catch(() => null),
+        api.get<{ value: string }>(`/settings/value/${LIMIT_KEYS.humidity}`).then((r) => parseNullableNumber(r.data?.value)).catch(() => null),
+        api.get<{ value: string }>(`/settings/value/${LIMIT_KEYS.temperature}`).then((r) => parseNullableNumber(r.data?.value)).catch(() => null),
+      ]);
+
+      return { lighting, noise, humidity, temperature };
+    }
   },
 
   /**

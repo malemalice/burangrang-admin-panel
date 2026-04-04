@@ -11,14 +11,17 @@ import PageHeader from '@/core/components/ui/PageHeader';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 
 import environmentalMeasurementService from '../services/environmentalMeasurementService';
+import type { EnvironmentalMeasurementRegulatoryLimits } from '../services/environmentalMeasurementService';
 import { EnvironmentalMeasurement } from '../types/environmental-measurement.types';
 import { EnvironmentalMeasurementPDFTemplate } from '../components/EnvironmentalMeasurementPDFTemplate';
+import { MetricValueWithRegulatoryLimit } from '../components/MetricValueWithRegulatoryLimit';
 
 export default function EnvironmentalMeasurementDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [measurement, setMeasurement] = useState<EnvironmentalMeasurement | null>(null);
+  const [regulatoryLimits, setRegulatoryLimits] = useState<EnvironmentalMeasurementRegulatoryLimits | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const baseFilename = measurement
@@ -34,6 +37,12 @@ export default function EnvironmentalMeasurementDetailPage() {
         if (!id) return;
         const data = await environmentalMeasurementService.getMeasurement(id);
         setMeasurement(data);
+        try {
+          const limits = await environmentalMeasurementService.getRegulatoryLimits();
+          setRegulatoryLimits(limits);
+        } catch {
+          setRegulatoryLimits(null);
+        }
       } catch (error) {
         toast.error('Failed to fetch environmental measurement');
         navigate(-1);
@@ -130,7 +139,7 @@ export default function EnvironmentalMeasurementDetailPage() {
           style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
           aria-hidden="true"
         >
-          <EnvironmentalMeasurementPDFTemplate measurement={measurement} />
+          <EnvironmentalMeasurementPDFTemplate measurement={measurement} regulatoryLimits={regulatoryLimits} />
         </div>
 
         <Card>
@@ -150,19 +159,35 @@ export default function EnvironmentalMeasurementDetailPage() {
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Lighting (lux)</p>
-                <p>{measurement.lighting ?? '-'}</p>
+                <MetricValueWithRegulatoryLimit
+                  value={measurement.lighting}
+                  limit={regulatoryLimits?.lighting}
+                  align="left"
+                />
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Noise (dB)</p>
-                <p>{measurement.noise ?? '-'}</p>
+                <MetricValueWithRegulatoryLimit
+                  value={measurement.noise}
+                  limit={regulatoryLimits?.noise}
+                  align="left"
+                />
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Humidity (%)</p>
-                <p>{measurement.humidity ?? '-'}</p>
+                <MetricValueWithRegulatoryLimit
+                  value={measurement.humidity}
+                  limit={regulatoryLimits?.humidity}
+                  align="left"
+                />
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Temperature (°C)</p>
-                <p>{measurement.temperature ?? '-'}</p>
+                <MetricValueWithRegulatoryLimit
+                  value={measurement.temperature}
+                  limit={regulatoryLimits?.temperature}
+                  align="left"
+                />
               </div>
               {measurement.remarks && (
                 <div className="space-y-2 md:col-span-2">

@@ -526,6 +526,25 @@ export const seedMenus = async () => {
       },
     });
 
+    // Water Test Lab menu (top-level) - water & waste categories
+    await prisma.menu.create({
+      data: {
+        name: 'Water Test Lab',
+        path: '/waste-management/water-quality-lab-reports',
+        icon: 'FlaskConical',
+        order: 9,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+            { id: userRole.id },
+          ],
+        },
+      },
+    });
+
     const masterDataMenu = await prisma.menu.create({
       data: {
         name: 'Master Data',
@@ -1055,7 +1074,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Waste Management',
         icon: 'Recycle',
-        order: 9,
+        order: 10,
         isActive: true,
         roles: {
           connect: [
@@ -1088,25 +1107,6 @@ export const seedMenus = async () => {
       },
     });
 
-    await prisma.menu.create({
-      data: {
-        name: 'Water Lab Results',
-        path: '/waste-management/water-quality-lab-reports',
-        icon: 'FlaskConical',
-        parentId: wasteManagementMenu.id,
-        order: 2,
-        isActive: true,
-        roles: {
-          connect: [
-            { id: superAdminRole.id },
-            { id: adminRole.id },
-            { id: managerRole.id },
-            { id: userRole.id },
-          ],
-        },
-      },
-    });
-
     // Waste Management - Solid Waste submenus (Manager/User: read & list only)
     await prisma.menu.create({
       data: {
@@ -1114,7 +1114,7 @@ export const seedMenus = async () => {
         path: '/waste-management/weight-reports',
         icon: 'Scale',
         parentId: wasteManagementMenu.id,
-        order: 3,
+        order: 2,
         isActive: true,
         roles: {
           connect: [
@@ -1133,7 +1133,7 @@ export const seedMenus = async () => {
         path: '/waste-management/dispatch-orders',
         icon: 'Truck',
         parentId: wasteManagementMenu.id,
-        order: 4,
+        order: 3,
         isActive: true,
         roles: {
           connect: [
@@ -1153,7 +1153,7 @@ export const seedMenus = async () => {
         path: '/waste-management/treatment-plants',
         icon: 'Factory',
         parentId: wasteManagementMenu.id,
-        order: 5,
+        order: 4,
         isActive: true,
         roles: {
           connect: [
@@ -1172,7 +1172,7 @@ export const seedMenus = async () => {
         path: '/waste-management/water-quality-parameters',
         icon: 'Droplets',
         parentId: wasteManagementMenu.id,
-        order: 6,
+        order: 5,
         isActive: true,
         roles: {
           connect: [
@@ -1191,7 +1191,7 @@ export const seedMenus = async () => {
         path: '/waste-management/waste-types',
         icon: 'Tags',
         parentId: wasteManagementMenu.id,
-        order: 7,
+        order: 6,
         isActive: true,
         roles: {
           connect: [
@@ -1210,7 +1210,7 @@ export const seedMenus = async () => {
         path: '/waste-management/waste-sources',
         icon: 'Building',
         parentId: wasteManagementMenu.id,
-        order: 8,
+        order: 7,
         isActive: true,
         roles: {
           connect: [
@@ -1229,7 +1229,7 @@ export const seedMenus = async () => {
         path: '/waste-management/storage-locations',
         icon: 'Warehouse',
         parentId: wasteManagementMenu.id,
-        order: 9,
+        order: 8,
         isActive: true,
         roles: {
           connect: [
@@ -1247,7 +1247,7 @@ export const seedMenus = async () => {
       data: {
         name: 'Man Hour',
         icon: 'Clock',
-        order: 10,
+        order: 11,
         isActive: true,
         roles: {
           connect: [
