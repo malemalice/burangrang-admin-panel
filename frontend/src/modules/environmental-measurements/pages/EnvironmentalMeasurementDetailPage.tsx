@@ -78,6 +78,8 @@ export default function EnvironmentalMeasurementDetailPage() {
 
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [approvalInitialStatus, setApprovalInitialStatus] = useState<ApprovalStatus>(ApprovalStatus.APPROVED);
+  /** Snapshot for PDF capture so export includes latest approval rows */
+  const [approvalHistoryForPDF, setApprovalHistoryForPDF] = useState<ApprovalStatusHistory | null>(null);
 
   const baseFilename = measurement
     ? `environmental-measurement-${measurement.id}-${format(new Date(measurement.date), 'yyyyMMdd')}`
@@ -132,23 +134,56 @@ export default function EnvironmentalMeasurementDetailPage() {
   }, [fetchMeasurement]);
 
   useEffect(() => {
-    if (measurement && searchParams.get('print') === 'true') {
-      const timer = setTimeout(async () => {
-        try {
-          await toPDF();
-          toast.success('PDF exported successfully');
-        } catch {
-          toast.error('Failed to export PDF');
+    if (!measurement || !id || searchParams.get('print') !== 'true') return;
+
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const fresh = await approvalService
+          .checkApprovalStatus(id, APPROVAL_ENTITIES.ENVIRONMENTAL_MEASUREMENT)
+          .catch(() => null);
+        if (!cancelled && fresh) {
+          setApprovalHistoryForPDF(fresh);
         }
-        searchParams.delete('print');
-        setSearchParams(searchParams, { replace: true });
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [measurement, searchParams, setSearchParams, toPDF]);
+        await new Promise((r) => setTimeout(r, 200));
+        if (cancelled) return;
+        await toPDF();
+        toast.success('PDF exported successfully');
+      } catch {
+        if (!cancelled) toast.error('Failed to export PDF');
+      } finally {
+        if (!cancelled) {
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              next.delete('print');
+              return next;
+            },
+            { replace: true },
+          );
+        }
+      }
+    };
+
+    const timer = setTimeout(() => {
+      void run();
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [measurement, id, searchParams, setSearchParams, toPDF]);
 
   const handleExportPDF = async () => {
+    if (!id) return;
     try {
+      const fresh = await approvalService
+        .checkApprovalStatus(id, APPROVAL_ENTITIES.ENVIRONMENTAL_MEASUREMENT)
+        .catch(() => null);
+      if (fresh) {
+        setApprovalHistoryForPDF(fresh);
+      }
+      await new Promise((r) => setTimeout(r, 200));
       await toPDF();
       toast.success('PDF exported successfully');
     } catch {
@@ -189,6 +224,23 @@ export default function EnvironmentalMeasurementDetailPage() {
     await fetchMeasurement();
   };
 
+  const status = measurement?.status as GeneralStatusEnum | undefined;
+  const roomLabel = measurement?.room
+    ? `${measurement.room.name} (${measurement.room.code})`
+    : '-';
+  const isDone = status === GeneralStatusEnum.DONE;
+  const allApprovals =
+    approvalHistory?.history
+      ?.slice()
+      .sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      ) ?? [];
+  const hasNoApprovalWorkflow =
+    !approvalHistory ||
+    !approvalHistory.allApprovalLines ||
+    approvalHistory.allApprovalLines.length === 0;
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -212,16 +264,6 @@ export default function EnvironmentalMeasurementDetailPage() {
       </div>
     );
   }
-
-  const status = measurement.status as GeneralStatusEnum | undefined;
-  const roomLabel = measurement.room
-    ? `${measurement.room.name} (${measurement.room.code})`
-    : '-';
-
-  const isDone = status === GeneralStatusEnum.DONE;
-  const allApprovals = approvalHistory?.history?.slice().sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-  ) ?? [];
 
   return (
     <div className="space-y-6">
@@ -292,9 +334,7 @@ export default function EnvironmentalMeasurementDetailPage() {
               )}
           </div>
         }
-      >
-        <div className="flex items-center gap-3">{getStatusBadge(status)}</div>
-      </PageHeader>
+      />
 
       {/* PDF Template — hidden, used for export only */}
       <div
@@ -302,15 +342,22 @@ export default function EnvironmentalMeasurementDetailPage() {
         style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
         aria-hidden="true"
       >
-        <EnvironmentalMeasurementPDFTemplate measurement={measurement} regulatoryLimits={regulatoryLimits} />
+        <EnvironmentalMeasurementPDFTemplate
+          measurement={measurement}
+          regulatoryLimits={regulatoryLimits}
+          approvalHistory={approvalHistoryForPDF ?? approvalHistory}
+        />
       </div>
 
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="w-full max-w-none space-y-6">
         {/* Measurement Details */}
         <Card>
-          <CardHeader>
-            <CardTitle>Measurement Details</CardTitle>
-            <CardDescription>Date, room, and measurement values</CardDescription>
+          <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <CardTitle>Measurement Details</CardTitle>
+              <CardDescription>Date, room, and measurement values</CardDescription>
+            </div>
+            <div className="flex-shrink-0 pt-0.5">{getStatusBadge(status)}</div>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -389,9 +436,7 @@ export default function EnvironmentalMeasurementDetailPage() {
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Loading approval timeline...</span>
               </div>
-            ) : !approvalHistory ||
-              !approvalHistory.allApprovalLines ||
-              approvalHistory.allApprovalLines.length === 0 ? (
+            ) : hasNoApprovalWorkflow ? (
               <div className="flex items-center gap-3 p-4 border rounded-md bg-muted/20">
                 <Clock className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                 <div>
