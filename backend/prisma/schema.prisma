@@ -235,6 +235,7 @@ model Department {
   incidentsAssigned    Incident[]
   incidentInjuredPersons IncidentInjuredPerson[] @relation("IncidentInjuredPersonDepartment")
   incidentWitnesses    IncidentWitness[] @relation("IncidentWitnessDepartment")
+  certificateCategoryResponsibilities CertificateCategory[] @relation("CertificateCategoryResponsibleDepartments")
 
   @@map("m_departments")
 }
@@ -1327,7 +1328,8 @@ model CertificateCategory {
   deletedAt       DateTime?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
-  certificates    Certificate[]
+  certificates             Certificate[]
+  responsibleDepartments   Department[] @relation("CertificateCategoryResponsibleDepartments")
 
   @@map("m_certificate_categories")
 }

@@ -372,6 +372,110 @@ const defaultMailTemplates = [
   <p style="color: #666; font-size: 14px;">Best regards,<br>HSE System Team</p>
 </div>`,
   },
+  {
+    code: 'certificate-expiry-department',
+    name: 'Certificate Expiry Department Notification',
+    subjectTemplate: 'Certificate Expiry Notice: {{certificateName}}',
+    bodyTemplate: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Certificate Expiry Notice</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      background-color: #d97706;
+      color: white;
+      padding: 20px;
+      border-radius: 8px 8px 0 0;
+      text-align: center;
+    }
+    .content {
+      background-color: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-top: none;
+      padding: 24px;
+      border-radius: 0 0 8px 8px;
+    }
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+    }
+    .info-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .info-table td:first-child {
+      font-weight: bold;
+      color: #6b7280;
+      width: 40%;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: bold;
+      background-color: #fef3c7;
+      color: #92400e;
+    }
+    .footer {
+      margin-top: 24px;
+      font-size: 12px;
+      color: #9ca3af;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2 style="margin:0;">⚠ Certificate Expiry Notice</h2>
+  </div>
+  <div class="content">
+    <p>Dear <strong>{{departmentName}}</strong> Department,</p>
+    <p>
+      This is an automated notification to inform you that the following certificate
+      is approaching its expiry date. Please take the necessary action to ensure
+      compliance and continuity.
+    </p>
+    <table class="info-table">
+      <tr>
+        <td>Certificate Name</td>
+        <td><strong>{{certificateName}}</strong></td>
+      </tr>
+      <tr>
+        <td>Category</td>
+        <td>{{categoryName}}</td>
+      </tr>
+      <tr>
+        <td>Expiry Date</td>
+        <td><strong>{{expiryDate}}</strong></td>
+      </tr>
+      <tr>
+        <td>Reminder Type</td>
+        <td><span class="badge">{{reminderType}}</span></td>
+      </tr>
+    </table>
+    <p>
+      Please log in to the HSE Dashboard to review and initiate the renewal process
+      if required.
+    </p>
+    <p>Best regards,<br/>HSE System</p>
+  </div>
+  <div class="footer">
+    This is an automated message. Please do not reply directly to this email.
+  </div>
+</body>
+</html>`,
+  },
 ];
 
 export async function seedMailTemplates(prisma: PrismaClient): Promise<void> {

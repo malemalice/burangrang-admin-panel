@@ -33,6 +33,7 @@ export interface CertificateCategoryDTO {
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
+    responsibleDepartments: { id: string; name: string; emails?: string[] | null }[];
 }
 
 // Certificate Category for frontend
@@ -45,6 +46,7 @@ export interface CertificateCategory {
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
+    responsibleDepartments: { id: string; name: string }[];
 }
 
 // Create Certificate Category DTO
@@ -54,6 +56,7 @@ export interface CreateCertificateCategoryDTO {
     certificateType: CertificateType;
     description?: string;
     isActive?: boolean;
+    responsibleDepartmentIds?: string[];
 }
 
 // Update Certificate Category DTO
@@ -63,6 +66,7 @@ export interface UpdateCertificateCategoryDTO {
     certificateType?: CertificateType;
     description?: string;
     isActive?: boolean;
+    responsibleDepartmentIds?: string[];
 }
 
 // Certificate DTO from backend

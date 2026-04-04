@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,6 +8,7 @@ import { Button } from '@/core/components/ui/button';
 import {
     Form,
     FormControl,
+    FormDescription,
     FormField,
     FormItem,
     FormLabel,
@@ -24,7 +25,9 @@ import {
     SelectValue,
 } from '@/core/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { ModalMultiSelect, ModalMultiSelectOption } from '@/core/components/ui/modal-multi-select';
 import certificateCategoryService from '../services/certificateCategoryService';
+import { departmentService } from '@/modules/master-data';
 import { CertificateCategory, CertificateType } from '../types/certificate.types';
 
 const certificateTypeOptions: { value: CertificateType; label: string }[] = [
@@ -47,6 +50,7 @@ const formSchema = z.object({
     ]),
     description: z.string().optional(),
     isActive: z.boolean().default(true),
+    responsibleDepartmentIds: z.array(z.string()).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -58,6 +62,8 @@ interface CertificateCategoryFormProps {
 
 const CertificateCategoryForm = ({ category, mode }: CertificateCategoryFormProps) => {
     const navigate = useNavigate();
+    const [departmentOptions, setDepartmentOptions] = useState<ModalMultiSelectOption[]>([]);
+
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -66,8 +72,20 @@ const CertificateCategoryForm = ({ category, mode }: CertificateCategoryFormProp
             certificateType: 'PERSONNEL_LICENSE',
             description: '',
             isActive: true,
+            responsibleDepartmentIds: [],
         },
     });
+
+    useEffect(() => {
+        departmentService
+            .getDepartments({ page: 1, limit: 1000, options: true })
+            .then((res) => {
+                setDepartmentOptions(
+                    res.data.map((d) => ({ value: d.id, label: d.name })),
+                );
+            })
+            .catch((err) => console.error('Failed to load departments:', err));
+    }, []);
 
     useEffect(() => {
         if (category) {
@@ -77,6 +95,9 @@ const CertificateCategoryForm = ({ category, mode }: CertificateCategoryFormProp
                 certificateType: category.certificateType,
                 description: category.description || '',
                 isActive: category.isActive,
+                responsibleDepartmentIds: (category.responsibleDepartments ?? []).map(
+                    (d) => d.id,
+                ),
             });
         }
     }, [category, form]);
@@ -170,6 +191,30 @@ const CertificateCategoryForm = ({ category, mode }: CertificateCategoryFormProp
 
                             <FormField
                                 control={form.control}
+                                name="responsibleDepartmentIds"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Responsible Departments</FormLabel>
+                                        <FormControl>
+                                            <ModalMultiSelect
+                                                options={departmentOptions}
+                                                value={field.value ?? []}
+                                                onValueChange={field.onChange}
+                                                placeholder="Select responsible departments"
+                                                searchPlaceholder="Search departments..."
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Departments to be notified by email when a certificate
+                                            under this category is approaching expiry.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
                                 name="description"
                                 render={({ field }) => (
                                     <FormItem>
@@ -227,4 +272,3 @@ const CertificateCategoryForm = ({ category, mode }: CertificateCategoryFormProp
 };
 
 export default CertificateCategoryForm;
-
