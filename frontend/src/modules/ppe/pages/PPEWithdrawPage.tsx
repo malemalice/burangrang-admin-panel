@@ -118,7 +118,7 @@ const PPEWithdrawPage = () => {
         const params: PPEWithdrawalSearchParams = {
             page: pageIndex + 1,
             limit,
-            sortBy: sorting?.id || 'createdAt',
+            sortBy: sorting?.id || 'updatedAt',
             sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'desc',
             search: searchTerm,
             status: activeFilters.status?.value as PPEWithdrawalStatus | undefined,

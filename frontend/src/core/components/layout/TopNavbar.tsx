@@ -55,10 +55,14 @@ const BreadcrumbItem = ({
     : item.name;
 
   return (
-    <li className="inline-flex items-center gap-1.5">
+    <li className="inline-flex min-w-0 items-center gap-1.5">
       {isLast || !item.clickable ? (
         <span
-          className={isLast ? "text-foreground font-medium" : "text-muted-foreground"}
+          className={cn(
+            isLast ? 'text-foreground font-medium' : 'text-muted-foreground',
+            'inline-block max-w-[220px] truncate align-bottom',
+          )}
+          title={displayName}
           aria-current={isLast ? "page" : undefined}
         >
           {displayName}
@@ -66,7 +70,8 @@ const BreadcrumbItem = ({
       ) : (
         <Link
           to={item.path}
-          className="text-muted-foreground hover:text-primary transition-colors"
+          className="inline-block max-w-[220px] truncate text-muted-foreground transition-colors hover:text-primary"
+          title={displayName}
         >
           {displayName}
         </Link>
@@ -154,21 +159,21 @@ const TopNavbar = ({ toggleSidebar, sidebarOpen }: TopNavbarProps) => {
       "h-16 border-b flex items-center justify-between px-4 bg-background border-border relative z-0",
       "transition-all duration-300 ease-in-out"
     )}>
-      <div className="flex items-center">
+      <div className="flex min-w-0 flex-1 items-center">
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleSidebar}
-          className="mr-4 text-foreground z-50 relative"
+          className="mr-4 shrink-0 text-foreground z-50 relative"
           aria-label="Toggle sidebar"
         >
           <Menu size={20} />
         </Button>
 
         {/* Custom Breadcrumb Implementation */}
-        <div className="hidden md:block mr-4">
-          <nav aria-label="breadcrumb">
-            <ol className="flex flex-wrap items-center gap-1.5 break-words text-sm text-muted-foreground sm:gap-2.5">
+        <div className="mr-4 hidden min-w-0 flex-1 md:block">
+          <nav aria-label="breadcrumb" className="min-w-0">
+            <ol className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-sm text-muted-foreground sm:gap-2.5">
               {items.map((item, index) => {
                 const isLast = index === items.length - 1;
                 const paths = location.pathname.split('/').filter(Boolean);

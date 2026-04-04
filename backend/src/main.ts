@@ -28,28 +28,16 @@ async function bootstrap() {
     allowedHeaders: corsConfig.allowedHeaders,
   });
 
-  // Custom middleware for webhook routes to preserve raw body and parse JSON
-  app.use('/webhooks/zoho', (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (req.headers['content-type']?.includes('application/json')) {
-      let data = '';
-      req.setEncoding('utf8');
-      req.on('data', (chunk) => {
-        data += chunk;
-      });
-      req.on('end', () => {
-        // Store raw body for signature verification
-        (req as any).rawBody = data;
-        // Parse JSON for NestJS validation
-        try {
-          req.body = JSON.parse(data);
-        } catch (e) {
-          req.body = {};
-        }
-        next();
-      });
-    } else {
-      next();
+  // Keep compatibility for both Zoho webhook routes when signature auth mode is enabled.
+  // Nest rawBody option already captures body, this only normalizes string rawBody fallback.
+  app.use(['/webhooks/zoho', '/integrations/zoho/webhook'], (req: express.Request, _res: express.Response, next: express.NextFunction) => {
+    const rawBody = (req as express.Request & { rawBody?: Buffer | string }).rawBody;
+
+    if (Buffer.isBuffer(rawBody)) {
+      (req as express.Request & { rawBody?: string }).rawBody = rawBody.toString('utf8');
     }
+
+    next();
   });
 
   // Use cookie parser

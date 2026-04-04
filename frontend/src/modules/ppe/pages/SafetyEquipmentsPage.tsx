@@ -83,8 +83,8 @@ export default function SafetyEquipmentsPage() {
             page: pageIndex + 1,
             limit,
             search: finalSearch,
-            sortBy: sorting ? (sorting.id === 'status' ? 'isActive' : sorting.id) : 'name',
-            sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'asc',
+            sortBy: sorting ? (sorting.id === 'status' ? 'isActive' : sorting.id) : 'updatedAt',
+            sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'desc',
             filters: {
                 ...Object.entries(activeFilters).reduce((acc: any, [key, item]) => {
                     if (key === 'status') {

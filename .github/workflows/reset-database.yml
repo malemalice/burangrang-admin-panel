@@ -84,7 +84,7 @@ jobs:
             echo "   - Delete ALL data"
             echo "   - Recreate the database"
             echo "   - Apply all migrations"
-            echo "   - Run seed scripts (if configured)"
+            echo "   - Run Prisma generate and seed explicitly"
             echo ""
             
             # Check if container is running
@@ -94,16 +94,29 @@ jobs:
             fi
             
             echo "📋 Current database status:"
-            docker exec burangrang-backend npx prisma migrate status || echo "⚠️  Could not check migration status"
+            docker exec -w /app burangrang-backend npx prisma migrate status || echo "⚠️  Could not check migration status"
             
             echo ""
             echo "🔄 Resetting database..."
-            echo "Running: npx prisma migrate reset --non-interactive"
+            echo "Running: npx prisma migrate reset --force --skip-generate --skip-seed"
             
-            # Run the reset command
-            # --non-interactive: Skip interactive prompts (required for CI/CD)
-            # Note: This will also run seed scripts if configured in package.json
-            docker exec burangrang-backend npx prisma migrate reset --non-interactive
+            # Run the reset command (from backend app root /app)
+            # --force: Skip the confirmation prompt (required for CI/CD)
+            # --skip-generate: avoid Prisma Client write permission issues in production container
+            # --skip-seed: avoid runtime ts-node seed dependency/tsconfig mismatch in container
+            docker exec -w /app burangrang-backend npx prisma migrate reset --force --skip-generate --skip-seed
+
+            echo ""
+            echo "🔧 Generating Prisma Client..."
+            echo "Running: npx prisma generate --schema=./prisma/schema.prisma"
+            # Run as root to allow writing to /app/node_modules/.prisma inside production container
+            docker exec -u 0 -w /app burangrang-backend npx prisma generate --schema=./prisma/schema.prisma
+
+            echo ""
+            echo "🌱 Running database seed..."
+            echo "Running: npx ts-node --transpile-only prisma/seed.ts (with TS_NODE_COMPILER_OPTIONS)"
+            # Force commonjs/node so ts-node in container does not require NodeNext (TS5109)
+            docker exec -w /app -e TS_NODE_COMPILER_OPTIONS='{"module":"commonjs","moduleResolution":"node"}' burangrang-backend npx ts-node --transpile-only prisma/seed.ts
             
             echo ""
             echo "✅ Database reset completed successfully!"
@@ -118,11 +131,11 @@ jobs:
           echo "Verifying database reset..."
           ssh $VPS_USER@$VPS_HOST << ENDSSH
             echo "📋 Migration status after reset:"
-            docker exec burangrang-backend npx prisma migrate status
+            docker exec -w /app burangrang-backend npx prisma migrate status
             
             echo ""
-            echo "🔍 Verifying Prisma Client:"
-            docker exec burangrang-backend npx prisma generate --schema=./prisma/schema.prisma || echo "⚠️  Prisma client generation skipped"
+            echo "🔍 Verifying Prisma Client artifacts:"
+            docker exec -w /app burangrang-backend ls -la /app/node_modules/.prisma/client >/dev/null && echo "✅ Prisma Client generated"
             
             echo ""
             echo "✅ Database reset verification completed!"
@@ -143,7 +156,8 @@ jobs:
             echo "**What happened:**" >> $GITHUB_STEP_SUMMARY
             echo "- Database was dropped and recreated" >> $GITHUB_STEP_SUMMARY
             echo "- All migrations were applied" >> $GITHUB_STEP_SUMMARY
-            echo "- Seed scripts were executed (if configured)" >> $GITHUB_STEP_SUMMARY
+            echo "- Prisma Client was generated successfully" >> $GITHUB_STEP_SUMMARY
+            echo "- Seed script was executed successfully" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "⚠️  **Important:** All previous data has been deleted!" >> $GITHUB_STEP_SUMMARY
           else

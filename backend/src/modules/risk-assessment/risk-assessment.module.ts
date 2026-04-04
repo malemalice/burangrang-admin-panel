@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
-import { RiskAssessmentController } from './controllers/risk-assessment.controller';
-import { RiskAssessmentService } from './services/risk-assessment.service';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { RemindersModule } from '../reminders/reminders.module';
+import { ZohoWebhooksModule } from '../zoho-webhooks/zoho-webhooks.module';
 import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
+import { RiskAssessmentController } from './controllers/risk-assessment.controller';
+import { RiskAssessmentService } from './services/risk-assessment.service';
 
 /**
  * Approval entity name for Risk Assessment module
@@ -13,9 +14,9 @@ export const RISK_ASSESSMENT_APPROVAL_ENTITY =
   APPROVAL_ENTITIES.RISK_ASSESSMENT;
 
 @Module({
-  imports: [RemindersModule, ApprovalsModule],
+  imports: [RemindersModule, ApprovalsModule, ZohoWebhooksModule],
   controllers: [RiskAssessmentController],
   providers: [RiskAssessmentService],
   exports: [RiskAssessmentService],
 })
-export class RiskAssessmentModule {}
+export class RiskAssessmentModule { }

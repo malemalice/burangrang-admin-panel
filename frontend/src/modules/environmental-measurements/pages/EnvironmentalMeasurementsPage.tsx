@@ -80,6 +80,7 @@ export default function EnvironmentalMeasurementsPage() {
       id: 'dateRange',
       label: 'Measurement date range',
       type: 'dateRange',
+      dateRangeMode: 'date',
     },
     {
       id: 'roomName',
@@ -142,7 +143,7 @@ export default function EnvironmentalMeasurementsPage() {
 
   const handleDeleteConfirm = async () => {
     if (!measurementToDelete) return;
-    
+
     setIsLoading(true);
     try {
       await environmentalMeasurementService.deleteMeasurement(measurementToDelete.id);

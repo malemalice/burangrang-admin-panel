@@ -67,6 +67,34 @@ export class WorkPermitsService {
   /**
    * Helper to get full user details for master approvals
    */
+  private normalizeHazards<T extends {
+    hazardId?: string;
+    hazardName?: string;
+    description?: string;
+    controlMeasure?: string;
+    order: number;
+  }>(hazards?: T[]): T[] | undefined {
+    if (!hazards) {
+      return undefined;
+    }
+
+    return hazards
+      .map((hazard, index) => ({
+        ...hazard,
+        hazardId: hazard.hazardId?.trim() || undefined,
+        hazardName: hazard.hazardName?.trim() || '',
+        description: hazard.description?.trim() || undefined,
+        controlMeasure: hazard.controlMeasure?.trim() || undefined,
+        order: index,
+      }))
+      .filter((hazard) => {
+        const hasHazardName = hazard.hazardName.length > 0;
+        const hasOtherValues = Boolean(hazard.description || hazard.controlMeasure || hazard.hazardId);
+
+        return hasHazardName || hasOtherValues;
+      }) as T[];
+  }
+
   private async getFullUser(userId: string): Promise<any> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -233,6 +261,8 @@ export class WorkPermitsService {
         }
       }
 
+      const normalizedHazards = this.normalizeHazards(createDto.hazards);
+
       // Generate code
       const code = await this.generateCode();
 
@@ -332,9 +362,9 @@ export class WorkPermitsService {
               })),
             }
             : undefined,
-          hazards: createDto.hazards
+          hazards: normalizedHazards?.length
             ? {
-              create: createDto.hazards.map((h) => ({
+              create: normalizedHazards.map((h) => ({
                 hazardId: h.hazardId,
                 hazardName: h.hazardName,
                 description: h.description,
@@ -1141,12 +1171,13 @@ export class WorkPermitsService {
       }
 
       if (updateDto.hazards !== undefined) {
+        const normalizedHazards = this.normalizeHazards(updateDto.hazards);
         await this.prisma.workPermitHazard.deleteMany({
           where: { workPermitId: id },
         });
-        if (updateDto.hazards.length > 0) {
+        if (normalizedHazards && normalizedHazards.length > 0) {
           updateData.hazards = {
-            create: updateDto.hazards.map((h) => ({
+            create: normalizedHazards.map((h) => ({
               hazardId: h.hazardId,
               hazardName: h.hazardName,
               description: h.description,
