@@ -52,6 +52,8 @@ export class ManHoursService {
         manHourPerDay: entity.manHourPerDay ? Number(entity.manHourPerDay) : 0,
         month: entity.month,
         year: entity.year,
+        totalWorkingDays: entity.totalWorkingDays ? Number(entity.totalWorkingDays) : 0,
+        lostHour: entity.lostHour ? Number(entity.lostHour) : 0,
         total: entity.total ? Number(entity.total) : 0,
         notes: entity.notes,
         isActive: entity.isActive,
@@ -70,21 +72,42 @@ export class ManHoursService {
   }
 
   /**
-   * Calculate total man hours based on qty, manHourPerDay, and working days in month
+   * Calculate total working days based on qty and manHourPerDay
    */
-  private calculateTotal(qty: number, manHourPerDay: number, month: MonthEnum, year: number): number {
-    // Get number of working days in month (approximate: 22 working days)
+  private calculateWorkingDays(qty: number, manHourPerDay: number): number {
     const workingDaysPerMonth = 22;
     return qty * manHourPerDay * workingDaysPerMonth;
   }
 
+  /**
+   * Resolve totalWorkingDays, lostHour, and total from inputs.
+   * Priority: if lostHour is provided → total = totalWorkingDays - lostHour
+   *           else if total is provided → lostHour = totalWorkingDays - total
+   *           else → lostHour = 0, total = totalWorkingDays
+   */
+  private resolveHourFields(
+    qty: number,
+    manHourPerDay: number,
+    lostHour?: number,
+    total?: number,
+  ): { totalWorkingDays: number; lostHour: number; total: number } {
+    const totalWorkingDays = this.calculateWorkingDays(qty, manHourPerDay);
+
+    if (lostHour !== undefined) {
+      return { totalWorkingDays, lostHour, total: totalWorkingDays - lostHour };
+    }
+    if (total !== undefined) {
+      return { totalWorkingDays, lostHour: totalWorkingDays - total, total };
+    }
+    return { totalWorkingDays, lostHour: 0, total: totalWorkingDays };
+  }
+
   async create(createDto: CreateManHourDto, userId: string): Promise<ManHourDto> {
-    // Calculate total
-    const total = this.calculateTotal(
+    const { totalWorkingDays, lostHour, total } = this.resolveHourFields(
       createDto.qty,
       createDto.manHourPerDay,
-      createDto.month,
-      createDto.year
+      createDto.lostHour,
+      createDto.total,
     );
 
     const manHour = await this.prisma.manHour.create({
@@ -95,6 +118,8 @@ export class ManHoursService {
         manHourPerDay: createDto.manHourPerDay,
         month: createDto.month,
         year: createDto.year,
+        totalWorkingDays,
+        lostHour,
         total,
         notes: createDto.notes,
         createdBy: userId,
@@ -187,23 +212,34 @@ export class ManHoursService {
 
     this.errorHandler.throwIfNotFoundById('Man hour', id, existing);
 
-    // Recalculate total if relevant fields changed
     const qty = updateDto.qty ?? existing.qty;
     const manHourPerDay = updateDto.manHourPerDay ?? Number(existing.manHourPerDay);
-    const month = updateDto.month ?? existing.month;
-    const year = updateDto.year ?? existing.year;
 
-    let newTotal: number | undefined;
-    if (updateDto.qty !== undefined || updateDto.manHourPerDay !== undefined ||
-        updateDto.month !== undefined || updateDto.year !== undefined) {
-      newTotal = this.calculateTotal(qty, manHourPerDay, month, year);
+    // Only re-resolve hour fields when any relevant field changed
+    let resolvedFields: { totalWorkingDays: number; lostHour: number; total: number } | undefined;
+    if (
+      updateDto.qty !== undefined ||
+      updateDto.manHourPerDay !== undefined ||
+      updateDto.lostHour !== undefined ||
+      updateDto.total !== undefined
+    ) {
+      // Use incoming lostHour/total if explicitly set; otherwise preserve existing values
+      const incomingLostHour = updateDto.lostHour ?? (updateDto.total !== undefined ? undefined : Number(existing.lostHour));
+      const incomingTotal = updateDto.total;
+      resolvedFields = this.resolveHourFields(qty, manHourPerDay, incomingLostHour, incomingTotal);
     }
+
+    const { lostHour: _l, total: _t, ...restDto } = updateDto as any;
 
     const updated = await this.prisma.manHour.update({
       where: { id },
       data: {
-        ...updateDto,
-        ...(newTotal !== undefined && { total: newTotal }),
+        ...restDto,
+        ...(resolvedFields !== undefined && {
+          totalWorkingDays: resolvedFields.totalWorkingDays,
+          lostHour: resolvedFields.lostHour,
+          total: resolvedFields.total,
+        }),
       },
       include: {
         creator: true,

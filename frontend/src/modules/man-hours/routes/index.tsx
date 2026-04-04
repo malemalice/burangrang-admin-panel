@@ -5,6 +5,7 @@ const ManHoursPage = lazy(() => import('../pages/ManHoursPage'));
 const CreateManHourPage = lazy(() => import('../pages/CreateManHourPage'));
 const EditManHourPage = lazy(() => import('../pages/EditManHourPage'));
 const ManHourReportPage = lazy(() => import('../pages/ManHourReportPage'));
+const ViewManHourPage = lazy(() => import('../pages/ViewManHourPage'));
 
 export const manHourRoutes: RouteConfig[] = [
   {
@@ -16,12 +17,16 @@ export const manHourRoutes: RouteConfig[] = [
     component: CreateManHourPage,
   },
   {
+    path: '/man-hours/report',
+    component: ManHourReportPage,
+  },
+  {
     path: '/man-hours/:id/edit',
     component: EditManHourPage,
   },
   {
-    path: '/man-hours/report',
-    component: ManHourReportPage,
+    path: '/man-hours/:id',
+    component: ViewManHourPage,
   },
 ];
 

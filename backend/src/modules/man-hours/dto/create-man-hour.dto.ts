@@ -33,6 +33,18 @@ export class CreateManHourDto {
   @Max(2100)
   year: number;
 
+  @ApiPropertyOptional({ description: 'Lost hours (absence, accidents, etc.)', example: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  lostHour?: number;
+
+  @ApiPropertyOptional({ description: 'Total man hours (overrides lostHour if both provided)', example: 1540 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  total?: number;
+
   @ApiPropertyOptional({ description: 'Additional notes' })
   @IsOptional()
   @IsString()
