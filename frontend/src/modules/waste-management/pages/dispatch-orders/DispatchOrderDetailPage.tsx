@@ -288,7 +288,10 @@ export default function DispatchOrderDetailPage() {
         style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
         aria-hidden="true"
       >
-        <DispatchOrderPDFTemplate dispatchOrder={dispatchOrder} />
+        <DispatchOrderPDFTemplate
+          dispatchOrder={dispatchOrder}
+          approvalHistory={approvalHistoryForPDF ?? approvalHistory}
+        />
       </div>
 
       <div className="w-full max-w-none space-y-6">

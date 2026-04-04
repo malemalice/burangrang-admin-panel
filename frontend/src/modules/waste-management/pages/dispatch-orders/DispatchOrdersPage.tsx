@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Eye, Printer } from 'lucide-react';
+import { format } from 'date-fns';
+import { usePDF } from 'react-to-pdf';
+import { Plus, Pencil, Trash2, Eye, Printer, Loader2 } from 'lucide-react';
+import approvalService, { type ApprovalStatusHistory } from '@/modules/master-data/services/approvalService';
+import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -11,6 +15,7 @@ import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import { dispatchOrderService } from '../../services/wasteManagementService';
 import { DispatchOrder, PaginatedResponse } from '../../types/waste-management.types';
+import { DispatchOrderPDFTemplate } from '../../components/DispatchOrderPDFTemplate';
 
 function getStatusBadge(status?: string) {
   switch (status) {
@@ -39,6 +44,16 @@ export default function DispatchOrdersPage() {
   const [search, setSearch] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [pdfExportOrder, setPdfExportOrder] = useState<DispatchOrder | null>(null);
+  const [pdfApprovalHistory, setPdfApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
+  const [exportingPdfId, setExportingPdfId] = useState<string | null>(null);
+  const [pendingRowPdfExport, setPendingRowPdfExport] = useState(false);
+
+  const { toPDF, targetRef } = usePDF({
+    filename: pdfExportOrder
+      ? `${pdfExportOrder.dispatchCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`
+      : 'dispatch-order.pdf',
+  });
 
   const filterFields: FilterField[] = [];
 
@@ -66,6 +81,34 @@ export default function DispatchOrdersPage() {
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    if (!pendingRowPdfExport || !pdfExportOrder) return;
+    let cancelled = false;
+
+    const run = async () => {
+      await new Promise((r) => setTimeout(r, 200));
+      if (cancelled) return;
+      try {
+        await toPDF();
+        toast.success('PDF exported successfully');
+      } catch {
+        toast.error('Failed to export PDF');
+      } finally {
+        if (!cancelled) {
+          setExportingPdfId(null);
+          setPdfExportOrder(null);
+          setPdfApprovalHistory(null);
+          setPendingRowPdfExport(false);
+        }
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingRowPdfExport, pdfExportOrder, toPDF]);
+
   const handleDeleteClick = (item: DispatchOrder, event?: React.MouseEvent) => {
     event?.stopPropagation();
     setDeleteId(item.id);
@@ -81,6 +124,24 @@ export default function DispatchOrdersPage() {
       toast.error(error.response?.data?.message || 'Failed to delete');
     } finally {
       setDeleteId(null);
+    }
+  };
+
+  const handleExportPdf = async (e: React.MouseEvent, item: DispatchOrder) => {
+    e.stopPropagation();
+    setExportingPdfId(item.id);
+    try {
+      const [orderRes, historyResult] = await Promise.all([
+        dispatchOrderService.getById(item.id),
+        approvalService.checkApprovalStatus(item.id, APPROVAL_ENTITIES.DISPATCH_ORDER).catch(() => null),
+      ]);
+      const order = orderRes.data as DispatchOrder;
+      setPdfExportOrder(order);
+      setPdfApprovalHistory(historyResult);
+      setPendingRowPdfExport(true);
+    } catch {
+      toast.error('Failed to export PDF');
+      setExportingPdfId(null);
     }
   };
 
@@ -149,13 +210,15 @@ export default function DispatchOrdersPage() {
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/waste-management/dispatch-orders/${item.id}?print=true`);
-            }}
-            title="Print PDF"
+            disabled={!!exportingPdfId}
+            onClick={(e) => void handleExportPdf(e, item)}
+            title="Export PDF"
           >
-            <Printer className="h-4 w-4" />
+            {exportingPdfId === item.id ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="h-4 w-4" />
+            )}
           </Button>
           <Button
             variant="ghost"
@@ -185,6 +248,19 @@ export default function DispatchOrdersPage() {
 
   return (
     <>
+      <div
+        ref={targetRef}
+        style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+        aria-hidden="true"
+      >
+        {pdfExportOrder ? (
+          <DispatchOrderPDFTemplate
+            dispatchOrder={pdfExportOrder}
+            approvalHistory={pdfApprovalHistory}
+          />
+        ) : null}
+      </div>
+
       <PageHeader
         title="Dispatch Orders"
         subtitle="Manage waste dispatch orders"
