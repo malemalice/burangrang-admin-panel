@@ -327,8 +327,10 @@ export default function WaterQualityLabReportsPage() {
     {
       id: 'actions',
       header: 'Actions',
+      headerClassName: 'justify-center',
+      cellClassName: 'text-center align-middle',
       cell: (item: WaterQualityLabReport) => (
-        <div className="flex flex-wrap items-center justify-end gap-1">
+        <div className="flex flex-wrap items-center justify-center gap-1">
           <Button
             type="button"
             variant="ghost"

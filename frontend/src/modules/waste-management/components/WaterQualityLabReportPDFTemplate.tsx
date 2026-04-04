@@ -77,6 +77,20 @@ export function WaterQualityLabReportPDFTemplate({ report }: WaterQualityLabRepo
               </td>
             </tr>
             <tr>
+              <td className="py-1 font-semibold text-gray-700">Prepared By</td>
+              <td className="py-1 text-gray-900">
+                {report.preparer
+                  ? `${report.preparer.firstName} ${report.preparer.lastName}`
+                  : '-'}
+              </td>
+            </tr>
+            <tr>
+              <td className="py-1 font-semibold text-gray-700">Record created (system)</td>
+              <td className="py-1 text-gray-900">
+                {report.createdAt ? format(new Date(report.createdAt), 'dd MMM yyyy, HH:mm') : '-'}
+              </td>
+            </tr>
+            <tr>
               <td className="py-1 font-semibold text-gray-700">Submitted By</td>
               <td className="py-1 text-gray-900">
                 {report.submitter
