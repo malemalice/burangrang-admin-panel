@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePDF } from 'react-to-pdf';
@@ -16,6 +16,8 @@ import {
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import approvalService, { type ApprovalStatusHistory } from '@/modules/master-data/services/approvalService';
+import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import { weightReportService, wasteSourceService, storageLocationService } from '../../services/wasteManagementService';
 import { WeightReport, WeightReportStatusEnum, PaginatedResponse } from '../../types/waste-management.types';
 import { WeightReportPDFTemplate } from '../../components/WeightReportPDFTemplate';
@@ -47,6 +49,13 @@ export default function WeightReportsPage() {
   const [exportQueue, setExportQueue] = useState<WeightReport[]>([]);
   const [exportIndex, setExportIndex] = useState(0);
   const [isExportingAllPDF, setIsExportingAllPDF] = useState(false);
+  const [pdfApprovalForExport, setPdfApprovalForExport] = useState<ApprovalStatusHistory | null>(null);
+  const [singlePdfContext, setSinglePdfContext] = useState<{
+    report: WeightReport;
+    approval: ApprovalStatusHistory | null;
+  } | null>(null);
+  const [isExportingRowPdf, setIsExportingRowPdf] = useState(false);
+  const exportCancelledRef = useRef(false);
 
   const [sources, setSources] = useState<{ id: string; name: string }[]>([]);
   const [locations, setLocations] = useState<{ id: string; name: string }[]>([]);
@@ -98,10 +107,15 @@ export default function WeightReportsPage() {
         : null,
     [isExportingAllPDF, exportQueue, exportIndex],
   );
-  const pdfFilename =
-    currentReportForPDF
-      ? `${currentReportForPDF.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}-${exportIndex + 1}.pdf`
-      : 'weight-report.pdf';
+
+  const activePdfReport = singlePdfContext?.report ?? currentReportForPDF;
+  const activePdfApproval = singlePdfContext?.approval ?? pdfApprovalForExport;
+
+  const pdfFilename = activePdfReport
+    ? `${activePdfReport.reportCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}${
+        isExportingAllPDF && exportQueue.length > 1 ? `-${exportIndex + 1}` : ''
+      }.pdf`
+    : 'weight-report.pdf';
   const { toPDF, targetRef } = usePDF({ filename: pdfFilename });
 
   const updateSearchParams = useCallback(
@@ -221,6 +235,9 @@ export default function WeightReportsPage() {
         toast.error('No reports to export');
         return;
       }
+      exportCancelledRef.current = false;
+      setSinglePdfContext(null);
+      setPdfApprovalForExport(null);
       setIsExportingAllPDF(true);
       setExportQueue(list);
       setExportIndex(0);
@@ -234,27 +251,102 @@ export default function WeightReportsPage() {
     if (!isExportingAllPDF || exportQueue.length === 0 || exportIndex >= exportQueue.length) {
       return;
     }
-    const count = exportQueue.length;
-    const timer = setTimeout(async () => {
+
+    const report = exportQueue[exportIndex];
+    const total = exportQueue.length;
+    exportCancelledRef.current = false;
+
+    const run = async () => {
+      setPdfApprovalForExport(null);
+      let approvalHistory: ApprovalStatusHistory | null = null;
+      try {
+        approvalHistory = await approvalService.checkApprovalStatus(
+          report.id,
+          APPROVAL_ENTITIES.WEIGHT_REPORT,
+        );
+      } catch {
+        approvalHistory = null;
+      }
+      if (exportCancelledRef.current) return;
+
+      setPdfApprovalForExport(approvalHistory);
+      await new Promise((resolve) => setTimeout(resolve, 320));
+      if (exportCancelledRef.current) return;
+
       try {
         await toPDF();
-        if (exportIndex + 1 < count) {
-          setExportIndex((i) => i + 1);
-        } else {
-          setIsExportingAllPDF(false);
-          setExportQueue([]);
-          setExportIndex(0);
-          toast.success(`Exported ${count} PDF(s) successfully`);
-        }
-      } catch (err) {
+      } catch {
         toast.error('Failed to export PDF');
         setIsExportingAllPDF(false);
         setExportQueue([]);
         setExportIndex(0);
+        setPdfApprovalForExport(null);
+        return;
       }
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [isExportingAllPDF, exportQueue.length, exportIndex, toPDF]);
+
+      if (exportCancelledRef.current) return;
+
+      if (exportIndex + 1 < total) {
+        setExportIndex((i) => i + 1);
+      } else {
+        setIsExportingAllPDF(false);
+        setExportQueue([]);
+        setExportIndex(0);
+        setPdfApprovalForExport(null);
+        toast.success(`Exported ${total} PDF(s) successfully`);
+      }
+    };
+
+    void run();
+    return () => {
+      exportCancelledRef.current = true;
+    };
+  }, [isExportingAllPDF, exportIndex, exportQueue, toPDF]);
+
+  useEffect(() => {
+    if (!singlePdfContext || !isExportingRowPdf) return;
+    let cancelled = false;
+
+    const run = async () => {
+      await new Promise((r) => setTimeout(r, 400));
+      if (cancelled) return;
+      try {
+        await toPDF();
+        toast.success('PDF exported successfully');
+      } catch {
+        toast.error('Failed to export PDF');
+      } finally {
+        if (!cancelled) {
+          setSinglePdfContext(null);
+          setIsExportingRowPdf(false);
+        }
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [singlePdfContext, isExportingRowPdf, toPDF]);
+
+  const handleExportRowPDF = async (item: WeightReport) => {
+    if (isExportingAllPDF) return;
+    setIsExportingRowPdf(true);
+    try {
+      const fullRes = await weightReportService.getById(item.id);
+      const report = fullRes.data as WeightReport;
+      let approval: ApprovalStatusHistory | null = null;
+      try {
+        approval = await approvalService.checkApprovalStatus(item.id, APPROVAL_ENTITIES.WEIGHT_REPORT);
+      } catch {
+        approval = null;
+      }
+      setSinglePdfContext({ report, approval });
+    } catch {
+      toast.error('Failed to export PDF');
+      setIsExportingRowPdf(false);
+    }
+  };
 
   const columns = [
     {
@@ -301,8 +393,12 @@ export default function WeightReportsPage() {
             <DropdownMenuItem onClick={() => navigate(`/waste-management/weight-reports/${item.id}`)}>
               <Eye className="mr-2 h-4 w-4" /> View Detail
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/waste-management/weight-reports/${item.id}?print=true`)}>
-              <Printer className="mr-2 h-4 w-4" /> Export PDF
+            <DropdownMenuItem
+              disabled={isExportingAllPDF || isExportingRowPdf}
+              onClick={() => void handleExportRowPDF(item)}
+            >
+              <Printer className="mr-2 h-4 w-4" />
+              {isExportingRowPdf ? 'Preparing PDF…' : 'Export PDF'}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/waste-management/weight-reports/${item.id}/edit`)}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
@@ -326,7 +422,7 @@ export default function WeightReportsPage() {
             <Button
               variant="outline"
               onClick={handleExportAllPDF}
-              disabled={isExportingAllPDF || loading}
+              disabled={isExportingAllPDF || isExportingRowPdf || loading}
             >
               {isExportingAllPDF ? `Exporting... (${exportIndex + 1}/${exportQueue.length})` : 'Export All PDF'}
             </Button>
@@ -372,10 +468,16 @@ export default function WeightReportsPage() {
         variant="destructive"
       />
 
-      {/* Hidden PDF template for Export All */}
-      <div className="absolute left-[-9999px] top-0" style={{ width: '210mm' }}>
+      {/* Hidden PDF template: bulk export or single-row export */}
+      <div className="absolute left-[-9999px] top-0" style={{ width: '210mm' }} aria-hidden="true">
         <div ref={targetRef}>
-          {currentReportForPDF && <WeightReportPDFTemplate report={currentReportForPDF} />}
+          {activePdfReport && (
+            <WeightReportPDFTemplate
+              key={`${activePdfReport.id}-${singlePdfContext ? 'single' : 'bulk'}`}
+              report={activePdfReport}
+              approvalHistory={activePdfApproval}
+            />
+          )}
         </div>
       </div>
     </>

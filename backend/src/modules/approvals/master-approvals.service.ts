@@ -671,6 +671,10 @@ export class MasterApprovalsService {
     if (entityName === APPROVAL_ENTITIES.PPE_WITHDRAWAL) {
       return 'APPROVED' as unknown as GeneralStatusEnum;
     }
+    // Dispatch order: approved chain ends in scheduled dispatch (not DRAFT/DONE)
+    if (entityName === APPROVAL_ENTITIES.DISPATCH_ORDER) {
+      return GeneralStatusEnum.SCHEDULED;
+    }
     return GeneralStatusEnum.DONE;
   }
 

@@ -55,6 +55,15 @@ export enum WaterQualityLabReportStatusEnum {
   REJECTED = 'REJECTED',
 }
 
+/** Dispatch order status (no DRAFT — creation submits as WAITING_APPROVAL). */
+export enum DispatchOrderStatusEnum {
+  SCHEDULED = 'SCHEDULED',
+  OPEN = 'OPEN',
+  WAITING_APPROVAL = 'WAITING_APPROVAL',
+  DONE = 'DONE',
+  REJECTED = 'REJECTED',
+}
+
 /** Water quality lab report category (water type). */
 export enum WaterQualityLabReportCategoryEnum {
   WASTEWATER = 'WASTEWATER',
@@ -467,7 +476,6 @@ export interface DispatchOrder {
 }
 
 export interface CreateDispatchOrderData {
-  dispatchCode: string;
   dispatchDate: string;
   quantity: number;
   memo?: string;
@@ -476,7 +484,7 @@ export interface CreateDispatchOrderData {
 }
 
 export type UpdateDispatchOrderData = Partial<CreateDispatchOrderData> & {
-  status?: GeneralStatusEnum;
+  status?: DispatchOrderStatusEnum;
 };
 
 // Filter Types

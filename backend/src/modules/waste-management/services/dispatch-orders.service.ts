@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { GeneralStatusEnum } from '@prisma/client';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
@@ -67,25 +68,38 @@ export class DispatchOrdersService {
     });
   }
 
+  /** Unique document number, e.g. DO-2026-0001 (aligned with seed format). */
+  private async generateDispatchCode(): Promise<string> {
+    const prefix = 'DO';
+    const year = new Date().getFullYear();
+    const startsWith = `${prefix}-${year}-`;
+    const last = await this.prisma.dispatchOrder.findFirst({
+      where: { dispatchCode: { startsWith } },
+      orderBy: { dispatchCode: 'desc' },
+    });
+    let sequence = 1;
+    if (last?.dispatchCode?.startsWith(startsWith)) {
+      const tail = last.dispatchCode.slice(startsWith.length);
+      const n = parseInt(tail, 10);
+      if (!Number.isNaN(n)) sequence = n + 1;
+    }
+    return `${startsWith}${String(sequence).padStart(4, '0')}`;
+  }
+
   async create(
     createDto: CreateDispatchOrderDto,
     userId: string,
   ): Promise<DispatchOrderDto> {
-    const existing = await this.prisma.dispatchOrder.findUnique({
-      where: { dispatchCode: createDto.dispatchCode },
-    });
-    if (existing) {
-      this.errorHandler.throwConflictCustom(
-        `Dispatch Order with code ${createDto.dispatchCode} already exists`,
-      );
-    }
+    const dispatchCode = await this.generateDispatchCode();
 
     const { attachments, ...rest } = createDto;
     const data: any = {
       ...rest,
+      dispatchCode,
       orderedBy: userId,
       createdBy: userId,
       dispatchDate: new Date(createDto.dispatchDate),
+      status: GeneralStatusEnum.WAITING_APPROVAL,
     };
     if (attachments?.length) {
       data.attachments = {
@@ -177,6 +191,14 @@ export class DispatchOrdersService {
 
     const { attachments, ...rest } = updateDto;
     const data: any = { ...rest };
+    if (data.status === GeneralStatusEnum.DRAFT) {
+      this.errorHandler.throwBadRequest(
+        'DRAFT is not a valid status for dispatch orders',
+      );
+    }
+    if (existing.status === GeneralStatusEnum.REJECTED) {
+      data.status = GeneralStatusEnum.WAITING_APPROVAL;
+    }
     if (updateDto.dispatchDate)
       data.dispatchDate = new Date(updateDto.dispatchDate);
 

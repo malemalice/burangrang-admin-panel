@@ -98,8 +98,10 @@ export function DispatchOrderPDFTemplate({ dispatchOrder, approvalHistory }: Dis
               <TableCell>{format(new Date(dispatchOrder.dispatchDate), 'dd MMMM yyyy, HH:mm')}</TableCell>
             </TableRow>
             <TableRow>
-              <TableHead className="w-[38%] bg-muted/50 font-semibold">Quantity</TableHead>
-              <TableCell className="font-semibold">{dispatchOrder.quantity.toLocaleString('id-ID')}</TableCell>
+              <TableHead className="w-[38%] bg-muted/50 font-semibold">Quantity (kg)</TableHead>
+              <TableCell className="font-semibold">
+                {Number(dispatchOrder.quantity).toLocaleString('id-ID')} kg
+              </TableCell>
             </TableRow>
             <TableRow>
               <TableHead className="w-[38%] bg-muted/50 font-semibold">Status</TableHead>

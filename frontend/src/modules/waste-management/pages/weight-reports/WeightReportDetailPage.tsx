@@ -46,12 +46,14 @@ function getStatusBadge(status?: string) {
 export default function WeightReportDetailPage() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [data, setData] = useState<WeightReport | null>(null);
     const [loading, setLoading] = useState(true);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
     const [approvalHistory, setApprovalHistory] = useState<ApprovalStatusHistory | null>(null);
+    /** Snapshot for PDF so export includes latest approval rows */
+    const [approvalHistoryForPDF, setApprovalHistoryForPDF] = useState<ApprovalStatusHistory | null>(null);
     const [canApprove, setCanApprove] = useState(false);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
@@ -104,12 +106,62 @@ export default function WeightReportDetailPage() {
     }, [id, data?.id, fetchApprovalData]);
 
     useEffect(() => {
-        if (searchParams.get('print') === 'true' && data) {
-            setTimeout(() => {
-                toPDF();
-            }, 1000);
+        if (!data || !id || searchParams.get('print') !== 'true') return;
+
+        let cancelled = false;
+        const run = async () => {
+            try {
+                const fresh = await approvalService
+                    .checkApprovalStatus(id, APPROVAL_ENTITIES.WEIGHT_REPORT)
+                    .catch(() => null);
+                if (!cancelled && fresh) {
+                    setApprovalHistoryForPDF(fresh);
+                }
+                await new Promise((r) => setTimeout(r, 200));
+                if (cancelled) return;
+                await toPDF();
+                toast.success('PDF exported successfully');
+            } catch {
+                if (!cancelled) toast.error('Failed to export PDF');
+            } finally {
+                if (!cancelled) {
+                    setSearchParams(
+                        (prev) => {
+                            const next = new URLSearchParams(prev);
+                            next.delete('print');
+                            return next;
+                        },
+                        { replace: true },
+                    );
+                }
+            }
+        };
+
+        const timer = setTimeout(() => {
+            void run();
+        }, 300);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [data, id, searchParams, setSearchParams, toPDF]);
+
+    const handleExportPDF = async () => {
+        if (!id) return;
+        try {
+            const fresh = await approvalService
+                .checkApprovalStatus(id, APPROVAL_ENTITIES.WEIGHT_REPORT)
+                .catch(() => null);
+            if (fresh) {
+                setApprovalHistoryForPDF(fresh);
+            }
+            await new Promise((r) => setTimeout(r, 200));
+            await toPDF();
+            toast.success('PDF exported successfully');
+        } catch {
+            toast.error('Failed to export PDF');
         }
-    }, [searchParams, data, toPDF]);
+    };
 
     const handleRefresh = useCallback(async () => {
         await fetchData();
@@ -177,7 +229,7 @@ export default function WeightReportDetailPage() {
                         <Button variant="outline" onClick={() => navigate('/waste-management/weight-reports')}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                         </Button>
-                        <Button variant="outline" onClick={() => toPDF()}>
+                        <Button variant="outline" onClick={() => void handleExportPDF()}>
                             <Printer className="mr-2 h-4 w-4" /> Export PDF
                         </Button>
                         {isEditable && (
@@ -308,7 +360,12 @@ export default function WeightReportDetailPage() {
             {/* Hidden PDF Template */}
             <div className="absolute left-[-9999px] top-0" style={{ width: '210mm' }}>
                 <div ref={targetRef}>
-                    {data && <WeightReportPDFTemplate report={data} />}
+                    {data && (
+                        <WeightReportPDFTemplate
+                            report={data}
+                            approvalHistory={approvalHistoryForPDF ?? approvalHistory}
+                        />
+                    )}
                 </div>
             </div>
 

@@ -21,6 +21,8 @@ function getStatusBadge(status?: string) {
   switch (status) {
     case GeneralStatusEnum.DRAFT:
       return <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-300">Draft</Badge>;
+    case GeneralStatusEnum.SCHEDULED:
+      return <Badge variant="outline" className="bg-sky-100 text-sky-800 border-sky-300">Scheduled</Badge>;
     case GeneralStatusEnum.OPEN:
       return <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300">Open</Badge>;
     case GeneralStatusEnum.WAITING_APPROVAL:
@@ -157,7 +159,7 @@ export default function DispatchOrdersPage() {
   const columns = [
     {
       id: 'dispatchCode',
-      header: 'Code',
+      header: 'Document no.',
       cell: (item: DispatchOrder) => item.dispatchCode,
       isSortable: true,
     },
@@ -169,8 +171,9 @@ export default function DispatchOrdersPage() {
     },
     {
       id: 'quantity',
-      header: 'Quantity',
-      cell: (item: DispatchOrder) => item.quantity,
+      header: 'Quantity (kg)',
+      cell: (item: DispatchOrder) =>
+        `${Number(item.quantity).toLocaleString('id-ID')} kg`,
       isSortable: true,
     },
     {
@@ -224,6 +227,10 @@ export default function DispatchOrdersPage() {
             variant="ghost"
             size="icon"
             className="h-8 w-8"
+            disabled={
+              item.status === GeneralStatusEnum.WAITING_APPROVAL ||
+              item.status === GeneralStatusEnum.DONE
+            }
             onClick={(e) => {
               e.stopPropagation();
               navigate(`/waste-management/dispatch-orders/${item.id}/edit`);

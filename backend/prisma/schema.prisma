@@ -2906,7 +2906,7 @@ model DispatchOrder {
   orderedBy    String
   quantity     Decimal           @db.Decimal(10, 2)
   memo         String?           @db.Text
-  status       GeneralStatusEnum @default(DRAFT)
+  status       GeneralStatusEnum @default(WAITING_APPROVAL)
   isActive     Boolean           @default(true)
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt

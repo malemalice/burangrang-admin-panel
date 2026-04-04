@@ -49,6 +49,8 @@ function getStatusBadge(status?: string) {
   switch (status) {
     case GeneralStatusEnum.DRAFT:
       return <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-300">Draft</Badge>;
+    case GeneralStatusEnum.SCHEDULED:
+      return <Badge variant="outline" className="bg-sky-100 text-sky-800 border-sky-300">Scheduled</Badge>;
     case GeneralStatusEnum.OPEN:
       return <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300">Open</Badge>;
     case GeneralStatusEnum.WAITING_APPROVAL:
@@ -270,9 +272,7 @@ export default function DispatchOrderDetailPage() {
               <FileDown className="h-4 w-4 mr-2" />
               Export PDF
             </Button>
-            {status !== GeneralStatusEnum.DONE &&
-              status !== GeneralStatusEnum.REJECTED &&
-              status !== GeneralStatusEnum.WAITING_APPROVAL && (
+            {status !== GeneralStatusEnum.DONE && status !== GeneralStatusEnum.WAITING_APPROVAL && (
                 <Button size="sm" onClick={() => navigate(`/waste-management/dispatch-orders/${id}/edit`)}>
                   <FileEdit className="h-4 w-4 mr-2" />
                   Edit
@@ -307,7 +307,7 @@ export default function DispatchOrderDetailPage() {
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Dispatch Code</p>
+                <p className="text-sm font-medium text-muted-foreground">Document number</p>
                 <p className="font-mono">{dispatchOrder.dispatchCode}</p>
               </div>
               <div className="space-y-2">
@@ -315,8 +315,10 @@ export default function DispatchOrderDetailPage() {
                 <p>{format(new Date(dispatchOrder.dispatchDate), 'dd MMM yyyy, HH:mm')}</p>
               </div>
               <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Quantity</p>
-                <p className="font-semibold">{dispatchOrder.quantity.toLocaleString('id-ID')}</p>
+                <p className="text-sm font-medium text-muted-foreground">Quantity (kg)</p>
+                <p className="font-semibold">
+                  {Number(dispatchOrder.quantity).toLocaleString('id-ID')} kg
+                </p>
               </div>
               {dispatchOrder.memo && (
                 <div className="space-y-2 md:col-span-2">

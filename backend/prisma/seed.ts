@@ -485,10 +485,25 @@ async function main() {
           await prisma.incidentInjuredPerson.deleteMany();
           await prisma.incident.deleteMany();
           break;
+        case 'waste_management':
+        case 'waste-management':
+        case 'waste-managements':
+          await prisma.weightReportItem.deleteMany();
+          await prisma.dispatchOrder.deleteMany();
+          await prisma.weightReport.deleteMany();
+          await prisma.waterQualityLabReportResult.deleteMany();
+          await prisma.waterQualityLabReport.deleteMany();
+          await prisma.monthlyFlowReport.deleteMany();
+          await prisma.storageLocation.deleteMany();
+          await prisma.wasteSource.deleteMany();
+          await prisma.wasteType.deleteMany();
+          await prisma.waterQualityParameter.deleteMany();
+          await prisma.treatmentPlant.deleteMany();
+          break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
           console.log(
-            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, audit-policy, audit-schedules, approvals, master-approvals, risk-assessments, inspections, risk-assessments-inspections, incidents',
+            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, waste-management, audit-policy, audit-schedules, approvals, master-approvals, risk-assessments, inspections, risk-assessments-inspections, incidents',
           );
           process.exit(1);
       }
@@ -780,6 +795,11 @@ async function main() {
           await prisma.incidentInjuredPerson.deleteMany();
           await prisma.incident.deleteMany();
           await seedIncidents();
+          break;
+        case 'waste_management':
+        case 'waste-management':
+        case 'waste-managements':
+          await seedWasteManagement();
           break;
       }
       console.log(`Table ${tableToSeed} seeded successfully`);

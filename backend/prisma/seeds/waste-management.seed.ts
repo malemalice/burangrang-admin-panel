@@ -670,7 +670,7 @@ export const seedWasteManagement = async () => {
             dispatchDate: new Date(),
             quantity: 500,
             memo: 'Pengiriman limbah B3 ke PT. Pengolah Limbah Indonesia',
-            status: GeneralStatusEnum.SCHEDULED,
+            status: GeneralStatusEnum.DONE,
             orderedBy: users[0].id,
             createdBy: users[0].id,
             isActive: true,
@@ -682,7 +682,7 @@ export const seedWasteManagement = async () => {
             dispatchDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 1 week from now
             quantity: 300,
             memo: 'Pengiriman limbah non-B3 ke bank sampah',
-            status: GeneralStatusEnum.SCHEDULED,
+            status: GeneralStatusEnum.WAITING_APPROVAL,
             orderedBy: users[0].id,
             createdBy: users[0].id,
             isActive: true,
@@ -706,7 +706,7 @@ export const seedWasteManagement = async () => {
             dispatchDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
             quantity: 200,
             memo: 'Pengiriman limbah organik ke komposter',
-            status: GeneralStatusEnum.OPEN,
+            status: GeneralStatusEnum.WAITING_APPROVAL,
             orderedBy: users[0].id,
             createdBy: users[0].id,
             isActive: true,
@@ -718,7 +718,7 @@ export const seedWasteManagement = async () => {
             dispatchDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 2 weeks from now
             quantity: 1000,
             memo: 'Pengiriman limbah berbahaya ke vendor terdaftar',
-            status: GeneralStatusEnum.DRAFT,
+            status: GeneralStatusEnum.WAITING_APPROVAL,
             orderedBy: users[2]?.id || users[0].id,
             createdBy: users[0].id,
             isActive: true,

@@ -20,7 +20,7 @@ import { Loader2, Paperclip, Trash2, FileText, Image } from 'lucide-react';
 import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 
 import { dispatchOrderService } from '../../services/wasteManagementService';
-import { CreateDispatchOrderData, DispatchOrder, UpdateDispatchOrderData, GeneralStatusEnum } from '../../types/waste-management.types';
+import { CreateDispatchOrderData, DispatchOrder, UpdateDispatchOrderData } from '../../types/waste-management.types';
 import uploadService from '@/modules/uploads/services/uploadService';
 
 const ALLOWED_ATTACHMENT_TYPES = [
@@ -38,11 +38,9 @@ type AttachmentListItem =
   | { type: 'new'; key: string; file: File; fileName: string; order: number };
 
 const formSchema = z.object({
-  dispatchCode: z.string().min(1, 'Dispatch code is required'),
   dispatchDate: z.string().min(1, 'Date is required'),
   quantity: z.coerce.number().min(1, 'Quantity must be positive'),
   memo: z.string().optional(),
-  status: z.nativeEnum(GeneralStatusEnum).optional(),
   isActive: z.boolean().default(true),
 });
 
@@ -59,17 +57,17 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
   const [saving, setSaving] = useState(false);
   const [attachmentList, setAttachmentList] = useState<AttachmentListItem[]>([]);
   const [fileCategory, setFileCategory] = useState<{ id: string } | null>(null);
+  /** Set in edit mode only — document number is server-generated and cannot be edited */
+  const [documentNumber, setDocumentNumber] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      dispatchCode: '',
       dispatchDate: new Date().toISOString().split('T')[0],
       quantity: 0,
       memo: '',
       isActive: true,
-      status: GeneralStatusEnum.SCHEDULED,
     },
   });
 
@@ -88,12 +86,11 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
         try {
           const response = await dispatchOrderService.getById(id);
           const data = response.data as DispatchOrder;
+          setDocumentNumber(data.dispatchCode);
           form.reset({
-            dispatchCode: data.dispatchCode,
             dispatchDate: new Date(data.dispatchDate).toISOString().split('T')[0],
             quantity: data.quantity,
             memo: data.memo || '',
-            status: data.status,
             isActive: data.isActive,
           });
           const attachments = (data.attachments ?? []).slice().sort((a, b) => a.order - b.order);
@@ -184,7 +181,6 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
       const attachments = await buildAttachmentsPayload();
       if (mode === 'create') {
         const submitData: CreateDispatchOrderData = {
-          dispatchCode: data.dispatchCode,
           dispatchDate: new Date(data.dispatchDate).toISOString(),
           quantity: data.quantity,
           memo: data.memo,
@@ -195,12 +191,10 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
         toast.success('Dispatch order created successfully');
       } else if (id) {
         const submitData: UpdateDispatchOrderData = {
-          dispatchCode: data.dispatchCode,
           dispatchDate: new Date(data.dispatchDate).toISOString(),
           quantity: data.quantity,
           memo: data.memo,
           isActive: data.isActive,
-          status: data.status,
           attachments,
         };
         await dispatchOrderService.update(id, submitData);
@@ -228,25 +222,25 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
     <Card>
       <CardHeader>
         <CardTitle>{mode === 'create' ? 'Create' : 'Edit'} Order</CardTitle>
-        <CardDescription>Enter dispatch order information</CardDescription>
+        <CardDescription>
+          {mode === 'create'
+            ? 'A unique document number (e.g. DO-2026-0001) is assigned automatically when you save.'
+            : 'Enter dispatch order information'}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="dispatchCode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Dispatch Code *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter code" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {mode === 'edit' && documentNumber && (
+                <div className="space-y-2 md:col-span-2">
+                  <p className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    Document number
+                  </p>
+                  <p className="font-mono text-sm rounded-md border border-input bg-muted/50 px-3 py-2">{documentNumber}</p>
+                  <p className="text-xs text-muted-foreground">This value is set by the system and cannot be changed.</p>
+                </div>
+              )}
               <FormField
                 control={form.control}
                 name="dispatchDate"
@@ -272,7 +266,7 @@ export default function DispatchOrderForm({ mode }: DispatchOrderFormProps) {
                 name="quantity"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Quantity *</FormLabel>
+                    <FormLabel>Quantity (kg) *</FormLabel>
                     <FormControl>
                       <Input type="number" min="0" step="any" {...field} />
                     </FormControl>
