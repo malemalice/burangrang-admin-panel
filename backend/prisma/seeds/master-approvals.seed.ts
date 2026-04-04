@@ -282,6 +282,28 @@ export async function seedMasterApprovals(prisma: PrismaClient) {
     `✅ Created Weight Report approval workflow (${finalHseDept.name} - ${finalHeadPos.name})`,
   );
 
+  // 9. Dispatch Order Approval Workflow (1-step: HSE Department Head)
+  const dispatchOrderApproval = await prisma.masterApproval.create({
+    data: {
+      entity: APPROVAL_ENTITIES.DISPATCH_ORDER,
+      isActive: true,
+    },
+  });
+
+  await prisma.masterApprovalItem.create({
+    data: {
+      mApprovalId: dispatchOrderApproval.id,
+      order: 0,
+      jobPositionId: finalHeadPos.id,
+      departmentId: finalHseDept.id,
+      createdBy: creator.id,
+    },
+  });
+
+  console.log(
+    `✅ Created Dispatch Order approval workflow (${finalHseDept.name} - ${finalHeadPos.name})`,
+  );
+
   console.log('✅ Master Approvals seeding completed');
   return {
     riskAssessmentApproval,
@@ -292,5 +314,6 @@ export async function seedMasterApprovals(prisma: PrismaClient) {
     ppeWithdrawalApproval,
     environmentalMeasurementApproval,
     weightReportApproval,
+    dispatchOrderApproval,
   };
 }

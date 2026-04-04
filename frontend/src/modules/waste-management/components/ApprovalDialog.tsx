@@ -17,21 +17,30 @@ import approvalService from '@/modules/master-data/services/approvalService';
 import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import { toast } from 'sonner';
 
-interface ApprovalDialogProps {
+type ApprovalDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  weightReportId: string;
   onApprovalSubmitted: () => void;
   initialStatus?: ApprovalStatus;
-}
+} & (
+  | { weightReportId: string; dispatchOrderId?: never }
+  | { dispatchOrderId: string; weightReportId?: never }
+);
 
 export const ApprovalDialog = ({
   open,
   onOpenChange,
-  weightReportId,
   onApprovalSubmitted,
   initialStatus = ApprovalStatus.APPROVED,
+  ...rest
 }: ApprovalDialogProps) => {
+  const dataId = 'weightReportId' in rest ? rest.weightReportId : rest.dispatchOrderId;
+  const entity =
+    'weightReportId' in rest ? APPROVAL_ENTITIES.WEIGHT_REPORT : APPROVAL_ENTITIES.DISPATCH_ORDER;
+  const idPrefix = 'weightReportId' in rest ? 'wr' : 'do';
+  const subjectLabel =
+    'weightReportId' in rest ? 'this weight report' : 'this dispatch order';
+
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(initialStatus);
   const [approvalNotes, setApprovalNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,13 +53,13 @@ export const ApprovalDialog = ({
   }, [open, initialStatus]);
 
   const handleSubmit = async () => {
-    if (!weightReportId) return;
+    if (!dataId) return;
 
     try {
       setIsSubmitting(true);
       await approvalService.submitApproval({
-        dataId: weightReportId,
-        entity: APPROVAL_ENTITIES.WEIGHT_REPORT,
+        dataId,
+        entity,
         status: approvalStatus,
         notes: approvalNotes,
       });
@@ -72,7 +81,7 @@ export const ApprovalDialog = ({
         <DialogHeader>
           <DialogTitle>Submit Approval</DialogTitle>
           <DialogDescription>
-            Review and submit your approval decision for this weight report.
+            Review and submit your approval decision for {subjectLabel}.
           </DialogDescription>
         </DialogHeader>
 
@@ -85,15 +94,15 @@ export const ApprovalDialog = ({
               className="flex gap-4"
             >
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value={ApprovalStatus.APPROVED} id="wr-approved" />
-                <Label htmlFor="wr-approved" className="flex items-center gap-2">
+                <RadioGroupItem value={ApprovalStatus.APPROVED} id={`${idPrefix}-approved`} />
+                <Label htmlFor={`${idPrefix}-approved`} className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                   Approve
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value={ApprovalStatus.REJECTED} id="wr-rejected" />
-                <Label htmlFor="wr-rejected" className="flex items-center gap-2">
+                <RadioGroupItem value={ApprovalStatus.REJECTED} id={`${idPrefix}-rejected`} />
+                <Label htmlFor={`${idPrefix}-rejected`} className="flex items-center gap-2">
                   <XCircle className="h-4 w-4 text-red-500" />
                   Reject
                 </Label>
@@ -102,11 +111,11 @@ export const ApprovalDialog = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="wr-notes">
+            <Label htmlFor={`${idPrefix}-notes`}>
               Notes{approvalStatus === ApprovalStatus.REJECTED && <span className="text-red-500"> *</span>}
             </Label>
             <Textarea
-              id="wr-notes"
+              id={`${idPrefix}-notes`}
               placeholder={
                 approvalStatus === ApprovalStatus.REJECTED
                   ? 'Enter reason for rejection...'

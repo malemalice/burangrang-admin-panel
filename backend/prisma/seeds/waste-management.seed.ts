@@ -13,6 +13,7 @@ import {
   WaterQualityParameterCategoryEnum,
   GeneralStatusEnum,
 } from '@prisma/client';
+import { APPROVAL_ENTITIES } from '../../src/shared/constants/approval-entities';
 
 const prisma = new PrismaClient();
 
@@ -535,7 +536,130 @@ export const seedWasteManagement = async () => {
           },
         },
       });
-      console.log('     ✅ Created 1 monthly flow report (UNDER_REVIEW) and 1 weight report (~525 kg) for Admin Overview');
+
+      await prisma.weightReport.create({
+        data: {
+          reportCode: `WR-${currentYear}-MAR-001`,
+          sourceId: wasteSources[0].id,
+          storageLocationId: storageLocations[0].id,
+          reportDate: new Date(currentYear, 2, 10),
+          reportMonth: MonthEnum.MAR,
+          reportYear: currentYear,
+          status: WeightReportStatusEnum.WAITING_APPROVAL,
+          submittedBy: users[0].id,
+          submittedAt: new Date(currentYear, 2, 10, 9, 0, 0),
+          isActive: true,
+          items: {
+            create: [
+              {
+                wasteTypeId: wasteTypes[0].id,
+                weight: 88.0,
+                unit: 'kg',
+                order: 1,
+                notes: 'Sample: awaiting HSE approval',
+              },
+            ],
+          },
+        },
+      });
+
+      const departmentsForApproval = await prisma.department.findMany();
+      const jobPositionsForApproval = await prisma.jobPosition.findMany();
+      const hseDept =
+        departmentsForApproval.find((d) => d.code === 'HSE') ??
+        departmentsForApproval[0];
+      const headPos =
+        jobPositionsForApproval.find((j) => j.code === 'HEAD') ??
+        jobPositionsForApproval[0];
+      const weightReportMasterApproval = await prisma.masterApproval.findFirst({
+        where: { entity: APPROVAL_ENTITIES.WEIGHT_REPORT, isActive: true },
+      });
+
+      const doneReport = await prisma.weightReport.create({
+        data: {
+          reportCode: `WR-${currentYear}-APR-001`,
+          sourceId: wasteSources[0].id,
+          storageLocationId: storageLocations[1]?.id ?? storageLocations[0].id,
+          reportDate: new Date(currentYear, 3, 5),
+          reportMonth: MonthEnum.APR,
+          reportYear: currentYear,
+          status: WeightReportStatusEnum.DONE,
+          submittedBy: users[0].id,
+          submittedAt: new Date(currentYear, 3, 5, 10, 0, 0),
+          isActive: true,
+          items: {
+            create: [
+              {
+                wasteTypeId: wasteTypes[1]?.id ?? wasteTypes[0].id,
+                weight: 42.25,
+                unit: 'kg',
+                order: 1,
+                notes: 'Sample: approved (seed)',
+              },
+            ],
+          },
+        },
+      });
+
+      if (weightReportMasterApproval && hseDept && headPos) {
+        await prisma.approval.create({
+          data: {
+            mApprovalId: weightReportMasterApproval.id,
+            entityId: doneReport.id,
+            departmentId: hseDept.id,
+            jobPositionId: headPos.id,
+            status: 'APPROVED',
+            notes: 'Disetujui — data contoh seed',
+            createdBy: users[0].id,
+            createdAt: new Date(currentYear, 3, 6, 14, 30, 0),
+          },
+        });
+      }
+
+      const rejectedReport = await prisma.weightReport.create({
+        data: {
+          reportCode: `WR-${currentYear}-MAY-001`,
+          sourceId: wasteSources[1]?.id ?? wasteSources[0].id,
+          storageLocationId: storageLocations[0].id,
+          reportDate: new Date(currentYear, 4, 12),
+          reportMonth: MonthEnum.MAY,
+          reportYear: currentYear,
+          status: WeightReportStatusEnum.REJECTED,
+          submittedBy: users[0].id,
+          submittedAt: new Date(currentYear, 4, 12, 11, 0, 0),
+          isActive: true,
+          items: {
+            create: [
+              {
+                wasteTypeId: wasteTypes[0].id,
+                weight: 12.0,
+                unit: 'kg',
+                order: 1,
+                notes: 'Sample: rejected (seed)',
+              },
+            ],
+          },
+        },
+      });
+
+      if (weightReportMasterApproval && hseDept && headPos) {
+        await prisma.approval.create({
+          data: {
+            mApprovalId: weightReportMasterApproval.id,
+            entityId: rejectedReport.id,
+            departmentId: hseDept.id,
+            jobPositionId: headPos.id,
+            status: 'REJECTED',
+            notes: 'Data tidak lengkap — contoh seed',
+            createdBy: users[0].id,
+            createdAt: new Date(currentYear, 4, 13, 9, 15, 0),
+          },
+        });
+      }
+
+      console.log(
+        '     ✅ Created 1 monthly flow report (UNDER_REVIEW), weight reports (FEB open, MAR waiting, APR done + approval, MAY rejected + approval), Admin Overview bulk report',
+      );
 
       // Seed sample Dispatch Orders
       console.log('  🚛 Seeding dispatch orders...');

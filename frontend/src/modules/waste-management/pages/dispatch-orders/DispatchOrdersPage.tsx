@@ -4,11 +4,30 @@ import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Eye, Printer } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
+import { Badge } from '@/core/components/ui/badge';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
+import { GeneralStatusEnum } from '@/shared/constants/general-status.enum';
 import { dispatchOrderService } from '../../services/wasteManagementService';
 import { DispatchOrder, PaginatedResponse } from '../../types/waste-management.types';
+
+function getStatusBadge(status?: string) {
+  switch (status) {
+    case GeneralStatusEnum.DRAFT:
+      return <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-300">Draft</Badge>;
+    case GeneralStatusEnum.OPEN:
+      return <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300">Open</Badge>;
+    case GeneralStatusEnum.WAITING_APPROVAL:
+      return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">Waiting Approval</Badge>;
+    case GeneralStatusEnum.DONE:
+      return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">Done</Badge>;
+    case GeneralStatusEnum.REJECTED:
+      return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">Rejected</Badge>;
+    default:
+      return status ? <Badge variant="outline">{status}</Badge> : null;
+  }
+}
 
 export default function DispatchOrdersPage() {
   const navigate = useNavigate();
@@ -101,6 +120,12 @@ export default function DispatchOrdersPage() {
           {item.memo || '-'}
         </span>
       ),
+      isSortable: false,
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (item: DispatchOrder) => getStatusBadge(item.status),
       isSortable: false,
     },
     {
