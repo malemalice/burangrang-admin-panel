@@ -22,7 +22,9 @@ export class CreateMonthlyFlowReportDto {
   reportMonth?: MonthEnum;
   @ApiProperty({ required: false }) @IsNumber() @IsOptional() reportYear?: number;
   @ApiProperty() @IsNumber() totalVolume: number;
-  @ApiProperty() @IsNumber() averageDailyFlow: number;
+  @ApiProperty({ required: false }) @IsNumber() @IsOptional() averageDailyFlow?: number;
+  @ApiProperty() @IsNumber() initialFlow: number;
+  @ApiProperty() @IsNumber() finalFlow: number;
   @ApiProperty({ required: false }) @IsNumber() @IsOptional() peakFlow?: number;
   @ApiProperty({ required: false })
   @IsNumber()

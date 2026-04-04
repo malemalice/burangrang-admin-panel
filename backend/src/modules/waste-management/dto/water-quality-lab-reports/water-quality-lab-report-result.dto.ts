@@ -46,6 +46,7 @@ export class WaterQualityLabReportResultDto {
     code: string;
     unit: string;
     category: string;
+    regulatoryLimit?: number;
   };
 
   constructor(partial: Partial<WaterQualityLabReportResultDto>) {

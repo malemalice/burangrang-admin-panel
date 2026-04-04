@@ -143,7 +143,7 @@ export function WaterQualityLabReportPDFTemplate({ report }: WaterQualityLabRepo
                       <th className="text-left p-2 border border-gray-300 font-semibold">Value</th>
                       <th className="text-left p-2 border border-gray-300 font-semibold">Unit</th>
                       <th className="text-left p-2 border border-gray-300 font-semibold">
-                        Compliant
+                        Regulatory Limit
                       </th>
                       <th className="text-left p-2 border border-gray-300 font-semibold">Notes</th>
                     </tr>
@@ -159,7 +159,7 @@ export function WaterQualityLabReportPDFTemplate({ report }: WaterQualityLabRepo
                           {r.unit ?? r.parameter?.unit ?? '-'}
                         </td>
                         <td className="p-2 border border-gray-300">
-                          {r.isCompliant === true ? 'Yes' : r.isCompliant === false ? 'No' : '-'}
+                          {r.parameter?.regulatoryLimit ?? '-'}
                         </td>
                         <td className="p-2 border border-gray-300 text-gray-600 break-words whitespace-pre-wrap">
                           {r.notes ?? '-'}

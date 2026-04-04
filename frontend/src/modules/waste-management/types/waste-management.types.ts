@@ -235,7 +235,9 @@ export interface MonthlyFlowReport {
   reportMonth?: MonthEnum;
   reportYear?: number;
   totalVolume: number;
-  averageDailyFlow: number;
+  averageDailyFlow?: number;
+  initialFlow: number;
+  finalFlow: number;
   peakFlow?: number;
   minimumFlow?: number;
   reportDocumentUrl?: string;
@@ -262,7 +264,9 @@ export interface CreateMonthlyFlowReportData {
   reportMonth?: MonthEnum;
   reportYear?: number;
   totalVolume: number;
-  averageDailyFlow: number;
+  averageDailyFlow?: number;
+  initialFlow: number;
+  finalFlow: number;
   peakFlow?: number;
   minimumFlow?: number;
   reportDocumentUrl?: string;
@@ -296,6 +300,7 @@ export interface WaterQualityLabReportResult {
     code: string;
     unit: string;
     category: string;
+    regulatoryLimit?: number;
   };
 }
 

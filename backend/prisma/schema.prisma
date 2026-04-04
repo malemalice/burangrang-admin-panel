@@ -2659,9 +2659,11 @@ model MonthlyFlowReport {
   reportMonth       MonthEnum?
   reportYear        Int?
   totalVolume       Decimal          @db.Decimal(12, 4)
-  averageDailyFlow  Decimal          @db.Decimal(10, 4)
+  averageDailyFlow  Decimal?         @db.Decimal(10, 4)
   peakFlow          Decimal?         @db.Decimal(10, 4)
   minimumFlow       Decimal?         @db.Decimal(10, 4)
+  initialFlow       Decimal          @db.Decimal(10, 4)
+  finalFlow         Decimal          @db.Decimal(10, 4)
   reportDocumentUrl String?
   submittedBy       String
   submittedAt       DateTime
