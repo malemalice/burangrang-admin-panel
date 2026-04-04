@@ -1,7 +1,13 @@
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/core/components/ui/table';
 import { EnvironmentalMeasurement } from '../types/environmental-measurement.types';
-import type { EnvironmentalMeasurementRegulatoryLimits } from '../services/environmentalMeasurementService';
+import type { EnvironmentalMeasurementRegulatoryLimits, MetricRegulatoryLimit } from '../services/environmentalMeasurementService';
+import type { RegulatoryMetricKey } from '../utils/regulatoryLimitComparison';
+import {
+  compareToRegulatoryLimit,
+  formatRegulatoryComparisonText,
+  getRegulatoryLimitMode,
+} from '../utils/regulatoryLimitComparison';
 
 interface EnvironmentalMeasurementListPDFTemplateProps {
   measurements: EnvironmentalMeasurement[];
@@ -9,17 +15,30 @@ interface EnvironmentalMeasurementListPDFTemplateProps {
 }
 
 function MetricPdfCell({
+  metric,
   value,
-  limit,
+  limitEntry,
 }: {
+  metric: RegulatoryMetricKey;
   value: number | undefined | null;
-  limit: number | null | undefined;
+  limitEntry?: MetricRegulatoryLimit | null;
 }) {
+  const limit = limitEntry?.limit ?? null;
+  const mode = limitEntry?.mode ?? getRegulatoryLimitMode(metric);
   const limitText = limit != null && Number.isFinite(limit) ? String(limit) : '—';
+  const comparisonText = formatRegulatoryComparisonText(value, limit, mode);
+  const { compliant } = compareToRegulatoryLimit(value, limit, mode);
+  
+
   return (
     <div className="text-right">
       <div className="font-medium">{value ?? '—'}</div>
       <div className="text-[10px] text-muted-foreground mt-0.5">Regulatory limit: {limitText}</div>
+      {comparisonText && (
+        <div className="text-[10px] text-foreground mt-0.5 font-medium">
+          {comparisonText}
+        </div>
+      )}
     </div>
   );
 }
@@ -66,16 +85,16 @@ export function EnvironmentalMeasurementListPDFTemplate({
                 )}
               </TableCell>
               <TableCell className="align-top">
-                <MetricPdfCell value={m.lighting} limit={regulatoryLimits?.lighting} />
+                <MetricPdfCell metric="lighting" value={m.lighting} limitEntry={regulatoryLimits?.lighting} />
               </TableCell>
               <TableCell className="align-top">
-                <MetricPdfCell value={m.noise} limit={regulatoryLimits?.noise} />
+                <MetricPdfCell metric="noise" value={m.noise} limitEntry={regulatoryLimits?.noise} />
               </TableCell>
               <TableCell className="align-top">
-                <MetricPdfCell value={m.humidity} limit={regulatoryLimits?.humidity} />
+                <MetricPdfCell metric="humidity" value={m.humidity} limitEntry={regulatoryLimits?.humidity} />
               </TableCell>
               <TableCell className="align-top">
-                <MetricPdfCell value={m.temperature} limit={regulatoryLimits?.temperature} />
+                <MetricPdfCell metric="temperature" value={m.temperature} limitEntry={regulatoryLimits?.temperature} />
               </TableCell>
               <TableCell className="break-words whitespace-pre-wrap">{m.remarks ?? '-'}</TableCell>
             </TableRow>

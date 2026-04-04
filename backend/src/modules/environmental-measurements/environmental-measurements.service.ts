@@ -7,6 +7,15 @@ import { SETTINGS_KEYS } from '../settings/constants/settings-keys';
 import { CreateEnvironmentalMeasurementDto } from './dto/create-environmental-measurement.dto';
 import { UpdateEnvironmentalMeasurementDto } from './dto/update-environmental-measurement.dto';
 import { EnvironmentalMeasurementDto } from './dto/environmental-measurement.dto';
+import { RegulatoryLimitsResponseDto } from './dto/regulatory-limits.dto';
+
+/** Must match frontend regulatoryLimitComparison.ts */
+const REGULATORY_LIMIT_MODES = {
+  lighting: 'min',
+  noise: 'max',
+  humidity: 'max',
+  temperature: 'max',
+} as const;
 
 interface FindAllOptions {
   page?: number;
@@ -71,12 +80,7 @@ export class EnvironmentalMeasurementsService {
     return Number.isFinite(num) ? num : null;
   }
 
-  async getRegulatoryLimits(): Promise<{
-    lighting: number | null;
-    noise: number | null;
-    humidity: number | null;
-    temperature: number | null;
-  }> {
+  async getRegulatoryLimits(): Promise<RegulatoryLimitsResponseDto> {
     const [lightingRaw, noiseRaw, humidityRaw, temperatureRaw] = await Promise.all([
       this.settingsHelper.get(SETTINGS_KEYS.ENV_MEAS_LIMIT_LIGHTING),
       this.settingsHelper.get(SETTINGS_KEYS.ENV_MEAS_LIMIT_NOISE),
@@ -84,11 +88,16 @@ export class EnvironmentalMeasurementsService {
       this.settingsHelper.get(SETTINGS_KEYS.ENV_MEAS_LIMIT_TEMPERATURE),
     ]);
 
+    const lighting = this.parseNullableNumber(lightingRaw);
+    const noise = this.parseNullableNumber(noiseRaw);
+    const humidity = this.parseNullableNumber(humidityRaw);
+    const temperature = this.parseNullableNumber(temperatureRaw);
+
     return {
-      lighting: this.parseNullableNumber(lightingRaw),
-      noise: this.parseNullableNumber(noiseRaw),
-      humidity: this.parseNullableNumber(humidityRaw),
-      temperature: this.parseNullableNumber(temperatureRaw),
+      lighting: { limit: lighting, mode: REGULATORY_LIMIT_MODES.lighting },
+      noise: { limit: noise, mode: REGULATORY_LIMIT_MODES.noise },
+      humidity: { limit: humidity, mode: REGULATORY_LIMIT_MODES.humidity },
+      temperature: { limit: temperature, mode: REGULATORY_LIMIT_MODES.temperature },
     };
   }
 

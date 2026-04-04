@@ -4,6 +4,10 @@ import {
   CreateEnvironmentalMeasurementDTO,
   UpdateEnvironmentalMeasurementDTO,
 } from '../types/environmental-measurement.types';
+import type { RegulatoryMetricKey, RegulatoryLimitMode } from '../utils/regulatoryLimitComparison';
+import { getRegulatoryLimitMode } from '../utils/regulatoryLimitComparison';
+
+export type { RegulatoryLimitMode };
 
 export interface EnvironmentalMeasurementsResponse {
   data: EnvironmentalMeasurement[];
@@ -26,11 +30,76 @@ interface FetchMeasurementsParams {
   endDate?: string;
 }
 
+export interface MetricRegulatoryLimit {
+  limit: number | null;
+  mode: RegulatoryLimitMode;
+}
+
 export interface EnvironmentalMeasurementRegulatoryLimits {
-  lighting: number | null;
-  noise: number | null;
-  humidity: number | null;
-  temperature: number | null;
+  lighting: MetricRegulatoryLimit;
+  noise: MetricRegulatoryLimit;
+  humidity: MetricRegulatoryLimit;
+  temperature: MetricRegulatoryLimit;
+}
+
+function metricRegulatoryEntry(limit: number | null, metric: RegulatoryMetricKey): MetricRegulatoryLimit {
+  return { limit, mode: getRegulatoryLimitMode(metric) };
+}
+
+const METRIC_KEYS: RegulatoryMetricKey[] = ['lighting', 'noise', 'humidity', 'temperature'];
+
+/**
+ * Accepts current API shape `{ lighting: { limit, mode }, ... }` or legacy flat `{ lighting: 300, ... }`
+ * so UI always gets `.limit` on each metric (avoids "Regulatory limit: —" when the server returns numbers).
+ */
+function normalizeRegulatoryLimitsPayload(data: unknown): EnvironmentalMeasurementRegulatoryLimits {
+  const empty = (): EnvironmentalMeasurementRegulatoryLimits => ({
+    lighting: metricRegulatoryEntry(null, 'lighting'),
+    noise: metricRegulatoryEntry(null, 'noise'),
+    humidity: metricRegulatoryEntry(null, 'humidity'),
+    temperature: metricRegulatoryEntry(null, 'temperature'),
+  });
+
+  if (data === null || data === undefined) {
+    return empty();
+  }
+
+  let root: unknown = data;
+  if (typeof root === 'object' && !Array.isArray(root) && root !== null) {
+    const o = root as Record<string, unknown>;
+    if (!('lighting' in o) && !('noise' in o) && o.data !== undefined && typeof o.data === 'object') {
+      root = o.data;
+    }
+  }
+
+  if (typeof root !== 'object' || root === null || Array.isArray(root)) {
+    return empty();
+  }
+
+  const d = root as Record<string, unknown>;
+  const out = empty();
+
+  for (const key of METRIC_KEYS) {
+    const v = d[key];
+    if (v !== null && typeof v === 'object' && !Array.isArray(v) && 'limit' in (v as object)) {
+      const entry = v as { limit?: unknown; mode?: unknown };
+      const limitNum =
+        entry.limit === null || entry.limit === undefined
+          ? null
+          : parseNullableNumber(entry.limit);
+      const mode =
+        entry.mode === 'min' || entry.mode === 'max' ? entry.mode : getRegulatoryLimitMode(key);
+      out[key] = { limit: limitNum, mode };
+      continue;
+    }
+    if (typeof v === 'number' || typeof v === 'string') {
+      out[key] = metricRegulatoryEntry(parseNullableNumber(v), key);
+      continue;
+    }
+    out[key] = metricRegulatoryEntry(null, key);
+  }
+
+  return out;
 }
 
 const LIMIT_KEYS = {
@@ -70,8 +139,8 @@ const environmentalMeasurementService = {
 
   async getRegulatoryLimits(): Promise<EnvironmentalMeasurementRegulatoryLimits> {
     try {
-      const response = await api.get<EnvironmentalMeasurementRegulatoryLimits>('/environmental-measurements/regulatory-limits');
-      return response.data;
+      const response = await api.get<unknown>('/environmental-measurements/regulatory-limits');
+      return normalizeRegulatoryLimitsPayload(response.data);
     } catch {
       const [lighting, noise, humidity, temperature] = await Promise.all([
         api.get<{ value: string }>(`/settings/value/${LIMIT_KEYS.lighting}`).then((r) => parseNullableNumber(r.data?.value)).catch(() => null),
@@ -80,7 +149,12 @@ const environmentalMeasurementService = {
         api.get<{ value: string }>(`/settings/value/${LIMIT_KEYS.temperature}`).then((r) => parseNullableNumber(r.data?.value)).catch(() => null),
       ]);
 
-      return { lighting, noise, humidity, temperature };
+      return {
+        lighting: metricRegulatoryEntry(lighting, 'lighting'),
+        noise: metricRegulatoryEntry(noise, 'noise'),
+        humidity: metricRegulatoryEntry(humidity, 'humidity'),
+        temperature: metricRegulatoryEntry(temperature, 'temperature'),
+      };
     }
   },
 

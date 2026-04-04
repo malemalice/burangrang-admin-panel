@@ -276,8 +276,10 @@ export default function EnvironmentalMeasurementsPage() {
       header: 'Lighting (lux)',
       cell: (measurement: EnvironmentalMeasurement) => (
         <MetricValueWithRegulatoryLimit
+          metric="lighting"
           value={measurement.lighting}
-          limit={regulatoryLimits?.lighting}
+          limit={regulatoryLimits?.lighting.limit}
+          mode={regulatoryLimits?.lighting.mode}
           align="right"
         />
       ),
@@ -287,8 +289,10 @@ export default function EnvironmentalMeasurementsPage() {
       header: 'Noise (dB)',
       cell: (measurement: EnvironmentalMeasurement) => (
         <MetricValueWithRegulatoryLimit
+          metric="noise"
           value={measurement.noise}
-          limit={regulatoryLimits?.noise}
+          limit={regulatoryLimits?.noise.limit}
+          mode={regulatoryLimits?.noise.mode}
           align="right"
         />
       ),
@@ -298,8 +302,10 @@ export default function EnvironmentalMeasurementsPage() {
       header: 'Humidity (%)',
       cell: (measurement: EnvironmentalMeasurement) => (
         <MetricValueWithRegulatoryLimit
+          metric="humidity"
           value={measurement.humidity}
-          limit={regulatoryLimits?.humidity}
+          limit={regulatoryLimits?.humidity.limit}
+          mode={regulatoryLimits?.humidity.mode}
           align="right"
         />
       ),
@@ -309,8 +315,10 @@ export default function EnvironmentalMeasurementsPage() {
       header: 'Temp (°C)',
       cell: (measurement: EnvironmentalMeasurement) => (
         <MetricValueWithRegulatoryLimit
+          metric="temperature"
           value={measurement.temperature}
-          limit={regulatoryLimits?.temperature}
+          limit={regulatoryLimits?.temperature.limit}
+          mode={regulatoryLimits?.temperature.mode}
           align="right"
         />
       ),

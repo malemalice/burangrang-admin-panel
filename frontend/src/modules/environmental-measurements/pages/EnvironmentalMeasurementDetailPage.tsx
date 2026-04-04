@@ -160,32 +160,40 @@ export default function EnvironmentalMeasurementDetailPage() {
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Lighting (lux)</p>
                 <MetricValueWithRegulatoryLimit
+                  metric="lighting"
                   value={measurement.lighting}
-                  limit={regulatoryLimits?.lighting}
+                  limit={regulatoryLimits?.lighting.limit}
+                  mode={regulatoryLimits?.lighting.mode}
                   align="left"
                 />
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Noise (dB)</p>
                 <MetricValueWithRegulatoryLimit
+                  metric="noise"
                   value={measurement.noise}
-                  limit={regulatoryLimits?.noise}
+                  limit={regulatoryLimits?.noise.limit}
+                  mode={regulatoryLimits?.noise.mode}
                   align="left"
                 />
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Humidity (%)</p>
                 <MetricValueWithRegulatoryLimit
+                  metric="humidity"
                   value={measurement.humidity}
-                  limit={regulatoryLimits?.humidity}
+                  limit={regulatoryLimits?.humidity.limit}
+                  mode={regulatoryLimits?.humidity.mode}
                   align="left"
                 />
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Temperature (°C)</p>
                 <MetricValueWithRegulatoryLimit
+                  metric="temperature"
                   value={measurement.temperature}
-                  limit={regulatoryLimits?.temperature}
+                  limit={regulatoryLimits?.temperature.limit}
+                  mode={regulatoryLimits?.temperature.mode}
                   align="left"
                 />
               </div>

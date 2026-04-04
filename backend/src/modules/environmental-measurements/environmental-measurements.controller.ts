@@ -14,6 +14,7 @@ import { EnvironmentalMeasurementsService } from './environmental-measurements.s
 import { CreateEnvironmentalMeasurementDto } from './dto/create-environmental-measurement.dto';
 import { UpdateEnvironmentalMeasurementDto } from './dto/update-environmental-measurement.dto';
 import { EnvironmentalMeasurementDto } from './dto/environmental-measurement.dto';
+import { RegulatoryLimitsResponseDto } from './dto/regulatory-limits.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
@@ -27,6 +28,19 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@ne
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class EnvironmentalMeasurementsController {
   constructor(private readonly measurementsService: EnvironmentalMeasurementsService) {}
+
+  @Get('regulatory-limits')
+  @AllowOptionsBypass()
+  @Permissions('environmental-measurement:list')
+  @ApiOperation({ summary: 'Get regulatory limits for environmental measurements' })
+  @ApiResponse({
+    status: 200,
+    description: 'Return regulatory limits (numeric limit + min/max mode per metric).',
+    type: RegulatoryLimitsResponseDto,
+  })
+  getRegulatoryLimits(): Promise<RegulatoryLimitsResponseDto> {
+    return this.measurementsService.getRegulatoryLimits();
+  }
 
   @Post()
   @Permissions('environmental-measurement:create')
