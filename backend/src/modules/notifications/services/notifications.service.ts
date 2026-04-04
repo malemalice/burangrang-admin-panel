@@ -451,23 +451,25 @@ export class NotificationsService {
       this.errorHandler.throwIfNotFoundById('User', userId, user);
 
       // Build the where clause for recipients
-      const recipientWhere = this.buildRecipientWhereClause(
+      const baseRecipientWhere = this.buildRecipientWhereClause(
         user.roleId,
         userId,
         user.departmentId,
         user.jobPositionId,
       ) as any;
 
+      const effectiveRecipientWhere =
+        isRead !== undefined && isRead !== null
+          ? ({ AND: [baseRecipientWhere, { isRead }] } as any)
+          : baseRecipientWhere;
+
       // Build the where clause
       const where: any = {
         isActive: true,
         recipients: {
-          some: recipientWhere,
+          some: effectiveRecipientWhere,
         },
       };
-
-      // Note: isRead filtering is handled after fetching the data
-      // because we need to check the recipient's isRead status, not the notification's isRead status
 
       // Add context filter
       if (context) {
@@ -488,46 +490,39 @@ export class NotificationsService {
         ];
       }
 
-      // Get all notifications first (we'll filter and paginate in memory)
-      const allNotifications = (await this.prisma.notification.findMany({
-        where,
-        include: {
-          type: true,
-          recipients: {
-            where: recipientWhere,
-            include: {
-              role: true,
-              user: true,
-              department: true,
-              jobPosition: true,
-            },
+      const skip = (pageNum - 1) * limitNum;
+
+      const [total, notifications] = await Promise.all([
+        this.prisma.notification.count({ where }),
+        this.prisma.notification.findMany({
+          where,
+          include: {
+            type: true,
+            recipients: {
+              where: effectiveRecipientWhere,
+              include: {
+                role: true,
+                user: true,
+                department: true,
+                jobPosition: true,
+              },
+            } as any,
           } as any,
-        } as any,
-        orderBy: { [sortBy]: sortOrder },
-      })) as any[];
+          orderBy: { [sortBy]: sortOrder },
+          skip,
+          take: limitNum,
+        }) as any,
+      ]);
 
-      // Map notifications and set isRead based on recipient's read status
-      let mappedNotifications = allNotifications.map((notification: any) => {
-        const recipient = notification.recipients?.[0]; // Get the first (and should be only) recipient for this user
-        return this.notificationMapper({
-          ...notification,
-          isRead: recipient?.isRead || false, // Use recipient's read status
-          readAt: recipient?.readAt || null,
-        });
-      });
-
-      // Apply isRead filter if specified
-      if (isRead !== undefined && isRead !== null) {
-        mappedNotifications = mappedNotifications.filter(
-          (notification) => notification.isRead === isRead,
-        );
-      }
-
-      // Apply pagination after filtering
-      const total = mappedNotifications.length;
-      const paginatedNotifications = mappedNotifications.slice(
-        (pageNum - 1) * limitNum,
-        pageNum * limitNum,
+      const paginatedNotifications = (notifications as any[]).map(
+        (notification: any) => {
+          const recipient = notification.recipients?.[0]; // recipient matching effectiveRecipientWhere
+          return this.notificationMapper({
+            ...notification,
+            isRead: recipient?.isRead || false,
+            readAt: recipient?.readAt || null,
+          });
+        },
       );
 
       return {

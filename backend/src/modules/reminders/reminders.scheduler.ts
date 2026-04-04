@@ -26,6 +26,9 @@ export class RemindersScheduler {
    */
   @Cron(CronExpression.EVERY_MINUTE)
   async handleReminderCron() {
+    if (process.env.DISABLE_SCHEDULERS === 'true') {
+      return;
+    }
     // Prevent concurrent execution
     if (this.isProcessing) {
       this.logger.warn('Previous reminder processing is still running, skipping this cycle');

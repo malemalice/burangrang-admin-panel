@@ -44,6 +44,10 @@ import {
 
 @Injectable()
 export class DashboardService {
+  private adminOverviewCache:
+    | { expiresAtMs: number; value: AdminOverviewData }
+    | undefined;
+
   constructor(private prisma: PrismaService) {}
 
   async getRiskOverview(): Promise<RiskOverview> {
@@ -1408,6 +1412,11 @@ export class DashboardService {
   }
 
   async getAdminOverview(): Promise<AdminOverviewData> {
+    const cached = this.adminOverviewCache;
+    if (cached && Date.now() < cached.expiresAtMs) {
+      return cached.value;
+    }
+
     const now = new Date();
     const in30Days = new Date(now);
     in30Days.setDate(in30Days.getDate() + 30);
@@ -1673,7 +1682,7 @@ export class DashboardService {
       0,
     );
 
-    return {
+    const result: AdminOverviewData = {
       lms: {
         overdueEnrollments,
         totalEnrollments,
@@ -1718,5 +1727,11 @@ export class DashboardService {
         yoyChangePercent,
       },
     };
+
+    // Simple in-process TTL cache to reduce repeated heavy DB queries during development.
+    // Kept intentionally short to avoid staleness concerns.
+    this.adminOverviewCache = { value: result, expiresAtMs: Date.now() + 30_000 };
+
+    return result;
   }
 } 

@@ -30,6 +30,9 @@ export class ZohoOutboundWorkerService {
 
   @Cron(CronExpression.EVERY_10_SECONDS)
   async processDueJobs(): Promise<void> {
+    if (process.env.DISABLE_SCHEDULERS === 'true') {
+      return;
+    }
     if (this.isRunning) {
       return;
     }

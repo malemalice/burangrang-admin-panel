@@ -1626,15 +1626,10 @@ canApprove =
 ```
 
 **Source Entity Update:**
-- Reads `APPROVAL_ENTITY` env var (JSON: `{"EntityName":"table_name"}`)
+- Resolves the source table from `APPROVAL_ENTITY_TO_TABLE` in `backend/src/shared/constants/approval-entities.ts` (not environment variables).
 - Updates source entity status via raw SQL: `UPDATE table SET status = ? WHERE id = ?`
 
 ### Configuration
-
-**Environment Variables:**
-```env
-APPROVAL_ENTITY={"RiskAssessment":"t_risk_assessment","WORK_PERMIT":"t_work_permits"}
-```
 
 **Module Integration:**
 - Manual setup required: Create master approval template via API/UI
