@@ -34,6 +34,10 @@ import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
 import { MasterApprovalsService } from '../approvals/master-approvals.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
 import { ApprovalStatus } from '../approvals/dto/submit-approval.dto';
+import { MailService } from '../mail/mail.service';
+import { PpePdfService } from './ppe-pdf.service';
+import { ConfigService } from '@nestjs/config';
+import { format } from 'date-fns';
 
 @Injectable()
 export class PPEService {
@@ -59,6 +63,9 @@ export class PPEService {
         private readonly dataScopeService: DataScopeService,
         private readonly masterApprovalsService: MasterApprovalsService,
         private readonly notificationsService: NotificationsService,
+        private readonly mailService: MailService,
+        private readonly ppePdfService: PpePdfService,
+        private readonly config: ConfigService,
     ) {
         // Initialize mappers
         this.ppeStockMapper = this.dtoMapper.createSimpleMapper(PPEStockDto);
@@ -1372,7 +1379,93 @@ export class PPEService {
                 creator: true,
             },
         });
-        return this.ppeWithdrawalMapper(this.populateRequestedForName(updatedWithdrawal!));
+        const withdrawalDto = this.ppeWithdrawalMapper(this.populateRequestedForName(updatedWithdrawal!));
+
+        if (updatedWithdrawal!.status === PPEWithdrawalStatusEnum.APPROVED) {
+            this.sendWithdrawalApprovalEmail(withdrawalDto, user).catch((err) => {
+                console.error('Failed to send PPE withdrawal approval email:', err);
+            });
+        }
+
+        return withdrawalDto;
+    }
+
+    /**
+     * Fire-and-forget: send approval email + PDF to the withdrawal creator
+     * when the withdrawal reaches the final APPROVED status.
+     */
+    private async sendWithdrawalApprovalEmail(
+        withdrawal: PPEWithdrawalDto,
+        approver: { id: string; department?: { id: string; name: string }; jobPosition?: { id: string; name: string } },
+    ): Promise<void> {
+        const creatorUser = await this.prisma.user.findUnique({
+            where: { id: withdrawal.createdBy },
+            select: { email: true, firstName: true, lastName: true },
+        });
+
+        if (!creatorUser?.email) return;
+
+        const approverUser = await this.prisma.user.findUnique({
+            where: { id: approver.id },
+            select: { firstName: true, lastName: true },
+        });
+        const approverName = approverUser
+            ? `${approverUser.firstName || ''} ${approverUser.lastName || ''}`.trim()
+            : 'Unknown';
+
+        const approvalHistory = await this.masterApprovalsService.checkApprovalStatus(
+            withdrawal.id,
+            APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+        );
+
+        const frontendUrl = this.config.get<string>('app.frontendUrl') ?? '';
+        const viewUrl = frontendUrl
+            ? `${frontendUrl}/ppe/withdrawals/${withdrawal.id}`
+            : `/ppe/withdrawals/${withdrawal.id}`;
+
+        // Generate PDF
+        let pdfAttachment: { filename: string; content: Buffer; contentType: string } | null = null;
+        try {
+            const pdfBuffer = await this.ppePdfService.generateWithdrawalPdf(withdrawal, approvalHistory, viewUrl);
+            pdfAttachment = {
+                filename: `ppe-withdrawal-${withdrawal.withdrawalCode ?? withdrawal.id}-${format(new Date(), 'yyyyMMdd')}.pdf`,
+                content: pdfBuffer,
+                contentType: 'application/pdf',
+            };
+        } catch (err) {
+            console.error('PDF generation failed for PPE withdrawal email:', err);
+        }
+
+        const emailItems = (withdrawal.items ?? []).map((item) => ({
+            name: item.stockItemEquipmentName || item.stockItemId || '—',
+            type: item.stockItemEquipmentType || null,
+            size: item.stockItemEquipmentSize || null,
+            requestedQuantity: item.requestedQuantity,
+            approvedQuantity: item.approvedQuantity,
+        }));
+
+        const context: Record<string, unknown> = {
+            withdrawalCode: withdrawal.withdrawalCode,
+            withdrawalDate: withdrawal.withdrawalDate
+                ? format(new Date(withdrawal.withdrawalDate), 'dd MMMM yyyy')
+                : '—',
+            requestedByName: withdrawal.createdByName || withdrawal.createdBy || '—',
+            requestedForName: withdrawal.requestedForName || '—',
+            departmentName: withdrawal.departmentName || withdrawal.departmentId || '—',
+            jobPositionName: withdrawal.jobPositionName || null,
+            approvedByName: approverName,
+            approvedAt: format(new Date(), 'dd MMMM yyyy HH:mm'),
+            notes: withdrawal.notes || null,
+            items: emailItems,
+            viewUrl,
+        };
+
+        await this.mailService.sendTemplatedMail({
+            email: creatorUser.email,
+            template: 'ppe-withdrawal-approved',
+            context,
+            attachments: pdfAttachment ? [pdfAttachment] : undefined,
+        });
     }
 
     /**

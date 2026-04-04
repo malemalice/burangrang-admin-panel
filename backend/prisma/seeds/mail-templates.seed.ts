@@ -579,6 +579,208 @@ const defaultMailTemplates = [
 </html>`,
   },
   {
+    code: 'ppe-withdrawal-approved',
+    name: 'PPE Withdrawal Approved',
+    subjectTemplate: 'PPE Withdrawal {{withdrawalCode}} has been Approved',
+    bodyTemplate: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PPE Withdrawal Approved</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .wrapper { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+    .header {
+      background-color: #1d4ed8;
+      color: white;
+      padding: 28px 32px;
+      text-align: center;
+    }
+    .header h1 { margin: 0; font-size: 22px; letter-spacing: 0.5px; }
+    .header p { margin: 8px 0 0; font-size: 14px; opacity: 0.85; }
+    .content { padding: 28px 32px; }
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #1d4ed8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-bottom: 2px solid #dbeafe;
+      padding-bottom: 6px;
+      margin: 24px 0 12px;
+    }
+    .info-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    .info-table td { padding: 7px 10px; font-size: 13px; vertical-align: top; border-bottom: 1px solid #f3f4f6; }
+    .info-table td:first-child { font-weight: 600; color: #6b7280; width: 38%; }
+    .items-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .items-table th {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 7px 8px;
+      font-weight: 700;
+      text-align: left;
+      color: #1e40af;
+    }
+    .items-table td { border: 1px solid #dbeafe; padding: 6px 8px; color: #111; }
+    .items-table tr:nth-child(even) td { background: #f8faff; }
+    .badge {
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 700;
+      background-color: #dcfce7;
+      color: #15803d;
+    }
+    .cta-button {
+      display: inline-block;
+      padding: 12px 28px;
+      background-color: #1d4ed8;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 14px;
+      margin: 20px 0;
+    }
+    .attachment-note {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #1e40af;
+      border-radius: 0 4px 4px 0;
+      margin: 16px 0;
+    }
+    .footer {
+      padding: 16px 32px;
+      background: #f9fafb;
+      font-size: 11px;
+      color: #9ca3af;
+      text-align: center;
+      border-top: 1px solid #f3f4f6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>PPE Withdrawal Approved</h1>
+      <p>Health, Safety &amp; Environment Dashboard</p>
+    </div>
+    <div class="content">
+      <p>Dear <strong>{{requestedByName}}</strong>,</p>
+      <p>
+        Your PPE withdrawal request <strong>{{withdrawalCode}}</strong> has been
+        <strong style="color:#15803d;">approved</strong>. Please review the details below and
+        proceed to collect your equipment at the earliest convenience.
+      </p>
+
+      <div class="section-title">Withdrawal Summary</div>
+      <table class="info-table">
+        <tr>
+          <td>Withdrawal Code</td>
+          <td><strong>{{withdrawalCode}}</strong></td>
+        </tr>
+        <tr>
+          <td>Withdrawal Date</td>
+          <td>{{withdrawalDate}}</td>
+        </tr>
+        <tr>
+          <td>Status</td>
+          <td><span class="badge">Approved</span></td>
+        </tr>
+        <tr>
+          <td>Requested By</td>
+          <td>{{requestedByName}}</td>
+        </tr>
+        <tr>
+          <td>Requested For</td>
+          <td>{{requestedForName}}</td>
+        </tr>
+        <tr>
+          <td>Department</td>
+          <td>{{departmentName}}</td>
+        </tr>
+        {{#if jobPositionName}}
+        <tr>
+          <td>Job Position</td>
+          <td>{{jobPositionName}}</td>
+        </tr>
+        {{/if}}
+        <tr>
+          <td>Approved By</td>
+          <td>{{approvedByName}}</td>
+        </tr>
+        <tr>
+          <td>Approved At</td>
+          <td>{{approvedAt}}</td>
+        </tr>
+        {{#if notes}}
+        <tr>
+          <td>Notes</td>
+          <td style="white-space:pre-wrap;">{{notes}}</td>
+        </tr>
+        {{/if}}
+      </table>
+
+      {{#if items}}
+      <div class="section-title">Approved Items</div>
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>No.</th>
+            <th>Equipment Name</th>
+            <th>Type</th>
+            <th>Size</th>
+            <th>Requested Qty</th>
+            <th>Approved Qty</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each items}}
+          <tr>
+            <td>{{inc @index}}</td>
+            <td>{{this.name}}</td>
+            <td>{{default this.type "—"}}</td>
+            <td>{{default this.size "—"}}</td>
+            <td style="text-align:center;">{{this.requestedQuantity}}</td>
+            <td style="text-align:center;font-weight:600;">{{default this.approvedQuantity "—"}}</td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+      {{/if}}
+
+      <div class="attachment-note">
+        📎 A detailed PDF copy of this withdrawal is attached to this email for your records.
+      </div>
+
+      <p style="text-align:center;">
+        <a href="{{viewUrl}}" class="cta-button">View Withdrawal Details</a>
+      </p>
+
+      <p style="font-size:13px;color:#6b7280;">
+        If you have any questions about this withdrawal, please contact the HSE team or your department administrator.
+      </p>
+    </div>
+    <div class="footer">
+      This is an automated notification from HSE Dashboard. Please do not reply to this email.
+    </div>
+  </div>
+</body>
+</html>`,
+  },
+  {
     code: 'certificate-expiry-department',
     name: 'Certificate Expiry Department Notification',
     subjectTemplate: 'Certificate Expiry Notice: {{certificateName}}',

@@ -9,6 +9,8 @@ export const handlebarsHelpers = {
   },
   // Safe fallback for missing values
   default: (value: unknown, fallback: unknown) => (value == null ? fallback : value),
+  // Increment a number (useful for 1-based {{@index}} in {{#each}})
+  inc: (value: number) => value + 1,
 };
 
 

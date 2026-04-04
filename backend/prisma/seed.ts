@@ -279,6 +279,7 @@ async function main() {
           // seedRoles uses upsert by name, so existing roles and their permissions are updated.
           break;
         case 'email_templates':
+        case 'email-templates':
           await prisma.emailTemplate.deleteMany();
           break;
         case 'permissions':
@@ -503,7 +504,7 @@ async function main() {
         default:
           console.error(`Unknown table: ${tableToSeed}`);
           console.log(
-            'Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, waste-management, audit-policy, audit-schedules, approvals, master-approvals, risk-assessments, inspections, risk-assessments-inspections, incidents',
+            'Available tables: users, roles, permissions, offices, departments, job_positions, email-templates (or email_templates), settings, menus, notifications, categories, product_types, courses, chapters, quizzes, file_categories, file_storage_providers, file_uploads, safety_equipment_types, safety_equipments, ppe, work-permits, man_hours, waste-management, audit-policy, audit-schedules, approvals, master-approvals, risk-assessments, inspections, risk-assessments-inspections, incidents',
           );
           process.exit(1);
       }
@@ -573,6 +574,7 @@ async function main() {
           await seedRoles(prisma, permissions);
           break;
         case 'email_templates':
+        case 'email-templates':
           await seedMailTemplates(prisma);
           break;
         case 'offices':

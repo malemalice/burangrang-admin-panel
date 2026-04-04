@@ -1,12 +1,30 @@
 import { format } from 'date-fns';
 import { QRCodeSVG } from 'qrcode.react';
-import { PPEWithdrawal } from '../types/ppe.types';
+import { PPEWithdrawal, PPEWithdrawalStatus } from '../types/ppe.types';
 import { ApprovalStatusHistory } from '@/modules/master-data';
 
 interface PPEWithdrawalPDFTemplateProps {
   withdrawal: PPEWithdrawal;
   approvalHistory: ApprovalStatusHistory | null;
   viewUrl: string;
+}
+
+/** 1-based step for formal PDFs; API `line` is 0-based (see TRD §712–715). */
+function workflowStepDisplay(line: number): number {
+  return line + 1;
+}
+
+function formatWorkflowStatusLabel(
+  lineStatus: 'completed' | 'current' | 'pending',
+  lastApprovalStatus: string | undefined,
+): string {
+  if (lineStatus === 'completed') {
+    return lastApprovalStatus || 'Completed';
+  }
+  if (lineStatus === 'current') {
+    return 'Awaiting verification';
+  }
+  return 'Pending';
 }
 
 export function PPEWithdrawalPDFTemplate({
@@ -35,6 +53,11 @@ export function PPEWithdrawalPDFTemplate({
     CANCELLED: 'Cancelled',
     REJECTED: 'Rejected',
   };
+
+  const isTerminalWithdrawal =
+    withdrawal.status === PPEWithdrawalStatus.COLLECTED ||
+    withdrawal.status === PPEWithdrawalStatus.CANCELLED ||
+    withdrawal.status === PPEWithdrawalStatus.REJECTED;
 
   return (
     <div className="bg-white p-8" style={{ fontFamily: 'Arial, sans-serif' }}>
@@ -251,25 +274,30 @@ export function PPEWithdrawalPDFTemplate({
         )}
       </div>
 
-      {/* Approval Status */}
+      {/* Verification and approval — TRD §696–719 (digital Master Approval) */}
       <div className="mb-6">
         <h2
-          className="font-bold text-gray-900 mb-3 pb-1"
-          style={{ fontSize: '14px', borderBottom: '1px solid #ccc' }}
+          className="font-bold text-gray-900 mb-3 pb-1 uppercase tracking-wide"
+          style={{ fontSize: '13px', borderBottom: '1px solid #ccc' }}
         >
-          Approval Status
+          Verification and approval
         </h2>
 
-        <div className="mb-3" style={{ fontSize: '12px', color: '#333' }}>
-          <span style={{ fontWeight: 600 }}>Current Status: </span>
-          <span>{approvalHistory?.currentStatus || (statusLabel[withdrawal.status] ?? withdrawal.status)}</span>
-          {approvalHistory?.nextApprover && (
+        <div className="mb-4" style={{ fontSize: '12px', color: '#333', lineHeight: 1.5 }}>
+          <span style={{ fontWeight: 600 }}>Current approval status: </span>
+          <span>
+            {approvalHistory?.currentStatus ??
+              statusLabel[withdrawal.status] ??
+              withdrawal.status}
+          </span>
+          {!isTerminalWithdrawal && approvalHistory?.nextApprover && (
             <>
-              <span style={{ margin: '0 8px', color: '#999' }}>|</span>
-              <span style={{ fontWeight: 600 }}>Next Approver: </span>
+              <span style={{ margin: '0 8px', color: '#999' }}>·</span>
+              <span style={{ fontWeight: 600 }}>Next responsible party: </span>
               <span>
-                {approvalHistory.nextApprover.department.name} /{' '}
-                {approvalHistory.nextApprover.jobPosition.name}
+                {approvalHistory.nextApprover.department.name} —{' '}
+                {approvalHistory.nextApprover.jobPosition.name}{' '}
+                (Step {workflowStepDisplay(approvalHistory.nextApprover.line)})
               </span>
             </>
           )}
@@ -278,7 +306,7 @@ export function PPEWithdrawalPDFTemplate({
         {approvalLines.length > 0 && (
           <div className="mb-4">
             <p style={{ fontSize: '11px', fontWeight: 700, color: '#333', marginBottom: '6px' }}>
-              Workflow
+              Approval workflow (by step)
             </p>
             <table
               className="min-w-full"
@@ -286,7 +314,14 @@ export function PPEWithdrawalPDFTemplate({
             >
               <thead>
                 <tr style={{ background: '#e8e8e8' }}>
-                  {['Step', 'Department', 'Position', 'Status', 'By', 'Date'].map((h) => (
+                  {[
+                    'Step no.',
+                    'Organizational unit',
+                    'Position',
+                    'Status',
+                    'Action by',
+                    'Date and time',
+                  ].map((h) => (
                     <th
                       key={h}
                       style={{
@@ -313,17 +348,15 @@ export function PPEWithdrawalPDFTemplate({
                       ? approvalsForLine[approvalsForLine.length - 1]
                       : null;
 
-                  const lineStatus =
-                    line.status === 'completed'
-                      ? lastApproval?.status || 'COMPLETED'
-                      : line.status === 'current'
-                        ? 'WAITING VERIFICATION'
-                        : 'PENDING';
+                  const lineStatus = formatWorkflowStatusLabel(
+                    line.status,
+                    lastApproval?.status,
+                  );
 
                   return (
                     <tr key={`wf-${line.line}`}>
                       <td style={{ border: '1px solid #ccc', padding: '5px 8px', fontSize: '11px', color: '#111' }}>
-                        {line.line}
+                        {workflowStepDisplay(line.line)}
                       </td>
                       <td style={{ border: '1px solid #ccc', padding: '5px 8px', fontSize: '11px', color: '#111', wordBreak: 'break-word' }}>
                         {line.department.name}
@@ -341,7 +374,7 @@ export function PPEWithdrawalPDFTemplate({
                         {lastApproval?.createdAt
                           ? format(
                               new Date(lastApproval.createdAt),
-                              'dd MMM yyyy HH:mm',
+                              'dd MMMM yyyy, HH:mm',
                             )
                           : '—'}
                       </td>
@@ -353,10 +386,10 @@ export function PPEWithdrawalPDFTemplate({
           </div>
         )}
 
-        {allApprovals.length > 0 && (
+        {allApprovals.length > 0 ? (
           <div>
             <p style={{ fontSize: '11px', fontWeight: 700, color: '#333', marginBottom: '6px' }}>
-              Approval History
+              Chronological approval log
             </p>
             <table
               className="min-w-full"
@@ -364,7 +397,15 @@ export function PPEWithdrawalPDFTemplate({
             >
               <thead>
                 <tr style={{ background: '#e8e8e8' }}>
-                  {['No.', 'Status', 'Line', 'By', 'Department', 'Position', 'Date', 'Notes'].map((h) => (
+                  {[
+                    'No.',
+                    'Status',
+                    'Action by',
+                    'Organizational unit',
+                    'Position',
+                    'Date and time',
+                    'Remarks',
+                  ].map((h) => (
                     <th
                       key={h}
                       style={{
@@ -390,9 +431,6 @@ export function PPEWithdrawalPDFTemplate({
                     <td style={{ border: '1px solid #ccc', padding: '5px 8px', fontSize: '11px', fontWeight: 600, color: '#111' }}>
                       {approval.status}
                     </td>
-                    <td style={{ border: '1px solid #ccc', padding: '5px 8px', fontSize: '11px', color: '#111' }}>
-                      {approval.line}
-                    </td>
                     <td style={{ border: '1px solid #ccc', padding: '5px 8px', fontSize: '11px', color: '#111', wordBreak: 'break-word' }}>
                       {approval.creator?.name || '—'}
                     </td>
@@ -406,7 +444,7 @@ export function PPEWithdrawalPDFTemplate({
                       {approval.createdAt
                         ? format(
                             new Date(approval.createdAt),
-                            'dd MMM yyyy HH:mm',
+                            'dd MMMM yyyy, HH:mm',
                           )
                         : '—'}
                     </td>
@@ -419,13 +457,11 @@ export function PPEWithdrawalPDFTemplate({
               </tbody>
             </table>
           </div>
-        )}
-
-        {allApprovals.length === 0 && approvalLines.length === 0 && (
+        ) : approvalLines.length === 0 ? (
           <p style={{ fontSize: '11px', color: '#666' }}>
-            No approval information available.
+            No approval workflow is associated with this record.
           </p>
-        )}
+        ) : null}
       </div>
 
       {/* QR Code Footer */}
