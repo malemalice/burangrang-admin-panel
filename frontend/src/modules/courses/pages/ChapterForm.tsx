@@ -25,6 +25,7 @@ import courseService from '../services/courseService';
 import quizService from '@/modules/quizzes/services/quizService';
 import { Quiz } from '@/modules/quizzes/types/quiz.types';
 import { ImageUpload, uploadService } from '@/modules/uploads';
+import { extractYoutubeVideoId } from '@/core/lib/media-utils';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -35,6 +36,20 @@ const formSchema = z.object({
   contentUrl: z.string().optional(),
   youtubeVideoId: z.string().optional(),
   content: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.contentType !== 'youtube') {
+    return;
+  }
+
+  const normalizedVideoId = extractYoutubeVideoId(data.youtubeVideoId);
+
+  if (!normalizedVideoId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['youtubeVideoId'],
+      message: 'Enter a valid YouTube URL or video ID.',
+    });
+  }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -102,7 +117,7 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
         duration: chapter.duration,
         contentType: chapter.contentType as 'video' | 'youtube' | 'text' | 'pdf' | 'image' | 'audio',
         contentUrl: chapter.contentUrl || '',
-        youtubeVideoId: chapter.youtubeVideoId || '',
+        youtubeVideoId: chapter.youtubeVideoId || chapter.contentUrl || '',
         content: chapter.content || '',
       });
     }
@@ -136,6 +151,8 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
       setIsSubmitting(true);
 
       let contentUrl = data.contentUrl;
+      const normalizedYoutubeVideoId =
+        data.contentType === 'youtube' ? extractYoutubeVideoId(data.youtubeVideoId) : null;
 
       // Handle file upload if present
       if (uploadFile) {
@@ -155,7 +172,7 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
           duration: data.duration,
           contentType: data.contentType,
           contentUrl: contentUrl || undefined,
-          youtubeVideoId: data.youtubeVideoId || undefined,
+          youtubeVideoId: normalizedYoutubeVideoId || undefined,
           content: data.content || undefined,
           isFree: false, // Default to false
           isPublished: false, // Default to false
@@ -169,7 +186,7 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
           duration: data.duration,
           contentType: data.contentType,
           contentUrl: contentUrl || undefined,
-          youtubeVideoId: data.youtubeVideoId || undefined,
+          youtubeVideoId: normalizedYoutubeVideoId || undefined,
           content: data.content || undefined,
           // Maintain existing values or defaults
           isFree: chapter?.isFree,
@@ -434,10 +451,10 @@ const ChapterForm = ({ mode, courseId }: ChapterFormProps) => {
                       name="youtubeVideoId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>YouTube Video ID</FormLabel>
+                          <FormLabel>YouTube Video URL or ID</FormLabel>
                           <FormControl>
                             <Input 
-                              placeholder="dQw4w9WgXcQ" 
+                              placeholder="https://youtu.be/dQw4w9WgXcQ or dQw4w9WgXcQ"
                               {...field} 
                             />
                           </FormControl>

@@ -299,6 +299,7 @@ export interface Quiz {
   description?: string;
   duration?: number;
   passingScore: number;
+  maxAttempts?: number;
   entity: 'COURSE' | 'CHAPTER';
   entityId: string;
   isPublished: boolean;

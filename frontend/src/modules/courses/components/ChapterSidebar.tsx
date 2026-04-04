@@ -25,6 +25,18 @@ const ChapterSidebar = ({
   onQuizSelect,
   title,
 }: ChapterSidebarProps) => {
+  const getLatestQuizAttempt = (quizId: string) => {
+    const attempts = quizAttempts.filter((attempt) => attempt.quizId === quizId);
+
+    if (attempts.length === 0) {
+      return null;
+    }
+
+    return attempts.reduce((latest, current) =>
+      current.attemptNumber > latest.attemptNumber ? current : latest,
+    );
+  };
+
   const getChapterStatus = (chapterId: string) => {
     const chapterProgress = progress.find((p) => p.chapterId === chapterId);
     return chapterProgress?.status || ProgressStatus.NOT_STARTED;
@@ -33,25 +45,20 @@ const ChapterSidebar = ({
   const getQuizStatus = (quizId: string) => {
     if (!quizAttempts || quizAttempts.length === 0) return null;
 
-    const completedAttempts = quizAttempts
-      .filter(a => a.quizId === quizId && a.status === 'COMPLETED');
+    const latestAttempt = getLatestQuizAttempt(quizId);
 
-    if (completedAttempts.length === 0) {
-      const inProgress = quizAttempts.find(
-        a => a.quizId === quizId && a.status === 'IN_PROGRESS'
-      );
-      return inProgress ? { status: 'IN_PROGRESS' as const } : null;
+    if (!latestAttempt) {
+      return null;
     }
 
-    // Return best attempt (highest score)
-    const bestAttempt = completedAttempts.reduce((best, current) =>
-      (current.score || 0) > (best.score || 0) ? current : best
-    );
+    if (latestAttempt.status !== 'COMPLETED') {
+      return { status: latestAttempt.status };
+    }
 
     return {
       status: 'COMPLETED' as const,
-      score: bestAttempt.score,
-      isPassed: bestAttempt.isPassed,
+      score: latestAttempt.score,
+      isPassed: latestAttempt.isPassed,
     };
   };
 
@@ -61,13 +68,16 @@ const ChapterSidebar = ({
         <h2 className="font-semibold text-lg line-clamp-2">{title}</h2>
         <div className="mt-2 text-sm text-muted-foreground">
           {progress.filter((p) => p.status === ProgressStatus.COMPLETED).length} / {chapters.length} Chapters Completed
-          {quizAttempts && quizAttempts.filter(a => a.status === 'COMPLETED' && a.isPassed).length > 0 && (
+          {quizAttempts && quizAttempts.length > 0 && (
             <span className="ml-2">
               • {(() => {
                 const passedQuizIds = new Set(
-                  quizAttempts
-                    .filter(a => a.status === 'COMPLETED' && a.isPassed)
-                    .map(a => a.quizId)
+                  quizzes
+                    .filter((quiz) => {
+                      const latestAttempt = getLatestQuizAttempt(quiz.id);
+                      return latestAttempt?.status === 'COMPLETED' && latestAttempt.isPassed;
+                    })
+                    .map((quiz) => quiz.id)
                 );
                 return `${passedQuizIds.size} / ${quizzes?.length || 0} Quizzes Passed`;
               })()}

@@ -1,5 +1,5 @@
 import { Chapter } from '../types/course.types';
-import { extractYoutubeVideoId, containsHtmlTags } from '@/core/lib/media-utils';
+import { containsHtmlTags, getYoutubeEmbedUrl } from '@/core/lib/media-utils';
 
 interface ChapterContentProps {
   chapter: Chapter;
@@ -30,14 +30,14 @@ const ChapterContent = ({ chapter }: ChapterContentProps) => {
       );
 
     case 'youtube':
-      const videoId = extractYoutubeVideoId(chapter.youtubeVideoId?.trim() || chapter.contentUrl?.trim());
+      const embedUrl = getYoutubeEmbedUrl(chapter.youtubeVideoId?.trim() || chapter.contentUrl?.trim());
       return (
         <div className="aspect-video w-full bg-black rounded-lg overflow-hidden">
-          {videoId ? (
+          {embedUrl ? (
             <iframe
               width="100%"
               height="100%"
-              src={`https://www.youtube.com/embed/${videoId}`}
+              src={embedUrl}
               title={chapter.title}
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

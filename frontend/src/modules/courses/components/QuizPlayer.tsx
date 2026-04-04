@@ -7,18 +7,17 @@ import {
   Save,
   Send,
 } from 'lucide-react';
-import { detectMediaType, extractYoutubeVideoId } from '@/core/lib/media-utils';
+import { detectMediaType, getYoutubeEmbedUrl } from '@/core/lib/media-utils';
 import { Button } from '@/core/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import { Textarea } from '@/core/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/core/components/ui/radio-group';
 import { Label } from '@/core/components/ui/label';
-import { Separator } from '@/core/components/ui/separator';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { useQuizAttempt } from '@/modules/quizzes/hooks/useQuizAttempt';
 import { useQuiz } from '@/modules/quizzes/hooks/useQuizzes';
-import { SubmitAnswerDTO } from '@/modules/quizzes/types/quiz.types';
+import { QuizAttempt, SubmitAnswerDTO } from '@/modules/quizzes/types/quiz.types';
 import quizService from '@/modules/quizzes/services/quizService';
 
 interface QuizPlayerProps {
@@ -27,18 +26,61 @@ interface QuizPlayerProps {
   onComplete?: () => void;
 }
 
+type QuizAttemptLike = Pick<
+  QuizAttempt,
+  'attemptNumber' | 'status' | 'score' | 'earnedPoints' | 'totalPoints' | 'isPassed'
+>;
+
+const getLatestAttempt = <T extends QuizAttemptLike>(attempts: T[]): T | null => {
+  if (attempts.length === 0) {
+    return null;
+  }
+
+  return attempts.reduce((latest, current) => {
+    if (current.attemptNumber > latest.attemptNumber) {
+      return current;
+    }
+
+    return latest;
+  });
+};
+
+const canRetakeQuiz = (
+  quizMaxAttempts: number | undefined,
+  latestAttempt: QuizAttemptLike | null,
+): boolean => {
+  if (!latestAttempt) {
+    return true;
+  }
+
+  if (latestAttempt.status === 'IN_PROGRESS') {
+    return false;
+  }
+
+  if (!quizMaxAttempts || quizMaxAttempts <= 0) {
+    return true;
+  }
+
+  return latestAttempt.attemptNumber < quizMaxAttempts;
+};
+
+const mergeAttemptHistory = (attempts: QuizAttempt[], nextAttempt: QuizAttempt): QuizAttempt[] => {
+  const next = attempts.filter((item) => item.id !== nextAttempt.id);
+  return [nextAttempt, ...next];
+};
+
 const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
   const { quiz, isLoading: quizLoading } = useQuiz(quizId);
-  const { attempt, setAttempt, startAttempt, submitAnswer, submitAttempt, isLoading, error } = useQuizAttempt(null);
+  const { attempt, setAttempt, startAttempt, submitAnswer, submitAttempt, isLoading } = useQuizAttempt(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, Partial<SubmitAnswerDTO>>>({});
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
-  
+  const [attemptHistory, setAttemptHistory] = useState<QuizAttempt[]>([]);
+
   const hasAutoSubmittedRef = useRef(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load saved answers from attempt when attempt is loaded
   useEffect(() => {
     if (attempt && attempt.answers && attempt.status === 'IN_PROGRESS') {
       const savedAnswers: Record<string, Partial<SubmitAnswerDTO>> = {};
@@ -53,7 +95,6 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
     }
   }, [attempt]);
 
-  // Load answers from localStorage on mount if attempt exists
   useEffect(() => {
     if (attempt?.id && attempt.status === 'IN_PROGRESS') {
       const savedAnswersStr = localStorage.getItem(`quiz_answers_${attempt.id}`);
@@ -66,20 +107,18 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
         }
       }
     }
-    // Cleanup localStorage when attempt is completed
+
     if (attempt?.status === 'COMPLETED' && attempt?.id) {
       localStorage.removeItem(`quiz_answers_${attempt.id}`);
     }
-  }, [attempt?.id, attempt?.status]);
+  }, [attempt?.id, attempt?.status, answers]);
 
-  // Save answers to localStorage
   useEffect(() => {
     if (attempt?.id && Object.keys(answers).length > 0) {
       localStorage.setItem(`quiz_answers_${attempt.id}`, JSON.stringify(answers));
     }
   }, [answers, attempt?.id]);
 
-  // Start attempt when quiz is loaded
   useEffect(() => {
     if (!quiz || attempt || isLoading) {
       return;
@@ -87,25 +126,25 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
 
     const initializeAttempt = async () => {
       try {
-        // First, check if there's an existing in-progress attempt to resume
         const existingAttempt = await quizService.getCurrentAttempt(quiz.id, enrollmentId);
-        
+
         if (existingAttempt) {
+          setAttemptHistory((prev) => mergeAttemptHistory(prev, existingAttempt));
+
           if (existingAttempt.status === 'IN_PROGRESS') {
             setAttempt(existingAttempt);
             if (existingAttempt.quiz?.duration) {
               const startTime = new Date(existingAttempt.startedAt).getTime();
               const now = Date.now();
               const elapsedSeconds = Math.floor((now - startTime) / 1000);
-              const remainingSeconds = (existingAttempt.quiz.duration * 60) - elapsedSeconds;
+              const remainingSeconds = existingAttempt.quiz.duration * 60 - elapsedSeconds;
               setTimeRemaining(Math.max(0, remainingSeconds));
             }
             return;
           }
-          
+
           if (existingAttempt.status === 'COMPLETED' || existingAttempt.status === 'ABANDONED') {
             setAttempt(existingAttempt);
-            return;
           }
         }
       } catch (error) {
@@ -115,17 +154,29 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
     };
 
     initializeAttempt();
-  }, [quiz?.id, enrollmentId, attempt, isLoading]);
+  }, [quiz, enrollmentId, attempt, isLoading, setAttempt]);
+
+  const latestAttempt = getLatestAttempt(attemptHistory);
+  const canRetake = canRetakeQuiz(quiz?.maxAttempts, latestAttempt);
 
   const handleStartNewAttempt = async () => {
     if (!quiz) return;
+
     try {
       const newAttempt = await startAttempt(quiz.id, { enrollmentId });
+      setAttemptHistory((prev) => mergeAttemptHistory(prev, newAttempt));
+      setAnswers({});
+      setCurrentQuestionIndex(0);
+      hasAutoSubmittedRef.current = false;
+
       if (newAttempt.quiz?.duration) {
         setTimeRemaining(newAttempt.quiz.duration * 60);
+      } else {
+        setTimeRemaining(null);
       }
-    } catch (error) {
-      toast.error('Failed to start quiz');
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to start quiz';
+      toast.error(errorMessage);
     }
   };
 
@@ -133,15 +184,15 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
     if (!attempt) return;
 
     try {
-      await submitAttempt(attempt.id);
+      const completedAttempt = await submitAttempt(attempt.id);
+      setAttemptHistory((prev) => mergeAttemptHistory(prev, completedAttempt));
       if (onComplete) onComplete();
       toast.success('Quiz submitted successfully!');
-    } catch (error) {
+    } catch {
       // Error handled in hook
     }
   }, [attempt, submitAttempt, onComplete]);
 
-  // Timer countdown
   useEffect(() => {
     if (timeRemaining !== null && timeRemaining > 0) {
       const timer = setInterval(() => {
@@ -150,8 +201,11 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
           return prev - 1;
         });
       }, 1000);
+
       return () => clearInterval(timer);
-    } else if (timeRemaining === 0 && attempt?.status === 'IN_PROGRESS' && !hasAutoSubmittedRef.current) {
+    }
+
+    if (timeRemaining === 0 && attempt?.status === 'IN_PROGRESS' && !hasAutoSubmittedRef.current) {
       hasAutoSubmittedRef.current = true;
       handleSubmitAttempt();
     }
@@ -167,17 +221,25 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
     setAnswers((prev) => ({ ...prev, [questionId]: answer }));
 
     if (attempt) {
-      const displayQuiz = attempt?.quiz || quiz;
-      const question = displayQuiz?.questions?.find(q => q.id === questionId);
-      
+      const displayQuiz = attempt.quiz || quiz;
+      const question = displayQuiz?.questions?.find((item) => item.id === questionId);
+
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      
+
       if (question?.questionType === 'ESSAY') {
         saveTimeoutRef.current = setTimeout(async () => {
-          try { await submitAnswer(attempt.id, answer); } catch (e) { console.error(e); }
+          try {
+            await submitAnswer(attempt.id, answer);
+          } catch (e) {
+            console.error(e);
+          }
         }, 800);
       } else {
-        try { await submitAnswer(attempt.id, answer); } catch (e) { console.error(e); }
+        try {
+          await submitAnswer(attempt.id, answer);
+        } catch (e) {
+          console.error(e);
+        }
       }
     }
   };
@@ -195,7 +257,6 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
     }
   };
 
-  // UI States
   if (quizLoading || !quiz) {
     return (
       <div className="flex items-center justify-center p-10">
@@ -204,7 +265,6 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
     );
   }
 
-  // Not started state
   if (!attempt && !isLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-10 space-y-6">
@@ -212,7 +272,7 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
           <h2 className="text-2xl font-bold">{quiz.title}</h2>
           <p className="text-muted-foreground max-w-md mx-auto">{quiz.description}</p>
         </div>
-        
+
         <Card className="w-full max-w-sm">
           <CardContent className="pt-6 space-y-4">
             <div className="flex justify-between">
@@ -227,17 +287,27 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
               <span className="text-muted-foreground">Questions</span>
               <span className="font-medium">{quiz.questions?.length || 0}</span>
             </div>
-            
-            <Button className="w-full mt-4" onClick={handleStartNewAttempt}>
-              Start Quiz
+            {quiz.maxAttempts ? (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Attempts</span>
+                <span className="font-medium">{latestAttempt ? `${latestAttempt.attemptNumber} / ${quiz.maxAttempts}` : `0 / ${quiz.maxAttempts}`}</span>
+              </div>
+            ) : null}
+
+            <Button className="w-full mt-4" onClick={handleStartNewAttempt} disabled={!canRetake}>
+              {latestAttempt ? 'Retake Quiz' : 'Start Quiz'}
             </Button>
+            {!canRetake ? (
+              <p className="text-sm text-center text-muted-foreground">
+                Maximum attempts reached for this quiz.
+              </p>
+            ) : null}
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // Loading attempt
   if (isLoading && !attempt) {
     return (
       <div className="flex items-center justify-center p-10">
@@ -246,9 +316,13 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
     );
   }
 
-  // Completed state
   if (attempt?.status === 'COMPLETED' || attempt?.status === 'ABANDONED') {
     const isPassed = attempt.isPassed;
+    const latestAttemptNumber = latestAttempt?.attemptNumber ?? attempt.attemptNumber;
+    const attemptLimitLabel = quiz.maxAttempts
+      ? `${latestAttemptNumber} / ${quiz.maxAttempts}`
+      : `${latestAttemptNumber}`;
+
     return (
       <div className="flex flex-col items-center justify-center p-10 space-y-6">
         <div className="text-center">
@@ -259,23 +333,23 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
           <p className="text-muted-foreground">
             You scored {attempt.score}% ({attempt.earnedPoints}/{attempt.totalPoints} points)
           </p>
+          <p className="mt-2 text-sm text-muted-foreground">Attempt {attemptLimitLabel}</p>
         </div>
-        
+
         <div className="flex gap-4">
-          <Button variant="outline" onClick={handleStartNewAttempt}>
-            Retake Quiz
-          </Button>
-          {onComplete && (
-            <Button onClick={onComplete}>
-              Continue Course
+          {canRetake ? (
+            <Button variant="outline" onClick={handleStartNewAttempt}>
+              Retake Quiz
             </Button>
-          )}
+          ) : null}
+          {onComplete ? (
+            <Button onClick={onComplete}>Continue Course</Button>
+          ) : null}
         </div>
       </div>
     );
   }
 
-  // Active quiz state
   const displayQuiz = attempt?.quiz || quiz;
   if (!displayQuiz.questions || displayQuiz.questions.length === 0) {
     return <div className="p-10 text-center">No questions available.</div>;
@@ -284,11 +358,9 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
   const currentQuestion = displayQuiz.questions[currentQuestionIndex];
   const currentAnswer = (answers[currentQuestion.id] || {}) as Partial<SubmitAnswerDTO>;
   const totalQuestions = displayQuiz.questions.length;
-  const answeredCount = Object.keys(answers).length;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
       <Card>
         <CardHeader className="py-4">
           <div className="flex items-center justify-between">
@@ -298,19 +370,19 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
                 Question {currentQuestionIndex + 1} of {totalQuestions}
               </p>
             </div>
-            {timeRemaining !== null && timeRemaining > 0 && (
+            {timeRemaining !== null && timeRemaining > 0 ? (
               <div className="flex items-center gap-2 font-mono text-lg bg-muted px-3 py-1 rounded">
                 <Clock className="h-4 w-4" />
                 <span className={timeRemaining < 60 ? 'text-destructive' : ''}>
                   {formatTime(timeRemaining)}
                 </span>
               </div>
-            )}
+            ) : null}
           </div>
         </CardHeader>
         <div className="px-6 pb-2">
           <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-primary transition-all duration-300"
               style={{ width: `${((currentQuestionIndex + 1) / totalQuestions) * 100}%` }}
             />
@@ -318,23 +390,19 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
         </div>
       </Card>
 
-      {/* Question Card */}
       <Card>
         <CardHeader>
           <div className="flex justify-between items-start gap-4">
-            <div className="text-lg font-medium whitespace-pre-wrap">
-              {currentQuestion.questionText}
-            </div>
+            <div className="text-lg font-medium whitespace-pre-wrap">{currentQuestion.questionText}</div>
             <Badge variant="outline" className="shrink-0">
               {currentQuestion.points} pts
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Media */}
           {currentQuestion.mediaUrl && (() => {
             const mediaType = detectMediaType(currentQuestion.mediaUrl, currentQuestion.mediaType);
-            
+
             if (mediaType === 'audio') {
               return (
                 <div className="rounded-lg overflow-hidden border bg-muted/50 p-4">
@@ -342,7 +410,7 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
                 </div>
               );
             }
-            
+
             if (mediaType === 'video') {
               return (
                 <div className="rounded-lg overflow-hidden border bg-black">
@@ -350,16 +418,16 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
                 </div>
               );
             }
-            
+
             if (mediaType === 'youtube') {
-              const videoId = extractYoutubeVideoId(currentQuestion.mediaUrl);
-              if (videoId) {
+              const embedUrl = getYoutubeEmbedUrl(currentQuestion.mediaUrl);
+              if (embedUrl) {
                 return (
                   <div className="rounded-lg overflow-hidden border bg-black aspect-video">
                     <iframe
                       width="100%"
                       height="100%"
-                      src={`https://www.youtube.com/embed/${videoId}`}
+                      src={embedUrl}
                       title="Question Media"
                       frameBorder="0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -369,7 +437,7 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
                 );
               }
             }
-            
+
             return (
               <div className="rounded-lg overflow-hidden border bg-black/5 flex justify-center">
                 <img src={currentQuestion.mediaUrl} alt="Question Media" className="max-h-64 object-contain" />
@@ -377,15 +445,16 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
             );
           })()}
 
-          {/* Options */}
           <div className="space-y-4">
             {currentQuestion.questionType === 'MULTIPLE_CHOICE' || currentQuestion.questionType === 'TRUE_FALSE' ? (
               <RadioGroup
                 value={currentAnswer.selectedOptionId || ''}
-                onValueChange={(val) => handleAnswerChange(currentQuestion.id, {
-                  questionId: currentQuestion.id,
-                  selectedOptionId: val
-                })}
+                onValueChange={(val) =>
+                  handleAnswerChange(currentQuestion.id, {
+                    questionId: currentQuestion.id,
+                    selectedOptionId: val,
+                  })
+                }
                 className="space-y-3"
               >
                 {currentQuestion.options?.map((opt) => (
@@ -398,13 +467,15 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
                 ))}
               </RadioGroup>
             ) : (
-              <Textarea 
+              <Textarea
                 placeholder="Type your answer here..."
                 value={currentAnswer.essayAnswer || ''}
-                onChange={(e) => handleAnswerChange(currentQuestion.id, {
-                  questionId: currentQuestion.id,
-                  essayAnswer: e.target.value
-                })}
+                onChange={(e) =>
+                  handleAnswerChange(currentQuestion.id, {
+                    questionId: currentQuestion.id,
+                    essayAnswer: e.target.value,
+                  })
+                }
                 className="min-h-[150px]"
               />
             )}
@@ -412,13 +483,8 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
         </CardContent>
       </Card>
 
-      {/* Navigation */}
       <div className="flex justify-between items-center pt-4">
-        <Button
-          variant="outline"
-          onClick={handlePrevious}
-          disabled={currentQuestionIndex === 0}
-        >
+        <Button variant="outline" onClick={handlePrevious} disabled={currentQuestionIndex === 0}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Previous
         </Button>
 
@@ -426,7 +492,7 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
           <Button variant="ghost" onClick={() => toast.info('Progress saved')}>
             <Save className="mr-2 h-4 w-4" /> Save
           </Button>
-          
+
           {currentQuestionIndex === totalQuestions - 1 ? (
             <Button onClick={() => setSubmitDialogOpen(true)}>
               Submit Quiz <Send className="ml-2 h-4 w-4" />
@@ -454,3 +520,5 @@ const QuizPlayer = ({ quizId, enrollmentId, onComplete }: QuizPlayerProps) => {
 };
 
 export default QuizPlayer;
+
+export { canRetakeQuiz, getLatestAttempt, mergeAttemptHistory };
