@@ -3,9 +3,10 @@ import { EnvironmentalMeasurementsController } from './environmental-measurement
 import { EnvironmentalMeasurementsService } from './environmental-measurements.service';
 import { SharedModule } from '../../shared/shared.module';
 import { SettingsModule } from '../settings/settings.module';
+import { MasterApprovalsModule } from '../approvals/master-approvals.module';
 
 @Module({
-  imports: [SharedModule, SettingsModule],
+  imports: [SharedModule, SettingsModule, MasterApprovalsModule],
   controllers: [EnvironmentalMeasurementsController],
   providers: [EnvironmentalMeasurementsService],
   exports: [EnvironmentalMeasurementsService],

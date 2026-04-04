@@ -1673,17 +1673,18 @@ model Room {
 
 // Environmental Measurement - Transactional Data
 model EnvironmentalMeasurement {
-  id          String   @id @default(uuid())
+  id          String            @id @default(uuid())
   roomId      String
-  lighting    Decimal? @db.Decimal(10, 2)
-  noise       Decimal? @db.Decimal(10, 2)
-  humidity    Decimal? @db.Decimal(10, 2)
-  temperature Decimal? @db.Decimal(10, 2)
-  remarks     String?  @db.Text
+  lighting    Decimal?          @db.Decimal(10, 2)
+  noise       Decimal?          @db.Decimal(10, 2)
+  humidity    Decimal?          @db.Decimal(10, 2)
+  temperature Decimal?          @db.Decimal(10, 2)
+  remarks     String?           @db.Text
   date        DateTime
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  status      GeneralStatusEnum @default(DRAFT)
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
   createdBy   String
 
   room    Room @relation(fields: [roomId], references: [id])

@@ -5,6 +5,7 @@ import { usePDF } from 'react-to-pdf';
 import { Edit, Trash2, Plus, MoreHorizontal, Eye, FileDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button, ThemeButton } from '@/core/components/ui/button';
+import { Badge } from '@/core/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +24,24 @@ import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
 import { EnvironmentalMeasurementRegulatoryLimits } from '../services/environmentalMeasurementService';
 import { MetricValueWithRegulatoryLimit } from '../components/MetricValueWithRegulatoryLimit';
+import { GeneralStatusEnum, GENERAL_STATUS_OPTIONS } from '@/shared/constants/general-status.enum';
+
+function getStatusBadge(status?: string) {
+  switch (status) {
+    case GeneralStatusEnum.DRAFT:
+      return <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-300 text-xs">Draft</Badge>;
+    case GeneralStatusEnum.OPEN:
+      return <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300 text-xs">Open</Badge>;
+    case GeneralStatusEnum.WAITING_APPROVAL:
+      return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">Waiting Approval</Badge>;
+    case GeneralStatusEnum.DONE:
+      return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300 text-xs">Done</Badge>;
+    case GeneralStatusEnum.REJECTED:
+      return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300 text-xs">Rejected</Badge>;
+    default:
+      return status ? <Badge variant="outline" className="text-xs">{status}</Badge> : <span className="text-muted-foreground text-xs">—</span>;
+  }
+}
 
 export default function EnvironmentalMeasurementsPage() {
   const navigate = useNavigate();
@@ -77,6 +96,11 @@ export default function EnvironmentalMeasurementsPage() {
         label: [from, to].filter(Boolean).map((d) => format(new Date(d!), 'dd MMM yyyy')).join(' – ') || 'Date range',
       };
     }
+    const status = searchParams.get('status');
+    if (status) {
+      const option = GENERAL_STATUS_OPTIONS.find((o) => o.value === status);
+      filters.status = { value: status, label: option?.label ?? status };
+    }
     return filters;
   }, [searchParams]);
 
@@ -92,6 +116,14 @@ export default function EnvironmentalMeasurementsPage() {
       id: 'roomName',
       label: 'Room Name',
       type: 'text',
+    },
+    {
+      id: 'status',
+      label: 'Status',
+      type: 'select',
+      options: GENERAL_STATUS_OPTIONS.filter((o) =>
+        [GeneralStatusEnum.DRAFT, GeneralStatusEnum.OPEN, GeneralStatusEnum.WAITING_APPROVAL, GeneralStatusEnum.DONE, GeneralStatusEnum.REJECTED].includes(o.value as GeneralStatusEnum),
+      ).map((o) => ({ value: o.value, label: o.label })),
     },
   ];
 
@@ -124,6 +156,7 @@ export default function EnvironmentalMeasurementsPage() {
         sortOrder: 'desc',
         startDate,
         endDate,
+        status: activeFilters.status?.value || undefined,
       });
       setMeasurements(response.data);
       setTotalMeasurements(response.meta.total);
@@ -199,6 +232,7 @@ export default function EnvironmentalMeasurementsPage() {
       next.delete('roomName');
       next.delete('startDate');
       next.delete('endDate');
+      next.delete('status');
       filters.forEach((filter) => {
         const value = filter.value;
         if (value === undefined || value === null || value === '') return;
@@ -229,6 +263,7 @@ export default function EnvironmentalMeasurementsPage() {
         sortOrder: 'desc',
         startDate,
         endDate,
+        status: activeFilters.status?.value || undefined,
       });
       const limits =
         regulatoryLimits ?? (await environmentalMeasurementService.getRegulatoryLimits());
@@ -322,6 +357,11 @@ export default function EnvironmentalMeasurementsPage() {
           align="right"
         />
       ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (measurement: EnvironmentalMeasurement) => getStatusBadge(measurement.status),
     },
     {
       id: 'actions',

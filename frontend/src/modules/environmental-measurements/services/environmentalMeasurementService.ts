@@ -28,6 +28,7 @@ interface FetchMeasurementsParams {
   roomId?: string;
   startDate?: string;
   endDate?: string;
+  status?: string;
 }
 
 export interface MetricRegulatoryLimit {
@@ -132,6 +133,7 @@ const environmentalMeasurementService = {
     if (params.roomId) queryParams.append('roomId', params.roomId);
     if (params.startDate) queryParams.append('startDate', params.startDate);
     if (params.endDate) queryParams.append('endDate', params.endDate);
+    if (params.status) queryParams.append('status', params.status);
 
     const response = await api.get<EnvironmentalMeasurementsResponse>(`/environmental-measurements?${queryParams.toString()}`);
     return response.data;
@@ -187,6 +189,22 @@ const environmentalMeasurementService = {
    */
   async deleteMeasurement(id: string): Promise<void> {
     await api.delete(`/environmental-measurements/${id}`);
+  },
+
+  /**
+   * Submit a measurement (DRAFT → OPEN)
+   */
+  async submitMeasurement(id: string): Promise<EnvironmentalMeasurement> {
+    const response = await api.patch<EnvironmentalMeasurement>(`/environmental-measurements/${id}/submit`);
+    return response.data;
+  },
+
+  /**
+   * Request approval for a measurement (OPEN → WAITING_APPROVAL)
+   */
+  async requestApproval(id: string): Promise<EnvironmentalMeasurement> {
+    const response = await api.patch<EnvironmentalMeasurement>(`/environmental-measurements/${id}/request-approval`);
+    return response.data;
   },
 };
 

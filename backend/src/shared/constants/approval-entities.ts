@@ -16,6 +16,7 @@ export const APPROVAL_ENTITIES = {
   AUDIT_ITEM: 'AUDIT_ITEM',
   INCIDENT: 'INCIDENT',
   PPE_WITHDRAWAL: 'PPE_WITHDRAWAL',
+  ENVIRONMENTAL_MEASUREMENT: 'ENVIRONMENTAL_MEASUREMENT',
 } as const;
 
 /**
@@ -40,6 +41,7 @@ export const APPROVAL_ENTITY_TO_TABLE: Record<ApprovalEntityName, string> = {
   [APPROVAL_ENTITIES.AUDIT_ITEM]: 't_audit_items',
   [APPROVAL_ENTITIES.INCIDENT]: 't_incidents',
   [APPROVAL_ENTITIES.PPE_WITHDRAWAL]: 't_ppe_withdrawals',
+  [APPROVAL_ENTITIES.ENVIRONMENTAL_MEASUREMENT]: 't_environmental_measurements',
 } as const;
 
 /**
@@ -59,6 +61,7 @@ export const APPROVAL_ENTITY_TO_DEPARTMENT_COLUMN: Record<
   [APPROVAL_ENTITIES.AUDIT_ITEM]: null,
   [APPROVAL_ENTITIES.INCIDENT]: 'assignedDepartmentId',
   [APPROVAL_ENTITIES.PPE_WITHDRAWAL]: 'departmentId',
+  [APPROVAL_ENTITIES.ENVIRONMENTAL_MEASUREMENT]: null,
 };
 
 /**

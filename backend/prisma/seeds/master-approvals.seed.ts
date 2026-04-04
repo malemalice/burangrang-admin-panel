@@ -238,6 +238,28 @@ export async function seedMasterApprovals(prisma: PrismaClient) {
     `✅ Created PPE Withdrawal approval workflow (${finalHseDept.name} - ${finalHeadPos.name})`,
   );
 
+  // 7. Environmental Measurement Approval Workflow (1-step: HSE Department Head)
+  const environmentalMeasurementApproval = await prisma.masterApproval.create({
+    data: {
+      entity: APPROVAL_ENTITIES.ENVIRONMENTAL_MEASUREMENT,
+      isActive: true,
+    },
+  });
+
+  await prisma.masterApprovalItem.create({
+    data: {
+      mApprovalId: environmentalMeasurementApproval.id,
+      order: 0,
+      jobPositionId: finalHeadPos.id,
+      departmentId: finalHseDept.id,
+      createdBy: creator.id,
+    },
+  });
+
+  console.log(
+    `✅ Created Environmental Measurement approval workflow (${finalHseDept.name} - ${finalHeadPos.name})`,
+  );
+
   console.log('✅ Master Approvals seeding completed');
   return {
     riskAssessmentApproval,
@@ -246,6 +268,6 @@ export async function seedMasterApprovals(prisma: PrismaClient) {
     auditItemApproval,
     incidentApproval,
     ppeWithdrawalApproval,
+    environmentalMeasurementApproval,
   };
 }
-
