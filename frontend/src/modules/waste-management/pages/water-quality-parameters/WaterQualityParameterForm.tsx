@@ -13,6 +13,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/core/components/ui/form';
+import { DateTimePicker } from '@/core/components/ui/datetime-picker';
 import { Input } from '@/core/components/ui/input';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Switch } from '@/core/components/ui/switch';
@@ -35,6 +36,41 @@ import {
 } from '../../types/waste-management.types';
 
 const CATEGORY_OPTIONS = Object.values(WaterQualityParameterCategoryEnum);
+
+const DATE_INPUT_VALUE_PATTERN = /^(\d{4}-\d{2}-\d{2})/;
+const ISO_DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+const toDateInputValue = (value?: string | null): string => {
+  if (!value) {
+    return '';
+  }
+
+  const matchedDate = value.match(DATE_INPUT_VALUE_PATTERN)?.[1];
+  if (matchedDate) {
+    return matchedDate;
+  }
+
+  const parsedDate = new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    throw new Error('Invalid water quality parameter sample date received from API.');
+  }
+
+  return parsedDate.toISOString().split('T')[0];
+};
+
+const toIsoDateString = (value: string): string => {
+  if (!ISO_DATE_ONLY_PATTERN.test(value)) {
+    throw new Error('Invalid sample date. Please select a valid date.');
+  }
+
+  const parsedDate = new Date(`${value}T00:00:00.000Z`);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    throw new Error('Invalid sample date. Please select a valid date.');
+  }
+
+  return parsedDate.toISOString();
+};
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -100,7 +136,7 @@ export default function WaterQualityParameterForm({ mode }: WaterQualityParamete
             testMethod: data.testMethod || '',
             description: data.description || '',
             isActive: data.isActive,
-            dateSampleTaken: data.dateSampleTaken ? data.dateSampleTaken.split('T')[0] : '',
+            dateSampleTaken: toDateInputValue(data.dateSampleTaken),
           });
         } catch (error) {
           toast.error('Failed to fetch data');
@@ -116,10 +152,9 @@ export default function WaterQualityParameterForm({ mode }: WaterQualityParamete
   const onSubmit = async (data: FormValues) => {
     setSaving(true);
     try {
-      // Backend expects full ISO 8601 for dateSampleTaken (date input gives YYYY-MM-DD only)
       const submitData: CreateWaterQualityParameterData | UpdateWaterQualityParameterData = {
         ...data,
-        dateSampleTaken: data.dateSampleTaken ? `${data.dateSampleTaken}T00:00:00.000Z` : undefined,
+        dateSampleTaken: toIsoDateString(data.dateSampleTaken),
       };
 
       if (mode === 'create') {
@@ -162,7 +197,7 @@ export default function WaterQualityParameterForm({ mode }: WaterQualityParamete
                     <FormItem>
                       <FormLabel>Date Sample Taken *</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <DateTimePicker mode="date" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

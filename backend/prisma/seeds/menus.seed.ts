@@ -857,11 +857,29 @@ export const seedMenus = async () => {
 
     await prisma.menu.create({
       data: {
+        name: 'Companies',
+        path: '/master/companies',
+        icon: 'Building2',
+        parentId: masterDataMenu.id,
+        order: 5,
+        isActive: true,
+        roles: {
+          connect: [
+            { id: superAdminRole.id },
+            { id: adminRole.id },
+            { id: managerRole.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.menu.create({
+      data: {
         name: 'Rooms',
         path: '/master/rooms',
         icon: 'DoorOpen',
         parentId: masterDataMenu.id,
-        order: 5,
+        order: 6,
         isActive: true,
         roles: {
           connect: [
@@ -879,7 +897,7 @@ export const seedMenus = async () => {
         path: '/master/approvals',
         icon: 'ShieldCheck',
         parentId: masterDataMenu.id,
-        order: 6,
+        order: 7,
         isActive: true,
         roles: {
           connect: [{ id: superAdminRole.id }, { id: adminRole.id }],
@@ -1302,7 +1320,7 @@ export const seedMenus = async () => {
     console.log(`   - Dashboard submenus: 6`);
     console.log(`   - Top-level menus: 16 (including Incident Securities)`);
     console.log(`   - Risk Assessment submenus: 5`);
-    console.log(`   - Master Data submenus: 6`);
+    console.log(`   - Master Data submenus: 7`);
     console.log(`   - User Management submenus: 3`);
     console.log(`   - Audit submenus: 4`);
     console.log(`   - Inspection submenus: 2`);

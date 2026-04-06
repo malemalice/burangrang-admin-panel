@@ -1,4 +1,5 @@
 import api from '@/core/lib/api';
+import { extractYoutubeVideoId, getYoutubeEmbedUrl, isYoutubeVideoId } from '@/core/lib/media-utils';
 import { 
   Chapter, 
   ChapterDTO, 
@@ -169,27 +170,10 @@ const chapterService = {
   },
 
   // Helper function to validate YouTube video ID
-  validateYouTubeId: (videoId: string): boolean => {
-    const youtubeRegex = /^[a-zA-Z0-9_-]{11}$/;
-    return youtubeRegex.test(videoId);
-  },
+  validateYouTubeId: (videoId: string): boolean => isYoutubeVideoId(videoId),
 
   // Helper function to extract YouTube video ID from URL
-  extractYouTubeId: (url: string): string | null => {
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
-      /^([a-zA-Z0-9_-]{11})$/
-    ];
-
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match) {
-        return match[1];
-      }
-    }
-
-    return null;
-  },
+  extractYouTubeId: (url: string): string | null => extractYoutubeVideoId(url),
 
   // Helper function to get YouTube thumbnail URL
   getYouTubeThumbnail: (videoId: string, quality: 'default' | 'medium' | 'high' | 'standard' | 'maxres' = 'medium'): string => {
@@ -197,9 +181,7 @@ const chapterService = {
   },
 
   // Helper function to get YouTube embed URL
-  getYouTubeEmbedUrl: (videoId: string): string => {
-    return `https://www.youtube.com/embed/${videoId}`;
-  },
+  getYouTubeEmbedUrl: (videoId: string): string => getYoutubeEmbedUrl(videoId) || '',
 };
 
 export default chapterService;

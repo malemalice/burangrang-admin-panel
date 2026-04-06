@@ -9,6 +9,14 @@ import { ErrorHandlingService } from '../../shared/services/error-handling.servi
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
 import { ActivityLoggerService } from '../../shared/services/activity-logger.service';
 
+const YOUTUBE_VIDEO_ID_REGEX = /^[a-zA-Z0-9_-]{11}$/;
+
+interface NormalizedChapterContent {
+  contentType?: string;
+  contentUrl?: string | null;
+  youtubeVideoId?: string | null;
+}
+
 @Injectable()
 export class ChaptersService {
   private readonly logger = new Logger(ChaptersService.name);
@@ -65,6 +73,9 @@ export class ChaptersService {
       publishedAt = new Date();
     }
 
+    const normalizedContent = this.normalizeChapterContent(createChapterDto);
+    const normalizedContentType = normalizedContent.contentType ?? createChapterDto.contentType;
+
     const chapter = await this.prisma.chapter.create({
       data: {
         courseId: createChapterDto.courseId,
@@ -72,9 +83,9 @@ export class ChaptersService {
         description: createChapterDto.description,
         order: createChapterDto.order,
         duration: createChapterDto.duration || 0,
-        contentType: createChapterDto.contentType,
-        contentUrl: createChapterDto.contentUrl,
-        youtubeVideoId: createChapterDto.youtubeVideoId,
+        contentType: normalizedContentType,
+        contentUrl: normalizedContent.contentUrl,
+        youtubeVideoId: normalizedContent.youtubeVideoId,
         content: createChapterDto.content,
         isFree: createChapterDto.isFree || false,
         isPublished: createChapterDto.isPublished || false,
@@ -324,6 +335,8 @@ export class ChaptersService {
       publishedAt = null;
     }
 
+    const normalizedContent = this.normalizeChapterContent(updateChapterDto, existingChapter);
+
     const chapter = await this.prisma.chapter.update({
       where: { id },
       data: {
@@ -332,9 +345,9 @@ export class ChaptersService {
         description: updateChapterDto.description,
         order: updateChapterDto.order,
         duration: updateChapterDto.duration,
-        contentType: updateChapterDto.contentType,
-        contentUrl: updateChapterDto.contentUrl,
-        youtubeVideoId: updateChapterDto.youtubeVideoId,
+        contentType: normalizedContent.contentType,
+        contentUrl: normalizedContent.contentUrl,
+        youtubeVideoId: normalizedContent.youtubeVideoId,
         content: updateChapterDto.content,
         isFree: updateChapterDto.isFree,
         isPublished: updateChapterDto.isPublished,
@@ -485,5 +498,89 @@ export class ChaptersService {
         totalDuration: stats._sum.duration || 0,
       },
     });
+  }
+
+  private normalizeChapterContent(
+    chapterDto: CreateChapterDto | UpdateChapterDto,
+    existingChapter?: { contentType: string; contentUrl: string | null; youtubeVideoId: string | null },
+  ): NormalizedChapterContent {
+    const contentType = chapterDto.contentType ?? existingChapter?.contentType;
+
+    if (contentType !== 'youtube') {
+      return {
+        contentType: chapterDto.contentType,
+        contentUrl: chapterDto.contentUrl,
+        youtubeVideoId: chapterDto.youtubeVideoId,
+      };
+    }
+
+    const youtubeSource =
+      chapterDto.youtubeVideoId ??
+      chapterDto.contentUrl ??
+      existingChapter?.youtubeVideoId ??
+      existingChapter?.contentUrl;
+    const youtubeVideoId = this.extractYoutubeVideoId(youtubeSource);
+
+    if (!youtubeVideoId) {
+      this.errorHandler.throwBadRequest(
+        'Invalid YouTube video input. Provide a valid YouTube URL or 11-character video ID.',
+      );
+    }
+
+    return {
+      contentType,
+      contentUrl: null,
+      youtubeVideoId,
+    };
+  }
+
+  private extractYoutubeVideoId(value?: string | null): string | null {
+    if (!value) {
+      return null;
+    }
+
+    const trimmedValue = value.trim();
+
+    if (YOUTUBE_VIDEO_ID_REGEX.test(trimmedValue)) {
+      return trimmedValue;
+    }
+
+    const parseUrl = (urlValue: string): URL | null => {
+      try {
+        return new URL(urlValue);
+      } catch {
+        try {
+          return new URL(`https://${urlValue}`);
+        } catch {
+          return null;
+        }
+      }
+    };
+
+    const parsedUrl = parseUrl(trimmedValue);
+
+    if (parsedUrl) {
+      const hostname = parsedUrl.hostname.toLowerCase().replace(/^www\./, '').replace(/^m\./, '');
+      const pathSegments = parsedUrl.pathname.split('/').filter(Boolean);
+
+      if (hostname === 'youtu.be') {
+        const candidate = pathSegments[0];
+        return candidate && YOUTUBE_VIDEO_ID_REGEX.test(candidate) ? candidate : null;
+      }
+
+      if (hostname === 'youtube.com' || hostname === 'youtube-nocookie.com') {
+        if (pathSegments[0] === 'watch') {
+          const candidate = parsedUrl.searchParams.get('v');
+          return candidate && YOUTUBE_VIDEO_ID_REGEX.test(candidate) ? candidate : null;
+        }
+
+        if (['embed', 'v', 'shorts'].includes(pathSegments[0])) {
+          const candidate = pathSegments[1];
+          return candidate && YOUTUBE_VIDEO_ID_REGEX.test(candidate) ? candidate : null;
+        }
+      }
+    }
+
+    return null;
   }
 }

@@ -456,3 +456,57 @@ export interface AreaFilters {
   officeId?: string;
   status?: 'active' | 'inactive' | 'all';
 }
+
+// =============================================================================
+// COMPANY TYPES
+// =============================================================================
+
+export interface CompanyDTO {
+  id: string;
+  name: string;
+  code: string;
+  address?: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateCompanyDTO {
+  name: string;
+  code: string;
+  address?: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  isActive?: boolean;
+}
+
+export interface UpdateCompanyDTO {
+  name?: string;
+  code?: string;
+  address?: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  isActive?: boolean;
+}
+
+export interface CompanyFormData {
+  name: string;
+  code: string;
+  address: string;
+  contactPerson: string;
+  phone: string;
+  email: string;
+  isActive: boolean;
+}
+
+export interface CompanyFilters {
+  name?: string;
+  code?: string;
+  contactPerson?: string;
+  status?: 'active' | 'inactive' | 'all';
+}
