@@ -9,6 +9,8 @@
     "seed": "npx ts-node prisma/seed.ts"
   },
   "scripts": {
+    "postinstall": "npm run puppeteer:install",
+    "puppeteer:install": "node ./node_modules/puppeteer/install.mjs",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
