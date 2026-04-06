@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { performance } from 'node:perf_hooks';
 import { format } from 'date-fns';
+import * as QRCode from 'qrcode';
 import { PPEWithdrawalDto } from './dto/ppe-withdrawal.dto';
 import { ApprovalStatusHistory } from '../approvals/dto/master-approval.dto';
 
@@ -34,11 +35,30 @@ export class PpePdfService {
     return 'Pending';
   }
 
-  private buildHtml(
+  /** Escape text for HTML body (matches safe display of viewUrl like the React template). */
+  private escapeHtml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  /**
+   * HTML aligned with `frontend/.../PPEWithdrawalPDFTemplate.tsx` (print / Export PDF),
+   * including QR code for the detail URL (same as qrcode.react QRCodeSVG size 88, level M).
+   */
+  private async buildHtml(
     withdrawal: PPEWithdrawalDto,
     approvalHistory: ApprovalStatusHistory | null,
     viewUrl: string,
-  ): string {
+  ): Promise<string> {
+    const qrDataUrl = await QRCode.toDataURL(viewUrl, {
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      width: 88,
+      color: { dark: '#000000', light: '#ffffff' },
+    });
     const statusLabel: Record<string, string> = {
       PENDING: 'Pending',
       WAITING_APPROVAL: 'Waiting Approval',
@@ -237,9 +257,9 @@ export class PpePdfService {
     ${itemsSection}
   </div>
 
-  <!-- Verification and Approval -->
+  <!-- Verification and approval (same title casing as frontend PDF template) -->
   <div style="margin-bottom:24px;">
-    <h2 style="font-size:13px;font-weight:bold;color:#111;border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;">Verification and Approval</h2>
+    <h2 style="font-size:13px;font-weight:bold;color:#111;border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;">Verification and approval</h2>
     <div style="font-size:12px;color:#333;line-height:1.5;margin-bottom:16px;">
       <span style="font-weight:600;">Current approval status:</span>
       <span>${approvalHistory?.currentStatus ?? statusLabel[withdrawal.status] ?? withdrawal.status}</span>
@@ -249,11 +269,12 @@ export class PpePdfService {
     ${logSection}
   </div>
 
-  <!-- Footer -->
+  <!-- QR Code Footer (matches PPEWithdrawalPDFTemplate QR + URL block) -->
   <div style="border-top:1px solid #ccc;padding-top:16px;margin-top:24px;display:flex;justify-content:space-between;align-items:flex-end;">
-    <p style="font-size:10px;color:#888;">This document is system-generated. Visit the URL below to verify online.</p>
-    <div style="text-align:right;">
-      <p style="font-size:9px;color:#666;word-break:break-all;max-width:220px;">${viewUrl}</p>
+    <p style="font-size:10px;color:#888;">This document is system-generated. Scan the QR code to verify online.</p>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+      <img src="${qrDataUrl}" width="88" height="88" alt="" style="display:block;" />
+      <p style="font-size:8px;color:#666;max-width:180px;text-align:right;word-break:break-all;">${this.escapeHtml(viewUrl)}</p>
     </div>
   </div>
 </body>
@@ -272,7 +293,7 @@ export class PpePdfService {
       this.logger.log(`[PPE PDF] +${ms}ms ${name}${suffix}`);
     };
 
-    const html = this.buildHtml(withdrawal, approvalHistory, viewUrl);
+    const html = await this.buildHtml(withdrawal, approvalHistory, viewUrl);
     const htmlLen = html.length;
     step('html_built', {
       withdrawalId: withdrawal.id,
