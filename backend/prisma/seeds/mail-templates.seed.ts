@@ -361,6 +361,20 @@ const defaultMailTemplates = [
       margin: 20px 0;
       color: #1e293b;
     }
+    .cta-wrapper {
+      text-align: center;
+      margin: 28px 0 8px;
+    }
+    .cta-button {
+      display: inline-block;
+      padding: 12px 28px;
+      background-color: #4f46e5;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 15px;
+    }
     .footer {
       margin-top: 24px;
       font-size: 12px;
@@ -375,6 +389,11 @@ const defaultMailTemplates = [
   </div>
   <div class="content">
     <div class="message">{{message}}</div>
+    {{#if actionUrl}}
+    <div class="cta-wrapper">
+      <a href="{{actionUrl}}" class="cta-button">View Details</a>
+    </div>
+    {{/if}}
     {{#if context}}
     <p style="color: #475569; font-size: 14px; margin-top: 20px;">
       <strong>Context:</strong> {{context}}

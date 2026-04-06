@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { ErrorHandlingService } from '../../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../../shared/services/dto-mapper.service';
@@ -29,6 +30,7 @@ export class NotificationsService {
     private readonly errorHandler: ErrorHandlingService,
     private readonly dtoMapper: DtoMapperService,
     private readonly mailService: MailService,
+    private readonly config: ConfigService,
   ) {
     this.notificationMapper =
       this.dtoMapper.createSimpleMapper(NotificationDto);
@@ -118,6 +120,60 @@ export class NotificationsService {
     return Array.from(emailSet);
   }
 
+  /**
+   * Maps a notification context + entity id to a full frontend deep-link URL.
+   * Context values are normalised to kebab-case (mirrors frontend CONTEXT_ROUTE_MAP).
+   * Returns an empty string when no matching route is found.
+   */
+  private resolveActionUrl(context?: string, contextId?: string): string {
+    if (!context || !contextId) return '';
+
+    const frontendUrl =
+      this.config.get<string>('app.frontendUrl') ?? 'http://localhost:5173';
+
+    const normalized = context.toLowerCase().replace(/_/g, '-');
+
+    const routeMap: Record<string, (id: string) => string> = {
+      'risk-assessment': (id) => `/risk-assessment/${id}`,
+      'work-permit': (id) => `/work-permits/${id}`,
+      'ppe-withdrawal': (id) => `/ppe/withdrawals/${id}`,
+      'environmental-measurement': (id) => `/environmental-measurements/${id}`,
+      'waste-management': (id) => `/waste-management/${id}`,
+      'incident': (id) => `/incidents/${id}`,
+      'inspection': (id) => `/inspections/${id}`,
+      'inspection-item': (id) => `/inspections/${id}`,
+      'audit-item': (id) => `/audits/${id}`,
+      'weight-report': (id) => `/weight-reports/${id}`,
+      'dispatch-order': (id) => `/dispatch-orders/${id}`,
+      // Master data
+      'approval': (id) => `/master/approvals/${id}`,
+      'office': (id) => `/master/offices/${id}`,
+      'department': (id) => `/master/departments/${id}`,
+      'job-position': (id) => `/master/job-positions/${id}`,
+      'risk-category': (id) => `/master/risk-categories/${id}`,
+      'risk': (id) => `/master/risks/${id}`,
+      'area': (id) => `/master/areas/${id}`,
+      'room': (id) => `/master/rooms/${id}`,
+      'safety-equipment': (id) => `/master/safety-equipments/${id}`,
+      // PPE
+      'ppe-stock': (id) => `/ppe/stocks/${id}`,
+      // LMS
+      'course': (id) => `/courses/${id}`,
+      'enrollment': (id) => `/enrollments/${id}`,
+      'quiz': (id) => `/quizzes/${id}`,
+      // Certificates
+      'certificate': (id) => `/certificates/${id}`,
+      // User management
+      'user': (id) => `/users/${id}`,
+      'role': (id) => `/roles/${id}`,
+    };
+
+    const buildRoute = routeMap[normalized];
+    if (!buildRoute) return '';
+
+    return `${frontendUrl}${buildRoute(contextId)}`;
+  }
+
   // Helper method to send notification emails
   private async sendNotificationEmails(
     title: string,
@@ -129,6 +185,8 @@ export class NotificationsService {
     if (emailAddresses.length === 0) {
       return;
     }
+
+    const actionUrl = this.resolveActionUrl(context, contextId);
 
     // Send email to each address using the notification template
     const emailPromises = emailAddresses.map((email) =>
@@ -142,6 +200,7 @@ export class NotificationsService {
             message,
             context,
             contextId,
+            ...(actionUrl ? { actionUrl } : {}),
           },
         })
         .catch((error) => {

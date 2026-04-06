@@ -74,8 +74,10 @@ export function SearchableSelect({
     ? [{ value: 'none', label: 'None' }, ...safeOptions]
     : safeOptions;
 
-  // Check if we should show "Create new" option
-  const shouldShowCreateNew = onCreateNew && searchQuery.trim() && allOptions.length === 0 && !isLoading;
+  // "Create new" only when the async/local result list is empty. Do not use `allOptions` here:
+  // with `includeNone`, `allOptions` still has the None row, which would hide create-new forever.
+  const shouldShowCreateNew =
+    onCreateNew && searchQuery.trim() && safeOptions.length === 0 && !isLoading;
 
   // Debounced search handler
   const handleSearch = useCallback((query: string) => {
