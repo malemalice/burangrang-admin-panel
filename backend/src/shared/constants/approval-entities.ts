@@ -71,6 +71,16 @@ export const APPROVAL_ENTITY_TO_DEPARTMENT_COLUMN: Record<
 };
 
 /**
+ * Maps each data-scoped approval entity to the statuses that indicate it is pending approval.
+ * Used by ApprovalAccessService to grant read access to configured approvers.
+ * Only data-scoped entities that participate in master approvals are listed here.
+ */
+export const ENTITY_APPROVAL_PENDING_STATUSES: Partial<Record<ApprovalEntityName, string[]>> = {
+  [APPROVAL_ENTITIES.PPE_WITHDRAWAL]: ['WAITING_APPROVAL'],
+  [APPROVAL_ENTITIES.WORK_PERMIT]: ['WAITING_APPROVAL', 'IN_REVIEW_HSE', 'IN_REVIEW_SECURITY'],
+};
+
+/**
  * Helper: Get entity name from module name
  * Converts kebab-case module name to entity name
  *

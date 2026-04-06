@@ -16,4 +16,5 @@ export interface UserContext {
   roleName: string;
   dataLevel: DataLevel;
   departmentId: string | null;
+  jobPositionId: string | null;
 }

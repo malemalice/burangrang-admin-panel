@@ -20,6 +20,7 @@ import { APPROVAL_CHAIN_STATUS } from '../../shared/constants/approval-status';
 import { PaginatedResponse } from '../../shared/types/pagination-params';
 import { Prisma } from '@prisma/client';
 import { MasterApprovalsService } from '../approvals/master-approvals.service';
+import { ApprovalAccessService } from '../approvals/services/approval-access.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
 import { ApprovalStatus } from '../approvals/dto/submit-approval.dto';
 
@@ -33,6 +34,7 @@ export class WorkPermitsService {
     private readonly dtoMapper: DtoMapperService,
     private readonly dataScopeService: DataScopeService,
     private readonly masterApprovalsService: MasterApprovalsService,
+    private readonly approvalAccessService: ApprovalAccessService,
     private readonly notificationsService: NotificationsService,
   ) {
     this.workPermitMapper = this.dtoMapper.createRelationMapper(WorkPermitDto, {
@@ -130,6 +132,9 @@ export class WorkPermitsService {
 
   /**
    * Ensure current user can access the work permit (data-level). Throws 403 if not.
+   * Access is granted if the user owns/is-in-dept of the record (dataScope)
+   * OR if the user is a configured approver for WORK_PERMIT and the record is
+   * currently in an approval-pending status (approvalLineMatch).
    */
   private async ensureCanAccessWorkPermit(
     id: string,
@@ -146,8 +151,17 @@ export class WorkPermitsService {
         ? { departmentId: workPermit.creator.departmentId }
         : undefined,
     };
-    if (!this.dataScopeService.canAccessRecord(userContext, 'WorkPermit', recordForCheck)) {
-      this.errorHandler.throwForbidden('You do not have access to this record');
+    const ownAccess = this.dataScopeService.canAccessRecord(userContext, 'WorkPermit', recordForCheck);
+    if (!ownAccess) {
+      const approverAccess = await this.approvalAccessService.canViewAsApprover(
+        APPROVAL_ENTITIES.WORK_PERMIT,
+        id,
+        userContext,
+        workPermit.status,
+      );
+      if (!approverAccess) {
+        this.errorHandler.throwForbidden('You do not have access to this record');
+      }
     }
   }
 
@@ -782,11 +796,28 @@ export class WorkPermitsService {
         ];
       }
 
-      // Data-level scope: hide rows user is not allowed to see
+      // Data-level scope: hide rows user is not allowed to see.
+      // Approver exception: if the user is a configured approver for WORK_PERMIT,
+      // also include all records that are currently in an approval-pending status.
       const scopeWhere = this.dataScopeService.buildWhereForList(userContext, 'WorkPermit', where);
-      const finalWhere =
-        scopeWhere && Object.keys(scopeWhere).length > 0
-          ? { AND: [where, scopeWhere] }
+      const { isApprover, pendingStatuses } =
+        await this.approvalAccessService.isApproverForEntityType(APPROVAL_ENTITIES.WORK_PERMIT, userContext);
+
+      let accessWhere: Prisma.WorkPermitWhereInput;
+      if (isApprover && pendingStatuses.length > 0) {
+        const approverBranch: Prisma.WorkPermitWhereInput = { status: { in: pendingStatuses as any } };
+        accessWhere =
+          scopeWhere && Object.keys(scopeWhere).length > 0
+            ? { OR: [scopeWhere, approverBranch] }
+            : approverBranch;
+      } else {
+        accessWhere =
+          scopeWhere && Object.keys(scopeWhere).length > 0 ? scopeWhere : {};
+      }
+
+      const finalWhere: Prisma.WorkPermitWhereInput =
+        Object.keys(accessWhere).length > 0
+          ? { AND: [where, accessWhere] }
           : where;
 
       // Validate sortBy field

@@ -32,6 +32,7 @@ import {
 } from '@prisma/client';
 import { APPROVAL_ENTITIES } from '../../shared/constants/approval-entities';
 import { MasterApprovalsService } from '../approvals/master-approvals.service';
+import { ApprovalAccessService } from '../approvals/services/approval-access.service';
 import { NotificationsService } from '../notifications/services/notifications.service';
 import { ApprovalStatus } from '../approvals/dto/submit-approval.dto';
 import { MailService } from '../mail/mail.service';
@@ -62,6 +63,7 @@ export class PPEService {
         private readonly dtoMapper: DtoMapperService,
         private readonly dataScopeService: DataScopeService,
         private readonly masterApprovalsService: MasterApprovalsService,
+        private readonly approvalAccessService: ApprovalAccessService,
         private readonly notificationsService: NotificationsService,
         private readonly mailService: MailService,
         private readonly ppePdfService: PpePdfService,
@@ -1047,15 +1049,28 @@ export class PPEService {
 
     /**
      * Ensure current user can access the PPE withdrawal (data-level). Throws 403 if not.
+     * Access is granted if the user owns/is-in-dept of the record (dataScope)
+     * OR if the user is a configured approver for PPE_WITHDRAWAL and the record is
+     * currently in an approval-pending status (approvalLineMatch).
      */
     private async ensureCanAccessPPEWithdrawal(id: string, userContext: UserContext | undefined): Promise<void> {
         const withdrawal = await this.prisma["pPEWithdrawal"].findFirst({
             where: { id, deletedAt: null },
-            select: { requestedBy: true, requestedFor: true, createdBy: true, departmentId: true },
+            select: { requestedBy: true, requestedFor: true, createdBy: true, departmentId: true, status: true },
         });
         this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
-        if (!this.dataScopeService.canAccessRecord(userContext, 'PPEWithdrawal', withdrawal)) {
-            this.errorHandler.throwForbidden('You do not have access to this record');
+
+        const ownAccess = this.dataScopeService.canAccessRecord(userContext, 'PPEWithdrawal', withdrawal);
+        if (!ownAccess) {
+            const approverAccess = await this.approvalAccessService.canViewAsApprover(
+                APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+                id,
+                userContext,
+                withdrawal.status,
+            );
+            if (!approverAccess) {
+                this.errorHandler.throwForbidden('You do not have access to this record');
+            }
         }
     }
 
@@ -1190,11 +1205,30 @@ export class PPEService {
             }
         }
 
-        // Data-level scope: hide rows user is not allowed to see
+        // Data-level scope: hide rows user is not allowed to see.
+        // Approver exception: if the user is a configured approver for PPE_WITHDRAWAL,
+        // also include all records that are currently in an approval-pending status.
         const scopeWhere = this.dataScopeService.buildWhereForList(userContext, 'PPEWithdrawal', where);
-        const finalWhere =
-            scopeWhere && Object.keys(scopeWhere).length > 0
-                ? { AND: [where, scopeWhere] }
+        const { isApprover, pendingStatuses } = await this.approvalAccessService.isApproverForEntityType(
+            APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+            userContext,
+        );
+
+        let accessWhere: Prisma.PPEWithdrawalWhereInput;
+        if (isApprover && pendingStatuses.length > 0) {
+            const approverBranch: Prisma.PPEWithdrawalWhereInput = { status: { in: pendingStatuses as any } };
+            accessWhere =
+                scopeWhere && Object.keys(scopeWhere).length > 0
+                    ? { OR: [scopeWhere, approverBranch] }
+                    : approverBranch;
+        } else {
+            accessWhere =
+                scopeWhere && Object.keys(scopeWhere).length > 0 ? scopeWhere : {};
+        }
+
+        const finalWhere: Prisma.PPEWithdrawalWhereInput =
+            Object.keys(accessWhere).length > 0
+                ? { AND: [where, accessWhere] }
                 : where;
 
         const orderBy: Prisma.PPEWithdrawalOrderByWithRelationInput = {};
@@ -1273,7 +1307,33 @@ export class PPEService {
         this.errorHandler.throwIfNotFoundById('PPEWithdrawal', id, withdrawal);
 
         // Populate requestedForName from requestedForUser if not already set
-        return this.ppeWithdrawalMapper(this.populateRequestedForName(withdrawal));
+        const mapped = this.ppeWithdrawalMapper(this.populateRequestedForName(withdrawal));
+
+        // Enrich with approval action flags so the frontend can render buttons without extra calls
+        if (userContext?.userId) {
+            try {
+                const user = await this.getFullUser(userContext.userId);
+                const approvalRights = await this.masterApprovalsService.checkApprovalRights(
+                    id,
+                    user,
+                    APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+                );
+                const approvalStatus = await this.masterApprovalsService.checkApprovalStatus(
+                    id,
+                    APPROVAL_ENTITIES.PPE_WITHDRAWAL,
+                );
+                mapped.canApprove = approvalRights.canApprove;
+                mapped.canReject = approvalRights.canApprove;
+                mapped.nextApprover = approvalStatus.nextApprover ?? null;
+            } catch {
+                // Approval config may not exist for older records — degrade gracefully
+                mapped.canApprove = false;
+                mapped.canReject = false;
+                mapped.nextApprover = null;
+            }
+        }
+
+        return mapped;
     }
 
     /**

@@ -91,6 +91,27 @@ export class PPEWithdrawalDto {
     @Expose()
     items?: PPEWithdrawalItemDto[];
 
+    // Approval action flags — populated only on detail (GET /ppe/withdrawals/:id)
+    @ApiProperty({ required: false, nullable: true })
+    @Expose()
+    canApprove?: boolean | null;
+
+    @ApiProperty({ required: false, nullable: true })
+    @Expose()
+    canReject?: boolean | null;
+
+    @ApiProperty({
+        required: false,
+        nullable: true,
+        description: 'Next approver in the approval chain, or null when none pending',
+    })
+    @Expose()
+    nextApprover?: {
+        line: number;
+        department: { id: string; name: string };
+        jobPosition: { id: string; name: string };
+    } | null;
+
     constructor(partial: Partial<PPEWithdrawalDto>) {
         Object.assign(this, partial);
     }

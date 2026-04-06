@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { performance } from 'node:perf_hooks';
 import { format } from 'date-fns';
 import { PPEWithdrawalDto } from './dto/ppe-withdrawal.dto';
 import { ApprovalStatusHistory } from '../approvals/dto/master-approval.dto';
@@ -264,26 +265,67 @@ export class PpePdfService {
     approvalHistory: ApprovalStatusHistory | null,
     viewUrl: string,
   ): Promise<Buffer> {
+    const t0 = performance.now();
+    const step = (name: string, extra?: Record<string, unknown>) => {
+      const ms = Math.round(performance.now() - t0);
+      const suffix = extra !== undefined ? ` ${JSON.stringify(extra)}` : '';
+      this.logger.log(`[PPE PDF] +${ms}ms ${name}${suffix}`);
+    };
+
     const html = this.buildHtml(withdrawal, approvalHistory, viewUrl);
+    const htmlLen = html.length;
+    step('html_built', {
+      withdrawalId: withdrawal.id,
+      withdrawalCode: withdrawal.withdrawalCode ?? null,
+      htmlLen,
+      viewUrl: viewUrl?.slice(0, 120),
+      approvalHistorySteps: approvalHistory?.history?.length ?? 0,
+    });
 
     try {
-      // Dynamic import to avoid startup failure if puppeteer is not yet installed
+      step('import_puppeteer_start');
       const puppeteer = await import('puppeteer');
+      step('import_puppeteer_done');
+
+      step('launch_browser_start');
       const browser = await puppeteer.default.launch({
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
       });
+      step('launch_browser_done');
+
       const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
+      // Must set on the page: per-call `timeout` alone may still use 30s in some puppeteer versions.
+      page.setDefaultNavigationTimeout(90_000);
+      page.setDefaultTimeout(90_000);
+      step('new_page_ready', {
+        defaultNavigationTimeoutMs: 90_000,
+      });
+
+      step('set_content_start', { waitUntil: 'domcontentloaded' });
+      await page.setContent(html, {
+        waitUntil: 'domcontentloaded',
+        timeout: 90_000,
+      });
+      step('set_content_done');
+
+      step('page_pdf_start');
       const pdfBuffer = await page.pdf({
         format: 'A4',
         printBackground: true,
         margin: { top: '20mm', right: '15mm', bottom: '20mm', left: '15mm' },
       });
+      step('page_pdf_done', { pdfBytes: pdfBuffer.length });
+
       await browser.close();
+      step('browser_closed', { totalMs: Math.round(performance.now() - t0) });
+
       return Buffer.from(pdfBuffer);
     } catch (err) {
-      this.logger.error(`Failed to generate PDF via puppeteer: ${String(err)}`);
+      const ms = Math.round(performance.now() - t0);
+      this.logger.error(
+        `[PPE PDF] failed after ${ms}ms: ${err instanceof Error ? err.stack ?? err.message : String(err)}`,
+      );
       throw err;
     }
   }
