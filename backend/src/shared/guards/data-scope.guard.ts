@@ -70,6 +70,7 @@ export class DataScopeGuard implements CanActivate {
       roleName: role.name,
       dataLevel: dataLevel === 'SELF' || dataLevel === 'DEPARTMENT' ? dataLevel : 'SUPER',
       departmentId: dbUser.departmentId ?? null,
+      jobPositionId: dbUser.jobPositionId ?? null,
     };
 
     return true;

@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
 import { Decimal } from '@prisma/client/runtime/library';
+import { GeneralStatusEnum } from '@prisma/client';
 
 export class EnvironmentalMeasurementDto {
   @ApiProperty()
@@ -34,6 +35,10 @@ export class EnvironmentalMeasurementDto {
   @ApiProperty()
   @Expose()
   date: Date;
+
+  @ApiProperty({ enum: GeneralStatusEnum })
+  @Expose()
+  status: GeneralStatusEnum;
 
   @ApiProperty()
   @Expose()

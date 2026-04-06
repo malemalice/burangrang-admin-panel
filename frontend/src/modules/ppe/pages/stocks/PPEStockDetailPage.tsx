@@ -72,7 +72,7 @@ const PPEStockDetailPage = () => {
         <>
             <PageHeader
                 title={`Stock: ${stock.stockCode}`}
-                subtitle="View stock details and items"
+                subtitle="PO/PR code, received date, and line items"
                 actions={
                     <div className="flex gap-2">
                         <Button
@@ -105,7 +105,7 @@ const PPEStockDetailPage = () => {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div>
-                                <h3 className="text-sm font-medium text-gray-500">Stock Code</h3>
+                                <h3 className="text-sm font-medium text-gray-500">PO/PR Code</h3>
                                 <p className="mt-1 font-medium">{stock.stockCode}</p>
                             </div>
                             <div>

@@ -1,0 +1,19 @@
+{
+  "reportCode": "WR-2026-JAN-999",
+  "sourceId": "<uuid-waste-source>",
+  "storageLocationId": "<uuid-storage-location>",
+  "reportDate": "2026-01-15T00:00:00.000Z",
+  "reportMonth": "JAN",
+  "reportYear": 2026,
+  "submittedAt": "2026-01-15T08:30:00.000Z",
+  "isActive": true,
+  "items": [
+    {
+      "wasteTypeId": "<uuid-waste-type>",
+      "weight": 150.5,
+      "unit": "kg",
+      "order": 1,
+      "notes": "Sample waste item notes"
+    }
+  ]
+}

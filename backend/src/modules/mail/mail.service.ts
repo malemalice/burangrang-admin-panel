@@ -181,6 +181,7 @@ export class MailService {
       payload.email,
       payload.context,
       payload.subject,
+      payload.attachments,
     );
   }
 
@@ -250,6 +251,7 @@ export class MailService {
     to: string,
     context: Record<string, unknown> = {},
     subjectOverride?: string,
+    attachments?: NonNullable<nodemailer.SendMailOptions['attachments']>,
   ): Promise<void> {
     try {
       const tpl = await this.prisma.emailTemplate.findUnique({
@@ -273,7 +275,7 @@ export class MailService {
       const html = compiledBody(context);
 
       const { transporter, from } = await this.buildTransporter();
-      await transporter.sendMail({ from, to, subject, html });
+      await transporter.sendMail({ from, to, subject, html, attachments });
     } catch (error) {
       // Do not throw to avoid blocking critical flows
       this.logger.error(

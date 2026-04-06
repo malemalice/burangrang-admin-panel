@@ -66,6 +66,8 @@ export class WaterQualityLabReportsService {
                     code: p.code,
                     unit: p.unit,
                     category: p.category,
+                    regulatoryLimit:
+                      p.regulatoryLimit != null ? Number(p.regulatoryLimit) : undefined,
                   }
                 : undefined,
           },

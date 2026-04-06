@@ -2,7 +2,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsString,
-  IsNotEmpty,
   IsOptional,
   IsNumber,
   IsDateString,
@@ -13,7 +12,6 @@ import {
 import { CreateDispatchOrderAttachmentDto } from './dispatch-order-attachment.dto';
 
 export class CreateDispatchOrderDto {
-  @ApiProperty() @IsString() @IsNotEmpty() dispatchCode: string;
   @ApiProperty() @IsDateString() dispatchDate: string;
   @ApiProperty() @IsNumber() quantity: number;
   @ApiProperty({ required: false }) @IsString() @IsOptional() memo?: string;

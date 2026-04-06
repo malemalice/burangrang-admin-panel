@@ -482,6 +482,26 @@ Data-level access limits **which rows** a user can see or change, based on the r
 
 **Reference:** Full design and entity mapping table in `docs/auth.md`.
 
+### 4a. Approval-Assignee Read Exception (WorkPermit + PPEWithdrawal)
+
+For entities that are both data-scoped **and** participate in master approvals, the data-scope rule alone would silently block a legitimate approver (e.g. an HSE Head with `dataLevel=SELF` cannot see a withdrawal they did not create). The following complementary rule applies to **WorkPermit** and **PPEWithdrawal** only:
+
+**Rule:** `read = dataScope OR approvalLineMatch`
+
+- **approvalLineMatch**: The user's `departmentId + jobPositionId` matches at least one `masterApprovalItem` row configured for that entity type (fixed markers only; sentinel values are excluded naturally since they never equal a real UUID). The record must also be in an approval-pending status (`WAITING_APPROVAL` for PPEWithdrawal; `WAITING_APPROVAL | IN_REVIEW_HSE | IN_REVIEW_SECURITY` for WorkPermit).
+- **Write (approve/reject):** Unchanged — `MasterApprovalsService.checkApprovalRights` enforces the exact step match.
+- **`t_approvals`:** Remains a historical audit log; it is written only when someone acts (approve/reject). It is **not** pre-populated.
+- **`DataScopeService`:** Remains pure (SELF/DEPARTMENT/SUPER ownership only). The OR merge is applied inside each module service (`findAll` and `ensureCanAccess*`).
+- **`UserContext`:** Extended with `jobPositionId` (set by `DataScopeGuard` at no extra DB cost since `dbUser` is already fetched).
+
+**Central service:** `ApprovalAccessService` (in `MasterApprovalsModule`) provides:
+- `isApproverForEntityType(entityName, userCtx)` — single `masterApprovalItem.count` query; returns `{ isApprover, pendingStatuses }`.
+- `canViewAsApprover(entityName, entityId, userCtx, recordStatus)` — used in single-record gates.
+
+**Pending statuses registry:** `ENTITY_APPROVAL_PENDING_STATUSES` in `shared/constants/approval-entities.ts`.
+
+**Extending to future entities:** Add the entity's pending statuses to `ENTITY_APPROVAL_PENDING_STATUSES` and apply the same OR merge in its service.
+
 ## Error Handling
 
 ### 1. Centralized Error Handling Service
@@ -1626,15 +1646,10 @@ canApprove =
 ```
 
 **Source Entity Update:**
-- Reads `APPROVAL_ENTITY` env var (JSON: `{"EntityName":"table_name"}`)
+- Resolves the source table from `APPROVAL_ENTITY_TO_TABLE` in `backend/src/shared/constants/approval-entities.ts` (not environment variables).
 - Updates source entity status via raw SQL: `UPDATE table SET status = ? WHERE id = ?`
 
 ### Configuration
-
-**Environment Variables:**
-```env
-APPROVAL_ENTITY={"RiskAssessment":"t_risk_assessment","WORK_PERMIT":"t_work_permits"}
-```
 
 **Module Integration:**
 - Manual setup required: Create master approval template via API/UI

@@ -252,7 +252,7 @@ export default function DetailWaterQualityLabReportPage() {
                           <TableHead>Parameter</TableHead>
                           <TableHead>Value</TableHead>
                           <TableHead>Unit</TableHead>
-                          <TableHead>Compliant</TableHead>
+                          <TableHead>Regulatory Limit</TableHead>
                           <TableHead className="max-w-[200px]">Notes</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -265,7 +265,7 @@ export default function DetailWaterQualityLabReportPage() {
                             <TableCell>{r.resultValue}</TableCell>
                             <TableCell>{r.unit ?? r.parameter?.unit ?? '-'}</TableCell>
                             <TableCell>
-                              {r.isCompliant === true ? 'Yes' : r.isCompliant === false ? 'No' : '-'}
+                              {r.parameter?.regulatoryLimit ?? '-'}
                             </TableCell>
                             <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">
                               {r.notes ?? '-'}

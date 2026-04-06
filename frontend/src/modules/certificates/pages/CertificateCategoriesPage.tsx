@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, Trash2, Plus, MoreHorizontal, Award } from 'lucide-react';
+import { Edit, Eye, Trash2, Plus, MoreHorizontal, Award } from 'lucide-react';
 import { Badge } from '@/core/components/ui/badge';
 import { Button } from '@/core/components/ui/button';
 import {
@@ -21,6 +21,7 @@ import certificateCategoryService from '../services/certificateCategoryService';
 import { CertificateCategory } from '../types/certificate.types';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
+import { departmentService } from '@/modules/master-data';
 
 const CertificateCategoriesPage = () => {
     const navigate = useNavigate();
@@ -36,43 +37,68 @@ const CertificateCategoriesPage = () => {
     const [activeFilters, setActiveFilters] = useState<
         Record<string, { value: any; label: string }>
     >({});
+    const [departmentFilterOptions, setDepartmentFilterOptions] = useState<
+        { label: string; value: string }[]
+    >([]);
 
-    const filterFields: FilterField[] = useMemo(() => [
-        {
-            id: 'name',
-            label: 'Category Name',
-            type: 'text',
-        },
-        {
-            id: 'code',
-            label: 'Category Code',
-            type: 'text',
-        },
-        {
-            id: 'certificateType',
-            label: 'Certificate Type',
-            type: 'select',
-            options: [
-                { label: 'Personnel License', value: 'PERSONNEL_LICENSE' },
-                { label: 'Personnel Certificate', value: 'PERSONNEL_CERTIFICATE' },
-                { label: 'Equipment Calibration', value: 'EQUIPMENT_CALIBRATION' },
-                { label: 'Equipment Installation', value: 'EQUIPMENT_INSTALLATION' },
-                {
-                    label: 'Equipment Operational Permit',
-                    value: 'EQUIPMENT_OPERATIONAL_PERMIT',
-                },
-            ],
-        },
-        {
-            id: 'status',
-            label: 'Status',
-            type: 'select',
-            options: [
-                { label: 'Active', value: 'active' },
-                { label: 'Inactive', value: 'inactive' },
-            ],
-        },
-    ], []);
+    useEffect(() => {
+        departmentService
+            .getDepartments({ page: 1, limit: 1000, options: true })
+            .then((res) => {
+                setDepartmentFilterOptions(
+                    res.data.map((d) => ({ value: d.id, label: d.name })),
+                );
+            })
+            .catch((err) => console.error('Failed to load departments for filters:', err));
+    }, []);
+
+    const filterFields: FilterField[] = useMemo(() => {
+        const fields: FilterField[] = [
+            {
+                id: 'name',
+                label: 'Category Name',
+                type: 'text',
+                placeholder: 'Matches category name only (sidebar)',
+            },
+            {
+                id: 'code',
+                label: 'Category Code',
+                type: 'text',
+                placeholder: 'Matches category code only (sidebar)',
+            },
+            {
+                id: 'responsibleDepartmentId',
+                label: 'Responsible department',
+                type: 'searchableSelect',
+                options: departmentFilterOptions,
+            },
+            {
+                id: 'certificateType',
+                label: 'Certificate Type',
+                type: 'select',
+                options: [
+                    { label: 'Personnel License', value: 'PERSONNEL_LICENSE' },
+                    { label: 'Personnel Certificate', value: 'PERSONNEL_CERTIFICATE' },
+                    { label: 'Equipment Calibration', value: 'EQUIPMENT_CALIBRATION' },
+                    { label: 'Equipment Installation', value: 'EQUIPMENT_INSTALLATION' },
+                    {
+                        label: 'Equipment Operational Permit',
+                        value: 'EQUIPMENT_OPERATIONAL_PERMIT',
+                    },
+                ],
+            },
+            {
+                id: 'status',
+                label: 'Status',
+                type: 'select',
+                options: [
+                    { label: 'Active', value: 'active' },
+                    { label: 'Inactive', value: 'inactive' },
+                ],
+            },
+        ];
+        return fields;
+    }, [departmentFilterOptions]);
 
     const fetchData = useCallback(async () => {
         const params: any = {
@@ -90,6 +116,8 @@ const CertificateCategoriesPage = () => {
                 params.isActive = item.value === 'active';
             } else if (key === 'certificateType') {
                 params.certificateType = item.value;
+            } else if (key === 'responsibleDepartmentId') {
+                params.responsibleDepartmentId = item.value;
             } else if (key === 'name' || key === 'code') {
                 // Text filters are handled by search
                 if (!params.search) {
@@ -195,6 +223,13 @@ const CertificateCategoriesPage = () => {
                 };
                 // Update active tab to match filter
                 setActiveTab(filter.value === 'active' ? 'active' : filter.value === 'inactive' ? 'inactive' : 'all');
+            } else if (filter.id === 'responsibleDepartmentId') {
+                const id = String(filter.value);
+                const dept = departmentFilterOptions.find((o) => o.value === id);
+                newActiveFilters[filter.id] = {
+                    value: id,
+                    label: dept?.label ?? id,
+                };
             } else {
                 newActiveFilters[filter.id] = {
                     value: filter.value,
@@ -205,7 +240,7 @@ const CertificateCategoriesPage = () => {
 
         setActiveFilters(newActiveFilters);
         setPageIndex(0);
-    }, []);
+    }, [departmentFilterOptions]);
 
     const columns = useMemo(() => [
         {
@@ -286,6 +321,17 @@ const CertificateCategoriesPage = () => {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                            {hasPermission('certificate-category:read') && (
+                                <DropdownMenuItem
+                                    onSelect={(e) => {
+                                        e.preventDefault();
+                                        setOpenDropdownId(null);
+                                        navigate(`/master/certificate-categories/${category.id}`);
+                                    }}
+                                >
+                                    <Eye className="mr-2 h-4 w-4" /> View
+                                </DropdownMenuItem>
+                            )}
                             {hasPermission('certificate-category:update') && (
                                 <DropdownMenuItem
                                     onSelect={(e) => {
@@ -356,6 +402,7 @@ const CertificateCategoriesPage = () => {
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}
                 activeFilters={activeFilters}
+                searchPlaceholder="Search category name or code…"
             />
 
             <ConfirmDialog

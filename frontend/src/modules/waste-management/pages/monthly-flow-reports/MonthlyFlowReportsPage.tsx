@@ -260,6 +260,18 @@ export default function MonthlyFlowReportsPage() {
       isSortable: true,
     },
     {
+      id: 'initialFlow',
+      header: 'Initial Flow',
+      cell: (item: MonthlyFlowReport) => `${item.initialFlow?.toLocaleString()} m³/day`,
+      isSortable: true,
+    },
+    {
+      id: 'finalFlow',
+      header: 'Final Flow',
+      cell: (item: MonthlyFlowReport) => `${item.finalFlow?.toLocaleString()} m³/day`,
+      isSortable: true,
+    },
+    {
       id: 'actions',
       header: 'Actions',
       cell: (item: MonthlyFlowReport) => (

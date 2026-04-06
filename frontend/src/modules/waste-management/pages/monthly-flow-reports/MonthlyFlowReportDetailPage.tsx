@@ -155,19 +155,19 @@ export default function MonthlyFlowReportDetailPage() {
                                 </div>
                                 <div className="space-y-1">
                                     <span className="text-sm font-medium text-muted-foreground">Avg. Daily Flow</span>
-                                    <p className="font-medium text-lg">{data.averageDailyFlow?.toLocaleString()} m³/day</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <span className="text-sm font-medium text-muted-foreground">Peak Flow</span>
                                     <p className="font-medium text-lg">
-                                        {data.peakFlow ? `${data.peakFlow.toLocaleString()} m³/day` : '-'}
+                                        {data.averageDailyFlow != null
+                                            ? `${data.averageDailyFlow.toLocaleString()} m³/day`
+                                            : '-'}
                                     </p>
                                 </div>
                                 <div className="space-y-1">
-                                    <span className="text-sm font-medium text-muted-foreground">Minimum Flow</span>
-                                    <p className="font-medium text-lg">
-                                        {data.minimumFlow ? `${data.minimumFlow.toLocaleString()} m³/day` : '-'}
-                                    </p>
+                                    <span className="text-sm font-medium text-muted-foreground">Initial Flow</span>
+                                    <p className="font-medium text-lg">{data.initialFlow.toLocaleString()} m³/day</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <span className="text-sm font-medium text-muted-foreground">Final Flow</span>
+                                    <p className="font-medium text-lg">{data.finalFlow.toLocaleString()} m³/day</p>
                                 </div>
                             </div>
                         </div>

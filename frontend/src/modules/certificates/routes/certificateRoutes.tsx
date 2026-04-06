@@ -6,6 +6,7 @@ import CertificateDetailPage from '../pages/CertificateDetailPage';
 import CertificateCategoriesPage from '../pages/CertificateCategoriesPage';
 import CreateCertificateCategoryPage from '../pages/CreateCertificateCategoryPage';
 import EditCertificateCategoryPage from '../pages/EditCertificateCategoryPage';
+import CertificateCategoryDetailPage from '../pages/CertificateCategoryDetailPage';
 
 const certificateRoutes: RouteConfig[] = [
     {
@@ -31,6 +32,10 @@ const certificateRoutes: RouteConfig[] = [
     {
         path: '/master/certificate-categories/:id/edit',
         component: EditCertificateCategoryPage,
+    },
+    {
+        path: '/master/certificate-categories/:id',
+        component: CertificateCategoryDetailPage,
     },
     {
         path: '/master/certificate-categories',

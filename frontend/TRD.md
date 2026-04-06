@@ -2,11 +2,11 @@
 ## Frontend Modular Architecture Restructuring
 
 ### 📋 Document Information
-- **Version**: 1.11
+- **Version**: 1.12
 - **Date**: 2025-02-21
 - **Status**: Active
 - **Author**: Development Team
-- **Last Updated**: Workflow Guideline UI — dynamic approval steps from Master Approval (content, structure, UI/UX)
+- **Last Updated**: PDF — Verification and approval (digital) section for Master Approval–integrated exports
 
 ---
 
@@ -14,6 +14,7 @@
 
 This document outlines the technical requirements and architectural principles for restructuring the frontend application from a traditional layered architecture to a modular, feature-based architecture. The restructuring aims to improve maintainability, scalability, and developer experience while following modern frontend best practices.
 
+**Version 1.12 Updates**: Added **PDF — Verification and approval (digital)** under Advanced Features: mandatory structure for PDF templates when an entity uses Master Approvals (`ApprovalStatusHistory`: summary line, workflow-by-step table, chronological log, empty state). Reference: `EnvironmentalMeasurementPDFTemplate`, `WeightReportPDFTemplate`.
 **Version 1.11 Updates**: Added "Workflow Guideline UI — Principles for Creating Workflow Information" under Document Workflow & Status Management Patterns. Defines content principles (status per step, concrete ownership Who/Role-Dept, one-line description, terminal state), structure principles (sequential steps, consistent fields per step, short intro), and UI/UX principles (one card per step, semantic color, connectors, terminal callout, dialog layout). **Workflow guidelines must be dynamic**: approval steps (who approves) are driven by Master Approval configuration — fetch by entity from `approval-entities`, render approval lines from `masterApproval.items` (with sentinel labels), fallback when no config. Reference: MasterApprovalForm, InspectionItemsPage.
 **Version 1.10 Updates**: Added "Data-Level Access (Backend)" — for data-scoped modules (Enrollments, Work Permits, Certificates, PPE Withdrawals) the backend enforces row-level access (SELF / DEPARTMENT / SUPER). Lists may return fewer rows or empty; single-record requests (get by id, update, delete) may return 403. Handle 403 with a clear message (e.g. "You do not have access to this record"); treat empty lists as valid, not as errors. Reference: Error Handling Patterns, docs/auth.md.
 **Version 1.9 Updates**: Added "Options Bypass for Select/Dropdown Data" — when fetching list data for form dropdowns/selects, add `options: true` to query params so users without the specific `*:list` permission can still load options for forms they have access to. Use: `departmentService.getDepartments({ page: 1, limit: 100, options: true })`. Reference: UserForm, CertificateForm, Inter-Module API Calls.
@@ -690,7 +691,40 @@ Use these when adding "Export PDF" on entity detail pages (e.g. Risk Assessment,
 4. **Hidden target**: Render the template in a div with `ref={targetRef}`, off-screen (`position: 'absolute', left: '-9999px', top: '-9999px'`), fixed width (e.g. `210mm`), `aria-hidden="true"`. Only this div is used for PDF.
 5. **Data fallback**: Pass to template: items = `allItemsForPDF.length ? allItemsForPDF : items`, approval = `approvalHistoryForPDF ?? approvalHistory` so PDF still works if the full fetch hasn’t completed or fails.
 6. **UX**: Filename = `{entityCode}-{yyyyMMdd-HHmmss}.pdf`. Disable export and show "Preparing PDF…" while loading; toast on success/error.
-7. **Template structure**: Header (title + code + date) → Details (key fields; optional HTML with `dangerouslySetInnerHTML` in a constrained block) → Full data table(s) → Approval timeline (workflow + history) if applicable. Format dates with `date-fns`; use semantic colors for status.
+7. **Template structure**: Header (title + code + date) → Details (key fields; optional HTML with `dangerouslySetInnerHTML` in a constrained block) → Full data table(s) → **Verification and approval** (digital; see below) when the entity uses Master Approvals. Format dates with `date-fns`; use semantic colors for status.
+
+#### PDF — Verification and approval section (digital)
+
+For entities integrated with **Master Approvals**, exported PDFs must include a **Verification and approval** section that reflects **digital approval** data from the backend. Do **not** rely on a standalone traditional “Persetujuan” table or wet-signature blocks as the only source of approval evidence—use the same pattern as **`EnvironmentalMeasurementPDFTemplate`** and **`WeightReportPDFTemplate`**.
+
+**Data source**
+
+- Load `ApprovalStatusHistory` via `approvalService.checkApprovalStatus(entityId, APPROVAL_ENTITIES.<ENTITY>)` (align entity with backend `m_approvals.entity`).
+- Pass into the PDF template as `approvalHistory?: ApprovalStatusHistory | null`.
+- **Detail export**: Prefer refreshing approval immediately before capture (e.g. `approvalHistoryForPDF` snapshot) so the PDF matches the latest `t_approvals` rows—same idea as `EnvironmentalMeasurementDetailPage` / `handleExportPDF`.
+- **List / bulk export**: Fetch approval status **per record** in the export queue before calling `toPDF()` for that row so each file embeds the correct workflow and log.
+
+**Section structure** (order and labels)
+
+1. **Section title**: `Verification and approval` (use this English heading for consistency across modules; introductory copy elsewhere on the PDF may stay bilingual per module).
+2. **Summary line**
+   - **Current approval status**: `approvalHistory.currentStatus`, or fallback to the entity’s workflow status field if needed.
+   - If the record is **not** in a terminal “done/closed” state and `approvalHistory.nextApprover` is set: append **Next responsible party**: organizational unit (`department.name`) — position (`jobPosition.name`), and **Step** using 1-based step index (`line + 1` from the API).
+3. **Approval workflow (by step)** — render when `approvalHistory.allApprovalLines.length > 0`
+   - One row per configured line from Master Approval.
+   - Columns: Step no., Organizational unit, Position, Status (derive per line from `line.status` and the latest matching entry in `history` for the same `line`: e.g. completed / awaiting verification / pending), Action by (approver name when completed), Date and time (of the last action on that line, if any).
+4. **Chronological approval log** — render when `approvalHistory.history.length > 0`
+   - Sort by `createdAt` ascending.
+   - Columns: No., Status, Action by, Organizational unit, Position, Date and time, Remarks (`notes`).
+5. **No workflow**: If there are no approval lines and no history rows, show a short message such as: *No approval workflow is associated with this record.*
+
+**Layout and capture**
+
+- Prefer plain HTML `<table>` with `style={{ borderCollapse: 'collapse' }}`, borders `border-gray-300`, header row background `bg-gray-100` for reliable `react-to-pdf` / html2canvas output.
+- Optional: root wrapper `style={{ fontFamily: 'Arial, sans-serif' }}` and `text-gray-900` / `bg-white` for print clarity.
+- Status text may use semantic color classes (e.g. green for approved, red for rejected), matching the on-screen timeline where practical.
+
+**References**: `EnvironmentalMeasurementPDFTemplate.tsx`, `WeightReportPDFTemplate.tsx`, `EnvironmentalMeasurementDetailPage` (PDF + `approvalHistoryForPDF` pattern).
 
 #### Comparison Views
 - **Side-by-side**: Compare two records or versions
@@ -2602,6 +2636,7 @@ const columns = [
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.12 | 2026-04-04 | Development Team | Added **PDF — Verification and approval section (digital)** under Advanced Features: data source (`ApprovalStatusHistory`), section structure (summary, workflow-by-step table, chronological log, empty state), layout for print capture. Updated PDF Export template structure bullet to reference this subsection. Reference: EnvironmentalMeasurementPDFTemplate, WeightReportPDFTemplate. |
 | 1.11 | 2025-02-21 | Development Team | Added "Workflow Guideline UI — Principles for Creating Workflow Information" (item 9) under Document Workflow & Status Management Patterns. Workflow guidelines are dynamic: approval steps driven by Master Approval (fetch by entity, render items with sentinel labels, fallback if no config). Content/structure/UI principles as above. Reference: MasterApprovalForm, InspectionItemsPage. |
 | 1.9 | 2025-02-03 | Development Team | Added "Options Bypass for Select/Dropdown Data" under Inter-Module API Calls and Cross-Module Data Dependencies: use `options: true` in query params when fetching list data for form dropdowns so users without the specific list permission can load options. Reference: UserForm, CertificateForm. |
 | 1.8 | 2024-12-20 | Development Team | Added "PDF Export (Detail Page) — Implementation Principles" under Advanced Features: react-to-pdf, dedicated PDF template, full data fetch before capture, hidden target, data fallback, filename/UX, template structure. Reference: RiskAssessmentDetailPage, RiskAssessmentPDFTemplate. |

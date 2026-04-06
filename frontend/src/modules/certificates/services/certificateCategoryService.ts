@@ -21,13 +21,22 @@ const mapCategoryDtoToCategory = (
         isActive: categoryDto.isActive,
         createdAt: categoryDto.createdAt,
         updatedAt: categoryDto.updatedAt,
+        responsibleDepartments: (categoryDto.responsibleDepartments ?? []).map((d) => ({
+            id: d.id,
+            name: d.name,
+            emails: d.emails ?? undefined,
+        })),
     };
 };
 
 const certificateCategoryService = {
     // Get all categories with pagination
     getCategories: async (
-        params: PaginationParams & { isActive?: boolean; certificateType?: string },
+        params: PaginationParams & {
+            isActive?: boolean;
+            certificateType?: string;
+            responsibleDepartmentId?: string;
+        },
     ): Promise<PaginatedResponse<CertificateCategory>> => {
         try {
             const queryParams = new URLSearchParams({
@@ -52,6 +61,10 @@ const certificateCategoryService = {
             // Handle certificateType filter
             if (params.certificateType) {
                 queryParams.append('certificateType', params.certificateType);
+            }
+
+            if (params.responsibleDepartmentId) {
+                queryParams.append('responsibleDepartmentId', params.responsibleDepartmentId);
             }
 
             // Handle other filters from params.filters

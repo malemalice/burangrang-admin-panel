@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Eye, Package, Trash2, Info, ArrowRight, FileText, CheckCircle2 } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { usePDF } from 'react-to-pdf';
+import { format } from 'date-fns';
+import { toast } from 'sonner';
+import { Plus, Eye, Package, Trash2, Info, ArrowRight, FileText, CheckCircle2, FileDown, Printer } from 'lucide-react';
+import { PPEWithdrawalListPDFTemplate } from '../components/PPEWithdrawalListPDFTemplate';
+import { PPEWithdrawalPDFTemplate } from '../components/PPEWithdrawalPDFTemplate';
+import ppeService from '../services/ppeService';
+import approvalService from '@/modules/master-data/services/approvalService';
+import type { ApprovalStatusHistory } from '@/modules/master-data';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import DataTable from '@/core/components/ui/data-table/DataTable';
@@ -16,24 +24,82 @@ import {
 } from '@/core/components/ui/dialog';
 import { usePPEWithdrawals } from '../hooks/usePPE';
 import { PPEWithdrawal, PPEWithdrawalSearchParams, PPEWithdrawalStatus } from '../types/ppe.types';
-import { FilterField } from '@/core/components/ui/filter-drawer';
+import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { departmentService, masterApprovalService, type Department } from '@/modules/master-data';
 import { APPROVAL_ENTITIES } from '@/modules/master-data/constants/approval-entities';
 import { MasterApprovalItem, PaginationParams } from '@/core/lib/types';
 
+const FILTER_PARAM_KEYS = ['withdrawalCode', 'status', 'departmentId', 'withdrawalDateFrom', 'withdrawalDateTo'] as const;
+
+const emptyApprovalHistory: ApprovalStatusHistory = {
+    history: [],
+    nextApprover: null,
+    allApprovalLines: [],
+    currentStatus: 'UNKNOWN',
+};
+
 const PPEWithdrawPage = () => {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { withdrawals, totalWithdrawals, isLoading, fetchWithdrawals, deleteWithdrawal } = usePPEWithdrawals();
-    const [pageIndex, setPageIndex] = useState(0);
-    const [limit, setLimit] = useState(10);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [sorting, setSorting] = useState<{ id: string; desc: boolean } | null>(null);
-    const [activeFilters, setActiveFilters] = useState<Record<string, { value: any; label: string }>>({});
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [withdrawalToDelete, setWithdrawalToDelete] = useState<PPEWithdrawal | null>(null);
     const [departments, setDepartments] = useState<Department[]>([]);
     const [isWorkflowInfoDialogOpen, setIsWorkflowInfoDialogOpen] = useState(false);
     const [ppeWithdrawalApprovalLines, setPpeWithdrawalApprovalLines] = useState<MasterApprovalItem[] | null>(null);
+    const [isExportingPDF, setIsExportingPDF] = useState(false);
+    const [printingRowId, setPrintingRowId] = useState<string | null>(null);
+    const [rowPdfPayload, setRowPdfPayload] = useState<{
+        withdrawal: PPEWithdrawal;
+        approval: ApprovalStatusHistory | null;
+    } | null>(null);
+
+    const { toPDF, targetRef } = usePDF({
+        filename: `ppe-withdrawals-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+    });
+
+    const handleExportPDF = async () => {
+        try {
+            setIsExportingPDF(true);
+            setRowPdfPayload(null);
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            await toPDF({
+                filename: `ppe-withdrawals-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+            });
+            toast.success('PDF exported successfully');
+        } catch (error) {
+            console.error('Failed to export PDF:', error);
+            toast.error('Failed to export PDF');
+        } finally {
+            setIsExportingPDF(false);
+        }
+    };
+
+    const handlePrintRowPDF = useCallback(async (withdrawal: PPEWithdrawal) => {
+        setPrintingRowId(withdrawal.id);
+        try {
+            const [full, status] = await Promise.all([
+                ppeService.getWithdrawalById(withdrawal.id),
+                approvalService.checkApprovalStatus(withdrawal.id, APPROVAL_ENTITIES.PPE_WITHDRAWAL),
+            ]);
+            const approval =
+                status && !(status as unknown as { error?: boolean }).error
+                    ? status
+                    : emptyApprovalHistory;
+            setRowPdfPayload({ withdrawal: full, approval });
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            await toPDF({
+                filename: `ppe-withdrawal-${full.withdrawalCode}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+            });
+            toast.success('PDF exported successfully');
+        } catch (error) {
+            console.error('Failed to export withdrawal PDF:', error);
+            toast.error('Failed to export PDF');
+        } finally {
+            setRowPdfPayload(null);
+            setPrintingRowId(null);
+        }
+    }, [toPDF]);
 
     // Fetch Master Approval lines for PPE_WITHDRAWAL when workflow dialog opens (for dynamic workflow guideline)
     useEffect(() => {
@@ -83,7 +149,7 @@ const PPEWithdrawPage = () => {
         {
             id: 'status',
             label: 'Status',
-            type: 'select',
+            type: 'searchableSelect',
             options: [
                 { label: 'Pending', value: 'PENDING' },
                 { label: 'Waiting Approval', value: 'WAITING_APPROVAL' },
@@ -96,7 +162,7 @@ const PPEWithdrawPage = () => {
         {
             id: 'departmentId',
             label: 'Department',
-            type: 'select',
+            type: 'searchableSelect',
             options: departments.map((dept) => ({
                 label: dept.name,
                 value: dept.id,
@@ -112,19 +178,84 @@ const PPEWithdrawPage = () => {
             label: 'Withdrawal Date To',
             type: 'date',
         },
-    ], []);
+    ], [departments]);
+
+    const pageIndex = useMemo(() => {
+        const raw = searchParams.get('page');
+        const page = raw ? Number(raw) : 1;
+        if (!Number.isFinite(page) || page <= 0) return 0;
+        return Math.floor(page) - 1;
+    }, [searchParams]);
+
+    const limit = useMemo(() => {
+        const raw = searchParams.get('limit');
+        const parsed = raw ? Number(raw) : 10;
+        if (!Number.isFinite(parsed) || parsed <= 0) return 10;
+        return Math.floor(parsed);
+    }, [searchParams]);
+
+    const searchTerm = useMemo(() => searchParams.get('search') ?? '', [searchParams]);
+
+    const activeFilters = useMemo(() => {
+        const out: Record<string, { value: unknown; label: string }> = {};
+        const withdrawalCode = searchParams.get('withdrawalCode');
+        if (withdrawalCode) out.withdrawalCode = { value: withdrawalCode, label: withdrawalCode };
+        const status = searchParams.get('status');
+        if (status) {
+            const field = filterFields.find((f) => f.id === 'status');
+            const opt = field?.options?.find((o) => o.value === status);
+            out.status = { value: status, label: opt?.label ?? status };
+        }
+        const departmentId = searchParams.get('departmentId');
+        if (departmentId) {
+            const dept = departments.find((d) => d.id === departmentId);
+            out.departmentId = { value: departmentId, label: dept?.name ?? departmentId };
+        }
+        const withdrawalDateFrom = searchParams.get('withdrawalDateFrom');
+        if (withdrawalDateFrom) {
+            out.withdrawalDateFrom = { value: withdrawalDateFrom, label: 'Withdrawal Date From' };
+        }
+        const withdrawalDateTo = searchParams.get('withdrawalDateTo');
+        if (withdrawalDateTo) {
+            out.withdrawalDateTo = { value: withdrawalDateTo, label: 'Withdrawal Date To' };
+        }
+        return out;
+    }, [searchParams, filterFields, departments]);
+
+    const sorting = useMemo((): { id: string; desc: boolean } | null => {
+        const sortBy = searchParams.get('sortBy');
+        const sortOrder = searchParams.get('sortOrder');
+        if (!sortBy) return null;
+        return { id: sortBy, desc: sortOrder !== 'asc' };
+    }, [searchParams]);
+
+    const updateSearchParams = useCallback(
+        (updater: (next: URLSearchParams) => void, options: { replace?: boolean } = { replace: true }) => {
+            const next = new URLSearchParams(searchParams);
+            updater(next);
+            setSearchParams(next, options);
+        },
+        [searchParams, setSearchParams]
+    );
 
     const loadWithdrawals = useCallback(() => {
+        const codeFilter =
+            typeof activeFilters.withdrawalCode?.value === 'string'
+                ? activeFilters.withdrawalCode.value.trim()
+                : '';
+        const toolbar = searchTerm.trim();
+        const searchForApi = codeFilter || toolbar || undefined;
+
         const params: PPEWithdrawalSearchParams = {
             page: pageIndex + 1,
             limit,
             sortBy: sorting?.id || 'updatedAt',
             sortOrder: sorting ? (sorting.desc ? 'desc' : 'asc') : 'desc',
-            search: searchTerm,
+            search: searchForApi,
             status: activeFilters.status?.value as PPEWithdrawalStatus | undefined,
-            departmentId: activeFilters.departmentId?.value,
-            withdrawalDateFrom: activeFilters.withdrawalDateFrom?.value,
-            withdrawalDateTo: activeFilters.withdrawalDateTo?.value,
+            departmentId: activeFilters.departmentId?.value as string | undefined,
+            withdrawalDateFrom: activeFilters.withdrawalDateFrom?.value as string | undefined,
+            withdrawalDateTo: activeFilters.withdrawalDateTo?.value as string | undefined,
         };
         fetchWithdrawals(params);
     }, [pageIndex, limit, searchTerm, activeFilters, sorting, fetchWithdrawals]);
@@ -133,19 +264,40 @@ const PPEWithdrawPage = () => {
         loadWithdrawals();
     }, [loadWithdrawals]);
 
-    const handleSearch = useCallback((term: string) => {
-        setSearchTerm(term);
-        setPageIndex(0);
-    }, []);
+    const handleSearch = useCallback(
+        (term: string) => {
+            const trimmed = term.trim();
+            updateSearchParams((next) => {
+                if (trimmed) next.set('search', trimmed);
+                else next.delete('search');
+                next.set('page', '1');
+            });
+        },
+        [updateSearchParams]
+    );
 
-    const handleApplyFilters = useCallback((filterValues: any[]) => {
-        const newFilters: Record<string, { value: any; label: string }> = {};
-        filterValues.forEach((filter) => {
-            newFilters[filter.id] = { value: filter.value, label: filter.label || filter.id };
-        });
-        setActiveFilters(newFilters);
-        setPageIndex(0);
-    }, []);
+    const handleApplyFilters = useCallback(
+        (filterValues: FilterValue[]) => {
+            updateSearchParams((next) => {
+                FILTER_PARAM_KEYS.forEach((k) => next.delete(k));
+                filterValues.forEach((filter) => {
+                    if (filter.value === undefined || filter.value === null || filter.value === '') return;
+                    if (filter.id === 'withdrawalDateFrom' || filter.id === 'withdrawalDateTo') {
+                        if (typeof filter.value === 'string') {
+                            const date = new Date(filter.value);
+                            if (!isNaN(date.getTime())) {
+                                next.set(filter.id, date.toISOString().split('T')[0]);
+                            }
+                        }
+                    } else {
+                        next.set(filter.id, String(filter.value));
+                    }
+                });
+                next.set('page', '1');
+            });
+        },
+        [updateSearchParams]
+    );
 
     const handleDeleteClick = useCallback((withdrawal: PPEWithdrawal, event?: React.MouseEvent) => {
         // Only allow delete for PENDING or CANCELLED status
@@ -175,10 +327,34 @@ const PPEWithdrawPage = () => {
         setWithdrawalToDelete(null);
     }, []);
 
-    const handleSortingChange = useCallback((newSorting: { id: string; desc: boolean } | null) => {
-        setSorting(newSorting);
-        setPageIndex(0);
-    }, []);
+    const handleSortingChange = useCallback(
+        (newSorting: { id: string; desc: boolean } | null) => {
+            updateSearchParams((next) => {
+                if (newSorting) {
+                    next.set('sortBy', newSorting.id);
+                    next.set('sortOrder', newSorting.desc ? 'desc' : 'asc');
+                } else {
+                    next.delete('sortBy');
+                    next.delete('sortOrder');
+                }
+                next.set('page', '1');
+            });
+        },
+        [updateSearchParams]
+    );
+
+    const handlePageChange = (page: number) => {
+        updateSearchParams((next) => {
+            next.set('page', String(page + 1));
+        });
+    };
+
+    const handlePageSizeChange = (size: number) => {
+        updateSearchParams((next) => {
+            next.set('limit', String(size));
+            next.set('page', '1');
+        });
+    };
 
     const getStatusBadge = useCallback((status: PPEWithdrawalStatus) => {
         const variants: Record<PPEWithdrawalStatus, { className: string; label: string }> = {
@@ -240,16 +416,36 @@ const PPEWithdrawPage = () => {
             header: 'Actions',
             cell: (withdrawal: PPEWithdrawal) => {
                 const canDelete = withdrawal.status === PPEWithdrawalStatus.PENDING || withdrawal.status === PPEWithdrawalStatus.CANCELLED;
+                const isPrintingThisRow = printingRowId === withdrawal.id;
                 return (
                     <div className="flex items-center gap-2">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => navigate(`/ppe/withdrawals/${withdrawal.id}`)}
-                            title="View Details"
-                        >
-                            <Eye className="h-4 w-4" />
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => navigate(`/ppe/withdrawals/${withdrawal.id}`)}
+                                    title="View Details"
+                                >
+                                    <Eye className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>View Details</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handlePrintRowPDF(withdrawal)}
+                                    disabled={isLoading || isExportingPDF || printingRowId !== null}
+                                    title="Print PDF"
+                                >
+                                    <Printer className={`h-4 w-4 ${isPrintingThisRow ? 'animate-pulse' : ''}`} />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Print PDF</TooltipContent>
+                        </Tooltip>
                         {canDelete && (
                             <Button
                                 variant="ghost"
@@ -266,10 +462,26 @@ const PPEWithdrawPage = () => {
             },
             isSortable: false,
         },
-    ], [navigate, handleDeleteClick, getStatusBadge]);
+    ], [navigate, handleDeleteClick, getStatusBadge, handlePrintRowPDF, printingRowId, isLoading, isExportingPDF]);
 
     return (
         <>
+            {/* Hidden PDF template: list export or single-row detail export */}
+            <div
+                ref={targetRef}
+                style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+                aria-hidden="true"
+            >
+                {rowPdfPayload ? (
+                    <PPEWithdrawalPDFTemplate
+                        withdrawal={rowPdfPayload.withdrawal}
+                        approvalHistory={rowPdfPayload.approval}
+                        viewUrl={`${window.location.origin}/ppe/withdrawals/${rowPdfPayload.withdrawal.id}`}
+                    />
+                ) : (
+                    <PPEWithdrawalListPDFTemplate withdrawals={withdrawals} />
+                )}
+            </div>
             <PageHeader
                 title="PPE Withdrawals"
                 subtitle="Manage PPE withdrawal requests"
@@ -291,6 +503,14 @@ const PPEWithdrawPage = () => {
                                 <p>View PPE Withdrawal Workflow</p>
                             </TooltipContent>
                         </Tooltip>
+                        <Button
+                            variant="outline"
+                            onClick={handleExportPDF}
+                            disabled={isLoading || isExportingPDF}
+                        >
+                            <FileDown className="mr-2 h-4 w-4" />
+                            {isExportingPDF ? 'Exporting...' : 'Export PDF'}
+                        </Button>
                         <Button onClick={() => navigate('/ppe/withdrawals/new')}>
                             <Plus className="mr-2 h-4 w-4" /> New Withdrawal
                         </Button>
@@ -306,8 +526,8 @@ const PPEWithdrawPage = () => {
                     pageIndex,
                     limit,
                     pageCount: Math.ceil(totalWithdrawals / limit),
-                    onPageChange: setPageIndex,
-                    onPageSizeChange: setLimit,
+                    onPageChange: handlePageChange,
+                    onPageSizeChange: handlePageSizeChange,
                     total: totalWithdrawals,
                 }}
                 sorting={sorting}
@@ -316,6 +536,7 @@ const PPEWithdrawPage = () => {
                 onSearch={handleSearch}
                 onApplyFilters={handleApplyFilters}
                 activeFilters={activeFilters}
+                searchValue={searchTerm}
                 searchPlaceholder="Search by withdrawal code"
             />
 

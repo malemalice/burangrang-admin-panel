@@ -28,9 +28,8 @@ const formSchema = z.object({
   treatmentPlantId: z.string().min(1, 'Treatment plant is required'),
   reportDate: z.string().min(1, 'Report date is required'),
   totalVolume: z.coerce.number().min(0),
-  averageDailyFlow: z.coerce.number().min(0),
-  peakFlow: z.coerce.number().optional(),
-  minimumFlow: z.coerce.number().optional(),
+  initialFlow: z.coerce.number().min(0),
+  finalFlow: z.coerce.number().min(0),
   reportDocumentUrl: z.string().optional(),
   status: z.nativeEnum(ReportStatusEnum).optional(),
   isActive: z.boolean().default(true),
@@ -70,7 +69,8 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
       treatmentPlantId: '',
       reportDate: new Date().toISOString().split('T')[0],
       totalVolume: 0,
-      averageDailyFlow: 0,
+      initialFlow: 0,
+      finalFlow: 0,
       reportDocumentUrl: '',
       isActive: true,
       status: ReportStatusEnum.SUBMITTED,
@@ -153,9 +153,8 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
             treatmentPlantId: data.treatmentPlantId,
             reportDate: data.reportDate ? new Date(data.reportDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             totalVolume: data.totalVolume,
-            averageDailyFlow: data.averageDailyFlow,
-            peakFlow: data.peakFlow,
-            minimumFlow: data.minimumFlow,
+            initialFlow: data.initialFlow,
+            finalFlow: data.finalFlow,
             reportDocumentUrl: data.reportDocumentUrl || '',
             status: data.status,
             isActive: data.isActive,
@@ -181,9 +180,8 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
           treatmentPlantId: data.treatmentPlantId,
           reportDate: new Date(data.reportDate).toISOString(),
           totalVolume: data.totalVolume,
-          averageDailyFlow: data.averageDailyFlow,
-          peakFlow: data.peakFlow,
-          minimumFlow: data.minimumFlow,
+          initialFlow: data.initialFlow,
+          finalFlow: data.finalFlow,
           reportDocumentUrl: data.reportDocumentUrl,
           isActive: data.isActive,
           submittedAt: new Date().toISOString(),
@@ -196,9 +194,8 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
           treatmentPlantId: data.treatmentPlantId,
           reportDate: new Date(data.reportDate).toISOString(),
           totalVolume: data.totalVolume,
-          averageDailyFlow: data.averageDailyFlow,
-          peakFlow: data.peakFlow,
-          minimumFlow: data.minimumFlow,
+          initialFlow: data.initialFlow,
+          finalFlow: data.finalFlow,
           reportDocumentUrl: data.reportDocumentUrl,
           isActive: data.isActive,
           status: data.status,
@@ -237,7 +234,9 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
                 name="reportCode"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Report Code *</FormLabel>
+                    <FormLabel>
+                      Report Code <span className="text-destructive">*</span>
+                    </FormLabel>
                     <FormControl>
                       <Input placeholder="Enter code" {...field} />
                     </FormControl>
@@ -250,7 +249,9 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
                 name="treatmentPlantId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Treatment Plant *</FormLabel>
+                    <FormLabel>
+                      Treatment Plant <span className="text-destructive">*</span>
+                    </FormLabel>
                     <FormControl>
                       <SearchableSelect
                         options={plants.map((p) => ({ label: p.name, value: p.id }))}
@@ -271,7 +272,9 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
                 name="reportDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Report Date *</FormLabel>
+                    <FormLabel>
+                      Report Date <span className="text-destructive">*</span>
+                    </FormLabel>
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>
@@ -287,20 +290,9 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
                 name="totalVolume"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Total Volume (m³) *</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="averageDailyFlow"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Avg Daily Flow (m³/day) *</FormLabel>
+                    <FormLabel>
+                      Total Volume (m³) <span className="text-destructive">*</span>
+                    </FormLabel>
                     <FormControl>
                       <Input type="number" step="0.01" {...field} />
                     </FormControl>
@@ -313,10 +305,12 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
-                name="peakFlow"
+                name="initialFlow"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Peak Flow</FormLabel>
+                    <FormLabel>
+                      Initial Flow (m³/day) <span className="text-destructive">*</span>
+                    </FormLabel>
                     <FormControl>
                       <Input type="number" step="0.01" {...field} />
                     </FormControl>
@@ -326,10 +320,12 @@ export default function MonthlyFlowReportForm({ mode }: MonthlyFlowReportFormPro
               />
               <FormField
                 control={form.control}
-                name="minimumFlow"
+                name="finalFlow"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Minimum Flow</FormLabel>
+                    <FormLabel>
+                      Final Flow (m³/day) <span className="text-destructive">*</span>
+                    </FormLabel>
                     <FormControl>
                       <Input type="number" step="0.01" {...field} />
                     </FormControl>

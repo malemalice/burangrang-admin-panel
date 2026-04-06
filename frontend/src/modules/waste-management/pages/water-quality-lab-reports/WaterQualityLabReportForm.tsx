@@ -560,6 +560,14 @@ export default function WaterQualityLabReportForm({ mode }: WaterQualityLabRepor
                         {params.map((param) => (
                           <div key={param.id} className="flex flex-col gap-2 rounded-md border p-3">
                             <FormLabel className="text-sm">{param.name}</FormLabel>
+                            <div className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-sm">
+                              <span className="text-muted-foreground">Regulatory limit: </span>
+                              <span className="font-medium tabular-nums">
+                                {param.regulatoryLimit != null
+                                  ? `${param.regulatoryLimit} ${param.unit}`.trim()
+                                  : '—'}
+                              </span>
+                            </div>
                             <div className="flex flex-wrap items-center gap-2">
                               <Input
                                 type="number"

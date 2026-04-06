@@ -23,4 +23,10 @@ export const SETTINGS_KEYS = {
   ZOHO_RETRY_BASE_MS: 'zoho.retry.base_ms',
   ZOHO_RETRY_MAX_MS: 'zoho.retry.max_ms',
   ZOHO_WORKER_BATCH_SIZE: 'zoho.worker.batch_size',
+
+  // Environmental measurements (regulatory limits)
+  ENV_MEAS_LIMIT_LIGHTING: 'environmental_measurements.regulatory_limit.lighting',
+  ENV_MEAS_LIMIT_NOISE: 'environmental_measurements.regulatory_limit.noise',
+  ENV_MEAS_LIMIT_HUMIDITY: 'environmental_measurements.regulatory_limit.humidity',
+  ENV_MEAS_LIMIT_TEMPERATURE: 'environmental_measurements.regulatory_limit.temperature',
 } as const;

@@ -53,8 +53,9 @@ export async function seedManHours(): Promise<void> {
 
       for (const month of monthsToSeed) {
         for (const classData of classes) {
-          // Calculate total: qty * manHourPerDay * workingDays
-          const total = classData.qty * classData.manHourPerDay * workingDaysPerMonth;
+          const totalWorkingDays = classData.qty * classData.manHourPerDay * workingDaysPerMonth;
+          const lostHour = 0;
+          const total = totalWorkingDays - lostHour;
 
           try {
             await prisma.manHour.upsert({
@@ -69,7 +70,9 @@ export async function seedManHours(): Promise<void> {
               update: {
                 qty: classData.qty,
                 manHourPerDay: classData.manHourPerDay,
-                total: total,
+                totalWorkingDays,
+                lostHour,
+                total,
               },
               create: {
                 name: classData.name,
@@ -78,7 +81,9 @@ export async function seedManHours(): Promise<void> {
                 manHourPerDay: classData.manHourPerDay,
                 month: month,
                 year: year,
-                total: total,
+                totalWorkingDays,
+                lostHour,
+                total,
                 notes: `Man hour data for ${classData.name} - ${month} ${year}`,
                 createdBy: user.id,
               },

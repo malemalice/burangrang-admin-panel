@@ -14,6 +14,8 @@ import { EnvironmentalMeasurementsService } from './environmental-measurements.s
 import { CreateEnvironmentalMeasurementDto } from './dto/create-environmental-measurement.dto';
 import { UpdateEnvironmentalMeasurementDto } from './dto/update-environmental-measurement.dto';
 import { EnvironmentalMeasurementDto } from './dto/environmental-measurement.dto';
+import { RegulatoryLimitsResponseDto } from './dto/regulatory-limits.dto';
+import { SubmitApprovalDecisionDto } from './dto/submit-approval-decision.dto';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { PermissionsGuard } from '../../shared/guards/permissions.guard';
@@ -27,6 +29,19 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@ne
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class EnvironmentalMeasurementsController {
   constructor(private readonly measurementsService: EnvironmentalMeasurementsService) {}
+
+  @Get('regulatory-limits')
+  @AllowOptionsBypass()
+  @Permissions('environmental-measurement:list')
+  @ApiOperation({ summary: 'Get regulatory limits for environmental measurements' })
+  @ApiResponse({
+    status: 200,
+    description: 'Return regulatory limits (numeric limit + min/max mode per metric).',
+    type: RegulatoryLimitsResponseDto,
+  })
+  getRegulatoryLimits(): Promise<RegulatoryLimitsResponseDto> {
+    return this.measurementsService.getRegulatoryLimits();
+  }
 
   @Post()
   @Permissions('environmental-measurement:create')
@@ -52,6 +67,7 @@ export class EnvironmentalMeasurementsController {
   @ApiQuery({ name: 'roomId', required: false, type: String })
   @ApiQuery({ name: 'startDate', required: false, type: String })
   @ApiQuery({ name: 'endDate', required: false, type: String })
+  @ApiQuery({ name: 'status', required: false, type: String })
   @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({ status: 200, description: 'Return all environmental measurements.', type: [EnvironmentalMeasurementDto] })
   findAll(
@@ -64,6 +80,7 @@ export class EnvironmentalMeasurementsController {
     @Query('roomId') roomId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('status') status?: string,
   ): Promise<{ data: EnvironmentalMeasurementDto[]; meta: { total: number } }> {
     const pageNumber = page ? parseInt(page, 10) : undefined;
     const limitNumber = limit ? parseInt(limit, 10) : undefined;
@@ -79,6 +96,7 @@ export class EnvironmentalMeasurementsController {
       roomId,
       startDate,
       endDate,
+      status,
     });
   }
 
@@ -110,5 +128,52 @@ export class EnvironmentalMeasurementsController {
   @ApiResponse({ status: 404, description: 'Environmental measurement not found.' })
   remove(@Param('id') id: string): Promise<void> {
     return this.measurementsService.remove(id);
+  }
+
+  @Patch(':id/submit')
+  @Permissions('environmental-measurement:update')
+  @ApiOperation({ summary: 'Submit a measurement (DRAFT → OPEN)' })
+  @ApiResponse({ status: 200, description: 'Measurement submitted.', type: EnvironmentalMeasurementDto })
+  submit(@Param('id') id: string): Promise<EnvironmentalMeasurementDto> {
+    return this.measurementsService.submit(id);
+  }
+
+  @Patch(':id/request-approval')
+  @Permissions('environmental-measurement:update')
+  @ApiOperation({ summary: 'Request approval for a measurement (OPEN → WAITING_APPROVAL)' })
+  @ApiResponse({ status: 200, description: 'Approval requested.', type: EnvironmentalMeasurementDto })
+  requestApproval(@Param('id') id: string): Promise<EnvironmentalMeasurementDto> {
+    return this.measurementsService.requestApproval(id);
+  }
+
+  @Get(':id/approval-status')
+  @Permissions('environmental-measurement:read')
+  @ApiOperation({ summary: 'Get approval status and history for a measurement' })
+  @ApiResponse({ status: 200, description: 'Return approval status and history.' })
+  getApprovalStatus(@Param('id') id: string) {
+    return this.measurementsService.getApprovalStatus(id);
+  }
+
+  @Get(':id/check-approval')
+  @Permissions('environmental-measurement:read')
+  @ApiOperation({ summary: 'Check if the current user can approve this measurement' })
+  @ApiResponse({ status: 200, description: 'Return canApprove flag.' })
+  checkApprovalRights(
+    @Param('id') id: string,
+    @Request() req: any,
+  ) {
+    return this.measurementsService.checkApprovalRights(id, req.user.id);
+  }
+
+  @Post(':id/approval')
+  @Permissions('environmental-measurement:update')
+  @ApiOperation({ summary: 'Submit an approval decision (approve/reject)' })
+  @ApiResponse({ status: 201, description: 'Approval decision submitted.' })
+  submitApprovalDecision(
+    @Param('id') id: string,
+    @Body() dto: SubmitApprovalDecisionDto,
+    @Request() req: any,
+  ) {
+    return this.measurementsService.submitApprovalDecision(id, dto, req.user.id);
   }
 }

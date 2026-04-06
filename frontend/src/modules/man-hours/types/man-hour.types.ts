@@ -14,6 +14,8 @@ export interface ManHour {
   manHourPerDay: number;
   month: Month;
   year: number;
+  totalWorkingDays: number;
+  lostHour: number;
   total: number;
   notes?: string;
   isActive: boolean;
@@ -34,6 +36,8 @@ export interface CreateManHourDTO {
   manHourPerDay: number;
   month: Month;
   year: number;
+  lostHour?: number;
+  total?: number;
   notes?: string;
 }
 
@@ -44,6 +48,8 @@ export interface UpdateManHourDTO {
   manHourPerDay?: number;
   month?: Month;
   year?: number;
+  lostHour?: number;
+  total?: number;
   notes?: string;
   isActive?: boolean;
 }

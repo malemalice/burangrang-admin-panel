@@ -67,6 +67,7 @@ export class CertificatesController {
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], description: 'Sort order' })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term for name or code' })
+  @ApiQuery({ name: 'responsibleDepartmentId', required: false, type: String, description: 'Filter categories that list this department as responsible' })
   @ApiQuery({ name: 'certificateType', required: false, enum: ['PERSONNEL_LICENSE', 'PERSONNEL_CERTIFICATE', 'EQUIPMENT_CALIBRATION', 'EQUIPMENT_INSTALLATION', 'EQUIPMENT_OPERATIONAL_PERMIT'], description: 'Filter by certificate type' })
   @ApiQuery({ name: 'options', required: false, type: Boolean, description: 'Set to true to bypass permission check (requires JWT auth only)' })
   @ApiResponse({ status: 200, description: 'List of certificate categories', type: [CertificateCategoryDto] })
@@ -80,6 +81,7 @@ export class CertificatesController {
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
+    @Query('responsibleDepartmentId') responsibleDepartmentId?: string,
     @Query('certificateType') certificateType?: string,
   ): Promise<{ data: CertificateCategoryDto[]; meta: any }> {
     const pageNumber = page ? parseInt(page, 10) : undefined;
@@ -93,6 +95,7 @@ export class CertificatesController {
       sortOrder,
       isActive: isActiveBoolean,
       search,
+      responsibleDepartmentId,
       certificateType: certificateType as any,
     });
   }

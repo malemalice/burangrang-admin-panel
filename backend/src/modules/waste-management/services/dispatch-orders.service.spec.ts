@@ -36,6 +36,35 @@ describe('DispatchOrdersService', () => {
     jest.clearAllMocks();
   });
 
+  describe('create', () => {
+    it('should set status to WAITING_APPROVAL on create', async () => {
+      (mockPrismaService.dispatchOrder.findFirst as jest.Mock).mockResolvedValue(null);
+      (mockPrismaService.dispatchOrder.create as jest.Mock).mockResolvedValue({
+        id: 'new-id',
+        dispatchCode: 'DO-2026-0001',
+        status: 'WAITING_APPROVAL',
+      });
+
+      await service.create(
+        {
+          dispatchDate: new Date().toISOString(),
+          quantity: 10,
+        },
+        'user-1',
+      );
+
+      expect(mockPrismaService.dispatchOrder.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'WAITING_APPROVAL',
+            orderedBy: 'user-1',
+            createdBy: 'user-1',
+          }),
+        }),
+      );
+    });
+  });
+
   describe('findAll', () => {
     it('should use default sorting by createdAt desc', async () => {
       // Arrange

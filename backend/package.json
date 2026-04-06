@@ -9,6 +9,8 @@
     "seed": "npx ts-node prisma/seed.ts"
   },
   "scripts": {
+    "postinstall": "npm run puppeteer:install",
+    "puppeteer:install": "node ./node_modules/puppeteer/install.mjs",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
@@ -45,10 +47,12 @@
     "express-session": "^1.18.0",
     "handlebars": "^4.7.8",
     "nodemailer": "^6.9.16",
+    "puppeteer": "^24.15.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
     "prisma": "^6.7.0",
+    "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "uuid": "^10.0.0"
@@ -68,6 +72,7 @@
     "@types/node": "^22.10.7",
     "@types/nodemailer": "^7.0.4",
     "@types/passport-google-oauth20": "^2.0.14",
+    "@types/qrcode": "^1.5.5",
     "@types/supertest": "^6.0.2",
     "@types/uuid": "^10.0.0",
     "eslint": "^9.18.0",

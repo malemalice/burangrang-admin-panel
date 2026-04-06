@@ -55,6 +55,10 @@ const stockItemSchema = z.object({
 );
 
 const formSchema = z.object({
+    stockCode: z
+        .string()
+        .max(191, 'PO/PR code must be at most 191 characters')
+        .optional(),
     receivedDate: z.string().min(1, 'Received date is required'),
     notes: z.string().optional(),
     isActive: z.boolean().optional().default(true),
@@ -78,6 +82,7 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
+            stockCode: '',
             receivedDate: new Date().toISOString().split('T')[0],
             notes: '',
             isActive: true,
@@ -130,6 +135,7 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
     useEffect(() => {
         if (stock && mode === 'edit' && dataReady && safetyEquipments.length > 0) {
             const formData = {
+                stockCode: stock.stockCode || '',
                 receivedDate: stock.receivedDate.split('T')[0],
                 notes: stock.notes || '',
                 isActive: stock.isActive ?? true,
@@ -166,10 +172,16 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
     };
 
     const onSubmit = async (data: FormValues) => {
+        if (mode === 'edit' && !data.stockCode?.trim()) {
+            toast.error('PO/PR code is required');
+            return;
+        }
         setIsLoading(true);
         try {
             if (mode === 'create') {
+                const trimmedPoPr = data.stockCode?.trim();
                 const createData: CreatePPEStockDTO = {
+                    ...(trimmedPoPr ? { stockCode: trimmedPoPr } : {}),
                     receivedDate: data.receivedDate,
                     notes: data.notes || undefined,
                     isActive: data.isActive,
@@ -191,6 +203,7 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
                 navigate(`/ppe/stocks/${createdStock.id}`);
             } else {
                 const updateData: UpdatePPEStockDTO = {
+                    stockCode: data.stockCode!.trim(),
                     receivedDate: data.receivedDate,
                     notes: data.notes || undefined,
                     isActive: data.isActive,
@@ -236,6 +249,31 @@ const PPEStockForm = ({ stock, mode }: PPEStockFormProps) => {
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FormField
+                                control={form.control}
+                                name="stockCode"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>PO/PR Code</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder={
+                                                    mode === 'create'
+                                                        ? 'Optional — leave blank to auto-generate'
+                                                        : 'PO or PR reference'
+                                                }
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <p className="text-sm text-muted-foreground">
+                                            {mode === 'create'
+                                                ? 'If empty, a unique code is generated when you save.'
+                                                : 'Unique reference for this stock entry.'}
+                                        </p>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                             <FormField
                                 control={form.control}
                                 name="receivedDate"

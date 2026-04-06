@@ -26,6 +26,7 @@ import {
     ReminderStatusEnum,
     ReminderTargetTypeEnum,
 } from '../reminders/dto/reminder.dto';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class CertificatesService {
@@ -55,6 +56,7 @@ export class CertificatesService {
         private dtoMapper: DtoMapperService,
         private dataScopeService: DataScopeService,
         private remindersService: RemindersService,
+        private mailService: MailService,
     ) {
         // Initialize mappers
         this.categoryMapper = this.dtoMapper.createSimpleMapper(CertificateCategoryDto);
@@ -115,8 +117,15 @@ export class CertificatesService {
         createCategoryDto: CreateCertificateCategoryDto,
     ): Promise<CertificateCategoryDto> {
         return this.errorHandler.safeExecute(async () => {
+            const { responsibleDepartmentIds, ...categoryData } = createCategoryDto;
             const category = await this.prisma.certificateCategory.create({
-                data: createCategoryDto,
+                data: {
+                    ...categoryData,
+                    ...(responsibleDepartmentIds?.length
+                        ? { responsibleDepartments: { connect: responsibleDepartmentIds.map(id => ({ id })) } }
+                        : {}),
+                },
+                include: { responsibleDepartments: true },
             });
 
             return this.categoryMapper(category);
@@ -131,6 +140,7 @@ export class CertificatesService {
         isActive?: boolean;
         search?: string;
         certificateType?: CertificateTypeEnum;
+        responsibleDepartmentId?: string;
     }): Promise<{
         data: CertificateCategoryDto[];
         meta: { total: number; page: number; limit: number };
@@ -143,11 +153,18 @@ export class CertificatesService {
             isActive,
             search,
             certificateType,
+            responsibleDepartmentId,
         } = options || {};
 
         const where: Prisma.CertificateCategoryWhereInput = {
             deletedAt: null, // Only get non-deleted records
         };
+
+        if (responsibleDepartmentId?.trim()) {
+            where.responsibleDepartments = {
+                some: { id: responsibleDepartmentId.trim() },
+            };
+        }
 
         if (search) {
             const searchTerm = search.trim();
@@ -170,6 +187,7 @@ export class CertificatesService {
         const [categories, total] = await Promise.all([
             this.prisma.certificateCategory.findMany({
                 where,
+                include: { responsibleDepartments: true },
                 orderBy: {
                     [sortBy]: sortOrder,
                 },
@@ -191,6 +209,7 @@ export class CertificatesService {
                 id,
                 deletedAt: null,
             },
+            include: { responsibleDepartments: true },
         });
 
         this.errorHandler.throwIfNotFoundById('CertificateCategory', id, category);
@@ -212,9 +231,16 @@ export class CertificatesService {
         this.errorHandler.throwIfNotFoundById('CertificateCategory', id, existingCategory);
 
         return this.errorHandler.safeExecute(async () => {
+            const { responsibleDepartmentIds, ...categoryData } = updateCategoryDto;
             const updatedCategory = await this.prisma.certificateCategory.update({
                 where: { id },
-                data: updateCategoryDto,
+                data: {
+                    ...categoryData,
+                    ...(responsibleDepartmentIds !== undefined
+                        ? { responsibleDepartments: { set: responsibleDepartmentIds.map(id => ({ id })) } }
+                        : {}),
+                },
+                include: { responsibleDepartments: true },
             });
 
             return this.categoryMapper(updatedCategory);
@@ -321,7 +347,7 @@ export class CertificatesService {
                     createdBy,
                 },
                 include: {
-                    category: true,
+                    category: { include: { responsibleDepartments: true } },
                     department: true,
                     personnel: true,
                     creator: true,
@@ -437,6 +463,57 @@ export class CertificatesService {
                 },
                 userId,
             );
+        }
+
+        // 4. Notify responsible departments via email at the start of the reminder window
+        await this.notifyResponsibleDepartments(certificate, 'reminder-window');
+    }
+
+    private async notifyResponsibleDepartments(
+        certificate: any,
+        reminderType: 'reminder-window' | 'weekly' | 'daily',
+    ) {
+        const responsibleDepartments: any[] =
+            certificate.category?.responsibleDepartments ?? [];
+
+        if (!responsibleDepartments.length) return;
+
+        const validityDate = new Date(certificate.validityDate);
+        const certificateName = certificate.certificateName || certificate.certificateNumber;
+        const categoryName = certificate.category?.name ?? '';
+
+        const reminderTypeLabel = {
+            'reminder-window': 'Reminder Window',
+            weekly: 'Weekly Warning',
+            daily: 'Daily Alert',
+        }[reminderType];
+
+        for (const dept of responsibleDepartments) {
+            const emails: string[] = Array.isArray(dept.emails) ? dept.emails : [];
+            for (const email of emails) {
+                try {
+                    await this.mailService.sendTemplatedMail({
+                        template: 'certificate-expiry-department',
+                        email,
+                        context: {
+                            departmentName: dept.name,
+                            certificateName,
+                            categoryName,
+                            expiryDate: validityDate.toLocaleDateString('id-ID', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                            }),
+                            reminderType: reminderTypeLabel,
+                        },
+                    });
+                } catch (err) {
+                    console.error(
+                        `Failed to send certificate expiry email to ${email} for cert ${certificate.id}:`,
+                        err,
+                    );
+                }
+            }
         }
     }
 
@@ -711,7 +788,7 @@ export class CertificatesService {
                 where: { id },
                 data: updateData,
                 include: {
-                    category: true,
+                    category: { include: { responsibleDepartments: true } },
                     department: true,
                     personnel: true,
                     creator: true,

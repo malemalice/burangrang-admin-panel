@@ -11,6 +11,7 @@ export interface EnvironmentalMeasurement {
   temperature?: number;
   remarks?: string;
   date: string;
+  status?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -47,6 +48,7 @@ export interface UpdateEnvironmentalMeasurementDTO {
   remarks?: string;
   date?: string;
   isActive?: boolean;
+  status?: string;
 }
 
 export interface EnvironmentalMeasurementFilters {
@@ -55,4 +57,5 @@ export interface EnvironmentalMeasurementFilters {
   endDate?: string;
   isActive?: boolean;
   search?: string;
+  status?: string;
 }

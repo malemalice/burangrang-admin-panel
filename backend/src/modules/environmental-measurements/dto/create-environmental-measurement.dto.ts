@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsUUID, IsBoolean, IsNumber, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsUUID, IsBoolean, IsNumber, IsDateString, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { GeneralStatusEnum } from '@prisma/client';
 
 export class CreateEnvironmentalMeasurementDto {
   @ApiProperty({ description: 'Room ID' })
@@ -46,4 +47,9 @@ export class CreateEnvironmentalMeasurementDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiProperty({ enum: GeneralStatusEnum, description: 'Status', required: false })
+  @IsEnum(GeneralStatusEnum)
+  @IsOptional()
+  status?: GeneralStatusEnum;
 }

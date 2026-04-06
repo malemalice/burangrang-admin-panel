@@ -14,6 +14,12 @@ export const defaultSettings = [
   { key: 'app.name', value: 'HSSE System' },
   { key: 'app.language', value: 'en' },
 
+  // Environmental measurement regulatory limits (global defaults)
+  { key: 'environmental_measurements.regulatory_limit.lighting', value: '300' }, // lux
+  { key: 'environmental_measurements.regulatory_limit.noise', value: '85' }, // dB
+  { key: 'environmental_measurements.regulatory_limit.humidity', value: '60' }, // %
+  { key: 'environmental_measurements.regulatory_limit.temperature', value: '27' }, // °C
+
   // Pagination defaults
   { key: 'pagination.default_limit', value: '10' },
   { key: 'pagination.max_limit', value: '100' },

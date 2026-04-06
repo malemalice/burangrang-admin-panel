@@ -74,19 +74,19 @@ export function MonthlyFlowReportPDFTemplate({ report }: MonthlyFlowReportPDFTem
             </TableRow>
             <TableRow>
               <TableHead className="w-1/3 bg-muted/50 font-semibold">Average Daily Flow</TableHead>
-              <TableCell>{report.averageDailyFlow.toLocaleString('en-US')} m³/day</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableHead className="w-1/3 bg-muted/50 font-semibold">Peak Flow</TableHead>
               <TableCell>
-                {report.peakFlow ? `${report.peakFlow.toLocaleString('en-US')} m³/day` : '-'}
+                {report.averageDailyFlow != null
+                  ? `${report.averageDailyFlow.toLocaleString('en-US')} m³/day`
+                  : '-'}
               </TableCell>
             </TableRow>
             <TableRow>
-              <TableHead className="w-1/3 bg-muted/50 font-semibold">Minimum Flow</TableHead>
-              <TableCell>
-                {report.minimumFlow ? `${report.minimumFlow.toLocaleString('en-US')} m³/day` : '-'}
-              </TableCell>
+              <TableHead className="w-1/3 bg-muted/50 font-semibold">Initial Flow</TableHead>
+              <TableCell>{report.initialFlow.toLocaleString('en-US')} m³/day</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableHead className="w-1/3 bg-muted/50 font-semibold">Final Flow</TableHead>
+              <TableCell>{report.finalFlow.toLocaleString('en-US')} m³/day</TableCell>
             </TableRow>
           </TableBody>
         </Table>

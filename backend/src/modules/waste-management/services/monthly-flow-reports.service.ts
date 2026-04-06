@@ -36,7 +36,10 @@ export class MonthlyFlowReportsService {
     this.reportMapper = this.dtoMapper.createMapper(MonthlyFlowReportDto, {
       transform: {
         totalVolume: (val) => (val ? Number(val) : 0),
-        averageDailyFlow: (val) => (val ? Number(val) : 0),
+        averageDailyFlow: (val) =>
+          val != null && val !== '' ? Number(val) : undefined,
+        initialFlow: (val) => (val ? Number(val) : 0),
+        finalFlow: (val) => (val ? Number(val) : 0),
         peakFlow: (val) => (val ? Number(val) : undefined),
         minimumFlow: (val) => (val ? Number(val) : undefined),
       },

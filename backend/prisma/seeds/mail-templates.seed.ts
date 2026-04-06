@@ -1,5 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 
+/**
+ * Email HTML uses inline hex aligned with BurangrangDesign (`frontend/src/core/lib/theme/colors.ts`).
+ * Primary: indigo-500 #6366f1, indigo-600 #4f46e5 | Text: slate-800 #1e293b, slate-600 #475569, slate-500 #64748b
+ * Border: slate-200 #e2e8f0 | Background: white #ffffff, slate-50 #f8fafc
+ * Success: green-600 #16a34a | Info: blue-600 #2563eb | Warning: yellow-100 #fef9c3, yellow-800 #854d0e, header yellow-700 #a16207
+ * Error: red-600 #dc2626
+ */
+
 const defaultMailTemplates = [
   {
     code: 'verification',
@@ -12,43 +20,65 @@ const defaultMailTemplates = [
   <title>Verify your email</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: system-ui, -apple-system, Arial, sans-serif;
       line-height: 1.6;
-      color: #333;
+      color: #1e293b;
+      font-size: 15px;
       max-width: 600px;
       margin: 0 auto;
       padding: 20px;
     }
+    .header {
+      background-color: #16a34a;
+      color: #ffffff;
+      padding: 20px;
+      text-align: center;
+      border-radius: 8px 8px 0 0;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .content {
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-top: none;
+      padding: 24px;
+      border-radius: 0 0 8px 8px;
+    }
     .button {
       display: inline-block;
-      padding: 10px 20px;
-      background-color: #4CAF50;
-      color: white;
+      padding: 12px 24px;
+      background-color: #16a34a;
+      color: #ffffff;
       text-decoration: none;
-      border-radius: 5px;
+      border-radius: 8px;
       margin: 20px 0;
+      font-weight: 600;
     }
     .footer {
-      margin-top: 30px;
+      margin-top: 24px;
       font-size: 12px;
-      color: #666;
+      color: #64748b;
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <h2>Welcome to HSE System!</h2>
-  <p>Hi {{default (lookup . "name") "there"}},</p>
-  <p>Thank you for signing up. Please verify your email address by clicking the button below:</p>
-  
-  <a href="{{default (lookup . "verificationLink") ""}}" class="button">Verify Email Address</a>
-  
-  <p>If you did not create an account, no further action is required.</p>
-  
-  <p>If you're having trouble clicking the button, copy and paste the following link into your browser:</p>
-  <p>{{default (lookup . "verificationLink") ""}}</p>
-  
+  <div class="header">
+    <h1>Welcome to HSSE System</h1>
+  </div>
+  <div class="content">
+    <p>Hi {{default (lookup . "name") "there"}},</p>
+    <p>Thank you for signing up. Please verify your email address by clicking the button below:</p>
+    <p><a href="{{default (lookup . "verificationLink") ""}}" class="button">Verify Email Address</a></p>
+    <p>If you did not create an account, no further action is required.</p>
+    <p>If you're having trouble clicking the button, copy and paste the following link into your browser:</p>
+    <p style="color: #475569; font-size: 14px; word-break: break-all;">{{default (lookup . "verificationLink") ""}}</p>
+  </div>
   <div class="footer">
-    <p>This email was sent from HSE System. If you didn't expect this email, you can safely ignore it.</p>
+    <p>This email was sent from HSSE System. If you didn't expect this email, you can safely ignore it.</p>
   </div>
 </body>
 </html>`,
@@ -64,40 +94,63 @@ const defaultMailTemplates = [
   <title>Reset Your Password</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: system-ui, -apple-system, Arial, sans-serif;
       line-height: 1.6;
-      color: #333;
+      color: #1e293b;
+      font-size: 15px;
       max-width: 600px;
       margin: 0 auto;
       padding: 20px;
     }
+    .header {
+      background-color: #4f46e5;
+      color: #ffffff;
+      padding: 20px;
+      text-align: center;
+      border-radius: 8px 8px 0 0;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .content {
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-top: none;
+      padding: 24px;
+      border-radius: 0 0 8px 8px;
+    }
     .button {
       display: inline-block;
-      padding: 10px 20px;
-      background-color: #4CAF50;
-      color: white;
+      padding: 12px 24px;
+      background-color: #6366f1;
+      color: #ffffff;
       text-decoration: none;
-      border-radius: 5px;
+      border-radius: 8px;
       margin: 20px 0;
+      font-weight: 600;
     }
     .footer {
-      margin-top: 30px;
+      margin-top: 24px;
       font-size: 12px;
-      color: #666;
+      color: #64748b;
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <h2>Reset Your Password</h2>
-  <p>Hello {{name}},</p>
-  <p>We received a request to reset your password. Click the button below to create a new password:</p>
-  
-  <a href="{{resetUrl}}" class="button">Reset Password</a>
-  
-  <p>If you didn't request this password reset, you can safely ignore this email. The link will expire in 1 hour for security.</p>
-  
+  <div class="header">
+    <h1>Reset Your Password</h1>
+  </div>
+  <div class="content">
+    <p>Hello {{name}},</p>
+    <p>We received a request to reset your password. Click the button below to create a new password:</p>
+    <p><a href="{{resetUrl}}" class="button">Reset Password</a></p>
+    <p>If you didn't request this password reset, you can safely ignore this email. The link will expire in 1 hour for security.</p>
+  </div>
   <div class="footer">
-    <p>This is an automated email, please do not reply.</p>
+    <p>This is an automated email from HSSE System. Please do not reply.</p>
   </div>
 </body>
 </html>`,
@@ -106,60 +159,164 @@ const defaultMailTemplates = [
     code: 'team-invitation',
     name: 'Team Invitation',
     subjectTemplate: "You're invited to join {{default teamName \"our team\"}}",
-    bodyTemplate: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <h2 style="color: #333;">Team Invitation</h2>
-  
-  <p>Hello,</p>
-  
-  <p>You have been invited to join the team by {{ inviterName }}.</p>
-  
-  {{#if isExistingUser}}
-  <p>Please click the button below to accept or reject the invitation:</p>
-  
-  <p style="margin: 20px 0;">
-    <a href="{{ acceptUrl }}" style="display: inline-block; padding: 10px 20px; margin: 10px 5px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">Accept Invitation</a>
-    <a href="{{ rejectUrl }}" style="display: inline-block; padding: 10px 20px; margin: 10px 5px; background-color: #f44336; color: white; text-decoration: none; border-radius: 5px;">Reject Invitation</a>
-  </p>
-  {{else}}
-  <p>To join the team, you'll need to create an account first. Click the button below to sign up:</p>
-  
-  <p style="margin: 20px 0;">
-    <a href="{{ signupUrl }}" style="display: inline-block; padding: 10px 20px; margin: 10px 5px; background-color: #2196F3; color: white; text-decoration: none; border-radius: 5px;">Sign Up & Join Team</a>
-  </p>
-  {{/if}}
-  
-  <p style="color: #666; font-size: 14px; margin-top: 30px;">This invitation will expire in 30 days.</p>
-  
-  <p style="color: #666; font-size: 14px;">Best regards,<br>HSE System Team</p>
-</div>`,
+    bodyTemplate: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Team Invitation</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Arial, sans-serif;
+      line-height: 1.6;
+      color: #1e293b;
+      font-size: 15px;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      background-color: #4f46e5;
+      color: #ffffff;
+      padding: 20px;
+      text-align: center;
+      border-radius: 8px 8px 0 0;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .content {
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-top: none;
+      padding: 24px;
+      border-radius: 0 0 8px 8px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      margin: 10px 8px 10px 0;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+    .btn-primary {
+      background-color: #6366f1;
+    }
+    .btn-danger {
+      background-color: #dc2626;
+    }
+    .footer {
+      margin-top: 24px;
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Team Invitation</h1>
+  </div>
+  <div class="content">
+    <p>Hello,</p>
+    <p>You have been invited to join the team by {{ inviterName }}.</p>
+    {{#if isExistingUser}}
+    <p>Please click the button below to accept or reject the invitation:</p>
+    <p>
+      <a href="{{ acceptUrl }}" class="btn btn-primary">Accept Invitation</a>
+      <a href="{{ rejectUrl }}" class="btn btn-danger">Reject Invitation</a>
+    </p>
+    {{else}}
+    <p>To join the team, you'll need to create an account first. Click the button below to sign up:</p>
+    <p>
+      <a href="{{ signupUrl }}" class="btn btn-primary">Sign Up &amp; Join Team</a>
+    </p>
+    {{/if}}
+    <p style="color: #475569; font-size: 14px; margin-top: 24px;">This invitation will expire in 30 days.</p>
+    <p style="color: #475569; font-size: 14px;">Best regards,<br />HSSE System Team</p>
+  </div>
+  <div class="footer">
+    <p>This is an automated message from HSSE System.</p>
+  </div>
+</body>
+</html>`,
   },
   {
     code: 'password-change',
     name: 'Password Change Notification',
     subjectTemplate: 'Your password was changed',
-    bodyTemplate: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <h2 style="color: #333;">Password Change Notification</h2>
-  
-  <p>Hello {{name}},</p>
-  
-  <p>This email is to confirm that your password was successfully changed on {{date}}.</p>
-  
-  <p>If you did not make this change, please contact our support team immediately or reset your password using the link below:</p>
-  
-  <p style="margin: 20px 0;">
-    <a href="{{resetUrl}}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-      Reset Password
-    </a>
-  </p>
-  
-  <p style="color: #666; font-size: 14px;">
-    For security purposes, this change was made from IP: {{ipAddress}}
-  </p>
-  
-  <p style="color: #666; font-size: 14px; margin-top: 30px;">
-    If you did make this change, you can safely ignore this email.
-  </p>
-</div>`,
+    bodyTemplate: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Password Change Notification</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Arial, sans-serif;
+      line-height: 1.6;
+      color: #1e293b;
+      font-size: 15px;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      background-color: #4f46e5;
+      color: #ffffff;
+      padding: 20px;
+      text-align: center;
+      border-radius: 8px 8px 0 0;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .content {
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-top: none;
+      padding: 24px;
+      border-radius: 0 0 8px 8px;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: #6366f1;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 8px;
+      margin: 20px 0;
+      font-weight: 600;
+    }
+    .footer {
+      margin-top: 24px;
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Password Change Notification</h1>
+  </div>
+  <div class="content">
+    <p>Hello {{name}},</p>
+    <p>This email is to confirm that your password was successfully changed on {{date}}.</p>
+    <p>If you did not make this change, please contact our support team immediately or reset your password using the link below:</p>
+    <p><a href="{{resetUrl}}" class="button">Reset Password</a></p>
+    <p style="color: #475569; font-size: 14px;">For security purposes, this change was made from IP: {{ipAddress}}</p>
+    <p style="color: #475569; font-size: 14px; margin-top: 24px;">If you did make this change, you can safely ignore this email.</p>
+  </div>
+  <div class="footer">
+    <p>This is an automated email from HSSE System. Please do not reply.</p>
+  </div>
+</body>
+</html>`,
   },
   {
     code: 'notification',
@@ -172,58 +329,84 @@ const defaultMailTemplates = [
   <title>{{title}}</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: system-ui, -apple-system, Arial, sans-serif;
       line-height: 1.6;
-      color: #333;
+      color: #1e293b;
+      font-size: 15px;
       max-width: 600px;
       margin: 0 auto;
       padding: 20px;
     }
     .header {
-      background-color: #4CAF50;
-      color: white;
+      background-color: #4f46e5;
+      color: #ffffff;
       padding: 20px;
       text-align: center;
-      border-radius: 5px 5px 0 0;
+      border-radius: 8px 8px 0 0;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
     }
     .content {
-      background-color: #f9f9f9;
-      padding: 20px;
-      border: 1px solid #ddd;
+      background-color: #f8fafc;
+      padding: 24px;
+      border: 1px solid #e2e8f0;
       border-top: none;
-      border-radius: 0 0 5px 5px;
+      border-radius: 0 0 8px 8px;
     }
     .message {
       white-space: pre-wrap;
       margin: 20px 0;
+      color: #1e293b;
+    }
+    .cta-wrapper {
+      text-align: center;
+      margin: 28px 0 8px;
+    }
+    .cta-button {
+      display: inline-block;
+      padding: 12px 28px;
+      background-color: #4f46e5;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 15px;
     }
     .footer {
-      margin-top: 30px;
+      margin-top: 24px;
       font-size: 12px;
-      color: #666;
+      color: #64748b;
       text-align: center;
     }
   </style>
 </head>
 <body>
   <div class="header">
-    <h1 style="margin: 0;">{{title}}</h1>
+    <h1>{{title}}</h1>
   </div>
   <div class="content">
     <div class="message">{{message}}</div>
+    {{#if actionUrl}}
+    <div class="cta-wrapper">
+      <a href="{{actionUrl}}" class="cta-button">View Details</a>
+    </div>
+    {{/if}}
     {{#if context}}
-    <p style="color: #666; font-size: 14px; margin-top: 20px;">
+    <p style="color: #475569; font-size: 14px; margin-top: 20px;">
       <strong>Context:</strong> {{context}}
     </p>
     {{/if}}
     {{#if contextId}}
-    <p style="color: #666; font-size: 14px;">
+    <p style="color: #475569; font-size: 14px;">
       <strong>Reference ID:</strong> {{contextId}}
     </p>
     {{/if}}
   </div>
   <div class="footer">
-    <p>This is an automated notification from HSE Dashboard. Please do not reply to this email.</p>
+    <p>This is an automated notification from HSSE Dashboard. Please do not reply to this email.</p>
   </div>
 </body>
 </html>
@@ -235,142 +418,496 @@ const defaultMailTemplates = [
     subjectTemplate: 'New Course Assignment: {{courseTitle}}',
     bodyTemplate: `<!DOCTYPE html>
 <html>
-
 <head>
-    <meta charset="utf-8">
-    <title>Course Assignment Notification</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .header {
-            background-color: #2196F3;
-            color: white;
-            padding: 20px;
-            text-align: center;
-            border-radius: 5px 5px 0 0;
-        }
-
-        .content {
-            background-color: #f9f9f9;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-top: none;
-            border-radius: 0 0 5px 5px;
-        }
-
-        .course-info {
-            background-color: white;
-            padding: 15px;
-            border-left: 4px solid #2196F3;
-            margin: 20px 0;
-        }
-
-        .detail-row {
-            padding: 8px 0;
-            border-bottom: 1px solid #eee;
-        }
-
-        .detail-label {
-            font-weight: bold;
-            color: #666;
-            display: inline-block;
-            width: 120px;
-        }
-
-        .button {
-            display: inline-block;
-            padding: 12px 24px;
-            margin: 20px 0;
-            background-color: #2196F3;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: bold;
-        }
-
-        .footer {
-            margin-top: 30px;
-            font-size: 12px;
-            color: #666;
-            text-align: center;
-        }
-    </style>
+  <meta charset="utf-8">
+  <title>Course Assignment Notification</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Arial, sans-serif;
+      line-height: 1.6;
+      color: #1e293b;
+      font-size: 15px;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      background-color: #2563eb;
+      color: #ffffff;
+      padding: 20px;
+      text-align: center;
+      border-radius: 8px 8px 0 0;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .content {
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-top: none;
+      padding: 24px;
+      border-radius: 0 0 8px 8px;
+    }
+    .course-info {
+      background-color: #ffffff;
+      padding: 16px;
+      margin: 20px 0;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #2563eb;
+    }
+    .detail-row {
+      padding: 8px 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .detail-label {
+      font-weight: 600;
+      color: #475569;
+      display: inline-block;
+      width: 120px;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      margin: 20px 0;
+      background-color: #2563eb;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+    .footer {
+      margin-top: 24px;
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
 </head>
-
 <body>
-    <div class="header">
-        <h1 style="margin: 0;">Course Assignment</h1>
+  <div class="header">
+    <h1>Course Assignment</h1>
+  </div>
+  <div class="content">
+    <p>Hello {{userName}},</p>
+    <p>You have been assigned to a new training course:</p>
+    <div class="course-info">
+      <h2 style="margin-top: 0; color: #2563eb; font-size: 20px; font-weight: 600;">{{courseTitle}}</h2>
+      {{#if dueDate}}
+      <div class="detail-row">
+        <span class="detail-label">Due Date:</span>
+        <span>{{dueDate}}</span>
+      </div>
+      {{/if}}
+      {{#if isRequired}}
+      <div class="detail-row">
+        <span class="detail-label">Required:</span>
+        <span style="color: #dc2626; font-weight: 600;">{{isRequired}}</span>
+      </div>
+      {{/if}}
+      {{#if notes}}
+      <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+        <span class="detail-label">Notes:</span>
+        <p style="margin: 5px 0; white-space: pre-wrap; color: #1e293b;">{{notes}}</p>
+      </div>
+      {{/if}}
     </div>
-    <div class="content">
-        <p>Hello {{userName}},</p>
-
-        <p>You have been assigned to a new training course:</p>
-
-        <div class="course-info">
-            <h2 style="margin-top: 0; color: #2196F3;">{{courseTitle}}</h2>
-
-            {{#if dueDate}}
-            <div class="detail-row">
-                <span class="detail-label">Due Date:</span>
-                <span>{{dueDate}}</span>
-            </div>
-            {{/if}}
-
-            {{#if isRequired}}
-            <div class="detail-row">
-                <span class="detail-label">Required:</span>
-                <span style="color: #f44336; font-weight: bold;">{{isRequired}}</span>
-            </div>
-            {{/if}}
-
-            {{#if notes}}
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;">
-                <span class="detail-label">Notes:</span>
-                <p style="margin: 5px 0; white-space: pre-wrap;">{{notes}}</p>
-            </div>
-            {{/if}}
-        </div>
-
-        <p>Please log in to the HSE Dashboard to access your course and begin your training.</p>
-
-        <p style="text-align: center;">
-            <a href="{{default appUrl " http://localhost:8080"}}/enrollments/{{enrollmentId}}" class="button">
-                View Course Details
-            </a>
-        </p>
-    </div>
-    <div class="footer">
-        <p>This is an automated notification from HSE Dashboard. Please do not reply to this email.</p>
-        <p>If you have any questions, please contact your administrator.</p>
-    </div>
+    <p>Please log in to the HSSE Dashboard to access your course and begin your training.</p>
+    <p style="text-align: center;">
+      <a href="{{default appUrl "http://localhost:8080"}}/enrollments/{{enrollmentId}}" class="button">View Course Details</a>
+    </p>
+  </div>
+  <div class="footer">
+    <p>This is an automated notification from HSSE Dashboard. Please do not reply to this email.</p>
+    <p>If you have any questions, please contact your administrator.</p>
+  </div>
 </body>
-
 </html>`,
   },
   {
     code: 'user-created',
     name: 'User account created',
-    subjectTemplate: 'Your HSE system account has been created',
-    bodyTemplate: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <h2 style="color: #333;">Your HSE System account has been created</h2>
+    subjectTemplate: 'Your HSSE system account has been created',
+    bodyTemplate: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Your account has been created</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Arial, sans-serif;
+      line-height: 1.6;
+      color: #1e293b;
+      font-size: 15px;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      background-color: #4f46e5;
+      color: #ffffff;
+      padding: 20px;
+      text-align: center;
+      border-radius: 8px 8px 0 0;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .content {
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-top: none;
+      padding: 24px;
+      border-radius: 0 0 8px 8px;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: #6366f1;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 8px;
+      margin: 20px 0;
+      font-weight: 600;
+    }
+    .footer {
+      margin-top: 24px;
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Your HSSE System account has been created</h1>
+  </div>
+  <div class="content">
+    <p>Hello {{name}},</p>
+    <p>An HSSE System user account has been created for you. You can log in using your email and the password that was set for you.</p>
+    <p><a href="{{loginUrl}}" class="button">Log in</a></p>
+    <p style="color: #475569; font-size: 14px;">Best regards,<br />HSSE System Team</p>
+  </div>
+  <div class="footer">
+    <p>This is an automated message from HSSE System.</p>
+  </div>
+</body>
+</html>`,
+  },
+  {
+    code: 'ppe-withdrawal-approved',
+    name: 'PPE Withdrawal Approved',
+    subjectTemplate: 'PPE Withdrawal {{withdrawalCode}} has been Approved',
+    bodyTemplate: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PPE Withdrawal Approved</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .wrapper { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+    .header {
+      background-color: #1d4ed8;
+      color: white;
+      padding: 28px 32px;
+      text-align: center;
+    }
+    .header h1 { margin: 0; font-size: 22px; letter-spacing: 0.5px; }
+    .header p { margin: 8px 0 0; font-size: 14px; opacity: 0.85; }
+    .content { padding: 28px 32px; }
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #1d4ed8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-bottom: 2px solid #dbeafe;
+      padding-bottom: 6px;
+      margin: 24px 0 12px;
+    }
+    .info-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    .info-table td { padding: 7px 10px; font-size: 13px; vertical-align: top; border-bottom: 1px solid #f3f4f6; }
+    .info-table td:first-child { font-weight: 600; color: #6b7280; width: 38%; }
+    .items-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .items-table th {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 7px 8px;
+      font-weight: 700;
+      text-align: left;
+      color: #1e40af;
+    }
+    .items-table td { border: 1px solid #dbeafe; padding: 6px 8px; color: #111; }
+    .items-table tr:nth-child(even) td { background: #f8faff; }
+    .badge {
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 700;
+      background-color: #dcfce7;
+      color: #15803d;
+    }
+    .cta-button {
+      display: inline-block;
+      padding: 12px 28px;
+      background-color: #1d4ed8;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 14px;
+      margin: 20px 0;
+    }
+    .attachment-note {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #1e40af;
+      border-radius: 0 4px 4px 0;
+      margin: 16px 0;
+    }
+    .footer {
+      padding: 16px 32px;
+      background: #f9fafb;
+      font-size: 11px;
+      color: #9ca3af;
+      text-align: center;
+      border-top: 1px solid #f3f4f6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>PPE Withdrawal Approved</h1>
+      <p>Health, Safety &amp; Environment Dashboard</p>
+    </div>
+    <div class="content">
+      <p>Dear <strong>{{requestedByName}}</strong>,</p>
+      <p>
+        Your PPE withdrawal request <strong>{{withdrawalCode}}</strong> has been
+        <strong style="color:#15803d;">approved</strong>. Please review the details below and
+        proceed to collect your equipment at the earliest convenience.
+      </p>
 
-  <p>Hello {{name}},</p>
+      <div class="section-title">Withdrawal Summary</div>
+      <table class="info-table">
+        <tr>
+          <td>Withdrawal Code</td>
+          <td><strong>{{withdrawalCode}}</strong></td>
+        </tr>
+        <tr>
+          <td>Withdrawal Date</td>
+          <td>{{withdrawalDate}}</td>
+        </tr>
+        <tr>
+          <td>Status</td>
+          <td><span class="badge">Approved</span></td>
+        </tr>
+        <tr>
+          <td>Requested By</td>
+          <td>{{requestedByName}}</td>
+        </tr>
+        <tr>
+          <td>Requested For</td>
+          <td>{{requestedForName}}</td>
+        </tr>
+        <tr>
+          <td>Department</td>
+          <td>{{departmentName}}</td>
+        </tr>
+        {{#if jobPositionName}}
+        <tr>
+          <td>Job Position</td>
+          <td>{{jobPositionName}}</td>
+        </tr>
+        {{/if}}
+        <tr>
+          <td>Approved By</td>
+          <td>{{approvedByName}}</td>
+        </tr>
+        <tr>
+          <td>Approved At</td>
+          <td>{{approvedAt}}</td>
+        </tr>
+        {{#if notes}}
+        <tr>
+          <td>Notes</td>
+          <td style="white-space:pre-wrap;">{{notes}}</td>
+        </tr>
+        {{/if}}
+      </table>
 
-  <p>An HSE system user account has been created for you. You can log in using your email and the password that was set for you.</p>
+      {{#if items}}
+      <div class="section-title">Approved Items</div>
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>No.</th>
+            <th>Equipment Name</th>
+            <th>Type</th>
+            <th>Size</th>
+            <th>Requested Qty</th>
+            <th>Approved Qty</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each items}}
+          <tr>
+            <td>{{inc @index}}</td>
+            <td>{{this.name}}</td>
+            <td>{{default this.type "—"}}</td>
+            <td>{{default this.size "—"}}</td>
+            <td style="text-align:center;">{{this.requestedQuantity}}</td>
+            <td style="text-align:center;font-weight:600;">{{default this.approvedQuantity "—"}}</td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+      {{/if}}
 
-  <p style="margin: 20px 0;">
-    <a href="{{loginUrl}}" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">Log in</a>
-  </p>
+      <div class="attachment-note">
+        📎 A detailed PDF copy of this withdrawal is attached to this email for your records.
+      </div>
 
-  <p style="color: #666; font-size: 14px;">Best regards,<br>HSE System Team</p>
-</div>`,
+      <p style="text-align:center;">
+        <a href="{{viewUrl}}" class="cta-button">View Withdrawal Details</a>
+      </p>
+
+      <p style="font-size:13px;color:#6b7280;">
+        If you have any questions about this withdrawal, please contact the HSE team or your department administrator.
+      </p>
+    </div>
+    <div class="footer">
+      This is an automated notification from HSE Dashboard. Please do not reply to this email.
+    </div>
+  </div>
+</body>
+</html>`,
+  },
+  {
+    code: 'certificate-expiry-department',
+    name: 'Certificate Expiry Department Notification',
+    subjectTemplate: 'Certificate Expiry Notice: {{certificateName}}',
+    bodyTemplate: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Certificate Expiry Notice</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Arial, sans-serif;
+      line-height: 1.6;
+      color: #1e293b;
+      font-size: 15px;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      background-color: #a16207;
+      color: #ffffff;
+      padding: 20px;
+      border-radius: 8px 8px 0 0;
+      text-align: center;
+    }
+    .header h2 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .content {
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-top: none;
+      padding: 24px;
+      border-radius: 0 0 8px 8px;
+    }
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+    }
+    .info-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .info-table td:first-child {
+      font-weight: 600;
+      color: #475569;
+      width: 40%;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      background-color: #fef9c3;
+      color: #854d0e;
+    }
+    .footer {
+      margin-top: 24px;
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>Certificate Expiry Notice</h2>
+  </div>
+  <div class="content">
+    <p>Dear <strong>{{departmentName}}</strong> Department,</p>
+    <p>
+      This is an automated notification to inform you that the following certificate
+      is approaching its expiry date. Please take the necessary action to ensure
+      compliance and continuity.
+    </p>
+    <table class="info-table">
+      <tr>
+        <td>Certificate Name</td>
+        <td><strong>{{certificateName}}</strong></td>
+      </tr>
+      <tr>
+        <td>Category</td>
+        <td>{{categoryName}}</td>
+      </tr>
+      <tr>
+        <td>Expiry Date</td>
+        <td><strong>{{expiryDate}}</strong></td>
+      </tr>
+      <tr>
+        <td>Reminder Type</td>
+        <td><span class="badge">{{reminderType}}</span></td>
+      </tr>
+    </table>
+    <p>
+      Please log in to the HSSE Dashboard to review and initiate the renewal process
+      if required.
+    </p>
+    <p>Best regards,<br />HSSE System</p>
+  </div>
+  <div class="footer">
+    This is an automated message. Please do not reply directly to this email.
+  </div>
+</body>
+</html>`,
   },
 ];
 

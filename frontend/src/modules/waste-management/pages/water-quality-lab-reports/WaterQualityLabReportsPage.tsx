@@ -2,15 +2,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePDF } from 'react-to-pdf';
-import { Plus, MoreHorizontal, Pencil, Trash2, Eye, FileDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, FileDown } from 'lucide-react';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { Button } from '@/core/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/core/components/ui/dropdown-menu';
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
@@ -333,31 +327,52 @@ export default function WaterQualityLabReportsPage() {
     {
       id: 'actions',
       header: 'Actions',
+      headerClassName: 'justify-center',
+      cellClassName: 'text-center align-middle',
       cell: (item: WaterQualityLabReport) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => navigate(`/waste-management/water-quality-lab-reports/${item.id}`)}>
-              <Eye className="mr-2 h-4 w-4" /> View Details
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleExportSinglePDF(item.id)}
-              disabled={exportingSinglePdfId === item.id}
-            >
-              <FileDown className="mr-2 h-4 w-4" /> Export PDF
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate(`/waste-management/water-quality-lab-reports/${item.id}/edit`)}>
-              <Pencil className="mr-2 h-4 w-4" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setDeleteId(item.id)} className="text-destructive">
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex flex-wrap items-center justify-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            aria-label="View details"
+            onClick={() => navigate(`/waste-management/water-quality-lab-reports/${item.id}`)}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            aria-label="Export PDF"
+            disabled={exportingSinglePdfId === item.id}
+            onClick={() => handleExportSinglePDF(item.id)}
+          >
+            <FileDown className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            aria-label="Edit"
+            onClick={() => navigate(`/waste-management/water-quality-lab-reports/${item.id}/edit`)}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
+            aria-label="Delete"
+            onClick={() => setDeleteId(item.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ];

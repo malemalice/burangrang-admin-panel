@@ -26,6 +26,12 @@ export class ManHourDto {
   @ApiProperty()
   total: number;
 
+  @ApiProperty()
+  totalWorkingDays: number;
+
+  @ApiProperty()
+  lostHour: number;
+
   @ApiPropertyOptional()
   notes?: string;
 

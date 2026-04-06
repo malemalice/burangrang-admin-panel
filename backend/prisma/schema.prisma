@@ -235,6 +235,7 @@ model Department {
   incidentsAssigned    Incident[]
   incidentInjuredPersons IncidentInjuredPerson[] @relation("IncidentInjuredPersonDepartment")
   incidentWitnesses    IncidentWitness[] @relation("IncidentWitnessDepartment")
+  certificateCategoryResponsibilities CertificateCategory[] @relation("CertificateCategoryResponsibleDepartments")
 
   @@map("m_departments")
 }
@@ -1327,7 +1328,8 @@ model CertificateCategory {
   deletedAt       DateTime?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
-  certificates    Certificate[]
+  certificates             Certificate[]
+  responsibleDepartments   Department[] @relation("CertificateCategoryResponsibleDepartments")
 
   @@map("m_certificate_categories")
 }
@@ -1673,17 +1675,18 @@ model Room {
 
 // Environmental Measurement - Transactional Data
 model EnvironmentalMeasurement {
-  id          String   @id @default(uuid())
+  id          String            @id @default(uuid())
   roomId      String
-  lighting    Decimal? @db.Decimal(10, 2)
-  noise       Decimal? @db.Decimal(10, 2)
-  humidity    Decimal? @db.Decimal(10, 2)
-  temperature Decimal? @db.Decimal(10, 2)
-  remarks     String?  @db.Text
+  lighting    Decimal?          @db.Decimal(10, 2)
+  noise       Decimal?          @db.Decimal(10, 2)
+  humidity    Decimal?          @db.Decimal(10, 2)
+  temperature Decimal?          @db.Decimal(10, 2)
+  remarks     String?           @db.Text
   date        DateTime
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  status      GeneralStatusEnum @default(DRAFT)
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
   createdBy   String
 
   room    Room @relation(fields: [roomId], references: [id])
@@ -2659,9 +2662,11 @@ model MonthlyFlowReport {
   reportMonth       MonthEnum?
   reportYear        Int?
   totalVolume       Decimal          @db.Decimal(12, 4)
-  averageDailyFlow  Decimal          @db.Decimal(10, 4)
+  averageDailyFlow  Decimal?         @db.Decimal(10, 4)
   peakFlow          Decimal?         @db.Decimal(10, 4)
   minimumFlow       Decimal?         @db.Decimal(10, 4)
+  initialFlow       Decimal          @db.Decimal(10, 4)
+  finalFlow         Decimal          @db.Decimal(10, 4)
   reportDocumentUrl String?
   submittedBy       String
   submittedAt       DateTime
@@ -2903,7 +2908,7 @@ model DispatchOrder {
   orderedBy    String
   quantity     Decimal           @db.Decimal(10, 2)
   memo         String?           @db.Text
-  status       GeneralStatusEnum @default(DRAFT)
+  status       GeneralStatusEnum @default(WAITING_APPROVAL)
   isActive     Boolean           @default(true)
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
@@ -2950,7 +2955,9 @@ model ManHour {
   manHourPerDay Decimal          @db.Decimal(4, 2)
   month         MonthEnum
   year          Int
-  total         Decimal          @db.Decimal(10, 2)
+  totalWorkingDays Decimal        @default(0) @db.Decimal(10, 2)
+  lostHour         Decimal        @default(0) @db.Decimal(10, 2)
+  total            Decimal        @db.Decimal(10, 2)
   notes         String?          @db.Text
   isActive      Boolean          @default(true)
   createdAt     DateTime         @default(now())

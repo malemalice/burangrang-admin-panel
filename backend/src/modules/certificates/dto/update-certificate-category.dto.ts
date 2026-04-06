@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsEnum, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsBoolean, IsArray, IsUUID } from 'class-validator';
 import { CertificateTypeEnum } from '@prisma/client';
 
 export class UpdateCertificateCategoryDto {
@@ -27,5 +27,15 @@ export class UpdateCertificateCategoryDto {
     @IsBoolean()
     @IsOptional()
     isActive?: boolean;
+
+    @ApiProperty({
+        description: 'IDs of departments responsible for certificates in this category (notified on expiry)',
+        type: [String],
+        required: false,
+    })
+    @IsArray()
+    @IsUUID('4', { each: true })
+    @IsOptional()
+    responsibleDepartmentIds?: string[];
 }
 

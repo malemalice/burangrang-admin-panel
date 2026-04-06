@@ -55,6 +55,15 @@ export enum WaterQualityLabReportStatusEnum {
   REJECTED = 'REJECTED',
 }
 
+/** Dispatch order status (no DRAFT — creation submits as WAITING_APPROVAL). */
+export enum DispatchOrderStatusEnum {
+  SCHEDULED = 'SCHEDULED',
+  OPEN = 'OPEN',
+  WAITING_APPROVAL = 'WAITING_APPROVAL',
+  DONE = 'DONE',
+  REJECTED = 'REJECTED',
+}
+
 /** Water quality lab report category (water type). */
 export enum WaterQualityLabReportCategoryEnum {
   WASTEWATER = 'WASTEWATER',
@@ -235,7 +244,9 @@ export interface MonthlyFlowReport {
   reportMonth?: MonthEnum;
   reportYear?: number;
   totalVolume: number;
-  averageDailyFlow: number;
+  averageDailyFlow?: number;
+  initialFlow: number;
+  finalFlow: number;
   peakFlow?: number;
   minimumFlow?: number;
   reportDocumentUrl?: string;
@@ -262,7 +273,9 @@ export interface CreateMonthlyFlowReportData {
   reportMonth?: MonthEnum;
   reportYear?: number;
   totalVolume: number;
-  averageDailyFlow: number;
+  averageDailyFlow?: number;
+  initialFlow: number;
+  finalFlow: number;
   peakFlow?: number;
   minimumFlow?: number;
   reportDocumentUrl?: string;
@@ -296,6 +309,7 @@ export interface WaterQualityLabReportResult {
     code: string;
     unit: string;
     category: string;
+    regulatoryLimit?: number;
   };
 }
 
@@ -462,7 +476,6 @@ export interface DispatchOrder {
 }
 
 export interface CreateDispatchOrderData {
-  dispatchCode: string;
   dispatchDate: string;
   quantity: number;
   memo?: string;
@@ -471,7 +484,7 @@ export interface CreateDispatchOrderData {
 }
 
 export type UpdateDispatchOrderData = Partial<CreateDispatchOrderData> & {
-  status?: GeneralStatusEnum;
+  status?: DispatchOrderStatusEnum;
 };
 
 // Filter Types

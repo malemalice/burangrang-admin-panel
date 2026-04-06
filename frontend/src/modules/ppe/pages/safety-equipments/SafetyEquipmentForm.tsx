@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -23,6 +23,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/core/components/ui/select';
+import { SearchableSelect } from '@/core/components/ui/searchable-select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import safetyEquipmentService from '../../services/safetyEquipmentService';
 import safetyEquipmentTypeService from '../../services/safetyEquipmentTypeService';
@@ -33,6 +34,7 @@ import {
     SafetyEquipmentType,
     SafetyEquipmentCategory,
 } from '../../types/ppe-master-data.types';
+import { createSafetyEquipmentTypeFromQuery } from '../../safetyEquipmentTypeHelpers';
 
 const formSchema = z.object({
     name: z.string().min(1, 'Safety equipment name is required'),
@@ -56,9 +58,31 @@ interface SafetyEquipmentFormProps {
 const SafetyEquipmentForm = ({ equipment, mode }: SafetyEquipmentFormProps) => {
     const navigate = useNavigate();
     const [safetyEquipmentTypes, setSafetyEquipmentTypes] = useState<SafetyEquipmentType[]>([]);
+    const [isLoadingTypes, setIsLoadingTypes] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingData, setIsLoadingData] = useState(false);
     const [dataReady, setDataReady] = useState(false);
+
+    const ensureSelectedItemInList = useCallback(
+        async <T extends { id: string }>(
+            items: T[],
+            selectedId: string | undefined,
+            getById: (id: string) => Promise<T>,
+        ): Promise<T[]> => {
+            if (!selectedId) return items;
+
+            const existingIds = new Set(items.map((item) => item.id));
+            if (existingIds.has(selectedId)) return items;
+
+            try {
+                const selectedItem = await getById(selectedId);
+                return [selectedItem, ...items.filter((item) => item.id !== selectedId)];
+            } catch {
+                return items;
+            }
+        },
+        [],
+    );
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -73,20 +97,69 @@ const SafetyEquipmentForm = ({ equipment, mode }: SafetyEquipmentFormProps) => {
         },
     });
 
+    const handleSearchSafetyEquipmentTypes = useCallback(
+        async (searchQuery: string) => {
+            setIsLoadingTypes(true);
+            try {
+                const query = searchQuery.trim();
+                const limit = query ? 20 : 100;
+
+                const response = await safetyEquipmentTypeService.getSafetyEquipmentTypes({
+                    page: 1,
+                    limit,
+                    filters: { isActive: true },
+                    search: query || undefined,
+                });
+
+                const selectedId = form.getValues('safetyEquipmentTypeId');
+                const withSelected = await ensureSelectedItemInList(
+                    response.data,
+                    selectedId,
+                    safetyEquipmentTypeService.getSafetyEquipmentType,
+                );
+                setSafetyEquipmentTypes(withSelected);
+            } catch {
+                toast.error('Failed to search equipment types');
+            } finally {
+                setIsLoadingTypes(false);
+            }
+        },
+        [form, ensureSelectedItemInList],
+    );
+
+    const handleCreateNewSafetyEquipmentType = useCallback(
+        async (searchQuery: string): Promise<string> => {
+            return createSafetyEquipmentTypeFromQuery(searchQuery, (newType) => {
+                setSafetyEquipmentTypes((prev) => [newType, ...prev]);
+                form.setValue('safetyEquipmentTypeId', newType.id);
+            });
+        },
+        [form],
+    );
+
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setIsLoadingData(true);
 
-                // Fetch safety equipment types
                 const typesResponse = await safetyEquipmentTypeService.getSafetyEquipmentTypes({
                     page: 1,
                     limit: 100,
                     filters: { isActive: true },
                 });
-                setSafetyEquipmentTypes(typesResponse.data);
 
-                // Set form data for edit mode
+                let types = typesResponse.data;
+                const selectedTypeId =
+                    equipment && mode === 'edit' ? equipment.safetyEquipmentTypeId : undefined;
+                if (selectedTypeId) {
+                    types = await ensureSelectedItemInList(
+                        types,
+                        selectedTypeId,
+                        safetyEquipmentTypeService.getSafetyEquipmentType,
+                    );
+                }
+                setSafetyEquipmentTypes(types);
+
                 if (equipment && mode === 'edit') {
                     form.reset({
                         name: equipment.name,
@@ -109,7 +182,7 @@ const SafetyEquipmentForm = ({ equipment, mode }: SafetyEquipmentFormProps) => {
         };
 
         fetchData();
-    }, [equipment, mode, form]);
+    }, [equipment, mode, form, ensureSelectedItemInList]);
 
     const onSubmit = async (data: FormValues) => {
         setIsLoading(true);
@@ -203,24 +276,22 @@ const SafetyEquipmentForm = ({ equipment, mode }: SafetyEquipmentFormProps) => {
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Equipment Type *</FormLabel>
-                                        <Select
-                                            onValueChange={field.onChange}
-                                            defaultValue={field.value}
-                                            value={field.value}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select equipment type" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {safetyEquipmentTypes.map((type) => (
-                                                    <SelectItem key={type.id} value={type.id}>
-                                                        {type.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <FormControl>
+                                            <SearchableSelect
+                                                options={safetyEquipmentTypes.map((type) => ({
+                                                    value: type.id,
+                                                    label: type.name,
+                                                }))}
+                                                value={field.value}
+                                                onValueChange={field.onChange}
+                                                placeholder="Select equipment type"
+                                                searchPlaceholder="Search equipment type..."
+                                                onSearch={handleSearchSafetyEquipmentTypes}
+                                                isLoading={isLoadingTypes}
+                                                onCreateNew={handleCreateNewSafetyEquipmentType}
+                                                createNewText="Create new equipment type"
+                                            />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}

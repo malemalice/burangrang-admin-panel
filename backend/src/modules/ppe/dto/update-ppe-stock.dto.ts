@@ -1,9 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsString, IsOptional, IsBoolean, IsArray, ValidateNested } from 'class-validator';
+import { IsDateString, IsString, IsOptional, IsBoolean, IsArray, ValidateNested, MaxLength, MinLength } from 'class-validator';
 import { Type } from 'class-transformer';
 import { UpdatePPEStockItemDto } from './update-ppe-stock-item.dto';
 
 export class UpdatePPEStockDto {
+    @ApiProperty({ required: false, description: 'PO/PR code' })
+    @IsString()
+    @IsOptional()
+    @MinLength(1)
+    @MaxLength(191)
+    stockCode?: string;
+
     @ApiProperty({ required: false, description: 'Date when PPE was received' })
     @IsDateString()
     @IsOptional()
