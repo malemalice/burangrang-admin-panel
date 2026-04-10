@@ -47,7 +47,7 @@ export async function seedFileCategories() {
         'audio/wav',
         'audio/ogg',
       ],
-      maxSize: 100 * 1024 * 1024, // 100MB
+      maxSize: 25 * 1024 * 1024, // 25MB
     },
     {
       name: 'system-assets',

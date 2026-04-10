@@ -64,17 +64,40 @@ const AssignCourseDialog = ({ open, onOpenChange, onSuccess }: AssignCourseDialo
     },
   });
 
+  const fetchAllUsersForOptions = async (): Promise<User[]> => {
+    const pageSize = 200;
+    const firstPage = await userService.getUsers({ page: 1, limit: pageSize, options: true });
+
+    const usersMap = new Map<string, User>();
+    firstPage.data.forEach((user) => {
+      usersMap.set(user.id, user);
+    });
+
+    const totalPages = Math.max(1, firstPage.meta.totalPages || 1);
+
+    for (let page = 2; page <= totalPages; page += 1) {
+      const response = await userService.getUsers({ page, limit: pageSize, options: true });
+      response.data.forEach((user) => {
+        usersMap.set(user.id, user);
+      });
+    }
+
+    return Array.from(usersMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+    );
+  };
+
   // Fetch courses and users when dialog opens
   useEffect(() => {
     if (open) {
       setIsLoadingOptions(true);
       Promise.all([
         courseService.getCourses({ page: 1, limit: 100, status: 'published' }),
-        userService.getUsers({ page: 1, limit: 100, options: true }),
+        fetchAllUsersForOptions(),
       ])
         .then(([coursesResponse, usersResponse]) => {
           setCourses(coursesResponse.data);
-          setUsers(usersResponse.data);
+          setUsers(usersResponse);
         })
         .catch((error) => {
           console.error('Failed to fetch options:', error);

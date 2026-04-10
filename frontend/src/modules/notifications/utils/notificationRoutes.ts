@@ -1,5 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { NOTIFICATION_CONTEXTS, NotificationContext } from '../constants/notificationContexts';
+import enrollmentService from '@/modules/enrollments/services/enrollmentService';
+import quizService from '@/modules/quizzes/services/quizService';
+import { usePermissions } from '@/core/hooks/usePermissions';
 
 /**
  * Normalizes notification context values to a consistent format
@@ -190,12 +193,57 @@ export function getNotificationRoute(
  */
 export function useNotificationNavigation() {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
 
-  return (notification: { context?: string; contextId?: string }) => {
-    const route = getNotificationRoute(notification.context, notification.contextId);
-    if (route) {
-      navigate(route);
+  return async (notification: {
+    context?: string;
+    contextId?: string;
+    title?: string;
+    message?: string;
+  }) => {
+    const normalizedContext = normalizeContext(notification.context);
+
+    if (normalizedContext === NOTIFICATION_CONTEXTS.ENROLLMENT && notification.contextId) {
+      try {
+        if (hasPermission('quiz:view-attempts')) {
+          const attempts = await quizService.getAttemptsByEnrollment(notification.contextId);
+
+          const prioritizedAttempt =
+            attempts.find((attempt) => attempt.needsGrading && attempt.status === 'COMPLETED') ||
+            attempts.find((attempt) => attempt.status === 'COMPLETED') ||
+            attempts.find((attempt) => attempt.status === 'IN_PROGRESS');
+
+          if (prioritizedAttempt?.quizId) {
+            navigate(`/quizzes/${prioritizedAttempt.quizId}/attempts/${prioritizedAttempt.id}/grade`);
+            return;
+          }
+        }
+
+        if (hasPermission('quiz:attempt')) {
+          const enrollment = await enrollmentService.getEnrollmentById(notification.contextId);
+          if (enrollment.courseId) {
+            navigate(`/courses/${enrollment.courseId}/learn`);
+            return;
+          }
+        }
+      } catch {
+        // Ignore enrichment errors and fallback to default route mapping
+      }
     }
+
+    if (normalizedContext === NOTIFICATION_CONTEXTS.QUIZ && notification.contextId) {
+      if (hasPermission('quiz:view-attempts')) {
+        navigate(`/quizzes/${notification.contextId}?tab=grading`);
+        return;
+      }
+
+      if (hasPermission('quiz:attempt')) {
+        navigate(`/quizzes/${notification.contextId}/attempt`);
+        return;
+      }
+    }
+
+    const route = getNotificationRoute(notification.context, notification.contextId);
+    navigate(route);
   };
 }
-

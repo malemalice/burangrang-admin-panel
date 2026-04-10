@@ -1,5 +1,105 @@
+import { useEffect, useRef, useState } from 'react';
 import { Chapter } from '../types/course.types';
 import { containsHtmlTags, getYoutubeEmbedUrl } from '@/core/lib/media-utils';
+import { Button } from '@/core/components/ui/button';
+
+interface VideoChapterPlayerProps {
+  src: string;
+  title: string;
+}
+
+const VideoChapterPlayer = ({ src, title }: VideoChapterPlayerProps) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [hasCompleted, setHasCompleted] = useState(false);
+
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    if (!videoElement) {
+      return;
+    }
+
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setHasCompleted(true);
+    };
+
+    videoElement.addEventListener('play', handlePlay);
+    videoElement.addEventListener('pause', handlePause);
+    videoElement.addEventListener('ended', handleEnded);
+
+    return () => {
+      videoElement.removeEventListener('play', handlePlay);
+      videoElement.removeEventListener('pause', handlePause);
+      videoElement.removeEventListener('ended', handleEnded);
+    };
+  }, []);
+
+  const handlePlay = async () => {
+    if (!videoRef.current) {
+      return;
+    }
+
+    try {
+      await videoRef.current.play();
+    } catch {
+      // Ignore autoplay/playback errors and keep UI consistent
+    }
+  };
+
+  const handleRestart = async () => {
+    if (!videoRef.current) {
+      return;
+    }
+
+    try {
+      videoRef.current.currentTime = 0;
+      await videoRef.current.play();
+    } catch {
+      // Ignore playback errors and keep UI consistent
+    }
+  };
+
+  return (
+    <div className="aspect-video w-full bg-black rounded-lg overflow-hidden relative">
+      <video
+        ref={videoRef}
+        src={src}
+        controls={hasCompleted}
+        className="w-full h-full"
+        controlsList="nodownload"
+        playsInline
+      />
+
+      {!hasCompleted && !isPlaying && (
+        <div className="absolute inset-0 bg-black/55 flex items-center justify-center gap-3">
+          <Button type="button" onClick={handlePlay}>
+            Play
+          </Button>
+          <Button type="button" variant="outline" onClick={handleRestart}>
+            Restart
+          </Button>
+        </div>
+      )}
+
+      {!hasCompleted && isPlaying && (
+        <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded">
+          Complete this video to unlock full controls
+        </div>
+      )}
+
+      {hasCompleted && (
+        <div className="absolute top-3 right-3 bg-green-700/90 text-white text-xs px-2 py-1 rounded">
+          Completed
+        </div>
+      )}
+
+      <span className="sr-only">{title}</span>
+    </div>
+  );
+};
 
 interface ChapterContentProps {
   chapter: Chapter;
@@ -13,23 +113,18 @@ const ChapterContent = ({ chapter }: ChapterContentProps) => {
   switch (contentType) {
     case 'video':
       return (
-        <div className="aspect-video w-full bg-black rounded-lg overflow-hidden">
-          {chapter.contentUrl ? (
-            <video 
-              src={chapter.contentUrl} 
-              controls 
-              className="w-full h-full"
-              controlsList="nodownload"
-            />
-          ) : (
+        chapter.contentUrl ? (
+          <VideoChapterPlayer src={chapter.contentUrl} title={chapter.title} />
+        ) : (
+          <div className="aspect-video w-full bg-black rounded-lg overflow-hidden">
             <div className="flex items-center justify-center h-full text-white">
               Video URL missing
             </div>
-          )}
-        </div>
+          </div>
+        )
       );
 
-    case 'youtube':
+    case 'youtube': {
       const embedUrl = getYoutubeEmbedUrl(chapter.youtubeVideoId?.trim() || chapter.contentUrl?.trim());
       return (
         <div className="aspect-video w-full bg-black rounded-lg overflow-hidden">
@@ -51,6 +146,7 @@ const ChapterContent = ({ chapter }: ChapterContentProps) => {
           )}
         </div>
       );
+    }
 
     case 'audio':
       return (
