@@ -5,6 +5,14 @@ import { Upload, X, Image as ImageIcon, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import uploadService, { FileCategory } from '../services/uploadService';
 
+type UploadError = {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+};
+
 interface ImageUploadProps {
   value?: string;
   onChange: (value: string) => void;
@@ -29,7 +37,7 @@ const ImageUpload = ({
   onChange,
   categoryName,
   isPublic = false,
-  maxSize = 5 * 1024 * 1024, // 5MB default
+  maxSize = 25 * 1024 * 1024, // 25MB default
   allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'audio/mpeg', 'audio/mp3'],
   placeholder = 'Upload file',
   disabled = false,
@@ -43,6 +51,17 @@ const ImageUpload = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [category, setCategory] = useState<FileCategory | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const effectiveMaxSize = category?.maxSize ?? maxSize;
+  const effectiveAllowedTypes =
+    category?.allowedTypes && category.allowedTypes.length > 0
+      ? (() => {
+          const intersection = allowedTypes.filter((type) =>
+            category.allowedTypes.includes(type),
+          );
+          return intersection.length > 0 ? intersection : allowedTypes;
+        })()
+      : allowedTypes;
 
   // Load category on mount
   useEffect(() => {
@@ -75,14 +94,14 @@ const ImageUpload = ({
     if (!file) return;
 
     // Validate file type
-    if (!allowedTypes.includes(file.type)) {
-      toast.error(`Invalid file type. Allowed types: ${allowedTypes.join(', ')}`);
+    if (!effectiveAllowedTypes.includes(file.type)) {
+      toast.error(`Invalid file type. Allowed types: ${effectiveAllowedTypes.join(', ')}`);
       return;
     }
 
     // Validate file size
-    if (file.size > maxSize) {
-      toast.error(`File size exceeds maximum allowed size of ${Math.round(maxSize / 1024 / 1024)}MB`);
+    if (file.size > effectiveMaxSize) {
+      toast.error(`File size exceeds maximum allowed size of ${Math.round(effectiveMaxSize / 1024 / 1024)}MB`);
       return;
     }
 
@@ -104,9 +123,10 @@ const ImageUpload = ({
         onChange(fileUrl);
         setSelectedFile(null); // Clear selected file after successful upload
         toast.success('File uploaded successfully');
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Upload error:', error);
-        const errorMessage = error.response?.data?.message || 'Failed to upload file';
+        const uploadError = error as UploadError;
+        const errorMessage = uploadError.response?.data?.message || 'Failed to upload file';
         toast.error(errorMessage);
         setSelectedFile(null); // Clear on error too
       } finally {
@@ -231,12 +251,12 @@ const ImageUpload = ({
       ) : (
         <div className="border-2 border-dashed rounded-lg p-6 text-center">
           <ImageIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-          <Input
-            ref={fileInputRef}
-            type="file"
-            accept={allowedTypes.join(',')}
-            onChange={handleFileSelect}
-            disabled={disabled || isUploading}
+            <Input
+              ref={fileInputRef}
+              type="file"
+              accept={effectiveAllowedTypes.join(',')}
+              onChange={handleFileSelect}
+              disabled={disabled || isUploading}
             className="hidden"
             id={id || `file-upload-${categoryName}`}
           />
@@ -261,4 +281,3 @@ const ImageUpload = ({
 };
 
 export default ImageUpload;
-

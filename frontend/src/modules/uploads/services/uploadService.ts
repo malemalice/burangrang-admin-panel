@@ -3,7 +3,7 @@ import api from '@/core/lib/api';
 export interface FileCategory {
   id: string;
   name: string;
-  allowedMimeTypes: string[];
+  allowedTypes: string[];
   maxSize: number;
   isActive: boolean;
 }
@@ -26,7 +26,13 @@ const uploadService = {
   // Get all file categories
   getCategories: async (): Promise<FileCategory[]> => {
     const response = await api.get('/uploads/categories');
-    return response.data;
+    return response.data.map((category: Record<string, unknown>) => ({
+      id: String(category.id),
+      name: String(category.name),
+      allowedTypes: (category.allowedTypes as string[]) || (category.allowedMimeTypes as string[]) || [],
+      maxSize: Number(category.maxSize || 0),
+      isActive: Boolean(category.isActive),
+    }));
   },
 
   // Get category by name
@@ -41,7 +47,7 @@ const uploadService = {
     categoryId: string,
     isPublic: boolean = false,
     expiresAt?: string,
-    metadata?: any,
+    metadata?: unknown,
   ): Promise<FileUploadResponse> => {
     const formData = new FormData();
     formData.append('file', file);
@@ -77,4 +83,3 @@ const uploadService = {
 };
 
 export default uploadService;
-
