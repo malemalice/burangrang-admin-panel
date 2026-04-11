@@ -3,6 +3,7 @@ import { ErrorHandlingService } from './services/error-handling.service';
 import { DtoMapperService } from './services/dto-mapper.service';
 import { ActivityLoggerService } from './services/activity-logger.service';
 import { LocalStorageService } from './services/local-storage.service';
+import { S3CompatibleStorageService } from './services/s3-compatible-storage.service';
 import { StorageFactoryService } from './services/storage-factory.service';
 import { NotificationService } from './services/notification.service';
 import { XenditService } from './services/xendit.service';
@@ -18,6 +19,7 @@ import { PermissionsGuard } from './guards/permissions.guard';
     DtoMapperService, 
     ActivityLoggerService, 
     LocalStorageService,
+    S3CompatibleStorageService,
     StorageFactoryService,
     NotificationService,
     XenditService,
@@ -31,6 +33,7 @@ import { PermissionsGuard } from './guards/permissions.guard';
     DtoMapperService, 
     ActivityLoggerService, 
     LocalStorageService,
+    S3CompatibleStorageService,
     StorageFactoryService,
     NotificationService,
     XenditService,

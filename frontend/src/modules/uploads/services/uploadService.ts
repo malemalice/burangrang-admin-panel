@@ -9,7 +9,7 @@ const mapFileUploadDtoToFileUpload = (fileUploadDto: any): FileUpload => ({
   mimeType: fileUploadDto.mimeType,
   size: fileUploadDto.size,
   hash: fileUploadDto.hash,
-  storageProviderId: fileUploadDto.storageProviderId,
+  storageProvider: fileUploadDto.storageProvider,
   categoryId: fileUploadDto.categoryId,
   uploadedBy: fileUploadDto.uploadedBy,
   isPublic: fileUploadDto.isPublic,
@@ -22,7 +22,6 @@ const mapFileUploadDtoToFileUpload = (fileUploadDto: any): FileUpload => ({
   downloadUrl: fileUploadDto.downloadUrl,
   fileExtension: fileUploadDto.fileExtension,
   isExpired: fileUploadDto.isExpired,
-  storageProvider: fileUploadDto.storageProvider,
   category: fileUploadDto.category,
   uploader: fileUploadDto.uploader,
 });

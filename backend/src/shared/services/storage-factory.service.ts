@@ -1,68 +1,47 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../core/prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 import { StorageService } from './storage.service';
 import { LocalStorageService } from './local-storage.service';
+import { S3CompatibleStorageService } from './s3-compatible-storage.service';
+
+export type StorageProviderName = 'local' | 'aws-s3';
 
 @Injectable()
 export class StorageFactoryService {
-  private storageServices: Map<string, StorageService> = new Map();
+  private storageServices: Map<StorageProviderName, StorageService> = new Map();
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
     private readonly localStorageService: LocalStorageService,
+    private readonly s3CompatibleStorageService: S3CompatibleStorageService,
   ) {
     this.initializeStorageServices();
   }
 
   private initializeStorageServices(): void {
-    // Register local storage service
     this.storageServices.set('local', this.localStorageService);
-    
-    // TODO: Register other storage services (S3, Google Cloud, etc.)
-    // this.storageServices.set('aws-s3', this.s3StorageService);
-    // this.storageServices.set('google-cloud', this.googleCloudStorageService);
+    this.storageServices.set('aws-s3', this.s3CompatibleStorageService);
   }
 
-  async getStorageService(providerId: string): Promise<StorageService> {
-    // Get provider from database
-    const provider = await this.prisma.fileStorageProvider.findUnique({
-      where: { id: providerId },
-    });
-
-    if (!provider) {
-      throw new Error(`Storage provider with ID ${providerId} not found`);
-    }
-
-    if (!provider.isActive) {
-      throw new Error(`Storage provider ${provider.name} is not active`);
-    }
-
-    const service = this.storageServices.get(provider.name);
-    if (!service) {
-      throw new Error(`Storage service for provider ${provider.name} not implemented`);
-    }
-
-    return service;
+  /** Resolves DEFAULT_STORAGE_PROVIDER env (or ConfigService); defaults to local. */
+  getDefaultProviderName(): StorageProviderName {
+    const raw = (
+      this.config.get<string>('DEFAULT_STORAGE_PROVIDER') ??
+      process.env.DEFAULT_STORAGE_PROVIDER ??
+      'local'
+    ).toLowerCase();
+    return raw === 'aws-s3' ? 'aws-s3' : 'local';
   }
 
-  async getDefaultStorageService(): Promise<StorageService> {
-    const defaultProvider = await this.prisma.fileStorageProvider.findFirst({
-      where: { isDefault: true, isActive: true },
-    });
-
-    if (!defaultProvider) {
-      // Fallback to local storage
-      return this.localStorageService;
-    }
-
-    return this.getStorageService(defaultProvider.id);
-  }
-
-  getStorageServiceByName(name: string): StorageService {
+  getStorageServiceByName(name: StorageProviderName): StorageService {
     const service = this.storageServices.get(name);
     if (!service) {
       throw new Error(`Storage service ${name} not implemented`);
     }
     return service;
+  }
+
+  async getDefaultStorageService(): Promise<StorageService> {
+    return this.getStorageServiceByName(this.getDefaultProviderName());
   }
 }

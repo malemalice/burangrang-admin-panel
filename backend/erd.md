@@ -486,17 +486,6 @@ Table t_notification_recipients {
 // File Management System
 // ============================================================================
 
-Table m_file_storage_providers {
-  id uuid [pk, default: `uuid()`]
-  name varchar [unique, not null]
-  config jsonb [not null]
-  isActive boolean [default: true, not null]
-  isDefault boolean [default: false, not null]
-  createdAt timestamp [default: `now()`, not null]
-  updatedAt timestamp [default: `now()`, not null]
-  Note: 'Storage service configuration (local, AWS S3, Google Cloud)'
-}
-
 Table m_file_categories {
   id uuid [pk, default: `uuid()`]
   name varchar [unique, not null]
@@ -515,7 +504,7 @@ Table t_file_uploads {
   mimeType varchar [not null]
   size bigint [not null]
   hash varchar [not null]
-  storageProviderId uuid [not null, ref: > m_file_storage_providers.id]
+  storageProvider varchar [not null]
   categoryId uuid [not null, ref: > m_file_categories.id]
   uploadedBy uuid [not null, ref: > t_users.id]
   isPublic boolean [default: false, not null]
@@ -525,7 +514,7 @@ Table t_file_uploads {
   isActive boolean [default: true, not null]
   createdAt timestamp [default: `now()`, not null]
   updatedAt timestamp [default: `now()`, not null]
-  Note: 'File metadata and storage information'
+  Note: 'File metadata; storageProvider is local or aws-s3 (credentials in env)'
 }
 
 Table t_file_access_logs {
@@ -630,7 +619,6 @@ Ref: t_notification_recipients.roleId > m_roles.id
 Ref: t_notification_recipients.userId > t_users.id
 
 // File Management
-Ref: t_file_uploads.storageProviderId > m_file_storage_providers.id
 Ref: t_file_uploads.categoryId > m_file_categories.id
 Ref: t_file_uploads.uploadedBy > t_users.id
 Ref: t_file_access_logs.fileId > t_file_uploads.id

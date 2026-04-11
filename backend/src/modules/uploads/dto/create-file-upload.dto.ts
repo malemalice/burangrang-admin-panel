@@ -1,5 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsUUID, IsBoolean, IsOptional, IsDateString, IsObject } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsUUID,
+  IsBoolean,
+  IsOptional,
+  IsDateString,
+  IsObject,
+  IsIn,
+} from 'class-validator';
 
 export class CreateFileUploadDto {
   @ApiProperty()
@@ -25,10 +34,11 @@ export class CreateFileUploadDto {
   @IsNotEmpty()
   hash: string;
 
-  @ApiProperty()
-  @IsUUID()
+  @ApiProperty({ enum: ['local', 'aws-s3'] })
+  @IsString()
   @IsNotEmpty()
-  storageProviderId: string;
+  @IsIn(['local', 'aws-s3'])
+  storageProvider: string;
 
   @ApiProperty()
   @IsUUID()
