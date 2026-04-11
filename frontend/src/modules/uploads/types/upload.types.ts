@@ -1,5 +1,7 @@
 // Upload module types following TRD patterns
 
+export type StorageProviderKind = 'local' | 'aws-s3';
+
 // Core entity types
 export interface FileUpload {
   id: string;
@@ -8,7 +10,7 @@ export interface FileUpload {
   mimeType: string;
   size: number;
   hash: string;
-  storageProviderId: string;
+  storageProvider: StorageProviderKind;
   categoryId: string;
   uploadedBy: string;
   isPublic: boolean;
@@ -25,7 +27,6 @@ export interface FileUpload {
   isExpired: boolean;
   
   // Relations
-  storageProvider?: any;
   category?: FileCategory;
   uploader?: any;
 }
@@ -48,7 +49,7 @@ export interface FileUploadDTO {
   mimeType: string;
   size: number;
   hash: string;
-  storageProviderId: string;
+  storageProvider: StorageProviderKind;
   categoryId: string;
   uploadedBy: string;
   isPublic: boolean;
@@ -61,7 +62,6 @@ export interface FileUploadDTO {
   downloadUrl: string;
   fileExtension: string;
   isExpired: boolean;
-  storageProvider?: any;
   category?: FileCategoryDTO;
   uploader?: any;
 }
@@ -83,7 +83,7 @@ export interface CreateFileUploadDTO {
   mimeType: string;
   size: number;
   hash: string;
-  storageProviderId: string;
+  storageProvider: StorageProviderKind;
   categoryId: string;
   isPublic: boolean;
   expiresAt?: Date;
@@ -110,7 +110,7 @@ export interface FileUploadFormData {
 export interface FileUploadFilters {
   isActive?: boolean;
   isPublic?: boolean;
-  storageProviderId?: string;
+  storageProvider?: StorageProviderKind;
   categoryId?: string;
   uploadedBy?: string;
   mimeType?: string;

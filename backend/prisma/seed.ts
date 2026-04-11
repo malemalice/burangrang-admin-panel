@@ -13,7 +13,6 @@ import { seedProductTypes } from './seeds/product-types.seed';
 import { seedCourses } from './seeds/courses.seed';
 import { seedChapters } from './seeds/chapters.seed';
 import { seedFileCategories } from './seeds/file-categories.seed';
-import { seedFileStorageProviders } from './seeds/file-storage-providers.seed';
 import { seedProducts } from './seeds/products.seed';
 import { seedCustomers } from './seeds/customers.seed';
 import { seedPaymentMethods } from './seeds/payment-methods.seed';
@@ -70,7 +69,6 @@ async function main() {
       await prisma.fileAccessLog.deleteMany();
       await prisma.fileUpload.deleteMany();
       await prisma.fileCategory.deleteMany();
-      await prisma.fileStorageProvider.deleteMany();
       
       // Delete product-related tables
       await prisma.productDownload.deleteMany();
@@ -146,9 +144,6 @@ async function main() {
         case 'file_categories':
           await prisma.fileCategory.deleteMany();
           break;
-        case 'file_storage_providers':
-          await prisma.fileStorageProvider.deleteMany();
-          break;
         case 'file_uploads':
           await prisma.fileAccessLog.deleteMany();
           await prisma.fileUpload.deleteMany();
@@ -176,7 +171,7 @@ async function main() {
           break;
         default:
           console.error(`Unknown table: ${tableToSeed}`);
-          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, file_categories, file_storage_providers, file_uploads, products, customers, payment_methods, orders');
+          console.log('Available tables: users, roles, permissions, offices, departments, job_positions, settings, menus, notifications, categories, product_types, courses, chapters, file_categories, file_uploads, products, customers, payment_methods, orders');
           process.exit(1);
       }
       console.log(`Cleared existing data for table: ${tableToSeed}`);
@@ -200,7 +195,6 @@ async function main() {
       const courses = await seedCourses(prisma, users, categories);
       await seedChapters(prisma, courses);
       await seedMailTemplates(prisma);
-      await seedFileStorageProviders();
       await seedFileCategories();
       await seedPaymentMethods();
       await seedCustomers();
@@ -274,9 +268,6 @@ async function main() {
           break;
         case 'file_categories':
           await seedFileCategories();
-          break;
-        case 'file_storage_providers':
-          await seedFileStorageProviders();
           break;
         case 'file_uploads':
           // Note: file uploads are created through the API, not seeded

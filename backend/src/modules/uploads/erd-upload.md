@@ -8,17 +8,7 @@ This document outlines the database design for the upload module that handles fi
 
 ### Core Entities
 
-#### 1. File Storage Provider (m_file_storage_providers)
-- **Purpose**: Abstract storage providers (local, AWS S3, Google Cloud, etc.)
-- **Table**: `m_file_storage_providers`
-- **Key Fields**: 
-  - `id` (UUID, PK)
-  - `name` (unique) - e.g., "local", "aws-s3", "google-cloud"
-  - `config` (JSON) - Provider-specific configuration
-  - `isActive` (Boolean)
-  - `isDefault` (Boolean) - Default provider for new uploads
-
-#### 2. File Category (m_file_categories)
+#### 1. File Category (m_file_categories)
 - **Purpose**: Categorize files by type and purpose
 - **Table**: `m_file_categories`
 - **Key Fields**:
@@ -28,7 +18,7 @@ This document outlines the database design for the upload module that handles fi
   - `maxSize` (Integer) - Max file size in bytes
   - `isActive` (Boolean)
 
-#### 3. File Upload (t_file_uploads)
+#### 2. File Upload (t_file_uploads)
 - **Purpose**: Main file metadata and tracking
 - **Table**: `t_file_uploads`
 - **Key Fields**:
@@ -38,7 +28,7 @@ This document outlines the database design for the upload module that handles fi
   - `mimeType` (String) - File MIME type
   - `size` (BigInt) - File size in bytes
   - `hash` (String) - File hash for deduplication
-  - `storageProviderId` (UUID, FK) - Storage provider
+  - `storageProvider` (String) - `"local"` or `"aws-s3"`; default for new uploads from `DEFAULT_STORAGE_PROVIDER` env
   - `categoryId` (UUID, FK) - File category
   - `uploadedBy` (UUID, FK) - User who uploaded
   - `isPublic` (Boolean) - Public/private access
@@ -49,7 +39,7 @@ This document outlines the database design for the upload module that handles fi
   - `createdAt` (DateTime)
   - `updatedAt` (DateTime)
 
-#### 4. File Access Log (t_file_access_logs)
+#### 3. File Access Log (t_file_access_logs)
 - **Purpose**: Track file access for analytics and security
 - **Table**: `t_file_access_logs`
 - **Key Fields**:
@@ -65,17 +55,6 @@ This document outlines the database design for the upload module that handles fi
 
 ```mermaid
 erDiagram
-    %% Master Data Tables
-    m_file_storage_providers {
-        string id PK
-        string name UK
-        json config
-        boolean isActive
-        boolean isDefault
-        datetime createdAt
-        datetime updatedAt
-    }
-
     m_file_categories {
         string id PK
         string name UK
@@ -94,7 +73,7 @@ erDiagram
         string mimeType
         bigint size
         string hash
-        string storageProviderId FK
+        string storageProvider
         string categoryId FK
         string uploadedBy FK
         boolean isPublic
@@ -117,7 +96,6 @@ erDiagram
     }
 
     %% Relationships
-    m_file_storage_providers ||--o{ t_file_uploads : "stores"
     m_file_categories ||--o{ t_file_uploads : "categorizes"
     t_users ||--o{ t_file_uploads : "uploads"
     t_users ||--o{ t_file_access_logs : "accesses"
@@ -127,22 +105,6 @@ erDiagram
 ## Database Schema (Prisma)
 
 ```prisma
-// File Storage Provider - Master Data
-model FileStorageProvider {
-  id        String   @id @default(uuid())
-  name      String   @unique // "local", "aws-s3", "google-cloud"
-  config    Json     // Provider-specific configuration
-  isActive  Boolean  @default(true)
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  fileUploads FileUpload[]
-
-  @@map("m_file_storage_providers")
-}
-
 // File Category - Master Data
 model FileCategory {
   id           String   @id @default(uuid())
@@ -167,7 +129,7 @@ model FileUpload {
   mimeType          String   // File MIME type
   size              BigInt   // File size in bytes
   hash              String   // File hash for deduplication
-  storageProviderId String
+  storageProvider   String   // "local" | "aws-s3"
   categoryId        String
   uploadedBy        String
   isPublic          Boolean  @default(false)
@@ -179,7 +141,6 @@ model FileUpload {
   updatedAt         DateTime @updatedAt
 
   // Relations
-  storageProvider FileStorageProvider @relation(fields: [storageProviderId], references: [id])
   category        FileCategory        @relation(fields: [categoryId], references: [id])
   uploader        User                @relation(fields: [uploadedBy], references: [id])
   accessLogs      FileAccessLog[]
@@ -242,10 +203,8 @@ interface FileMetadata {
 
 ### Storage Provider Implementations
 
-1. **LocalStorageService** - Local file system
-2. **S3StorageService** - AWS S3
-3. **GoogleCloudStorageService** - Google Cloud Storage
-4. **AzureStorageService** - Azure Blob Storage
+1. **LocalStorageService** - Local file system (`name`: `local`)
+2. **S3CompatibleStorageService** - S3-compatible APIs including AWS, R2, MinIO (`name`: `aws-s3`)
 
 ## File Access Control
 

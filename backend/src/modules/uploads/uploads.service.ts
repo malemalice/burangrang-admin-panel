@@ -7,10 +7,12 @@ import { FindFileUploadsDto } from './dto/find-file-uploads.dto';
 import { Prisma } from '@prisma/client';
 import { ErrorHandlingService } from '../../shared/services/error-handling.service';
 import { DtoMapperService } from '../../shared/services/dto-mapper.service';
-import { StorageFactoryService } from '../../shared/services/storage-factory.service';
+import {
+  StorageFactoryService,
+  StorageProviderName,
+} from '../../shared/services/storage-factory.service';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
-import { FileStorageProviderDto } from './dto/file-storage-provider.dto';
 import { FileCategoryDto } from './dto/file-category.dto';
 import { UserDto } from '../users/dto/user.dto';
 
@@ -29,9 +31,6 @@ export class UploadsService {
     this.fileUploadMapper = (entity: any) => {
       const baseDto = this.dtoMapper.mapToDto(FileUploadDto, entity, {
         relations: {
-          storageProvider: {
-            mapper: this.dtoMapper.createSimpleMapper(FileStorageProviderDto),
-          },
           category: {
             mapper: this.dtoMapper.createSimpleMapper(FileCategoryDto),
           },
@@ -45,7 +44,10 @@ export class UploadsService {
       });
 
       // Add computed fields manually
-      const mediaUrl = process.env.MEDIA_URL || 'http://localhost:3000';
+      const mediaUrl =
+        process.env.MEDIA_URL ||
+        process.env.PUBLIC_URL ||
+        'http://localhost:3000';
       baseDto.downloadUrl = entity.isPublic 
         ? `${mediaUrl}/uploads/public/${entity.id}`
         : `${mediaUrl}/uploads/private/${entity.accessToken}`;
@@ -109,10 +111,7 @@ export class UploadsService {
       uploadedBy,
     });
 
-    // Get storage provider ID
-    const defaultProvider = await this.prisma.fileStorageProvider.findFirst({
-      where: { isDefault: true, isActive: true },
-    });
+    const providerName = this.storageFactory.getDefaultProviderName();
 
     // Create file upload record
     const createDto: CreateFileUploadDto = {
@@ -121,7 +120,7 @@ export class UploadsService {
       mimeType: file.mimetype,
       size: file.size,
       hash,
-      storageProviderId: defaultProvider?.id || '',
+      storageProvider: providerName,
       categoryId,
       isPublic,
       expiresAt,
@@ -139,7 +138,6 @@ export class UploadsService {
         accessToken: uuidv4(), // Generate access token for private files
       },
       include: {
-        storageProvider: true,
         category: true,
         uploader: {
           include: {
@@ -167,7 +165,7 @@ export class UploadsService {
       isActive,
       isPublic,
       search,
-      storageProviderId,
+      storageProvider,
       categoryId,
       uploadedBy,
       mimeType,
@@ -193,8 +191,8 @@ export class UploadsService {
       where.isPublic = isPublic;
     }
 
-    if (storageProviderId) {
-      where.storageProviderId = storageProviderId;
+    if (storageProvider) {
+      where.storageProvider = storageProvider;
     }
 
     if (categoryId) {
@@ -213,7 +211,6 @@ export class UploadsService {
       this.prisma.fileUpload.findMany({
         where,
         include: {
-          storageProvider: true,
           category: true,
           uploader: {
             include: {
@@ -243,7 +240,6 @@ export class UploadsService {
     const fileUpload = await this.prisma.fileUpload.findUnique({
       where: { id },
       include: {
-        storageProvider: true,
         category: true,
         uploader: {
           include: {
@@ -265,7 +261,6 @@ export class UploadsService {
     const fileUpload = await this.prisma.fileUpload.findUnique({
       where: { accessToken },
       include: {
-        storageProvider: true,
         category: true,
         uploader: {
           include: {
@@ -294,7 +289,6 @@ export class UploadsService {
       where: { id },
       data: updateFileUploadDto,
       include: {
-        storageProvider: true,
         category: true,
         uploader: {
           include: {
@@ -317,8 +311,9 @@ export class UploadsService {
 
     this.errorHandler.throwIfNotFoundById('FileUpload', id, existingFileUpload);
 
-    // Delete file from storage
-    const storageService = await this.storageFactory.getStorageService(existingFileUpload.storageProviderId);
+    const storageService = this.storageFactory.getStorageServiceByName(
+      existingFileUpload.storageProvider as StorageProviderName,
+    );
     await storageService.delete(existingFileUpload.storedName);
 
     // Delete database record
@@ -350,8 +345,9 @@ export class UploadsService {
     // Log access
     await this.logFileAccess(fileUpload.id, accessedBy, ipAddress, userAgent, 'download');
 
-    // Get storage service and download file
-    const storageService = await this.storageFactory.getStorageService(fileUpload.storageProviderId);
+    const storageService = this.storageFactory.getStorageServiceByName(
+      fileUpload.storageProvider as StorageProviderName,
+    );
     return storageService.download(fileUpload.storedName);
   }
 
@@ -366,8 +362,9 @@ export class UploadsService {
     // Log access
     await this.logFileAccess(fileUpload.id, accessedBy, ipAddress, userAgent, 'download');
 
-    // Get storage service and download file
-    const storageService = await this.storageFactory.getStorageService(fileUpload.storageProviderId);
+    const storageService = this.storageFactory.getStorageServiceByName(
+      fileUpload.storageProvider as StorageProviderName,
+    );
     return storageService.download(fileUpload.storedName);
   }
 

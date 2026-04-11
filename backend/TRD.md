@@ -1231,11 +1231,10 @@ The Upload Module provides a comprehensive file management system for handling u
 ### Database Schema
 
 #### Master Data Tables
-- `m_file_storage_providers` - Configuration for storage providers (local, AWS S3, etc.)
 - `m_file_categories` - File category definitions with allowed MIME types and size limits
 
 #### Transactional Data Tables
-- `t_file_uploads` - Metadata for uploaded files including access control settings
+- `t_file_uploads` - Metadata for uploaded files; `storageProvider` is `local` or `aws-s3` (credentials and paths are env-only)
 - `t_file_access_logs` - Audit trail for file access with IP and user agent information
 
 ### Module Structure
@@ -1247,8 +1246,7 @@ backend/src/modules/uploads/
 │   ├── create-file-upload.dto.ts
 │   ├── update-file-upload.dto.ts
 │   ├── find-file-uploads.dto.ts
-│   ├── file-category.dto.ts
-│   └── file-storage-provider.dto.ts
+│   └── file-category.dto.ts
 ├── uploads.controller.ts
 ├── uploads.service.ts
 └── uploads.module.ts
@@ -1260,6 +1258,7 @@ backend/src/modules/uploads/
 backend/src/shared/services/
 ├── storage.service.ts (interface)
 ├── local-storage.service.ts
+├── s3-compatible-storage.service.ts
 └── storage-factory.service.ts
 ```
 
@@ -1346,20 +1345,19 @@ curl http://localhost:3000/uploads/private/ACCESS_TOKEN
 
 #### Environment Variables
 ```env
-# Upload Configuration
+DEFAULT_STORAGE_PROVIDER=local
 UPLOAD_DIR=./uploads
 PUBLIC_URL=http://localhost:3000
+# Optional: MEDIA_URL=... (download links only, e.g. CDN; defaults to PUBLIC_URL)
 
-# AWS S3 (for future use)
+# S3-compatible — required when default provider is aws-s3
 AWS_REGION=us-east-1
 AWS_S3_BUCKET=your-bucket-name
 AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
-
-# Google Cloud (for future use)
-GOOGLE_CLOUD_PROJECT_ID=your-project-id
-GOOGLE_CLOUD_BUCKET=your-bucket-name
-GOOGLE_CLOUD_KEY_FILE=path/to/keyfile.json
+S3_ENDPOINT=
+S3_FORCE_PATH_STYLE=false
+S3_PUBLIC_BASE_URL=
 ```
 
 ### TRD Compliance

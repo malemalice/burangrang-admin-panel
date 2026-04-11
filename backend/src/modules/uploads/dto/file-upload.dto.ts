@@ -32,10 +32,10 @@ export class FileUploadDto {
   @IsString()
   hash: string;
 
-  @ApiProperty()
+  @ApiProperty({ enum: ['local', 'aws-s3'] })
   @Expose()
-  @IsUUID()
-  storageProviderId: string;
+  @IsString()
+  storageProvider: string;
 
   @ApiProperty()
   @Expose()
@@ -83,11 +83,6 @@ export class FileUploadDto {
   updatedAt: Date;
 
   // Relations
-  @ApiProperty({ required: false })
-  @Expose()
-  @IsOptional()
-  storageProvider?: any;
-
   @ApiProperty({ required: false })
   @Expose()
   @IsOptional()

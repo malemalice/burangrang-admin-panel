@@ -7,16 +7,15 @@ The upload module has been successfully implemented following the TRD guidelines
 ## ✅ Completed Features
 
 ### 1. Database Schema
-- **FileStorageProvider** (m_file_storage_providers) - Master data for storage providers
 - **FileCategory** (m_file_categories) - Master data for file categories with validation rules
-- **FileUpload** (t_file_uploads) - Transactional data for uploaded files
+- **FileUpload** (t_file_uploads) - Transactional data; `storageProvider` column (`local` \| `aws-s3`), credentials in env
 - **FileAccessLog** (t_file_access_logs) - Audit trail for file access
 
 ### 2. Storage Abstraction
 - **StorageService Interface** - Abstract interface for storage operations
 - **LocalStorageService** - Local file system implementation
+- **S3CompatibleStorageService** - S3-compatible object storage (AWS, R2, MinIO)
 - **StorageFactoryService** - Factory pattern for storage provider selection
-- **Easy Cloud Migration** - Ready for AWS S3, Google Cloud, Azure implementations
 
 ### 3. File Management
 - **Upload Endpoint** - `POST /uploads/upload` with multipart form data
@@ -50,8 +49,7 @@ backend/src/modules/uploads/
 │   ├── create-file-upload.dto.ts
 │   ├── update-file-upload.dto.ts
 │   ├── find-file-uploads.dto.ts
-│   ├── file-category.dto.ts
-│   └── file-storage-provider.dto.ts
+│   └── file-category.dto.ts
 ├── uploads.controller.ts
 ├── uploads.service.ts
 └── uploads.module.ts
@@ -62,6 +60,7 @@ backend/src/modules/uploads/
 backend/src/shared/services/
 ├── storage.service.ts (interface)
 ├── local-storage.service.ts
+├── s3-compatible-storage.service.ts
 └── storage-factory.service.ts
 ```
 
@@ -69,21 +68,25 @@ backend/src/shared/services/
 
 ### Environment Variables
 ```env
-# Upload Configuration
+# Default provider for new uploads: local | aws-s3
+DEFAULT_STORAGE_PROVIDER=local
 UPLOAD_DIR=./uploads
 PUBLIC_URL=http://localhost:3000
+# Optional: API download link base if different from PUBLIC_URL (e.g. CDN)
+# MEDIA_URL=https://cdn.example.com
 
-# AWS S3 (for future use)
-AWS_REGION=us-east-1
+# S3-compatible storage — required when default provider is aws-s3.
+# Alternate env names: S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_REGION, AWS_S3_ENDPOINT.
 AWS_S3_BUCKET=your-bucket-name
+AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
-
-# Google Cloud (for future use)
-GOOGLE_CLOUD_PROJECT_ID=your-project-id
-GOOGLE_CLOUD_BUCKET=your-bucket-name
-GOOGLE_CLOUD_KEY_FILE=path/to/keyfile.json
+S3_ENDPOINT=
+S3_FORCE_PATH_STYLE=false
+S3_PUBLIC_BASE_URL=
 ```
+
+Credentials and paths are **environment-only**. New uploads store `storageProvider` on each row; default comes from `DEFAULT_STORAGE_PROVIDER`.
 
 ## 📋 API Endpoints
 
@@ -126,8 +129,8 @@ curl http://localhost:3000/uploads/private/ACCESS_TOKEN
 - ✅ File system storage
 - ✅ Basic URL generation
 
-### Phase 2: Cloud Storage (Future)
-- 🔄 AWS S3 implementation
+### Phase 2: Cloud Storage
+- ✅ S3-compatible storage (`S3CompatibleStorageService`, provider name `aws-s3`)
 - 🔄 Google Cloud Storage implementation
 - 🔄 Azure Blob Storage implementation
 - 🔄 CDN integration
@@ -161,11 +164,10 @@ curl http://localhost:3000/uploads/private/ACCESS_TOKEN
 ## 📊 Database Tables
 
 ### Master Data Tables
-- `m_file_storage_providers` - Storage provider configuration
 - `m_file_categories` - File category definitions and validation rules
 
 ### Transactional Data Tables
-- `t_file_uploads` - File metadata and access control
+- `t_file_uploads` - File metadata, access control, and `storageProvider` (`local` \| `aws-s3`)
 - `t_file_access_logs` - File access audit trail
 
 ## 🎯 TRD Compliance

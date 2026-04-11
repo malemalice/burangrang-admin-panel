@@ -40,10 +40,11 @@ export class FindFileUploadsDto {
   @IsBoolean()
   isPublic?: boolean;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, enum: ['local', 'aws-s3'] })
   @IsOptional()
-  @IsUUID()
-  storageProviderId?: string;
+  @IsString()
+  @IsIn(['local', 'aws-s3'])
+  storageProvider?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()

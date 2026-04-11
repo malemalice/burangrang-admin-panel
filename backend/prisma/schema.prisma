@@ -373,22 +373,6 @@ model Chapter {
   @@map("t_chapters")
 }
 
-// File Storage Provider - Master Data
-model FileStorageProvider {
-  id        String   @id @default(uuid())
-  name      String   @unique // "local", "aws-s3", "google-cloud"
-  config    Json     // Provider-specific configuration
-  isActive  Boolean  @default(true)
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  fileUploads FileUpload[]
-
-  @@map("m_file_storage_providers")
-}
-
 // File Category - Master Data
 model FileCategory {
   id           String   @id @default(uuid())
@@ -413,7 +397,7 @@ model FileUpload {
   mimeType          String   // File MIME type
   size              BigInt   // File size in bytes
   hash              String   // File hash for deduplication
-  storageProviderId String
+  storageProvider   String   // "local" | "aws-s3" — matches StorageFactoryService; credentials in env
   categoryId        String
   uploadedBy        String
   isPublic          Boolean  @default(false)
@@ -425,7 +409,6 @@ model FileUpload {
   updatedAt         DateTime @updatedAt
 
   // Relations
-  storageProvider FileStorageProvider @relation(fields: [storageProviderId], references: [id])
   category        FileCategory        @relation(fields: [categoryId], references: [id])
   uploader        User                @relation(fields: [uploadedBy], references: [id])
   accessLogs      FileAccessLog[]

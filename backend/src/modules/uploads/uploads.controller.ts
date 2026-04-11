@@ -121,7 +121,11 @@ export class UploadsController {
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean })
   @ApiQuery({ name: 'isPublic', required: false, type: Boolean })
-  @ApiQuery({ name: 'storageProviderId', required: false, type: String })
+  @ApiQuery({
+    name: 'storageProvider',
+    required: false,
+    enum: ['local', 'aws-s3'],
+  })
   @ApiQuery({ name: 'categoryId', required: false, type: String })
   @ApiQuery({ name: 'uploadedBy', required: false, type: String })
   @ApiQuery({ name: 'mimeType', required: false, type: String })
