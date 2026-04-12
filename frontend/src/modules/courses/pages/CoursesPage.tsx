@@ -28,7 +28,7 @@ import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/core/components/ui/avatar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { useCourses } from '../hooks/useCourses';
 import { useCourseStats } from '../hooks/useCourses';
@@ -84,9 +84,7 @@ const CoursesPage = () => {
       type: 'select',
       options: [
         { label: 'Draft', value: 'draft' },
-        { label: 'Review', value: 'review' },
         { label: 'Published', value: 'published' },
-        { label: 'Archived', value: 'archived' }
       ]
     },
     {
@@ -97,17 +95,6 @@ const CoursesPage = () => {
         { label: 'Beginner', value: 'beginner' },
         { label: 'Intermediate', value: 'intermediate' },
         { label: 'Advanced', value: 'advanced' }
-      ]
-    },
-    {
-      id: 'status',
-      label: 'Status',
-      type: 'select',
-      options: [
-        { label: 'Draft', value: 'draft' },
-        { label: 'Review', value: 'review' },
-        { label: 'Published', value: 'published' },
-        { label: 'Archived', value: 'archived' }
       ]
     },
     {
@@ -162,12 +149,6 @@ const CoursesPage = () => {
         break;
       case 'draft':
         params.status = 'draft';
-        break;
-      case 'review':
-        params.status = 'review';
-        break;
-      case 'archived':
-        params.status = 'archived';
         break;
     }
 
@@ -419,8 +400,6 @@ const CoursesPage = () => {
           <TabsTrigger value="all">All Courses</TabsTrigger>
           <TabsTrigger value="published">Published</TabsTrigger>
           <TabsTrigger value="draft">Draft</TabsTrigger>
-          <TabsTrigger value="review">Review</TabsTrigger>
-          <TabsTrigger value="archived">Archived</TabsTrigger>
         </TabsList>
       </Tabs>
 
