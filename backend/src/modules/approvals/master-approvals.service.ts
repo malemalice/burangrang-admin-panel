@@ -1069,6 +1069,15 @@ export class MasterApprovalsService {
       throw new BadRequestException('User does not have approval rights');
     }
 
+    if (
+      submitApprovalDto.status === ApprovalStatus.REJECTED &&
+      !submitApprovalDto.notes?.trim()
+    ) {
+      throw new BadRequestException('Notes are required when rejecting');
+    }
+
+    const notes = submitApprovalDto.notes?.trim() ?? '';
+
     // Create approval record
     try {
       await this.prisma.approval.create({
@@ -1078,7 +1087,7 @@ export class MasterApprovalsService {
           departmentId: user.departmentId!,
           jobPositionId: user.jobPositionId!,
           status: submitApprovalDto.status,
-          notes: submitApprovalDto.notes,
+          notes,
           createdBy: user.id,
         },
       });

@@ -318,5 +318,5 @@ export interface SubmitApprovalDto {
   dataId: string;
   entity: string;
   status: ApprovalStatus;
-  notes: string;
+  notes?: string;
 }
