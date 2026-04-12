@@ -16,9 +16,12 @@ import {
 import DataTable from '@/core/components/ui/data-table/DataTable';
 import PageHeader from '@/core/components/ui/PageHeader';
 import { ConfirmDialog } from '@/core/components/ui/confirm-dialog';
+import approvalService, { type ApprovalStatusHistory } from '@/modules/master-data/services/approvalService';
+import { APPROVAL_ENTITIES } from '@/shared/constants/approval-entity.constants';
 import environmentalMeasurementService from '../services/environmentalMeasurementService';
 import { EnvironmentalMeasurement } from '../types/environmental-measurement.types';
 import { EnvironmentalMeasurementListPDFTemplate } from '../components/EnvironmentalMeasurementListPDFTemplate';
+import { EnvironmentalMeasurementPDFTemplate } from '../components/EnvironmentalMeasurementPDFTemplate';
 import { FilterField, FilterValue } from '@/core/components/ui/filter-drawer';
 import { PermissionGuard } from '@/core/components/ui/PermissionGuard';
 import { usePermissions } from '@/core/hooks/usePermissions';
@@ -60,9 +63,24 @@ export default function EnvironmentalMeasurementsPage() {
     useState<EnvironmentalMeasurementRegulatoryLimits | null>(null);
   const [isExportingAllPDF, setIsExportingAllPDF] = useState(false);
   const [exportingRowId, setExportingRowId] = useState<string | null>(null);
+  /** Row "Export PDF" only: full record + approval snapshot, same as detail page. */
+  const [singlePdfContext, setSinglePdfContext] = useState<{
+    measurement: EnvironmentalMeasurement;
+    approvalHistory: ApprovalStatusHistory | null;
+  } | null>(null);
+  /** Bumps so batch PDF filename gets a fresh timestamp each export (list template). */
+  const [batchPdfNonce, setBatchPdfNonce] = useState(() => Date.now());
+
+  const pdfFilename = useMemo(() => {
+    if (singlePdfContext?.measurement) {
+      const m = singlePdfContext.measurement;
+      return `environmental-measurement-${m.id}-${format(new Date(m.date), 'yyyyMMdd')}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`;
+    }
+    return `environmental-measurements-${format(new Date(batchPdfNonce), 'yyyyMMdd-HHmmss')}.pdf`;
+  }, [singlePdfContext, batchPdfNonce]);
 
   const { toPDF, targetRef } = usePDF({
-    filename: `environmental-measurements-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`,
+    filename: pdfFilename,
   });
 
   const pageIndex = useMemo(() => {
@@ -188,6 +206,32 @@ export default function EnvironmentalMeasurementsPage() {
     fetchRegulatoryLimits();
   }, [fetchRegulatoryLimits]);
 
+  useEffect(() => {
+    if (!singlePdfContext) return;
+    let cancelled = false;
+
+    const run = async () => {
+      await new Promise((r) => setTimeout(r, 300));
+      if (cancelled) return;
+      try {
+        await toPDF();
+        toast.success('PDF exported successfully');
+      } catch {
+        toast.error('Failed to export PDF');
+      } finally {
+        if (!cancelled) {
+          setSinglePdfContext(null);
+          setExportingRowId(null);
+        }
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [singlePdfContext, toPDF]);
+
   const handleDeleteClick = (measurement: EnvironmentalMeasurement, event?: React.MouseEvent) => {
     event?.stopPropagation();
     setOpenDropdownId(null); // Explicitly close the dropdown
@@ -253,6 +297,7 @@ export default function EnvironmentalMeasurementsPage() {
 
   const handleExportAllPDF = useCallback(async () => {
     setIsExportingAllPDF(true);
+    setSinglePdfContext(null);
     try {
       const searchVal = searchTerm.trim() || activeFilters.roomName?.value || undefined;
       const { startDate, endDate } = getDateRangeParams();
@@ -268,6 +313,7 @@ export default function EnvironmentalMeasurementsPage() {
       });
       const limits =
         regulatoryLimits ?? (await environmentalMeasurementService.getRegulatoryLimits());
+      setBatchPdfNonce(Date.now());
       setListPdfRegulatoryLimits(limits);
       setAllMeasurementsForPDF(response.data);
       await new Promise((r) => setTimeout(r, 200));
@@ -283,24 +329,31 @@ export default function EnvironmentalMeasurementsPage() {
 
   const handleExportRowPDF = useCallback(
     async (measurement: EnvironmentalMeasurement) => {
+      if (isExportingAllPDF) return;
       setExportingRowId(measurement.id);
       setOpenDropdownId(null);
       try {
+        const full = await environmentalMeasurementService.getMeasurement(measurement.id);
         const limits =
           regulatoryLimits ?? (await environmentalMeasurementService.getRegulatoryLimits());
+        let approvalHistory: ApprovalStatusHistory | null = null;
+        try {
+          approvalHistory = await approvalService.checkApprovalStatus(
+            measurement.id,
+            APPROVAL_ENTITIES.ENVIRONMENTAL_MEASUREMENT,
+          );
+        } catch {
+          approvalHistory = null;
+        }
         setListPdfRegulatoryLimits(limits);
-        setAllMeasurementsForPDF([measurement]);
-        await new Promise((r) => setTimeout(r, 200));
-        await toPDF();
-        toast.success('PDF exported successfully');
+        setSinglePdfContext({ measurement: full, approvalHistory });
       } catch (error) {
         console.error('Failed to export PDF:', error);
         toast.error('Failed to export PDF');
-      } finally {
         setExportingRowId(null);
       }
     },
-    [regulatoryLimits, toPDF],
+    [regulatoryLimits, isExportingAllPDF],
   );
 
   const columns = [
@@ -412,7 +465,7 @@ export default function EnvironmentalMeasurementsPage() {
                 e.stopPropagation();
                 void handleExportRowPDF(measurement);
               }}
-              disabled={exportingRowId === measurement.id}
+              disabled={isExportingAllPDF || exportingRowId === measurement.id}
             >
               <FileDown className="mr-2 h-4 w-4" />{' '}
               {exportingRowId === measurement.id ? 'Preparing PDF…' : 'Export PDF'}
@@ -450,7 +503,7 @@ export default function EnvironmentalMeasurementsPage() {
               variant="outline"
               size="sm"
               onClick={handleExportAllPDF}
-              disabled={isExportingAllPDF}
+              disabled={isExportingAllPDF || exportingRowId !== null}
             >
               <FileDown className="mr-2 h-4 w-4" />
               {isExportingAllPDF ? 'Preparing PDF…' : 'Export all as PDF'}
@@ -491,16 +544,28 @@ export default function EnvironmentalMeasurementsPage() {
         searchPlaceholder="Search by room name, room code, or remarks"
       />
 
-      {/* Hidden PDF target for "Export all as PDF" */}
+      {/* Hidden PDF: list template for batch export; detail template for row export (matches detail page). */}
       <div
-        ref={targetRef}
-        style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '210mm' }}
+        className="absolute left-[-9999px] top-0"
+        style={{ width: '210mm' }}
         aria-hidden="true"
       >
-        <EnvironmentalMeasurementListPDFTemplate
-          measurements={allMeasurementsForPDF}
-          regulatoryLimits={listPdfRegulatoryLimits ?? regulatoryLimits}
-        />
+        <div ref={targetRef}>
+          {singlePdfContext ? (
+            <EnvironmentalMeasurementPDFTemplate
+              key={`single-${singlePdfContext.measurement.id}`}
+              measurement={singlePdfContext.measurement}
+              regulatoryLimits={listPdfRegulatoryLimits ?? regulatoryLimits}
+              approvalHistory={singlePdfContext.approvalHistory}
+            />
+          ) : (
+            <EnvironmentalMeasurementListPDFTemplate
+              key="list"
+              measurements={allMeasurementsForPDF}
+              regulatoryLimits={listPdfRegulatoryLimits ?? regulatoryLimits}
+            />
+          )}
+        </div>
       </div>
 
       <ConfirmDialog
